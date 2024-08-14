@@ -178,9 +178,13 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
 
     fixtures.new_index_flusher()?.step().await?;
 
-    let storage = fixtures.db.get_vector_index_storage(Identity::system())?;
+    let storage = fixtures
+        .db
+        .get_vector_index_storage(Identity::system())
+        .await?;
 
-    let value = storage.get(&(*index_name.table()).to_string()).cloned();
+    let key = (ComponentPath::root(), index_name.table().clone());
+    let value = storage.get(&key).cloned();
     assert_eq!(value, Some(8_u64));
     Ok(())
 }

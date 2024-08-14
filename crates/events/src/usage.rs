@@ -110,6 +110,7 @@ pub enum UsageEvent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TableDocumentCount {
+    pub component_path: Option<String>,
     pub table_name: String,
     pub num_documents: u64,
 }
@@ -117,6 +118,7 @@ pub struct TableDocumentCount {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TableDatabaseStorage {
+    pub component_path: Option<String>,
     pub table_name: String,
     pub total_document_size: u64,
     pub total_index_size: u64,
@@ -125,6 +127,7 @@ pub struct TableDatabaseStorage {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct TableVectorStorage {
+    pub component_path: Option<String>,
     pub table_name: String,
     pub size: u64,
 }

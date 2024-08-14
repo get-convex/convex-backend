@@ -6,10 +6,7 @@ use std::{
         BTreeSet,
     },
     marker::PhantomData,
-    ops::{
-        Bound,
-        Deref,
-    },
+    ops::Bound,
     sync::{
         atomic::{
             AtomicUsize,
@@ -44,6 +41,10 @@ use common::{
             TableState,
             TABLES_TABLE,
         },
+    },
+    components::{
+        ComponentId,
+        ComponentPath,
     },
     document::{
         CreationTime,
@@ -204,6 +205,7 @@ use crate::{
         LogReader,
         WriteSource,
     },
+    BootstrapComponentsModel,
     FollowerRetentionManager,
     TableIterator,
     Transaction,
@@ -697,7 +699,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
     pub fn get_user_document_and_index_storage(
         &self,
-    ) -> anyhow::Result<BTreeMap<TableName, (usize, usize)>> {
+    ) -> anyhow::Result<BTreeMap<(TableNamespace, TableName), (usize, usize)>> {
         self.snapshot.get_user_document_and_index_storage()
     }
 }
@@ -1846,42 +1848,79 @@ impl<RT: Runtime> Database<RT> {
         Ok(())
     }
 
-    pub fn get_vector_index_storage(
+    pub async fn get_vector_index_storage(
         &self,
         identity: Identity,
-    ) -> anyhow::Result<BTreeMap<String, u64>> {
+    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), u64>> {
         if !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("get_vector_index_storage"));
         }
-        let (_, snapshot) = self.snapshot_manager.lock().latest();
+        let mut tx = self.begin(identity).await?;
+        let ts = *tx.begin_timestamp();
+        let mut components_model = BootstrapComponentsModel::new(&mut tx);
+        let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let table_mapping = snapshot.table_registry.table_mapping().clone();
         let index_registry = snapshot.index_registry;
-        Iterator::try_fold(
-            &mut index_registry.all_vector_indexes().into_iter(),
-            BTreeMap::new(),
-            |mut map, index| {
-                let (_, value) = index.into_id_and_value();
-                let tablet_id = *value.name.table();
-                let table_name = table_mapping.tablet_name(tablet_id)?.deref().into();
-                let size = value.config.estimate_pricing_size_bytes()?;
-                map.entry(table_name)
-                    .and_modify(|sum| *sum += size)
-                    .or_insert(size);
-                Ok(map)
-            },
-        )
+        let mut vector_index_storage = BTreeMap::new();
+        for index in index_registry.all_vector_indexes().into_iter() {
+            let (_, value) = index.into_id_and_value();
+            let tablet_id = *value.name.table();
+            let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
+            let component_id = ComponentId::from(table_namespace);
+            let component_path = components_model.get_component_path(component_id).await?;
+            let table_name = table_mapping.tablet_name(tablet_id)?;
+            let size = value.config.estimate_pricing_size_bytes()?;
+            vector_index_storage
+                .entry((component_path, table_name))
+                .and_modify(|sum| *sum += size)
+                .or_insert(size);
+        }
+        Ok(vector_index_storage)
     }
 
-    pub fn get_user_document_and_index_storage(
+    pub async fn get_document_counts(
+        &self,
+    ) -> anyhow::Result<Vec<(ComponentPath, TableName, u64)>> {
+        let mut tx = self.begin(Identity::system()).await?;
+        let ts = *tx.begin_timestamp();
+        let mut components_model = BootstrapComponentsModel::new(&mut tx);
+        let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
+        let mut document_counts = vec![];
+        for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries() {
+            let component_path = components_model
+                .get_component_path(ComponentId::from(table_namespace))
+                .await?;
+            document_counts.push((component_path, table_name, summary.num_values() as u64));
+        }
+        Ok(document_counts)
+    }
+
+    pub async fn get_user_document_and_index_storage(
         &self,
         identity: Identity,
-    ) -> anyhow::Result<BTreeMap<TableName, (usize, usize)>> {
+    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), (u64, u64)>> {
         if !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("get_user_document_storage"));
         }
 
-        let (_, snapshot) = self.snapshot_manager.lock().latest();
-        snapshot.get_user_document_and_index_storage()
+        let mut tx = self.begin(identity).await?;
+        let ts = *tx.begin_timestamp();
+        let mut components_model = BootstrapComponentsModel::new(&mut tx);
+        let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
+        let documents_and_index_storage = snapshot.get_user_document_and_index_storage()?;
+        let mut remapped_documents_and_index_storage = BTreeMap::new();
+        for ((table_namespace, table_name), (document_size, index_size)) in
+            documents_and_index_storage.into_iter()
+        {
+            let component_path = components_model
+                .get_component_path(ComponentId::from(table_namespace))
+                .await?;
+            remapped_documents_and_index_storage.insert(
+                (component_path, table_name),
+                (document_size as u64, index_size as u64),
+            );
+        }
+        Ok(remapped_documents_and_index_storage)
     }
 
     pub fn usage_counter(&self) -> UsageCounter {

@@ -248,7 +248,7 @@ impl<RT: Runtime> Snapshot<RT> {
 
     pub fn iter_user_table_summaries(
         &self,
-    ) -> impl Iterator<Item = (TableName, &'_ TableSummary)> + '_ {
+    ) -> impl Iterator<Item = ((TableNamespace, TableName), &'_ TableSummary)> + '_ {
         self.table_summaries
             .tables
             .iter()
@@ -260,13 +260,18 @@ impl<RT: Runtime> Snapshot<RT> {
             })
             .map(|(table_id, summary)| {
                 (
-                    self.table_mapping()
-                        .tablet_name(*table_id)
-                        .expect("active table should have name"),
+                    (
+                        self.table_mapping()
+                            .tablet_namespace(*table_id)
+                            .expect("active table should have namespace"),
+                        self.table_mapping()
+                            .tablet_name(*table_id)
+                            .expect("active table should have name"),
+                    ),
                     summary,
                 )
             })
-            .filter(|(table_name, _)| !table_name.is_system())
+            .filter(|((_, table_name), _)| !table_name.is_system())
     }
 
     pub fn table_mapping(&self) -> &TableMapping {
@@ -283,7 +288,7 @@ impl<RT: Runtime> Snapshot<RT> {
 
     pub fn get_user_document_and_index_storage(
         &self,
-    ) -> anyhow::Result<BTreeMap<TableName, (usize, usize)>> {
+    ) -> anyhow::Result<BTreeMap<(TableNamespace, TableName), (usize, usize)>> {
         let table_mapping = self.table_mapping().clone();
 
         let mut document_storage_by_table = BTreeMap::new();
@@ -301,6 +306,7 @@ impl<RT: Runtime> Snapshot<RT> {
             if !table_mapping.is_active(*index.name.table()) {
                 continue;
             }
+            let table_namespace = table_mapping.tablet_namespace(*index.name.table())?;
             let index_name = index
                 .name
                 .clone()
@@ -310,12 +316,16 @@ impl<RT: Runtime> Snapshot<RT> {
 
             if !index_name.is_system_owned() {
                 let (document_size, total_index_size) = *document_storage_by_table
-                    .get(&table_name)
+                    .get(&(table_namespace, table_name.clone()))
                     .with_context(|| {
-                        format!("Index {index_name} on a nonexistent table {table_name}")
+                        format!(
+                            "Index {index_name} on a nonexistent table {table_name} in namespace \
+                             {:?}",
+                            table_namespace
+                        )
                     })?;
                 document_storage_by_table.insert(
-                    table_name,
+                    (table_namespace, table_name),
                     (document_size, total_index_size + document_size),
                 );
             }
