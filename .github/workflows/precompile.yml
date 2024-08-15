@@ -54,9 +54,6 @@ jobs:
         with:
           node-version-file: ".nvmrc"
 
-      - name: NPM v8
-        run: npm install -g npm@8 --registry=https://registry.npmjs.org
-
       - name: NPM install globals
         run: npm ci --prefix scripts
 
