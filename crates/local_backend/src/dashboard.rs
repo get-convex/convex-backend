@@ -104,6 +104,12 @@ pub async fn delete_tables(
     Ok(StatusCode::OK)
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetIndexesArgs {
+    component_id: Option<String>,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GetIndexesResponse {
@@ -114,11 +120,13 @@ struct GetIndexesResponse {
 pub async fn get_indexes(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
+    Query(GetIndexesArgs { component_id }): Query<GetIndexesArgs>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member(&identity)?;
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
     let mut tx = st.application.begin(identity.clone()).await?;
     let indexes = IndexModel::new(&mut tx)
-        .get_application_indexes(TableNamespace::TODO())
+        .get_application_indexes(TableNamespace::from(component_id))
         .await?;
     Ok(Json(GetIndexesResponse {
         indexes: indexes
