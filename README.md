@@ -93,7 +93,7 @@ To [build the backend from source](#building-from-source):
   - Assuming you installed Rust/Cargo with `rustup`, this will install
     automatically.
 - Rush
-  - `npm install --prefix scripts`
+  - `npm clean-install --prefix scripts`
   - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
 - Convex JavaScript dependencies
   - `just rush install`
