@@ -223,29 +223,34 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     pub async fn resolve_public_export_path(
         &mut self,
         path: ExportPath,
-    ) -> anyhow::Result<Option<CanonicalizedComponentFunctionPath>> {
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
         let root_definition = BootstrapComponentsModel::new(self.tx)
             .load_definition(ComponentDefinitionId::Root)
             .await?;
         // Legacy path: If components aren't enabled, just resolve export paths directly
         // to UDF paths.
         if root_definition.is_none() {
-            return Ok(Some(CanonicalizedComponentFunctionPath {
+            return Ok(CanonicalizedComponentFunctionPath {
                 component: ComponentPath::root(),
                 udf_path: path.into(),
-            }));
+            });
         }
         let path_components = path.components();
         let resource = self
             .resolve_export(ComponentId::Root, &path_components)
             .await?;
         let Some(resource) = resource else {
-            return Ok(None);
+            // In certain cases non-exported functions can be called, e.g.
+            // system auth can call internal functions.
+            return Ok(CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: path.into(),
+            });
         };
         let Resource::Function(path) = resource else {
             anyhow::bail!("Expected a function");
         };
-        Ok(Some(path))
+        Ok(path)
     }
 
     pub async fn preload_resources(

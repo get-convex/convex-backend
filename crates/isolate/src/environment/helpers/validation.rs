@@ -316,41 +316,31 @@ impl ValidatedPathAndArgs {
             },
         }
 
-        let maybe_path = match public_path.clone() {
+        let path = match public_path.clone() {
             PublicFunctionPath::RootExport(path) => {
-                match ComponentsModel::new(tx)
+                let path = ComponentsModel::new(tx)
                     .resolve_public_export_path(path)
-                    .await?
-                {
-                    Some(path) => {
-                        let (_, component) = BootstrapComponentsModel::new(tx)
-                            .component_path_to_ids(path.component.clone())
-                            .await?;
-                        Some(ResolvedComponentFunctionPath {
-                            component,
-                            udf_path: path.udf_path,
-                            component_path: Some(path.component),
-                        })
-                    },
-                    None => None,
+                    .await?;
+                let (_, component) = BootstrapComponentsModel::new(tx)
+                    .component_path_to_ids(path.component.clone())
+                    .await?;
+                ResolvedComponentFunctionPath {
+                    component,
+                    udf_path: path.udf_path,
+                    component_path: Some(path.component),
                 }
             },
             PublicFunctionPath::Component(path) => {
                 let (_, component) = BootstrapComponentsModel::new(tx)
                     .component_path_to_ids(path.component.clone())
                     .await?;
-                Some(ResolvedComponentFunctionPath {
+                ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
                     component_path: Some(path.component),
-                })
+                }
             },
-            PublicFunctionPath::ResolvedComponent(path) => Some(path),
-        };
-        let Some(path) = maybe_path else {
-            return Ok(Err(JsError::from_message(missing_or_internal_error(
-                public_path.clone(),
-            )?)));
+            PublicFunctionPath::ResolvedComponent(path) => path,
         };
 
         let udf_version = match udf_version(&path, tx).await? {
