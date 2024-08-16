@@ -47,6 +47,7 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentDefinitionPath,
         ComponentId,
+        ComponentPath,
         PublicFunctionPath,
     },
     document::{
@@ -2225,7 +2226,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn clear_tables(
         &self,
         identity: &Identity,
-        table_names: Vec<TableName>,
+        table_names: Vec<(ComponentPath, TableName)>,
     ) -> anyhow::Result<u64> {
         clear_tables(self, identity, table_names).await
     }

@@ -1,7 +1,10 @@
-use common::types::{
-    MemberId,
-    ObjectKey,
-    TableName,
+use common::{
+    components::ComponentPath,
+    types::{
+        MemberId,
+        ObjectKey,
+        TableName,
+    },
 };
 use serde::{
     Deserialize,
@@ -291,6 +294,7 @@ mod import_state_serde {
 #[derive(Debug, Clone, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ImportTableCheckpoint {
+    pub component_path: ComponentPath,
     pub display_table_name: TableName,
     pub tablet_id: Option<TabletId>,
     pub total_num_rows_to_write: i64,
@@ -312,6 +316,7 @@ pub struct ImportTableCheckpoint {
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SerializedImportTableCheckpoint {
+    pub component_path: Option<String>,
     pub display_table_name: String,
     pub tablet_id: Option<String>,
     pub total_num_rows_to_write: i64,
@@ -326,6 +331,7 @@ impl TryFrom<ImportTableCheckpoint> for SerializedImportTableCheckpoint {
 
     fn try_from(checkpoint: ImportTableCheckpoint) -> anyhow::Result<Self> {
         Ok(SerializedImportTableCheckpoint {
+            component_path: checkpoint.component_path.serialize(),
             display_table_name: checkpoint.display_table_name.to_string(),
             tablet_id: checkpoint.tablet_id.map(|table| table.to_string()),
             total_num_rows_to_write: checkpoint.total_num_rows_to_write,
@@ -342,6 +348,7 @@ impl TryFrom<SerializedImportTableCheckpoint> for ImportTableCheckpoint {
 
     fn try_from(checkpoint: SerializedImportTableCheckpoint) -> anyhow::Result<Self> {
         Ok(ImportTableCheckpoint {
+            component_path: ComponentPath::deserialize(checkpoint.component_path.as_deref())?,
             display_table_name: checkpoint.display_table_name.parse()?,
             tablet_id: checkpoint
                 .tablet_id

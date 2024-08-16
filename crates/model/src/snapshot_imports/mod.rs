@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use common::{
+    components::ComponentPath,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -252,14 +253,14 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
     pub async fn checkpoint_tablet_created(
         &mut self,
         id: ResolvedDocumentId,
+        component_path: &ComponentPath,
         table_name: &TableName,
         tablet_id: TabletId,
     ) -> anyhow::Result<()> {
         self.update_checkpoints(id, move |checkpoints| {
-            if let Some(checkpoint) = checkpoints
-                .iter_mut()
-                .find(|c| c.display_table_name == *table_name)
-            {
+            if let Some(checkpoint) = checkpoints.iter_mut().find(|c| {
+                c.component_path == *component_path && c.display_table_name == *table_name
+            }) {
                 checkpoint.tablet_id = Some(tablet_id);
             }
         })
@@ -269,6 +270,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
     pub async fn get_table_checkpoint(
         &mut self,
         id: ResolvedDocumentId,
+        component_path: &ComponentPath,
         display_table_name: &TableName,
     ) -> anyhow::Result<Option<ImportTableCheckpoint>> {
         let Some(import) = self.get(id).await? else {
@@ -279,7 +281,9 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         };
         Ok(checkpoints
             .iter()
-            .find(|c| c.display_table_name == *display_table_name)
+            .find(|c| {
+                c.component_path == *component_path && c.display_table_name == *display_table_name
+            })
             .cloned())
     }
 
@@ -287,16 +291,16 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         &mut self,
         id: ResolvedDocumentId,
         checkpoint_message: String,
+        component_path: &ComponentPath,
         display_table_name: &TableName,
         num_rows_written: i64,
     ) -> anyhow::Result<()> {
         let mut noop = false;
         let noop_ = &mut noop;
         self.update_checkpoints(id, move |checkpoints| {
-            if let Some(checkpoint) = checkpoints
-                .iter_mut()
-                .find(|c| c.display_table_name == *display_table_name)
-            {
+            if let Some(checkpoint) = checkpoints.iter_mut().find(|c| {
+                c.component_path == *component_path && c.display_table_name == *display_table_name
+            }) {
                 if num_rows_written <= checkpoint.num_rows_written {
                     *noop_ = true;
                     return;
@@ -333,16 +337,16 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         &mut self,
         id: ResolvedDocumentId,
         progress_message: String,
+        component_path: &ComponentPath,
         display_table_name: &TableName,
         num_rows_written: i64,
     ) -> anyhow::Result<()> {
         let mut noop = false;
         let noop_ = &mut noop;
         self.update_checkpoints(id, move |checkpoints| {
-            if let Some(checkpoint) = checkpoints
-                .iter_mut()
-                .find(|c| c.display_table_name == *display_table_name)
-            {
+            if let Some(checkpoint) = checkpoints.iter_mut().find(|c| {
+                c.component_path == *component_path && c.display_table_name == *display_table_name
+            }) {
                 if checkpoint.num_rows_written > 0
                     && num_rows_written <= checkpoint.num_rows_written
                 {
