@@ -38,7 +38,10 @@ import { ROOT_DEFINITION_FILENAME } from "./components/constants.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import chalk from "chalk";
 import { StartPushResponse } from "./deployApi/startPush.js";
-import { deploymentCredentialsOrConfigure } from "../configure.js";
+import {
+  deploymentSelectionFromOptions,
+  fetchDeploymentCredentialsProvisionProd,
+} from "./api.js";
 
 export async function runCodegen(ctx: Context, options: CodegenOptions) {
   // This also ensures the current directory is the project root.
@@ -50,14 +53,12 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
     path.join(functionsDirectoryPath, ROOT_DEFINITION_FILENAME),
   );
   if (ctx.fs.exists(componentRootPath)) {
-    const credentials = await deploymentCredentialsOrConfigure(ctx, null, {
-      ...options,
-      prod: false,
-      local: false,
-      localOptions: {
-        forceUpgrade: false,
-      },
-    });
+    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const credentials = await fetchDeploymentCredentialsProvisionProd(
+      ctx,
+      deploymentSelection,
+    );
+
     await startComponentsPushAndCodegen(ctx, projectConfig, configPath, {
       ...options,
       ...credentials,
