@@ -48,6 +48,7 @@ use futures::{
 };
 use parking_lot::Mutex;
 use runtime::prod::ProdRuntime;
+use sentry::SentryFutureExt;
 use serde_json::Value as JsonValue;
 use sync::{
     worker::measurable_unbounded_channel,
@@ -359,9 +360,10 @@ pub async fn sync_client_version_url(
     let sentry_scope = sentry::configure_scope(move |s| s.clone());
 
     let upgrade_timer = websocket_upgrade_timer();
+    let hub = sentry::Hub::current();
     Ok(ws.on_upgrade(move |ws: WebSocket| {
         upgrade_timer.finish();
-        run_sync_socket(st, host, config, ws, sentry_scope)
+        run_sync_socket(st, host, config, ws, sentry_scope).bind_hub(hub)
     }))
 }
 
@@ -376,10 +378,11 @@ pub async fn sync(
     let sentry_scope = sentry::configure_scope(move |s| s.clone());
 
     let upgrade_timer = websocket_upgrade_timer();
+    let hub = sentry::Hub::current();
     Ok(ws.on_upgrade(move |ws: WebSocket| {
         upgrade_timer.finish();
         let monitor = ProdRuntime::task_monitor("sync_socket");
-        monitor.instrument(run_sync_socket(st, host, config, ws, sentry_scope))
+        monitor.instrument(run_sync_socket(st, host, config, ws, sentry_scope).bind_hub(hub))
     }))
 }
 
