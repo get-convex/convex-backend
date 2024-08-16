@@ -31,7 +31,6 @@ pub mod sorting;
 mod string;
 mod table_mapping;
 mod table_name;
-mod virtual_table_mapping;
 
 // Helper modules we'll eventually factor out.
 pub mod heap_size;
@@ -126,7 +125,6 @@ pub use crate::{
         TabletIdAndTableNumber,
         METADATA_PREFIX,
     },
-    virtual_table_mapping::VirtualTableMapping,
 };
 
 #[cfg(any(test, feature = "testing"))]

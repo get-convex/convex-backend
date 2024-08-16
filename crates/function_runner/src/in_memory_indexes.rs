@@ -73,7 +73,6 @@ use value::{
     InternalId,
     TableName,
     TabletId,
-    VirtualTableMapping,
 };
 
 use super::metrics::{
@@ -289,9 +288,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             table_mapping.clone(),
             table_states,
             persistence_snapshot.persistence().version(),
-            // Virtual table mapping is only used when inserting virtual tables,
-            // which the function runner doesn't do.
-            VirtualTableMapping::new(),
             virtual_system_mapping(),
         )?;
         DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;

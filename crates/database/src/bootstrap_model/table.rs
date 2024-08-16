@@ -50,7 +50,6 @@ use value::{
 };
 
 use crate::{
-    bootstrap_model::virtual_tables::types::VirtualTableMetadata,
     defaults::{
         bootstrap_system_tables,
         system_index,
@@ -62,7 +61,6 @@ use crate::{
     SchemaModel,
     SystemMetadataModel,
     Transaction,
-    VIRTUAL_TABLES_TABLE,
 };
 
 /// Each instance is limited to a certain number of user tables.
@@ -276,15 +274,6 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 if parsed_metadata.namespace == namespace {
                     occupied_table_numbers.insert(parsed_metadata.number);
                 }
-            }
-            let virtual_tables_query =
-                Query::full_table_scan(VIRTUAL_TABLES_TABLE.clone(), Order::Asc);
-            let mut virtual_query_stream =
-                ResolvedQuery::new(self.tx, TableNamespace::Global, virtual_tables_query)?;
-            while let Some(table_metadata) = virtual_query_stream.next(self.tx, None).await? {
-                let parsed_metadata: ParsedDocument<VirtualTableMetadata> =
-                    table_metadata.try_into()?;
-                occupied_table_numbers.insert(parsed_metadata.number);
             }
             occupied_table_numbers
         };

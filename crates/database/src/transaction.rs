@@ -128,8 +128,6 @@ use crate::{
     SystemMetadataModel,
     TableModel,
     TableRegistry,
-    VirtualTableMetadata,
-    VIRTUAL_TABLES_TABLE,
 };
 
 /// Safe default number of items to return for each list or filter operation
@@ -747,40 +745,6 @@ impl<RT: Runtime> Transaction<RT> {
             tracing::info!("Created system table: {table_name}");
         } else {
             tracing::debug!("Skipped creating system table {table_name} since it already exists");
-        };
-        Ok(is_new)
-    }
-
-    /// Creates a new virtual table, returns false if table already existed
-    pub async fn create_virtual_table(
-        &mut self,
-        namespace: TableNamespace,
-        table_name: &TableName,
-        default_table_number: Option<TableNumber>,
-    ) -> anyhow::Result<bool> {
-        anyhow::ensure!(self.identity().is_system());
-
-        anyhow::ensure!(
-            table_name.is_valid_virtual(),
-            "{table_name:?} is not a valid virtual table name!"
-        );
-
-        let is_new = !self
-            .metadata
-            .virtual_table_mapping()
-            .namespace(namespace)
-            .name_exists(table_name);
-        if is_new {
-            let table_number = self
-                .table_number_for_system_table(namespace, table_name, default_table_number)
-                .await?;
-            let metadata = VirtualTableMetadata::new(namespace, table_name.clone(), table_number);
-            let table_doc_id = SystemMetadataModel::new_global(self)
-                .insert(&VIRTUAL_TABLES_TABLE, metadata.try_into()?)
-                .await?;
-            tracing::info!("Created virtual table: {table_name} with doc_id {table_doc_id}");
-        } else {
-            tracing::debug!("Skipped creating virtual table {table_name} since it already exists");
         };
         Ok(is_new)
     }

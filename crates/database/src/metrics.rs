@@ -180,14 +180,6 @@ pub fn load_table_and_index_metadata_timer() -> Timer<VMHistogram> {
 }
 
 register_convex_histogram!(
-    DB_SNAPSHOT_VIRTUAL_TABLE_METADATA_LOAD_SECONDS,
-    "Time to load virtual table metadata"
-);
-pub fn load_virtual_table_metadata_timer() -> Timer<VMHistogram> {
-    Timer::new(&DB_SNAPSHOT_VIRTUAL_TABLE_METADATA_LOAD_SECONDS)
-}
-
-register_convex_histogram!(
     DB_SNAPSHOT_LOAD_INDEXES_INTO_MEMORY_SECONDS,
     "Time to load indexes into memory"
 );

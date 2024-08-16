@@ -94,7 +94,6 @@ use common::{
         ResolvedDocumentId,
         TableMapping,
         TabletId,
-        VirtualTableMapping,
     },
     virtual_system_mapping::VirtualSystemMapping,
 };
@@ -150,15 +149,9 @@ use vector::{
 };
 
 use crate::{
-    bootstrap_model::{
-        table::{
-            NUM_RESERVED_LEGACY_TABLE_NUMBERS,
-            NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
-        },
-        virtual_tables::{
-            types::VirtualTableMetadata,
-            VIRTUAL_TABLES_TABLE,
-        },
+    bootstrap_model::table::{
+        NUM_RESERVED_LEGACY_TABLE_NUMBERS,
+        NUM_RESERVED_SYSTEM_TABLE_NUMBERS,
     },
     committer::{
         Committer,
@@ -172,7 +165,6 @@ use crate::{
     metrics::{
         self,
         load_indexes_into_memory_timer,
-        load_virtual_table_metadata_timer,
         vector::vector_search_with_retries_timer,
         verify_invariants_timer,
     },
@@ -453,20 +445,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         ))
     }
 
-    pub fn virtual_table_mapping(
-        virtual_tables: Vec<ParsedDocument<VirtualTableMetadata>>,
-    ) -> VirtualTableMapping {
-        let mut virtual_table_mapping = VirtualTableMapping::new();
-        for virtual_table in virtual_tables {
-            virtual_table_mapping.insert(
-                virtual_table.namespace,
-                virtual_table.number,
-                virtual_table.name.clone(),
-            );
-        }
-        virtual_table_mapping
-    }
-
     pub async fn load_table_registry(
         persistence_snapshot: &PersistenceSnapshot,
         table_mapping: TableMapping,
@@ -474,27 +452,10 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         index_registry: &IndexRegistry,
         virtual_system_mapping: VirtualSystemMapping,
     ) -> anyhow::Result<TableRegistry> {
-        let load_virtual_tables_timer = load_virtual_table_metadata_timer();
-        let virtual_tables_table = table_mapping
-            .namespace(TableNamespace::Global)
-            .id(&VIRTUAL_TABLES_TABLE)?;
-        let virtual_tables_by_id = index_registry
-            .must_get_by_id(virtual_tables_table.tablet_id)?
-            .id();
-        let virtual_tables = Self::load_table_documents::<VirtualTableMetadata>(
-            persistence_snapshot,
-            virtual_tables_by_id,
-            virtual_tables_table.tablet_id,
-        )
-        .await?;
-        let virtual_table_mapping = Self::virtual_table_mapping(virtual_tables);
-        drop(load_virtual_tables_timer);
-
         let table_registry = TableRegistry::bootstrap(
             table_mapping,
             table_states,
             persistence_snapshot.persistence().version(),
-            virtual_table_mapping,
             virtual_system_mapping,
         )?;
         Self::verify_invariants(&table_registry, index_registry)?;

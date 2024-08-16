@@ -300,15 +300,6 @@ pub async fn initialize_application_system_table<RT: Runtime>(
         }
     }
 
-    if let Some((table_name, _indexes, _mapper)) = table.virtual_table() {
-        tx.create_virtual_table(
-            namespace,
-            table_name,
-            default_table_numbers.get(table_name).cloned(),
-        )
-        .await?;
-    }
-
     Ok(is_new)
 }
 
