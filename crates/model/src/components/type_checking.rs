@@ -156,6 +156,47 @@ impl<'a> TypecheckContext<'a> {
     }
 }
 
+pub fn validate_component_args(
+    component_path: &ComponentPath,
+    arg_validators: &BTreeMap<Identifier, ComponentArgumentValidator>,
+    args: &BTreeMap<Identifier, Resource>,
+) -> anyhow::Result<()> {
+    for (arg_name, arg_value) in args {
+        let validator = arg_validators.get(arg_name).ok_or_else(|| {
+            ErrorMetadata::bad_request(
+                "TypecheckError",
+                format!("Component {component_path:?} has no argument named {arg_name:?}"),
+            )
+        })?;
+        match (arg_value, validator) {
+            (Resource::Value(ref value), ComponentArgumentValidator::Value(ref validator)) => {
+                // TODO(CX-6540): Remove hack where we pass in empty mappings.
+                let table_mapping =
+                    TableMapping::new().namespace(TableNamespace::by_component_TODO());
+                let virtual_system_mapping = virtual_system_mapping();
+                validator
+                    .check_value(value, &table_mapping, &virtual_system_mapping)
+                    .map_err(|validator_error| {
+                        ErrorMetadata::bad_request(
+                            "TypecheckError",
+                            format!(
+                                "Component {component_path:?} has an invalid value for argument \
+                                 {arg_name:?}: {validator_error:?}"
+                            ),
+                        )
+                    })?;
+            },
+            (Resource::Function { .. } | Resource::ResolvedSystemUdf { .. }, _) => {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "TypecheckError",
+                    "Function references are not supported"
+                ));
+            },
+        }
+    }
+    Ok(())
+}
+
 struct CheckedComponentBuilder<'a> {
     definition_path: &'a ComponentDefinitionPath,
     component_path: &'a ComponentPath,
@@ -195,44 +236,7 @@ impl<'a> CheckedComponentBuilder<'a> {
                 args: arg_validators,
                 ..
             } => {
-                for (arg_name, arg_value) in &args {
-                    let validator = arg_validators.get(arg_name).ok_or_else(|| {
-                        ErrorMetadata::bad_request(
-                            "TypecheckError",
-                            format!(
-                                "Component {component_path:?} has no argument named {arg_name:?}"
-                            ),
-                        )
-                    })?;
-                    match (arg_value, validator) {
-                        (
-                            Resource::Value(ref value),
-                            ComponentArgumentValidator::Value(ref validator),
-                        ) => {
-                            // TODO(CX-6540): Remove hack where we pass in empty mappings.
-                            let table_mapping =
-                                TableMapping::new().namespace(TableNamespace::by_component_TODO());
-                            let virtual_system_mapping = virtual_system_mapping();
-                            validator
-                                .check_value(value, &table_mapping, &virtual_system_mapping)
-                                .map_err(|validator_error| {
-                                    ErrorMetadata::bad_request(
-                                        "TypecheckError",
-                                        format!(
-                                            "Component {component_path:?} has an invalid value \
-                                             for argument {arg_name:?}: {validator_error:?}"
-                                        ),
-                                    )
-                                })?;
-                        },
-                        (Resource::Function { .. } | Resource::ResolvedSystemUdf { .. }, _) => {
-                            anyhow::bail!(ErrorMetadata::bad_request(
-                                "TypecheckError",
-                                "Function references are not supported"
-                            ));
-                        },
-                    }
-                }
+                validate_component_args(component_path, arg_validators, &args)?;
             },
         }
         Ok(Self {
