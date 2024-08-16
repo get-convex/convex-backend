@@ -5,7 +5,6 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
-    marker::PhantomData,
     ops::Bound,
     sync::{
         atomic::{
@@ -103,10 +102,8 @@ use errors::{
 };
 use events::usage::UsageEventLogger;
 use futures::{
-    future::BoxFuture,
     pin_mut,
     stream::BoxStream,
-    Future,
     FutureExt,
     StreamExt,
     TryStreamExt,
@@ -128,6 +125,7 @@ use search::{
     TextIndexManager,
     TextIndexManagerState,
 };
+use short_future::ShortBoxFuture;
 use storage::Storage;
 use sync_types::backoff::Backoff;
 use usage_tracking::{
@@ -693,43 +691,6 @@ impl ShutdownSignal {
     }
 }
 
-/// ShortBoxFuture<'_, 'a, 'b, T> is a future with a shorter lifetime.
-/// It is equivalent to BoxFuture<'a + 'b, T>, working
-/// around limitations of HRTBs and explicit lifetime bounds.
-/// This is useful when wrapping async closures, where the closure returns a
-/// future that depends on both:
-/// 1. references in the enclosing scope with lifetime 'a.
-/// 2. references in the closure's arguments with lifetime 'b.
-/// For example:
-///
-/// async fn with_retries<'a>(&'a self, f: F)
-/// where F: for<'b> Fn(&'b Transaction) -> ShortBoxFuture<'_, 'a, 'b, ()>
-/// {
-///     let tx = self.begin();
-///     for i in 0..2 {
-///         f(&tx).await;
-///     }
-/// }
-///
-/// async fn go(&self) {
-///     let document = ResolvedDocument::new();
-///     with_retries(|tx| ShortBoxFuture::new(async {
-///         tx.get(document.id()).await;
-///     })).await
-/// }
-pub struct ShortBoxFuture<'c, 'a: 'c, 'b: 'c, T>(
-    pub BoxFuture<'c, T>,
-    PhantomData<&'a ()>,
-    PhantomData<&'b ()>,
-);
-impl<'c, 'a: 'c, 'b: 'c, T, F: Future<Output = T> + Send + 'c> From<F>
-    for ShortBoxFuture<'c, 'a, 'b, T>
-{
-    fn from(f: F) -> Self {
-        Self(Box::pin(f), PhantomData, PhantomData)
-    }
-}
-
 #[derive(Clone)]
 pub struct StreamingExportTableFilter {
     pub table_name: Option<TableName>,
@@ -1275,7 +1236,7 @@ impl<RT: Runtime> Database<RT> {
     where
         T: Send,
         R: Fn(&Error) -> bool,
-        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'_, 'a, 'b, anyhow::Result<T>>,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         let write_source = write_source.into();
         let result = {
@@ -1341,7 +1302,7 @@ impl<RT: Runtime> Database<RT> {
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
     where
         T: Send,
-        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'_, 'a, 'b, anyhow::Result<T>>,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         let backoff = Backoff::new(INITIAL_OCC_BACKOFF, MAX_OCC_BACKOFF);
         let is_retriable = |e: &Error| e.is_occ();
@@ -1372,7 +1333,7 @@ impl<RT: Runtime> Database<RT> {
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
     where
         T: Send,
-        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'_, 'a, 'b, anyhow::Result<T>>,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         let backoff = Backoff::new(INITIAL_OVERLOADED_BACKOFF, MAX_OVERLOADED_BACKOFF);
         let is_retriable = |e: &Error| e.is_occ() || e.is_overloaded();

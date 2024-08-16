@@ -225,6 +225,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shape_inference",
+ "short_future",
  "slugify",
  "sourcemap",
  "storage",
@@ -1908,6 +1909,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shape_inference",
+ "short_future",
  "slab",
  "storage",
  "tempfile",
@@ -6961,6 +6963,15 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "short_future"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab24bde075c77541029f12fb8ae39da5555012543f49ca92c69ff7fac53f0719"
+dependencies = [
+ "futures",
+]
 
 [[package]]
 name = "signal-hook-registry"

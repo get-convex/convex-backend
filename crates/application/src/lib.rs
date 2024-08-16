@@ -109,7 +109,6 @@ use database::{
     IndexWorker,
     OccRetryStats,
     SearchIndexWorkers,
-    ShortBoxFuture,
     Snapshot,
     SnapshotPage,
     StreamingExportTableFilter,
@@ -264,6 +263,7 @@ use search::{
 };
 use semver::Version;
 use serde_json::Value as JsonValue;
+use short_future::ShortBoxFuture;
 use snapshot_import::{
     clear_tables,
     store_uploaded_import,
@@ -2814,12 +2814,8 @@ impl<RT: Runtime> Application<RT> {
         F: Send + Sync,
         F: for<'c> Fn(
             &'c mut Transaction<RT>,
-        ) -> ShortBoxFuture<
-            '_,
-            'b,
-            'c,
-            anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>,
-        >,
+        )
+            -> ShortBoxFuture<'c, 'b, anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>>,
     {
         let (t, events) = f(tx).0.await?;
         DeploymentAuditLogModel::new(tx)
@@ -2839,12 +2835,8 @@ impl<RT: Runtime> Application<RT> {
         T: Send + 'static,
         F: for<'b> Fn(
             &'b mut Transaction<RT>,
-        ) -> ShortBoxFuture<
-            '_,
-            'a,
-            'b,
-            anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>,
-        >,
+        )
+            -> ShortBoxFuture<'b, 'a, anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>>,
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
@@ -2867,12 +2859,8 @@ impl<RT: Runtime> Application<RT> {
         T: Send + 'static,
         F: for<'b> Fn(
             &'b mut Transaction<RT>,
-        ) -> ShortBoxFuture<
-            '_,
-            'a,
-            'b,
-            anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>,
-        >,
+        )
+            -> ShortBoxFuture<'b, 'a, anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>>,
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
@@ -2895,12 +2883,8 @@ impl<RT: Runtime> Application<RT> {
         T: Send + 'static,
         F: for<'b> Fn(
             &'b mut Transaction<RT>,
-        ) -> ShortBoxFuture<
-            '_,
-            'a,
-            'b,
-            anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>,
-        >,
+        )
+            -> ShortBoxFuture<'b, 'a, anyhow::Result<(T, Vec<DeploymentAuditLogEvent>)>>,
     {
         let db = self.database.clone();
         let (ts, (t, events), stats) = db
@@ -2936,7 +2920,7 @@ impl<RT: Runtime> Application<RT> {
     where
         F: Send + Sync,
         T: Send + 'static,
-        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'_, 'a, 'b, anyhow::Result<T>>,
+        F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         self.database
             .execute_with_occ_retries(identity, usage, pause_client, write_source, f)

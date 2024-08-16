@@ -149,7 +149,6 @@ pub use self::{
         DatabaseSnapshot,
         DocumentDeltas,
         OccRetryStats,
-        ShortBoxFuture,
         ShutdownSignal,
         SnapshotPage,
         StreamingExportTableFilter,

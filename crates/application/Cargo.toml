@@ -55,6 +55,7 @@ semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 shape_inference = { path = "../shape_inference" }
+short_future = { workspace = true }
 slugify = "0.1.0"
 sourcemap = { workspace = true }
 storage = { path = "../storage" }
