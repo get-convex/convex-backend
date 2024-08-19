@@ -200,14 +200,14 @@ function getConvexUrl(
 ) {
   const url = deploymentUrl ?? process.env.NEXT_PUBLIC_CONVEX_URL;
   const isFromEnv = deploymentUrl === undefined;
+  if (typeof url !== "string") {
+    throw new Error(
+      isFromEnv
+        ? `Environment variable NEXT_PUBLIC_CONVEX_URL is not set.`
+        : `Convex function called with invalid deployment address.`,
+    );
+  }
   if (!skipConvexDeploymentUrlCheck) {
-    if (typeof url === "undefined") {
-      throw new Error(
-        isFromEnv
-          ? `Environment variable NEXT_PUBLIC_CONVEX_URL is not set.`
-          : `Convex function called with undefined deployment address.`,
-      );
-    }
     validateDeploymentUrl(url);
   }
   return url!;
