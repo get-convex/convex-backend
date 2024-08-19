@@ -8,6 +8,7 @@ import {
 } from "./registration.js";
 import { Expand, UnionToIntersection } from "../type_utils.js";
 import { PaginationOptions, PaginationResult } from "./pagination.js";
+import { getFunctionAddress } from "./impl/actions_impl.js";
 
 /**
  * The type of a Convex function.
@@ -81,6 +82,22 @@ export const functionName = Symbol.for("functionName");
 export function getFunctionName(
   functionReference: AnyFunctionReference,
 ): string {
+  const address = getFunctionAddress(functionReference);
+
+  if (address.name === undefined) {
+    if (address.functionHandle !== undefined) {
+      throw new Error(
+        `Expected function reference like "api.file.func" or "internal.file.func", but received function handle ${address.functionHandle}`,
+      );
+    } else if (address.reference !== undefined) {
+      throw new Error(
+        `Expected function reference in the current component like "api.file.func" or "internal.file.func", but received reference ${address.reference}`,
+      );
+    }
+    throw new Error(
+      `Expected function reference like "api.file.func" or "internal.file.func", but received ${JSON.stringify(address)}`,
+    );
+  }
   // Both a legacy thing and also a convenience for interactive use:
   // the types won't check but a string is always allowed at runtime.
   if (typeof functionReference === "string") return functionReference;
