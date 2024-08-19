@@ -14,7 +14,6 @@ use headers::{
     ContentRange,
     ContentType,
 };
-use model::file_storage::types::StorageUuid;
 use storage::Storage;
 
 mod core;
@@ -47,11 +46,4 @@ pub struct TransactionalFileStorage<RT: Runtime> {
     rt: RT,
     storage: Arc<dyn Storage>,
     convex_origin: ConvexOrigin,
-}
-
-pub struct FileMetadata {
-    pub storage_id: StorageUuid,
-    pub sha256: Sha256Digest,
-    pub size: i64,
-    pub content_type: Option<String>,
 }
