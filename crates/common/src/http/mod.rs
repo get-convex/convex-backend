@@ -31,7 +31,6 @@ use axum::{
         connect_info::IntoMakeServiceWithConnectInfo,
         FromRequestParts,
         Host,
-        Request,
         State,
     },
     response::{
@@ -1035,15 +1034,18 @@ async fn log_middleware(
     let method = req.method().clone();
     let uri = req.uri().clone();
     let version = req.version();
-    let get_header = |req: &Request, name: HeaderName| -> Option<String> {
-        req.headers()
+    let get_header = |headers: &HeaderMap, name: HeaderName| -> Option<String> {
+        headers
             .get(name)
             .and_then(|h| h.to_str().ok().map(|s| s.to_string()))
     };
-    let referer = get_header(&req, http::header::REFERER);
-    let user_agent = get_header(&req, http::header::USER_AGENT);
+    let referer = get_header(req.headers(), http::header::REFERER);
+    let user_agent = get_header(req.headers(), http::header::USER_AGENT);
 
     let resp = next.run(req).await;
+
+    let content_length = get_header(resp.headers(), http::header::CONTENT_LENGTH);
+    let content_type = get_header(resp.headers(), http::header::CONTENT_TYPE);
 
     if uri == "/instance_version" || uri == "/get_backend_info" {
         // Skip logging for these high volume, less useful endpoints
@@ -1052,7 +1054,7 @@ async fn log_middleware(
 
     tracing::info!(
         target: "convex-cloud-http",
-        "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {:?}",
+        "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:?}",
         site_id,
         LogOptFmt(remote_addr),
         method,
@@ -1061,6 +1063,8 @@ async fn log_middleware(
         resp.status().as_u16(),
         LogOptFmt(referer),
         LogOptFmt(user_agent),
+        LogOptFmt(content_type),
+        LogOptFmt(content_length),
         start.elapsed(),
     );
     Ok(resp)
