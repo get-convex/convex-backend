@@ -10,7 +10,7 @@ use std::{
 
 use ::metrics::StatusTimer;
 use async_broadcast::Receiver as BroadcastReceiver;
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 use common::pause::PauseClient;
 use common::{
     codel_queue::{
@@ -52,7 +52,7 @@ use crate::metrics::{
     log_async_lru_size,
 };
 
-#[cfg(any(test, feature = "testing"))]
+#[cfg(test)]
 const PAUSE_DURING_GENERATE_VALUE_LABEL: &str = "generate_value";
 
 /// A write through cache with support for cancelation.
@@ -79,7 +79,7 @@ pub struct AsyncLru<RT: Runtime, Key, Value> {
     // builds. We shouldn't use tokio locks for prod code (see
     // https://github.com/rust-lang/rust/issues/104883 for background and
     // https://github.com/get-convex/convex/pull/19307 for an alternative).
-    #[cfg(any(test, feature = "testing"))]
+    #[cfg(test)]
     pause_client: Option<Arc<tokio::sync::Mutex<PauseClient>>>,
 }
 
@@ -91,7 +91,7 @@ impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
         Self {
             inner: self.inner.clone(),
             label: self.label,
-            #[cfg(any(test, feature = "testing"))]
+            #[cfg(test)]
             pause_client: self.pause_client.clone(),
             handle: self.handle.clone(),
         }
@@ -219,12 +219,12 @@ impl<
             max_size,
             concurrency,
             label,
-            #[cfg(any(test, feature = "testing"))]
+            #[cfg(test)]
             None,
         )
     }
 
-    #[cfg(any(test, feature = "testing"))]
+    #[cfg(test)]
     #[allow(unused)]
     fn new_for_tests(
         rt: RT,
@@ -242,7 +242,7 @@ impl<
         max_size: u64,
         concurrency: usize,
         label: &'static str,
-        #[cfg(any(test, feature = "testing"))] pause_client: Option<PauseClient>,
+        #[cfg(test)] pause_client: Option<PauseClient>,
     ) -> Self {
         let (tx, rx) = new_codel_queue_async(rt.clone(), 200);
         let inner = Inner::new(cache, max_size, label, tx);
@@ -254,7 +254,7 @@ impl<
             inner,
             label,
             handle: Arc::new(handle),
-            #[cfg(any(test, feature = "testing"))]
+            #[cfg(test)]
             pause_client: pause_client
                 .map(|pause_client| Arc::new(tokio::sync::Mutex::new(pause_client))),
         }
@@ -386,7 +386,7 @@ impl<
             Status::Ready(value) => Ok(value),
             Status::Waiting(rx) => Ok(Self::wait_for_value(key, rx).await?),
             Status::Kickoff(rx, timer) => {
-                #[cfg(any(test, feature = "testing"))]
+                #[cfg(test)]
                 if let Some(pause_client) = &mut self.pause_client.clone() {
                     let pause_client = pause_client.lock().await;
                     pause_client.wait(PAUSE_DURING_GENERATE_VALUE_LABEL).await;
