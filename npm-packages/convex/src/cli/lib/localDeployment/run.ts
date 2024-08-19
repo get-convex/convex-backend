@@ -150,9 +150,7 @@ export async function runLocalBackend(
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
   logVerbose(ctx, `Starting local backend: \`${commandStr}\``);
   const p = child_process
-    .spawn(args.binaryPath, commandArgs, {
-      stdio: "pipe",
-    })
+    .spawn(args.binaryPath, commandArgs, { stdio: "ignore" })
     .on("exit", (code) => {
       logVerbose(
         ctx,

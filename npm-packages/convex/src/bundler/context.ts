@@ -93,7 +93,7 @@ export function logOutput(ctx: Context, ...logged: any) {
 
 export function logVerbose(ctx: Context, ...logged: any) {
   if (process.env.CONVEX_VERBOSE) {
-    logMessage(ctx, "[verbose]", ...logged);
+    logMessage(ctx, `[verbose] ${new Date().toISOString()}`, ...logged);
   }
 }
 

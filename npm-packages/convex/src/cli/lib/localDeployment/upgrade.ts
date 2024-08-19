@@ -238,6 +238,7 @@ async function handleUpgrade(
   if (status.state !== "waiting_for_confirmation") {
     return ctx.crash(1, "fatal", "Failed to upload snapshot");
   }
+
   await confirmImport(ctx, {
     importId,
     adminKey: args.adminKey,
