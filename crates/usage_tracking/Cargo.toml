@@ -12,6 +12,7 @@ doctest = false
 anyhow = { workspace = true }
 common = { path = "../common" }
 events = { path = "../events" }
+headers = { workspace = true }
 metrics = { path = "../metrics" }
 parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
 pb = { path = "../pb" }

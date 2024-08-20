@@ -64,7 +64,9 @@ pub enum UsageEvent {
     /// snapshot import/export)
     StorageCall {
         id: String,
+        storage_id: Option<String>,
         call: String,
+        content_type: Option<String>,
     },
     /// Bandwidth from a storage call outside of a user function (e.g. snapshot
     /// import/export).

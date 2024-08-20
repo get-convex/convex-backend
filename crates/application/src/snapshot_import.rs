@@ -57,6 +57,7 @@ use common::{
         FieldName,
         MemberId,
         ObjectKey,
+        StorageUuid,
         TableName,
         UdfIdentifier,
     },
@@ -112,7 +113,6 @@ use model::{
         DeploymentAuditLogModel,
     },
     file_storage::{
-        types::StorageUuid,
         FILE_STORAGE_TABLE,
         FILE_STORAGE_VIRTUAL_TABLE,
     },
@@ -1902,7 +1902,7 @@ async fn import_storage_table<RT: Runtime>(
         let content_length = metadata.size.map(|size| ContentLength(size as u64));
         let content_type = metadata
             .content_type
-            .map(|content_type| anyhow::Ok(ContentType::from(mime::Mime::from_str(&content_type)?)))
+            .map(|content_type| anyhow::Ok(ContentType::from_str(&content_type)?))
             .transpose()
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e))?;
         let sha256 = metadata
@@ -1912,7 +1912,9 @@ async fn import_storage_table<RT: Runtime>(
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e))?;
         let storage_id = metadata
             .internal_id
-            .map(|storage_id| StorageUuid::from_str(&storage_id))
+            .map(|storage_id| {
+                StorageUuid::from_str(&storage_id).context("Couldn't parse storage_id")
+            })
             .transpose()
             .map_err(|e| ImportError::InvalidConvexValue(lineno, e))?;
         let creation_time = metadata
@@ -2003,8 +2005,13 @@ async fn import_storage_table<RT: Runtime>(
                 },
             )
             .await?;
+        let content_type = entry
+            .content_type
+            .as_ref()
+            .map(|ct| ct.parse())
+            .transpose()?;
         usage
-            .track_storage_call("snapshot_import")
+            .track_storage_call("snapshot_import", Some(entry.storage_id), content_type)
             .track_storage_ingress_size(file_size);
         num_files += 1;
         if let Some(import_id) = import_id {

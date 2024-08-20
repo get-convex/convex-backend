@@ -13,6 +13,7 @@ use common::{
     execution_context::ExecutionId,
     types::{
         ModuleEnvironment,
+        StorageUuid,
         UdfIdentifier,
     },
 };
@@ -20,6 +21,7 @@ use events::usage::{
     UsageEvent,
     UsageEventLogger,
 };
+use headers::ContentType;
 use parking_lot::Mutex;
 use pb::usage::{
     CounterWithTag as CounterWithTagProto,
@@ -225,7 +227,12 @@ impl UsageCounter {
 // and vector search egress/ingress those methods are both on
 // FunctionUsageTracker and UsageCounters directly.
 pub trait StorageUsageTracker: Send + Sync {
-    fn track_storage_call(&self, storage_api: &'static str) -> Box<dyn StorageCallTracker>;
+    fn track_storage_call(
+        &self,
+        storage_api: &'static str,
+        storage_id: Option<StorageUuid>,
+        content_type: Option<ContentType>,
+    ) -> Box<dyn StorageCallTracker>;
 }
 
 pub trait StorageCallTracker: Send + Sync {
@@ -268,12 +275,21 @@ impl StorageCallTracker for IndependentStorageCallTracker {
 }
 
 impl StorageUsageTracker for UsageCounter {
-    fn track_storage_call(&self, storage_api: &'static str) -> Box<dyn StorageCallTracker> {
+    fn track_storage_call(
+        &self,
+        storage_api: &'static str,
+        storage_id: Option<StorageUuid>,
+        content_type: Option<ContentType>,
+    ) -> Box<dyn StorageCallTracker> {
         let execution_id = ExecutionId::new();
         metrics::storage::log_storage_call();
         self.usage_logger.record(vec![UsageEvent::StorageCall {
             id: execution_id.to_string(),
+            // Ideally we would track the Id<_storage> instead of the StorageUuid
+            // but it's a bit annoying for now, so just going with this.
+            storage_id: storage_id.map(|s| s.to_string()),
             call: storage_api.to_string(),
+            content_type: content_type.map(|c| c.to_string()),
         }]);
 
         Box::new(IndependentStorageCallTracker::new(
@@ -446,7 +462,12 @@ impl StorageCallTracker for FunctionUsageTracker {
 }
 
 impl StorageUsageTracker for FunctionUsageTracker {
-    fn track_storage_call(&self, storage_api: &'static str) -> Box<dyn StorageCallTracker> {
+    fn track_storage_call(
+        &self,
+        storage_api: &'static str,
+        _storage_id: Option<StorageUuid>,
+        _content_type: Option<ContentType>,
+    ) -> Box<dyn StorageCallTracker> {
         let mut state = self.state.lock();
         metrics::storage::log_storage_call();
         state

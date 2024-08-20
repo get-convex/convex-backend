@@ -13,7 +13,10 @@ use common::{
         UnixTimestamp,
     },
     sha256::Sha256Digest,
-    types::ConvexOrigin,
+    types::{
+        ConvexOrigin,
+        StorageUuid,
+    },
 };
 use database::Transaction;
 use errors::ErrorMetadata;
@@ -35,12 +38,8 @@ use keybroker::{
     KeyBroker,
 };
 use maplit::btreemap;
-use mime::Mime;
 use model::file_storage::{
-    types::{
-        FileStorageEntry,
-        StorageUuid,
-    },
+    types::FileStorageEntry,
     BatchKey,
     FileStorageId,
     FileStorageModel,
@@ -223,17 +222,14 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         get_file_type: GetFileType,
     ) -> anyhow::Result<FileRangeStream> {
         let FileStorageEntry {
-            storage_id: _,
+            storage_id,
             storage_key,
             sha256: _,
             size,
             content_type,
         } = file;
 
-        let content_type = match content_type {
-            None => None,
-            Some(ct) => Some(ct.parse::<Mime>()?.into()),
-        };
+        let content_type = content_type.as_ref().map(|ct| ct.parse()).transpose()?;
 
         let storage_get_stream = self
             .storage
@@ -244,7 +240,8 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let stream = storage_get_stream.stream;
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
-        let call_tracker = usage_tracker.track_storage_call("get range");
+        let call_tracker =
+            usage_tracker.track_storage_call("get range", Some(storage_id), content_type.clone());
 
         Ok(FileRangeStream {
             content_length,
@@ -402,9 +399,16 @@ impl<RT: Runtime> FileStorage<RT> {
         entry: FileStorageEntry,
         usage_tracker: &dyn StorageUsageTracker,
     ) -> anyhow::Result<DeveloperDocumentId> {
+        let storage_id = entry.storage_id.clone();
+        let size = entry.size;
+        let content_type = entry
+            .content_type
+            .as_ref()
+            .map(|ct| ct.parse())
+            .transpose()?;
+
         // Start/Complete transaction after the slow upload process
         // to avoid OCC risk.
-        let size = entry.size;
         let mut tx = self.database.begin(Identity::system()).await?;
         let virtual_id = self
             .transactional_file_storage
@@ -415,7 +419,7 @@ impl<RT: Runtime> FileStorage<RT> {
             .await?;
 
         usage_tracker
-            .track_storage_call("store")
+            .track_storage_call("store", Some(storage_id), content_type)
             .track_storage_ingress_size(size as u64);
         Ok(virtual_id)
     }

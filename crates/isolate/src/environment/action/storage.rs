@@ -69,19 +69,20 @@ impl<RT: Runtime> TaskExecutor<RT> {
 
         let entry = self
             .file_storage
-            .upload_file(content_length, content_type, body_stream, digest)
+            .upload_file(content_length, content_type.clone(), body_stream, digest)
             .await?;
+        let storage_id = entry.storage_id.clone();
         let size = entry.size;
-        let storage_id = self
+        let storage_doc_id = self
             .action_callbacks
             .storage_store_file_entry(self.identity.clone(), self.component_id(), entry)
             .await?;
 
         self.usage_tracker
-            .track_storage_call("store")
+            .track_storage_call("store", Some(storage_id), content_type)
             .track_storage_ingress_size(size as u64);
 
-        Ok(storage_id)
+        Ok(storage_doc_id)
     }
 
     #[convex_macro::instrument_future]

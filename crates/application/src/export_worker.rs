@@ -593,8 +593,18 @@ impl<RT: Runtime> ExportWorker<RT> {
                             file_storage_entry.storage_key,
                         )
                     })?;
+
+                let content_type = file_storage_entry
+                    .content_type
+                    .as_ref()
+                    .map(|ct| ct.parse())
+                    .transpose()?;
                 usage
-                    .track_storage_call("snapshot_export")
+                    .track_storage_call(
+                        "snapshot_export",
+                        Some(file_storage_entry.storage_id.clone()),
+                        content_type,
+                    )
                     .track_storage_egress_size(file_stream.content_length as u64);
                 zip_snapshot_upload
                     .stream_full_file(path, file_stream.stream)

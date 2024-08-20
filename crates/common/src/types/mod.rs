@@ -18,6 +18,7 @@ mod actions;
 mod admin_key;
 mod backend_state;
 mod environment_variables;
+mod file_storage;
 mod functions;
 mod index;
 mod maybe_value;
@@ -52,6 +53,7 @@ pub use environment_variables::{
     EnvironmentVariable,
     ENV_VAR_LIMIT,
 };
+pub use file_storage::StorageUuid;
 pub use functions::{
     AllowedVisibility,
     FunctionCaller,

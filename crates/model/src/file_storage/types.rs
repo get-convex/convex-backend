@@ -1,15 +1,14 @@
-use std::{
-    collections::BTreeMap,
-    str::FromStr,
-};
+use std::collections::BTreeMap;
 
 use anyhow::Context;
 use common::{
     obj,
-    types::ObjectKey,
+    types::{
+        ObjectKey,
+        StorageUuid,
+    },
 };
 use pb::storage::FileStorageEntry as FileStorageEntryProto;
-use uuid::Uuid;
 use value::{
     sha256::Sha256Digest,
     ConvexObject,
@@ -125,63 +124,14 @@ impl From<FileStorageEntry> for FileStorageEntryProto {
     }
 }
 
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, derive_more::Display)]
-pub struct StorageUuid(
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "Uuid::new_v4 as fn() -> Uuid")
-    )]
-    Uuid,
-);
-
-impl From<Uuid> for StorageUuid {
-    fn from(u: Uuid) -> Self {
-        Self(u)
-    }
-}
-
-impl FromStr for StorageUuid {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(s.parse()?))
-    }
-}
-
-impl TryFrom<StorageUuid> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(s: StorageUuid) -> anyhow::Result<Self> {
-        s.to_string().try_into()
-    }
-}
-
-impl TryFrom<ConvexValue> for StorageUuid {
-    type Error = anyhow::Error;
-
-    fn try_from(v: ConvexValue) -> anyhow::Result<Self> {
-        match v {
-            ConvexValue::String(s) => Ok(StorageUuid(Uuid::try_parse(&s)?)),
-            _ => anyhow::bail!("Can only convert Value::String to StorageUuid"),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use common::testing::assert_roundtrips;
     use pb::storage::FileStorageEntry as FileStorageEntryProto;
     use proptest::prelude::*;
-    use value::{
-        ConvexObject,
-        ConvexValue,
-    };
+    use value::ConvexObject;
 
-    use super::{
-        FileStorageEntry,
-        StorageUuid,
-    };
+    use super::FileStorageEntry;
 
     proptest! {
         #![proptest_config(
@@ -196,11 +146,6 @@ mod tests {
         #[test]
         fn test_storage_entry_proto_roundtrip(v in any::<FileStorageEntry>()) {
             assert_roundtrips::<FileStorageEntry, FileStorageEntryProto>(v);
-        }
-
-        #[test]
-        fn test_storage_roundtrip(v in any::<StorageUuid>()) {
-            assert_roundtrips::<StorageUuid, ConvexValue>(v);
         }
 
     }

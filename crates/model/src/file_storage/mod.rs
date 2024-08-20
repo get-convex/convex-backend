@@ -23,6 +23,7 @@ use common::{
     types::{
         GenericIndexName,
         IndexName,
+        StorageUuid,
     },
     virtual_system_mapping::VirtualSystemDocMapper,
 };
@@ -56,10 +57,7 @@ use value::{
 
 use self::virtual_table::FileStorageDocMapper;
 use crate::{
-    file_storage::types::{
-        FileStorageEntry,
-        StorageUuid,
-    },
+    file_storage::types::FileStorageEntry,
     SystemIndex,
     SystemTable,
 };
