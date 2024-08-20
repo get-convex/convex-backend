@@ -317,22 +317,12 @@ pub fn export_value(
     value_format: Option<ValueFormat>,
     client_version: ClientVersion,
 ) -> anyhow::Result<JsonValue> {
-    let exported = match value_format {
-        Some(value_format) => value.export(value_format),
-        None => {
-            if client_version.should_require_format_param() {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "RequiresFormatParam",
-                    "`format` param is required for this API",
-                ))
-            }
-
-            // Old clients default to the encoded format.
-            JsonValue::from(value)
-        },
+    let format = match value_format {
+        Some(value_format) => value_format,
+        None => client_version.default_format(),
     };
 
-    Ok(exported)
+    Ok(value.export(format))
 }
 
 #[minitrace::trace(properties = { "udf_type": "query"})]
@@ -692,13 +682,14 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_http_query_default(rt: ProdRuntime) -> anyhow::Result<()> {
+        // The default format is clean JSON
         http_format_tester(
             rt,
             "/api/query",
             "values:intQuery",
             json!({}),
             None,
-            Err("RequiresFormatParam"),
+            Ok(json!("1")),
         )
         .await
     }
@@ -718,13 +709,14 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_http_mutation_default(rt: ProdRuntime) -> anyhow::Result<()> {
+        // The default format is clean JSON
         http_format_tester(
             rt,
             "/api/mutation",
             "values:intMutation",
             json!({}),
             None,
-            Err("RequiresFormatParam"),
+            Ok(json!("1")),
         )
         .await
     }
@@ -744,13 +736,14 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_http_action_default(rt: ProdRuntime) -> anyhow::Result<()> {
+        // The default format is clean JSON
         http_format_tester(
             rt,
             "/api/action",
             "values:intAction",
             json!({}),
             None,
-            Err("RequiresFormatParam"),
+            Ok(json!("1")),
         )
         .await
     }

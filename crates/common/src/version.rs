@@ -19,6 +19,7 @@ use serde::{
     Serialize,
 };
 use tuple_struct::tuple_struct_string;
+use value::export::ValueFormat;
 
 // Threshold for each of our clients
 #[derive(Deserialize, Debug, Clone)]
@@ -384,8 +385,8 @@ impl ClientVersion {
     /// Returns true if the client version new enough to require a format param.
     /// Python and JS client got explicit about this at some point, but old
     /// clients still implicitly need the encoded format.
-    pub fn should_require_format_param(&self) -> bool {
-        match self.client() {
+    pub fn default_format(&self) -> ValueFormat {
+        let clean_format = match self.client() {
             ClientType::CLI | ClientType::NPM | ClientType::Actions => {
                 self.version().above_threshold(&Version::new(1, 4, 1))
             },
@@ -397,6 +398,12 @@ impl ClientVersion {
             | ClientType::FivetranExport
             | ClientType::Dashboard
             | ClientType::Unrecognized(_) => true,
+        };
+
+        // Old clients use the encoded format by default
+        match clean_format {
+            true => ValueFormat::ConvexCleanJSON,
+            false => ValueFormat::ConvexEncodedJSON,
         }
     }
 }
@@ -424,6 +431,7 @@ mod tests {
         Version,
     };
     use sync_types::testing::assert_roundtrips;
+    use value::export::ValueFormat;
 
     use super::{
         ClientVersion,
@@ -552,9 +560,9 @@ mod tests {
             "asdf-0.0.0", // unknown
         ];
         for r in require {
-            assert!(
-                r.parse::<ClientVersion>()?.should_require_format_param(),
-                "{r} failed"
+            assert_eq!(
+                r.parse::<ClientVersion>()?.default_format(),
+                ValueFormat::ConvexCleanJSON,
             );
         }
         let not_require = [
@@ -567,9 +575,9 @@ mod tests {
             "python-convex-0.3.0",
         ];
         for r in not_require {
-            assert!(
-                !r.parse::<ClientVersion>()?.should_require_format_param(),
-                "{r} failed"
+            assert_eq!(
+                r.parse::<ClientVersion>()?.default_format(),
+                ValueFormat::ConvexEncodedJSON,
             );
         }
         Ok(())
