@@ -35,22 +35,14 @@ export interface Context {
   deprecationMessagePrinted: boolean;
   spinner: Ora | undefined;
   // Reports to Sentry and either throws FatalError or exits the process.
-  // Does not print the error.
-  crash(exitCode: number, errorType?: ErrorType, err?: any): Promise<never>;
+  // Prints the `printedMessage` if provided
+  crash(args: {
+    exitCode: number;
+    errorType: ErrorType;
+    errForSentry?: any;
+    printedMessage: string | null;
+  }): Promise<never>;
 }
-
-export const oneoffContext: Context = {
-  fs: nodeFs,
-  deprecationMessagePrinted: false,
-  spinner: undefined,
-  async crash(exitCode: number, _errorType?: ErrorType, err?: any) {
-    logVerbose(
-      oneoffContext,
-      `Crashing with exit code ${exitCode}, error: ${_errorType?.toString()} ${err?.toString()}`,
-    );
-    return await flushAndExit(exitCode, err);
-  },
-};
 
 async function flushAndExit(exitCode: number, err?: any) {
   if (err) {
@@ -60,6 +52,33 @@ async function flushAndExit(exitCode: number, err?: any) {
   // eslint-disable-next-line no-restricted-syntax
   return process.exit(exitCode);
 }
+
+export type OneoffCtx = Context & {
+  // Generally `ctx.crash` is better to use since it handles printing a message
+  // for the user, and then calls this.
+  //
+  // This function reports to Sentry + exits the process, but does not handle
+  // printing a message for the user.
+  flushAndExit: (exitCode: number, err?: any) => Promise<never>;
+};
+
+export const oneoffContext: OneoffCtx = {
+  fs: nodeFs,
+  deprecationMessagePrinted: false,
+  spinner: undefined,
+  async crash(args: {
+    exitCode: number;
+    errorType?: ErrorType;
+    errForSentry?: any;
+    printedMessage: string | null;
+  }) {
+    if (args.printedMessage !== null) {
+      logFailure(oneoffContext, args.printedMessage);
+    }
+    return await flushAndExit(args.exitCode, args.errForSentry);
+  },
+  flushAndExit,
+};
 
 // console.error before it started being red by default in Node v20
 function logToStderr(...args: unknown[]) {

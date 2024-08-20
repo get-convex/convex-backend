@@ -1,5 +1,5 @@
 import * as dotenv from "dotenv";
-import { Context, logFailure } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
 import { changedEnvVarFile, getEnvVarRegex } from "./envvars.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
@@ -175,11 +175,11 @@ export async function deploymentNameFromAdminKeyOrCrash(
 ) {
   const deploymentName = deploymentNameFromAdminKey(adminKey);
   if (deploymentName === null) {
-    logFailure(
-      ctx,
-      `Please set ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} to a new key which you can find on your Convex dashboard.`,
-    );
-    return await ctx.crash(1);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Please set ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} to a new key which you can find on your Convex dashboard.`,
+    });
   }
   return deploymentName;
 }
@@ -231,11 +231,12 @@ export async function getTeamAndProjectFromPreviewAdminKey(
 ) {
   const parts = adminKey.split("|")[0].split(":");
   if (parts.length !== 3) {
-    logFailure(
-      ctx,
-      "Malformed preview CONVEX_DEPLOY_KEY, get a new key from Project Settings.",
-    );
-    return await ctx.crash(1);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "Malformed preview CONVEX_DEPLOY_KEY, get a new key from Project Settings.",
+    });
   }
   const [_preview, teamSlug, projectSlug] = parts;
   return { teamSlug, projectSlug };

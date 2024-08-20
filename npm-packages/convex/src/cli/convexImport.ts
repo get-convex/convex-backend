@@ -14,7 +14,6 @@ import {
   showSpinner,
   logFinishedStep,
   logWarning,
-  logError,
   logMessage,
   stopSpinner,
   changeSpinner,
@@ -83,11 +82,11 @@ export const convexImport = new Command("import")
     const ctx = oneoffContext;
 
     if (command.args.length > 1) {
-      logFailure(
-        ctx,
-        `Error: Too many positional arguments. If you're specifying a table name, use the \`--table\` option.`,
-      );
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Error: Too many positional arguments. If you're specifying a table name, use the \`--table\` option.`,
+      });
     }
 
     const deploymentSelection = deploymentSelectionFromOptions(options);
@@ -99,27 +98,30 @@ export const convexImport = new Command("import")
     } = await fetchDeploymentCredentialsProvisionProd(ctx, deploymentSelection);
 
     if (!ctx.fs.exists(filePath)) {
-      logFailure(ctx, `Error: Path ${chalk.bold(filePath)} does not exist.`);
-      return await ctx.crash(1, "invalid filesystem data");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Error: Path ${chalk.bold(filePath)} does not exist.`,
+      });
     }
 
     const format = await determineFormat(ctx, filePath, options.format ?? null);
     const tableName = options.table ?? null;
     if (tableName === null) {
       if (format !== "zip") {
-        logFailure(
-          ctx,
-          `Error: The \`--table\` option is required for format ${format}`,
-        );
-        return await ctx.crash(1, "fatal");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Error: The \`--table\` option is required for format ${format}`,
+        });
       }
     } else {
       if (format === "zip") {
-        logFailure(
-          ctx,
-          `Error: The \`--table\` option is not allowed for format ${format}`,
-        );
-        return await ctx.crash(1, "fatal");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Error: The \`--table\` option is not allowed for format ${format}`,
+        });
       }
     }
 
@@ -206,14 +208,13 @@ export const convexImport = new Command("import")
           );
           return;
         case "failed":
-          logFailure(
-            ctx,
-            `Importing data from "${chalk.bold(
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Importing data from "${chalk.bold(
               filePath,
-            )}"${tableNotice}${deploymentNotice} failed`,
-          );
-          logError(ctx, chalk.red(snapshotImportState.error_message));
-          return await ctx.crash(1);
+            )}"${tableNotice}${deploymentNotice} failed\n\n${chalk.red(snapshotImportState.error_message)}`,
+          });
         case "waiting_for_confirmation": {
           // Clear spinner state so we can log and prompt without clobbering lines.
           stopSpinner(ctx);
@@ -241,23 +242,27 @@ export const convexImport = new Command("import")
           break;
         }
         case "uploaded": {
-          logFailure(ctx, `Import canceled while parsing uploaded file`);
-          return await ctx.crash(1);
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Import canceled while parsing uploaded file`,
+          });
         }
         case "in_progress": {
-          logFailure(
-            ctx,
-            `WARNING: Import is continuing to run on the server. Visit ${snapshotImportDashboardLink(deploymentName)} to monitor its progress.`,
-          );
-          return await ctx.crash(1);
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `WARNING: Import is continuing to run on the server. Visit ${snapshotImportDashboardLink(deploymentName)} to monitor its progress.`,
+          });
         }
         default: {
           const _: never = snapshotImportState;
-          logFailure(
-            ctx,
-            `unknown error: unexpected state ${snapshotImportState as any}`,
-          );
-          return await ctx.crash(1);
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `unknown error: unexpected state ${snapshotImportState as any}`,
+            errForSentry: `unexpected snapshot import state ${(snapshotImportState as any).state}`,
+          });
         }
       }
     }
@@ -283,7 +288,11 @@ async function askToConfirmImport(
       },
     ]);
     if (!confirmed) {
-      return await ctx.crash(1);
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "Import canceled",
+      });
     }
   }
 }
@@ -315,7 +324,11 @@ async function askToConfirmImportWithExistingImports(
     },
   ]);
   if (!confirmed) {
-    return await ctx.crash(1);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Import canceled",
+    });
   }
 }
 
@@ -414,11 +427,12 @@ async function determineFormat(
     format ??= extensionToFormat[fileExtension] ?? null;
   }
   if (format === null) {
-    logFailure(
-      ctx,
-      "No input file format inferred by the filename extension or specified. Specify your input file's format using the `--format` flag.",
-    );
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "No input file format inferred by the filename extension or specified. Specify your input file's format using the `--format` flag.",
+    });
   }
   return format;
 }

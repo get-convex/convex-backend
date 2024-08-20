@@ -1,5 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import { logFailure, oneoffContext } from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
 import { watchAndPush } from "./dev.js";
 import {
   fetchDeploymentCredentialsProvisionProd,
@@ -66,12 +66,13 @@ export const run = new Command("run")
     const args = argsString ? JSON.parse(argsString) : {};
 
     if (deploymentType === "prod" && options.push) {
-      logFailure(
-        ctx,
-        `\`convex run\` doesn't support pushing functions to prod deployments. ` +
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          `\`convex run\` doesn't support pushing functions to prod deployments. ` +
           `Remove the --push flag. To push to production use \`npx convex deploy\`.`,
-      );
-      return await ctx.crash(1, "fatal");
+      });
     }
 
     if (options.push) {

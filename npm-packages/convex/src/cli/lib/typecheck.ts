@@ -62,7 +62,11 @@ export async function typeCheckFunctionsInMode(
         } catch (e) {
           // As expected, `runOnError` threw
         }
-        await ctx.crash(1, "invalid filesystem data");
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "invalid filesystem data",
+          printedMessage: null,
+        });
       }
     },
   );

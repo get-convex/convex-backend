@@ -5,7 +5,7 @@ import { parse as parseAST } from "@babel/parser";
 import { Identifier, ImportSpecifier } from "@babel/types";
 import * as Sentry from "@sentry/node";
 import { Filesystem } from "./fs.js";
-import { Context, logFailure, logWarning } from "./context.js";
+import { Context, logWarning } from "./context.js";
 import { wasmPlugin } from "./wasm.js";
 import {
   ExternalPackage,
@@ -113,7 +113,11 @@ async function doEsbuild(
         );
         // Consider this a transient error so we'll try again and hopefully
         // no files change right after esbuild next time.
-        return await ctx.crash(1, "transient");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "transient",
+          printedMessage: null,
+        });
       }
       ctx.fs.registerPath(absPath, st);
     }
@@ -123,9 +127,13 @@ async function doEsbuild(
       bundledModuleNames: external.bundledModuleNames,
     };
   } catch (err) {
-    // We don't print any error because esbuild already printed
-    // all the relevant information.
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      // We don't print any error because esbuild already printed
+      // all the relevant information.
+      printedMessage: null,
+    });
   }
 }
 
@@ -156,13 +164,17 @@ export async function bundle(
     availableExternalPackages,
   );
   if (result.errors.length) {
-    for (const error of result.errors) {
-      console.log(chalk.red(`esbuild error: ${error.text}`));
-    }
-    return await ctx.crash(1, "invalid filesystem data");
+    const errorMessage = result.errors
+      .map((e) => `esbuild error: ${e.text}`)
+      .join("\n");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: errorMessage,
+    });
   }
   for (const warning of result.warnings) {
-    console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
+    logWarning(ctx, chalk.yellow(`esbuild warning: ${warning.text}`));
   }
   const sourceMaps = new Map();
   const modules: Bundle[] = [];
@@ -247,11 +259,11 @@ export async function bundleAuthConfig(ctx: Context, dir: string) {
   const authConfigPath = path.resolve(dir, "auth.config.js");
   const authConfigTsPath = path.resolve(dir, "auth.config.ts");
   if (ctx.fs.exists(authConfigPath) && ctx.fs.exists(authConfigTsPath)) {
-    logFailure(
-      ctx,
-      `Found both ${authConfigPath} and ${authConfigTsPath}, choose one.`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Found both ${authConfigPath} and ${authConfigTsPath}, choose one.`,
+    });
   }
   const chosenPath = ctx.fs.exists(authConfigTsPath)
     ? authConfigTsPath
@@ -309,11 +321,11 @@ export async function entryPoints(
     const extension = parsedPath.ext.toLowerCase();
 
     if (relPath.startsWith("_deps" + path.sep)) {
-      logFailure(
-        ctx,
-        `The path "${fpath}" is within the "_deps" directory, which is reserved for dependencies. Please move your code to another directory.`,
-      );
-      return await ctx.crash(1, "invalid filesystem data");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `The path "${fpath}" is within the "_deps" directory, which is reserved for dependencies. Please move your code to another directory.`,
+      });
     }
 
     if (depth === 0 && base.toLowerCase().startsWith("https.")) {
@@ -454,19 +466,22 @@ async function determineEnvironment(
   const useNodeDirectiveFound = hasUseNodeDirective(ctx.fs, fpath, verbose);
   if (useNodeDirectiveFound) {
     if (mustBeIsolate(relPath)) {
-      logFailure(ctx, `"use node" directive is not allowed for ${relPath}.`);
-      return await ctx.crash(1, "invalid filesystem data");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `"use node" directive is not allowed for ${relPath}.`,
+      });
     }
     return "node";
   }
 
   const actionsPrefix = actionsDir + path.sep;
   if (relPath.startsWith(actionsPrefix)) {
-    logFailure(
-      ctx,
-      `${relPath} is in /actions subfolder but has no "use node"; directive. You can now define actions in any folder and indicate they should run in node by adding "use node" directive. /actions is a deprecated way to choose Node.js environment, and we require "use node" for all files within that folder to avoid unexpected errors during the migration. See https://docs.convex.dev/functions/actions for more details`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `${relPath} is in /actions subfolder but has no "use node"; directive. You can now define actions in any folder and indicate they should run in node by adding "use node" directive. /actions is a deprecated way to choose Node.js environment, and we require "use node" for all files within that folder to avoid unexpected errors during the migration. See https://docs.convex.dev/functions/actions for more details`,
+    });
   }
 
   return "isolate";

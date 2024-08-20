@@ -181,7 +181,11 @@ async function handleUpgrade(
     inputPath: exportPath,
   });
   if (snaphsotExportState.state !== "completed") {
-    return ctx.crash(1, "fatal", "Failed to export snapshot");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Failed to export snapshot",
+    });
   }
   await downloadSnapshotExport(ctx, {
     snapshotExportTs: snaphsotExportState.complete_ts,
@@ -236,7 +240,11 @@ async function handleUpgrade(
     },
   });
   if (status.state !== "waiting_for_confirmation") {
-    return ctx.crash(1, "fatal", "Failed to upload snapshot");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Failed to upload snapshot",
+    });
   }
 
   await confirmImport(ctx, {
@@ -259,7 +267,11 @@ async function handleUpgrade(
   });
   logVerbose(ctx, `Snapshot import status: ${status.state}`);
   if (status.state !== "completed") {
-    return ctx.crash(1, "fatal", "Failed to import snapshot");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Failed to import snapshot",
+    });
   }
 
   logFinishedStep(ctx, "Successfully upgraded to a new backend version");

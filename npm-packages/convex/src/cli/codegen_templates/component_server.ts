@@ -13,7 +13,7 @@ import {
   convexValidator,
 } from "../lib/deployApi/validator.js";
 import { header } from "./common.js";
-import { Context, logError } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
 import { CanonicalizedModulePath } from "../lib/deployApi/paths.js";
 import { Value, jsonToConvex } from "../../values/value.js";
 import { z } from "zod";
@@ -295,17 +295,20 @@ export async function componentServerDTS(
 
   const analysis = startPush.analysis[definitionPath];
   if (!analysis) {
-    logError(ctx, `No analysis found for component ${definitionPath}`);
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No analysis found for component ${definitionPath}`,
+    });
   }
   for (const childComponent of analysis.definition.childComponents) {
     const childComponentAnalysis = startPush.analysis[childComponent.path];
     if (!childComponentAnalysis) {
-      logError(
-        ctx,
-        `No analysis found for child component ${childComponent.path}`,
-      );
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `No analysis found for child component ${childComponent.path}`,
+      });
     }
     for await (const line of codegenExports(
       ctx,
@@ -378,8 +381,11 @@ export async function resolveFunctionReference(
   visibility: "public" | "internal",
 ) {
   if (!reference.startsWith("_reference/function/")) {
-    logError(ctx, `Invalid function reference: ${reference}`);
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Invalid function reference: ${reference}`,
+    });
   }
   const udfPath = reference.slice("_reference/function/".length);
 
@@ -388,15 +394,21 @@ export async function resolveFunctionReference(
 
   const analyzedModule = analysis.functions[canonicalizedModulePath];
   if (!analyzedModule) {
-    logError(ctx, `Module not found: ${modulePath}`);
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Module not found: ${modulePath}`,
+    });
   }
   const analyzedFunction = analyzedModule.functions.find(
     (f) => f.name === functionName,
   );
   if (!analyzedFunction) {
-    logError(ctx, `Function not found: ${functionName}`);
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Function not found: ${functionName}`,
+    });
   }
 
   // The server sends down `udfType` capitalized.
@@ -408,8 +420,11 @@ export async function resolveFunctionReference(
     if (argsValidator.type === "object" || argsValidator.type === "any") {
       argsType = validatorToType(argsValidator);
     } else {
-      logError(ctx, `Invalid function args: ${analyzedFunction.args}`);
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Invalid function args: ${analyzedFunction.args}`,
+      });
     }
   }
 

@@ -14,7 +14,6 @@ import {
   Context,
   ErrorType,
   logError,
-  logFailure,
   logMessage,
   logWarning,
 } from "../../bundler/context.js";
@@ -129,8 +128,12 @@ export class ThrowingFetchError extends Error {
       msg = `${msg}: ${this.response.url}`;
     }
 
-    logError(ctx, chalk.red(msg.trim()));
-    return await ctx.crash(1, error_type, this);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: error_type,
+      errForSentry: this,
+      printedMessage: chalk.red(msg.trim()),
+    });
   }
 }
 
@@ -184,8 +187,12 @@ export async function logAndHandleFetchError(
   if (err instanceof ThrowingFetchError) {
     return await err.handle(ctx);
   } else {
-    logError(ctx, chalk.red(err));
-    return await ctx.crash(1, "transient", err);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: err,
+      printedMessage: chalk.red(err),
+    });
   }
 }
 
@@ -211,8 +218,11 @@ async function checkFetchErrorForDeprecation(ctx: Context, resp: Response) {
         // Gotcha:
         // 1. Don't use `logDeprecationWarning` because we should always print
         // why this we crashed (even if we printed a warning earlier).
-        logError(ctx, chalk.red(deprecationMessage));
-        return await ctx.crash(1, "fatal");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: chalk.red(deprecationMessage),
+        });
       default:
         // The error included a deprecation warning. Print, but handle the
         // error normally (it was for another reason).
@@ -269,8 +279,12 @@ export async function validateOrSelectTeam(
 ): Promise<{ teamSlug: string; chosen: boolean }> {
   const teams: Team[] = await bigBrainAPI({ ctx, method: "GET", url: "teams" });
   if (teams.length === 0) {
-    logFailure(ctx, chalk.red("Error: No teams found"));
-    await ctx.crash(1, "fatal", "No teams found");
+    await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      errForSentry: "No teams found",
+      printedMessage: chalk.red("Error: No teams found"),
+    });
   }
   if (!teamSlug) {
     // Prompt the user to select if they belong to more than one team.
@@ -298,11 +312,11 @@ export async function validateOrSelectTeam(
   } else {
     // Validate the chosen team.
     if (!teams.find((team) => team.slug === teamSlug)) {
-      logFailure(
-        ctx,
-        `Error: Team ${teamSlug} not found, fix the --team option or remove it`,
-      );
-      await ctx.crash(1, "fatal");
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Error: Team ${teamSlug} not found, fix the --team option or remove it`,
+      });
     }
     return { teamSlug, chosen: false };
   }
@@ -390,11 +404,11 @@ export async function validateOrSelectProject(
   } else {
     // Validate the chosen project.
     if (!projects.find((project) => project.slug === projectSlug)) {
-      logFailure(
-        ctx,
-        `Error: Project ${projectSlug} not found, fix the --project option or remove it`,
-      );
-      await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Error: Project ${projectSlug} not found, fix the --project option or remove it`,
+      });
     }
     return projectSlug;
   }
@@ -413,24 +427,31 @@ export async function loadPackageJson(
   try {
     packageJson = ctx.fs.readUtf8File("package.json");
   } catch (err) {
-    logFailure(
-      ctx,
-      `Unable to read your package.json: ${
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Unable to read your package.json: ${
         err as any
       }. Make sure you're running this command from the root directory of a Convex app that contains the package.json`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    });
   }
   let obj;
   try {
     obj = JSON.parse(packageJson);
   } catch (err) {
-    logFailure(ctx, `Unable to parse package.json: ${err as any}`);
-    return await ctx.crash(1, "invalid filesystem data", err);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      errForSentry: err,
+      printedMessage: `Unable to parse package.json: ${err as any}`,
+    });
   }
   if (typeof obj !== "object") {
-    logError(ctx, "Expected to parse an object from package.json");
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: "Expected to parse an object from package.json",
+    });
   }
   const packages = {
     ...(includePeerDeps ? obj.peerDependencies ?? {} : {}),
@@ -444,11 +465,11 @@ export async function ensureHasConvexDependency(ctx: Context, cmd: string) {
   const packages = await loadPackageJson(ctx, true);
   const hasConvexDependency = "convex" in packages;
   if (!hasConvexDependency) {
-    logFailure(
-      ctx,
-      `In order to ${cmd}, add \`convex\` to your package.json dependencies.`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `In order to ${cmd}, add \`convex\` to your package.json dependencies.`,
+    });
   }
 }
 
@@ -732,11 +753,12 @@ export async function findParentConfigs(ctx: Context): Promise<{
 }> {
   const parentPackageJson = findUp(ctx, "package.json");
   if (!parentPackageJson) {
-    logFailure(
-      ctx,
-      "No package.json found. To create a new project using Convex, see https://docs.convex.dev/home#quickstarts",
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage:
+        "No package.json found. To create a new project using Convex, see https://docs.convex.dev/home#quickstarts",
+    });
   }
   const candidateConvexJson =
     parentPackageJson &&
@@ -777,8 +799,11 @@ function findUp(ctx: Context, filename: string): string | undefined {
 export async function isInExistingProject(ctx: Context) {
   const { parentPackageJson, parentConvexJson } = await findParentConfigs(ctx);
   if (parentPackageJson !== path.resolve("package.json")) {
-    logFailure(ctx, "Run this command from the root directory of a project.");
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: "Run this command from the root directory of a project.",
+    });
   }
   return !!parentConvexJson;
 }
@@ -790,18 +815,22 @@ export async function getConfiguredDeploymentOrCrash(
   if (configuredDeployment !== null) {
     return configuredDeployment;
   }
-  logFailure(
-    ctx,
-    "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
-  );
-  return await ctx.crash(1, "invalid filesystem data");
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "invalid filesystem data",
+    printedMessage:
+      "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
+  });
 }
 
 export async function getConfiguredDeploymentName(ctx: Context) {
   const { parentPackageJson } = await findParentConfigs(ctx);
   if (parentPackageJson !== path.resolve("package.json")) {
-    logFailure(ctx, "Run this command from the root directory of a project.");
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: "Run this command from the root directory of a project.",
+    });
   }
   return getConfiguredDeploymentFromEnvVar().name;
 }

@@ -1,5 +1,5 @@
 import path from "path";
-import { Context, logError } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
 import { entryPoints } from "../../bundler/index.js";
 import {
   ComponentDirectory,
@@ -208,8 +208,11 @@ async function buildMountTree(
 ): Promise<MountTree | null> {
   const analysis = startPush.analysis[definitionPath];
   if (!analysis) {
-    logError(ctx, `No analysis found for component ${definitionPath}`);
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No analysis found for component ${definitionPath}`,
+    });
   }
   let current = analysis.definition.exports.branch;
   for (const attribute of attributes) {
@@ -217,13 +220,19 @@ async function buildMountTree(
       ([identifier]) => identifier === attribute,
     );
     if (!componentExport) {
-      logError(ctx, `No export found for ${attribute}`);
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `No export found for ${attribute}`,
+      });
     }
     const [_, node] = componentExport;
     if (node.type !== "branch") {
-      logError(ctx, `Expected branch at ${attribute}`);
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Expected branch at ${attribute}`,
+      });
     }
     current = node.branch;
   }
@@ -250,8 +259,11 @@ async function buildComponentMountTree(
           (c) => c.name === componentName,
         );
         if (!childComponent) {
-          logError(ctx, `No child component found for ${componentName}`);
-          return await ctx.crash(1, "fatal");
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `No child component found for ${componentName}`,
+          });
         }
         const childTree = await buildMountTree(
           ctx,

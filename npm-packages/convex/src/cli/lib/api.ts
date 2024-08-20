@@ -1,10 +1,4 @@
-import chalk from "chalk";
-import {
-  Context,
-  logError,
-  logFailure,
-  logVerbose,
-} from "../../bundler/context.js";
+import { Context, logVerbose } from "../../bundler/context.js";
 import {
   deploymentNameFromAdminKeyOrCrash,
   deploymentTypeFromAdminKey,
@@ -70,8 +64,12 @@ export async function createProject(
   ) {
     const error =
       "Unexpected response during provisioning: " + JSON.stringify(data);
-    logError(ctx, chalk.red(error));
-    return await ctx.crash(1, "transient", error);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: error,
+      printedMessage: error,
+    });
   }
   return {
     projectSlug,
@@ -127,8 +125,12 @@ export async function createProjectProvisioningDevOrProd(
   ) {
     const error =
       "Unexpected response during provisioning: " + JSON.stringify(data);
-    logError(ctx, chalk.red(error));
-    return await ctx.crash(1, "transient", error);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: error,
+      printedMessage: error,
+    });
   }
   return {
     projectSlug,
@@ -173,8 +175,12 @@ export async function fetchDeploymentCredentialsForName(
   const resultDeploymentType: DeploymentType = data.deploymentType;
   if (adminKey === undefined || url === undefined) {
     const msg = "Unknown error during authorization: " + JSON.stringify(data);
-    logError(ctx, chalk.red(msg));
-    return await ctx.crash(1, "transient", new Error(msg));
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: new Error(msg),
+      printedMessage: msg,
+    });
   }
   return {
     deploymentName,
@@ -258,29 +264,32 @@ export async function fetchDeploymentCredentialsWithinCurrentProject(
   if (configuredAdminKey === undefined) {
     const buildEnvironmentExpectsConvexDeployKey = buildEnvironment();
     if (buildEnvironmentExpectsConvexDeployKey) {
-      logFailure(
-        ctx,
-        `${buildEnvironmentExpectsConvexDeployKey} build environment detected but ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} is not set. ` +
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          `${buildEnvironmentExpectsConvexDeployKey} build environment detected but ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} is not set. ` +
           `Set this environment variable to deploy from this environment. See https://docs.convex.dev/production/hosting`,
-      );
-      await ctx.crash(1);
+      });
     }
     const header = await getAuthHeaderForBigBrain(ctx);
     if (!header) {
-      logFailure(
-        ctx,
-        `Error: You are not logged in. Log in with \`npx convex dev\` or set the ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} environment variable. ` +
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          `Error: You are not logged in. Log in with \`npx convex dev\` or set the ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} environment variable. ` +
           `See https://docs.convex.dev/production/hosting`,
-      );
-      await ctx.crash(1);
+      });
     }
     const configuredDeployment = await getConfiguredDeploymentName(ctx);
     if (configuredDeployment === null) {
-      logFailure(
-        ctx,
-        "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
-      );
-      await ctx.crash(1);
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
+      });
     }
   }
 
@@ -296,8 +305,12 @@ export async function fetchDeploymentCredentialsWithinCurrentProject(
     deploymentName === undefined
   ) {
     const msg = "Unknown error during authorization: " + JSON.stringify(data);
-    logError(ctx, chalk.red(msg));
-    return await ctx.crash(1, "transient", new Error(msg));
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: new Error(msg),
+      printedMessage: msg,
+    });
   }
   return {
     deploymentName,
@@ -352,11 +365,12 @@ export async function projectSelection(
       deploymentName: configuredDeployment,
     };
   }
-  logFailure(
-    ctx,
-    "Select project by setting `CONVEX_DEPLOYMENT` with `npx convex dev` or `CONVEX_DEPLOY_KEY` from the Convex dashboard.",
-  );
-  return await ctx.crash(1);
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "fatal",
+    printedMessage:
+      "Select project by setting `CONVEX_DEPLOYMENT` with `npx convex dev` or `CONVEX_DEPLOY_KEY` from the Convex dashboard.",
+  });
 }
 
 async function fetchDeploymentCredentialsWithinCurrentProjectInner(
@@ -465,7 +479,13 @@ async function fetchDeploymentCredentialsWithinCurrentProjectInner(
       };
     default: {
       const _exhaustivenessCheck: never = deploymentSelection;
-      return ctx.crash(1);
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        // This should be unreachable, so don't bother with a printed message.
+        printedMessage: null,
+        errForSentry: `Unexpected deployment selection: ${deploymentSelection as any}`,
+      });
     }
   }
 }
@@ -540,8 +560,12 @@ export async function fetchTeamAndProject(
   if (team === undefined || project === undefined) {
     const msg =
       "Unknown error when fetching team and project: " + JSON.stringify(data);
-    logFailure(ctx, msg);
-    return await ctx.crash(1, "transient", new Error(msg));
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: new Error(msg),
+      printedMessage: msg,
+    });
   }
 
   return data;
@@ -572,8 +596,12 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
   const url = data.url;
   if (adminKey === undefined || url === undefined) {
     const msg = "Unknown error during authorization: " + JSON.stringify(data);
-    logError(ctx, chalk.red(msg));
-    return await ctx.crash(1, "transient", new Error(msg));
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: new Error(msg),
+      printedMessage: msg,
+    });
   }
   return { adminKey, deploymentUrl: url, deploymentName };
 }
@@ -607,15 +635,19 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
     "dev",
   );
   if ("error" in credentials) {
-    logFailure(
-      ctx,
-      `Failed to authorize "${deploymentName}" configured in CONVEX_DEPLOYMENT, run \`npx convex dev\` to configure a Convex project`,
-    );
-    return await ctx.crash(1, "invalid filesystem data", credentials.error);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      errForSentry: credentials.error,
+      printedMessage: `Failed to authorize "${deploymentName}" configured in CONVEX_DEPLOYMENT, run \`npx convex dev\` to configure a Convex project`,
+    });
   }
   if (credentials.deploymentType !== "dev") {
-    logFailure(ctx, `Deployment "${deploymentName}" is not a dev deployment`);
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Deployment "${deploymentName}" is not a dev deployment`,
+    });
   }
   return credentialsAsDevCredentials(credentials);
 }

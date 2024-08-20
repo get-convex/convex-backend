@@ -61,8 +61,11 @@ async function allowEqualsSyntax(
     if (/^[a-zA-Z][a-zA-Z0-9_]+=/.test(name)) {
       return name.split("=", 2);
     } else {
-      logFailure(ctx, "error: missing required argument 'value'");
-      return await ctx.crash(1);
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "error: missing required argument 'value'",
+      });
     }
   }
   return [name, value];

@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import path from "path";
-import { logFailure, oneoffContext } from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
 
 const cwd = path.basename(process.cwd());
 
@@ -22,13 +22,12 @@ export const init = new Command("init")
     ),
   )
   .action(async (_options) => {
-    logFailure(
-      oneoffContext,
-      "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
-    );
-    return oneoffContext.crash(
-      1,
-      "fatal",
-      "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
-    );
+    return oneoffContext.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      errForSentry:
+        "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
+      printedMessage:
+        "The `init` command is deprecated. Use `npx convex dev --once --configure=new` instead.",
+    });
   });

@@ -1,6 +1,6 @@
 import { PluginBuild } from "esbuild";
 import type { Plugin } from "esbuild";
-import { Context, logFailure } from "./context.js";
+import { Context } from "./context.js";
 import path from "path";
 
 import { findUp } from "find-up";
@@ -119,11 +119,11 @@ export async function computeExternalPackages(
     const packageJsonString = ctx.fs.readUtf8File(packageJsonPath);
     packageJson = JSON.parse(packageJsonString);
   } catch (error: any) {
-    logFailure(
-      ctx,
-      `Couldn't parse "${packageJsonPath}". Make sure it's a valid JSON. Error: ${error}`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Couldn't parse "${packageJsonPath}". Make sure it's a valid JSON. Error: ${error}`,
+    });
   }
 
   for (const key of [
@@ -141,11 +141,11 @@ export async function computeExternalPackages(
       }
 
       if (typeof packageJsonVersion !== "string") {
-        logFailure(
-          ctx,
-          `Invalid "${packageJsonPath}". "${key}.${packageName}" version has type ${typeof packageJsonVersion}.`,
-        );
-        return await ctx.crash(1, "invalid filesystem data");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "invalid filesystem data",
+          printedMessage: `Invalid "${packageJsonPath}". "${key}.${packageName}" version has type ${typeof packageJsonVersion}.`,
+        });
       }
 
       if (
@@ -226,20 +226,20 @@ export async function findExactVersionAndDependencies(
     const packageJsonString = ctx.fs.readUtf8File(modulePackageJsonPath);
     modulePackageJson = JSON.parse(packageJsonString);
   } catch (error: any) {
-    logFailure(
-      ctx,
-      `Missing "${modulePackageJsonPath}", which is required for
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Missing "${modulePackageJsonPath}", which is required for
       installing external package "${moduleName}" configured in convex.json.`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    });
   }
   if (modulePackageJson["version"] === undefined) {
-    logFailure(
-      ctx,
-      `"${modulePackageJsonPath}" misses a 'version' field. which is required for
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `"${modulePackageJsonPath}" misses a 'version' field. which is required for
       installing external package "${moduleName}" configured in convex.json.`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    });
   }
 
   const peerAndOptionalDependencies = new Set<string>();
@@ -248,11 +248,11 @@ export async function findExactVersionAndDependencies(
       modulePackageJson[key] ?? {},
     )) {
       if (typeof packageJsonVersion !== "string") {
-        logFailure(
-          ctx,
-          `Invalid "${modulePackageJsonPath}". "${key}.${packageName}" version has type ${typeof packageJsonVersion}.`,
-        );
-        return await ctx.crash(1, "invalid filesystem data");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "invalid filesystem data",
+          printedMessage: `Invalid "${modulePackageJsonPath}". "${key}.${packageName}" version has type ${typeof packageJsonVersion}.`,
+        });
       }
       peerAndOptionalDependencies.add(packageName);
     }

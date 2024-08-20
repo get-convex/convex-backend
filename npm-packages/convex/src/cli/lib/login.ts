@@ -45,13 +45,14 @@ async function writeGlobalConfig(ctx: Context, config: GlobalConfig) {
   try {
     ctx.fs.writeUtf8File(path, JSON.stringify(config));
   } catch (err) {
-    logFailure(
-      ctx,
-      chalk.red(
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      errForSentry: err,
+      printedMessage: chalk.red(
         `Failed to write auth config to ${path} with error: ${err as any}`,
       ),
-    );
-    return await ctx.crash(1, "invalid filesystem data", err);
+    });
   }
   logFinishedStep(ctx, `Saved credentials to ${formatPathForPrinting(path)}`);
 }
@@ -98,7 +99,11 @@ export async function checkAuthorization(
   // Check that we have optin as well
   const shouldContinue = await optins(ctx, acceptOptIns);
   if (!shouldContinue) {
-    return await ctx.crash(1, undefined);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: null,
+    });
   }
   return true;
 }
@@ -217,21 +222,31 @@ async function performDeviceAuthorization(
   } catch (err: any) {
     switch (err.error) {
       case "access_denied": // end-user declined the device confirmation prompt, consent or rules failed
-        logFailure(ctx, "Access denied.");
-        return await ctx.crash(1, err);
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: "Access denied.",
+          errForSentry: err,
+        });
       case "expired_token": // end-user did not complete the interaction in time
-        logFailure(ctx, "Device flow expired.");
-        return await ctx.crash(1, err);
-      default:
-        if (err instanceof errors.OPError) {
-          logFailure(
-            ctx,
-            `Error = ${err.error}; error_description = ${err.error_description}`,
-          );
-        } else {
-          logFailure(ctx, `Login failed with error: ${err}`);
-        }
-        return await ctx.crash(1, err);
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: "Device flow expired.",
+          errForSentry: err,
+        });
+      default: {
+        const message =
+          err instanceof errors.OPError
+            ? `Error = ${err.error}; error_description = ${err.error_description}`
+            : `Login failed with error: ${err}`;
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: message,
+          errForSentry: err,
+        });
+      }
     }
   }
 }
@@ -276,7 +291,12 @@ async function performPasswordAuthentication(
     if (err.response) {
       logError(ctx, chalk.red(`${JSON.stringify(err.response.data)}`));
     }
-    return await ctx.crash(1, err);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      errForSentry: err,
+      printedMessage: null,
+    });
   }
 }
 
@@ -366,7 +386,11 @@ export async function performLogin(
 
   if (dumpAccessToken) {
     console.log(`${accessToken}`);
-    return await ctx.crash(0);
+    return await ctx.crash({
+      exitCode: 0,
+      errorType: "fatal",
+      printedMessage: null,
+    });
   }
 
   interface AuthorizeArgs {
@@ -387,13 +411,22 @@ export async function performLogin(
   try {
     await writeGlobalConfig(ctx, globalConfig);
   } catch (err: unknown) {
-    return await ctx.crash(1, "invalid filesystem data", err);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      errForSentry: err,
+      printedMessage: null,
+    });
   }
 
   // Do opt in to TOS and Privacy Policy stuff
   const shouldContinue = await optins(ctx, acceptOptIns ?? false);
   if (!shouldContinue) {
-    return await ctx.crash(1, undefined);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: null,
+    });
   }
 }
 

@@ -1,5 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import { logFailure, oneoffContext } from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
 
 // Reinitialize an existing Convex project.
 // This command is deprecated and hidden from the command help.
@@ -21,13 +21,12 @@ export const reinit = new Command("reinit")
     ),
   )
   .action(async (_options) => {
-    logFailure(
-      oneoffContext,
-      "The `reinit` command is deprecated. Use `npx convex dev --once --configure=existing` instead.",
-    );
-    return oneoffContext.crash(
-      1,
-      "fatal",
-      "The `reinit` command is deprecated. Use `npx convex dev --once --configure=existing` instead.",
-    );
+    return oneoffContext.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      errForSentry:
+        "The `reinit` command is deprecated. Use `npx convex dev --once --configure=existing` instead.",
+      printedMessage:
+        "The `reinit` command is deprecated. Use `npx convex dev --once --configure=existing` instead.",
+    });
   });

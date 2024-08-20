@@ -1,5 +1,5 @@
 import path from "path";
-import { Context, logFailure } from "../../bundler/context.js";
+import { Context } from "../../bundler/context.js";
 import { Config } from "./config.js";
 
 export async function handleDebugBundlePath(
@@ -10,17 +10,17 @@ export async function handleDebugBundlePath(
   if (!ctx.fs.exists(debugBundleDir)) {
     ctx.fs.mkdir(debugBundleDir);
   } else if (!ctx.fs.stat(debugBundleDir).isDirectory()) {
-    logFailure(
-      ctx,
-      `Path \`${debugBundleDir}\` is not a directory. Please choose an empty directory for \`--debug-bundle-path\`.`,
-    );
-    await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Path \`${debugBundleDir}\` is not a directory. Please choose an empty directory for \`--debug-bundle-path\`.`,
+    });
   } else if (ctx.fs.listDir(debugBundleDir).length !== 0) {
-    logFailure(
-      ctx,
-      `Directory \`${debugBundleDir}\` is not empty. Please remove it or choose an empty directory for \`--debug-bundle-path\`.`,
-    );
-    await ctx.crash(1, "fatal");
+    await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Directory \`${debugBundleDir}\` is not empty. Please remove it or choose an empty directory for \`--debug-bundle-path\`.`,
+    });
   }
   ctx.fs.writeUtf8File(
     path.join(debugBundleDir, "fullConfig.json"),

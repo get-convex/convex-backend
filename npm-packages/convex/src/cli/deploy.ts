@@ -3,8 +3,6 @@ import { Command, Option } from "@commander-js/extra-typings";
 import inquirer from "inquirer";
 import {
   Context,
-  logError,
-  logFailure,
   logFinishedStep,
   logMessage,
   oneoffContext,
@@ -125,13 +123,13 @@ export const deploy = new Command("deploy")
       configuredDeployKey !== null &&
       deploymentTypeFromAdminKey(configuredDeployKey) === "prod"
     ) {
-      logError(
-        ctx,
-        `Detected a non-production build environment and "${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}" for a production Convex deployment.\n
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Detected a non-production build environment and "${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}" for a production Convex deployment.\n
           This is probably unintentional.
           `,
-      );
-      await ctx.crash(1);
+      });
     }
 
     await usageStateWarning(ctx);
@@ -141,11 +139,12 @@ export const deploy = new Command("deploy")
       isPreviewDeployKey(configuredDeployKey)
     ) {
       if (cmdOptions.previewName !== undefined) {
-        logError(
-          ctx,
-          "The `--preview-name` flag has been deprecated in favor of `--preview-create`. Please re-run the command using `--preview-create` instead.",
-        );
-        await ctx.crash(1);
+        await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "The `--preview-name` flag has been deprecated in favor of `--preview-create`. Please re-run the command using `--preview-create` instead.",
+        });
       }
       await deployToNewPreviewDeployment(ctx, {
         ...cmdOptions,
@@ -175,11 +174,12 @@ async function deployToNewPreviewDeployment(
 ) {
   const previewName = options.previewCreate ?? gitBranchFromEnvironment();
   if (previewName === null) {
-    logError(
-      ctx,
-      "`npx convex deploy` to a preview deployment could not determine the preview name. Provide one using `--preview-create`",
-    );
-    await ctx.crash(1);
+    await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "`npx convex deploy` to a preview deployment could not determine the preview name. Provide one using `--preview-create`",
+    });
   }
 
   if (options.dryRun) {
@@ -306,7 +306,11 @@ async function deployToExistingDeployment(
           url,
         )));
     if (!shouldPushToProd) {
-      await ctx.crash(1);
+      await ctx.crash({
+        exitCode: 1,
+        printedMessage: null,
+        errorType: "fatal",
+      });
     }
   }
 
@@ -367,8 +371,11 @@ async function runCommand(
       shell: true,
     });
     if (result.status !== 0) {
-      logFailure(ctx, `'${options.cmd}' failed`);
-      await ctx.crash(1);
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `'${options.cmd}' failed`,
+      });
     }
   }
   logFinishedStep(

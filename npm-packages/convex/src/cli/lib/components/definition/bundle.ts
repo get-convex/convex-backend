@@ -9,7 +9,6 @@ import {
 } from "./directoryStructure.js";
 import {
   Context,
-  logError,
   logMessage,
   logWarning,
   showSpinner,
@@ -217,15 +216,20 @@ export async function componentGraph(
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);
   } catch (err: any) {
-    logError(ctx, `esbuild failed: ${err}`);
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `esbuild failed: ${err}`,
+    });
   }
 
   if (result.errors.length) {
-    for (const error of result.errors) {
-      console.log(chalk.red(`esbuild error: ${error.text}`));
-    }
-    return await ctx.crash(1, "invalid filesystem data");
+    const message = result.errors.map((error) => error.text).join("\n");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: message,
+    });
   }
   for (const warning of result.warnings) {
     console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
@@ -291,11 +295,11 @@ async function findComponentDependencies(
     for (const importPath of componentImports.map((dep) => dep.path)) {
       const imported = componentsByAbsPath.get(path.resolve(importPath));
       if (!imported) {
-        logError(
-          ctx,
-          `Didn't find ${path.resolve(importPath)} in ${[...componentsByAbsPath.keys()].toString()}`,
-        );
-        return await ctx.crash(1, "fatal");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "invalid filesystem data",
+          printedMessage: `Didn't find ${path.resolve(importPath)} in ${[...componentsByAbsPath.keys()].toString()}`,
+        });
       }
       dependencyGraph.push([importer, imported]);
     }
@@ -345,14 +349,20 @@ export async function bundleDefinitions(
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);
   } catch (err: any) {
-    logError(ctx, `esbuild failed: ${err}`);
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `esbuild failed: ${err}`,
+    });
   }
+
   if (result.errors.length) {
-    for (const error of result.errors) {
-      console.log(chalk.red(`esbuild error: ${error.text}`));
-    }
-    return await ctx.crash(1, "invalid filesystem data");
+    const message = result.errors.map((error) => error.text).join("\n");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: message,
+    });
   }
   for (const warning of result.warnings) {
     console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
@@ -373,11 +383,11 @@ export async function bundleDefinitions(
       (outputFile) => outputFile.path === expectedOutputJs,
     )[0];
     if (!outputJs) {
-      logError(
-        ctx,
-        `no JS found matching ${expectedOutputJs} in ${result.outputFiles.map((x) => x.path).toString()}`,
-      );
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `no JS found matching ${expectedOutputJs} in ${result.outputFiles.map((x) => x.path).toString()}`,
+      });
     }
     const outputJsMap = result.outputFiles.filter(
       (outputFile) => outputFile.path === expectedOutputMap,
@@ -393,8 +403,11 @@ export async function bundleDefinitions(
     (out) => out.directory.path === rootComponentDirectory.path,
   );
   if (appBundles.length !== 1) {
-    logError(ctx, "found wrong number of app bundles");
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "found wrong number of app bundles",
+    });
   }
   const appBundle = appBundles[0];
   const componentBundles = outputs.filter(
@@ -483,8 +496,11 @@ export async function bundleImplementations(
     } = await bundle(ctx, resolvedPath, entryPoints.isolate, true, "browser");
 
     if (convexResult.externalDependencies.size !== 0) {
-      logError(ctx, "external dependencies not supported");
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "external dependencies not supported",
+      });
     }
     const functions = convexResult.modules;
     if (isRoot) {
@@ -536,8 +552,11 @@ export async function bundleImplementations(
   }
 
   if (!appImplementation) {
-    logError(ctx, "No app implementation found");
-    return await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "No app implementation found",
+    });
   }
 
   return { appImplementation, componentImplementations };
@@ -564,13 +583,17 @@ async function registerEsbuildReads(
     const absPath = path.resolve(absWorkingDir, relPath);
     const st = ctx.fs.stat(absPath);
     if (st.size !== input.bytes) {
+      // Consider this a transient error so we'll try again and hopefully
+      // no files change right after esbuild next time.
       logWarning(
         ctx,
         `Bundled file ${absPath} changed right after esbuild invocation`,
       );
-      // Consider this a transient error so we'll try again and hopefully
-      // no files change right after esbuild next time.
-      return await ctx.crash(1, "transient");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "transient",
+        printedMessage: null,
+      });
     }
     ctx.fs.registerPath(absPath, st);
   }

@@ -1,5 +1,5 @@
 import path from "path";
-import { Context, logError } from "../../../../bundler/context.js";
+import { Context } from "../../../../bundler/context.js";
 import { DEFINITION_FILENAME, ROOT_DEFINITION_FILENAME } from "../constants.js";
 
 /**
@@ -88,11 +88,11 @@ export async function buildComponentDirectory(
     isRoot,
   );
   if (isComponent.kind === "err") {
-    logError(
-      ctx,
-      `Invalid component directory (${isComponent.why}): ${path.dirname(definitionPath)}`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Invalid component directory (${isComponent.why}): ${path.dirname(definitionPath)}`,
+    });
   }
   return isComponent.component;
 }

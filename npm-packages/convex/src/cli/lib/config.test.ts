@@ -1,12 +1,15 @@
 import { vi, test, expect } from "vitest";
 import { parseProjectConfig } from "./config.js";
-import { oneoffContext } from "../../bundler/context.js";
+import { logFailure, oneoffContext } from "../../bundler/context.js";
 
 test("parseProjectConfig", async () => {
   // Make a context that throws on crashes so we can detect them.
   const ctx = {
     ...oneoffContext,
-    crash: () => {
+    crash: (args: { printedMessage: string | null }) => {
+      if (args.printedMessage !== null) {
+        logFailure(oneoffContext, args.printedMessage);
+      }
       // eslint-disable-next-line no-restricted-syntax
       throw new Error();
     },
@@ -59,6 +62,6 @@ test("parseProjectConfig", async () => {
       functions: "functions/",
       authInfo: [{}],
     },
-    "Expected `authInfo` in `convex.json` to be of type AuthInfo[]\n",
+    "✖ Expected `authInfo` in `convex.json` to be type AuthInfo[]\n",
   );
 });

@@ -1,7 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
-import { logFailure, logMessage, oneoffContext } from "../bundler/context.js";
+import { logMessage, oneoffContext } from "../bundler/context.js";
 import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsProvisionProd,
@@ -30,13 +30,13 @@ export const dashboard = new Command("dashboard")
     );
 
     if (deploymentName === undefined) {
-      logFailure(
-        ctx,
-        `No Convex deployment configured, run \`${chalk.bold(
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `No Convex deployment configured, run \`${chalk.bold(
           "npx convex dev",
         )}\``,
-      );
-      return await ctx.crash(1, "invalid filesystem data");
+      });
     }
 
     const loginUrl = await deploymentDashboardUrlPage(deploymentName, "");

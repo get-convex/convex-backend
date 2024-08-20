@@ -1,9 +1,5 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import {
-  logError,
-  logFinishedStep,
-  oneoffContext,
-} from "../bundler/context.js";
+import { logFinishedStep, oneoffContext } from "../bundler/context.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
 
 export const login = new Command("login")
@@ -49,8 +45,12 @@ export const login = new Command("login")
     if (!options.force && options.checkLogin) {
       const isLoggedIn = await checkAuthorization(ctx, !!options.acceptOptIns);
       if (!isLoggedIn) {
-        logError(ctx, "You are not logged in.");
-        return ctx.crash(1, "fatal", "You are not logged in.");
+        return ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          errForSentry: "You are not logged in.",
+          printedMessage: "You are not logged in.",
+        });
       }
     }
     if (!!options.overrideAuthUsername !== !!options.overrideAuthPassword) {

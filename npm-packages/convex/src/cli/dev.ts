@@ -3,8 +3,7 @@ import { Command, Option } from "@commander-js/extra-typings";
 import path from "path";
 import { performance } from "perf_hooks";
 import {
-  Context,
-  logError,
+  OneoffCtx,
   logFinishedStep,
   logMessage,
   logVerbose,
@@ -118,8 +117,11 @@ export const dev = new Command("dev")
     const ctx = oneoffContext;
 
     if (cmdOptions.debugBundlePath !== undefined && !cmdOptions.once) {
-      logError(ctx, "`--debug-bundle-path` can only be used with `--once`.");
-      await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "`--debug-bundle-path` can only be used with `--once`.",
+      });
     }
 
     const localOptions: {
@@ -134,17 +136,22 @@ export const dev = new Command("dev")
         cmdOptions.localBackendVersion !== undefined ||
         cmdOptions.localForceUpgrade === true
       ) {
-        logError(ctx, "`--local-*` options can only be used with `--local`.");
-        await ctx.crash(1, "fatal");
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "`--local-*` options can only be used with `--local`.",
+        });
       }
     } else {
       if (cmdOptions.localCloudPort !== undefined) {
         if (cmdOptions.localSitePort === undefined) {
-          logError(
-            ctx,
-            "`--local-cloud-port` requires `--local-site-port` to be set.",
-          );
-          return await ctx.crash(1, "fatal");
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage:
+              "`--local-cloud-port` requires `--local-site-port` to be set.",
+          });
         }
         localOptions["ports"] = {
           cloud: parseInt(cmdOptions.localCloudPort),
@@ -203,7 +210,7 @@ export const dev = new Command("dev")
   });
 
 export async function watchAndPush(
-  outerCtx: Context,
+  outerCtx: OneoffCtx,
   options: PushOptions,
   cmdOptions: {
     once: boolean;
@@ -275,7 +282,7 @@ export async function watchAndPush(
         tableNameTriggeringRetry = e.errorType["invalid filesystem or db data"];
       }
       if (cmdOptions.once) {
-        await outerCtx.crash(1, e.errorType);
+        await outerCtx.flushAndExit(1, e.errorType);
       }
       // Make sure that we don't spin if this push failed
       // in any edge cases that didn't call `logFailure`

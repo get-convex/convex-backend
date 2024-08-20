@@ -1,7 +1,12 @@
 import chokidar from "chokidar";
 import path from "path";
 import { Observations, RecordingFs, WatchEvent } from "../../bundler/fs.js";
-import { Context, ErrorType } from "../../bundler/context.js";
+import {
+  Context,
+  ErrorType,
+  logFailure,
+  logWarning,
+} from "../../bundler/context.js";
 import * as Sentry from "@sentry/node";
 import { Ora } from "ora";
 
@@ -105,12 +110,25 @@ export class WatchContext implements Context {
     this.deprecationMessagePrinted = false;
   }
 
-  crash(_exitCode: number, retry?: ErrorType, err?: any): Promise<never> {
-    if (err) {
-      Sentry.captureException(err);
+  crash(args: {
+    exitCode: number;
+    errorType?: ErrorType;
+    errForSentry?: any;
+    printedMessage: string | null;
+    messageLevel?: "error" | "warning";
+  }): Promise<never> {
+    if (args.errForSentry) {
+      Sentry.captureException(args.errForSentry);
+    }
+    if (args.printedMessage !== null) {
+      if (args.messageLevel === "warning") {
+        logWarning(this, args.printedMessage);
+      } else {
+        logFailure(this, args.printedMessage);
+      }
     }
     // Okay to throw here. We've wrapped it in a Crash that we'll catch later.
     // eslint-disable-next-line no-restricted-syntax
-    throw new Crash(retry, err);
+    throw new Crash(args.errorType, args.errForSentry);
   }
 }

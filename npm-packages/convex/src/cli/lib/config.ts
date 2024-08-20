@@ -106,8 +106,11 @@ export async function parseProjectConfig(
   obj: any,
 ): Promise<ProjectConfig> {
   if (typeof obj !== "object") {
-    logError(ctx, "Expected `convex.json` to contain an object");
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: "Expected `convex.json` to contain an object",
+    });
   }
   if (typeof obj.node === "undefined") {
     obj.node = {
@@ -119,37 +122,43 @@ export async function parseProjectConfig(
     !Array.isArray(obj.node.externalPackages) ||
     !obj.node.externalPackages.every((item: any) => typeof item === "string")
   ) {
-    logError(
-      ctx,
-      "Expected `node.externalPackages` in `convex.json` to be an array of strings",
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage:
+        "Expected `node.externalPackages` in `convex.json` to be an array of strings",
+    });
   }
   if (typeof obj.generateCommonJSApi === "undefined") {
     obj.generateCommonJSApi = false;
   } else if (typeof obj.generateCommonJSApi !== "boolean") {
-    logError(
-      ctx,
-      "Expected `generateCommonJSApi` in `convex.json` to be true or false",
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage:
+        "Expected `generateCommonJSApi` in `convex.json` to be true or false",
+    });
   }
 
   if (typeof obj.functions === "undefined") {
     obj.functions = DEFAULT_FUNCTIONS_PATH;
   } else if (typeof obj.functions !== "string") {
-    logError(ctx, "Expected `functions` in `convex.json` to be a string");
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: "Expected `functions` in `convex.json` to be a string",
+    });
   }
 
   // Allow the `authInfo` key to be omitted, treating it as an empty list of providers.
   if (obj.authInfo !== undefined) {
     if (!isAuthInfos(obj.authInfo)) {
-      logError(
-        ctx,
-        "Expected `authInfo` in `convex.json` to be of type AuthInfo[]",
-      );
-      return await ctx.crash(1, "invalid filesystem data");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage:
+          "Expected `authInfo` in `convex.json` to be type AuthInfo[]",
+      });
     }
   }
 
@@ -203,21 +212,19 @@ export async function configFilepath(ctx: Context): Promise<string> {
   const preferredLocationExists = ctx.fs.exists(preferredLocation);
   const wrongLocationExists = ctx.fs.exists(wrongLocation);
   if (preferredLocationExists && wrongLocationExists) {
-    logError(
-      ctx,
-      chalk.red(
-        `Error: both ${preferredLocation} and ${wrongLocation} files exist!`,
-      ),
-    );
-    logFailure(ctx, `Consolidate these and remove ${wrongLocation}.`);
-    return await ctx.crash(1, "invalid filesystem data");
+    const message = `${chalk.red(`Error: both ${preferredLocation} and ${wrongLocation} files exist!`)}\nConsolidate these and remove ${wrongLocation}.`;
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: message,
+    });
   }
   if (!preferredLocationExists && wrongLocationExists) {
-    logFailure(
-      ctx,
-      `Error: Please move ${wrongLocation} to the root of your project`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Error: Please move ${wrongLocation} to the root of your project`,
+    });
   }
 
   return preferredLocation;
@@ -272,7 +279,13 @@ export async function readProjectConfig(ctx: Context): Promise<{
         logError(ctx, chalk.red(err.message));
       }
     }
-    return await ctx.crash(1, "invalid filesystem data", err);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      errForSentry: err,
+      // TODO -- move the logging above in here
+      printedMessage: null,
+    });
   }
   return {
     projectConfig,
@@ -290,9 +303,12 @@ export async function enforceDeprecatedConfigField(
     return value;
   }
   const err = new ParseError(`Expected ${field} to be a string`);
-  logFailure(ctx, `Error: Parsing convex.json failed`);
-  logMessage(ctx, chalk.gray(err.toString()));
-  return await ctx.crash(1, "invalid filesystem data", err);
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "invalid filesystem data",
+    errForSentry: err,
+    printedMessage: `Error: Parsing convex.json failed:\n${chalk.gray(err.toString())}`,
+  });
 }
 
 /**
@@ -440,12 +456,13 @@ export async function upgradeOldAuthInfoToAuthConfig(
       ctx.fs.exists(authConfigPathJS) ? "auth.config.js" : "auth.config.ts",
     );
     if (ctx.fs.exists(authConfigPath)) {
-      logFailure(
-        ctx,
-        `Cannot set auth config in both \`${authConfigRelativePath}\` and convex.json,` +
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage:
+          `Cannot set auth config in both \`${authConfigRelativePath}\` and convex.json,` +
           ` remove it from convex.json`,
-      );
-      await ctx.crash(1, "invalid filesystem data");
+      });
     }
     if (config.authInfo.length > 0) {
       const providersStringLines = JSON.stringify(
@@ -490,12 +507,14 @@ export async function writeProjectConfig(
       const contents = JSON.stringify(strippedConfig, undefined, 2) + "\n";
       ctx.fs.writeUtf8File(configPath, contents, 0o644);
     } catch (err) {
-      logFailure(
-        ctx,
-        `Error: Unable to write project config file "${configPath}" in current directory\n` +
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        errForSentry: err,
+        printedMessage:
+          `Error: Unable to write project config file "${configPath}" in current directory\n` +
           "  Are you running this command from the root directory of a Convex project?",
-      );
-      return await ctx.crash(1, "invalid filesystem data", err);
+      });
     }
   } else if (deleteIfAllDefault && ctx.fs.exists(configPath)) {
     ctx.fs.unlink(configPath);
@@ -825,16 +844,19 @@ export async function pushConfig(
         configuredDeployment,
         `/settings/environment-variables${variableQuery}`,
       );
-      logFailure(
-        ctx,
+      const message =
         `Environment variable ${chalk.bold(
           variableName,
         )} is used in auth config file but ` +
-          `its value was not set. Go to:\n\n    ${chalk.bold(
-            dashboardUrl,
-          )}\n\n  to set it up. `,
-      );
-      await ctx.crash(1, "invalid filesystem or env vars", error);
+        `its value was not set. Go to:\n\n    ${chalk.bold(
+          dashboardUrl,
+        )}\n\n  to set it up. `;
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem or env vars",
+        errForSentry: error,
+        printedMessage: message,
+      });
     }
 
     logFailure(ctx, "Error: Unable to push deployment config to " + url);

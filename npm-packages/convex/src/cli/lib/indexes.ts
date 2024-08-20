@@ -127,13 +127,20 @@ async function waitForReadySchema(
       // because adjusting `schema.ts` is the most normal next step.
       logFailure(ctx, "Schema validation failed");
       logError(ctx, chalk.red(`${data.schemaState.error}`));
-      return await ctx.crash(1, {
-        "invalid filesystem or db data": data.schemaState.tableName ?? null,
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: {
+          "invalid filesystem or db data": data.schemaState.tableName ?? null,
+        },
+        printedMessage: null, // TODO - move logging into here
       });
 
     case "overwritten":
-      logFailure(ctx, `Schema was overwritten by another push.`);
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Schema was overwritten by another push.`,
+      });
     case "validated":
       logFinishedStep(ctx, "Schema validation complete.");
       break;

@@ -176,7 +176,11 @@ async function selectProject(
     case "existing":
       return selectExistingProject(ctx, cmdOptions);
     default:
-      return await ctx.crash(1, "fatal", "No project selected.");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "No project selected.",
+      });
   }
 }
 
@@ -358,8 +362,11 @@ async function selectExistingProject(
     "Project:",
   );
   if (projectSlug === null) {
-    logFailure(ctx, "Run the command again to create a new project instead.");
-    return await ctx.crash(1);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Run the command again to create a new project instead.",
+    });
   }
 
   showSpinner(ctx, `Reinitializing project ${projectSlug}...\n`);
@@ -456,11 +463,12 @@ async function ensureDeploymentProvisioned(
       return credentials;
     }
     default:
-      return await ctx.crash(
-        1,
-        "fatal",
-        `Invalid deployment type: ${(options.deploymentOptions as any).kind}`,
-      );
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Invalid deployment type: ${(options.deploymentOptions as any).kind}`,
+        errForSentry: `Invalid deployment type: ${(options.deploymentOptions as any).kind}`,
+      });
   }
 }
 

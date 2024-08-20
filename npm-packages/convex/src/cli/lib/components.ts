@@ -1,10 +1,5 @@
 import path from "path";
-import {
-  Context,
-  changeSpinner,
-  logError,
-  logMessage,
-} from "../../bundler/context.js";
+import { Context, changeSpinner, logMessage } from "../../bundler/context.js";
 import {
   ProjectConfig,
   configFromProjectConfig,
@@ -126,11 +121,11 @@ async function startComponentsPushAndCodegen(
   const absWorkingDir = path.resolve(".");
   const isComponent = isComponentDirectory(ctx, convexDir, true);
   if (isComponent.kind === "err") {
-    logError(
-      ctx,
-      `Invalid component root directory (${isComponent.why}): ${convexDir}`,
-    );
-    return await ctx.crash(1, "invalid filesystem data");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: `Invalid component root directory (${isComponent.why}): ${convexDir}`,
+    });
   }
   const rootComponent = isComponent.component;
 
@@ -217,10 +212,11 @@ async function startComponentsPushAndCodegen(
         componentDefinition.definitionPath,
     )[0];
     if (!impl) {
-      console.log(
-        `missing! couldn't find ${componentDefinition.definitionPath} in ${componentImplementations.map((impl) => path.resolve(rootComponent.path, impl.definitionPath)).toString()}`,
-      );
-      return await ctx.crash(1, "fatal");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `missing! couldn't find ${componentDefinition.definitionPath} in ${componentImplementations.map((impl) => path.resolve(rootComponent.path, impl.definitionPath)).toString()}`,
+      });
     }
     componentDefinitions.push({
       ...componentDefinition,
@@ -296,8 +292,11 @@ export async function runComponentsPush(
   await ensureHasConvexDependency(ctx, "push");
 
   if (options.dryRun) {
-    logError(ctx, "dryRun not allowed yet");
-    await ctx.crash(1, "fatal");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "dryRun not allowed yet",
+    });
   }
 
   const startPushResponse = await startComponentsPushAndCodegen(

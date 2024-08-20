@@ -156,8 +156,11 @@ async function checkDns(ctx: Context, url: string) {
       } (${formatDuration(result.duration)})`,
     );
   } catch (e: any) {
-    logFailure(ctx, chalk.red(`FAIL: DNS lookup (${e})`));
-    return ctx.crash(1, "transient");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      printedMessage: `FAIL: DNS lookup (${e})`,
+    });
   }
 }
 
@@ -209,8 +212,11 @@ async function checkTcpHostPort(
       )})`,
     );
   } catch (e: any) {
-    logFailure(ctx, chalk.red(`FAIL: ${tcpString} connect (${e})`));
-    return ctx.crash(1, "transient");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      printedMessage: `FAIL: ${tcpString} connect (${e})`,
+    });
   }
 }
 
@@ -252,8 +258,11 @@ async function checkHttpOnce(
       `${chalk.green(`✔`)} OK: ${name} check (${formatDuration(duration)})`,
     );
   } catch (e: any) {
-    logFailure(ctx, chalk.red(`FAIL: ${name} check (${e})`));
-    return ctx.crash(1, "transient");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      printedMessage: `FAIL: ${name} check (${e})`,
+    });
   }
 }
 
@@ -290,8 +299,11 @@ async function checkEcho(ctx: Context, url: string, size: number) {
       )}, ${formatSize(bytesPerSecond)}/s)`,
     );
   } catch (e: any) {
-    logFailure(ctx, chalk.red(`FAIL: echo ${formatSize(size)} (${e})`));
-    return ctx.crash(1, "transient");
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      printedMessage: `FAIL: echo ${formatSize(size)} (${e})`,
+    });
   }
 }
 
@@ -318,13 +330,11 @@ export async function withTimeout<T>(
     if (result.kind === "ok") {
       return result.result;
     } else {
-      logFailure(
-        ctx,
-        chalk.red(
-          `FAIL: ${name} timed out after ${formatDuration(timeoutMs)}.`,
-        ),
-      );
-      return await ctx.crash(1, "transient");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "transient",
+        printedMessage: `FAIL: ${name} timed out after ${formatDuration(timeoutMs)}.`,
+      });
     }
   } finally {
     if (timer !== null) {

@@ -1,10 +1,5 @@
 import AdmZip from "adm-zip";
-import {
-  Context,
-  logError,
-  logMessage,
-  logVerbose,
-} from "../../../bundler/context.js";
+import { Context, logMessage, logVerbose } from "../../../bundler/context.js";
 import {
   binariesDir,
   binaryZip,
@@ -52,11 +47,12 @@ export async function ensureBackendBinaryDownloaded(
     { redirect: "manual" },
   );
   if (latest.status !== 302) {
-    return await ctx.crash(
-      1,
-      "fatal",
-      "Failed to get latest convex backend release",
-    );
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Failed to get latest convex backend release",
+      errForSentry: "Failed to get latest convex backend release",
+    });
   }
   const latestUrl = latest.headers.get("location")!;
   const latestVersion = latestUrl.split("/").pop()!;
@@ -192,11 +188,11 @@ export async function ensureBackendRunning(
       if (resp.status === 200) {
         const text = await resp.text();
         if (text !== args.deploymentName) {
-          return await ctx.crash(
-            1,
-            "fatal",
-            `A different local backend ${text} is running on selected port ${args.cloudPort}`,
-          );
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `A different local backend ${text} is running on selected port ${args.cloudPort}`,
+          });
         }
         break;
       } else {
@@ -236,15 +232,11 @@ export async function ensureBackendStopped(
     await new Promise((resolve) => setTimeout(resolve, 500));
     timeElapsedSecs += 0.5;
   }
-  logError(
-    ctx,
-    `A local backend is still running on port ${args.ports.cloud}. Please stop it and run this command again.`,
-  );
-  return ctx.crash(
-    1,
-    "fatal",
-    `A local backend is still running on port ${args.ports.cloud}. Please stop it and run this command again.`,
-  );
+  return ctx.crash({
+    exitCode: 1,
+    errorType: "fatal",
+    printedMessage: `A local backend is still running on port ${args.ports.cloud}. Please stop it and run this command again.`,
+  });
 }
 
 export function localDeploymentUrl(cloudPort: number): string {

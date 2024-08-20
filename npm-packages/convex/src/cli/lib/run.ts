@@ -7,8 +7,6 @@ import { PaginationResult, makeFunctionReference } from "../../server/index.js";
 import { Value, convexToJson } from "../../values/value.js";
 import {
   Context,
-  logError,
-  logFailure,
   logFinishedStep,
   logMessage,
   logOutput,
@@ -37,9 +35,11 @@ export async function runFunctionAndLog(
       args,
     );
   } catch (err) {
-    logFailure(ctx, `Failed to run function "${functionName}":`);
-    logError(ctx, chalk.red((err as Error).toString().trim()));
-    return await ctx.crash(1, "invalid filesystem or env vars");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem or env vars",
+      printedMessage: `Failed to run function "${functionName}":\n${chalk.red((err as Error).toString().trim())}`,
+    });
   }
 
   callbacks?.onSuccess?.();
@@ -100,9 +100,11 @@ export async function runQuery(
       args,
     );
   } catch (err) {
-    logFailure(ctx, `Failed to run query "${functionName}":`);
-    logError(ctx, chalk.red((err as Error).toString().trim()));
-    return await ctx.crash(1, "invalid filesystem or env vars");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem or env vars",
+      printedMessage: `Failed to run query "${functionName}":\n${chalk.red((err as Error).toString().trim())}`,
+    });
   }
 }
 

@@ -91,16 +91,20 @@ export const convexExport = new Command("export")
         break;
       case "requested":
       case "in_progress": {
-        logFailure(ctx, `WARNING: Export is continuing to run on the server.`);
-        return await ctx.crash(1);
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `WARNING: Export is continuing to run on the server.`,
+        });
       }
       default: {
         const _: never = snapshotExportState;
-        logFailure(
-          ctx,
-          `unknown error: unexpected state ${snapshotExportState as any}`,
-        );
-        return await ctx.crash(1);
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `unknown error: unexpected state ${snapshotExportState as any}`,
+          errForSentry: `unexpected snapshot export state ${(snapshotExportState as any).state}`,
+        });
       }
     }
 
@@ -233,8 +237,11 @@ export async function downloadSnapshotExport(
     } else {
       // TODO(sarah) -- if this is called elsewhere, I'd like to catch the error + potentially
       // have different logging
-      logFailure(ctx, `Error: Path ${chalk.bold(inputPath)} already exists.`);
-      return await ctx.crash(1, "invalid filesystem data");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `Error: Path ${chalk.bold(inputPath)} already exists.`,
+      });
     }
   } else {
     filePath = inputPath;
@@ -249,6 +256,10 @@ export async function downloadSnapshotExport(
   } catch (e) {
     logFailure(ctx, `Exporting data failed`);
     logError(ctx, chalk.red(e));
-    return await ctx.crash(1);
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Exporting data failed: ${chalk.red(e)}`,
+    });
   }
 }

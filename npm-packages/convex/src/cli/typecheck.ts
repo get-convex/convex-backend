@@ -30,19 +30,27 @@ export const typecheck = new Command("typecheck")
         logSpecificError?.();
         if (typecheckResult === "typecheckFailed") {
           logMessage(ctx, chalk.gray("Typecheck failed"));
-          return await ctx.crash(1, "invalid filesystem data");
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "invalid filesystem data",
+            printedMessage: null,
+          });
         } else if (typecheckResult === "cantTypeCheck") {
           logMessage(
             ctx,
             chalk.gray("Unable to typecheck; is TypeScript installed?"),
           );
-          return await ctx.crash(1, "invalid filesystem data");
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "invalid filesystem data",
+            printedMessage: null,
+          });
         } else {
           logFinishedStep(
             ctx,
             "Typecheck passed: `tsc --noEmit` completed with exit code 0.",
           );
-          return await ctx.crash(0);
+          return await ctx.flushAndExit(0);
         }
       },
     );

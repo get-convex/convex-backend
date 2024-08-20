@@ -246,7 +246,11 @@ async function choosePorts(
       availableCloudPort !== requestedPorts.cloud ||
       availableSitePort !== requestedPorts.site
     ) {
-      return ctx.crash(1, "fatal", "Requested ports are not available");
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "Requested ports are not available",
+      });
     }
     return { cloud: availableCloudPort, site: availableSitePort };
   }
