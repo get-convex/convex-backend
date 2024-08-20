@@ -34,6 +34,7 @@ use common::{
 use errors::ErrorMetadata;
 use value::{
     val,
+    ConvexObject,
     FieldPath,
     NamespacedTableMapping,
     ResolvedDocumentId,
@@ -127,6 +128,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         Ok((schema_diff, next_schema))
     }
 
+    #[minitrace::trace]
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
         let schema_table_mapping = self.tx.table_mapping().namespace(self.namespace);
         self.enforce_with_table_mapping(document, &schema_table_mapping)
@@ -234,7 +236,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             .map(|doc| {
                 Ok::<(ResolvedDocumentId, DatabaseSchema), anyhow::Error>((
                     doc.id().to_owned(),
-                    SchemaMetadata::try_from(doc.into_value().into_value())?.schema,
+                    parse_schema_traced(doc.into_value().into_value())?.schema,
                 ))
             })
             .transpose()?;
@@ -505,4 +507,9 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         self.delete_old_failed_and_overwritten_schemas().await?;
         Ok(())
     }
+}
+
+#[minitrace::trace]
+fn parse_schema_traced(value: ConvexObject) -> anyhow::Result<SchemaMetadata> {
+    SchemaMetadata::try_from(value)
 }
