@@ -265,6 +265,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     // This method assumes it's being called in apply_config, or at least after
     // indexes have been added and backfilled.
+    #[minitrace::trace]
     pub async fn apply(
         &mut self,
         namespace: TableNamespace,

@@ -140,6 +140,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Self { tx }
     }
 
+    #[minitrace::trace]
     pub async fn apply(
         &mut self,
         component: ComponentId,

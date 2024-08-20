@@ -63,6 +63,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
         Self { tx, namespace }
     }
 
+    #[minitrace::trace]
     pub async fn put(&mut self, source_package: SourcePackage) -> anyhow::Result<SourcePackageId> {
         let document_id = SystemMetadataModel::new(self.tx, self.namespace)
             .insert(&SOURCE_PACKAGES_TABLE, source_package.try_into()?)

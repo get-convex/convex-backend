@@ -144,6 +144,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         Self { tx, component }
     }
 
+    #[minitrace::trace]
     pub async fn apply(
         &mut self,
         analyze_results: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,

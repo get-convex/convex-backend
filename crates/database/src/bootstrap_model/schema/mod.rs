@@ -99,6 +99,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         Self::new(tx, TableNamespace::test_user())
     }
 
+    #[minitrace::trace]
     pub async fn apply(
         &mut self,
         schema_id: Option<ResolvedDocumentId>,
