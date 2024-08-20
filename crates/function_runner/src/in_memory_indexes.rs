@@ -288,7 +288,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             table_mapping.clone(),
             table_states,
             persistence_snapshot.persistence().version(),
-            virtual_system_mapping(),
         )?;
         DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {

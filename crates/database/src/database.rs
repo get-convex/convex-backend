@@ -448,13 +448,11 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,
         index_registry: &IndexRegistry,
-        virtual_system_mapping: VirtualSystemMapping,
     ) -> anyhow::Result<TableRegistry> {
         let table_registry = TableRegistry::bootstrap(
             table_mapping,
             table_states,
             persistence_snapshot.persistence().version(),
-            virtual_system_mapping,
         )?;
         Self::verify_invariants(&table_registry, index_registry)?;
         Ok(table_registry)
@@ -527,7 +525,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
-        virtual_system_mapping: VirtualSystemMapping,
     ) -> anyhow::Result<Self> {
         let repeatable_persistence: RepeatablePersistence =
             RepeatablePersistence::new(persistence.clone(), snapshot, retention_validator.clone());
@@ -588,7 +585,6 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             table_mapping,
             table_states,
             &index_registry,
-            virtual_system_mapping,
         )
         .await?;
 
@@ -747,7 +743,6 @@ impl<RT: Runtime> Database<RT> {
             reader.clone(),
             snapshot_ts,
             Arc::new(follower_retention_manager.clone()),
-            virtual_system_mapping.clone(),
         )
         .await?;
         let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;

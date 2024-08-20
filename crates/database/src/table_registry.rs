@@ -18,10 +18,6 @@ use common::{
         TabletId,
         TabletIdAndTableNumber,
     },
-    virtual_system_mapping::{
-        all_tables_number_to_name,
-        VirtualSystemMapping,
-    },
 };
 use imbl::OrdMap;
 use indexing::index_registry::IndexRegistry;
@@ -45,9 +41,6 @@ pub struct TableRegistry {
     tablet_states: OrdMap<TabletId, TableState>,
     table_mapping: TableMapping,
     persistence_version: PersistenceVersion,
-
-    /// Mapping from virtual table name to corresponding system table name.
-    virtual_system_mapping: VirtualSystemMapping,
 }
 
 impl TableRegistry {
@@ -58,14 +51,12 @@ impl TableRegistry {
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,
         persistence_version: PersistenceVersion,
-        virtual_system_mapping: VirtualSystemMapping,
     ) -> anyhow::Result<Self> {
         let _timer = bootstrap_table_registry_timer();
         Ok(Self {
             table_mapping,
             tablet_states: table_states,
             persistence_version,
-            virtual_system_mapping,
         })
     }
 
@@ -201,21 +192,11 @@ impl TableRegistry {
             .namespace(namespace)
             .name_by_number_if_exists(table_number)
         {
-            if self.virtual_system_mapping.is_virtual_table(table_name)
-                && self
-                    .virtual_system_mapping
-                    .virtual_to_system_table(table_name)?
-                    == existing_table
-            {
-                // A virtual table can share a table number with its physical
-                // table.
-            } else {
-                anyhow::ensure!(
-                    existing_table == table_name,
-                    "Cannot add a table {table_name} with table number {table_number} since it \
-                     already exists in the table mapping as {existing_table}"
-                );
-            }
+            anyhow::ensure!(
+                existing_table == table_name,
+                "Cannot add a table {table_name} with table number {table_number} since it \
+                 already exists in the table mapping as {existing_table}"
+            );
         }
         Ok(())
     }
@@ -257,14 +238,6 @@ impl TableRegistry {
 
     pub(crate) fn tablet_states(&self) -> &OrdMap<TabletId, TableState> {
         &self.tablet_states
-    }
-
-    pub fn all_tables_number_to_name(
-        &mut self,
-        namespace: TableNamespace,
-    ) -> impl Fn(TableNumber) -> anyhow::Result<TableName> + '_ {
-        let table_mapping = self.table_mapping().namespace(namespace);
-        all_tables_number_to_name(&table_mapping, &self.virtual_system_mapping)
     }
 
     pub fn persistence_version(&self) -> PersistenceVersion {

@@ -1911,7 +1911,6 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
         tp.reader(),
         unchecked_repeatable_ts(ts),
         retention_validator,
-        VirtualSystemMapping::default(),
     )
     .await?;
     let index_metadata = database_snapshot.index_registry().clone();
