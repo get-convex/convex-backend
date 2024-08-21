@@ -162,11 +162,12 @@ where
             match e {
                 DiscoveryError::Response(code, body, _) => {
                     let long = format!("{long}: {} {}", code, String::from_utf8_lossy(&body));
-                    if let Some(em) = ErrorMetadata::from_http_status_code(
-                        code.to_string().parse().unwrap(),
-                        short,
-                        long.clone(),
-                    ) {
+                    let Ok(code) = http::StatusCode::from_u16(code.as_u16()) else {
+                        return ErrorMetadata::bad_request(short, long);
+                    };
+                    if let Some(em) =
+                        ErrorMetadata::from_http_status_code(code, short, long.clone())
+                    {
                         em
                     } else {
                         ErrorMetadata::bad_request(short, long)
