@@ -43,12 +43,14 @@ use common::{
 use database::{
     BootstrapMetadata,
     DatabaseSnapshot,
+    SchemaRegistry,
     TableCountSnapshot,
     TableRegistry,
     Transaction,
     TransactionIdGenerator,
     TransactionIndex,
     TransactionTextSnapshot,
+    SCHEMAS_TABLE,
 };
 use futures::{
     FutureExt,
@@ -91,6 +93,7 @@ fn make_transaction<RT: Runtime>(
     existing_writes: FunctionWrites,
     rt: RT,
     table_registry: TableRegistry,
+    schema_registry: SchemaRegistry,
     index_registry: IndexRegistry,
     table_count_snapshot: Arc<dyn TableCountSnapshot>,
     database_index_snapshot: DatabaseIndexSnapshot,
@@ -112,6 +115,7 @@ fn make_transaction<RT: Runtime>(
         creation_time,
         transaction_index,
         table_registry,
+        schema_registry,
         table_count_snapshot,
         rt.clone(),
         usage_tracker,
@@ -245,7 +249,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         Ok(index_map.0.into_iter().map(|(_k, (_ts, v))| v.unpack()))
     }
 
-    async fn load_table_and_index_registry(
+    async fn load_registries(
         &self,
         persistence_snapshot: PersistenceSnapshot,
         instance_name: String,
@@ -256,7 +260,12 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             tables_tablet_id,
             index_tablet_id,
         }: BootstrapMetadata,
-    ) -> anyhow::Result<(TableRegistry, IndexRegistry, DatabaseIndexSnapshot)> {
+    ) -> anyhow::Result<(
+        TableRegistry,
+        SchemaRegistry,
+        IndexRegistry,
+        DatabaseIndexSnapshot,
+    )> {
         let index_documents_fut = self.must_get_or_load_unpacked(
             instance_name.clone(),
             index_by_id,
@@ -290,6 +299,27 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot.persistence().version(),
         )?;
         DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;
+        let mut schema_docs = BTreeMap::new();
+        for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
+            let schema_tablet =
+                table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
+            let index_id = index_registry.must_get_by_id(schema_tablet)?.id;
+            let schema_doc_iter = self
+                .must_get_or_load_unpacked(
+                    instance_name.clone(),
+                    index_id,
+                    &in_memory_index_last_modified,
+                    persistence_snapshot.clone(),
+                    schema_tablet,
+                    SCHEMAS_TABLE.clone(),
+                )
+                .await?;
+            schema_docs.insert(
+                namespace,
+                schema_doc_iter.map(TryFrom::try_from).try_collect()?,
+            );
+        }
+        let schema_registry = SchemaRegistry::bootstrap(schema_docs);
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {
             cache: self.clone(),
             instance_name: instance_name.clone(),
@@ -302,7 +332,12 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             table_mapping,
             persistence_snapshot,
         );
-        Ok((table_registry, index_registry, database_index_snapshot))
+        Ok((
+            table_registry,
+            schema_registry,
+            index_registry,
+            database_index_snapshot,
+        ))
     }
 
     /// Loads table and index registry from cache or persistence snapshot.
@@ -335,8 +370,8 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         let persistence_snapshot =
             repeatable_persistence.read_snapshot(repeatable_persistence.upper_bound())?;
 
-        let (table_registry, index_registry, database_index_snapshot) = self
-            .load_table_and_index_registry(
+        let (table_registry, schema_registry, index_registry, database_index_snapshot) = self
+            .load_registries(
                 persistence_snapshot,
                 instance_name,
                 in_memory_index_last_modified,
@@ -349,6 +384,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             existing_writes,
             self.rt.clone(),
             table_registry,
+            schema_registry,
             index_registry,
             table_count_snapshot,
             database_index_snapshot,

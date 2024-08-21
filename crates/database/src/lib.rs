@@ -47,6 +47,7 @@ mod write_limits;
 mod write_log;
 mod writes;
 
+mod schema_registry;
 mod table_iteration;
 #[cfg(any(test, feature = "testing"))]
 pub mod test_helpers;
@@ -67,6 +68,7 @@ pub use reads::{
     TransactionReadSize,
     OVER_LIMIT_HELP,
 };
+pub use schema_registry::SchemaRegistry;
 pub use table_registry::TableRegistry;
 pub use token::{
     SerializedToken,

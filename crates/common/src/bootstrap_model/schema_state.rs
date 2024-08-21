@@ -25,7 +25,7 @@ use value::codegen_convex_serialization;
 /// time.
 ///
 /// 2. At most one schema can be in the `Active` state at a time.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SchemaState {
     Pending,
@@ -36,6 +36,15 @@ pub enum SchemaState {
         table_name: Option<String>,
     },
     Overwritten,
+}
+
+impl SchemaState {
+    /// Indicates a schema should be cached because it can be used for writes,
+    /// and it can be cached by state because at most one schema can exist in
+    /// the state.
+    pub fn is_unique(&self) -> bool {
+        matches!(self, Self::Pending | Self::Validated | Self::Active)
+    }
 }
 
 #[derive(Serialize, Deserialize)]

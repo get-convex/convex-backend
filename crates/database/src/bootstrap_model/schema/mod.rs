@@ -19,8 +19,6 @@ use common::{
         ResolvedDocument,
     },
     query::{
-        IndexRange,
-        IndexRangeExpression,
         Order,
         Query,
     },
@@ -33,8 +31,6 @@ use common::{
 };
 use errors::ErrorMetadata;
 use value::{
-    val,
-    ConvexObject,
     FieldPath,
     NamespacedTableMapping,
     ResolvedDocumentId,
@@ -216,35 +212,13 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         &mut self,
         state: SchemaState,
     ) -> anyhow::Result<Option<(ResolvedDocumentId, DatabaseSchema)>> {
-        match state {
-            SchemaState::Pending | SchemaState::Validated | SchemaState::Active => {},
-            SchemaState::Failed { .. } | SchemaState::Overwritten => anyhow::bail!(
-                "Getting schema by state is only permitted for Pending, Validated, or Active \
-                 states, since Failed or Overwritten states may have multiple documents."
-            ),
-        }
-        let state_value = val!(state);
-        let index_range = IndexRange {
-            index_name: SCHEMAS_STATE_INDEX.clone(),
-            range: vec![IndexRangeExpression::Eq(
-                SCHEMA_STATE_FIELD.clone(),
-                state_value.into(),
-            )],
-            order: Order::Asc,
-        };
-        let query = Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, query)?;
-        let schema = query_stream
-            .expect_at_most_one(self.tx)
-            .await?
-            .map(|doc| {
-                Ok::<(ResolvedDocumentId, DatabaseSchema), anyhow::Error>((
-                    doc.id().to_owned(),
-                    parse_schema_traced(doc.into_value().into_value())?.schema,
-                ))
-            })
-            .transpose()?;
-        Ok(schema)
+        anyhow::ensure!(
+            state.is_unique(),
+            "Getting schema by state is only permitted for Pending, Validated, or Active states, \
+             since Failed or Overwritten states may have multiple documents."
+        );
+        let schema_doc = self.tx.get_schema_by_state(self.namespace, state)?;
+        Ok(schema_doc.map(|doc| (doc.id(), doc.into_value().schema)))
     }
 
     pub async fn submit_pending(
@@ -511,9 +485,4 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         self.delete_old_failed_and_overwritten_schemas().await?;
         Ok(())
     }
-}
-
-#[minitrace::trace]
-fn parse_schema_traced(value: ConvexObject) -> anyhow::Result<SchemaMetadata> {
-    SchemaMetadata::try_from(value)
 }

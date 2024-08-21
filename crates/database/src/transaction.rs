@@ -19,6 +19,10 @@ use common::{
             IndexMetadata,
             INDEX_TABLE,
         },
+        schema::{
+            SchemaMetadata,
+            SchemaState,
+        },
         tables::{
             TableMetadata,
             TABLES_TABLE,
@@ -27,6 +31,7 @@ use common::{
     document::{
         CreationTime,
         DocumentUpdate,
+        ParsedDocument,
         ResolvedDocument,
     },
     identity::InertIdentity,
@@ -108,6 +113,7 @@ use crate::{
         TableFilter,
     },
     reads::TransactionReadSet,
+    schema_registry::SchemaRegistry,
     snapshot_manager::{
         Snapshot,
         SnapshotManager,
@@ -128,6 +134,7 @@ use crate::{
     SystemMetadataModel,
     TableModel,
     TableRegistry,
+    SCHEMAS_TABLE,
 };
 
 /// Safe default number of items to return for each list or filter operation
@@ -149,6 +156,7 @@ pub struct Transaction<RT: Runtime> {
 
     pub(crate) index: NestedWrites<TransactionIndex>,
     pub(crate) metadata: NestedWrites<TableRegistry>,
+    pub(crate) schema_registry: NestedWrites<SchemaRegistry>,
     pub(crate) count_snapshot: Arc<dyn TableCountSnapshot>,
     /// The change in the number of documents in table that have had writes in
     /// this transaction. If there is no entry for a table, assume deltas
@@ -182,7 +190,12 @@ pub trait TableCountSnapshot: Send + Sync + 'static {
     async fn count(&self, table: TabletId) -> anyhow::Result<u64>;
 }
 
-pub type SubtransactionToken = [NestedWriteToken; 3];
+pub struct SubtransactionToken {
+    writes: NestedWriteToken,
+    index: NestedWriteToken,
+    tables: NestedWriteToken,
+    schema_registry: NestedWriteToken,
+}
 
 impl<RT: Runtime> Transaction<RT> {
     pub fn new(
@@ -191,6 +204,7 @@ impl<RT: Runtime> Transaction<RT> {
         creation_time: CreationTime,
         index: TransactionIndex,
         metadata: TableRegistry,
+        schema_registry: SchemaRegistry,
         count: Arc<dyn TableCountSnapshot>,
         runtime: RT,
         usage_tracker: FunctionUsageTracker,
@@ -206,6 +220,7 @@ impl<RT: Runtime> Transaction<RT> {
             scheduled_size: TransactionWriteSize::default(),
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
+            schema_registry: NestedWrites::new(schema_registry),
             count_snapshot: count,
             table_count_deltas: BTreeMap::new(),
             stats: BTreeMap::new(),
@@ -306,24 +321,28 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     pub fn begin_subtransaction(&mut self) -> SubtransactionToken {
-        [
-            self.writes.begin_nested(),
-            self.index.begin_nested(),
-            self.metadata.begin_nested(),
-        ]
+        SubtransactionToken {
+            writes: self.writes.begin_nested(),
+            index: self.index.begin_nested(),
+            tables: self.metadata.begin_nested(),
+            schema_registry: self.schema_registry.begin_nested(),
+        }
     }
 
     pub fn commit_subtransaction(&mut self, tokens: SubtransactionToken) -> anyhow::Result<()> {
-        self.writes.commit_nested(tokens[0])?;
-        self.index.commit_nested(tokens[1])?;
-        self.metadata.commit_nested(tokens[2])?;
+        self.writes.commit_nested(tokens.writes)?;
+        self.index.commit_nested(tokens.index)?;
+        self.metadata.commit_nested(tokens.tables)?;
+        self.schema_registry.commit_nested(tokens.schema_registry)?;
         Ok(())
     }
 
     pub fn rollback_subtransaction(&mut self, tokens: SubtransactionToken) -> anyhow::Result<()> {
-        self.writes.rollback_nested(tokens[0])?;
-        self.index.rollback_nested(tokens[1])?;
-        self.metadata.rollback_nested(tokens[2])?;
+        self.writes.rollback_nested(tokens.writes)?;
+        self.index.rollback_nested(tokens.index)?;
+        self.metadata.rollback_nested(tokens.tables)?;
+        self.schema_registry
+            .rollback_nested(tokens.schema_registry)?;
         Ok(())
     }
 
@@ -331,6 +350,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.writes.require_not_nested()?;
         self.index.require_not_nested()?;
         self.metadata.require_not_nested()?;
+        self.schema_registry.require_not_nested()?;
         Ok(())
     }
 
@@ -636,6 +656,22 @@ impl<RT: Runtime> Transaction<RT> {
             .record_indexed_derived(tables_by_id, IndexedFields::by_id(), Interval::all());
     }
 
+    /// Reads the schema from the cache, and records a read dependency.
+    /// Used by SchemaModel.
+    pub(crate) fn get_schema_by_state(
+        &mut self,
+        namespace: TableNamespace,
+        state: SchemaState,
+    ) -> anyhow::Result<Option<ParsedDocument<SchemaMetadata>>> {
+        let schema_tablet = self
+            .table_mapping()
+            .namespace(namespace)
+            .id(&SCHEMAS_TABLE)?
+            .tablet_id;
+        self.schema_registry
+            .get_by_state(namespace, state, schema_tablet, &mut self.reads)
+    }
+
     // XXX move to table model?
     #[cfg(any(test, feature = "testing"))]
     pub async fn create_system_table_testing(
@@ -825,6 +861,12 @@ impl<RT: Runtime> Transaction<RT> {
         let index_update = self
             .index
             .begin_update(old_document.clone(), new_document.clone())?;
+        let schema_update = self.schema_registry.begin_update(
+            self.metadata.table_mapping(),
+            id,
+            old_document.as_ref(),
+            new_document.as_ref(),
+        )?;
         let metadata_update = self.metadata.begin_update(
             index_update.registry(),
             id,
@@ -869,6 +911,7 @@ impl<RT: Runtime> Transaction<RT> {
 
         index_update.apply();
         metadata_update.apply();
+        schema_update.apply();
 
         *self.table_count_deltas.entry(id.tablet_id).or_default() += delta;
         Ok(())

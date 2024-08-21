@@ -35,6 +35,7 @@ use common::{
             TabletIndexMetadata,
             INDEX_TABLE,
         },
+        schema::SchemaMetadata,
         tables::{
             TableMetadata,
             TableState,
@@ -167,6 +168,7 @@ use crate::{
         verify_invariants_timer,
     },
     retention::LeaderRetentionManager,
+    schema_registry::SchemaRegistry,
     search_index_bootstrap::SearchIndexBootstrapWorker,
     snapshot_manager::{
         Snapshot,
@@ -199,6 +201,7 @@ use crate::{
     FollowerRetentionManager,
     TableIterator,
     Transaction,
+    SCHEMAS_TABLE,
 };
 
 /// Controls the number of read set backtraces to show when debugging
@@ -582,17 +585,34 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         tracing::info!("Bootstrapping table metadata...");
         let table_registry = Self::load_table_registry(
             &persistence_snapshot,
-            table_mapping,
+            table_mapping.clone(),
             table_states,
             &index_registry,
         )
         .await?;
+
+        let mut schema_docs = BTreeMap::new();
+        for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
+            let schema_tablet =
+                table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
+            let by_id = index_registry.must_get_by_id(schema_tablet)?.id;
+            let schema_documents = Self::load_table_documents::<SchemaMetadata>(
+                &persistence_snapshot,
+                by_id,
+                schema_tablet,
+            )
+            .await?;
+            schema_docs.insert(namespace, schema_documents);
+        }
+
+        let schema_registry = SchemaRegistry::bootstrap(schema_docs);
 
         Ok(Self {
             ts: persistence_snapshot.timestamp(),
             bootstrap_metadata,
             snapshot: Snapshot {
                 table_registry,
+                schema_registry,
                 table_summaries,
                 index_registry,
                 in_memory_indexes,
@@ -1420,6 +1440,7 @@ impl<RT: Runtime> Database<RT> {
             creation_time,
             transaction_index,
             snapshot.table_registry,
+            snapshot.schema_registry,
             count_snapshot,
             self.runtime.clone(),
             usage_tracker,

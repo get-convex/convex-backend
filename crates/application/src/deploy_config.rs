@@ -24,10 +24,14 @@ use common::{
         NodeDependency,
     },
 };
-use database::WriteSource;
+use database::{
+    WriteSource,
+    SCHEMAS_TABLE,
+};
 use errors::ErrorMetadata;
 use isolate::EvaluateAppDefinitionsResult;
 use keybroker::Identity;
+use maplit::btreeset;
 use model::{
     auth::types::AuthDiff,
     components::{
@@ -159,6 +163,9 @@ impl<RT: Runtime> Application<RT> {
                 .await?;
             if !dry_run {
                 self.commit(tx, WriteSource::new("start_push")).await?;
+                self.database
+                    .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
+                    .await?;
             }
             schema_change
         };

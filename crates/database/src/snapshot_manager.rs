@@ -43,6 +43,7 @@ use vector::{
 };
 
 use crate::{
+    schema_registry::SchemaRegistry,
     table_registry::{
         TableUpdate,
         TableUpdateMode,
@@ -182,6 +183,7 @@ impl TableSummaries {
 #[derive(Clone)]
 pub struct Snapshot<RT: Runtime> {
     pub table_registry: TableRegistry,
+    pub schema_registry: SchemaRegistry,
     pub table_summaries: TableSummaries,
     pub index_registry: IndexRegistry,
     pub in_memory_indexes: BackendInMemoryIndexes,
@@ -207,6 +209,12 @@ impl<RT: Runtime> Snapshot<RT> {
                 insertion.map(|d| &d.value().0),
             )
             .context("Table registry update failed")?;
+        self.schema_registry.update(
+            self.table_registry.table_mapping(),
+            document_id,
+            removal,
+            insertion,
+        )?;
         self.table_summaries
             .update(
                 document_id,
