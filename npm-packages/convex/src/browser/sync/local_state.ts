@@ -259,6 +259,7 @@ export class LocalSyncState {
   restart(
     oldRemoteQueryResults: Set<QueryId>,
   ): [QuerySetModification, Authenticate?] {
+    this.paused = false;
     this.outstandingQueriesOlderThanRestart.clear();
     const modifications = [];
     for (const localQuery of this.querySet.values()) {
