@@ -133,9 +133,9 @@ tokio-metrics-collector = { version = "0.2.1" }
 tokio-process-stream = { version = "0.4.0" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.21.0", features = [ "native-tls-vendored" ] }
-tonic = { version = "0.12.0", features = [ "gzip" ] }
-tonic-build = "0.12.0"
-tonic-health = "0.12.0"
+tonic = { version = "0.12.1", features = [ "gzip" ] }
+tonic-build = "0.12.1"
+tonic-health = "0.12.1"
 tower = { version = "0.4", features = [ "limit", "timeout" ] }
 tower-cookies = "0.10"
 tower-http = { version = "0.5", features = [ "trace", "cors", "decompression-br" ] }
