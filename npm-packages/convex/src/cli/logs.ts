@@ -7,7 +7,7 @@ import {
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { watchLogs } from "./lib/logs.js";
-import { parseInteger } from "./lib/utils.js";
+import { parseInteger } from "./lib/utils/utils.js";
 
 export const logs = new Command("logs")
   .summary("Watch logs from your deployment")

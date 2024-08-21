@@ -1,6 +1,5 @@
 import chalk from "chalk";
 import { Command, Option } from "@commander-js/extra-typings";
-import inquirer from "inquirer";
 import {
   Context,
   logFinishedStep,
@@ -25,7 +24,7 @@ import {
   bigBrainAPI,
   getConfiguredDeploymentName,
   readAdminKeyFromEnvVar,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 import { spawnSync } from "child_process";
 import { runFunctionAndLog } from "./lib/run.js";
 import { usageStateWarning } from "./lib/usage.js";
@@ -35,6 +34,7 @@ import {
   isPreviewDeployKey,
 } from "./lib/deployment.js";
 import { runPush } from "./lib/components.js";
+import { promptYesNo } from "./lib/utils/prompts.js";
 
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
@@ -413,14 +413,8 @@ Your ${chalk.bold(deployment.requestedType)} deployment ${chalk.bold(
 
 Make sure that your published client is configured with this URL (for instructions see https://docs.convex.dev/hosting)\n`,
   );
-  return (
-    await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "shouldPush",
-        message: `Do you want to push your code to your ${deployment.requestedType} deployment ${deployment.requestedName} now?`,
-        default: true,
-      },
-    ])
-  ).shouldPush;
+  return promptYesNo(ctx, {
+    message: `Do you want to push your code to your ${deployment.requestedType} deployment ${deployment.requestedName} now?`,
+    default: true,
+  });
 }

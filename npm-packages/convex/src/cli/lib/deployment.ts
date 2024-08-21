@@ -4,7 +4,7 @@ import { changedEnvVarFile, getEnvVarRegex } from "./envvars.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   readAdminKeyFromEnvVar,
-} from "./utils.js";
+} from "./utils/utils.js";
 import { DeploymentType } from "./api.js";
 
 const ENV_VAR_FILE_PATH = ".env.local";

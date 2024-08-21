@@ -3,7 +3,7 @@ import chalk from "chalk";
 import open from "open";
 import { oneoffContext } from "../bundler/context.js";
 import { getTargetDeploymentName } from "./lib/deployment.js";
-import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils.js";
+import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils/utils.js";
 
 export const docs = new Command("docs")
   .description("Open the docs in the browser")

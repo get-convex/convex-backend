@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import inquirer from "inquirer";
 import {
   Context,
   logFailure,
@@ -37,12 +36,13 @@ import {
   ThrowingFetchError,
   validateOrSelectProject,
   validateOrSelectTeam,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
 import path from "path";
 import { projectDashboardUrl } from "./dashboard.js";
 import { doCodegen, doInitCodegen } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
+import { promptOptions, promptString } from "./lib/utils/prompts.js";
 
 type DeploymentCredentials = {
   url: string;
@@ -288,17 +288,11 @@ async function selectNewProject(
   const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
     await validateOrSelectTeam(ctx, config.team, "Team:");
   let projectName: string = config.project || cwd;
-  if (process.stdin.isTTY && !config.project) {
-    projectName = (
-      await inquirer.prompt([
-        {
-          type: "input",
-          name: "project",
-          message: "Project name:",
-          default: cwd,
-        },
-      ])
-    ).project;
+  if (!config.project) {
+    projectName = await promptString(ctx, {
+      message: "Project name:",
+      default: cwd,
+    });
   }
 
   showSpinner(ctx, "Creating new Convex project...");
@@ -386,31 +380,16 @@ async function askToConfigure(
   if (!(await hasProjects(ctx))) {
     return "new";
   }
-  return await promptToInitWithProjects(reconfigure);
-}
-
-async function promptToInitWithProjects(
-  reconfigure: boolean,
-): Promise<"new" | "existing"> {
-  const { choice } = await inquirer.prompt([
-    {
-      // In the Convex mono-repo, `list` seems to cause the command to not
-      // respond to CTRL+C while `search-list` does not.
-      type: process.env.CONVEX_RUNNING_LIVE_IN_MONOREPO
-        ? "search-list"
-        : "list",
-      name: "choice",
-      message: reconfigure
-        ? "Configure a different project?"
-        : "What would you like to configure?",
-      default: "new",
-      choices: [
-        { name: "create a new project", value: "new" },
-        { name: "choose an existing project", value: "existing" },
-      ],
-    },
-  ]);
-  return choice;
+  return await promptOptions(ctx, {
+    message: reconfigure
+      ? "Configure a different project?"
+      : "What would you like to configure?",
+    default: "new",
+    choices: [
+      { name: "create a new project", value: "new" },
+      { name: "choose an existing project", value: "existing" },
+    ],
+  });
 }
 
 type DeploymentOptions =

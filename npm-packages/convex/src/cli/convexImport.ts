@@ -1,12 +1,11 @@
 import chalk from "chalk";
-import inquirer from "inquirer";
 import {
   ensureHasConvexDependency,
   formatSize,
   waitUntilCalled,
   deploymentFetch,
   logAndHandleFetchError,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 import {
   logFailure,
   oneoffContext,
@@ -29,6 +28,7 @@ import { actionDescription } from "./lib/command.js";
 import { ConvexHttpClient } from "../browser/http_client.js";
 import { makeFunctionReference } from "../server/index.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
+import { promptYesNo } from "./lib/utils/prompts.js";
 
 // Backend has minimum chunk size of 5MiB except for the last chunk,
 // so we use 5MiB as highWaterMark which makes fs.ReadStream[asyncIterator]
@@ -279,14 +279,10 @@ async function askToConfirmImport(
   }
   logMessage(ctx, messageToConfirm);
   if (requireManualConfirmation !== false && !yes) {
-    const { confirmed } = await inquirer.prompt([
-      {
-        type: "confirm",
-        name: "confirmed",
-        message: `Perform the import?`,
-        default: true,
-      },
-    ]);
+    const confirmed = await promptYesNo(ctx, {
+      message: "Perform import?",
+      default: true,
+    });
     if (!confirmed) {
       return await ctx.crash({
         exitCode: 1,
@@ -315,14 +311,10 @@ async function askToConfirmImportWithExistingImports(
   if (yes) {
     return;
   }
-  const { confirmed } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirmed",
-      message: `Start another import?`,
-      default: true,
-    },
-  ]);
+  const confirmed = await promptYesNo(ctx, {
+    message: "Start another import?",
+    default: true,
+  });
   if (!confirmed) {
     return await ctx.crash({
       exitCode: 1,

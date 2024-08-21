@@ -9,7 +9,7 @@ import {
 import { finishPush, startPush, waitForSchema } from "./deploy2.js";
 import { version } from "../version.js";
 import { PushOptions, runNonComponentsPush } from "./push.js";
-import { ensureHasConvexDependency, functionsDir } from "./utils.js";
+import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
 import {
   bundleDefinitions,
   bundleImplementations,

@@ -18,7 +18,7 @@
 */
 
 import path from "path";
-import { rootDirectory } from "../utils.js";
+import { rootDirectory } from "../utils/utils.js";
 import { Context } from "../../../bundler/context.js";
 
 export function rootDeploymentStateDir() {

@@ -1,5 +1,5 @@
 import chalk from "chalk";
-import { functionsDir, ensureHasConvexDependency } from "./lib/utils.js";
+import { functionsDir, ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { Command } from "@commander-js/extra-typings";
 import { readConfig } from "./lib/config.js";
 import { typeCheckFunctions } from "./lib/typecheck.js";

@@ -3,7 +3,7 @@ import {
   bigBrainAPI,
   bigBrainFetch,
   logAndHandleFetchError,
-} from "../utils.js";
+} from "../utils/utils.js";
 
 export async function bigBrainStart(
   ctx: Context,

@@ -8,7 +8,7 @@ import {
 } from "../../bundler/context.js";
 import * as Sentry from "@sentry/node";
 import * as semver from "semver";
-import { spawnAsync } from "./utils.js";
+import { spawnAsync } from "./utils/utils.js";
 
 export type TypecheckResult = "cantTypeCheck" | "success" | "typecheckFailed";
 

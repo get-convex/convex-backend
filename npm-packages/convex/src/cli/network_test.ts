@@ -19,7 +19,7 @@ import {
   bareDeploymentFetch,
   formatDuration,
   formatSize,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 import chalk from "chalk";
 
 const ipFamilyNumbers = { ipv4: 4, ipv6: 6, auto: 0 } as const;

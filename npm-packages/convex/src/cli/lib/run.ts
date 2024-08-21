@@ -11,7 +11,7 @@ import {
   logMessage,
   logOutput,
 } from "../../bundler/context.js";
-import { waitForever, waitUntilCalled } from "./utils.js";
+import { waitForever, waitUntilCalled } from "./utils/utils.js";
 
 export async function runFunctionAndLog(
   ctx: Context,

@@ -7,7 +7,7 @@ import {
   bigBrainAPI,
   logAndHandleFetchError,
   throwingFetch,
-} from "./utils.js";
+} from "./utils/utils.js";
 import open from "open";
 import chalk from "chalk";
 import { provisionHost } from "./config.js";
@@ -22,10 +22,10 @@ import {
   showSpinner,
 } from "../../bundler/context.js";
 import { Issuer } from "openid-client";
-import inquirer from "inquirer";
 import { hostname } from "os";
 import { execSync } from "child_process";
 import os from "os";
+import { promptString, promptYesNo } from "./utils/prompts.js";
 
 const SCOPE = "openid email profile";
 /// This value was created long ago, and cannot be changed easily.
@@ -150,15 +150,10 @@ async function performDeviceAuthorization(
     });
   } catch (error) {
     // We couldn't get verification URL from Auth0, proceed with manual auth
-    const answers = await inquirer.prompt([
-      {
-        type: "input",
-        name: "authToken",
-        message:
-          "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
-      },
-    ]);
-    return answers.authToken;
+    return promptString(ctx, {
+      message:
+        "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
+    });
   }
 
   // Device Authorization Response - https://tools.ietf.org/html/rfc8628#section-3.2
@@ -174,16 +169,10 @@ async function performDeviceAuthorization(
       }: ${user_code}`,
   );
   if (shouldOpen) {
-    shouldOpen = (
-      await inquirer.prompt([
-        {
-          name: "openBrowser",
-          message: `Open the browser?`,
-          type: "confirm",
-          default: true,
-        },
-      ])
-    ).openBrowser;
+    shouldOpen = await promptYesNo(ctx, {
+      message: `Open the browser?`,
+      default: true,
+    });
   }
 
   if (shouldOpen) {
@@ -340,20 +329,15 @@ export async function performLogin(
   if (!deviceName) {
     deviceName = hostname();
   }
-  if (process.stdin.isTTY && !deviceNameOverride) {
+  if (!deviceNameOverride) {
     logMessage(
       ctx,
       chalk.bold(`Welcome to developing with Convex, let's get you logged in.`),
     );
-    const answers = await inquirer.prompt([
-      {
-        type: "input",
-        name: "deviceName",
-        message: "Device name:",
-        default: deviceName,
-      },
-    ]);
-    deviceName = answers.deviceName;
+    deviceName = await promptString(ctx, {
+      message: "Device name:",
+      default: deviceName,
+    });
   }
 
   const issuer = overrideAuthUrl ?? "https://auth.convex.dev";
@@ -455,16 +439,9 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
   for (const optInToAccept of data.optInsToAccept) {
     const confirmed =
       acceptOptIns ||
-      (
-        await inquirer.prompt([
-          {
-            type: "confirm",
-            name: "confirmed",
-            message: optInToAccept.message,
-          },
-        ])
-      ).confirmed;
-
+      (await promptYesNo(ctx, {
+        message: optInToAccept.message,
+      }));
     if (!confirmed) {
       logFailure(ctx, "Please accept the Terms of Service to use Convex.");
       return Promise.resolve(false);

@@ -13,17 +13,17 @@ import {
   localDeploymentUrl,
   runLocalBackend,
 } from "./run.js";
-import inquirer from "inquirer";
 import {
   downloadSnapshotExport,
   startSnapshotExport,
 } from "../../convexExport.js";
-import { deploymentFetch, logAndHandleFetchError } from "../utils.js";
+import { deploymentFetch, logAndHandleFetchError } from "../utils/utils.js";
 import {
   confirmImport,
   uploadForImport,
   waitForStableImportState,
 } from "../../convexImport.js";
+import { promptOptions, promptYesNo } from "../utils/prompts.js";
 
 export async function handlePotentialUpgrade(
   ctx: Context,
@@ -56,16 +56,10 @@ export async function handlePotentialUpgrade(
   }
   const confirmed =
     args.forceUpgrade ||
-    (
-      await inquirer.prompt([
-        {
-          type: "confirm",
-          name: "confirmed",
-          message: `This deployment is using an older version of the Convex backend. Upgrade now?`,
-          default: true,
-        },
-      ])
-    ).confirmed;
+    (await promptYesNo(ctx, {
+      message: `This deployment is using an older version of the Convex backend. Upgrade now?`,
+      default: true,
+    }));
   if (!confirmed) {
     const { binaryPath: oldBinaryPath } = await ensureBackendBinaryDownloaded(
       ctx,
@@ -85,24 +79,16 @@ export async function handlePotentialUpgrade(
       deploymentName: args.deploymentName,
     });
   }
-  const { choice } = args.forceUpgrade
-    ? { choice: "transfer" }
-    : await inquirer.prompt([
-        {
-          // In the Convex mono-repo, `list` seems to cause the command to not
-          // respond to CTRL+C while `search-list` does not.
-          type: process.env.CONVEX_RUNNING_LIVE_IN_MONOREPO
-            ? "search-list"
-            : "list",
-          name: "choice",
-          message: "Transfer data from existing deployment?",
-          default: "transfer",
-          choices: [
-            { name: "transfer data", value: "transfer" },
-            { name: "start fresh", value: "reset" },
-          ],
-        },
-      ]);
+  const choice = args.forceUpgrade
+    ? "transfer"
+    : await promptOptions(ctx, {
+        message: "Transfer data from existing deployment?",
+        default: "transfer",
+        choices: [
+          { name: "transfer data", value: "transfer" },
+          { name: "start fresh", value: "reset" },
+        ],
+      });
   const deploymentStatePath = deploymentStateDir(args.deploymentName);
   if (choice === "reset") {
     ctx.fs.rmdir(deploymentStatePath);

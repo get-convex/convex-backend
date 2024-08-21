@@ -21,7 +21,7 @@ import {
   getCurrentTimeString,
   waitForever,
   waitUntilCalled,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 import { Crash, WatchContext, Watcher } from "./lib/watch.js";
 import { watchLogs } from "./lib/logs.js";
 import { subscribe } from "./lib/run.js";

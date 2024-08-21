@@ -6,7 +6,7 @@ import {
 } from "../../bundler/context.js";
 import { nextBackoff } from "../dev.js";
 import chalk from "chalk";
-import { deploymentFetch } from "./utils.js";
+import { deploymentFetch } from "./utils/utils.js";
 
 const MAX_UDF_STREAM_FAILURE_COUNT = 5;
 

@@ -4,7 +4,7 @@ import { Context } from "./context.js";
 import path from "path";
 
 import { findUp } from "find-up";
-import { findParentConfigs } from "../cli/lib/utils.js";
+import { findParentConfigs } from "../cli/lib/utils/utils.js";
 
 /**
  * Mimics Node.js node_modules resolution. Ideally we would be able to

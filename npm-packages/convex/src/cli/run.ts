@@ -7,7 +7,7 @@ import {
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { runFunctionAndLog, subscribeAndLog } from "./lib/run.js";
-import { ensureHasConvexDependency } from "./lib/utils.js";
+import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 
 export const run = new Command("run")
   .description("Run a function (query, mutation, or action) on your deployment")

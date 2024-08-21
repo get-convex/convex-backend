@@ -19,7 +19,7 @@ import {
   deploymentFetch,
   ensureHasConvexDependency,
   logAndHandleFetchError,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 
 const envSet = new Command("set")
   // Pretend value is required

@@ -10,7 +10,7 @@ import {
 } from "./config.js";
 import { pushSchema } from "./indexes.js";
 import { typeCheckFunctionsInMode } from "./typecheck.js";
-import { ensureHasConvexDependency, functionsDir } from "./utils.js";
+import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import { CleanupDeploymentFunc } from "./deployment.js";
 

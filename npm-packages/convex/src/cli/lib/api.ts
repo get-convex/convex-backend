@@ -16,7 +16,7 @@ import {
   getConfiguredDeploymentName,
   getConfiguredDeploymentOrCrash,
   readAdminKeyFromEnvVar,
-} from "./utils.js";
+} from "./utils/utils.js";
 
 export type DeploymentName = string;
 export type DeploymentType = "dev" | "prod" | "local";

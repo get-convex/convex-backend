@@ -7,7 +7,7 @@ import {
   getAuthHeaderForBigBrain,
   getConfiguredDeploymentName,
   getConfiguredDeploymentOrCrash,
-} from "./utils.js";
+} from "./utils/utils.js";
 
 async function warn(ctx: Context, title: string, subtitle: string) {
   const configuredDeployment = await getConfiguredDeploymentOrCrash(ctx);

@@ -1,5 +1,5 @@
 import { changeSpinner, Context, logFailure } from "../../bundler/context.js";
-import { deploymentFetch, logAndHandleFetchError } from "./utils.js";
+import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 import {
   StartPushRequest,
   startPushResponse,

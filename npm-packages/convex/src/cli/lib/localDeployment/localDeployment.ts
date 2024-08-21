@@ -1,6 +1,5 @@
 import { Context, logVerbose } from "../../../bundler/context.js";
 import detect from "detect-port";
-import inquirer from "inquirer";
 import {
   bigBrainPause,
   bigBrainRecordActivity,
@@ -24,6 +23,7 @@ import {
   CleanupDeploymentFunc,
   OnDeploymentActivityFunc,
 } from "../deployment.js";
+import { promptSearch } from "../utils/prompts.js";
 
 export type DeploymentDetails = {
   deploymentName: string;
@@ -218,18 +218,13 @@ async function chooseFromExistingLocalDeployments(ctx: Context): Promise<{
   config: LocalDeploymentConfig;
 }> {
   const localDeployments = await getLocalDeployments(ctx);
-  const { choice } = await inquirer.prompt([
-    {
-      type: "search-list",
-      name: "choice",
-      message: "Choose from an existing local deployment?",
-      choices: localDeployments.map((d) => ({
-        name: d.deploymentName,
-        value: d,
-      })),
-    },
-  ]);
-  return choice;
+  return promptSearch(ctx, {
+    message: "Choose from an existing local deployment?",
+    choices: localDeployments.map((d) => ({
+      name: d.deploymentName,
+      value: d,
+    })),
+  });
 }
 
 async function choosePorts(

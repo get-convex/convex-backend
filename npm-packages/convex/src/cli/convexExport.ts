@@ -5,7 +5,7 @@ import {
   waitUntilCalled,
   deploymentFetch,
   logAndHandleFetchError,
-} from "./lib/utils.js";
+} from "./lib/utils/utils.js";
 import {
   logFailure,
   oneoffContext,

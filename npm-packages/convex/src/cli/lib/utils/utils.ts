@@ -1,11 +1,9 @@
 import chalk from "chalk";
-import inquirer from "inquirer";
 import os from "os";
 import path from "path";
-import * as readline from "readline";
 import { z } from "zod";
 
-import { ProjectConfig } from "./config.js";
+import { ProjectConfig } from "../config.js";
 
 import { spawn } from "child_process";
 import { InvalidArgumentError } from "commander";
@@ -16,13 +14,14 @@ import {
   logError,
   logMessage,
   logWarning,
-} from "../../bundler/context.js";
-import { version } from "../version.js";
-import { Project } from "./api.js";
+} from "../../../bundler/context.js";
+import { version } from "../../version.js";
+import { Project } from "../api.js";
 import {
   getConfiguredDeploymentFromEnvVar,
   isPreviewDeployKey,
-} from "./deployment.js";
+} from "../deployment.js";
+import { promptSearch, promptYesNo } from "./prompts.js";
 
 const retryingFetch = fetchRetryFactory(fetch);
 
@@ -48,21 +47,6 @@ export function parseInteger(value: string) {
     throw new InvalidArgumentError("Not a number.");
   }
   return parsedValue;
-}
-
-/** Prompt for keyboard input with the given `query` string and return a promise
- * that resolves to the input. */
-export function prompt(query: string) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stderr,
-  });
-  return new Promise((resolve) =>
-    rl.question(query, (answer) => {
-      rl.close();
-      resolve(answer);
-    }),
-  );
 }
 
 export type ErrorData = {
@@ -293,19 +277,13 @@ export async function validateOrSelectTeam(
         return { teamSlug: teams[0].slug, chosen: false };
       default:
         return {
-          teamSlug: (
-            await inquirer.prompt([
-              {
-                name: "teamSlug",
-                message: promptMessage,
-                type: "search-list",
-                choices: teams.map((team: Team) => ({
-                  name: `${team.name} (${team.slug})`,
-                  value: team.slug,
-                })),
-              },
-            ])
-          ).teamSlug,
+          teamSlug: await promptSearch(ctx, {
+            message: promptMessage,
+            choices: teams.map((team: Team) => ({
+              name: `${team.name} (${team.slug})`,
+              value: team.slug,
+            })),
+          }),
           chosen: true,
         };
     }
@@ -371,15 +349,9 @@ export async function validateOrSelectProject(
     switch (nonDemoProjects.length) {
       case 1: {
         const project = nonDemoProjects[0];
-        const confirmed = (
-          await inquirer.prompt([
-            {
-              type: "confirm",
-              name: "confirmed",
-              message: `${singleProjectPrompt} ${project.name} (${project.slug})?`,
-            },
-          ])
-        ).confirmed;
+        const confirmed = await promptYesNo(ctx, {
+          message: `${singleProjectPrompt} ${project.name} (${project.slug})?`,
+        });
 
         if (!confirmed) {
           return null;
@@ -387,19 +359,13 @@ export async function validateOrSelectProject(
         return nonDemoProjects[0].slug;
       }
       default:
-        return (
-          await inquirer.prompt([
-            {
-              name: "project",
-              message: multiProjectPrompt,
-              type: "search-list",
-              choices: nonDemoProjects.map((project: Project) => ({
-                name: `${project.name} (${project.slug})`,
-                value: project.slug,
-              })),
-            },
-          ])
-        ).project;
+        return await promptSearch(ctx, {
+          message: multiProjectPrompt,
+          choices: nonDemoProjects.map((project: Project) => ({
+            name: `${project.name} (${project.slug})`,
+            value: project.slug,
+          })),
+        });
     }
   } else {
     // Validate the chosen project.

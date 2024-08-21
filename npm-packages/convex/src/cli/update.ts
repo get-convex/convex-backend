@@ -1,7 +1,7 @@
 import chalk from "chalk";
 import { Command } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
-import { loadPackageJson } from "./lib/utils.js";
+import { loadPackageJson } from "./lib/utils/utils.js";
 
 export const update = new Command("update")
   .description("Print instructions for updating the convex package")

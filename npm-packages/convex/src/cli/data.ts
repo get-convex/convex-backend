@@ -14,7 +14,7 @@ import {
   fetchDeploymentCredentialsProvisionProd,
 } from "./lib/api.js";
 import { runPaginatedQuery } from "./lib/run.js";
-import { parsePositiveInteger } from "./lib/utils.js";
+import { parsePositiveInteger } from "./lib/utils/utils.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 

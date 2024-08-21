@@ -13,7 +13,7 @@ import {
   logAndHandleFetchError,
   deploymentFetch,
   deprecationCheckWarning,
-} from "./utils.js";
+} from "./utils/utils.js";
 
 type IndexMetadata = {
   table: string;
