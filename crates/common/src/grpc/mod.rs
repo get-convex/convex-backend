@@ -4,10 +4,13 @@ use std::{
 };
 
 use futures::Future;
+use pb::error_metadata::ErrorMetadataStatusExt;
 use sentry::integrations::tower as sentry_tower;
 use tonic::{
     server::NamedService,
     service::Routes,
+    Response,
+    Status,
 };
 use tonic_health::{
     server::{
@@ -79,5 +82,12 @@ impl ConvexGrpcService {
             .await?;
         tracing::info!("GRPC server shutdown complete");
         Ok(())
+    }
+}
+
+pub fn handle_response<T>(response: Result<Response<T>, Status>) -> anyhow::Result<T> {
+    match response {
+        Ok(response) => Ok(response.into_inner()),
+        Err(status) => Err(status.into_anyhow()),
     }
 }

@@ -116,6 +116,8 @@ impl ErrorMetadataStatusExt for tonic::Status {
                 Err(err) => return err.context("Failed to parse ErrorMetadata proto"),
             };
             error = error.context(error_metadata)
+        } else if error.is::<tonic::transport::Error>() {
+            error = error.context(ErrorMetadata::operational_internal_server_error());
         }
         error
     }
