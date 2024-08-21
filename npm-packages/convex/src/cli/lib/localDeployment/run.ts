@@ -88,9 +88,16 @@ async function checkForExistingDownload(
 }
 
 async function downloadBinary(ctx: Context, version: string): Promise<string> {
-  // TODO(ENG-7077) download the file depending on the platform
+  const downloadPath = getDownloadPath();
+  if (downloadPath === null) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Unsupported platform ${process.platform} and architecture ${process.arch} for local deployment.`,
+    });
+  }
   const response = await fetch(
-    `https://github.com/get-convex/convex-backend/releases/download/${version}/convex-local-backend-aarch64-apple-darwin.zip`,
+    `https://github.com/get-convex/convex-backend/releases/download/${version}/${downloadPath}`,
   );
   logMessage(ctx, "Downloading convex backend");
   if (!ctx.fs.exists(binariesDir())) {
@@ -241,4 +248,26 @@ export async function ensureBackendStopped(
 
 export function localDeploymentUrl(cloudPort: number): string {
   return `http://127.0.0.1:${cloudPort}`;
+}
+
+function getDownloadPath() {
+  switch (process.platform) {
+    case "darwin":
+      if (process.arch === "arm64") {
+        return "convex-local-backend-aarch64-apple-darwin.zip";
+      } else if (process.arch === "x64") {
+        return "convex-local-backend-x86_64-apple-darwin.zip";
+      }
+      break;
+    case "linux":
+      if (process.arch === "arm64") {
+        return "convex-local-backend-aarch64-unknown-linux-gnu.zip";
+      } else if (process.arch === "x64") {
+        return "convex-local-backend-x86_64-unknown-linux-gnu.zip";
+      }
+      break;
+    case "win32":
+      return "convex-local-backend-x86_64-pc-windows-msvc.zip";
+  }
+  return null;
 }
