@@ -131,6 +131,10 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     #[minitrace::trace]
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
         let schema_table_mapping = self.tx.table_mapping().namespace(self.namespace);
+        if schema_table_mapping.is_system_tablet(document.id().tablet_id) {
+            // System tables are not subject to schema validation.
+            return Ok(());
+        }
         self.enforce_with_table_mapping(document, &schema_table_mapping)
             .await
     }
