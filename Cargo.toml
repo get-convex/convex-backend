@@ -102,7 +102,7 @@ rand = "0.8"
 rand_chacha = "0.3.1"
 ref-cast = "1.0.20"
 regex = "1"
-reqwest = { version = "0.12.1", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }
+reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }
 reqwest-middleware = "0.3.2"
 ring = "0.17.8"
 rsa = "0.9.6"
