@@ -53,7 +53,7 @@ governor = "0.6.0"
 headers = "0.4"
 hex = "0.4"
 home = "0.5"
-enum-iterator = "2.0.0"
+enum-iterator = "2.1.0"
 http = "1.0.0"
 http-cache = { version = "0.19", default-features = false }
 http-body-util = "0.1.2"
