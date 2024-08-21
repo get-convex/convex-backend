@@ -166,7 +166,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                         anyhow::bail!(ErrorMetadata::bad_request(
                             "UnmountedComponent",
                             "Cannot perform write operations in an unmounted component. Make sure \
-                             your component is installed in your `app.config.ts` file.",
+                             your component is installed in your `convex.config.ts` file.",
                         ));
                     },
                 }

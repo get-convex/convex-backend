@@ -54,8 +54,8 @@ function componentPlugin({
     name: `convex-${mode === "discover" ? "discover-components" : "bundle-components"}`,
     async setup(build) {
       // This regex can't be really precise since developers could import
-      // "component.config", "component.config.js", "component.config.ts", etc.
-      build.onResolve({ filter: /.*component.config.*/ }, async (args) => {
+      // "convex.config", "convex.config.js", "convex.config.ts", etc.
+      build.onResolve({ filter: /.*convex.config.*/ }, async (args) => {
         verbose && logMessage(ctx, "esbuild resolving import:", args);
         if (args.namespace !== "file") {
           verbose && logMessage(ctx, "  Not a file.");
@@ -570,8 +570,7 @@ async function registerEsbuildReads(
   for (const [relPath, input] of Object.entries(metafile.inputs)) {
     if (
       // We rewrite these files so this integrity check isn't useful.
-      path.basename(relPath).includes("app.config") ||
-      path.basename(relPath).includes("component.config") ||
+      path.basename(relPath).includes("convex.config") ||
       // TODO: esbuild outputs paths prefixed with "(disabled)" when bundling our internal
       // udf-system package. The files do actually exist locally, though.
       relPath.indexOf("(disabled):") !== -1 ||

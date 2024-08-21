@@ -2,7 +2,7 @@
 // @ts-ignore
 import { defineComponent } from "convex/server";
 import { v } from "convex/values";
-import { default as otherComponent } from "../component/component.config";
+import { default as otherComponent } from "../component/convex.config";
 
 const component = defineComponent("envVars", {
   args: { name: v.optional(v.string()), url: v.optional(v.string()) },

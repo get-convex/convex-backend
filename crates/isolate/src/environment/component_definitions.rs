@@ -437,16 +437,16 @@ impl ComponentInitializerEvaluator {
     }
 }
 
-const COMPONENT_CONFIG_FILE_NAME: &str = "component.config.js";
-const APP_CONFIG_FILE_NAME: &str = "app.config.js";
+const COMPONENT_CONFIG_FILE_NAME: &str = "convex.config.js";
+const APP_CONFIG_FILE_NAME: &str = "convex.config.js";
 
 struct DefinitionEnvironment {
     expected_filename: String,
     source: FullModuleSource,
 
     evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
-    /// Environment variables are allowed in app.config.ts but not in
-    /// component.config.ts
+    /// Environment variables are allowed in app but not in
+    /// component config.
     environment_variables: Option<BTreeMap<EnvVarName, EnvVarValue>>,
     /// System env vars are allowed everywhere.
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -487,8 +487,8 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             .map(|env_vars| env_vars.get(&name).cloned())
             .context(ErrorMetadata::bad_request(
                 "EnvironmentVariablesUnsupported",
-                "Environment variables not supported in component.config.ts. Consider passing \
-                 them into your component via arguments in app.config.ts.",
+                "Environment variables not supported in the component's convex.config.ts. \
+                 Consider passing them into your component via arguments.",
             ))
     }
 

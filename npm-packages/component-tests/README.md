@@ -15,8 +15,8 @@ directory in this directory.
 To test a new component layout,
 
 1. Add a project to the `projects` directory. The project should have a `convex`
-   folder inside and `app.config.ts` (If your test does not use components, use
-   `udf-tests`).
+   folder inside and `convex.config.ts` (If your test does not use components,
+   use `udf-tests`).
 2. Add the project to `COMPONENT_TESTS_LAYOUTS` in `isolate/build.rs.
 3. Add the project to `rush.json` and `rush.oss.json`.
 4. Run `just rush update` and `just update-oss-js`.
@@ -26,4 +26,4 @@ To test a new component layout,
 
 To test a new component, add the component to this directory (`component-tests`)
 and `COMPONENTS` in `isolate/build.rs`. Use it in a project in the `projects`
-directory by installing it in the project's `app.config.ts`.
+directory by installing it in the project's `convex.config.ts`.

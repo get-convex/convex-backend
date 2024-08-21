@@ -44,7 +44,7 @@ export const run = new Command("run")
   .addOption(
     new Option(
       "--component-path <path>",
-      "Path to the component in the component tree defined in app.config.ts",
+      "Path to the component in the component tree defined in convex.config.ts",
       // TODO(ENG-6967): Remove hideHelp before launching components
     ).hideHelp(),
   )

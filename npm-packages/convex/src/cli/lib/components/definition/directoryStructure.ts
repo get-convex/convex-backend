@@ -1,6 +1,7 @@
 import path from "path";
 import { Context } from "../../../../bundler/context.js";
 import { DEFINITION_FILENAME, ROOT_DEFINITION_FILENAME } from "../constants.js";
+import { getFunctionsDirectoryPath } from "../../config.js";
 
 /**
  * A component definition's location on the local filesystem,
@@ -11,7 +12,7 @@ import { DEFINITION_FILENAME, ROOT_DEFINITION_FILENAME } from "../constants.js";
  * understood from their symlink location.
  *
  * None of these properties are the import string, which might have been an unqualifed import
- * (e.g. 'convex-waitlist' instead of '../node_modules/convex-waitlist/component.config.ts')
+ * (e.g. 'convex-waitlist' instead of '../node_modules/convex-waitlist/convex.config.ts')
  */
 export type ComponentDirectory = {
   isRoot: boolean;
@@ -81,7 +82,8 @@ export async function buildComponentDirectory(
   ctx: Context,
   definitionPath: string,
 ): Promise<ComponentDirectory> {
-  const isRoot = path.basename(definitionPath) === ROOT_DEFINITION_FILENAME;
+  const convexDir = path.resolve(await getFunctionsDirectoryPath(ctx));
+  const isRoot = path.dirname(path.resolve(definitionPath)) === convexDir;
   const isComponent = isComponentDirectory(
     ctx,
     path.dirname(definitionPath),

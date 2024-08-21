@@ -46,7 +46,7 @@ pub struct ProjectConfig {
 
 #[derive(Debug)]
 pub struct AppDefinitionConfig {
-    // Bundled `app.config.js` if present, with dependencies on other components marked external
+    // Bundled `convex.config.js` if present, with dependencies on other components marked external
     // and unresolved. Not available at runtime.
     pub definition: Option<ModuleConfig>,
     // Dependencies on other components discovered at bundling time.
@@ -80,7 +80,7 @@ pub struct ComponentDefinitionConfig {
     // Relative path from the root `convex/` directory to the component's directory.
     pub definition_path: ComponentDefinitionPath,
 
-    // Bundled component definition at `component.config.js` with dependencies on other components
+    // Bundled component definition at `convex.config.js` with dependencies on other components
     // unresolved.
     pub definition: ModuleConfig,
     // Dependencies on other components discovered at bundling time.

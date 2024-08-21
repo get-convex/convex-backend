@@ -72,7 +72,7 @@ export interface InitCtx {}
 
 /**
  * An object of this type should be the default export of a
- * component.config.ts file in a component definition directory.
+ * convex.config.ts file in a component definition directory.
  *
  * @internal
  */ // eslint-disable-next-line @typescript-eslint/ban-types
@@ -134,7 +134,7 @@ type ComponentDefinitionExports<T extends ComponentDefinition<any, any>> =
 
 /**
  * An object of this type should be the default export of a
- * app.config.ts file in a component definition directory.
+ * convex.config.ts file in a component-aware convex directory.
  *
  * @internal
  */

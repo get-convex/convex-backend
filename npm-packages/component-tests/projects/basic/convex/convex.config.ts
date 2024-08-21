@@ -1,8 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { defineApp } from "convex/server";
-import envVars from "../../../envVars/component.config";
-import errors from "../../../errors/component.config";
+import envVars from "../../../envVars/convex.config";
+import errors from "../../../errors/convex.config";
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
