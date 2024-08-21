@@ -218,7 +218,10 @@ export class BaseConvexClient {
       },
       stopSocket: () => this.webSocketManager.stop(),
       restartSocket: () => this.webSocketManager.restart(),
-      pauseSocket: () => this.webSocketManager.pause(),
+      pauseSocket: () => {
+        this.webSocketManager.pause();
+        this.state.pause();
+      },
       resumeSocket: () => this.webSocketManager.resume(),
       clearAuth: () => {
         this.clearAuth();

@@ -39,6 +39,7 @@ export class LocalSyncState {
   };
   private readonly outstandingQueriesOlderThanRestart: Set<QueryId>;
   private outstandingAuthOlderThanRestart: boolean;
+  private paused: boolean;
 
   constructor() {
     this.nextQueryId = 0;
@@ -48,6 +49,7 @@ export class LocalSyncState {
     this.queryIdToToken = new Map();
     this.outstandingQueriesOlderThanRestart = new Set();
     this.outstandingAuthOlderThanRestart = false;
+    this.paused = false;
   }
 
   hasSyncedPastLastReconnect(): boolean {
@@ -96,7 +98,11 @@ export class LocalSyncState {
       this.queryIdToToken.set(queryId, queryToken);
 
       const baseVersion = this.querySetVersion;
-      const newVersion = ++this.querySetVersion;
+      const newVersion = this.querySetVersion + 1;
+
+      if (!this.paused) {
+        this.querySetVersion = newVersion;
+      }
 
       const add: AddQuery = {
         type: "Add",
@@ -170,7 +176,10 @@ export class LocalSyncState {
       tokenType: "User",
       value: value,
     };
-    const baseVersion = this.identityVersion++;
+    const baseVersion = this.identityVersion;
+    if (!this.paused) {
+      this.identityVersion = baseVersion + 1;
+    }
     return {
       type: "Authenticate",
       baseVersion: baseVersion,
@@ -190,7 +199,10 @@ export class LocalSyncState {
       impersonating: actingAs,
     };
     this.auth = auth;
-    const baseVersion = this.identityVersion++;
+    const baseVersion = this.identityVersion;
+    if (!this.paused) {
+      this.identityVersion = baseVersion + 1;
+    }
     return {
       type: "Authenticate",
       baseVersion: baseVersion,
@@ -201,7 +213,10 @@ export class LocalSyncState {
   clearAuth(): Authenticate {
     this.auth = undefined;
     this.markAuthCompletion();
-    const baseVersion = this.identityVersion++;
+    const baseVersion = this.identityVersion;
+    if (!this.paused) {
+      this.identityVersion = baseVersion + 1;
+    }
     return {
       type: "Authenticate",
       tokenType: "None",
@@ -282,9 +297,14 @@ export class LocalSyncState {
     return [querySet, authenticate];
   }
 
+  pause() {
+    this.paused = true;
+  }
+
   resume(
     remoteQueryResults: Set<QueryId>,
   ): [QuerySetModification?, Authenticate?] {
+    this.paused = false;
     const localQueryIds = new Set();
     const modifications = [];
     for (const localQuery of this.querySet.values()) {
@@ -317,7 +337,7 @@ export class LocalSyncState {
         ? {
             type: "ModifyQuerySet",
             baseVersion: this.querySetVersion,
-            newVersion: this.querySetVersion + 1,
+            newVersion: ++this.querySetVersion,
             modifications,
           }
         : undefined;
@@ -325,7 +345,7 @@ export class LocalSyncState {
       this.auth !== undefined
         ? {
             type: "Authenticate",
-            baseVersion: this.identityVersion,
+            baseVersion: this.identityVersion++,
             ...this.auth,
           }
         : undefined;
@@ -345,7 +365,10 @@ export class LocalSyncState {
       this.queryIdToToken.delete(localQuery.id);
       this.outstandingQueriesOlderThanRestart.delete(localQuery.id);
       const baseVersion = this.querySetVersion;
-      const newVersion = ++this.querySetVersion;
+      const newVersion = this.querySetVersion + 1;
+      if (!this.paused) {
+        this.querySetVersion = newVersion;
+      }
       const remove: RemoveQuery = {
         type: "Remove",
         queryId: localQuery.id,

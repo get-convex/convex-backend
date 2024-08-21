@@ -431,10 +431,32 @@ describe.sequential.skip("auth websocket tests", () => {
       resolve!(jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"));
 
       // Crucially Authenticate comes first!
-      expect((await receive()).type).toEqual("Authenticate");
+      expect(await receive()).toMatchObject({
+        type: "Authenticate",
+        baseVersion: 1,
+      });
       expect(await receive()).toMatchObject({
         type: "ModifyQuerySet",
         modifications: [{ type: "Remove", queryId: 0 }],
+        baseVersion: 1,
+      });
+
+      // Make sure we resume
+
+      client.watchQuery(anyApi.myQuery.default).onUpdate(() => {});
+
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 1 }],
+        baseVersion: 2,
+      });
+
+      client.watchQuery(anyApi.myQuery.foo).onUpdate(() => {});
+
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 2 }],
+        baseVersion: 3,
       });
     });
   });
