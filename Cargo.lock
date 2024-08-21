@@ -3213,20 +3213,6 @@ dependencies = [
 
 [[package]]
 name = "http-cache"
-version = "0.18.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b5ab65432bbdfe8490dfde21d0366353a8d39f2bc24aca0146889f931b0b4b5"
-dependencies = [
- "async-trait",
- "http 0.2.9",
- "http-cache-semantics 1.0.1",
- "httpdate",
- "serde",
- "url",
-]
-
-[[package]]
-name = "http-cache"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6ffb12b95bb2a369fe47ca8924016c72c2fa0e6059ba98bd1516f558696c5a8"
@@ -3235,7 +3221,7 @@ dependencies = [
  "bincode",
  "cacache",
  "http 1.1.0",
- "http-cache-semantics 2.1.0",
+ "http-cache-semantics",
  "httpdate",
  "moka",
  "serde",
@@ -3251,24 +3237,12 @@ dependencies = [
  "anyhow",
  "async-trait",
  "http 1.1.0",
- "http-cache 0.19.0",
- "http-cache-semantics 2.1.0",
+ "http-cache",
+ "http-cache-semantics",
  "reqwest 0.12.4",
  "reqwest-middleware",
  "serde",
  "url",
-]
-
-[[package]]
-name = "http-cache-semantics"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14246388577086faaaa56fb59f0b94e288800fecfff75918a237813297cdda17"
-dependencies = [
- "http 0.2.9",
- "http-serde 1.1.2",
- "serde",
- "time",
 ]
 
 [[package]]
@@ -3278,19 +3252,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92baf25cf0b8c9246baecf3a444546360a97b569168fdf92563ee6a47829920c"
 dependencies = [
  "http 1.1.0",
- "http-serde 2.1.1",
+ "http-serde",
  "serde",
  "time",
-]
-
-[[package]]
-name = "http-serde"
-version = "1.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e272971f774ba29341db2f686255ff8a979365a26fb9e4277f6b6d9ec0cdd5e"
-dependencies = [
- "http 0.2.9",
- "serde",
 ]
 
 [[package]]
@@ -3309,7 +3273,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "futures",
- "http-cache 0.18.0",
+ "http-cache",
  "http-cache-reqwest",
  "metrics",
  "openidconnect",
