@@ -2,7 +2,7 @@ import React, {
   createContext,
   ReactNode,
   useContext,
-  useLayoutEffect,
+  useEffect,
   useState,
 } from "react";
 import { AuthTokenFetcher } from "../browser/sync/client.js";
@@ -89,37 +89,6 @@ export function ConvexProviderWithAuth({
     boolean | null
   >(null);
 
-  useLayoutEffect(() => {
-    let isThisEffectRelevant = true;
-    if (isAuthenticated) {
-      client.setAuth(fetchAccessToken, (isAuthenticated) => {
-        if (isThisEffectRelevant) {
-          setIsConvexAuthenticated(isAuthenticated);
-        }
-      });
-      return () => {
-        isThisEffectRelevant = false;
-
-        // If we haven't finished fetching the token by now
-        // we shouldn't transition to a loaded state
-        setIsConvexAuthenticated((isConvexAuthenticated) =>
-          isConvexAuthenticated ? false : null,
-        );
-      };
-    }
-  }, [isAuthenticated, fetchAccessToken, isLoading, client]);
-
-  // Clear auth later, so that queries from
-  // unmounted child components unsubscribe first
-  // and rerun without auth on the server
-  useLayoutEffect(() => {
-    if (isAuthenticated) {
-      return () => {
-        client.clearAuth();
-      };
-    }
-  }, [isAuthenticated, fetchAccessToken, isLoading, client]);
-
   // If the useAuth went back to the loading state (which is unusual but possible)
   // reset the Convex auth state to null so that we can correctly
   // transition the state from "loading" to "authenticated"
@@ -139,7 +108,93 @@ export function ConvexProviderWithAuth({
         isAuthenticated: isAuthenticated && (isConvexAuthenticated ?? false),
       }}
     >
+      <ConvexAuthStateFirstEffect
+        isAuthenticated={isAuthenticated}
+        fetchAccessToken={fetchAccessToken}
+        isLoading={isLoading}
+        client={client}
+        setIsConvexAuthenticated={setIsConvexAuthenticated}
+      />
       <ConvexProvider client={client as any}>{children}</ConvexProvider>
+      <ConvexAuthStateLastEffect
+        isAuthenticated={isAuthenticated}
+        fetchAccessToken={fetchAccessToken}
+        isLoading={isLoading}
+        client={client}
+      />
     </ConvexAuthContext.Provider>
   );
+}
+
+// First child ensures we `setAuth` before
+// other child components subscribe to queries via `useEffect`.
+function ConvexAuthStateFirstEffect({
+  isAuthenticated,
+  fetchAccessToken,
+  isLoading,
+  client,
+  setIsConvexAuthenticated,
+}: {
+  isAuthenticated: boolean;
+  fetchAccessToken: (args: {
+    forceRefreshToken: boolean;
+  }) => Promise<string | null>;
+  isLoading: boolean;
+  client: IConvexReactClient;
+  setIsConvexAuthenticated: React.Dispatch<
+    React.SetStateAction<boolean | null>
+  >;
+}) {
+  useEffect(() => {
+    let isThisEffectRelevant = true;
+    if (isAuthenticated) {
+      client.setAuth(fetchAccessToken, (isAuthenticated) => {
+        if (isThisEffectRelevant) {
+          setIsConvexAuthenticated(isAuthenticated);
+        }
+      });
+      return () => {
+        isThisEffectRelevant = false;
+
+        // If we haven't finished fetching the token by now
+        // we shouldn't transition to a loaded state
+        setIsConvexAuthenticated((isConvexAuthenticated) =>
+          isConvexAuthenticated ? false : null,
+        );
+      };
+    }
+  }, [
+    isAuthenticated,
+    fetchAccessToken,
+    isLoading,
+    client,
+    setIsConvexAuthenticated,
+  ]);
+  return null;
+}
+
+// Last child ensures we `clearAuth` last,
+// so that queries from unmounted sibling components
+// unsubscribe first and don't rerun without auth on the server
+function ConvexAuthStateLastEffect({
+  isAuthenticated,
+  fetchAccessToken,
+  isLoading,
+  client,
+}: {
+  isAuthenticated: boolean;
+  fetchAccessToken: (args: {
+    forceRefreshToken: boolean;
+  }) => Promise<string | null>;
+  isLoading: boolean;
+  client: IConvexReactClient;
+}) {
+  useEffect(() => {
+    if (isAuthenticated) {
+      return () => {
+        client.clearAuth();
+      };
+    }
+  }, [isAuthenticated, fetchAccessToken, isLoading, client]);
+  return null;
 }
