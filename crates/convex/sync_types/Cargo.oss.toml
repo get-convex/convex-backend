@@ -16,7 +16,7 @@ base64 = { version = "0.13" }
 derive_more = { version = "0.99" }
 headers = { version = "0.4" }
 proptest = { optional = true, version = "1" }
-proptest-derive = { optional = true, version = "0.4.0" }
+proptest-derive = { optional = true, version = "0.5.0" }
 rand = { version = "0.8" }
 serde = { features = [ "derive" ], version = "1" }
 serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1" }
@@ -24,7 +24,7 @@ uuid = { features = [ "serde", "v4" ], version = "1.6" }
 
 [dev-dependencies]
 proptest = { version = "1" }
-proptest-derive = { version = "0.4.0" }
+proptest-derive = { version = "0.5.0" }
 
 [features]
 testing = [ "proptest", "proptest-derive" ]

@@ -20,7 +20,7 @@ futures = { version = "0.3" }
 imbl = { version = "3.0.0" }
 parking_lot = { optional = true, version = "0.12", features = [ "hardware-lock-elision" ] }
 proptest = { optional = true, version = "1" }
-proptest-derive = { optional = true, version = "0.4.0" }
+proptest-derive = { optional = true, version = "0.5.0" }
 rand = { version = "0.8" }
 serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1" }
 thiserror = { version = "1" }
@@ -39,7 +39,7 @@ maplit = { version = "1" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 pretty_assertions = { version = "1" }
 proptest = { version = "1" }
-proptest-derive = { version = "0.4.0" }
+proptest-derive = { version = "0.5.0" }
 tracing-subscriber = { features = [ "env-filter" ], version = "0.3.17" }
 
 [features]

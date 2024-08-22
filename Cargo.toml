@@ -87,7 +87,7 @@ pretty_assertions = "1"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "061619b6e44ca7f3b94d97346152cab319895929" }
 prometheus-hyper = "0.2.0"
 proptest = "1"
-proptest-derive = "0.4.0"
+proptest-derive = "0.5.0"
 proptest-http = { git = "https://github.com/nipunn1313/proptest-http", rev = "0e658bd4f6dbb73bdd3be66f0d2c34c00cc3a446" }
 prost = "0.13"
 prost-types = "0.13"

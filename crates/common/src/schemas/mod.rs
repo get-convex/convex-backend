@@ -730,7 +730,7 @@ impl VectorIndexSchema {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[cfg_attr(
     any(test, feature = "testing"),
-    proptest(params = "BTreeSet<TableName>",)
+    proptest(params = "BTreeSet<TableName>")
 )]
 pub enum DocumentSchema {
     Any,
