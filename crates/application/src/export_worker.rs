@@ -602,7 +602,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 usage
                     .track_storage_call(
                         "snapshot_export",
-                        Some(file_storage_entry.storage_id.clone()),
+                        file_storage_entry.storage_id.clone(),
                         content_type,
                     )
                     .track_storage_egress_size(file_stream.content_length as u64);

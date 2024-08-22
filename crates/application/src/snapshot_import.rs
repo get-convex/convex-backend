@@ -2011,7 +2011,7 @@ async fn import_storage_table<RT: Runtime>(
             .map(|ct| ct.parse())
             .transpose()?;
         usage
-            .track_storage_call("snapshot_import", Some(entry.storage_id), content_type)
+            .track_storage_call("snapshot_import", entry.storage_id, content_type)
             .track_storage_ingress_size(file_size);
         num_files += 1;
         if let Some(import_id) = import_id {

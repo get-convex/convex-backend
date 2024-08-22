@@ -79,7 +79,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .await?;
 
         self.usage_tracker
-            .track_storage_call("store", Some(storage_id), content_type)
+            .track_storage_call("store", storage_id, content_type)
             .track_storage_ingress_size(size as u64);
 
         Ok(storage_doc_id)

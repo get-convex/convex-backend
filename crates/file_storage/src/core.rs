@@ -241,7 +241,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
         let call_tracker =
-            usage_tracker.track_storage_call("get range", Some(storage_id), content_type.clone());
+            usage_tracker.track_storage_call("get range", storage_id, content_type.clone());
 
         Ok(FileRangeStream {
             content_length,
@@ -419,7 +419,7 @@ impl<RT: Runtime> FileStorage<RT> {
             .await?;
 
         usage_tracker
-            .track_storage_call("store", Some(storage_id), content_type)
+            .track_storage_call("store", storage_id, content_type)
             .track_storage_ingress_size(size as u64);
         Ok(virtual_id)
     }

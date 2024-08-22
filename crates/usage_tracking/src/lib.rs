@@ -230,7 +230,7 @@ pub trait StorageUsageTracker: Send + Sync {
     fn track_storage_call(
         &self,
         storage_api: &'static str,
-        storage_id: Option<StorageUuid>,
+        storage_id: StorageUuid,
         content_type: Option<ContentType>,
     ) -> Box<dyn StorageCallTracker>;
 }
@@ -278,7 +278,7 @@ impl StorageUsageTracker for UsageCounter {
     fn track_storage_call(
         &self,
         storage_api: &'static str,
-        storage_id: Option<StorageUuid>,
+        storage_id: StorageUuid,
         content_type: Option<ContentType>,
     ) -> Box<dyn StorageCallTracker> {
         let execution_id = ExecutionId::new();
@@ -287,7 +287,7 @@ impl StorageUsageTracker for UsageCounter {
             id: execution_id.to_string(),
             // Ideally we would track the Id<_storage> instead of the StorageUuid
             // but it's a bit annoying for now, so just going with this.
-            storage_id: storage_id.map(|s| s.to_string()),
+            storage_id: storage_id.to_string(),
             call: storage_api.to_string(),
             content_type: content_type.map(|c| c.to_string()),
         }]);
@@ -465,7 +465,7 @@ impl StorageUsageTracker for FunctionUsageTracker {
     fn track_storage_call(
         &self,
         storage_api: &'static str,
-        _storage_id: Option<StorageUuid>,
+        _storage_id: StorageUuid,
         _content_type: Option<ContentType>,
     ) -> Box<dyn StorageCallTracker> {
         let mut state = self.state.lock();
