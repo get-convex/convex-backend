@@ -441,7 +441,7 @@ describe.sequential.skip("auth websocket tests", () => {
         baseVersion: 1,
       });
 
-      // Make sure we resume
+      // Make sure we are now unpaused
 
       client.watchQuery(anyApi.myQuery.default).onUpdate(() => {});
 
@@ -457,6 +457,193 @@ describe.sequential.skip("auth websocket tests", () => {
         type: "ModifyQuerySet",
         modifications: [{ type: "Add", queryId: 2 }],
         baseVersion: 3,
+      });
+    });
+  });
+
+  test("Local state resume doesn't cause duplicate AddQuery", async () => {
+    await withInMemoryWebSocket(async ({ address, receive }) => {
+      const client = testReactClient(address);
+
+      // First we subscribe
+      client.watchQuery(anyApi.myQuery.default).onUpdate(() => {});
+
+      expect((await receive()).type).toEqual("Connect");
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 0 }],
+        baseVersion: 0,
+      });
+
+      // Before the server confirms, we set auth, leading to pause
+      // and unpause.
+      const tokenFetcher = vi.fn(async () =>
+        jwtEncode({ iat: 1234500, exp: 1244500 }, "secret"),
+      );
+      client.setAuth(tokenFetcher);
+
+      // We should only send Authenticate, since we already
+      // sent the Add modification
+      expect(await receive()).toMatchObject({
+        type: "Authenticate",
+        baseVersion: 0,
+      });
+
+      // Subscribe again
+      client
+        .watchQuery(anyApi.myQuery.default, { foo: "bla" })
+        .onUpdate(() => {});
+      // Now we're sending the second query, not the first!
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 1 }],
+        baseVersion: 1,
+      });
+    });
+  });
+
+  test("Local state resume doesn't send both Add and Remove", async () => {
+    await withInMemoryWebSocket(async ({ address, receive }) => {
+      const client = testReactClient(address);
+
+      // First we subscribe to kick off connect.
+      client.watchQuery(anyApi.myQuery.default).onUpdate(() => {});
+
+      expect((await receive()).type).toEqual("Connect");
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 0 }],
+        baseVersion: 0,
+      });
+
+      // Set slow auth, causing pause
+      let resolve: (value: string) => void;
+      const tokenFetcher2 = vi.fn(
+        () =>
+          new Promise<string>((r) => {
+            resolve = r;
+          }),
+      );
+      client.setAuth(tokenFetcher2);
+
+      // Subscribe to second query, while paused
+      const unsubscribe = client
+        .watchQuery(anyApi.myQuery.default, { foo: "bla" })
+        .onUpdate(() => {});
+
+      // Subscribe third query, while paused
+      client
+        .watchQuery(anyApi.myQuery.default, { foo: "da" })
+        .onUpdate(() => {});
+
+      // Unsubscribe from second query, while paused
+      unsubscribe();
+
+      // Unpause ie resume
+      resolve!(jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"));
+
+      // We authenticate first
+      expect(await receive()).toMatchObject({
+        type: "Authenticate",
+        baseVersion: 0,
+      });
+
+      // We subscribe to the third query only!
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 2 }],
+        baseVersion: 1,
+      });
+    });
+  });
+
+  test("Local state resume refcounts", async () => {
+    await withInMemoryWebSocket(async ({ address, receive }) => {
+      const client = testReactClient(address);
+
+      // First we subscribe to kick off connect.
+      client.watchQuery(anyApi.myQuery.default).onUpdate(() => {});
+
+      expect((await receive()).type).toEqual("Connect");
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 0 }],
+        baseVersion: 0,
+      });
+
+      // Set slow auth, causing pause
+      let resolve: (value: string) => void;
+      const tokenFetcher2 = vi.fn(
+        () =>
+          new Promise<string>((r) => {
+            resolve = r;
+          }),
+      );
+      client.setAuth(tokenFetcher2);
+
+      // Subscribe to second query, while paused
+      const unsubscribe = client
+        .watchQuery(anyApi.myQuery.default, { foo: "bla" })
+        .onUpdate(() => {});
+
+      // Subscribe to the same query, while paused
+      client
+        .watchQuery(anyApi.myQuery.default, { foo: "bla" })
+        .onUpdate(() => {});
+
+      // Unsubscribe once from the second query, while paused
+      unsubscribe();
+
+      // Unpause ie resume
+      resolve!(jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"));
+
+      // We authenticate first
+      expect(await receive()).toMatchObject({
+        type: "Authenticate",
+        baseVersion: 0,
+      });
+
+      // We subscribe to the second query, because there's still one subscriber
+      // on it.
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        modifications: [{ type: "Add", queryId: 1 }],
+        baseVersion: 1,
+      });
+    });
+  });
+
+  test("Local state restart doesn't send both Add and Remove", async () => {
+    await withInMemoryWebSocket(async ({ address, receive }) => {
+      const client = testReactClient(address);
+
+      // Set slow auth, causing pause while connecting
+      let resolve: (value: string) => void;
+      const tokenFetcher2 = vi.fn(
+        () =>
+          new Promise<string>((r) => {
+            resolve = r;
+          }),
+      );
+      client.setAuth(tokenFetcher2);
+
+      // Subscribe while paused and connecting
+      const unsubscribe = client
+        .watchQuery(anyApi.myQuery.default)
+        .onUpdate(() => {});
+
+      // Unsubscribe while paused and connecting
+      unsubscribe();
+
+      // Unpause
+      resolve!(jwtEncode({ iat: 1234550, exp: 1244550 }, "secret"));
+
+      expect((await receive()).type).toEqual("Connect");
+      expect((await receive()).type).toEqual("Authenticate");
+      expect(await receive()).toMatchObject({
+        type: "ModifyQuerySet",
+        baseVersion: 0,
+        modifications: [],
       });
     });
   });

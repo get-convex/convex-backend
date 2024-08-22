@@ -294,11 +294,7 @@ export class BaseConvexClient {
           }
         },
         onResume: () => {
-          const remoteQueryResults = new Set(
-            this.remoteQuerySet.remoteQueryResults().keys(),
-          );
-          const [querySetModification, authModification] =
-            this.state.resume(remoteQueryResults);
+          const [querySetModification, authModification] = this.state.resume();
           if (authModification) {
             this.webSocketManager.sendMessage(authModification);
           }

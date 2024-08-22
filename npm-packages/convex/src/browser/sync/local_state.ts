@@ -40,6 +40,7 @@ export class LocalSyncState {
   private readonly outstandingQueriesOlderThanRestart: Set<QueryId>;
   private outstandingAuthOlderThanRestart: boolean;
   private paused: boolean;
+  private pendingQuerySetModifications: Map<QueryId, AddQuery | RemoveQuery>;
 
   constructor() {
     this.nextQueryId = 0;
@@ -50,6 +51,7 @@ export class LocalSyncState {
     this.outstandingQueriesOlderThanRestart = new Set();
     this.outstandingAuthOlderThanRestart = false;
     this.paused = false;
+    this.pendingQuerySetModifications = new Map();
   }
 
   hasSyncedPastLastReconnect(): boolean {
@@ -100,10 +102,6 @@ export class LocalSyncState {
       const baseVersion = this.querySetVersion;
       const newVersion = this.querySetVersion + 1;
 
-      if (!this.paused) {
-        this.querySetVersion = newVersion;
-      }
-
       const add: AddQuery = {
         type: "Add",
         queryId,
@@ -112,6 +110,13 @@ export class LocalSyncState {
         journal,
         componentPath,
       };
+
+      if (this.paused) {
+        this.pendingQuerySetModifications.set(queryId, add);
+      } else {
+        this.querySetVersion = newVersion;
+      }
+
       const modification: QuerySetModification = {
         type: "ModifyQuerySet",
         baseVersion,
@@ -259,7 +264,12 @@ export class LocalSyncState {
   restart(
     oldRemoteQueryResults: Set<QueryId>,
   ): [QuerySetModification, Authenticate?] {
-    this.paused = false;
+    // Restart works whether we are paused or unpaused.
+    // The `this.pendingQuerySetModifications` is not used
+    // when restarting as the AddQuery and RemoveQuery are computed
+    // from scratch, based on the old remote query results, here.
+    this.unpause();
+
     this.outstandingQueriesOlderThanRestart.clear();
     const modifications = [];
     for (const localQuery of this.querySet.values()) {
@@ -302,44 +312,16 @@ export class LocalSyncState {
     this.paused = true;
   }
 
-  resume(
-    remoteQueryResults: Set<QueryId>,
-  ): [QuerySetModification?, Authenticate?] {
-    this.paused = false;
-    const localQueryIds = new Set();
-    const modifications = [];
-    for (const localQuery of this.querySet.values()) {
-      localQueryIds.add(localQuery.id);
-
-      if (!remoteQueryResults.has(localQuery.id)) {
-        const add: AddQuery = {
-          type: "Add",
-          queryId: localQuery.id,
-          udfPath: localQuery.canonicalizedUdfPath,
-          args: [convexToJson(localQuery.args)],
-          journal: localQuery.journal,
-        };
-        modifications.push(add);
-      }
-    }
-
-    for (const remoteQueryId of remoteQueryResults) {
-      if (!localQueryIds.has(remoteQueryId)) {
-        const remove: RemoveQuery = {
-          type: "Remove",
-          queryId: remoteQueryId,
-        };
-        modifications.push(remove);
-      }
-    }
-
+  resume(): [QuerySetModification?, Authenticate?] {
     const querySet: QuerySetModification | undefined =
-      modifications.length > 0
+      this.pendingQuerySetModifications.size > 0
         ? {
             type: "ModifyQuerySet",
             baseVersion: this.querySetVersion,
             newVersion: ++this.querySetVersion,
-            modifications,
+            modifications: Array.from(
+              this.pendingQuerySetModifications.values(),
+            ),
           }
         : undefined;
     const authenticate: Authenticate | undefined =
@@ -350,7 +332,15 @@ export class LocalSyncState {
             ...this.auth,
           }
         : undefined;
+
+    this.unpause();
+
     return [querySet, authenticate];
+  }
+
+  private unpause() {
+    this.paused = false;
+    this.pendingQuerySetModifications.clear();
   }
 
   private removeSubscriber(
@@ -367,13 +357,19 @@ export class LocalSyncState {
       this.outstandingQueriesOlderThanRestart.delete(localQuery.id);
       const baseVersion = this.querySetVersion;
       const newVersion = this.querySetVersion + 1;
-      if (!this.paused) {
-        this.querySetVersion = newVersion;
-      }
       const remove: RemoveQuery = {
         type: "Remove",
         queryId: localQuery.id,
       };
+      if (this.paused) {
+        if (this.pendingQuerySetModifications.has(localQuery.id)) {
+          this.pendingQuerySetModifications.delete(localQuery.id);
+        } else {
+          this.pendingQuerySetModifications.set(localQuery.id, remove);
+        }
+      } else {
+        this.querySetVersion = newVersion;
+      }
       return {
         type: "ModifyQuerySet",
         baseVersion,
