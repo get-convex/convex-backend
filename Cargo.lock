@@ -691,7 +691,7 @@ dependencies = [
  "bitflags 2.4.2",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.10.5",
  "lazy_static",
  "lazycell",
  "proc-macro2",
