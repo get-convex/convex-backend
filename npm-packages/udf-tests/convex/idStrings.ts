@@ -3,30 +3,7 @@ import { mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { assert } from "chai";
 import { Id } from "./_generated/dataModel";
-
-/**
- * Copied and pasted from syscall.ts
- * We don't normally allow UDFs to call ops, but this is for testing the system UDF `getTableMappingWithoutSystemTables`
- **/
-declare const Convex: {
-  syscall: (op: string, jsonArgs: string) => string;
-  asyncSyscall: (op: string, jsonArgs: string) => Promise<string>;
-  jsSyscall: (op: string, args: Record<string, any>) => any;
-  op: (opName: string, ...args: any[]) => any;
-};
-
-/**
- * Copied and pasted from syscall.ts
- * We don't normally allow UDFs to call ops, but this is for testing the system UDF`getTableMappingWithoutSystemTables`
- **/
-function performOp(op: string, ...args: any[]): any {
-  if (typeof Convex === "undefined" || Convex.op === undefined) {
-    throw new Error(
-      "The Convex execution environment is being unexpectedly run outside of a Convex backend.",
-    );
-  }
-  return Convex.op(op, ...args);
-}
+import { performOp } from "udf-syscall-ffi";
 
 /**
  * Copied and pasted from dashboard/convex/_system/frontend,

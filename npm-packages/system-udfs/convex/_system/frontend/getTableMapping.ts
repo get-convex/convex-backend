@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { performOp } from "../../syscall";
+import { performOp } from "udf-syscall-ffi";
 import { queryPrivateSystem } from "../secretSystemTables";
 
 /**

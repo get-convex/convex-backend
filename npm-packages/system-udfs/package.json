@@ -19,7 +19,8 @@
     "id-encoding": "workspace:*",
     "js-base64": "~3.7.4",
     "convex": "workspace:*",
-    "prettier": "3.2.5"
+    "prettier": "3.2.5",
+    "udf-syscall-ffi": "workspace:*"
   },
   "devDependencies": {
     "@types/object-inspect": "^1.8.1",

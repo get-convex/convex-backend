@@ -34,7 +34,7 @@ import {
 } from "convex/server";
 
 import { DefaultFunctionArgs } from "convex/server";
-import { performOp } from "../syscall";
+import { performOp } from "udf-syscall-ffi";
 
 type FunctionDefinition = {
   args: Record<string, GenericValidator>;

@@ -1,4 +1,4 @@
-import { performOp } from "./syscall.js";
+import { performOp } from "udf-syscall-ffi";
 import inspect from "object-inspect";
 
 type HeadersInit = [string, string][] | Record<string, string> | Headers;

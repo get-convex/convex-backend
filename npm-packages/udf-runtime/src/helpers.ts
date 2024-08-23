@@ -1,4 +1,4 @@
-import { performOp } from "./syscall.js";
+import { performOp } from "udf-syscall-ffi";
 
 /**
  * Throw an uncatchable error for unimplemented portions of JS builtins.

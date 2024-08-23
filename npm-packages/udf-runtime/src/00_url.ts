@@ -1,5 +1,5 @@
 import { throwNotImplementedMethodError } from "./helpers.js";
-import { performOp } from "./syscall.js";
+import { performOp } from "udf-syscall-ffi";
 import inspect from "object-inspect";
 
 type Update =

@@ -1,5 +1,5 @@
 import inspect from "object-inspect";
-import { performOp } from "./syscall.js";
+import { performOp } from "udf-syscall-ffi";
 
 function getMessage(args) {
   // TODO: Support string substitution.

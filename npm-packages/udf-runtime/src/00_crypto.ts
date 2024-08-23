@@ -6,7 +6,7 @@ import {
   throwNotImplementedMethodError,
   throwUncatchableDeveloperError,
 } from "./helpers.js";
-import { performOp } from "./syscall.js";
+import { performOp } from "udf-syscall-ffi";
 import {
   ArrayPrototypeIncludes,
   WeakMapPrototypeGet,

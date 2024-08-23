@@ -15,6 +15,10 @@
   },
   "projects": [
     {
+      "packageName": "udf-syscall-ffi",
+      "projectFolder": "udf-syscall-ffi"
+    },
+    {
       "packageName": "convex",
       "projectFolder": "convex",
       "versionPolicyName": "convex"

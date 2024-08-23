@@ -331,6 +331,7 @@ importers:
       object-inspect: ^1.12.0
       prettier: 3.2.5
       typescript: ~5.0.3
+      udf-syscall-ffi: workspace:*
       web-streams-polyfill: ~3.2.1
       zod: ^3.21.4
     dependencies:
@@ -342,6 +343,7 @@ importers:
       lodash: 4.17.21
       object-inspect: 1.12.3
       prettier: 3.2.5
+      udf-syscall-ffi: link:../udf-syscall-ffi
       web-streams-polyfill: 3.2.1
       zod: 3.22.4
     devDependencies:
@@ -364,6 +366,7 @@ importers:
       base64-js: ^1.5.1
       object-inspect: ^1.12.0
       prettier: 3.2.5
+      udf-syscall-ffi: workspace:*
       web-streams-polyfill: ~3.2.1
       zod: ^3.21.4
     dependencies:
@@ -371,10 +374,17 @@ importers:
       base64-js: 1.5.1
       object-inspect: 1.12.3
       prettier: 3.2.5
+      udf-syscall-ffi: link:../udf-syscall-ffi
       web-streams-polyfill: 3.2.1
       zod: 3.22.4
     devDependencies:
       '@types/object-inspect': 1.8.2
+
+  ../../udf-syscall-ffi:
+    specifiers:
+      typescript: ~5.0.3
+    devDependencies:
+      typescript: 5.0.4
 
   ../../udf-tests:
     specifiers:
@@ -388,6 +398,7 @@ importers:
       prettier: 3.2.5
       shapes: workspace:*
       typescript: ~5.0.3
+      udf-syscall-ffi: workspace:*
     dependencies:
       '@types/chai-as-promised': 7.1.6
       chai: 4.3.10
@@ -396,6 +407,7 @@ importers:
       id-encoding: link:../id-encoding
       prettier: 3.2.5
       shapes: link:../shapes
+      udf-syscall-ffi: link:../udf-syscall-ffi
     devDependencies:
       '@types/chai': 4.3.8
       '@types/node': 18.18.4

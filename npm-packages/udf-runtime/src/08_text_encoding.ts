@@ -2,7 +2,7 @@
 // Copyright 2018-2024 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/LICENSE.md
 
-import { performOp } from "./syscall.js";
+import { performOp } from "udf-syscall-ffi";
 import { copyBuffer } from "./crypto/helpers.js";
 import inspect from "object-inspect";
 
