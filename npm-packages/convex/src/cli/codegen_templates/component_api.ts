@@ -16,39 +16,23 @@ import { Identifier } from "../lib/deployApi/types.js";
 import { ComponentDefinitionPath } from "../lib/deployApi/paths.js";
 import { resolveFunctionReference } from "./component_server.js";
 
-export function componentApiJs(isRoot: boolean) {
+export function componentApiJs() {
   const lines = [];
-  if (isRoot) {
-    lines.push(header("Generated `api` utility."));
-    lines.push(`
-      import { anyApi } from "convex/server";
+  lines.push(header("Generated `api` utility."));
+  lines.push(`
+    import { anyApi } from "convex/server";
 
-      /**
-       * A utility for referencing Convex functions in your app's API.
-       *
-       * Usage:
-       * \`\`\`js
-       * const myFunctionReference = api.myModule.myFunction;
-       * \`\`\`
-       */
-      export const api = anyApi;
-      export const internal = anyApi;
-    `);
-  } else {
-    lines.push(header("Generated `api` utility."));
-    lines.push(`
-      import { anyApi } from "convex/server";
-      /**
-       * A utility for referencing Convex functions in your app's API.
-       *
-       * Usage:
-       * \`\`\`js
-       * const myFunctionReference = functions.myModule.myFunction;
-       * \`\`\`
-       */
-      export const functions = anyApi;
-    `);
-  }
+    /**
+     * A utility for referencing Convex functions in your app's API.
+     *
+     * Usage:
+     * \`\`\`js
+     * const myFunctionReference = api.myModule.myFunction;
+     * \`\`\`
+     */
+    export const api = anyApi;
+    export const internal = anyApi;
+  `);
   return lines.join("\n");
 }
 
@@ -63,18 +47,14 @@ export function rootComponentApiCJS() {
   return lines.join("\n");
 }
 
-export function componentApiStubDTS(isRoot: boolean) {
+export function componentApiStubDTS() {
   const lines = [];
   lines.push(header("Generated `api` utility."));
   lines.push(`import type { AnyApi } from "convex/server";`);
-  if (isRoot) {
-    lines.push(`
-      export declare const api: AnyApi;
-      export declare const internal: AnyApi;
-    `);
-  } else {
-    lines.push(`export declare const functions: AnyApi;`);
-  }
+  lines.push(`
+    export declare const api: AnyApi;
+    export declare const internal: AnyApi;
+  `);
   return lines.join("\n");
 }
 
@@ -84,7 +64,6 @@ export async function componentApiDTS(
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
 ) {
-  const isRoot = componentDirectory.isRoot;
   const definitionPath = toComponentDefinitionPath(
     rootComponent,
     componentDirectory,
@@ -95,75 +74,45 @@ export async function componentApiDTS(
   );
 
   const lines = [];
-  if (isRoot) {
-    lines.push(header("Generated `api` utility."));
-    for (const modulePath of modulePaths) {
-      const ident = moduleIdentifier(modulePath);
-      const path = importPath(modulePath);
-      lines.push(`import type * as ${ident} from "../${path}.js";`);
-    }
-    lines.push(`
-      import type {
-        ApiFromModules,
-        FilterApi,
-        FunctionReference,
-      } from "convex/server";
-      /**
-       * A utility for referencing Convex functions in your app's API.
-       *
-       * Usage:
-       * \`\`\`js
-       * const myFunctionReference = api.myModule.myFunction;
-       * \`\`\`
-       */
-      declare const fullApi: ApiFromModules<{
-    `);
-    for (const modulePath of modulePaths) {
-      const ident = moduleIdentifier(modulePath);
-      const path = importPath(modulePath);
-      lines.push(`  "${path}": typeof ${ident},`);
-    }
-    lines.push(`}>;`);
-    for await (const line of codegenApiWithMounts(
-      ctx,
-      startPush,
-      definitionPath,
-    )) {
-      lines.push(line);
-    }
-    lines.push(`
-      export declare const api: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "public">>;
-      export declare const internal: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "internal">>;
-    `);
-  } else {
-    lines.push(header("Generated `api` utility."));
-    for (const modulePath of modulePaths) {
-      const ident = moduleIdentifier(modulePath);
-      const path = importPath(modulePath);
-      lines.push(`import type * as ${ident} from "../${path}.js";`);
-    }
-    lines.push(`
-      import type {
-        ApiFromModules,
-        FunctionReference,
-      } from "convex/server";
-      /**
-       * A utility for referencing Convex functions in your app's API.
-       *
-       * Usage:
-       * \`\`\`js
-       * const myFunctionReference = functions.myModule.myFunction;
-       * \`\`\`
-       */
-      declare const functions: ApiFromModules<{
-    `);
-    for (const modulePath of modulePaths) {
-      const ident = moduleIdentifier(modulePath);
-      const path = importPath(modulePath);
-      lines.push(`  "${path}": typeof ${ident},`);
-    }
-    lines.push(`}>;`);
+  lines.push(header("Generated `api` utility."));
+  for (const modulePath of modulePaths) {
+    const ident = moduleIdentifier(modulePath);
+    const path = importPath(modulePath);
+    lines.push(`import type * as ${ident} from "../${path}.js";`);
   }
+  lines.push(`
+    import type {
+      ApiFromModules,
+      FilterApi,
+      FunctionReference,
+    } from "convex/server";
+    /**
+     * A utility for referencing Convex functions in your app's API.
+     *
+     * Usage:
+     * \`\`\`js
+     * const myFunctionReference = api.myModule.myFunction;
+     * \`\`\`
+     */
+    declare const fullApi: ApiFromModules<{
+  `);
+  for (const modulePath of modulePaths) {
+    const ident = moduleIdentifier(modulePath);
+    const path = importPath(modulePath);
+    lines.push(`  "${path}": typeof ${ident},`);
+  }
+  lines.push(`}>;`);
+  for await (const line of codegenApiWithMounts(
+    ctx,
+    startPush,
+    definitionPath,
+  )) {
+    lines.push(line);
+  }
+  lines.push(`
+    export declare const api: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "public">>;
+    export declare const internal: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "internal">>;
+  `);
   return lines.join("\n");
 }
 

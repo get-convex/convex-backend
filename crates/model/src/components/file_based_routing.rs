@@ -1,9 +1,6 @@
-use std::{
-    collections::{
-        btree_map::Entry,
-        BTreeMap,
-    },
-    sync::LazyLock,
+use std::collections::{
+    btree_map::Entry,
+    BTreeMap,
 };
 
 use common::{
@@ -11,28 +8,17 @@ use common::{
     components::Reference,
 };
 use errors::ErrorMetadata;
-use sync_types::{
-    CanonicalizedUdfPath,
-    ModulePath,
-};
+use sync_types::CanonicalizedUdfPath;
 
 use super::types::EvaluatedComponentDefinition;
 use crate::modules::module_versions::Visibility;
-
-static INDEX_JS: LazyLock<ModulePath> = LazyLock::new(|| "index".parse().unwrap());
 
 pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> anyhow::Result<()> {
     for (module_path, module) in &evaluated.functions {
         let mut identifiers = vec![];
         let stripped = module_path.clone().strip();
 
-        // Special case `index.js` in components (not the app) to flatten its exports
-        // into the root.
-        let is_component_index = !evaluated.is_app() && stripped == *INDEX_JS;
-        if !is_component_index {
-            identifiers.extend(stripped.components());
-        }
-
+        identifiers.extend(stripped.components());
         for function in &module.functions {
             if function.visibility != Some(Visibility::Public) {
                 continue;

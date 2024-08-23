@@ -392,7 +392,7 @@ async function doInitialComponentApiCodegen(
   generateCommonJSApi: boolean,
   opts?: { dryRun?: boolean; debug?: boolean },
 ) {
-  const apiJS = componentApiJs(isRoot);
+  const apiJS = componentApiJs();
   await writeFormattedFile(
     ctx,
     tmpDir,
@@ -404,7 +404,7 @@ async function doInitialComponentApiCodegen(
 
   // Don't write the `.d.ts` stub if it already exists.
   const apiDTSPath = path.join(codegenDir, "api.d.ts");
-  const apiStubDTS = componentApiStubDTS(isRoot);
+  const apiStubDTS = componentApiStubDTS();
   if (!ctx.fs.exists(apiDTSPath)) {
     await writeFormattedFile(
       ctx,

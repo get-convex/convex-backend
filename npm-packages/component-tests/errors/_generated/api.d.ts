@@ -10,15 +10,34 @@
 
 import type * as throwSystemError from "../throwSystemError.js";
 
-import type { ApiFromModules, FunctionReference } from "convex/server";
+import type {
+  ApiFromModules,
+  FilterApi,
+  FunctionReference,
+} from "convex/server";
 /**
  * A utility for referencing Convex functions in your app's API.
  *
  * Usage:
  * ```js
- * const myFunctionReference = functions.myModule.myFunction;
+ * const myFunctionReference = api.myModule.myFunction;
  * ```
  */
-declare const functions: ApiFromModules<{
+declare const fullApi: ApiFromModules<{
   throwSystemError: typeof throwSystemError;
 }>;
+declare const fullApiWithMounts: typeof fullApi & {
+  throwSystemError: {
+    fromAction: FunctionReference<"action", "public", any, any>;
+    fromQuery: FunctionReference<"query", "public", any, any>;
+  };
+};
+
+export declare const api: FilterApi<
+  typeof fullApiWithMounts,
+  FunctionReference<any, "public">
+>;
+export declare const internal: FilterApi<
+  typeof fullApiWithMounts,
+  FunctionReference<any, "internal">
+>;
