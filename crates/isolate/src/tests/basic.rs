@@ -403,18 +403,16 @@ async fn test_time_constructor_args(rt: TestRuntime) -> anyhow::Result<()> {
         must_let!(let ConvexValue::Float64(_) = t.query("basic:createTimeMs", assert_obj!("args" => [1.0, 2.0])).await?);
         must_let!(let ConvexValue::Float64(_) = t.query("basic:createTimeMs", assert_obj!("args" => [1.0, 2.0, 3.0, 4.0, 4.0, 6.0, 7.0])).await?);
 
-        // until we deal with timezones, strings are not allowed
-        let err = t
-            .query_js_error(
-                "basic:createTimeMs",
-                assert_obj!("args" => ["1970-01-01T12:00"]),
-            )
-            .await?;
-        let expected = "`new Date()` with non-number arguments is not supported";
-        assert!(
-            format!("{}", err).contains(expected),
-            "\nExpected: {expected}\nActual: {err}"
-        );
+        // Assert that we are parsing in UTC
+        must_let!(let ConvexValue::Float64(ms_out) = t.query("basic:createTimeMs", assert_obj!("args" => [1970.0, 0.0, 1.0])).await?);
+        assert_eq!(ms_out, 0.);
+
+        must_let!(let ConvexValue::Float64(ms_out) = t.query("basic:createTimeMs", assert_obj!("args" => ["1970-01-01"])).await?);
+        assert_eq!(ms_out, 0.);
+
+        must_let!(let ConvexValue::Float64(ms_out) = t.query("basic:createTimeMs", assert_obj!("args" => ["1970-01-01T12:00"])).await?);
+        assert_eq!(ms_out, 12. * 60. * 60. * 1000.);
+
         Ok(())
     }).await
 }

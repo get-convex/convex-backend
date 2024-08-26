@@ -13,7 +13,7 @@ export const readTimeMs = query(async () => {
   return Date.now();
 });
 
-export const createTimeMs = query(async (_, { args }: { args: [number] }) => {
+export const createTimeMs = query(async (_, { args }: { args: [any] }) => {
   // Date expects 0-7 args, not n args, so pretend it's 1 arg.
   return +new Date(...args);
 });

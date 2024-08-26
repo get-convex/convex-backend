@@ -73,12 +73,12 @@ export function setup(global: any) {
 
 function setupDate(global) {
   // Patch `Date` with our own version that returns a consistent result.
+  // We only patch the paths that refer to the current time because for all
+  // other paths, we have already ensured determinism by pinning the system
+  // time to UTC via the TZ environment variable.
   const originalDate = global.Date;
   delete global.Date;
 
-  // TODO: I'm not sure this fully guarantees that the user can't make their way back to
-  // `originalDate` (and introduce nondeterminism), but this is good enough for now.
-  // TODO: We need to pin V8's timezone to UTC via `DateTimeConfigurationChangeNotification`.
   function Date(...args) {
     // `Date()` was called directly, not as a constructor.
     if (!(this instanceof Date)) {
@@ -88,14 +88,6 @@ function setupDate(global) {
     if (args.length === 0) {
       const unixTsMs = Date.now();
       return new originalDate(unixTsMs);
-    }
-    if (args.length === 1 && args[0] instanceof originalDate) {
-      return new originalDate(args[0]);
-    }
-    if (args.filter((x) => typeof x !== "number").length) {
-      throw new Error(
-        "`new Date()` with non-number arguments is not supported.",
-      );
     }
     return new originalDate(...args);
   }

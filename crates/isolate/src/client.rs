@@ -70,6 +70,7 @@ use common::{
         ModuleEnvironment,
         UdfType,
     },
+    utils::ensure_utc,
 };
 use database::{
     shutdown_error,
@@ -620,6 +621,7 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
 }
 
 pub fn initialize_v8() {
+    ensure_utc();
     static V8_INIT: Once = Once::new();
     V8_INIT.call_once(|| {
         let _s = static_span!("initialize_v8");
