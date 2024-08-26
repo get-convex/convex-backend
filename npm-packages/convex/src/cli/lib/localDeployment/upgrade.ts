@@ -24,6 +24,7 @@ import {
   waitForStableImportState,
 } from "../../convexImport.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
+import { recursivelyDelete } from "../fsUtils.js";
 
 export async function handlePotentialUpgrade(
   ctx: Context,
@@ -91,7 +92,7 @@ export async function handlePotentialUpgrade(
       });
   const deploymentStatePath = deploymentStateDir(args.deploymentName);
   if (choice === "reset") {
-    ctx.fs.rmdir(deploymentStatePath);
+    recursivelyDelete(ctx, deploymentStatePath, { force: true });
     saveDeploymentConfig(ctx, args.deploymentName, newConfig);
     return runLocalBackend(ctx, {
       binaryPath: args.newBinaryPath,
