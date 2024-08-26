@@ -27,10 +27,8 @@ file_storage = { path = "../file_storage" }
 function_runner = { path = "../function_runner" }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
-hex = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
-hyper = { workspace = true }
 hyper-util = { workspace = true }
 isolate = { path = "../../crates/isolate" }
 keybroker = { path = "../keybroker" }

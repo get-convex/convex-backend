@@ -46,7 +46,6 @@ sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
@@ -78,10 +77,4 @@ testing = [
     "search/testing",
     "storage/testing",
     "value/testing",
-]
-
-[package.metadata.cargo-machete]
-ignored = [
-    # Used in a serde(with) clause
-    "serde_bytes",
 ]

@@ -9,7 +9,6 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 anyhow = { workspace = true }
 common = { path = "../../crates/common" }
 futures = { workspace = true }
-miette = { workspace = true, features = ["fancy"] }
 prost-reflect = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }

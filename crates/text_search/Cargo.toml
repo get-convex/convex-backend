@@ -16,7 +16,6 @@ maplit = { workspace = true }
 metrics = { path = "../metrics" }
 minitrace = { workspace = true }
 proptest = { workspace = true, optional = true }
-proptest-derive = { workspace = true, optional = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }
 tantivy-common = { workspace = true }
@@ -26,7 +25,6 @@ value = { path = "../value" }
 common = { path = "../common", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
-proptest-derive = { workspace = true }
 value = { path = "../value", features = ["testing"] }
 
 [features]
@@ -34,6 +32,5 @@ testing = [
     "common/testing",
     "metrics/testing",
     "proptest",
-    "proptest-derive",
     "value/testing"
 ]
