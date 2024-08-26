@@ -1,0 +1,26 @@
+{
+  "name": "udf-syscall-ffi",
+  "version": "0.0.0",
+  "description": "UDF syscalls and ops",
+  "type": "module",
+  "main": "./dist/esm/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "types": "dist/esm/index.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && npm run build-esm && npm run build-cjs",
+    "build-esm": "tsc",
+    "build-cjs": "tsc --module commonjs --outDir dist/cjs --target es2015 && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "author": "Convex, Inc.",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "typescript": "~5.0.3"
+  }
+}
