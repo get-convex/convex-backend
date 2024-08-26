@@ -2466,6 +2466,19 @@ impl<RT: Runtime> Application<RT> {
         Ok(count)
     }
 
+    pub async fn delete_component(
+        &self,
+        identity: &Identity,
+        component_id: ComponentId,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.begin(identity.clone()).await?;
+        ComponentConfigModel::new(&mut tx)
+            .delete_component(component_id)
+            .await?;
+        self.commit(tx, "delete_component").await?;
+        Ok(())
+    }
+
     /// Add system indexes if they do not already exist and update
     /// existing indexes if needed.
     pub async fn _add_system_indexes(

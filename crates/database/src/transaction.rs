@@ -663,6 +663,13 @@ impl<RT: Runtime> Transaction<RT> {
         namespace: TableNamespace,
         state: SchemaState,
     ) -> anyhow::Result<Option<ParsedDocument<SchemaMetadata>>> {
+        if !self
+            .table_mapping()
+            .namespace(namespace)
+            .name_exists(&SCHEMAS_TABLE)
+        {
+            return Ok(None);
+        }
         let schema_tablet = self
             .table_mapping()
             .namespace(namespace)

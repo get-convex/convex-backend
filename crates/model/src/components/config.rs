@@ -26,9 +26,11 @@ use database::{
     SchemaModel,
     SchemasTable,
     SystemMetadataModel,
+    TableModel,
     Transaction,
     COMPONENTS_TABLE,
     COMPONENT_DEFINITIONS_TABLE,
+    SCHEMAS_TABLE,
 };
 use errors::ErrorMetadata;
 use serde::{
@@ -646,6 +648,51 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 cron_diff,
             },
         ))
+    }
+
+    pub async fn delete_component(&mut self, component_id: ComponentId) -> anyhow::Result<()> {
+        let ComponentId::Child(id) = component_id else {
+            anyhow::bail!("Cannot delete root component");
+        };
+
+        let component = BootstrapComponentsModel::new(self.tx)
+            .load_component(component_id)
+            .await?;
+
+        match component {
+            Some(component) => {
+                if component.state != ComponentState::Unmounted {
+                    anyhow::bail!("Component must be unmounted before deletion");
+                }
+            },
+            None => {
+                anyhow::bail!("Component not found");
+            },
+        }
+
+        let resolved_document_id =
+            BootstrapComponentsModel::new(self.tx).resolve_component_id(id)?;
+        SystemMetadataModel::new_global(self.tx)
+            .delete(resolved_document_id)
+            .await?;
+
+        let namespace = TableNamespace::from(component_id);
+        // delete the schema table first
+        // tables defined in the schema cannot be deleted, so we delete the _schemas
+        // table first to remove that restriction
+        TableModel::new(self.tx)
+            .delete_table(namespace, SCHEMAS_TABLE.clone())
+            .await?;
+
+        // then delete all tables, including system tables
+        let namespaced_table_mapping = self.tx.table_mapping().namespace(namespace);
+        for (tablet_id, ..) in namespaced_table_mapping.iter() {
+            TableModel::new(self.tx)
+                .delete_table_by_id(tablet_id)
+                .await?;
+        }
+
+        Ok(())
     }
 }
 

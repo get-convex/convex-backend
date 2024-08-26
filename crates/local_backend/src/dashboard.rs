@@ -49,6 +49,12 @@ pub struct DeleteTableArgs {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DeleteComponentArgs {
+    component_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShapesArgs {
     component: Option<String>,
 }
@@ -100,6 +106,20 @@ pub async fn delete_tables(
     )?);
     st.application
         .delete_tables(&identity, table_names, table_namespace)
+        .await?;
+    Ok(StatusCode::OK)
+}
+
+#[debug_handler]
+pub async fn delete_component(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Json(DeleteComponentArgs { component_id }): Json<DeleteComponentArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_member_with_write_access(&identity)?;
+    let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
+    st.application
+        .delete_component(&identity, component_id)
         .await?;
     Ok(StatusCode::OK)
 }

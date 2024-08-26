@@ -47,6 +47,7 @@ use tower_http::{
 
 use crate::{
     dashboard::{
+        delete_component,
         delete_tables,
         get_indexes,
         get_source_code,
@@ -139,6 +140,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/shapes2", get(shapes2))
         .route("/get_indexes", get(get_indexes))
         .route("/delete_tables", post(delete_tables))
+        .route("/delete_component", post(delete_component))
         .route("/get_source_code", get(get_source_code))
         // Metrics routes
         .route("/app_metrics/stream_udf_execution", get(stream_udf_execution))

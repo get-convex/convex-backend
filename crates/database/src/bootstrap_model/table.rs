@@ -198,7 +198,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         self.delete_table_by_id(tablet_id).await
     }
 
-    async fn delete_table_by_id(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
+    pub async fn delete_table_by_id(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
         for index in IndexModel::new(self.tx)
             .all_indexes_on_table(tablet_id)
             .await?

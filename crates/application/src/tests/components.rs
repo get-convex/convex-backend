@@ -293,6 +293,10 @@ fn table_name() -> TableName {
     "messages".parse().unwrap()
 }
 
+fn system_table_name() -> TableName {
+    "_modules".parse().unwrap()
+}
+
 #[convex_macro::test_runtime]
 async fn test_unmounted_component_state(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
@@ -382,5 +386,82 @@ async fn test_descendents_unmounted(rt: TestRuntime) -> anyhow::Result<()> {
         .await?
         .unwrap();
     assert!(matches!(metadata.state, ComponentState::Unmounted));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_delete_unmounted_component_deletes_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let component_id = unmount_component(&application).await?;
+    let system_identity = Identity::system();
+    let mut tx = application.begin(system_identity.clone()).await?;
+    let component = BootstrapComponentsModel::new(&mut tx)
+        .load_component(component_id)
+        .await?
+        .unwrap();
+    assert!(matches!(component.state, ComponentState::Unmounted));
+    application
+        .delete_component(&system_identity, component_id)
+        .await?;
+    let mut tx = application.begin(system_identity).await?;
+    let component = BootstrapComponentsModel::new(&mut tx)
+        .load_component(component_id)
+        .await?;
+    assert!(component.is_none());
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_delete_unmounted_component_deletes_component_tables(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let component_id = unmount_component(&application).await?;
+
+    let table_namespace = TableNamespace::from(component_id);
+    let mut tx = application.begin(Identity::system()).await?;
+    assert!(TableModel::new(&mut tx).table_exists(table_namespace, &table_name()));
+
+    application
+        .delete_component(&Identity::system(), component_id)
+        .await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    assert!(!TableModel::new(&mut tx).table_exists(table_namespace, &table_name()));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_delete_unmounted_component_deletes_component_system_tables(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    let component_id = unmount_component(&application).await?;
+
+    let table_namespace = TableNamespace::from(component_id);
+    let mut tx = application.begin(Identity::system()).await?;
+    assert!(TableModel::new(&mut tx).table_exists(table_namespace, &system_table_name()));
+
+    application
+        .delete_component(&Identity::system(), component_id)
+        .await?;
+
+    let mut tx = application.begin(Identity::system()).await?;
+    assert!(!TableModel::new(&mut tx).table_exists(table_namespace, &system_table_name()));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_mounted_component_delete_component_errors_out(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("mounted").await?;
+    let mut tx = application.begin(Identity::system()).await?;
+    let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
+        .component_path_to_ids(component_path())
+        .await?;
+    assert!(application
+        .delete_component(&Identity::system(), component_id)
+        .await
+        .is_err());
     Ok(())
 }
