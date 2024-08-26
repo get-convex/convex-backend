@@ -170,8 +170,7 @@ export type {
 export {
   defineApp,
   defineComponent,
-  appGeneric,
-  componentGeneric,
+  componentsGeneric,
   currentSystemUdfInComponent,
   createComponentArg,
   createFunctionHandle,
@@ -181,8 +180,7 @@ export {
  */
 export type {
   ComponentDefinition,
-  AnyApp,
-  AnyComponent,
+  AnyComponents,
   FunctionHandle,
 } from "./components/index.js";
 

@@ -1,21 +1,24 @@
-import { query, app, action } from "./_generated/server";
+import { query, components, action } from "./_generated/server";
 
 export const hello = action(async (ctx) => {
-  return await ctx.runAction(app.envVars.messages.hello, {});
+  return await ctx.runAction(components.envVars.messages.hello, {});
 });
 
 export const url = action(async (ctx) => {
-  return await ctx.runAction(app.envVars.messages.url, {});
+  return await ctx.runAction(components.envVars.messages.url, {});
 });
 export const envVarQuery = query(async (ctx) => {
-  return await ctx.runQuery(app.envVars.messages.envVarQuery, {});
+  return await ctx.runQuery(components.envVars.messages.envVarQuery, {});
 });
 export const envVarAction = action(async (ctx) => {
-  return await ctx.runAction(app.envVars.messages.envVarAction, {});
+  return await ctx.runAction(components.envVars.messages.envVarAction, {});
 });
 export const systemEnvVarQuery = query(async (ctx) => {
-  return await ctx.runQuery(app.envVars.messages.systemEnvVarQuery, {});
+  return await ctx.runQuery(components.envVars.messages.systemEnvVarQuery, {});
 });
 export const systemEnvVarAction = action(async (ctx) => {
-  return await ctx.runAction(app.envVars.messages.systemEnvVarAction, {});
+  return await ctx.runAction(
+    components.envVars.messages.systemEnvVarAction,
+    {},
+  );
 });

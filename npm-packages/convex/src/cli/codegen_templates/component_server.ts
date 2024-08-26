@@ -31,8 +31,7 @@ export function componentServerJS(isRoot: boolean): string {
     internalActionGeneric,
     internalMutationGeneric,
     internalQueryGeneric,
-    appGeneric,
-    componentGeneric,
+    componentsGeneric,
     createComponentArg,
   } from "convex/server";
 
@@ -105,14 +104,11 @@ export function componentServerJS(isRoot: boolean): string {
    * @returns The wrapped endpoint function. Route a URL path to this function in \`convex/http.js\`.
    */
   export const httpAction = httpActionGeneric;
+
+  export const components = componentsGeneric();
   `;
-  if (isRoot) {
+  if (!isRoot) {
     result += `
-    export const app = appGeneric();
-    `;
-  } else {
-    result += `
-    export const component = componentGeneric();
     export const componentArg = createComponentArg();
     `;
   }
@@ -126,6 +122,7 @@ function componentServerDTSPrelude(_isRoot: boolean): string {
     )}
     import {
       ActionBuilder,
+      AnyComponents,
       HttpActionBuilder,
       MutationBuilder,
       QueryBuilder,
@@ -264,13 +261,11 @@ function componentServerDTSPrelude(_isRoot: boolean): string {
 
 export function componentServerStubDTS(isRoot: boolean): string {
   let result = componentServerDTSPrelude(isRoot);
-  if (isRoot) {
+  result += `
+  export declare const components: AnyComponents;
+  `;
+  if (!isRoot) {
     result += `
-    export declare const app: AnyApp;
-    `;
-  } else {
-    result += `
-    export declare const component: AnyComponent;
     export declare const componentArg: (ctx: GenericCtx, name: string) => any;
     `;
   }
@@ -285,8 +280,7 @@ export async function componentServerDTS(
 ): Promise<string> {
   const result = [componentServerDTSPrelude(componentDirectory.isRoot)];
 
-  const identifier = componentDirectory.isRoot ? "app" : "component";
-  result.push(`export declare const ${identifier}: {`);
+  result.push(`export declare const components: {`);
 
   const definitionPath = toComponentDefinitionPath(
     rootComponent,

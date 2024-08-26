@@ -16,8 +16,7 @@ import {
   internalActionGeneric,
   internalMutationGeneric,
   internalQueryGeneric,
-  appGeneric,
-  componentGeneric,
+  componentsGeneric,
   createComponentArg,
 } from "convex/server";
 
@@ -91,4 +90,4 @@ export const internalAction = internalActionGeneric;
  */
 export const httpAction = httpActionGeneric;
 
-export const app = appGeneric();
+export const components = componentsGeneric();

@@ -1,9 +1,9 @@
-import { query, app, action } from "./_generated/server";
+import { query, components, action } from "./_generated/server";
 
 export const throwSystemErrorFromQuery = query(async (ctx) => {
-  await ctx.runQuery(app.errors.throwSystemError.fromQuery, {});
+  await ctx.runQuery(components.errors.throwSystemError.fromQuery, {});
 });
 
 export const throwSystemErrorFromAction = action(async (ctx) => {
-  await ctx.runAction(app.errors.throwSystemError.fromAction, {});
+  await ctx.runAction(components.errors.throwSystemError.fromAction, {});
 });

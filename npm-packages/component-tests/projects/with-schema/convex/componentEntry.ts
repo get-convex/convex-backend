@@ -1,15 +1,18 @@
 import { Doc } from "../../../component/_generated/dataModel";
-import { query, app, action, mutation } from "./_generated/server";
+import { query, components, action, mutation } from "./_generated/server";
 
 export const list = query(async (ctx): Promise<Doc<"messages">[]> => {
-  const result = await ctx.runQuery(app.component.messages.listMessages, {});
+  const result = await ctx.runQuery(
+    components.component.messages.listMessages,
+    {},
+  );
   console.log(result);
   return result;
 });
 
 export const insert = mutation(
   async (ctx, { channel, text }: { channel: string; text: string }) => {
-    await ctx.runMutation(app.component.messages.insertMessage, {
+    await ctx.runMutation(components.component.messages.insertMessage, {
       channel,
       text,
     });
@@ -17,9 +20,9 @@ export const insert = mutation(
 );
 
 export const hello = action(async (ctx) => {
-  return await ctx.runAction(app.component.messages.hello, {});
+  return await ctx.runAction(components.component.messages.hello, {});
 });
 
 export const url = action(async (ctx) => {
-  return await ctx.runAction(app.component.messages.url, {});
+  return await ctx.runAction(components.component.messages.url, {});
 });

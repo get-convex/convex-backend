@@ -583,19 +583,9 @@ export function createComponentArg(): (ctx: any, name: string) => any {
 /**
  * @internal
  */
-export const appGeneric = () => createChildComponents("app", []);
+export const componentsGeneric = () => createChildComponents("components", []);
 
 /**
  * @internal
  */
-export type AnyApp = AnyChildComponents;
-
-/**
- * @internal
- */
-export const componentGeneric = () => createChildComponents("component", []);
-
-/**
- * @internal
- */
-export type AnyComponent = AnyChildComponents;
+export type AnyComponents = AnyChildComponents;
