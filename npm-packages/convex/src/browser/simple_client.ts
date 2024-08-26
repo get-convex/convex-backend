@@ -368,9 +368,9 @@ export class ConvexClient {
   ): Promise<Awaited<Query["_returnType"]>> {
     if (this.disabled) throw new Error("ConvexClient is disabled");
     const value = this.client.localQueryResult(getFunctionName(query), args) as
-      | Query["_returnType"]
+      | Awaited<Query["_returnType"]>
       | undefined;
-    if (value !== undefined) return value;
+    if (value !== undefined) return Promise.resolve(value);
 
     return new Promise((resolve, reject) => {
       const { unsubscribe } = this.onUpdate(

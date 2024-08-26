@@ -456,7 +456,7 @@ export class ConvexReactClient {
     const watch = this.watchQuery(query, ...args);
     const existingResult = watch.localQueryResult();
     if (existingResult !== undefined) {
-      return existingResult;
+      return Promise.resolve(existingResult);
     }
     return new Promise((resolve, reject) => {
       const unsubscribe = watch.onUpdate(() => {
