@@ -114,7 +114,6 @@ use database::{
     SnapshotPage,
     StreamingExportTableFilter,
     Subscription,
-    SystemMetadataModel,
     TableModel,
     Token,
     Transaction,
@@ -208,7 +207,7 @@ use model::{
             ExportFormat,
             ExportObjectKeys,
         },
-        EXPORTS_TABLE,
+        ExportsModel,
     },
     external_packages::{
         types::{
@@ -1328,9 +1327,7 @@ impl<RT: Runtime> Application<RT> {
                         None => ExportFormat::CleanJsonl,
                     }
                 };
-                SystemMetadataModel::new_global(&mut tx)
-                    .insert(&EXPORTS_TABLE, Export::requested(format).try_into()?)
-                    .await?;
+                ExportsModel::new(&mut tx).insert_requested(format).await?;
                 Ok(())
             },
             _ => Err(

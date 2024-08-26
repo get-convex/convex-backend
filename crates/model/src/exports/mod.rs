@@ -5,12 +5,24 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    query::{
+        Order,
+        Query,
+    },
+    runtime::Runtime,
     types::IndexName,
 };
-use database::defaults::system_index;
+use database::{
+    defaults::system_index,
+    ResolvedQuery,
+    SystemMetadataModel,
+    Transaction,
+};
+use types::ExportFormat;
 use value::{
     FieldPath,
     TableName,
+    TableNamespace,
 };
 
 use self::types::Export;
@@ -23,10 +35,6 @@ pub mod types;
 
 pub static EXPORTS_TABLE: LazyLock<TableName> =
     LazyLock::new(|| "_exports".parse().expect("Invalid built-in exports table"));
-
-// TODO(lee): replace with by_state_and_ts, and delete this index.
-pub static EXPORTS_BY_STATE_INDEX: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&EXPORTS_TABLE, "by_state"));
 
 pub static EXPORTS_BY_STATE_AND_TS_INDEX: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&EXPORTS_TABLE, "by_state_and_ts"));
@@ -44,21 +52,43 @@ impl SystemTable for ExportsTable {
     }
 
     fn indexes(&self) -> Vec<SystemIndex> {
-        vec![
-            SystemIndex {
-                name: EXPORTS_BY_STATE_INDEX.clone(),
-                fields: vec![EXPORTS_STATE_FIELD.clone()].try_into().unwrap(),
-            },
-            SystemIndex {
-                name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
-                fields: vec![EXPORTS_STATE_FIELD.clone(), EXPORTS_TS_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
-        ]
+        vec![SystemIndex {
+            name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
+            fields: vec![EXPORTS_STATE_FIELD.clone(), EXPORTS_TS_FIELD.clone()]
+                .try_into()
+                .unwrap(),
+        }]
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
         ParsedDocument::<Export>::try_from(document).map(|_| ())
+    }
+}
+
+pub struct ExportsModel<'a, RT: Runtime> {
+    tx: &'a mut Transaction<RT>,
+}
+
+impl<'a, RT: Runtime> ExportsModel<'a, RT> {
+    pub fn new(tx: &'a mut Transaction<RT>) -> Self {
+        Self { tx }
+    }
+
+    pub async fn insert_requested(&mut self, format: ExportFormat) -> anyhow::Result<()> {
+        SystemMetadataModel::new_global(self.tx)
+            .insert(&EXPORTS_TABLE, Export::requested(format).try_into()?)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<Export>>> {
+        let value_query = Query::full_table_scan(EXPORTS_TABLE.clone(), Order::Asc);
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
+        let mut result = vec![];
+        while let Some(doc) = query_stream.next(self.tx, None).await? {
+            let row: ParsedDocument<Export> = doc.try_into()?;
+            result.push(row);
+        }
+        Ok(result)
     }
 }
