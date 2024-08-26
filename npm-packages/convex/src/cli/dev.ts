@@ -174,10 +174,15 @@ export const dev = new Command("dev")
       ...cmdOptions,
       localOptions,
     });
+    let cleanupHandle = credentials.cleanupHandle;
     process.on("SIGINT", async () => {
       logVerbose(ctx, "Received SIGINT, cleaning up...");
-      if (credentials.cleanupHandle !== null) {
-        await credentials.cleanupHandle?.();
+      if (cleanupHandle !== null) {
+        logVerbose(ctx, "About to run cleanup handle.");
+        // Sometimes `SIGINT` gets sent twice, so set `cleanupHandle` to null to prevent double-cleanup
+        const f = cleanupHandle;
+        cleanupHandle = null;
+        await f();
       }
       logVerbose(ctx, "Cleaned up. Exiting.");
       process.exit(-2);
