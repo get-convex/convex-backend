@@ -38,17 +38,6 @@ use crate::{
 // Export GETs are immutable. Browser can cache for a long time.
 const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 30);
 
-pub async fn request_export(
-    State(st): State<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
-    st.application
-        .request_export(identity, ExportFormat::CleanJsonl)
-        .await?;
-    Ok(StatusCode::OK)
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestZipExport {
@@ -67,66 +56,6 @@ pub async fn request_zip_export(
         .request_export(identity, ExportFormat::Zip { include_storage })
         .await?;
     Ok(StatusCode::OK)
-}
-
-#[derive(Deserialize)]
-pub struct ExportRequest {
-    // Timestamp the snapshot export started at
-    snapshot_ts: String,
-    // Table to get the export for
-    table_name: String,
-}
-
-#[debug_handler]
-pub async fn get_export(
-    State(st): State<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Path(ExportRequest {
-        snapshot_ts,
-        table_name: file_name,
-    }): Path<ExportRequest>,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
-    let ts: Timestamp = snapshot_ts.parse().context(ErrorMetadata::bad_request(
-        "BadSnapshotTimestamp",
-        "Snapshot timestamp did not parse to a timestamp.",
-    ))?;
-    let extension = if file_name.ends_with(".json") {
-        Some(".json")
-    } else if file_name.ends_with(".jsonl") {
-        Some(".jsonl")
-    } else {
-        None
-    }
-    .context(ErrorMetadata::bad_request(
-        "BadSnapshotFilename",
-        "Snapshot filename must be {table}.json(l)",
-    ))?;
-    let table_name = file_name.strip_suffix(extension).unwrap();
-    let StorageGetStream {
-        content_length,
-        stream,
-    } = st
-        .application
-        .get_export(identity, ts, table_name.parse()?)
-        .await?;
-    let content_length = ContentLength(content_length as u64);
-    Ok((
-        TypedHeader(content_length),
-        // `ContentDisposition::attachment()` is not implemented in the headers library yet!
-        // so we handroll it:
-        TypedHeader(ContentDispositionAttachment(
-            // It's kinda jank that we rely on client to tell us the
-            // file name but it's much easier to implement :)
-            file_name,
-        )),
-        TypedHeader(
-            CacheControl::new()
-                .with_private()
-                .with_max_age(MAX_CACHE_AGE),
-        ),
-        Body::from_stream(stream),
-    ))
 }
 
 #[derive(Deserialize)]

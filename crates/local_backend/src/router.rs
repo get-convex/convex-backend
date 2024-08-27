@@ -107,9 +107,7 @@ use crate::{
         schema_state,
     },
     snapshot_export::{
-        get_export,
         get_zip_export,
-        request_export,
         request_zip_export,
     },
     storage::{
@@ -173,8 +171,6 @@ pub async fn router(st: LocalAppState) -> Router {
         .layer(cli_cors().await);
 
     let snapshot_export_routes = Router::new()
-        .route("/request", post(request_export))
-        .route("/:snapshot_ts/:table_name", get(get_export))
         .route("/request/zip", post(request_zip_export))
         .route("/zip/:snapshot_ts", get(get_zip_export));
 

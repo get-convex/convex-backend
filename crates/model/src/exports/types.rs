@@ -1,16 +1,11 @@
 use std::{
-    collections::BTreeMap,
     fmt,
     fmt::Display,
 };
 
-use anyhow::Context;
 use common::{
     obj,
-    types::{
-        ObjectKey,
-        TableName,
-    },
+    types::ObjectKey,
 };
 use maplit::btreemap;
 use sync_types::Timestamp;
@@ -69,8 +64,6 @@ impl Export {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ExportFormat {
-    /// jsonl format of clean export Json
-    CleanJsonl,
     /// zip file containing a CleanJsonl for each table, and sidecar type info.
     Zip { include_storage: bool },
 }
@@ -201,13 +194,6 @@ impl TryFrom<Export> for ConvexObject {
                     "format".parse()? => val!(format),
                 };
                 match object_keys {
-                    ExportObjectKeys::ByTable(tables) => o.insert("tables".parse()?, {
-                        let tables: Vec<_> = tables
-                            .into_iter()
-                            .map(|(t, o)| anyhow::Ok(val!([t.to_string(), o.to_string()])))
-                            .try_collect()?;
-                        ConvexValue::Array(tables.try_into()?)
-                    }),
                     ExportObjectKeys::Zip(object_key) => o.insert(
                         "zip_object_key".parse()?,
                         ConvexValue::try_from(object_key.to_string())?,
@@ -278,35 +264,8 @@ impl TryFrom<ConvexObject> for Export {
                         Some(ConvexValue::Int64(t)) => *t as u64,
                         _ => anyhow::bail!("invalid expiration_ts: {:?}", o),
                     };
-                    let object_keys = match (o.get("tables"), o.get("zip_object_key")) {
-                        (Some(ConvexValue::Array(tables)), None) => ExportObjectKeys::ByTable(
-                            tables
-                                .iter()
-                                .map(|v| match v {
-                                    ConvexValue::Array(t) => {
-                                        let table_name = match t
-                                            .first()
-                                            .context("array must have table name")?
-                                        {
-                                            ConvexValue::String(t) => t.parse()?,
-                                            _ => anyhow::bail!("invalid table name"),
-                                        };
-                                        let object_key = match t
-                                            .get(1)
-                                            .context("array must have export object key")?
-                                        {
-                                            ConvexValue::String(o) => {
-                                                String::from(o.clone()).try_into()?
-                                            },
-                                            _ => anyhow::bail!("invalid export object key"),
-                                        };
-                                        anyhow::Ok((table_name, object_key))
-                                    },
-                                    _ => anyhow::bail!("Tables must be a [string, string]"),
-                                })
-                                .try_collect()?,
-                        ),
-                        (None, Some(ConvexValue::String(zip_object_key))) => {
+                    let object_keys = match o.get("zip_object_key") {
+                        Some(ConvexValue::String(zip_object_key)) => {
                             ExportObjectKeys::Zip(String::from(zip_object_key.clone()).try_into()?)
                         },
                         _ => anyhow::bail!("invalid object keys: {:?}", o),
@@ -346,7 +305,6 @@ impl TryFrom<ExportFormat> for ConvexValue {
 
     fn try_from(value: ExportFormat) -> Result<Self, Self::Error> {
         let v = match value {
-            ExportFormat::CleanJsonl => val!("clean_jsonl"),
             ExportFormat::Zip { include_storage } => {
                 val!({"format" => "zip", "include_storage" => include_storage})
             },
@@ -361,7 +319,6 @@ impl TryFrom<ConvexValue> for ExportFormat {
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
         let f = match &value {
             ConvexValue::String(format) => match &**format {
-                "clean_jsonl" => Self::CleanJsonl,
                 "zip" => Self::Zip {
                     include_storage: false,
                 },
@@ -388,8 +345,6 @@ impl TryFrom<ConvexValue> for ExportFormat {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ExportObjectKeys {
-    /// Tables that were exported, and the object key in S3 for the export.
-    ByTable(BTreeMap<TableName, ObjectKey>),
     Zip(ObjectKey),
 }
 

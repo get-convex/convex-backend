@@ -39,14 +39,9 @@ use common::{
         IndexRangeExpression,
         Order,
     },
-    runtime::{
-        try_join_buffer_unordered,
-        try_join_buffered,
-        Runtime,
-    },
+    runtime::Runtime,
     types::{
         IndexId,
-        ObjectKey,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -335,26 +330,6 @@ impl<RT: Runtime> ExportWorker<RT> {
         }
     }
 
-    async fn upload_tables(
-        runtime: &RT,
-        storage: Arc<dyn Storage>,
-        format: ExportFormat,
-        tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
-    ) -> anyhow::Result<BTreeMap<TabletId, TableUpload>> {
-        let start_upload_futs = tables
-            .into_keys()
-            .map(move |t_id| Self::upload_table(storage.clone(), t_id, format));
-        try_join_buffer_unordered(runtime, "table_uploads", start_upload_futs).await
-    }
-
-    async fn upload_table(
-        storage: Arc<dyn Storage>,
-        tablet_id: TabletId,
-        format: ExportFormat,
-    ) -> anyhow::Result<(TabletId, TableUpload)> {
-        anyhow::Ok((tablet_id, TableUpload::new(storage, format).await?))
-    }
-
     async fn export_inner(
         &mut self,
         format: ExportFormat,
@@ -394,9 +369,6 @@ impl<RT: Runtime> ExportWorker<RT> {
                 component_tree,
             )
         };
-        let tablet_ids: BTreeSet<TabletId> =
-            tables.iter().map(|(tablet_id, ..)| *tablet_id).collect();
-
         match format {
             ExportFormat::Zip { include_storage } => {
                 // Start upload.
@@ -419,61 +391,6 @@ impl<RT: Runtime> ExportWorker<RT> {
                 let (_, ()) = try_join!(uploader, zipper)?;
                 let object_keys = ExportObjectKeys::Zip(upload.complete().await?);
                 Ok((*ts, object_keys, usage))
-            },
-            ExportFormat::CleanJsonl => {
-                let mut table_uploads = Self::upload_tables(
-                    &self.runtime,
-                    self.storage.clone(),
-                    format,
-                    tables.clone(),
-                )
-                .await?;
-
-                for tablet_id in tablet_ids.iter() {
-                    let by_id = by_id_indexes
-                        .get(tablet_id)
-                        .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
-                    let table_iterator = self.database.table_iterator(ts, 1000, None);
-                    let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
-                    pin_mut!(stream);
-
-                    let (tablet_id, mut table_upload) = table_uploads
-                        .remove_entry(tablet_id)
-                        .ok_or_else(|| anyhow::anyhow!("No table with id {} found", tablet_id))?;
-
-                    // Write documents from stream to table uploads
-                    while let Some((doc, _ts)) = stream.try_next().await? {
-                        table_upload = table_upload.write(doc).await?;
-                    }
-                    table_uploads.insert(tablet_id, table_upload);
-                }
-
-                // Complete table uploads concurrently
-                let complete_upload_futs =
-                    table_uploads.into_iter().map(move |(tablet_id, upload)| {
-                        let tables = tables.clone();
-                        async move {
-                            anyhow::Ok((
-                                tables
-                                    .get(&tablet_id)
-                                    .context("export table id missing")?
-                                    .2
-                                    .clone(),
-                                upload.complete().await?,
-                            ))
-                        }
-                    });
-                let table_object_keys: BTreeMap<_, _> =
-                    try_join_buffered(&self.runtime, "table_uploads", complete_upload_futs).await?;
-                tracing::info!(
-                    "Export succeeded! {} snapshots written to storage. Format: {format:?}",
-                    tablet_ids.len()
-                );
-                Ok((
-                    *ts,
-                    ExportObjectKeys::ByTable(table_object_keys),
-                    FunctionUsageTracker::new(),
-                ))
             },
         }
     }
@@ -725,54 +642,6 @@ impl<RT: Runtime> ExportWorker<RT> {
     }
 }
 
-struct TableUpload {
-    upload: Box<dyn Upload>,
-    empty: bool,
-    format: ExportFormat,
-}
-
-impl TableUpload {
-    async fn new(storage: Arc<dyn Storage>, format: ExportFormat) -> anyhow::Result<Self> {
-        let upload = storage.start_upload().await?;
-        Ok(Self {
-            upload,
-            empty: true,
-            format,
-        })
-    }
-
-    async fn write(mut self, doc: ResolvedDocument) -> anyhow::Result<Self> {
-        let json = match self.format {
-            ExportFormat::CleanJsonl | ExportFormat::Zip { .. } => {
-                doc.export(ValueFormat::ConvexCleanJSON)
-            },
-        };
-        if !self.empty {
-            // Between documents.
-            match self.format {
-                ExportFormat::CleanJsonl | ExportFormat::Zip { .. } => {},
-            }
-        }
-        self.empty = false;
-
-        let buf = serde_json::to_vec(&json)?;
-        self.upload.write(buf.into()).await?;
-
-        // After documents.
-        match self.format {
-            ExportFormat::CleanJsonl | ExportFormat::Zip { .. } => {
-                self.upload.write(AFTER_DOCUMENTS_CLEAN.clone()).await?
-            },
-        }
-
-        Ok(self)
-    }
-
-    async fn complete(self) -> anyhow::Result<ObjectKey> {
-        self.upload.complete().await
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileStorageZipMetadata {
@@ -930,19 +799,16 @@ mod tests {
         collections::BTreeMap,
         str,
         sync::Arc,
-        time::Duration,
     };
 
     use anyhow::Context;
     use bytes::Bytes;
     use common::{
         components::ComponentId,
-        document::{
-            ParsedDocument,
-            ResolvedDocument,
-        },
+        document::ParsedDocument,
         types::{
             ConvexOrigin,
+            ObjectKey,
             TableName,
         },
         value::ConvexObject,
@@ -985,50 +851,12 @@ mod tests {
         TableNamespace,
     };
 
-    use super::{
-        ExportWorker,
-        TableUpload,
-    };
+    use super::ExportWorker;
     use crate::{
         export_worker::README_MD_CONTENTS,
         test_helpers::ApplicationTestExt,
         Application,
     };
-
-    #[convex_macro::test_runtime]
-    async fn test_export(rt: TestRuntime) -> anyhow::Result<()> {
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
-        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let mut export_worker =
-            ExportWorker::new_test(rt, db.clone(), storage.clone(), file_storage);
-
-        // Write to a bunch of tables
-        for i in 0..2 {
-            let table: TableName = str::parse(format!("table_{i}").as_str())?;
-            let mut tx = db.begin(Identity::system()).await?;
-            UserFacingModel::new_root_for_test(&mut tx)
-                .insert(table, ConvexObject::empty())
-                .await?;
-            db.commit(tx).await?;
-        }
-        let (_, tables, _) = export_worker.export_inner(ExportFormat::CleanJsonl).await?;
-        must_let!(let ExportObjectKeys::ByTable(tables) = tables);
-        let mut expected_tables = BTreeMap::new();
-        for i in 0..2 {
-            let table: TableName = str::parse(format!("table_{i}").as_str())?;
-            expected_tables.insert(table.clone(), tables.get(&table).unwrap().clone());
-        }
-        // Check we can get the urls
-        for object_key in tables.values().cloned() {
-            storage
-                .signed_url(object_key, Duration::from_secs(60))
-                .await?;
-        }
-
-        assert_eq!(tables, expected_tables);
-        Ok(())
-    }
 
     #[convex_macro::test_runtime]
     async fn test_export_zip(rt: TestRuntime) -> anyhow::Result<()> {
@@ -1370,45 +1198,12 @@ r#"{{"_creationTime": normalfloat64, "_id": "{id}", "channel": "c", "text": fiel
             .await?;
         db.commit(tx).await?;
 
-        let (_, tables, _) = export_worker.export_inner(ExportFormat::CleanJsonl).await?;
-        must_let!(let ExportObjectKeys::ByTable(tables) = tables);
-        let tables: Vec<_> = tables.into_keys().collect();
-        assert_eq!(tables, vec!["table_1".parse()?]);
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_table_upload_clean_export(rt: TestRuntime) -> anyhow::Result<()> {
-        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
-        let table_upload = TableUpload::new(storage.clone(), ExportFormat::CleanJsonl).await?;
-        let document = ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            (1234.0).try_into()?,
-            ConvexObject::for_value("a".parse()?, 33.into())?,
-        )?;
-        let table_upload = table_upload.write(document.clone()).await?;
-        let table_upload = table_upload.write(document).await?;
-        let key = table_upload.complete().await?;
-
-        let content = storage
-            .get(&key)
-            .await?
-            .context("Not found")?
-            .collect_as_bytes()
+        let (_, object_keys, _) = export_worker
+            .export_inner(ExportFormat::Zip {
+                include_storage: false,
+            })
             .await?;
-        let lines: Vec<_> = str::from_utf8(&content)?.lines().collect();
-
-        assert_eq!(lines.len(), 2);
-        for line in lines {
-            let parsed: serde_json::Value = serde_json::from_str(line)?;
-            let expected = serde_json::json!({
-                "_creationTime": 1234.0,
-                "_id": "0400000000000000000000000000248",
-                "a": "33",
-            });
-            assert_eq!(parsed, expected);
-        }
-
+        must_let!(let ExportObjectKeys::Zip(_ok) = object_keys);
         Ok(())
     }
 
@@ -1417,7 +1212,9 @@ r#"{{"_creationTime": normalfloat64, "_id": "{id}", "channel": "c", "text": fiel
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
 
         // Requested
-        let requested_export = Export::requested(ExportFormat::CleanJsonl);
+        let requested_export = Export::requested(ExportFormat::Zip {
+            include_storage: false,
+        });
         let object: ConvexObject = requested_export.clone().try_into()?;
         let deserialized_export = object.try_into()?;
         assert_eq!(requested_export, deserialized_export);
@@ -1430,13 +1227,11 @@ r#"{{"_creationTime": normalfloat64, "_id": "{id}", "channel": "c", "text": fiel
         assert_eq!(in_progress_export, deserialized_export);
 
         // Completed
-        let mut tables = BTreeMap::new();
-        let table_name: TableName = "test_table".parse()?;
-        tables.insert(table_name.clone(), "test_table_object_key".try_into()?);
-        let export =
-            in_progress_export
-                .clone()
-                .completed(*ts, *ts, ExportObjectKeys::ByTable(tables))?;
+        let export = in_progress_export.clone().completed(
+            *ts,
+            *ts,
+            ExportObjectKeys::Zip(ObjectKey::try_from("asdf")?),
+        )?;
         let object: ConvexObject = export.clone().try_into()?;
         let deserialized_export = object.try_into()?;
         assert_eq!(export, deserialized_export);

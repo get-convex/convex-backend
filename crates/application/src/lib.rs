@@ -1321,13 +1321,7 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<(StorageGetStream, String)> {
         let stream = self
             .get_export_inner(identity, snapshot_ts, move |keys| {
-                let key = match keys {
-                    ExportObjectKeys::Zip(key) => key,
-                    _ => anyhow::bail!(ErrorMetadata::bad_request(
-                        "NoExportForZip",
-                        "Expected export with zip object key"
-                    )),
-                };
+                let ExportObjectKeys::Zip(key) = keys;
                 Ok(key)
             })
             .await?;
@@ -1337,34 +1331,6 @@ impl<RT: Runtime> Application<RT> {
             self.instance_name
         );
         Ok((stream, filename))
-    }
-
-    pub async fn get_export(
-        &self,
-        identity: Identity,
-        snapshot_ts: Timestamp,
-        table_name: TableName,
-    ) -> anyhow::Result<StorageGetStream> {
-        self.get_export_inner(identity, snapshot_ts, move |keys| {
-            let key = match keys {
-                ExportObjectKeys::ByTable(tables) => tables
-                    .get(&table_name)
-                    .context(ErrorMetadata::bad_request(
-                        "NoExportForTable",
-                        format!(
-                            "The requested export {snapshot_ts} does not have an export for \
-                             {table_name}"
-                        ),
-                    ))?
-                    .clone(),
-                _ => anyhow::bail!(ErrorMetadata::bad_request(
-                    "NoExportForTable",
-                    "Expected export with tables"
-                )),
-            };
-            Ok(key)
-        })
-        .await
     }
 
     async fn get_export_inner(
