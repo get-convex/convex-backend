@@ -145,6 +145,25 @@ export async function doInitialComponentCodegen(
   opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
+
+  // This component defined in a dist directory; it is probably in a node_module
+  // directory, installed from a package. It is stuck with the files it has.
+  // Heuristics for this:
+  // - component definition has a dist/ directory as an ancestor
+  // - component definition is a .js file
+  // - presence of .js.map files
+  // We may improve this heuristic.
+  const isPublishedPackage =
+    componentDirectory.definitionPath.endsWith(".js") &&
+    !componentDirectory.isRoot;
+  if (isPublishedPackage) {
+    logMessage(
+      ctx,
+      `skipping initial codegen for installed package ${componentDirectory.path}`,
+    );
+    return;
+  }
+
   const codegenDir = await prepareForCodegen(
     ctx,
     componentDirectory.path,
@@ -207,6 +226,14 @@ export async function doFinalComponentCodegen(
   opts?: { dryRun?: boolean; debug?: boolean; generateCommonJSApi?: boolean },
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
+
+  const isPublishedPackage =
+    componentDirectory.definitionPath.endsWith(".js") &&
+    !componentDirectory.isRoot;
+  if (isPublishedPackage) {
+    return;
+  }
+
   const codegenDir = path.join(componentDirectory.path, "_generated");
   ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
 
@@ -308,8 +335,12 @@ async function doDataModelCodegen(
   codegenDir: string,
   opts?: { dryRun?: boolean; debug?: boolean },
 ) {
-  const schemaPath = path.join(functionsDir, "schema.ts");
-  const hasSchemaFile = ctx.fs.exists(schemaPath);
+  let schemaPath = path.join(functionsDir, "schema.ts");
+  let hasSchemaFile = ctx.fs.exists(schemaPath);
+  if (!hasSchemaFile) {
+    schemaPath = path.join(functionsDir, "schema.js");
+    hasSchemaFile = ctx.fs.exists(schemaPath);
+  }
   const schemaContent = hasSchemaFile ? dataModel : dataModelWithoutSchema;
 
   await writeFormattedFile(

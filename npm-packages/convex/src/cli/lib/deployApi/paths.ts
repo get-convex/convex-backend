@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// TODO share some of these types, to distinguish between encodedComponentDefinitionPaths etc.
 export const componentDefinitionPath = z.string();
 export type ComponentDefinitionPath = z.infer<typeof componentDefinitionPath>;
 

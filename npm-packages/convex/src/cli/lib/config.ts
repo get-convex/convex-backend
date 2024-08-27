@@ -36,6 +36,10 @@ import { promisify } from "util";
 import zlib from "zlib";
 import { recursivelyDelete } from "./fsUtils.js";
 import { NodeDependency } from "./deployApi/modules.js";
+import {
+  ComponentDefinitionPath,
+  EncodedComponentDefinitionPath,
+} from "./components/definition/directoryStructure.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -349,7 +353,7 @@ export async function configFromProjectConfig(
   }
 
   // Bundle node modules.
-  if (verbose) {
+  if (verbose && entryPoints.node.length !== 0) {
     showSpinner(ctx, "Bundling modules for Node.js runtime...");
   }
   const nodeResult = await bundle(
@@ -361,7 +365,7 @@ export async function configFromProjectConfig(
     path.join("_deps", "node"),
     projectConfig.node.externalPackages,
   );
-  if (verbose) {
+  if (verbose && entryPoints.node.length !== 0) {
     logMessage(
       ctx,
       "Node.js runtime modules: ",
@@ -630,9 +634,11 @@ interface BundledModuleInfo {
  */
 export type ComponentDefinitionSpec = {
   /** This path is relative to the app (root component) directory. */
-  definitionPath: string;
+  definitionPath: EncodedComponentDefinitionPath;
+  /** This path is relative to the app (root component) directory. */
+  origDefinitionPath: ComponentDefinitionPath;
   /** Dependencies are paths to the directory of the dependency component definition from the app (root component) directory */
-  dependencies: string[];
+  dependencies: EncodedComponentDefinitionPath[];
 
   // All other paths are relative to the directory of the definitionPath above.
 
@@ -643,7 +649,7 @@ export type ComponentDefinitionSpec = {
 
 export type AppDefinitionSpec = Omit<
   ComponentDefinitionSpec,
-  "definitionPath"
+  "definitionPath" | "origDefinitionPath"
 > & {
   // Only app (root) component specs contain an auth bundle.
   auth: Bundle | null;
@@ -657,31 +663,6 @@ export type AppDefinitionSpecWithoutImpls = Omit<
   AppDefinitionSpec,
   "schema" | "functions" | "auth"
 >;
-
-// TODO repetitive now, but this can do some denormalization if helpful
-export function config2JSON(
-  adminKey: string,
-  functions: string,
-  udfServerVersion: string,
-  appDefinition: AppDefinitionSpec,
-  componentDefinitions: ComponentDefinitionSpec[],
-): {
-  adminKey: string;
-  functions: string;
-  udfServerVersion: string;
-  appDefinition: AppDefinitionSpec;
-  componentDefinitions: ComponentDefinitionSpec[];
-  nodeDependencies: [];
-} {
-  return {
-    adminKey,
-    functions,
-    udfServerVersion,
-    appDefinition,
-    componentDefinitions,
-    nodeDependencies: [],
-  };
-}
 
 export function configJSON(
   config: Config,
@@ -717,77 +698,6 @@ export type PushMetrics = {
   codePull: number;
   totalBeforePush: number;
 };
-
-type PushConfig2Response = {
-  externalDepsId: null | unknown; // this is a guess
-  appPackage: string; // like '9e0fbcbe-b2bc-40a3-9273-6a24896ba8ec',
-  componentPackages: Record<string, string> /* like {
-    '../../convex_ratelimiter/ratelimiter': '4dab8e49-6e40-47fb-ae5b-f53f58ccd244',
-    '../examples/waitlist': 'b2eaba58-d320-4b84-85f1-476af834c17f'
-  },*/;
-  appAuth: unknown[];
-  analysis: Record<
-    string,
-    {
-      definition: {
-        path: string; // same as key?
-        definitionType: { type: "app" } | unknown;
-        childComponents: unknown[];
-        exports: unknown;
-      };
-      schema: { tables: unknown[]; schemaValidation: boolean };
-      // really this is "modules"
-      functions: Record<
-        string,
-        {
-          functions: unknown[];
-          httpRoutes: null | unknown;
-          cronSpecs: null | unknown;
-          sourceMapped: unknown;
-        }
-      >;
-    }
-  >;
-};
-
-/** Push configuration2 to the given remote origin. */
-export async function pushConfig2(
-  ctx: Context,
-  adminKey: string,
-  url: string,
-  functions: string,
-  udfServerVersion: string,
-  appDefinition: AppDefinitionSpec,
-  componentDefinitions: ComponentDefinitionSpec[],
-): Promise<PushConfig2Response> {
-  const serializedConfig = config2JSON(
-    adminKey,
-    functions,
-    udfServerVersion,
-    appDefinition,
-    componentDefinitions,
-  );
-  /*
-  const custom = (_k: string | number, s: any) =>
-    typeof s === "string"
-      ? s.slice(0, 80) + (s.length > 80 ? "..............." : "")
-      : s;
-  console.log(JSON.stringify(serializedConfig, custom, 2));
-  */
-  const fetch = deploymentFetch(url, adminKey);
-  changeSpinner(ctx, "Analyzing and deploying source code...");
-  try {
-    const response = await fetch("/api/deploy2/start_push", {
-      body: JSON.stringify(serializedConfig),
-      method: "POST",
-    });
-    return await response.json();
-  } catch (error: unknown) {
-    // TODO incorporate AuthConfigMissingEnvironmentVariable logic
-    logFailure(ctx, "Error: Unable to start push to " + url);
-    return await logAndHandleFetchError(ctx, error);
-  }
-}
 
 /** Push configuration to the given remote origin. */
 export async function pushConfig(
@@ -840,7 +750,7 @@ export async function pushConfig(
         errorMessage.match(/Environment variable (\S+)/i) ?? [];
       const variableQuery =
         variableName !== undefined ? `?var=${variableName}` : "";
-      const dashboardUrl = await deploymentDashboardUrlPage(
+      const dashboardUrl = deploymentDashboardUrlPage(
         configuredDeployment,
         `/settings/environment-variables${variableQuery}`,
       );

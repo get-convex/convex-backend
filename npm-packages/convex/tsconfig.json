@@ -3,7 +3,7 @@
   "compileOnSave": true,
   "compilerOptions": {
     /* Basic Options */
-    "target": "es2020",
+    "target": "es2022",
     "module": "es2020",
     "declaration": true,
     "declarationMap": true,

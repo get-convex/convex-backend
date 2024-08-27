@@ -11,9 +11,10 @@ use crate::{
 pub fn check_valid_path_component(s: &str) -> anyhow::Result<()> {
     if s.len() > MAX_IDENTIFIER_LEN {
         anyhow::bail!(
-            "Path component is too long ({} > maximum {}).",
+            "Path component is too long ({} > maximum {}): {}...",
             s.len(),
-            MAX_IDENTIFIER_LEN
+            MAX_IDENTIFIER_LEN,
+            &s[..s.len().min(MAX_IDENTIFIER_LEN)]
         );
     }
     if !s

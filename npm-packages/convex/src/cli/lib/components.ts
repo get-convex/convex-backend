@@ -206,16 +206,13 @@ async function startComponentsPushAndCodegen(
   const componentDefinitions: ComponentDefinitionConfig[] = [];
   for (const componentDefinition of componentDefinitionSpecsWithoutImpls) {
     const impl = componentImplementations.filter(
-      (impl) =>
-        // convert from ComponentPath
-        path.resolve(rootComponent.path, impl.definitionPath) ===
-        componentDefinition.definitionPath,
+      (impl) => impl.definitionPath === componentDefinition.definitionPath,
     )[0];
     if (!impl) {
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `missing! couldn't find ${componentDefinition.definitionPath} in ${componentImplementations.map((impl) => path.resolve(rootComponent.path, impl.definitionPath)).toString()}`,
+        printedMessage: `missing! couldn't find ${componentDefinition.definitionPath} in ${componentImplementations.map((impl) => impl.definitionPath).toString()}`,
       });
     }
     componentDefinitions.push({

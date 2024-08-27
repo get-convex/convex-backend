@@ -175,6 +175,7 @@ test("must use isolate", () => {
   expect(mustBeIsolate("schema.js")).toBeTruthy();
   expect(mustBeIsolate("schema.jsx")).toBeTruthy();
   expect(mustBeIsolate("schema.ts")).toBeTruthy();
+  expect(mustBeIsolate("schema.js")).toBeTruthy();
 
   expect(mustBeIsolate("http.sample.js")).not.toBeTruthy();
   expect(mustBeIsolate("https.js")).not.toBeTruthy();

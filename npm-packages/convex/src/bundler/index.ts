@@ -245,13 +245,11 @@ async function externalPackageVersions(
 }
 
 export async function bundleSchema(ctx: Context, dir: string) {
-  const result = await bundle(
-    ctx,
-    dir,
-    [path.resolve(dir, "schema.ts")],
-    true,
-    "browser",
-  );
+  let target = path.resolve(dir, "schema.ts");
+  if (!ctx.fs.exists(target)) {
+    target = path.resolve(dir, "schema.js");
+  }
+  const result = await bundle(ctx, dir, [target], true, "browser");
   return result.modules;
 }
 
@@ -353,7 +351,7 @@ export async function entryPoints(
       log(chalk.yellow(`Skipping ${fpath}`));
     } else if (base === "_generated.ts") {
       log(chalk.yellow(`Skipping ${fpath}`));
-    } else if (base === "schema.ts") {
+    } else if (base === "schema.ts" || base === "schema.js") {
       log(chalk.yellow(`Skipping ${fpath}`));
     } else if ((base.match(/\./g) || []).length > 1) {
       log(chalk.yellow(`Skipping ${fpath} that contains multiple dots`));

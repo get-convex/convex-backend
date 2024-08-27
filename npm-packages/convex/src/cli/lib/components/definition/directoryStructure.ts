@@ -1,15 +1,19 @@
 import path from "path";
 import { Context } from "../../../../bundler/context.js";
-import { DEFINITION_FILENAME, ROOT_DEFINITION_FILENAME } from "../constants.js";
+import {
+  COMPILED_DEFINITION_FILENAME,
+  DEFINITION_FILENAME,
+  ROOT_DEFINITION_FILENAME,
+} from "../constants.js";
 import { getFunctionsDirectoryPath } from "../../config.js";
 
 /**
- * A component definition's location on the local filesystem,
- * using absolute paths.
+ * A component definition's location on the local filesystem using absolute paths.
  *
- * For module resolution it may be useful to avoid resolving any symlinks:
+ * For module resolution it would be useful to avoid resolving any symlinks:
  * node modules are often symlinked by e.g. pnpm but relative paths should generally be
- * understood from their symlink location.
+ * understood from their symlink location. We don't currently do this though, it made
+ * Windows harder to support.
  *
  * None of these properties are the import string, which might have been an unqualifed import
  * (e.g. 'convex-waitlist' instead of '../node_modules/convex-waitlist/convex.config.ts')
@@ -25,8 +29,9 @@ export type ComponentDirectory = {
  * Qualifying a path clarifies to esbuild that it represents a local file system
  * path, not a remote path on the npm registry.
  *
- * Because the path is made relative without resolving symlinks this is a reasonable
- * identifier for the component directory (given a consistent working directory).
+ * If this path were made relative without resolving symlinks it would be a
+ * prettier identifier for the component directory, but instead symlinks are
+ * always resolved.
  */
 export function qualifiedDefinitionPath(
   directory: ComponentDirectory,
@@ -53,8 +58,14 @@ export function isComponentDirectory(
   }
 
   // Check that we have a definition file.
-  const filename = isRoot ? ROOT_DEFINITION_FILENAME : DEFINITION_FILENAME;
-  const definitionPath = path.resolve(path.join(directory, filename));
+  let filename = isRoot
+    ? ROOT_DEFINITION_FILENAME
+    : COMPILED_DEFINITION_FILENAME;
+  let definitionPath = path.resolve(path.join(directory, filename));
+  if (!ctx.fs.exists(definitionPath)) {
+    filename = isRoot ? ROOT_DEFINITION_FILENAME : DEFINITION_FILENAME;
+    definitionPath = path.resolve(path.join(directory, filename));
+  }
   if (!ctx.fs.exists(definitionPath)) {
     return {
       kind: "err",
@@ -100,7 +111,7 @@ export async function buildComponentDirectory(
 }
 
 /**
- * ComponentPath is the type of path sent to the server to identify a
+ * ComponentPath is the local path identifying a
  * component definition. It is the unqualified (it never starts with "./")
  * relative path from the convex directory of the app (root component)
  * to the directory where a component definition lives.
@@ -111,6 +122,13 @@ export async function buildComponentDirectory(
  */
 export type ComponentDefinitionPath = string & {
   __brand: "ComponentDefinitionPath";
+};
+/**
+ * EncodedComponentDefinitionPath is the identifier of a component definition
+ * sent to the server.
+ */
+export type EncodedComponentDefinitionPath = string & {
+  __brand: "EncodedComponentDefinitionPath";
 };
 
 export function toComponentDefinitionPath(

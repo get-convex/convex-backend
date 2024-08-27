@@ -1,4 +1,5 @@
 import path from "path";
+import crypto from "crypto";
 import {
   ComponentDirectory,
   ComponentDefinitionPath,
@@ -6,6 +7,7 @@ import {
   isComponentDirectory,
   qualifiedDefinitionPath,
   toComponentDefinitionPath,
+  EncodedComponentDefinitionPath,
 } from "./directoryStructure.js";
 import {
   Context,
@@ -15,7 +17,6 @@ import {
 } from "../../../../bundler/context.js";
 import esbuild, { BuildOptions, Metafile, OutputFile, Plugin } from "esbuild";
 import chalk from "chalk";
-import { createRequire } from "module";
 import {
   AppDefinitionSpecWithoutImpls,
   ComponentDefinitionSpecWithoutImpls,
@@ -93,22 +94,15 @@ function componentPlugin({
         }
         let resolvedPath = undefined;
         for (const candidate of candidates) {
-          try {
-            // --experimental-import-meta-resolve is required for
-            // `import.meta.resolve` so we'll use `require.resolve`
-            // until then. Hopefully they aren't too different.
-            const require = createRequire(args.resolveDir);
-            resolvedPath = require.resolve(candidate, {
-              paths: [args.resolveDir],
-            });
+          const result = await build.resolve(candidate, {
+            // We expect this to be "import-statement" but pass 'kind' through
+            // to say honest to normal esbuild behavior.
+            kind: args.kind,
+            resolveDir: args.resolveDir,
+          });
+          if (result.path) {
+            resolvedPath = result.path;
             break;
-          } catch (e: any) {
-            if (e.code === "MODULE_NOT_FOUND") {
-              continue;
-            }
-            // We always invoke esbuild in a try/catch.
-            // eslint-disable-next-line no-restricted-syntax
-            throw e;
           }
         }
         if (resolvedPath === undefined) {
@@ -129,7 +123,12 @@ function componentPlugin({
         }
 
         verbose &&
-          logMessage(ctx, "  -> Component import! Recording it.", args.path);
+          logMessage(
+            ctx,
+            "  -> Component import! Recording it.",
+            args.path,
+            resolvedPath,
+          );
 
         if (mode === "discover") {
           return {
@@ -146,7 +145,7 @@ function componentPlugin({
             rootComponentDirectory,
             imported,
           );
-          const encodedPath = hackyMapping(componentPath);
+          const encodedPath = hackyMapping(encodeDefinitionPath(componentPath));
           return {
             path: encodedPath,
             external: true,
@@ -158,7 +157,7 @@ function componentPlugin({
 }
 
 /** The path on the deployment that identifier a component definition. */
-function hackyMapping(componentPath: ComponentDefinitionPath): string {
+function hackyMapping(componentPath: EncodedComponentDefinitionPath): string {
   return `./_componentDeps/${Buffer.from(componentPath).toString("base64").replace(/=+$/, "")}`;
 }
 
@@ -312,6 +311,24 @@ async function findComponentDependencies(
   return { components, dependencyGraph };
 }
 
+// Each path component is less than 64 bytes and escape all a-zA-Z0-9
+// This is the only version of the path the server will receive.
+export function encodeDefinitionPath(
+  s: ComponentDefinitionPath,
+): EncodedComponentDefinitionPath {
+  const components = s.split(path.sep);
+  return components
+    .map((s) => {
+      const escaped = s.replaceAll("-", "_").replaceAll("+", "_");
+      if (escaped.length <= 64) {
+        return escaped;
+      }
+      const hash = crypto.createHash("md5").update(s).digest("hex");
+      return `${escaped.slice(0, 50)}${hash.slice(0, 14)}`;
+    })
+    .join(path.sep) as EncodedComponentDefinitionPath;
+}
+
 // NB: If a directory linked to is not a member of the passed
 // componentDirectories array then there will be external links
 // with no corresponding definition bundle.
@@ -414,9 +431,15 @@ export async function bundleDefinitions(
     (out) => out.directory.path !== rootComponentDirectory.path,
   );
 
-  const componentDefinitionSpecsWithoutImpls = componentBundles.map(
-    ({ directory, outputJs, outputJsMap }) => ({
-      definitionPath: directory.path,
+  const componentDefinitionSpecsWithoutImpls: ComponentDefinitionSpecWithoutImpls[] =
+    componentBundles.map(({ directory, outputJs, outputJsMap }) => ({
+      definitionPath: encodeDefinitionPath(
+        toComponentDefinitionPath(rootComponentDirectory, directory),
+      ),
+      origDefinitionPath: toComponentDefinitionPath(
+        rootComponentDirectory,
+        directory,
+      ),
       definition: {
         path: path.relative(directory.path, outputJs.path),
         source: outputJs.text,
@@ -427,15 +450,14 @@ export async function bundleDefinitions(
         rootComponentDirectory,
         dependencyGraph,
         directory.definitionPath,
-      ),
-    }),
-  );
+      ).map(encodeDefinitionPath),
+    }));
   const appDeps = getDeps(
     rootComponentDirectory,
     dependencyGraph,
     appBundle.directory.definitionPath,
-  );
-  const appDefinitionSpecWithoutImpls = {
+  ).map(encodeDefinitionPath);
+  const appDefinitionSpecWithoutImpls: AppDefinitionSpecWithoutImpls = {
     definition: {
       path: path.relative(rootComponentDirectory.path, appBundle.outputJs.path),
       source: appBundle.outputJs.text,
@@ -465,7 +487,7 @@ export async function bundleImplementations(
   componentImplementations: {
     schema: Bundle | null;
     functions: Bundle[];
-    definitionPath: ComponentDefinitionPath;
+    definitionPath: EncodedComponentDefinitionPath;
   }[];
 }> {
   let appImplementation;
@@ -478,10 +500,12 @@ export async function bundleImplementations(
       directory.path,
     );
     let schema;
-    if (!ctx.fs.exists(path.resolve(resolvedPath, "schema.ts"))) {
-      schema = null;
-    } else {
+    if (ctx.fs.exists(path.resolve(resolvedPath, "schema.ts"))) {
       schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
+    } else if (ctx.fs.exists(path.resolve(resolvedPath, "schema.js"))) {
+      schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
+    } else {
+      schema = null;
     }
 
     const entryPoints = await entryPointsByEnvironment(
@@ -538,15 +562,11 @@ export async function bundleImplementations(
         externalNodeDependencies,
       };
     } else {
-      componentImplementations.push({
-        // these needs to be a componentPath when sent to the server
-        definitionPath: toComponentDefinitionPath(
-          rootComponentDirectory,
-          directory,
-        ),
-        schema,
-        functions,
-      });
+      // definitionPath is the canonical form
+      const definitionPath = encodeDefinitionPath(
+        toComponentDefinitionPath(rootComponentDirectory, directory),
+      );
+      componentImplementations.push({ definitionPath, schema, functions });
     }
     isRoot = false;
   }

@@ -22,7 +22,12 @@ export async function startPush(
       typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
     console.log(JSON.stringify(request, custom, 2));
   }
-  const fetch = deploymentFetch(url, request.adminKey);
+  const onError = (err: any) => {
+    if (err.toString() === "TypeError: fetch failed") {
+      changeSpinner(ctx, `Fetch failed, is ${url} correct? Retrying...`);
+    }
+  };
+  const fetch = deploymentFetch(url, request.adminKey, onError);
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
