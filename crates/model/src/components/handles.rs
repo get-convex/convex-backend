@@ -130,29 +130,20 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
 
     pub async fn preload(
         &mut self,
-        component: ComponentId,
-    ) -> anyhow::Result<BTreeMap<CanonicalizedUdfPath, FunctionHandle>> {
+    ) -> anyhow::Result<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>> {
         let mut handles = BTreeMap::new();
-        let serialized_component = match component.serialize_to_string() {
-            Some(s) => ConvexValue::String(s.try_into()?),
-            None => ConvexValue::Null,
-        };
-        let index_query = Query::index_range(IndexRange {
-            index_name: BY_COMPONENT_PATH_INDEX.clone(),
-            range: vec![IndexRangeExpression::Eq(
-                COMPONENT_FIELD.clone(),
-                serialized_component.into(),
-            )],
-            order: Order::Asc,
-        });
+        let index_query = Query::full_table_scan(FUNCTION_HANDLES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             let handle: ParsedDocument<FunctionHandleMetadata> = doc.try_into()?;
             if handle.deleted_ts.is_none() {
-                handles.insert(
-                    handle.path.clone(),
-                    FunctionHandle::new(handle.developer_id()),
-                );
+                let path = CanonicalizedComponentFunctionPath {
+                    component: BootstrapComponentsModel::new(self.tx)
+                        .get_component_path(handle.component)
+                        .await?,
+                    udf_path: handle.path.clone(),
+                };
+                handles.insert(path, FunctionHandle::new(handle.developer_id()));
             }
         }
         Ok(handles)

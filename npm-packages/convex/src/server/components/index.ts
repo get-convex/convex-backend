@@ -7,10 +7,10 @@ import {
 } from "../../values/index.js";
 import {
   AnyFunctionReference,
-  functionName,
   FunctionReference,
   FunctionType,
 } from "../api.js";
+import { getFunctionAddress } from "../impl/actions_impl.js";
 import { performAsyncSyscall, performSyscall } from "../impl/syscall.js";
 import { DefaultFunctionArgs, EmptyObject } from "../registration.js";
 import {
@@ -54,11 +54,8 @@ export async function createFunctionHandle<
     ReturnType
   >,
 ): Promise<FunctionHandle<Type, Args, ReturnType>> {
-  const udfPath = (functionReference as any)[functionName];
-  if (!udfPath) {
-    throw new Error(`${functionReference as any} is not a FunctionReference`);
-  }
-  return await performAsyncSyscall("1.0/createFunctionHandle", { udfPath });
+  const address = getFunctionAddress(functionReference);
+  return await performAsyncSyscall("1.0/createFunctionHandle", { ...address });
 }
 
 interface ComponentExports {

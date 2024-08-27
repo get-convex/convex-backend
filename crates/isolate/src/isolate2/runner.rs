@@ -70,7 +70,6 @@ use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedUdfPath;
 use tokio::sync::Semaphore;
 use value::{
     ConvexArray,
@@ -945,7 +944,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
 
     async fn create_function_handle(
         &mut self,
-        _path: CanonicalizedUdfPath,
+        _path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<FunctionHandle> {
         todo!();
     }

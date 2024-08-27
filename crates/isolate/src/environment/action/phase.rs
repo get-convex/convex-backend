@@ -8,6 +8,7 @@ use anyhow::Context;
 use common::{
     bootstrap_model::components::handles::FunctionHandle,
     components::{
+        CanonicalizedComponentFunctionPath,
         ComponentId,
         Reference,
         Resource,
@@ -52,7 +53,6 @@ use rand::{
 use rand_chacha::ChaCha12Rng;
 use sync_types::{
     CanonicalizedModulePath,
-    CanonicalizedUdfPath,
     ModulePath,
 };
 use value::{
@@ -92,7 +92,7 @@ enum ActionPreloaded<RT: Runtime> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-        function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
+        function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
     },
     Preloading,
     Ready {
@@ -112,7 +112,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-        function_handles: Arc<Mutex<BTreeMap<CanonicalizedUdfPath, FunctionHandle>>>,
+        function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
     ) -> Self {
         Self {
             component,
@@ -231,7 +231,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             let handles = with_release_permit(
                 timeout,
                 permit_slot,
-                FunctionHandlesModel::new(&mut tx).preload(component_id),
+                FunctionHandlesModel::new(&mut tx).preload(),
             )
             .await?;
             *function_handles.lock() = handles;

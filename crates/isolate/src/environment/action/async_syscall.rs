@@ -32,7 +32,6 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::CanonicalizedUdfPath;
 use value::id_v6::DeveloperDocumentId;
 use vector::{
     VectorSearchJson,
@@ -413,15 +412,27 @@ impl<RT: Runtime> TaskExecutor<RT> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct CreateFunctionHandleArgs {
-            udf_path: String,
+            name: Option<String>,
+            function_handle: Option<String>,
+            reference: Option<String>,
         }
-        let udf_path: CanonicalizedUdfPath = with_argument_error("createFunctionHandle", || {
-            let CreateFunctionHandleArgs { udf_path } = serde_json::from_value(args)?;
-            udf_path.parse()
-        })?;
+        let CreateFunctionHandleArgs {
+            name,
+            function_handle,
+            reference,
+        } = with_argument_error("createFunctionHandle", || Ok(serde_json::from_value(args)?))?;
+        let function_path = match function_handle {
+            Some(function_handle) => {
+                return Ok(serde_json::to_value(function_handle)?);
+            },
+            None => {
+                let reference = parse_name_or_reference(name, reference)?;
+                self.resolve_function(&reference)?
+            },
+        };
         let handle = {
             let function_handles = self.function_handles.lock();
-            function_handles.get(&udf_path).cloned()
+            function_handles.get(&function_path).cloned()
         };
         let Some(handle) = handle else {
             anyhow::bail!(function_handle_not_found());

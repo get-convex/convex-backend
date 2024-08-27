@@ -79,10 +79,6 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use sync_types::{
-    CanonicalizedUdfPath,
-    UdfPath,
-};
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
@@ -314,7 +310,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
 
     async fn create_function_handle(
         &mut self,
-        path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<FunctionHandle>;
 
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource>;
@@ -559,11 +555,15 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     async fn create_function_handle(
         &mut self,
-        path: CanonicalizedUdfPath,
+        path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<FunctionHandle> {
-        let component = self.component()?;
         let tx = self.phase.tx()?;
-        FunctionHandlesModel::new(tx).get(component, path).await
+        let (_, component) = BootstrapComponentsModel::new(tx)
+            .component_path_to_ids(path.component)
+            .await?;
+        FunctionHandlesModel::new(tx)
+            .get(component, path.udf_path)
+            .await
     }
 
     async fn resolve(&mut self, reference: Reference) -> anyhow::Result<Resource> {
@@ -1275,14 +1275,36 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct CreateFunctionHandleArgs {
-            udf_path: String,
+            name: Option<String>,
+            function_handle: Option<String>,
+            reference: Option<String>,
         }
-        let udf_path = with_argument_error("createFunctionHandle", || {
-            let CreateFunctionHandleArgs { udf_path } = serde_json::from_value(args)?;
-            let p: UdfPath = udf_path.parse()?;
-            Ok(p.canonicalize())
-        })?;
-        let handle = provider.create_function_handle(udf_path).await?;
+        let CreateFunctionHandleArgs {
+            name,
+            function_handle,
+            reference,
+        } = with_argument_error("createFunctionHandle", || Ok(serde_json::from_value(args)?))?;
+        let function_path = match function_handle {
+            Some(function_handle) => {
+                return Ok(serde_json::to_value(function_handle)?);
+            },
+            None => {
+                let reference = parse_name_or_reference(name, reference)?;
+                match provider.resolve(reference).await? {
+                    Resource::Function(path) => path,
+                    Resource::ResolvedSystemUdf { .. } => {
+                        anyhow::bail!("Cannot create function handle for system UDF");
+                    },
+                    Resource::Value(_) => {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "InvalidResource",
+                            "Cannot create a function handle for a value resource"
+                        ));
+                    },
+                }
+            },
+        };
+        let handle = provider.create_function_handle(function_path).await?;
         Ok(serde_json::to_value(String::from(handle))?)
     }
 }
