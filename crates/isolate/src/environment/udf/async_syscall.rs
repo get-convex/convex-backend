@@ -538,9 +538,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             Ok(r) => r.unpack(),
             Err(e) => {
                 // TODO: How do we want to propagate stack traces between component calls?
-                // TODO: Using `ErrorMetadata::bad_request` here is a hack.
-                // TODO: Also, propagate ConvexError correctly.
-                anyhow::bail!(ErrorMetadata::bad_request("UdfFailed", e.message));
+                anyhow::bail!(e);
             },
         };
         let tx = self.phase.tx()?;
