@@ -109,7 +109,7 @@ export const convexExport = new Command("export")
     }
 
     showSpinner(ctx, `Downloading snapshot export to ${chalk.bold(inputPath)}`);
-    await downloadSnapshotExport(ctx, {
+    const { filePath } = await downloadSnapshotExport(ctx, {
       snapshotExportTs: snapshotExportState.start_ts,
       inputPath,
       adminKey,
@@ -118,7 +118,7 @@ export const convexExport = new Command("export")
     stopSpinner(ctx);
     logFinishedStep(
       ctx,
-      `Downloaded snapshot export to ${chalk.bold(inputPath)}`,
+      `Downloaded snapshot export to ${chalk.bold(filePath)}`,
     );
   });
 
@@ -208,7 +208,7 @@ export async function downloadSnapshotExport(
     adminKey: string;
     deploymentUrl: string;
   },
-) {
+): Promise<{ filePath: string }> {
   const inputPath = args.inputPath;
   const exportUrl = `/api/export/zip/${args.snapshotExportTs.toString()}?adminKey=${encodeURIComponent(
     args.adminKey,
@@ -262,4 +262,5 @@ export async function downloadSnapshotExport(
       printedMessage: `Exporting data failed: ${chalk.red(e)}`,
     });
   }
+  return { filePath };
 }
