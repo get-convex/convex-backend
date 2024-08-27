@@ -134,9 +134,6 @@ use crate::metrics::{
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
-static BEGIN_JSON_ARRAY: Bytes = Bytes::from_static("[\n".as_bytes());
-static BETWEEN_DOCUMENTS: Bytes = Bytes::from_static(",\n".as_bytes());
-static END_JSON_ARRAY: Bytes = Bytes::from_static("\n]\n".as_bytes());
 static AFTER_DOCUMENTS_CLEAN: Bytes = Bytes::from_static("\n".as_bytes());
 
 // 0o644 => read-write for owner, read for everyone else.
@@ -423,7 +420,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 let object_keys = ExportObjectKeys::Zip(upload.complete().await?);
                 Ok((*ts, object_keys, usage))
             },
-            ExportFormat::CleanJsonl | ExportFormat::InternalJson => {
+            ExportFormat::CleanJsonl => {
                 let mut table_uploads = Self::upload_tables(
                     &self.runtime,
                     self.storage.clone(),
@@ -736,10 +733,7 @@ struct TableUpload {
 
 impl TableUpload {
     async fn new(storage: Arc<dyn Storage>, format: ExportFormat) -> anyhow::Result<Self> {
-        let mut upload = storage.start_upload().await?;
-        if format == ExportFormat::InternalJson {
-            upload.write(BEGIN_JSON_ARRAY.clone()).await?;
-        }
+        let upload = storage.start_upload().await?;
         Ok(Self {
             upload,
             empty: true,
@@ -752,12 +746,10 @@ impl TableUpload {
             ExportFormat::CleanJsonl | ExportFormat::Zip { .. } => {
                 doc.export(ValueFormat::ConvexCleanJSON)
             },
-            ExportFormat::InternalJson => doc.export(ValueFormat::ConvexEncodedJSON),
         };
         if !self.empty {
             // Between documents.
             match self.format {
-                ExportFormat::InternalJson => self.upload.write(BETWEEN_DOCUMENTS.clone()).await?,
                 ExportFormat::CleanJsonl | ExportFormat::Zip { .. } => {},
             }
         }
@@ -771,16 +763,12 @@ impl TableUpload {
             ExportFormat::CleanJsonl | ExportFormat::Zip { .. } => {
                 self.upload.write(AFTER_DOCUMENTS_CLEAN.clone()).await?
             },
-            ExportFormat::InternalJson => {},
         }
 
         Ok(self)
     }
 
-    async fn complete(mut self) -> anyhow::Result<ObjectKey> {
-        if self.format == ExportFormat::InternalJson {
-            self.upload.write(END_JSON_ARRAY.clone()).await?;
-        }
+    async fn complete(self) -> anyhow::Result<ObjectKey> {
         self.upload.complete().await
     }
 }
@@ -1386,36 +1374,6 @@ r#"{{"_creationTime": normalfloat64, "_id": "{id}", "channel": "c", "text": fiel
         must_let!(let ExportObjectKeys::ByTable(tables) = tables);
         let tables: Vec<_> = tables.into_keys().collect();
         assert_eq!(tables, vec!["table_1".parse()?]);
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_table_upload_legacy_export(rt: TestRuntime) -> anyhow::Result<()> {
-        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
-        let table_upload = TableUpload::new(storage.clone(), ExportFormat::InternalJson).await?;
-        let document = ResolvedDocument::new(
-            ResolvedDocumentId::MIN,
-            (1234.0).try_into()?,
-            ConvexObject::for_value("a".parse()?, 33.into())?,
-        )?;
-        let table_upload = table_upload.write(document).await?;
-        let key = table_upload.complete().await?;
-        let content = storage
-            .get(&key)
-            .await?
-            .context("Not found")?
-            .collect_as_bytes()
-            .await?;
-
-        let parsed: serde_json::Value = serde_json::from_slice(&content)?;
-        let expected = serde_json::json!([{
-            "_creationTime": 1234.0,
-            "_id": "0400000000000000000000000000248",
-            "a": {
-                "$integer": "IQAAAAAAAAA=",
-            },
-        }]);
-        assert_eq!(parsed, expected);
         Ok(())
     }
 

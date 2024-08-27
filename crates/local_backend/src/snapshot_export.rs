@@ -23,6 +23,7 @@ use common::http::{
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
+use model::exports::types::ExportFormat;
 use serde::Deserialize;
 use storage::StorageGetStream;
 use sync_types::Timestamp;
@@ -43,7 +44,7 @@ pub async fn request_export(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     st.application
-        .request_export(identity, false, false)
+        .request_export(identity, ExportFormat::CleanJsonl)
         .await?;
     Ok(StatusCode::OK)
 }
@@ -63,7 +64,7 @@ pub async fn request_zip_export(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     st.application
-        .request_export(identity, true, include_storage)
+        .request_export(identity, ExportFormat::Zip { include_storage })
         .await?;
     Ok(StatusCode::OK)
 }

@@ -141,7 +141,6 @@ export const completedExport = v.object({
   zip_object_key: v.optional(v.string()),
   format: v.optional(
     v.union(
-      v.literal("internal_json"),
       v.literal("clean_jsonl"),
       v.literal("zip"),
       v.object({

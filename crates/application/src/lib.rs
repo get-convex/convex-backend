@@ -12,10 +12,7 @@ use std::{
         HashSet,
     },
     ops::Bound,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+    sync::Arc,
     time::SystemTime,
 };
 
@@ -1288,8 +1285,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn request_export(
         &self,
         identity: Identity,
-        zip: bool,
-        include_storage: bool,
+        format: ExportFormat,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(identity.is_admin(), unauthorized_error("request_export"));
         let snapshot = self.latest_snapshot()?;
@@ -1305,31 +1301,7 @@ impl<RT: Runtime> Application<RT> {
         let export_requested = ExportWorker::export_in_state(&mut tx, "requested").await?;
         let export_in_progress = ExportWorker::export_in_state(&mut tx, "in_progress").await?;
         match (export_requested, export_in_progress) {
-            (None, None) => {
-                let format = if zip {
-                    ExportFormat::Zip { include_storage }
-                } else {
-                    match UdfConfigModel::new(&mut tx, TableNamespace::by_component_TODO())
-                        .get()
-                        .await?
-                    {
-                        Some(udf_config) => {
-                            // Maintain legacy internal export format for older NPM versions
-                            if udf_config.server_version
-                                > *MAX_UDF_SERVER_VERSION_WITHOUT_CLEAN_EXPORT
-                            {
-                                ExportFormat::CleanJsonl
-                            } else {
-                                ExportFormat::InternalJson
-                            }
-                        },
-                        // They haven't pushed functions yet - give them clean export.
-                        None => ExportFormat::CleanJsonl,
-                    }
-                };
-                ExportsModel::new(&mut tx).insert_requested(format).await?;
-                Ok(())
-            },
+            (None, None) => ExportsModel::new(&mut tx).insert_requested(format).await,
             _ => Err(
                 anyhow::anyhow!("Can only have one export requested or in progress at once")
                     .context(ErrorMetadata::bad_request(
@@ -2969,7 +2941,3 @@ impl<RT: Runtime> Application<RT> {
         Ok(())
     }
 }
-
-// Newer clients get a clean export in JSONL format
-static MAX_UDF_SERVER_VERSION_WITHOUT_CLEAN_EXPORT: LazyLock<Version> =
-    LazyLock::new(|| Version::parse("1.3.999").unwrap());

@@ -69,8 +69,6 @@ impl Export {
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ExportFormat {
-    /// Array of values in internal Json format
-    InternalJson,
     /// jsonl format of clean export Json
     CleanJsonl,
     /// zip file containing a CleanJsonl for each table, and sidecar type info.
@@ -348,7 +346,6 @@ impl TryFrom<ExportFormat> for ConvexValue {
 
     fn try_from(value: ExportFormat) -> Result<Self, Self::Error> {
         let v = match value {
-            ExportFormat::InternalJson => val!("internal_json"),
             ExportFormat::CleanJsonl => val!("clean_jsonl"),
             ExportFormat::Zip { include_storage } => {
                 val!({"format" => "zip", "include_storage" => include_storage})
@@ -364,7 +361,6 @@ impl TryFrom<ConvexValue> for ExportFormat {
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
         let f = match &value {
             ConvexValue::String(format) => match &**format {
-                "internal_json" => Self::InternalJson,
                 "clean_jsonl" => Self::CleanJsonl,
                 "zip" => Self::Zip {
                     include_storage: false,
