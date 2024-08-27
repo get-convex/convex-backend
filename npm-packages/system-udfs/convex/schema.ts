@@ -140,13 +140,10 @@ export const completedExport = v.object({
   tables: v.optional(v.array(v.array(v.string()))),
   zip_object_key: v.optional(v.string()),
   format: v.optional(
-    v.union(
-      v.literal("zip"),
-      v.object({
-        format: v.literal("zip"),
-        include_storage: v.boolean(),
-      }),
-    ),
+    v.object({
+      format: v.literal("zip"),
+      include_storage: v.boolean(),
+    }),
   ),
 });
 

@@ -318,12 +318,6 @@ impl TryFrom<ConvexValue> for ExportFormat {
 
     fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
         let f = match &value {
-            ConvexValue::String(format) => match &**format {
-                "zip" => Self::Zip {
-                    include_storage: false,
-                },
-                _ => anyhow::bail!("invalid format {value:?}"),
-            },
             ConvexValue::Object(o) => match o.get("format") {
                 Some(ConvexValue::String(format)) => match &**format {
                     "zip" => match o.get("include_storage") {
