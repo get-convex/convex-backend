@@ -4,6 +4,7 @@ use std::{
 };
 
 use common::{
+    components::ComponentId,
     obj,
     types::ObjectKey,
 };
@@ -22,12 +23,14 @@ const EXPORT_RETENTION: u64 = 14 * 24 * 60 * 60 * 1000000000; // 14 days
 pub enum Export {
     Requested {
         format: ExportFormat,
+        component: ComponentId,
     },
     InProgress {
         /// Timestamp when the first attempt
         /// at the Export started.
         start_ts: Timestamp,
         format: ExportFormat,
+        component: ComponentId,
     },
     Completed {
         /// Timestamp for the successful (final) attempt at Export.
@@ -40,6 +43,7 @@ pub enum Export {
         object_keys: ExportObjectKeys,
         /// Format of the export
         format: ExportFormat,
+        component: ComponentId,
     },
     Failed {
         /// Timestamp for the failed (final) attempt at Export.
@@ -47,16 +51,26 @@ pub enum Export {
         /// Timestamp when the Export failed
         failed_ts: Timestamp,
         format: ExportFormat,
+        component: ComponentId,
     },
 }
 
 impl Export {
     pub fn format(&self) -> ExportFormat {
         match self {
-            Export::Requested { format }
+            Export::Requested { format, .. }
             | Export::InProgress { format, .. }
             | Export::Completed { format, .. }
             | Export::Failed { format, .. } => *format,
+        }
+    }
+
+    pub fn component(&self) -> ComponentId {
+        match self {
+            Export::Requested { component, .. }
+            | Export::InProgress { component, .. }
+            | Export::Completed { component, .. }
+            | Export::Failed { component, .. } => *component,
         }
     }
 }
@@ -69,15 +83,16 @@ pub enum ExportFormat {
 }
 
 impl Export {
-    pub fn requested(format: ExportFormat) -> Self {
-        Self::Requested { format }
+    pub fn requested(format: ExportFormat, component: ComponentId) -> Self {
+        Self::Requested { format, component }
     }
 
     pub fn in_progress(self, ts: Timestamp) -> anyhow::Result<Export> {
         match self {
-            Self::Requested { format } => Ok(Self::InProgress {
+            Self::Requested { format, component } => Ok(Self::InProgress {
                 start_ts: ts,
                 format,
+                component,
             }),
             Self::Completed { .. } | Self::InProgress { .. } | Self::Failed { .. } => Err(
                 anyhow::anyhow!("Can only begin an export that is requested"),
@@ -93,7 +108,9 @@ impl Export {
     ) -> anyhow::Result<Export> {
         let expiration_ts = Into::<u64>::into(complete_ts) + EXPORT_RETENTION;
         match self {
-            Self::InProgress { format, .. } => {
+            Self::InProgress {
+                format, component, ..
+            } => {
                 anyhow::ensure!(snapshot_ts <= complete_ts);
                 Ok(Self::Completed {
                     start_ts: snapshot_ts,
@@ -101,20 +118,26 @@ impl Export {
                     expiration_ts,
                     object_keys,
                     format,
+                    component,
                 })
             },
-            Self::Requested { format: _ }
+            Self::Requested {
+                format: _,
+                component: _,
+            }
             | Self::Completed {
                 start_ts: _,
                 complete_ts: _,
                 expiration_ts: _,
                 object_keys: _,
                 format: _,
+                component: _,
             }
             | Self::Failed {
                 start_ts: _,
                 failed_ts: _,
                 format: _,
+                component: _,
             } => Err(anyhow::anyhow!(
                 "Can only complete an export that is in_progress"
             )),
@@ -123,26 +146,34 @@ impl Export {
 
     pub fn failed(self, snapshot_ts: Timestamp, failed_ts: Timestamp) -> anyhow::Result<Export> {
         match self {
-            Self::InProgress { format, .. } => {
+            Self::InProgress {
+                format, component, ..
+            } => {
                 anyhow::ensure!(snapshot_ts <= failed_ts);
                 Ok(Self::Failed {
                     start_ts: snapshot_ts,
                     failed_ts,
                     format,
+                    component,
                 })
             },
-            Self::Requested { format: _ }
+            Self::Requested {
+                format: _,
+                component: _,
+            }
             | Self::Completed {
                 start_ts: _,
                 complete_ts: _,
                 expiration_ts: _,
                 object_keys: _,
                 format: _,
+                component: _,
             }
             | Self::Failed {
                 start_ts: _,
                 failed_ts: _,
                 format: _,
+                component: _,
             } => Err(anyhow::anyhow!(
                 "Can only fail an export that is in_progress"
             )),
@@ -153,10 +184,14 @@ impl Export {
 impl Display for Export {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Requested { format: _ } => write!(f, "requested"),
+            Self::Requested {
+                format: _,
+                component: _,
+            } => write!(f, "requested"),
             Self::InProgress {
                 start_ts: _,
                 format: _,
+                component: _,
             } => write!(f, "in_progress"),
             Self::Completed {
                 start_ts: _,
@@ -164,11 +199,13 @@ impl Display for Export {
                 expiration_ts: _,
                 object_keys: _,
                 format: _,
+                component: _,
             } => write!(f, "completed"),
             Self::Failed {
                 start_ts: _,
                 failed_ts: _,
                 format: _,
+                component: _,
             } => write!(f, "failed"),
         }
     }
@@ -185,6 +222,7 @@ impl TryFrom<Export> for ConvexObject {
                 expiration_ts,
                 object_keys,
                 format,
+                component,
             } => {
                 let mut o = btreemap! {
                     "start_ts".parse()? => val!(i64::from(start_ts)),
@@ -192,6 +230,7 @@ impl TryFrom<Export> for ConvexObject {
                     "expiration_ts".parse()? => val!(expiration_ts as i64),
                     "state".parse()? => val!("completed"),
                     "format".parse()? => val!(format),
+                    "component".parse()? => val!(component.serialize_to_string()),
                 };
                 match object_keys {
                     ExportObjectKeys::Zip(object_key) => o.insert(
@@ -201,27 +240,35 @@ impl TryFrom<Export> for ConvexObject {
                 };
                 ConvexObject::try_from(o)
             },
-            Export::Requested { format } => obj!(
+            Export::Requested { format, component } => obj!(
                 "state" => "requested",
                 "format" => format,
+                "component" => component.serialize_to_string(),
             ),
-            Export::InProgress { start_ts, format } => {
+            Export::InProgress {
+                start_ts,
+                format,
+                component,
+            } => {
                 obj!(
                     "state" => "in_progress",
                     "start_ts" => i64::from(start_ts),
                     "format" => format,
+                    "component" => component.serialize_to_string(),
                 )
             },
             Export::Failed {
                 start_ts,
                 failed_ts,
                 format,
+                component,
             } => {
                 obj!(
                     "state" => "failed",
                     "start_ts" => i64::from(start_ts),
                     "failed_ts" => i64::from(failed_ts),
                     "format" => format,
+                    "component" => component.serialize_to_string(),
                 )
             },
         }
@@ -236,9 +283,15 @@ impl TryFrom<ConvexObject> for Export {
             Some(format) => ExportFormat::try_from(format.clone())?,
             _ => anyhow::bail!("invalid format: {:?}", o),
         };
+        let component = match o.get("component") {
+            Some(ConvexValue::String(s)) => ComponentId::deserialize_from_string(Some(s))?,
+            Some(ConvexValue::Null) => ComponentId::Root,
+            None => ComponentId::Root,
+            _ => anyhow::bail!("invalid component: {:?}", o),
+        };
         match o.get("state") {
             Some(ConvexValue::String(s)) => match &s[..] {
-                "requested" => Ok(Export::Requested { format }),
+                "requested" => Ok(Export::Requested { format, component }),
                 "in_progress" => {
                     if let Some(start_ts_value) = o.get("start_ts")
                         && let ConvexValue::Int64(start_ts) = start_ts_value
@@ -246,6 +299,7 @@ impl TryFrom<ConvexObject> for Export {
                         Ok(Export::InProgress {
                             start_ts: (*start_ts).try_into()?,
                             format,
+                            component,
                         })
                     } else {
                         Err(anyhow::anyhow!("No start_ts found for in_progress export."))
@@ -276,6 +330,7 @@ impl TryFrom<ConvexObject> for Export {
                         complete_ts,
                         object_keys,
                         format,
+                        component,
                     })
                 },
                 "failed" => {
@@ -291,6 +346,7 @@ impl TryFrom<ConvexObject> for Export {
                         start_ts,
                         failed_ts,
                         format,
+                        component,
                     })
                 },
                 _ => Err(anyhow::anyhow!("Invalid export state {s}")),

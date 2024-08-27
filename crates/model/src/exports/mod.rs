@@ -1,6 +1,7 @@
 use std::sync::LazyLock;
 
 use common::{
+    components::ComponentId,
     document::{
         ParsedDocument,
         ResolvedDocument,
@@ -74,9 +75,16 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         Self { tx }
     }
 
-    pub async fn insert_requested(&mut self, format: ExportFormat) -> anyhow::Result<()> {
+    pub async fn insert_requested(
+        &mut self,
+        format: ExportFormat,
+        component: ComponentId,
+    ) -> anyhow::Result<()> {
         SystemMetadataModel::new_global(self.tx)
-            .insert(&EXPORTS_TABLE, Export::requested(format).try_into()?)
+            .insert(
+                &EXPORTS_TABLE,
+                Export::requested(format, component).try_into()?,
+            )
             .await?;
         Ok(())
     }

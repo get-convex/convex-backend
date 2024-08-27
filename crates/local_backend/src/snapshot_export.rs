@@ -14,12 +14,15 @@ use axum_extra::{
     },
     TypedHeader,
 };
-use common::http::{
-    extract::{
-        Path,
-        Query,
+use common::{
+    components::ComponentId,
+    http::{
+        extract::{
+            Path,
+            Query,
+        },
+        HttpResponseError,
     },
-    HttpResponseError,
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
@@ -43,17 +46,22 @@ const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 30);
 pub struct RequestZipExport {
     #[serde(default)]
     include_storage: bool,
+    component: Option<String>,
 }
 
 #[minitrace::trace]
 pub async fn request_zip_export(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
-    Query(RequestZipExport { include_storage }): Query<RequestZipExport>,
+    Query(RequestZipExport {
+        include_storage,
+        component,
+    }): Query<RequestZipExport>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
+    let component = ComponentId::deserialize_from_string(component.as_deref())?;
     st.application
-        .request_export(identity, ExportFormat::Zip { include_storage })
+        .request_export(identity, ExportFormat::Zip { include_storage }, component)
         .await?;
     Ok(StatusCode::OK)
 }

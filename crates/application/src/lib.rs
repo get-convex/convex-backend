@@ -1286,6 +1286,7 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         format: ExportFormat,
+        component: ComponentId,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(identity.is_admin(), unauthorized_error("request_export"));
         let snapshot = self.latest_snapshot()?;
@@ -1301,7 +1302,11 @@ impl<RT: Runtime> Application<RT> {
         let export_requested = ExportWorker::export_in_state(&mut tx, "requested").await?;
         let export_in_progress = ExportWorker::export_in_state(&mut tx, "in_progress").await?;
         match (export_requested, export_in_progress) {
-            (None, None) => ExportsModel::new(&mut tx).insert_requested(format).await,
+            (None, None) => {
+                ExportsModel::new(&mut tx)
+                    .insert_requested(format, component)
+                    .await
+            },
             _ => Err(
                 anyhow::anyhow!("Can only have one export requested or in progress at once")
                     .context(ErrorMetadata::bad_request(
