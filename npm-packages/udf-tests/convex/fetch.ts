@@ -1699,7 +1699,7 @@ export const fetchInParallel = action(async () => {
     }),
   ];
   const response = await Promise.race(parallelFetches);
-  assert(response.ok);
+  assert(response.ok, await response.text());
 });
 
 // Regression test.
