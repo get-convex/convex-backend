@@ -8,9 +8,7 @@ import errors from "../../../errors/convex.config";
 // @ts-ignore
 const app = defineApp();
 
-app.install(errors, { args: {} });
-app.install(envVars, {
-  args: { name: process.env.NAME, url: process.env.CONVEX_CLOUD_URL },
-});
+app.install(errors);
+app.install(envVars);
 
 export default app;

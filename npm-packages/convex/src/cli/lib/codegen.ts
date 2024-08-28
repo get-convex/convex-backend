@@ -392,7 +392,7 @@ async function doInitialComponentServerCodegen(
   await writeFormattedFile(
     ctx,
     tmpDir,
-    componentServerJS(isRoot),
+    componentServerJS(),
     "typescript",
     path.join(codegenDir, "server.js"),
     opts,

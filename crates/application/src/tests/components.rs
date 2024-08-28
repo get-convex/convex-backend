@@ -21,7 +21,6 @@ use errors::ErrorMetadataAnyhowExt;
 use futures::FutureExt;
 use itertools::Itertools;
 use keybroker::Identity;
-use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::{
     json,
@@ -108,40 +107,6 @@ async fn test_run_component_action(rt: TestRuntime) -> anyhow::Result<()> {
     let result = run_function(&application, "componentEntry:hello".parse()?, vec![]).await??;
     // No logs returned because only the action inside the component logs.
     assert_eq!(result.log_lines.iter().collect_vec().len(), 0);
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn test_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
-    let mut tx = application.begin(Identity::system()).await?;
-    application
-        .create_one_environment_variable(
-            &mut tx,
-            EnvironmentVariable {
-                name: "NAME".parse()?,
-                value: "emma".parse()?,
-            },
-        )
-        .await?;
-    application.commit_test(tx).await?;
-    application.load_component_tests_modules("basic").await?;
-    let result = run_function(&application, "componentEntry:hello".parse()?, vec![]).await??;
-    must_let!(let ConvexValue::String(name) = result.value);
-    assert_eq!(name.to_string(), "emma".to_string());
-
-    // No logs returned because only the action inside the component logs.
-    assert_eq!(result.log_lines.iter().collect_vec().len(), 0);
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn test_system_env_var_works_in_app_definition(rt: TestRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
-    application.load_component_tests_modules("basic").await?;
-    let result = run_function(&application, "componentEntry:url".parse()?, vec![]).await??;
-    must_let!(let ConvexValue::String(name) = result.value);
-    assert_eq!(name.to_string(), "http://127.0.0.1:8000".to_string());
     Ok(())
 }
 

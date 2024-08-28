@@ -17,7 +17,6 @@ import {
   internalMutationGeneric,
   internalQueryGeneric,
   componentsGeneric,
-  createComponentArg,
 } from "convex/server";
 
 /**

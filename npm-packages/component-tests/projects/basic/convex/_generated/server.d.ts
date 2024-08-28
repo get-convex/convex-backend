@@ -162,7 +162,6 @@ export declare const components: {
       hello: FunctionReference<"action", "internal", any, any>;
       systemEnvVarAction: FunctionReference<"action", "internal", any, any>;
       systemEnvVarQuery: FunctionReference<"query", "internal", any, any>;
-      url: FunctionReference<"action", "internal", any, any>;
     };
   };
 };

@@ -22,7 +22,3 @@ export const insert = mutation(
 export const hello = action(async (ctx) => {
   return await ctx.runAction(components.component.messages.hello, {});
 });
-
-export const url = action(async (ctx) => {
-  return await ctx.runAction(components.component.messages.url, {});
-});

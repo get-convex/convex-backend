@@ -172,7 +172,6 @@ export {
   defineComponent,
   componentsGeneric,
   currentSystemUdfInComponent,
-  createComponentArg,
   createFunctionHandle,
 } from "./components/index.js";
 /**

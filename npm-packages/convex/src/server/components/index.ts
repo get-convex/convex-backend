@@ -1,18 +1,12 @@
-import {
-  Infer,
-  ObjectType,
-  PropertyValidators,
-  convexToJson,
-  jsonToConvex,
-} from "../../values/index.js";
+import { PropertyValidators, convexToJson } from "../../values/index.js";
 import {
   AnyFunctionReference,
   FunctionReference,
   FunctionType,
 } from "../api.js";
 import { getFunctionAddress } from "../impl/actions_impl.js";
-import { performAsyncSyscall, performSyscall } from "../impl/syscall.js";
-import { DefaultFunctionArgs, EmptyObject } from "../registration.js";
+import { performAsyncSyscall } from "../impl/syscall.js";
+import { DefaultFunctionArgs } from "../registration.js";
 import {
   AppDefinitionAnalysis,
   ComponentDefinitionAnalysis,
@@ -73,35 +67,19 @@ export interface InitCtx {}
  *
  * @internal
  */ // eslint-disable-next-line @typescript-eslint/ban-types
-export type ComponentDefinition<
-  Args extends PropertyValidators = EmptyObject,
-  Exports extends ComponentExports = any,
-> = {
+export type ComponentDefinition<Exports extends ComponentExports = any> = {
   /**
    * Install a component with the given definition in this component definition.
    *
-   * Takes a component definition, an optional name, and the args it requires.
+   * Takes a component definition, and an optional name.
    *
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  install<Definition extends ComponentDefinition<any, any>>(
+  install<Definition extends ComponentDefinition<any>>(
     definition: Definition,
-    options: {
+    options?: {
       name?: string;
-      // TODO we have to do the "arguments are optional if empty, otherwise required"
-      args?: ObjectType<ComponentDefinitionArgs<Definition>>;
-    },
-  ): InstalledComponent<Definition>;
-
-  installWithInit<Definition extends ComponentDefinition<any, any>>(
-    definition: Definition,
-    options: {
-      name?: string;
-      onInit: (
-        ctx: InitCtx,
-        args: ObjectType<Args>,
-      ) => ObjectType<ComponentDefinitionArgs<Definition>>;
     },
   ): InstalledComponent<Definition>;
 
@@ -112,21 +90,13 @@ export type ComponentDefinition<
    */
   mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
 
-  // TODO this will be needed once components are responsible for building interfaces for themselves
-  /**
-   * @internal
-   */
-  __args: Args;
-
   /**
    * @internal
    */
   __exports: Exports;
 };
 
-type ComponentDefinitionArgs<T extends ComponentDefinition<any, any>> =
-  T["__args"];
-type ComponentDefinitionExports<T extends ComponentDefinition<any, any>> =
+type ComponentDefinitionExports<T extends ComponentDefinition<any>> =
   T["__exports"];
 
 /**
@@ -144,11 +114,10 @@ export type AppDefinition = {
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  install<Definition extends ComponentDefinition<any, any>>(
+  install<Definition extends ComponentDefinition<any>>(
     definition: Definition,
-    options: {
+    options?: {
       name?: string;
-      args?: ObjectType<ComponentDefinitionArgs<Definition>>;
     },
   ): InstalledComponent<Definition>;
 
@@ -186,7 +155,7 @@ type AppDefinitionData = CommonDefinitionData;
 /**
  * Used to refer to an already-installed component.
  */
-class InstalledComponent<Definition extends ComponentDefinition<any, any>> {
+class InstalledComponent<Definition extends ComponentDefinition<any>> {
   /**
    * @internal
    */
@@ -236,36 +205,8 @@ function createExports(name: string, pathParts: string[]): any {
 function install<Definition extends ComponentDefinition<any>>(
   this: CommonDefinitionData,
   definition: Definition,
-  options: {
+  options?: {
     name?: string;
-    args?: Infer<ComponentDefinitionArgs<Definition>>;
-  } = {},
-): InstalledComponent<Definition> {
-  // At runtime an imported component will have this shape.
-  const importedComponentDefinition =
-    definition as unknown as ImportedComponentDefinition;
-  if (typeof importedComponentDefinition.componentDefinitionPath !== "string") {
-    throw new Error(
-      "Component definition does not have the required componentDefinitionPath property. This code only works in Convex runtime.",
-    );
-  }
-  const name =
-    options.name ||
-    importedComponentDefinition.componentDefinitionPath.split("/").pop()!;
-  this._childComponents.push([
-    name,
-    importedComponentDefinition,
-    options.args ?? {},
-  ]);
-  return new InstalledComponent(definition, name);
-}
-
-function installWithInit<Definition extends ComponentDefinition<any>>(
-  this: ComponentDefinitionData,
-  definition: Definition,
-  options: {
-    name?: string;
-    onInit: (ctx: InitCtx, args: any) => any;
   },
 ): InstalledComponent<Definition> {
   // At runtime an imported component will have this shape.
@@ -277,21 +218,10 @@ function installWithInit<Definition extends ComponentDefinition<any>>(
     );
   }
   const name =
-    options.name ||
+    options?.name ||
     importedComponentDefinition.componentDefinitionPath.split("/").pop()!;
-  this._childComponents.push([name, importedComponentDefinition, null]);
-  this._onInitCallbacks[name] = (s) => invokeOnInit(s, options.onInit);
+  this._childComponents.push([name, importedComponentDefinition, {}]);
   return new InstalledComponent(definition, name);
-}
-
-function invokeOnInit(
-  argsStr: string,
-  onInit: (ctx: InitCtx, args: any) => any,
-): string {
-  const argsJson = JSON.parse(argsStr);
-  const args = jsonToConvex(argsJson);
-  const result = onInit({}, args);
-  return JSON.stringify(convexToJson(result));
 }
 
 function mount(this: CommonDefinitionData, exports: any) {
@@ -458,10 +388,7 @@ function exportComponentForAnalysis(
 }
 
 // This is what is actually contained in a ComponentDefinition.
-type RuntimeComponentDefinition = Omit<
-  ComponentDefinition<any, any>,
-  "__args" | "__exports"
-> &
+type RuntimeComponentDefinition = Omit<ComponentDefinition<any>, "__exports"> &
   ComponentDefinitionData & {
     export: () => ComponentDefinitionAnalysis;
   };
@@ -474,17 +401,13 @@ type RuntimeAppDefinition = AppDefinition &
  * @internal
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
-export function defineComponent<
-  Args extends PropertyValidators = EmptyObject,
-  Exports extends ComponentExports = any,
->(
+export function defineComponent<Exports extends ComponentExports = any>(
   name: string,
-  options: { args?: Args } = {},
-): ComponentDefinition<Args, Exports> {
+): ComponentDefinition<Exports> {
   const ret: RuntimeComponentDefinition = {
     _isRoot: false,
     _name: name,
-    _args: options.args || {},
+    _args: {},
     _childComponents: [],
     _httpMounts: {},
     _exportTree: {},
@@ -492,14 +415,13 @@ export function defineComponent<
 
     export: exportComponentForAnalysis,
     install,
-    installWithInit,
     mount,
     mountHttp,
 
     // pretend to conform to ComponentDefinition, which temporarily expects __args
     ...({} as { __args: any; __exports: any }),
   };
-  return ret as any as ComponentDefinition<Args, Exports>;
+  return ret as any as ComponentDefinition<Exports>;
 }
 
 /**
@@ -562,19 +484,6 @@ function createChildComponents(
     },
   };
   return new Proxy({}, handler);
-}
-
-/**
- *
- * @internal
- */
-export function createComponentArg(): (ctx: any, name: string) => any {
-  return (ctx: any, name: string) => {
-    const result = performSyscall("1.0/componentArgument", {
-      name,
-    });
-    return (jsonToConvex(result) as any).value;
-  };
 }
 
 /**

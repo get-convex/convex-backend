@@ -2,6 +2,4 @@
 // @ts-ignore
 import { defineComponent } from "convex/server";
 
-export default defineComponent("errors", {
-  args: {},
-});
+export default defineComponent("errors");

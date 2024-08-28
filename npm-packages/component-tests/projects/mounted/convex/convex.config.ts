@@ -8,10 +8,8 @@ import envVars from "../../../envVars/convex.config";
 // @ts-ignore
 const app = defineApp();
 
-const c = app.install(component, {
-  args: { name: process.env.NAME, url: process.env.CONVEX_CLOUD_URL },
-});
-app.install(envVars, {});
+const c = app.install(component);
+app.install(envVars);
 app.mount({ mounted: c.exports });
 
 export default app;

@@ -25,7 +25,7 @@ declare const fullApi: ApiFromModules<{}>;
 declare const fullApiWithMounts: typeof fullApi & {
   mounted: {
     messages: {
-      hello: FunctionReference<"action", "public", any, any>;
+      hello: FunctionReference<"action", "public", {}, any>;
       insertMessage: FunctionReference<
         "mutation",
         "public",
@@ -33,7 +33,6 @@ declare const fullApiWithMounts: typeof fullApi & {
         any
       >;
       listMessages: FunctionReference<"query", "public", {}, any>;
-      url: FunctionReference<"action", "public", any, any>;
     };
   };
 };

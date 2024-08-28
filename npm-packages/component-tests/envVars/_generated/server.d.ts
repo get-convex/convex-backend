@@ -151,7 +151,7 @@ export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 export declare const components: {
   component: {
     messages: {
-      hello: FunctionReference<"action", "internal", any, any>;
+      hello: FunctionReference<"action", "internal", {}, any>;
       insertMessage: FunctionReference<
         "mutation",
         "internal",
@@ -159,15 +159,6 @@ export declare const components: {
         any
       >;
       listMessages: FunctionReference<"query", "internal", {}, any>;
-      url: FunctionReference<"action", "internal", any, any>;
     };
   };
 };
-type ComponentArgs = {
-  name: string;
-  url: string;
-};
-export declare const componentArg: <Name extends keyof ComponentArgs>(
-  ctx: GenericCtx,
-  name: Name,
-) => ComponentArgs[Name];

@@ -33,7 +33,6 @@ declare const fullApiWithMounts: typeof fullApi & {
     hello: FunctionReference<"action", "public", any, any>;
     systemEnvVarAction: FunctionReference<"action", "public", any, any>;
     systemEnvVarQuery: FunctionReference<"query", "public", any, any>;
-    url: FunctionReference<"action", "public", any, any>;
   };
 };
 

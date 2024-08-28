@@ -149,8 +149,3 @@ export type DatabaseReader = GenericDatabaseReader<DataModel>;
 export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 
 export declare const components: {};
-type ComponentArgs = {};
-export declare const componentArg: <Name extends keyof ComponentArgs>(
-  ctx: GenericCtx,
-  name: Name,
-) => ComponentArgs[Name];

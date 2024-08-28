@@ -7,8 +7,6 @@ import component from "../../../component/convex.config";
 // @ts-ignore
 const app = defineApp();
 
-app.install(component, {
-  args: { name: process.env.NAME, url: process.env.CONVEX_CLOUD_URL },
-});
+app.install(component);
 
 export default app;

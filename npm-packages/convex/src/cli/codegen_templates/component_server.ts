@@ -19,8 +19,8 @@ import { Value, jsonToConvex } from "../../values/value.js";
 import { z } from "zod";
 import { encodeDefinitionPath } from "../lib/components/definition/bundle.js";
 
-export function componentServerJS(isRoot: boolean): string {
-  let result = `
+export function componentServerJS(): string {
+  const result = `
   ${header(
     "Generated utilities for implementing server-side Convex query and mutation functions.",
   )}
@@ -33,7 +33,6 @@ export function componentServerJS(isRoot: boolean): string {
     internalMutationGeneric,
     internalQueryGeneric,
     componentsGeneric,
-    createComponentArg,
   } from "convex/server";
 
   /**
@@ -108,11 +107,6 @@ export function componentServerJS(isRoot: boolean): string {
 
   export const components = componentsGeneric();
   `;
-  if (!isRoot) {
-    result += `
-    export const componentArg = createComponentArg();
-    `;
-  }
   return result;
 }
 
@@ -265,11 +259,6 @@ export function componentServerStubDTS(isRoot: boolean): string {
   result += `
   export declare const components: AnyComponents;
   `;
-  if (!isRoot) {
-    result += `
-    export declare const componentArg: (ctx: GenericCtx, name: string) => any;
-    `;
-  }
   return result;
 }
 
@@ -315,19 +304,6 @@ export async function componentServerDTS(
   }
 
   result.push("};");
-
-  const definitionType = analysis.definition.definitionType;
-  if (definitionType.type === "childComponent") {
-    result.push(`type ComponentArgs = {`);
-    for (const [name, { value: serializedValidator }] of definitionType.args) {
-      const validatorType = validatorToType(JSON.parse(serializedValidator));
-      result.push(`${name}: ${validatorType},`);
-    }
-    result.push("};");
-    result.push(
-      `export declare const componentArg: <Name extends keyof ComponentArgs>(ctx: GenericCtx, name: Name) => ComponentArgs[Name];`,
-    );
-  }
 
   return result.join("\n");
 }

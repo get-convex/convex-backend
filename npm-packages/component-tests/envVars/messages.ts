@@ -1,13 +1,7 @@
-import { query, action, componentArg } from "./_generated/server";
+import { query, action } from "./_generated/server";
 
-export const hello = action(async (ctx) => {
-  const name = componentArg(ctx, "name");
-  console.log(`hi from ${name}`);
-  return name;
-});
-
-export const url = action(async (ctx) => {
-  return componentArg(ctx, "url");
+export const hello = action(async () => {
+  return "hello";
 });
 
 export const envVarQuery = query(async () => {

@@ -151,7 +151,7 @@ export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 export declare const components: {
   component: {
     messages: {
-      hello: FunctionReference<"action", "internal", any, any>;
+      hello: FunctionReference<"action", "internal", {}, any>;
       insertMessage: FunctionReference<
         "mutation",
         "internal",
@@ -159,7 +159,6 @@ export declare const components: {
         any
       >;
       listMessages: FunctionReference<"query", "internal", {}, any>;
-      url: FunctionReference<"action", "internal", any, any>;
     };
   };
   envVars: {
@@ -169,7 +168,6 @@ export declare const components: {
       hello: FunctionReference<"action", "internal", any, any>;
       systemEnvVarAction: FunctionReference<"action", "internal", any, any>;
       systemEnvVarQuery: FunctionReference<"query", "internal", any, any>;
-      url: FunctionReference<"action", "internal", any, any>;
     };
   };
 };
