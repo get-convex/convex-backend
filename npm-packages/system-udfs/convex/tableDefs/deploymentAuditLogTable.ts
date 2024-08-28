@@ -58,51 +58,90 @@ const vectorIndex = v.object({
 
 export const indexMetadata = v.union(databaseIndex, searchIndex, vectorIndex);
 
+const indexConfigs = v.array(v.union(databaseIndex, searchIndex, vectorIndex));
 export const buildIndexes = v.object({
   action: v.literal("build_indexes"),
   member_id: v.int64(),
   metadata: v.object({
-    added_indexes: v.array(v.union(databaseIndex, searchIndex, vectorIndex)),
-    removed_indexes: v.array(v.union(databaseIndex, searchIndex, vectorIndex)),
+    added_indexes: indexConfigs,
+    removed_indexes: indexConfigs,
   }),
 });
+
+export const indexDiff = v.object({
+  added_indexes: indexConfigs,
+  removed_indexes: indexConfigs,
+});
+
+const authDiff = v.object({
+  added: v.array(v.string()),
+  removed: v.array(v.string()),
+});
+
+const serverVersion = v.union(
+  v.null(),
+  v.object({
+    previous_version: v.string(),
+    next_version: v.string(),
+  }),
+);
+const moduleDiff = v.object({
+  added: v.array(v.string()),
+  removed: v.array(v.string()),
+});
+const cronDiff = v.optional(
+  v.object({
+    added: v.array(v.string()),
+    updated: v.array(v.string()),
+    deleted: v.array(v.string()),
+  }),
+);
+const schemaDiff = v.optional(
+  v.union(
+    v.null(),
+    v.object({
+      previous_schema_id: v.union(v.id("_schemas"), v.null()),
+      next_schema_id: v.union(v.id("_schemas"), v.null()),
+      previous_schema: v.optional(v.union(v.string(), v.null())),
+      next_schema: v.optional(v.union(v.string(), v.null())),
+    }),
+  ),
+);
 
 export const pushConfig = v.object({
   action: v.literal("push_config"),
   member_id: v.int64(),
   metadata: v.object({
-    auth: v.object({
-      added: v.array(v.string()),
-      removed: v.array(v.string()),
-    }),
-    server_version: v.union(
-      v.null(),
+    auth: authDiff,
+    server_version: serverVersion,
+    modules: moduleDiff,
+    crons: cronDiff,
+    schema: schemaDiff,
+  }),
+});
+
+export const pushConfigWithComponents = v.object({
+  action: v.literal("push_config_with_components"),
+  member_id: v.int64(),
+  metadata: v.object({
+    component_diffs: v.array(
       v.object({
-        previous_version: v.string(),
-        next_version: v.string(),
-      }),
-    ),
-    modules: v.object({
-      added: v.array(v.string()),
-      removed: v.array(v.string()),
-    }),
-    crons: v.optional(
-      v.object({
-        added: v.array(v.string()),
-        updated: v.array(v.string()),
-        deleted: v.array(v.string()),
-      }),
-    ),
-    schema: v.optional(
-      v.union(
-        v.null(),
-        v.object({
-          previous_schema_id: v.union(v.id("_schemas"), v.null()),
-          next_schema_id: v.union(v.id("_schemas"), v.null()),
-          previous_schema: v.optional(v.union(v.string(), v.null())),
-          next_schema: v.optional(v.union(v.string(), v.null())),
+        component_path: v.union(v.string(), v.null()),
+        component_diff: v.object({
+          diffType: v.object({
+            type: v.union(
+              v.literal("create"),
+              v.literal("modify"),
+              v.literal("unmount"),
+            ),
+          }),
+          indexDiff: indexDiff,
+          udfConfigDiff: serverVersion,
+          moduleDiff: moduleDiff,
+          cronDiff: cronDiff,
+          schemaDiff: schemaDiff,
         }),
-      ),
+      }),
     ),
   }),
 });
@@ -147,6 +186,7 @@ const deploymentAuditLogTable = defineTable(
     replaceEnvironmentVariable,
     buildIndexes,
     pushConfig,
+    pushConfigWithComponents,
     changeDeploymentState,
     clearTables,
     snapshotImport,
