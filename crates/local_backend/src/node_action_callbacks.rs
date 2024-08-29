@@ -584,7 +584,10 @@ mod tests {
     use application::test_helpers::ApplicationTestExt;
     use axum::body::Body;
     use axum_extra::headers::authorization::Credentials;
-    use common::runtime::Runtime;
+    use common::{
+        components::ComponentId,
+        runtime::Runtime,
+    };
     use http::Request;
     use runtime::prod::ProdRuntime;
     use serde_json::{
@@ -651,6 +654,7 @@ mod tests {
         // Cancel the scheduled job
         let body = Body::from(serde_json::to_vec(&CancelJobRequest {
             id: job_id.clone(),
+            component_id: ComponentId::TODO().serialize_to_string(),
         })?);
         let req = Request::builder()
             .uri("/api/actions/cancel_job")

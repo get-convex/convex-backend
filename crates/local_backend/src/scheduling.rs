@@ -84,6 +84,7 @@ pub async fn cancel_all_jobs(
 #[serde(rename_all = "camelCase")]
 pub struct CancelJobRequest {
     pub id: String,
+    pub component_id: Option<String>,
 }
 
 #[debug_handler]
@@ -93,10 +94,12 @@ pub async fn cancel_job(
     Json(cancel_job_request): Json<CancelJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member_with_write_access(&identity)?;
+    let component_id =
+        ComponentId::deserialize_from_string(cancel_job_request.component_id.as_deref())?;
     st.application
         .execute_with_audit_log_events_and_occ_retries(identity.clone(), "cancel_job", |tx| {
             async {
-                let namespace = TableNamespace::by_component_TODO();
+                let namespace = TableNamespace::from(component_id);
                 let id = parse_document_id(
                     &cancel_job_request.id,
                     &tx.table_mapping().namespace(namespace),
