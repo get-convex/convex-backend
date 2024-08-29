@@ -14,8 +14,9 @@ pub struct DeveloperDatabaseIndexConfig {
     pub fields: IndexedFields,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct SerializedDeveloperDatabaseIndexConfig {
     fields: Vec<String>,
 }

@@ -11,7 +11,11 @@ use std::sync::LazyLock;
 use value::IdentifierFieldName;
 
 pub use self::{
-    developer_index_config::DeveloperIndexConfig,
+    developer_index_config::{
+        DeveloperIndexConfig,
+        SerializedDeveloperIndexConfig,
+        SerializedNamedDeveloperIndexConfig,
+    },
     index_config::IndexConfig,
     index_metadata::{
         index_metadata_serialize_tablet_id,

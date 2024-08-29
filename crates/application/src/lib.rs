@@ -190,7 +190,10 @@ use model::{
         ConfigModel,
     },
     deployment_audit_log::{
-        types::DeploymentAuditLogEvent,
+        types::{
+            ComponentDiffs,
+            DeploymentAuditLogEvent,
+        },
         DeploymentAuditLogModel,
     },
     environment_variables::{
@@ -2021,7 +2024,17 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         if !dry_run {
-            self.commit(tx, WriteSource::new("finish_push")).await?;
+            let diffs = ComponentDiffs {
+                component_diffs: component_diffs.clone(),
+            };
+            self.commit_with_audit_log_events(
+                tx,
+                vec![DeploymentAuditLogEvent::PushConfigWithComponents {
+                    component_diffs: diffs,
+                }],
+                WriteSource::new("finish_push"),
+            )
+            .await?;
         } else {
             drop(tx);
         }

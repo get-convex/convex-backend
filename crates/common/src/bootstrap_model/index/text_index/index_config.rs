@@ -18,8 +18,9 @@ pub struct DeveloperTextIndexConfig {
     pub filter_fields: BTreeSet<FieldPath>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct SerializedDeveloperTextIndexConfig {
     search_field: String,
     filter_fields: Vec<String>,

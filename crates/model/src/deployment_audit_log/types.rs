@@ -5,19 +5,34 @@ use std::{
 };
 
 use common::{
-    bootstrap_model::index::DeveloperIndexConfig,
+    bootstrap_model::index::{
+        DeveloperIndexConfig,
+        IndexMetadata,
+        SerializedDeveloperIndexConfig,
+        SerializedNamedDeveloperIndexConfig,
+    },
+    components::ComponentPath,
     log_streaming::{
         LogEvent,
         StructuredLogEvent,
     },
     runtime::UnixTimestamp,
-    types::IndexName,
+    types::{
+        GenericIndexName,
+        IndexDiff,
+        IndexName,
+    },
 };
 use database::LegacyIndexDiff;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use serde_json::Value as JsonValue;
 use value::{
+    codegen_convex_serialization,
     obj,
     remove_int64,
     remove_object,
@@ -31,6 +46,10 @@ use value::{
 
 use crate::{
     backend_state::types::BackendState,
+    components::config::{
+        ComponentDiff,
+        SerializedComponentDiff,
+    },
     config::types::ConfigDiff,
     environment_variables::types::EnvVarName,
     snapshot_imports::types::{
@@ -44,6 +63,44 @@ pub static DEPLOYMENT_AUDIT_LOG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .parse()
         .expect("Invalid deployment audit log table")
 });
+
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct AuditLogIndexDiff {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
+        )
+    )]
+    pub added_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(
+            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
+        )
+    )]
+    pub removed_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
+}
+
+impl From<IndexDiff> for AuditLogIndexDiff {
+    fn from(diff: IndexDiff) -> Self {
+        let added_indexes = diff
+            .added
+            .into_iter()
+            .map(|IndexMetadata::<TableName> { name, config }| (name, config.into()))
+            .collect();
+        let removed_indexes = diff
+            .dropped
+            .into_iter()
+            .map(|index| (index.name.clone(), index.into_value().config.into()))
+            .collect();
+        Self {
+            added_indexes,
+            removed_indexes,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 #[cfg_attr(
@@ -66,6 +123,9 @@ pub enum DeploymentAuditLogEvent {
     },
     PushConfig {
         config_diff: ConfigDiff,
+    },
+    PushConfigWithComponents {
+        component_diffs: ComponentDiffs,
     },
     BuildIndexes {
         #[cfg_attr(
@@ -138,6 +198,9 @@ impl DeploymentAuditLogEvent {
                 "replace_environment_variable"
             },
             DeploymentAuditLogEvent::PushConfig { .. } => "push_config",
+            DeploymentAuditLogEvent::PushConfigWithComponents { .. } => {
+                "push_config_with_components"
+            },
             DeploymentAuditLogEvent::BuildIndexes { .. } => "build_indexes",
             DeploymentAuditLogEvent::ChangeDeploymentState { .. } => "change_deployment_state",
             DeploymentAuditLogEvent::SnapshotImport { .. } => "snapshot_import",
@@ -160,6 +223,9 @@ impl DeploymentAuditLogEvent {
             },
             DeploymentAuditLogEvent::PushConfig { config_diff } => {
                 ConvexObject::try_from(config_diff)
+            },
+            DeploymentAuditLogEvent::PushConfigWithComponents { component_diffs } => {
+                component_diffs.try_into()
             },
             DeploymentAuditLogEvent::BuildIndexes {
                 added_indexes,
@@ -291,6 +357,9 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
             "push_config" => DeploymentAuditLogEvent::PushConfig {
                 config_diff: ConvexObject::try_from(fields)?.try_into()?,
             },
+            "push_config_with_components" => DeploymentAuditLogEvent::PushConfigWithComponents {
+                component_diffs: ConvexObject::try_from(fields)?.try_into()?,
+            },
             "build_indexes" => {
                 let added_indexes = remove_vec(&mut fields, "added_indexes")?
                     .into_iter()
@@ -344,6 +413,132 @@ impl TryFrom<DeploymentAuditLogEvent> for serde_json::Map<String, JsonValue> {
         Ok(map)
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct SerializedIndexDiff {
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "prop::collection::vec(any::<
+                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
+    )]
+    pub added_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "prop::collection::vec(any::<
+                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
+    )]
+    pub removed_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
+}
+
+impl TryFrom<AuditLogIndexDiff> for SerializedIndexDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(diff: AuditLogIndexDiff) -> anyhow::Result<Self> {
+        let convert_to_serialized =
+            |indexes: Vec<(GenericIndexName<TableName>, DeveloperIndexConfig)>| {
+                indexes
+                    .into_iter()
+                    .map(|(name, config)| {
+                        let name = name.to_string();
+                        let index_config = SerializedDeveloperIndexConfig::try_from(config)?;
+                        anyhow::Ok(SerializedNamedDeveloperIndexConfig { name, index_config })
+                    })
+                    .try_collect()
+            };
+        let added_indexes = convert_to_serialized(diff.added_indexes)?;
+        let removed_indexes = convert_to_serialized(diff.removed_indexes)?;
+        Ok(Self {
+            added_indexes,
+            removed_indexes,
+        })
+    }
+}
+
+impl TryFrom<SerializedIndexDiff> for AuditLogIndexDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(diff: SerializedIndexDiff) -> anyhow::Result<Self> {
+        let convert_to_index_metadata = |indexes: Vec<SerializedNamedDeveloperIndexConfig>| {
+            indexes
+                .into_iter()
+                .map(
+                    |SerializedNamedDeveloperIndexConfig { name, index_config }| {
+                        anyhow::Ok((name.parse()?, index_config.try_into()?))
+                    },
+                )
+                .try_collect()
+        };
+        let added_indexes = convert_to_index_metadata(diff.added_indexes)?;
+        let removed_indexes = convert_to_index_metadata(diff.removed_indexes)?;
+        Ok(Self {
+            added_indexes,
+            removed_indexes,
+        })
+    }
+}
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
+pub struct ComponentDiffs {
+    pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
+}
+
+impl TryFrom<SerializedComponentDiffs> for ComponentDiffs {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedComponentDiffs) -> anyhow::Result<Self> {
+        let component_diffs = value
+            .component_diffs
+            .into_iter()
+            .map(
+                |ComponentPathAndDiff {
+                     component_path,
+                     component_diff,
+                 }| {
+                    let path = ComponentPath::deserialize(component_path.as_deref())?;
+                    let diff = ComponentDiff::try_from(component_diff)?;
+                    Ok((path, diff))
+                },
+            )
+            .collect::<anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>>>()?;
+        Ok(ComponentDiffs { component_diffs })
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct ComponentPathAndDiff {
+    component_path: Option<String>,
+    component_diff: SerializedComponentDiff,
+}
+#[derive(Serialize, Deserialize)]
+struct SerializedComponentDiffs {
+    component_diffs: Vec<ComponentPathAndDiff>,
+}
+
+impl TryFrom<ComponentDiffs> for SerializedComponentDiffs {
+    type Error = anyhow::Error;
+
+    fn try_from(component_diffs: ComponentDiffs) -> anyhow::Result<Self> {
+        let component_diffs = component_diffs
+            .component_diffs
+            .into_iter()
+            .map(|(path, diff)| {
+                let component_path = path.serialize();
+                let component_diff = SerializedComponentDiff::try_from(diff)?;
+                Ok(ComponentPathAndDiff {
+                    component_path,
+                    component_diff,
+                })
+            })
+            .collect::<anyhow::Result<Vec<ComponentPathAndDiff>>>()?;
+        Ok(SerializedComponentDiffs { component_diffs })
+    }
+}
+
+codegen_convex_serialization!(ComponentDiffs, SerializedComponentDiffs);
 
 #[cfg(test)]
 mod tests {

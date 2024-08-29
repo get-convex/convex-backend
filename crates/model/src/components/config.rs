@@ -23,8 +23,10 @@ use common::{
 use database::{
     BootstrapComponentsModel,
     IndexModel,
+    SchemaDiff,
     SchemaModel,
     SchemasTable,
+    SerializedSchemaDiff,
     SystemMetadataModel,
     TableModel,
     Transaction,
@@ -37,6 +39,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use strum::AsRefStr;
 use sync_types::CanonicalizedModulePath;
 use value::{
     DeveloperDocumentId,
@@ -59,6 +62,10 @@ use crate::{
         UdfServerVersionDiff,
     },
     cron_jobs::CronModel,
+    deployment_audit_log::types::{
+        AuditLogIndexDiff,
+        SerializedIndexDiff,
+    },
     initialize_application_system_table,
     modules::{
         module_versions::AnalyzedModule,
@@ -380,6 +387,25 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Ok(())
     }
 
+    fn schema_id_from_schema_change(
+        &mut self,
+        schema_change: &SchemaChange,
+        path: &ComponentPath,
+    ) -> anyhow::Result<Option<ResolvedDocumentId>> {
+        schema_change
+            .schema_ids
+            .get(path)
+            .context("Missing schema ID")?
+            .map(|id| {
+                let table_number = self.tx.table_mapping().tablet_number(id.table())?;
+                anyhow::Ok(ResolvedDocumentId::new(
+                    id.table(),
+                    DeveloperDocumentId::new(table_number, id.internal_id()),
+                ))
+            })
+            .transpose()
+    }
+
     pub async fn apply_component_tree_diff(
         &mut self,
         app: &CheckedComponent,
@@ -437,21 +463,25 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                         .allocated_component_ids
                         .get(&path)
                         .context("Missing allocated component ID")?;
+                    let schema_id = self.schema_id_from_schema_change(schema_change, &path)?;
                     self.create_component(
                         internal_id,
                         new_metadata,
                         &modules_by_definition,
                         &udf_config_by_definition,
+                        schema_id,
                     )
                     .await?
                 },
                 // Update a node.
                 (Some(existing_node), Some(new_metadata)) => {
+                    let schema_id = self.schema_id_from_schema_change(schema_change, &path)?;
                     self.modify_component(
                         existing_node,
                         new_metadata,
                         &modules_by_definition,
                         &udf_config_by_definition,
+                        schema_id,
                     )
                     .await?
                 },
@@ -460,39 +490,6 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 (None, None) => anyhow::bail!("Unexpected None/None in stack"),
             };
             diffs.insert(path.clone(), diff);
-
-            let component_id = if path.is_root() {
-                ComponentId::Root
-            } else {
-                ComponentId::Child(internal_id)
-            };
-
-            // Apply schema changes when we're not deleting the component.
-            if new_node.is_some() {
-                let schema_id = schema_change
-                    .schema_ids
-                    .get(&path)
-                    .context("Missing schema ID")?
-                    .map(|id| {
-                        let table_number = self.tx.table_mapping().tablet_number(id.table())?;
-                        anyhow::Ok(ResolvedDocumentId::new(
-                            id.table(),
-                            DeveloperDocumentId::new(table_number, id.internal_id()),
-                        ))
-                    })
-                    .transpose()?;
-                let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
-                    .apply(schema_id)
-                    .await?;
-                let index_diff = IndexModel::new(self.tx)
-                    .apply(component_id.into(), &next_schema)
-                    .await?;
-
-                // TODO: Return this to the client for presentation.
-                tracing::info!(
-                    "Schema diff for {path:?}: {schema_diff:?}, index diff: {index_diff:?}"
-                );
-            }
 
             // After diffing the current node, push children to traverse onto the stack.
             for child in tree_diff_children(&existing_components_by_parent, new_node, internal_id) {
@@ -513,6 +510,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         metadata: ComponentMetadata,
         modules_by_definition: &BTreeMap<DeveloperDocumentId, NewModules>,
         udf_config_by_definition: &BTreeMap<DeveloperDocumentId, UdfConfig>,
+        schema_id: Option<ResolvedDocumentId>,
     ) -> anyhow::Result<(DeveloperDocumentId, ComponentDiff)> {
         let modules = modules_by_definition
             .get(&metadata.definition_id)
@@ -551,7 +549,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         FunctionHandlesModel::new(self.tx)
             .apply_config_diff(component_id, Some(&modules.analyze_results))
             .await?;
-
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
+            .apply(schema_id)
+            .await?;
+        let index_diff = IndexModel::new(self.tx)
+            .apply(component_id.into(), &next_schema)
+            .await?
+            .into();
         Ok((
             id,
             ComponentDiff {
@@ -559,6 +563,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 module_diff,
                 udf_config_diff,
                 cron_diff,
+                index_diff,
+                schema_diff,
             },
         ))
     }
@@ -569,6 +575,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         new_metadata: ComponentMetadata,
         modules_by_definition: &BTreeMap<DeveloperDocumentId, NewModules>,
         udf_config_by_definition: &BTreeMap<DeveloperDocumentId, UdfConfig>,
+        schema_id: Option<ResolvedDocumentId>,
     ) -> anyhow::Result<(DeveloperDocumentId, ComponentDiff)> {
         let component_id = if existing.parent_and_name().is_none() {
             ComponentId::Root
@@ -604,6 +611,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         FunctionHandlesModel::new(self.tx)
             .apply_config_diff(component_id, Some(&modules.analyze_results))
             .await?;
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
+            .apply(schema_id)
+            .await?;
+        let index_diff = IndexModel::new(self.tx)
+            .apply(component_id.into(), &next_schema)
+            .await?
+            .into();
 
         Ok((
             existing.id().into(),
@@ -612,6 +626,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 module_diff,
                 udf_config_diff,
                 cron_diff,
+                index_diff,
+                schema_diff,
             },
         ))
     }
@@ -639,6 +655,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         FunctionHandlesModel::new(self.tx)
             .apply_config_diff(component_id, None)
             .await?;
+        let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
+            .apply(None)
+            .await?;
+        let index_diff = IndexModel::new(self.tx)
+            .apply(component_id.into(), &next_schema)
+            .await?
+            .into();
         Ok((
             existing.id().into(),
             ComponentDiff {
@@ -646,6 +669,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 module_diff,
                 udf_config_diff: None,
                 cron_diff,
+                index_diff,
+                schema_diff,
             },
         ))
     }
@@ -749,20 +774,33 @@ struct TreeDiffChild<'a> {
     new: Option<&'a CheckedComponent>,
 }
 
+#[derive(Debug, Clone, AsRefStr)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
 pub enum ComponentDiffType {
     Create,
     Modify,
     Unmount,
+    // TODO remount
 }
 
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
 pub struct ComponentDiff {
-    diff_type: ComponentDiffType,
-    module_diff: ModuleDiff,
-    udf_config_diff: Option<UdfServerVersionDiff>,
-    cron_diff: CronDiff,
+    pub diff_type: ComponentDiffType,
+    pub module_diff: ModuleDiff,
+    pub udf_config_diff: Option<UdfServerVersionDiff>,
+    pub cron_diff: CronDiff,
+    pub index_diff: AuditLogIndexDiff,
+    pub schema_diff: Option<SchemaDiff>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
 pub enum SerializedComponentDiffType {
     Create,
@@ -770,13 +808,15 @@ pub enum SerializedComponentDiffType {
     Unmount,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SerializedComponentDiff {
     diff_type: SerializedComponentDiffType,
     module_diff: ModuleDiff,
     udf_config_diff: Option<UdfServerVersionDiff>,
     cron_diff: CronDiff,
+    index_diff: SerializedIndexDiff,
+    schema_diff: Option<SerializedSchemaDiff>,
 }
 
 impl TryFrom<ComponentDiffType> for SerializedComponentDiffType {
@@ -791,6 +831,18 @@ impl TryFrom<ComponentDiffType> for SerializedComponentDiffType {
     }
 }
 
+impl TryFrom<SerializedComponentDiffType> for ComponentDiffType {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedComponentDiffType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            SerializedComponentDiffType::Create => Self::Create,
+            SerializedComponentDiffType::Modify => Self::Modify,
+            SerializedComponentDiffType::Unmount => Self::Unmount,
+        })
+    }
+}
+
 impl TryFrom<ComponentDiff> for SerializedComponentDiff {
     type Error = anyhow::Error;
 
@@ -800,6 +852,23 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
             module_diff: value.module_diff,
             udf_config_diff: value.udf_config_diff,
             cron_diff: value.cron_diff,
+            index_diff: value.index_diff.try_into()?,
+            schema_diff: value.schema_diff.map(|diff| diff.try_into()).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<SerializedComponentDiff> for ComponentDiff {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedComponentDiff) -> Result<Self, Self::Error> {
+        Ok(Self {
+            diff_type: value.diff_type.try_into()?,
+            module_diff: value.module_diff,
+            udf_config_diff: value.udf_config_diff,
+            cron_diff: value.cron_diff,
+            index_diff: value.index_diff.try_into()?,
+            schema_diff: value.schema_diff.map(|diff| diff.try_into()).transpose()?,
         })
     }
 }

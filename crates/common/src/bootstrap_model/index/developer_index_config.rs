@@ -51,9 +51,19 @@ impl From<IndexConfig> for DeveloperIndexConfig {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct SerializedNamedDeveloperIndexConfig {
+    pub name: String,
+    #[serde(flatten)]
+    pub index_config: SerializedDeveloperIndexConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
-enum SerializedDeveloperIndexConfig {
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum SerializedDeveloperIndexConfig {
     Database {
         #[serde(flatten)]
         config: SerializedDeveloperDatabaseIndexConfig,
