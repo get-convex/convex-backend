@@ -311,7 +311,7 @@ async function findComponentDependencies(
   return { components, dependencyGraph };
 }
 
-// Each path component is less than 64 bytes and escape all a-zA-Z0-9
+// Each path component is less than 64 bytes and is limited to a-zA-Z0-9
 // This is the only version of the path the server will receive.
 export function encodeDefinitionPath(
   s: ComponentDefinitionPath,
@@ -319,8 +319,13 @@ export function encodeDefinitionPath(
   const components = s.split(path.sep);
   return components
     .map((s) => {
-      const escaped = s.replaceAll("-", "_").replaceAll("+", "_");
-      if (escaped.length <= 64) {
+      const escaped = s
+        .replaceAll("-", "_")
+        .replaceAll("+", "_")
+        .replaceAll(" ", "_")
+        .replaceAll(".", "_");
+      if (escaped.length <= 64 && escaped === s) {
+        // If escaping lost any information then
         return escaped;
       }
       const hash = crypto.createHash("md5").update(s).digest("hex");
