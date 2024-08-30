@@ -24,20 +24,7 @@ import type {
  * ```
  */
 declare const fullApi: ApiFromModules<{}>;
-declare const fullApiWithMounts: typeof fullApi & {
-  mounted: {
-    messages: {
-      hello: FunctionReference<"action", "public", {}, any>;
-      insertMessage: FunctionReference<
-        "mutation",
-        "public",
-        { channel: string; text: string },
-        any
-      >;
-      listMessages: FunctionReference<"query", "public", {}, any>;
-    };
-  };
-};
+declare const fullApiWithMounts: typeof fullApi;
 
 export declare const api: FilterApi<
   typeof fullApiWithMounts,

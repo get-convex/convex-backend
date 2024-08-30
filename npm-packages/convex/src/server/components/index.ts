@@ -11,7 +11,6 @@ import {
   AppDefinitionAnalysis,
   ComponentDefinitionAnalysis,
   ComponentDefinitionType,
-  HttpMount,
 } from "./definition.js";
 
 export const toReferencePath = Symbol.for("toReferencePath");
@@ -83,13 +82,6 @@ export type ComponentDefinition<Exports extends ComponentExports = any> = {
     },
   ): InstalledComponent<Definition>;
 
-  mount(exports: ComponentExports): void;
-
-  /**
-   * Mount a component's HTTP router at a given path prefix.
-   */
-  mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
-
   /**
    * @internal
    */
@@ -120,13 +112,6 @@ export type AppDefinition = {
       name?: string;
     },
   ): InstalledComponent<Definition>;
-
-  mount(exports: ComponentExports): void;
-
-  /**
-   * Mount a component's HTTP router at a given path prefix.
-   */
-  mountHttp(pathPrefix: string, component: InstalledComponent<any>): void;
 };
 
 interface ExportTree {
@@ -141,7 +126,6 @@ type CommonDefinitionData = {
     ImportedComponentDefinition,
     Record<string, any> | null,
   ][];
-  _httpMounts: Record<string, HttpMount>;
   _exportTree: ExportTree;
 };
 
@@ -224,67 +208,6 @@ function install<Definition extends ComponentDefinition<any>>(
   return new InstalledComponent(definition, name);
 }
 
-function mount(this: CommonDefinitionData, exports: any) {
-  function visit(definition: CommonDefinitionData, path: string[], value: any) {
-    const valueReference = value[toReferencePath];
-    if (valueReference) {
-      if (!path.length) {
-        throw new Error("Empty export path");
-      }
-      let current = definition._exportTree;
-      for (const part of path.slice(0, -1)) {
-        let next = current[part];
-        if (typeof next === "string") {
-          throw new Error(
-            `Mount path ${path.join(".")} collides with existing export`,
-          );
-        }
-        if (!next) {
-          next = {};
-          current[part] = next;
-        }
-        current = next;
-      }
-      const last = path[path.length - 1];
-      if (current[last]) {
-        throw new Error(
-          `Mount path ${path.join(".")} collides with existing export`,
-        );
-      }
-      current[last] = valueReference;
-    } else {
-      for (const [key, child] of Object.entries(value)) {
-        visit(definition, [...path, key], child);
-      }
-    }
-  }
-  if (exports[toReferencePath]) {
-    throw new Error(`Cannot mount another component's exports at the root`);
-  }
-  visit(this, [], exports);
-}
-
-function mountHttp(
-  this: CommonDefinitionData,
-  pathPrefix: string,
-  component: InstalledComponent<any>,
-) {
-  if (!pathPrefix.startsWith("/")) {
-    throw new Error(`Path prefix '${pathPrefix}' does not start with a /`);
-  }
-  if (!pathPrefix.endsWith("/")) {
-    throw new Error(`Path prefix '${pathPrefix}' must end with a /`);
-  }
-  if (this._httpMounts[pathPrefix]) {
-    throw new Error(`Path '${pathPrefix}' is already mounted.`);
-  }
-  const path = extractReferencePath(component);
-  if (!path) {
-    throw new Error("`mountHttp` must be called with an `InstalledComponent`.");
-  }
-  this._httpMounts[pathPrefix] = path;
-}
-
 // At runtime when you import a ComponentDefinition, this is all it is
 /**
  * @internal
@@ -301,7 +224,7 @@ function exportAppForAnalysis(
   return {
     definitionType,
     childComponents: childComponents as any,
-    httpMounts: this._httpMounts,
+    httpMounts: {},
     exports: serializeExportTree(this._exportTree),
   };
 }
@@ -382,7 +305,7 @@ function exportComponentForAnalysis(
     name: this._name,
     definitionType,
     childComponents: childComponents as any,
-    httpMounts: this._httpMounts,
+    httpMounts: {},
     exports: serializeExportTree(this._exportTree),
   };
 }
@@ -409,14 +332,11 @@ export function defineComponent<Exports extends ComponentExports = any>(
     _name: name,
     _args: {},
     _childComponents: [],
-    _httpMounts: {},
     _exportTree: {},
     _onInitCallbacks: {},
 
     export: exportComponentForAnalysis,
     install,
-    mount,
-    mountHttp,
 
     // pretend to conform to ComponentDefinition, which temporarily expects __args
     ...({} as { __args: any; __exports: any }),
@@ -432,13 +352,10 @@ export function defineApp(): AppDefinition {
   const ret: RuntimeAppDefinition = {
     _isRoot: true,
     _childComponents: [],
-    _httpMounts: {},
     _exportTree: {},
 
     export: exportAppForAnalysis,
     install,
-    mount,
-    mountHttp,
   };
   return ret as AppDefinition;
 }
