@@ -8,7 +8,7 @@ import errors from "../../../errors/convex.config";
 // @ts-ignore
 const app = defineApp();
 
-app.install(errors);
-app.install(envVars);
+app.use(errors);
+app.use(envVars);
 
 export default app;

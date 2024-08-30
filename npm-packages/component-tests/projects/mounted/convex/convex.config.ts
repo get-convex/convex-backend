@@ -8,7 +8,7 @@ import envVars from "../../../envVars/convex.config";
 // @ts-ignore
 const app = defineApp();
 
-app.install(component);
-app.install(envVars);
+app.use(component);
+app.use(envVars);
 
 export default app;

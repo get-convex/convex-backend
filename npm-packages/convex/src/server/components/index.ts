@@ -75,7 +75,7 @@ export type ComponentDefinition<Exports extends ComponentExports = any> = {
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  install<Definition extends ComponentDefinition<any>>(
+  use<Definition extends ComponentDefinition<any>>(
     definition: Definition,
     options?: {
       name?: string;
@@ -106,7 +106,7 @@ export type AppDefinition = {
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
    */
-  install<Definition extends ComponentDefinition<any>>(
+  use<Definition extends ComponentDefinition<any>>(
     definition: Definition,
     options?: {
       name?: string;
@@ -186,7 +186,7 @@ function createExports(name: string, pathParts: string[]): any {
   return new Proxy({}, handler);
 }
 
-function install<Definition extends ComponentDefinition<any>>(
+function use<Definition extends ComponentDefinition<any>>(
   this: CommonDefinitionData,
   definition: Definition,
   options?: {
@@ -336,7 +336,7 @@ export function defineComponent<Exports extends ComponentExports = any>(
     _onInitCallbacks: {},
 
     export: exportComponentForAnalysis,
-    install,
+    use,
 
     // pretend to conform to ComponentDefinition, which temporarily expects __args
     ...({} as { __args: any; __exports: any }),
@@ -355,7 +355,7 @@ export function defineApp(): AppDefinition {
     _exportTree: {},
 
     export: exportAppForAnalysis,
-    install,
+    use,
   };
   return ret as AppDefinition;
 }

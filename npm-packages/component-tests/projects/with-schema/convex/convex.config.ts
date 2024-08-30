@@ -7,6 +7,6 @@ import component from "../../../component/convex.config";
 // @ts-ignore
 const app = defineApp();
 
-app.install(component);
+app.use(component);
 
 export default app;

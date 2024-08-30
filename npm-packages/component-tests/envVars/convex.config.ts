@@ -4,7 +4,7 @@ import { defineComponent } from "convex/server";
 import { default as otherComponent } from "../component/convex.config";
 
 const component = defineComponent("envVars");
-component.install(otherComponent, {
+component.use(otherComponent, {
   name: "component",
 });
 
