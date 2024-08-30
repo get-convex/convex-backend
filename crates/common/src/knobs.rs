@@ -335,8 +335,13 @@ pub static RETENTION_READ_PARALLEL: LazyLock<usize> =
 
 /// How many parallel threads to use for deleting index entries that have
 /// expired.
-pub static RETENTION_DELETE_PARALLEL: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_DELETE_PARALLEL", 4));
+pub static INDEX_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEX_RETENTION_DELETE_PARALLEL", 4));
+
+/// How many parallel threads to use for deleting document log entries that have
+/// expired.
+pub static DOCUMENT_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_PARALLEL", 1));
 
 /// INDEX_RETENTION_DELAY determines the size of the index retention window.
 ///
@@ -406,8 +411,12 @@ pub static RETENTION_READ_CHUNK: LazyLock<usize> =
     LazyLock::new(|| env_config("RETENTION_READ_CHUNK", 128));
 
 /// Chunk size of index entries for deleting from Persistence.
-pub static RETENTION_DELETE_CHUNK: LazyLock<usize> =
-    LazyLock::new(|| env_config("RETENTION_DELETE_CHUNK", 512));
+pub static INDEX_RETENTION_DELETE_CHUNK: LazyLock<usize> =
+    LazyLock::new(|| env_config("INDEX_RETENTION_DELETE_CHUNK", 512));
+
+/// Chunk size of documents for deleting from Persistence.
+pub static DOCUMENT_RETENTION_DELETE_CHUNK: LazyLock<usize> =
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_CHUNK", 128));
 
 /// Batch size of index entries to delete between checkpoints.
 pub static RETENTION_DELETE_BATCH: LazyLock<usize> =

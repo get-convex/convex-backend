@@ -41,14 +41,16 @@ use common::{
         DEFAULT_DOCUMENTS_PAGE_SIZE,
         DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS,
         DOCUMENT_RETENTION_DELAY,
+        DOCUMENT_RETENTION_DELETE_CHUNK,
+        DOCUMENT_RETENTION_DELETE_PARALLEL,
         DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS,
         INDEX_RETENTION_DELAY,
+        INDEX_RETENTION_DELETE_CHUNK,
+        INDEX_RETENTION_DELETE_PARALLEL,
         MAX_RETENTION_DELAY_SECONDS,
         RESET_DOCUMENT_RETENTION,
         RETENTION_DELETES_ENABLED,
         RETENTION_DELETE_BATCH,
-        RETENTION_DELETE_CHUNK,
-        RETENTION_DELETE_PARALLEL,
         RETENTION_DOCUMENT_DELETES_ENABLED,
         RETENTION_FAIL_ALL_MULTIPLIER,
         RETENTION_FAIL_ENABLED,
@@ -655,7 +657,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             all_indexes,
             persistence_version,
         )
-        .try_chunks2(*RETENTION_DELETE_CHUNK);
+        .try_chunks2(*INDEX_RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
         while let Some(delete_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
@@ -848,7 +850,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
         tracing::trace!("delete_documents: about to grab chunks");
         let expired_chunks = Self::expired_documents(rt, reader, cursor, min_snapshot_ts)
-            .try_chunks2(*RETENTION_DELETE_CHUNK);
+            .try_chunks2(*DOCUMENT_RETENTION_DELETE_CHUNK);
         pin_mut!(expired_chunks);
         while let Some(scanned_chunk) = expired_chunks.try_next().await? {
             tracing::trace!(
@@ -905,19 +907,19 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             .map(|timestamp| (timestamp, total_expired_entries))
     }
 
-    /// Partitions IndexEntry into RETENTION_DELETE_PARALLEL parts where each
-    /// index key only exists in one part.
+    /// Partitions IndexEntry into INDEX_RETENTION_DELETE_PARALLEL parts where
+    /// each index key only exists in one part.
     fn partition_chunk(
         to_partition: Vec<(Timestamp, IndexEntry)>,
     ) -> Vec<Vec<(Timestamp, IndexEntry)>> {
         let mut parts = Vec::new();
-        for _ in 0..*RETENTION_DELETE_PARALLEL {
+        for _ in 0..*INDEX_RETENTION_DELETE_PARALLEL {
             parts.push(vec![]);
         }
         for entry in to_partition {
             let mut hash = DefaultHasher::new();
             entry.1.key_sha256.hash(&mut hash);
-            let i = (hash.finish() as usize) % *RETENTION_DELETE_PARALLEL;
+            let i = (hash.finish() as usize) % *INDEX_RETENTION_DELETE_PARALLEL;
             parts[i].push(entry);
         }
         parts
@@ -929,13 +931,13 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         to_partition: Vec<(Timestamp, (Timestamp, InternalDocumentId))>,
     ) -> Vec<Vec<(Timestamp, (Timestamp, InternalDocumentId))>> {
         let mut parts = Vec::new();
-        for _ in 0..*RETENTION_DELETE_PARALLEL {
+        for _ in 0..*DOCUMENT_RETENTION_DELETE_PARALLEL {
             parts.push(vec![]);
         }
         for entry in to_partition {
             let mut hash = DefaultHasher::new();
             entry.1 .1.hash(&mut hash);
-            let i = (hash.finish() as usize) % *RETENTION_DELETE_PARALLEL;
+            let i = (hash.finish() as usize) % *DOCUMENT_RETENTION_DELETE_PARALLEL;
             parts[i].push(entry);
         }
         parts
@@ -1897,7 +1899,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn test_delete_document_chunk(rt: TestRuntime) -> anyhow::Result<()> {
-        env::set_var("RETENTION_DELETE_PARALLEL", "4");
+        env::set_var("DOCUMENT_RETENTION_DELETE_PARALLEL", "4");
         let p = Arc::new(TestPersistence::new());
         let mut id_generator = TestIdGenerator::new();
         let table: TableName = str::parse("table")?;
