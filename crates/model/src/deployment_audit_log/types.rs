@@ -538,7 +538,7 @@ impl TryFrom<ComponentDiffs> for SerializedComponentDiffs {
     }
 }
 
-codegen_convex_serialization!(ComponentDiffs, SerializedComponentDiffs);
+codegen_convex_serialization!(ComponentDiffs, SerializedComponentDiffs, test_cases = 16);
 
 #[cfg(test)]
 mod tests {
