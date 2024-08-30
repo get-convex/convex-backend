@@ -7,6 +7,7 @@ use model::{
     },
     environment_variables::EnvironmentVariablesModel,
 };
+use openidconnect::IssuerUrl;
 use runtime::testing::TestRuntime;
 
 use crate::{
@@ -29,7 +30,7 @@ export default {
     let application = Application::new_for_tests(&rt).await?;
     let mut tx = application.begin(Identity::system()).await?;
     let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
-    let error = Application::get_evaluated_auth_config(
+    let config = Application::get_evaluated_auth_config(
         application.runner(),
         environment_variables,
         Some(ModuleConfig {
@@ -44,10 +45,10 @@ export default {
         },
     )
     .await
-    .unwrap_err();
-    // The config will fail because the CONVEX_SITE_URL will be an http url,
-    // but this is ok outside of tests because it will be https there.
-    assert!(format!("{}", error).contains("Invalid provider domain URL"),);
-    assert!(format!("{}", error).contains("must use HTTPS"),);
+    .unwrap();
+    assert_eq!(
+        config[0].domain,
+        IssuerUrl::new("http://127.0.0.1:8001".to_string())?
+    );
     Ok(())
 }

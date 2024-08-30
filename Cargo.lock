@@ -201,6 +201,7 @@ dependencies = [
  "must-let",
  "node_executor",
  "num_cpus",
+ "openidconnect",
  "parking_lot",
  "pb",
  "proptest",

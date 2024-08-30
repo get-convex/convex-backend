@@ -29,6 +29,20 @@ where
     } else {
         format!("https://{url}")
     };
+    if url.starts_with("http://") {
+        let parsed_url: IssuerUrl = serde_json::to_string(&url)
+            .and_then(|json| serde_json::from_str(&json))
+            .map_err(|error| {
+                serde::de::Error::custom(format!("Invalid provider domain URL \"{url}\": {error}"))
+            })?;
+        if parsed_url.url().host_str() == Some("localhost")
+            || parsed_url.url().host_str() == Some("127.0.0.1")
+        {
+            return Ok(parsed_url);
+        } else {
+            return Err(serde::de::Error::custom("must use HTTPS"));
+        }
+    };
     url.starts_with("https://")
         .then_some(url.clone())
         .ok_or(serde::de::Error::custom("must use HTTPS"))
@@ -86,6 +100,27 @@ mod tests {
     fn test_auth_info_http_fails() {
         serde_json::from_str::<AuthInfo>(
             r#"{"applicationID": "123", "domain": "http://example.com"}"#,
+        )
+        .unwrap_err();
+    }
+
+    #[test]
+    fn test_auth_info_http_localhost() {
+        let info: AuthInfo = serde_json::from_str::<AuthInfo>(
+            r#"{"applicationID": "123", "domain": "http://localhost:3211"}"#,
+        )
+        .unwrap();
+        assert_eq!(info.domain.to_string(), "http://localhost:3211");
+
+        let info: AuthInfo = serde_json::from_str::<AuthInfo>(
+            r#"{"applicationID": "123", "domain": "http://127.0.0.1:3211"}"#,
+        )
+        .unwrap();
+        assert_eq!(info.domain.to_string(), "http://127.0.0.1:3211");
+
+        // fails because host is not localhost
+        serde_json::from_str::<AuthInfo>(
+            r#"{"applicationID": "123", "domain": "http://localhost.foo.com:3211"}"#,
         )
         .unwrap_err();
     }
