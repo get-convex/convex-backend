@@ -546,10 +546,16 @@ async function writeFormattedFile(
   //
   // This is a little sketchy because we are using the default prettier config
   // (not our user's one) but it's better than nothing.
-  const formattedContents = await prettier.format(contents, {
+  let formattedContents = await prettier.format(contents, {
     parser: filetype,
     pluginSearchDirs: false,
   });
+  // Then add prettierignore comments so we don't fight with users' prettier configs
+  formattedContents = `/* prettier-ignore-start */
+
+${formattedContents}
+/* prettier-ignore-end */
+`;
   if (options?.debug) {
     // NB: The `test_codegen_projects_are_up_to_date` smoke test depends
     // on this output format.

@@ -1,3 +1,5 @@
+/* prettier-ignore-start */
+
 /* eslint-disable */
 /**
  * Generated utilities for implementing server-side Convex query and mutation functions.
@@ -90,3 +92,5 @@ export const internalAction = internalActionGeneric;
 export const httpAction = httpActionGeneric;
 
 export const components = componentsGeneric();
+
+/* prettier-ignore-end */

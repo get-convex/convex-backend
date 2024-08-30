@@ -1,3 +1,5 @@
+/* prettier-ignore-start */
+
 /* eslint-disable */
 /**
  * Generated data model types.
@@ -56,3 +58,5 @@ export type Id<TableName extends TableNames = TableNames> =
  * `mutationGeneric` to make them type-safe.
  */
 export type DataModel = AnyDataModel;
+
+/* prettier-ignore-end */

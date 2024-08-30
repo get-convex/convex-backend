@@ -1,3 +1,5 @@
+/* prettier-ignore-start */
+
 /* eslint-disable */
 /**
  * Generated utilities for implementing server-side Convex query and mutation functions.
@@ -162,3 +164,5 @@ export declare const components: {
     };
   };
 };
+
+/* prettier-ignore-end */
