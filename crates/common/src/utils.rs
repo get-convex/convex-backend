@@ -51,14 +51,15 @@ pub fn increment_name(name: &str, amt: u64) -> String {
 }
 
 /// Ensures that we are always running Convex services in UTC.
-pub fn ensure_utc() {
+pub fn ensure_utc() -> anyhow::Result<()> {
     if let Ok(val) = std::env::var("TZ")
         && val != "UTC"
     {
-        eprintln!("Warning: TZ is set, but Convex requires UTC. Unset TZ to continue.");
-        std::process::exit(1);
+        anyhow::bail!("TZ is set, but Convex requires UTC. Unset TZ to continue.")
     }
     std::env::set_var("TZ", "UTC");
+
+    Ok(())
 }
 
 #[test]

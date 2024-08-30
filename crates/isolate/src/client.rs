@@ -621,7 +621,7 @@ impl<RT: Runtime> Clone for IsolateClient<RT> {
 }
 
 pub fn initialize_v8() {
-    ensure_utc();
+    ensure_utc().expect("Failed to setup timezone");
     static V8_INIT: Once = Once::new();
     V8_INIT.call_once(|| {
         let _s = static_span!("initialize_v8");
