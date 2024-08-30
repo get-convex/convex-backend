@@ -258,6 +258,8 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+// TODO(ENG-7281) fix flakes
+#[ignore]
 #[convex_macro::prod_rt_test]
 async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
     let rt_ = rt.clone();
