@@ -173,7 +173,14 @@ where
                         ErrorMetadata::bad_request(short, long)
                     }
                 },
-                _ => ErrorMetadata::bad_request(short, long),
+                e => {
+                    tracing::error!(
+                        "Error discovering auth provider: {}, {}",
+                        issuer.as_str(),
+                        e
+                    );
+                    ErrorMetadata::bad_request(short, long)
+                },
             }
         })?;
     // Create a verifier for the provider using this metadata. Set the verifier
