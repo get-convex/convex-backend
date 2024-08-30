@@ -22,7 +22,7 @@ use common::{
         },
         ExtractClientVersion,
         ExtractRequestId,
-        ExtractResolvedHost,
+        ExtractResolvedHostname,
         HttpResponseError,
     },
     types::FunctionCaller,
@@ -183,7 +183,7 @@ impl UdfResponse {
 /// Executes an arbitrary query/mutation/action from its name.
 pub async fn public_function_post(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -242,7 +242,7 @@ pub struct UdfPostRequestArgsOnly {
 /// request and doesn't require admin auth.
 pub async fn public_function_post_with_path(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     Path(path): Path<String>,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
@@ -329,7 +329,7 @@ pub fn export_value(
 pub async fn public_query_get(
     State(st): State<RouterState>,
     Query(req): Query<UdfArgsQuery>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -373,7 +373,7 @@ pub async fn public_query_get(
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -416,7 +416,7 @@ pub async fn public_query_post(
 }
 
 pub async fn public_get_query_ts(
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     State(st): State<RouterState>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -427,7 +427,7 @@ pub async fn public_get_query_ts(
 #[minitrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_at_ts_post(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -482,7 +482,7 @@ pub struct QueryBatchResponse {
 
 pub async fn public_query_batch_post(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -531,7 +531,7 @@ pub async fn public_query_batch_post(
 #[minitrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,
@@ -577,7 +577,7 @@ pub async fn public_mutation_post(
 #[minitrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractAuthenticationToken(auth_token): ExtractAuthenticationToken,
     ExtractClientVersion(client_version): ExtractClientVersion,

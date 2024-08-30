@@ -27,9 +27,9 @@ use common::{
     },
     http::{
         ExtractClientVersion,
-        ExtractResolvedHost,
+        ExtractResolvedHostname,
         HttpResponseError,
-        ResolvedHost,
+        ResolvedHostname,
     },
     runtime::Runtime,
     version::{
@@ -131,7 +131,7 @@ impl Drop for DebugSyncSocketDropToken {
 // gracefully close the socket.
 async fn run_sync_socket(
     st: RouterState,
-    host: ResolvedHost,
+    host: ResolvedHostname,
     config: SyncWorkerConfig,
     socket: WebSocket,
     sentry_scope: sentry::Scope,
@@ -351,7 +351,7 @@ fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncW
 
 pub async fn sync_client_version_url(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -369,7 +369,7 @@ pub async fn sync_client_version_url(
 
 pub async fn sync(
     State(st): State<RouterState>,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ws: WebSocketUpgrade,
 ) -> Result<impl IntoResponse, HttpResponseError> {

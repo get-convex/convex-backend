@@ -12,7 +12,7 @@ use common::{
         ExportPath,
         PublicFunctionPath,
     },
-    http::ResolvedHost,
+    http::ResolvedHostname,
     pause::PauseClient,
     runtime::Runtime,
     types::{
@@ -93,7 +93,7 @@ pub enum ExecuteQueryTimestamp {
 pub trait ApplicationApi: Send + Sync {
     async fn authenticate(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         auth_token: AuthenticationToken,
     ) -> anyhow::Result<Identity>;
@@ -103,7 +103,7 @@ pub trait ApplicationApi: Send + Sync {
     /// for queries.
     async fn execute_public_query(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
@@ -118,7 +118,7 @@ pub trait ApplicationApi: Send + Sync {
     /// for admin or system identity.
     async fn execute_admin_query(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -131,7 +131,7 @@ pub trait ApplicationApi: Send + Sync {
     /// Execute a public mutation on the root app.
     async fn execute_public_mutation(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
@@ -144,7 +144,7 @@ pub trait ApplicationApi: Send + Sync {
     /// Execute an admin mutation for a particular component for the dashboard.
     async fn execute_admin_mutation(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -156,7 +156,7 @@ pub trait ApplicationApi: Send + Sync {
     /// Execute a public action on the root app.
     async fn execute_public_action(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
@@ -167,7 +167,7 @@ pub trait ApplicationApi: Send + Sync {
     /// Execute an admin action for a particular component for the dashboard.
     async fn execute_admin_action(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -178,7 +178,7 @@ pub trait ApplicationApi: Send + Sync {
     /// Execute an HTTP action on the root app.
     async fn execute_http_action(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         http_request_metadata: HttpActionRequest,
         identity: Identity,
@@ -191,7 +191,7 @@ pub trait ApplicationApi: Send + Sync {
     /// calling functions outside the root component.
     async fn execute_any_function(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -201,13 +201,13 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn latest_timestamp(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp>;
 
     async fn check_store_file_authorization(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         token: &str,
         validity: Duration,
@@ -215,7 +215,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn store_file(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         origin: ConvexOrigin,
         component: ComponentId,
@@ -227,7 +227,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn get_file_range(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         origin: ConvexOrigin,
         component: ComponentId,
@@ -237,7 +237,7 @@ pub trait ApplicationApi: Send + Sync {
 
     async fn get_file(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
         request_id: RequestId,
         origin: ConvexOrigin,
         component: ComponentId,
@@ -253,7 +253,7 @@ pub trait ApplicationApi: Send + Sync {
     // start this way.
     async fn subscription_client(
         &self,
-        host: &ResolvedHost,
+        host: &ResolvedHostname,
     ) -> anyhow::Result<Box<dyn SubscriptionClient>>;
 }
 
@@ -262,7 +262,7 @@ pub trait ApplicationApi: Send + Sync {
 impl<RT: Runtime> ApplicationApi for Application<RT> {
     async fn authenticate(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         _request_id: RequestId,
         auth_token: AuthenticationToken,
     ) -> anyhow::Result<Identity> {
@@ -272,7 +272,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_query(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
@@ -303,7 +303,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_admin_query(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -334,7 +334,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_mutation(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
@@ -361,7 +361,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_admin_mutation(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -387,7 +387,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_public_action(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: ExportPath,
@@ -410,7 +410,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_admin_action(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -433,7 +433,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_any_function(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         identity: Identity,
         path: CanonicalizedComponentFunctionPath,
@@ -449,7 +449,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn latest_timestamp(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         _request_id: RequestId,
     ) -> anyhow::Result<RepeatableTimestamp> {
         Ok(self.now_ts_for_reads())
@@ -457,7 +457,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn execute_http_action(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         request_id: RequestId,
         http_request_metadata: HttpActionRequest,
         identity: Identity,
@@ -476,7 +476,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn check_store_file_authorization(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         _request_id: RequestId,
         token: &str,
         validity: Duration,
@@ -487,7 +487,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn store_file(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         _request_id: RequestId,
         _origin: ConvexOrigin,
         component: ComponentId,
@@ -508,7 +508,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn get_file_range(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         _request_id: RequestId,
         _origin: ConvexOrigin,
         component: ComponentId,
@@ -520,7 +520,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn get_file(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
         _request_id: RequestId,
         _origin: ConvexOrigin,
         component: ComponentId,
@@ -531,7 +531,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
 
     async fn subscription_client(
         &self,
-        _host: &ResolvedHost,
+        _host: &ResolvedHostname,
     ) -> anyhow::Result<Box<dyn SubscriptionClient>> {
         Ok(Box::new(ApplicationSubscriptionClient {
             database: self.database.clone(),

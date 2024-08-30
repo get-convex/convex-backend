@@ -17,7 +17,7 @@ use common::{
     },
     http::{
         RequestDestination,
-        ResolvedHost,
+        ResolvedHostname,
     },
     runtime::{
         shutdown_and_join,
@@ -150,7 +150,7 @@ impl SyncTest {
             if let Err(e) = SyncWorker::new(
                 api,
                 rt,
-                ResolvedHost {
+                ResolvedHostname {
                     instance_name: String::new(),
                     destination: RequestDestination::ConvexCloud,
                 },

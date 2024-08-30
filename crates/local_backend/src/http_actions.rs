@@ -27,10 +27,10 @@ use axum::{
 use common::{
     http::{
         ExtractRequestId,
-        ExtractResolvedHost,
+        ExtractResolvedHostname,
         HttpResponseError,
         OriginalHttpUri,
-        ResolvedHost,
+        ResolvedHostname,
     },
     types::FunctionCaller,
     RequestId,
@@ -153,7 +153,7 @@ pub async fn http_any_method(
     State(st): State<RouterState>,
     TryExtractIdentity(identity_result): TryExtractIdentity,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractResolvedHost(host): ExtractResolvedHost,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractHttpRequestMetadata(http_request_metadata): ExtractHttpRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let mut http_response_stream = stream_http_response(
@@ -184,7 +184,7 @@ pub async fn http_any_method(
 
 #[try_stream(ok=HttpActionResponsePart, error=anyhow::Error, boxed)]
 async fn stream_http_response(
-    host: ResolvedHost,
+    host: ResolvedHostname,
     request_id: RequestId,
     http_request_metadata: HttpActionRequest,
     identity_result: anyhow::Result<Identity>,

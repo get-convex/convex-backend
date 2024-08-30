@@ -15,7 +15,7 @@ use common::{
     http::{
         extract::Query,
         ExtractRequestId,
-        ExtractResolvedHost,
+        ExtractResolvedHostname,
         HttpResponseError,
     },
     runtime::Runtime,
@@ -142,7 +142,7 @@ impl FromRequestParts<RouterState> for TryExtractIdentity {
             Err(e) => return Ok(Self(Err(e.into()))),
         };
 
-        let Ok(ExtractResolvedHost(host)) = parts.extract::<ExtractResolvedHost>().await;
+        let Ok(ExtractResolvedHostname(host)) = parts.extract::<ExtractResolvedHostname>().await;
 
         let request_id = match parts.extract::<ExtractRequestId>().await {
             Ok(id) => id,

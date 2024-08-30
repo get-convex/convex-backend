@@ -782,7 +782,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     State(route_metric_mapper): State<RM>,
     matched_path: Option<axum::extract::MatchedPath>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractResolvedHost(resolved_host): ExtractResolvedHost,
+    ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
     ExtractClientVersion(client_version): ExtractClientVersion,
     req: http::request::Request<Body>,
     next: axum::middleware::Next,
@@ -839,7 +839,7 @@ pub enum RequestDestination {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ResolvedHost {
+pub struct ResolvedHostname {
     pub instance_name: String,
     pub destination: RequestDestination,
 }
@@ -851,7 +851,7 @@ pub static CONVEX_DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
-pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHost>> {
+pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHostname>> {
     let host = uri.host().context("URI does not have valid host")?;
     if let Some(captures) = CONVEX_DOMAIN_REGEX.captures(host) {
         let instance_name = captures[CONVEX_DOMAIN_REGEX_INSTANCE_CAPTURE].to_string();
@@ -860,7 +860,7 @@ pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHost>> 
             "site" => RequestDestination::ConvexSite,
             _ => unreachable!("Regex capture only matches cloud or site"),
         };
-        return Ok(Some(ResolvedHost {
+        return Ok(Some(ResolvedHostname {
             instance_name,
             destination,
         }));
@@ -868,13 +868,13 @@ pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHost>> 
     Ok(None)
 }
 
-pub struct ExtractResolvedHost(pub ResolvedHost);
+pub struct ExtractResolvedHostname(pub ResolvedHostname);
 
 #[derive(Clone, Debug)]
 pub struct OriginalHttpUri(pub Uri);
 
 #[async_trait]
-impl<S> FromRequestParts<S> for ExtractResolvedHost {
+impl<S> FromRequestParts<S> for ExtractResolvedHostname {
     type Rejection = Infallible;
 
     async fn from_request_parts(
@@ -886,9 +886,9 @@ impl<S> FromRequestParts<S> for ExtractResolvedHost {
         // extraction to be fallible and optional.
         #[allow(clippy::disallowed_types)]
         if let Ok(axum::Extension(resolved)) =
-            parts.extract::<axum::Extension<ResolvedHost>>().await
+            parts.extract::<axum::Extension<ResolvedHostname>>().await
         {
-            return Ok(ExtractResolvedHost(resolved));
+            return Ok(ExtractResolvedHostname(resolved));
         }
         // Try to parse the Host header as a URI and then resolve it as a Convex domain
         let host = parts.extract::<Host>().await.map_err(anyhow::Error::from);
@@ -896,12 +896,12 @@ impl<S> FromRequestParts<S> for ExtractResolvedHost {
             .and_then(|Host(host)| Uri::try_from(host).map_err(anyhow::Error::from))
             .and_then(|uri| resolve_convex_domain(&uri))
         {
-            return Ok(ExtractResolvedHost(resolved));
+            return Ok(ExtractResolvedHostname(resolved));
         }
 
         // No luck -- fall back to `CONVEX_SITE` and assume `convex.cloud` as this is
         // likely a request to localhost.
-        Ok(ExtractResolvedHost(ResolvedHost {
+        Ok(ExtractResolvedHostname(ResolvedHostname {
             instance_name: ::std::env::var("CONVEX_SITE").unwrap_or_default(),
             destination: RequestDestination::ConvexCloud,
         }))
@@ -1023,7 +1023,7 @@ where
 
 async fn log_middleware(
     remote_addr: Option<axum::extract::ConnectInfo<SocketAddr>>,
-    ExtractResolvedHost(resolved_host): ExtractResolvedHost,
+    ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
     req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Result<Response, HttpResponseError> {

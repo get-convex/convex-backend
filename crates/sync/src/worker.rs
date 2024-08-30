@@ -33,7 +33,7 @@ use common::{
         ComponentPath,
         ExportPath,
     },
-    http::ResolvedHost,
+    http::ResolvedHostname,
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     minitrace_helpers::get_sampled_span,
     runtime::{
@@ -204,7 +204,7 @@ pub struct SyncWorker<RT: Runtime> {
     config: SyncWorkerConfig,
     rt: RT,
     state: SyncState,
-    host: ResolvedHost,
+    host: ResolvedHostname,
 
     rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
     tx: SingleFlightSender<RT>,
@@ -245,7 +245,7 @@ impl<RT: Runtime> SyncWorker<RT> {
     pub fn new(
         api: Arc<dyn ApplicationApi>,
         rt: RT,
-        host: ResolvedHost,
+        host: ResolvedHostname,
         config: SyncWorkerConfig,
         rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
         tx: SingleFlightSender<RT>,
