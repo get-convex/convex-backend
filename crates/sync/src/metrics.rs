@@ -4,7 +4,6 @@ use metrics::{
     log_counter,
     log_counter_with_labels,
     log_distribution,
-    log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
     StaticMetricLabel,
@@ -33,9 +32,9 @@ pub fn connect_timer() -> StatusTimer {
 register_convex_histogram!(
     SYNC_HANDLE_MESSAGE_SECONDS,
     "Time to handle a websocket message",
-    &["status", "endpoint", "instance_name"]
+    &["status", "endpoint"]
 );
-pub fn handle_message_timer(message: &ClientMessage, instance_name: String) -> StatusTimer {
+pub fn handle_message_timer(message: &ClientMessage) -> StatusTimer {
     let mut timer = StatusTimer::new(&SYNC_HANDLE_MESSAGE_SECONDS);
     let request_name = match message {
         ClientMessage::Authenticate { .. } => "Authenticate",
@@ -46,30 +45,25 @@ pub fn handle_message_timer(message: &ClientMessage, instance_name: String) -> S
         ClientMessage::Event { .. } => "Event",
     };
     timer.add_label(StaticMetricLabel::new("endpoint", request_name.to_owned()));
-    timer.add_label(StaticMetricLabel::new("instance_name", instance_name));
     timer
 }
 
 register_convex_histogram!(
     SYNC_UPDATE_QUERIES_SECONDS,
     "Time to update queries",
-    &[STATUS_LABEL[0], "instance_name"]
+    &STATUS_LABEL
 );
-pub fn update_queries_timer(instance_name: String) -> StatusTimer {
-    let mut timer = StatusTimer::new(&SYNC_UPDATE_QUERIES_SECONDS);
-    timer.add_label(StaticMetricLabel::new("instance_name", instance_name));
-    timer
+pub fn update_queries_timer() -> StatusTimer {
+    StatusTimer::new(&SYNC_UPDATE_QUERIES_SECONDS)
 }
 
 register_convex_histogram!(
     SYNC_MUTATION_QUEUE_SECONDS,
     "Time between a mutation entering and exiting the single threaded sync worker queue",
-    &[STATUS_LABEL[0], "instance_name"]
+    &STATUS_LABEL
 );
-pub fn mutation_queue_timer(instance_name: String) -> StatusTimer {
-    let mut timer = StatusTimer::new(&SYNC_MUTATION_QUEUE_SECONDS);
-    timer.add_label(StaticMetricLabel::new("instance_name", instance_name));
-    timer
+pub fn mutation_queue_timer() -> StatusTimer {
+    StatusTimer::new(&SYNC_MUTATION_QUEUE_SECONDS)
 }
 
 register_convex_counter!(SYNC_QUERY_FAILED_TOTAL, "Number of query failures");
@@ -114,27 +108,17 @@ pub fn log_connect(last_close_reason: String, connection_count: u32) {
 register_convex_histogram!(
     SYNC_LINEARIZABILITY_DELAY_SECONDS,
     "How far behind the current backend is behind what the client has observed",
-    &["instance_name"]
 );
-pub fn log_linearizability_violation(delay_secs: f64, instance_name: String) {
-    log_distribution_with_labels(
-        &SYNC_LINEARIZABILITY_DELAY_SECONDS,
-        delay_secs,
-        vec![StaticMetricLabel::new("instance_name", instance_name)],
-    );
+pub fn log_linearizability_violation(delay_secs: f64) {
+    log_distribution(&SYNC_LINEARIZABILITY_DELAY_SECONDS, delay_secs);
 }
 
 register_convex_histogram!(
     SYNC_PROCESS_CLIENT_MESSAGE_SECONDS,
     "Delay between receiving a client message over the web socket and processing it",
-    &["instance_name"]
 );
-pub fn log_process_client_message_delay(delay: Duration, instance_name: String) {
-    log_distribution_with_labels(
-        &SYNC_PROCESS_CLIENT_MESSAGE_SECONDS,
-        delay.as_secs_f64(),
-        vec![StaticMetricLabel::new("instance_name", instance_name)],
-    );
+pub fn log_process_client_message_delay(delay: Duration) {
+    log_distribution(&SYNC_PROCESS_CLIENT_MESSAGE_SECONDS, delay.as_secs_f64());
 }
 
 register_convex_histogram!(

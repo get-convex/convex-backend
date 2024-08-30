@@ -298,9 +298,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                     };
                     self.handle_message(message).await?;
                     let delay = self.rt.monotonic_now() - received_time;
-                    metrics::log_process_client_message_delay(
-                        delay, self.host.instance_name.clone(),
-                    );
+                    metrics::log_process_client_message_delay(delay);
                     None
                 },
                 // TODO(presley): If I swap this with futures below, tests break.
@@ -411,7 +409,7 @@ impl<RT: Runtime> SyncWorker<RT> {
     }
 
     async fn handle_message(&mut self, message: ClientMessage) -> anyhow::Result<()> {
-        let timer = metrics::handle_message_timer(&message, self.host.instance_name.clone());
+        let timer = metrics::handle_message_timer(&message);
         match message {
             ClientMessage::Connect {
                 session_id,
@@ -437,7 +435,6 @@ impl<RT: Runtime> SyncWorker<RT> {
                         // but lets keep it as server one for now.
                         metrics::log_linearizability_violation(
                             max_observed_timestamp.secs_since_f64(latest_timestamp),
-                            self.host.instance_name.clone(),
                         );
                         anyhow::bail!(
                             "Client has observed a timestamp {max_observed_timestamp:?} ahead of \
@@ -485,7 +482,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 });
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
-                let timer = mutation_queue_timer(self.host.instance_name.clone());
+                let timer = mutation_queue_timer();
                 let api = self.api.clone();
                 let host = self.host.clone();
                 let caller = FunctionCaller::SyncWorker(client_version);
@@ -674,7 +671,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         new_ts: Timestamp,
         subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>>> {
-        let timer = metrics::update_queries_timer(self.host.instance_name.clone());
+        let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
 
         let (modifications, new_query_version, pending_identity, new_identity_version) =
