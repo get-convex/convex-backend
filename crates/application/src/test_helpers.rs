@@ -87,7 +87,10 @@ use value::{
 
 use crate::{
     cron_jobs::CronJobExecutor,
-    deploy_config::StartPushRequest,
+    deploy_config::{
+        SchemaStatus,
+        StartPushRequest,
+    },
     log_visibility::AllowLogging,
     scheduled_jobs::{
         ScheduledJobExecutor,
@@ -321,8 +324,20 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()> {
         let request = Self::load_start_push_request(Path::new(layout))?;
         let start_push = self.start_push(request).await?;
-        self.wait_for_schema(Identity::system(), start_push.schema_change.clone())
-            .await?;
+        loop {
+            let schema_status = self
+                .wait_for_schema(
+                    Identity::system(),
+                    start_push.schema_change.clone(),
+                    Duration::from_secs(10),
+                )
+                .await?;
+            match schema_status {
+                SchemaStatus::InProgress { .. } => continue,
+                SchemaStatus::Complete => break,
+                _ => anyhow::bail!("Unexpected schema status: {schema_status:?}"),
+            }
+        }
         self.finish_push(start_push, false).await?;
         Ok(())
     }

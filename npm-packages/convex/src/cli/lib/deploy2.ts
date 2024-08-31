@@ -1,6 +1,13 @@
-import { changeSpinner, Context, logFailure } from "../../bundler/context.js";
+import {
+  changeSpinner,
+  Context,
+  logError,
+  logFailure,
+} from "../../bundler/context.js";
 import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 import {
+  schemaStatus,
+  SchemaStatus,
   StartPushRequest,
   startPushResponse,
   StartPushResponse,
@@ -9,6 +16,7 @@ import {
   AppDefinitionConfig,
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
+import chalk from "chalk";
 
 /** Push configuration2 to the given remote origin. */
 export async function startPush(
@@ -42,6 +50,9 @@ export async function startPush(
   }
 }
 
+// Long poll every 10s for progress on schema validation.
+const SCHEMA_TIMEOUT_MS = 10_000;
+
 export async function waitForSchema(
   ctx: Context,
   adminKey: string,
@@ -49,20 +60,79 @@ export async function waitForSchema(
   startPush: StartPushResponse,
 ) {
   const fetch = deploymentFetch(url, adminKey);
-  try {
-    const response = await fetch("/api/deploy2/wait_for_schema", {
-      body: JSON.stringify({
-        adminKey,
-        schemaChange: (startPush as any).schemaChange,
-        dryRun: false,
-      }),
-      method: "POST",
-    });
-    return await response.json();
-  } catch (error: unknown) {
-    // TODO incorporate AuthConfigMissingEnvironmentVariable logic
-    logFailure(ctx, "Error: Unable to wait for schema from " + url);
-    return await logAndHandleFetchError(ctx, error);
+
+  changeSpinner(
+    ctx,
+    "Backfilling indexes and checking that documents match your schema...",
+  );
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let currentStatus: SchemaStatus;
+    try {
+      const response = await fetch("/api/deploy2/wait_for_schema", {
+        body: JSON.stringify({
+          adminKey,
+          schemaChange: startPush.schemaChange,
+          timeoutMs: SCHEMA_TIMEOUT_MS,
+        }),
+        method: "POST",
+      });
+      currentStatus = schemaStatus.parse(await response.json());
+    } catch (error: unknown) {
+      logFailure(ctx, "Error: Unable to wait for schema from " + url);
+      return await logAndHandleFetchError(ctx, error);
+    }
+    switch (currentStatus.type) {
+      case "inProgress": {
+        let schemaDone = true;
+        let indexesComplete = 0;
+        let indexesTotal = 0;
+        for (const componentStatus of Object.values(currentStatus.components)) {
+          if (!componentStatus.schemaValidationComplete) {
+            schemaDone = false;
+          }
+          indexesComplete += componentStatus.indexesComplete;
+          indexesTotal += componentStatus.indexesTotal;
+        }
+        const indexesDone = indexesComplete === indexesTotal;
+        let msg: string;
+        if (!indexesDone && !schemaDone) {
+          msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready) and checking that documents match your schema...`;
+        } else if (!indexesDone) {
+          msg = `Backfilling indexes (${indexesComplete}/${indexesTotal} ready)...`;
+        } else {
+          msg = "Checking that documents match your schema...";
+        }
+        changeSpinner(ctx, msg);
+        break;
+      }
+      case "failed": {
+        // Schema validation failed. This could be either because the data
+        // is bad or the schema is wrong. Classify this as a filesystem error
+        // because adjusting `schema.ts` is the most normal next step.
+        logFailure(ctx, "Schema validation failed");
+        logError(ctx, chalk.red(`${currentStatus.error}`));
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: {
+            "invalid filesystem or db data": currentStatus.tableName ?? null,
+          },
+          printedMessage: null, // TODO - move logging into here
+        });
+      }
+      case "raceDetected": {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Schema was overwritten by another push.`,
+        });
+      }
+      case "complete": {
+        changeSpinner(ctx, "Schema validation complete.");
+        return;
+      }
+    }
   }
 }
 
@@ -72,8 +142,8 @@ export async function finishPush(
   url: string,
   startPush: StartPushResponse,
 ): Promise<void> {
-  const fetch = deploymentFetch(url, adminKey);
   changeSpinner(ctx, "Finalizing push...");
+  const fetch = deploymentFetch(url, adminKey);
   try {
     const response = await fetch("/api/deploy2/finish_push", {
       body: JSON.stringify({

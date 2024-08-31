@@ -1,7 +1,11 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    time::Duration,
+};
 
 use application::deploy_config::{
     FinishPushDiff,
+    SchemaStatusJson,
     StartPushRequest,
     StartPushResponse,
 };
@@ -163,11 +167,28 @@ pub async fn start_push(
     Ok(Json(SerializedStartPushResponse::try_from(resp)?))
 }
 
+const DEFAULT_SCHEMA_TIMEOUT_MS: u32 = 10_000;
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WaitForSchemaRequest {
     admin_key: String,
     schema_change: SerializedSchemaChange,
+    timeout_ms: Option<u32>,
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type")]
+pub enum WaitForSchemaResponse {
+    InProgress {
+        status: SchemaStatusJson,
+    },
+    Failed {
+        error: String,
+        table_name: Option<String>,
+    },
+    RaceDetected,
+    Complete,
 }
 
 #[debug_handler]
@@ -181,12 +202,13 @@ pub async fn wait_for_schema(
         req.admin_key,
     )
     .await?;
-
+    let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(DEFAULT_SCHEMA_TIMEOUT_MS) as u64);
     let schema_change = req.schema_change.try_into()?;
-    st.application
-        .wait_for_schema(identity, schema_change)
+    let resp = st
+        .application
+        .wait_for_schema(identity, schema_change, timeout)
         .await?;
-    Ok(Json(()))
+    Ok(Json(SchemaStatusJson::from(resp)))
 }
 
 #[derive(Deserialize)]

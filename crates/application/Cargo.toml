@@ -63,6 +63,7 @@ sync_types = { package = "convex_sync_types", path = "../../crates/convex/sync_t
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 thousands = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
@@ -70,7 +71,9 @@ value = { path = "../value" }
 vector = { path = "../vector" }
 
 [dev-dependencies]
-authentication = { path = "../../crates/authentication", features = ["testing"] }
+authentication = { path = "../../crates/authentication", features = [
+    "testing",
+] }
 common = { path = "../common", features = ["testing"] }
 database = { path = "../database", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
@@ -89,7 +92,9 @@ runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 shape_inference = { path = "../shape_inference", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
-usage_tracking = { path = "../../crates/usage_tracking", features = ["testing"] }
+usage_tracking = { path = "../../crates/usage_tracking", features = [
+    "testing",
+] }
 value = { path = "../value", features = ["testing"] }
 vector = { path = "../vector", features = ["testing"] }
 

@@ -8,12 +8,14 @@
 use std::{
     collections::{
         BTreeMap,
-        BTreeSet,
         HashSet,
     },
     ops::Bound,
     sync::Arc,
-    time::SystemTime,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use anyhow::Context;
@@ -117,7 +119,9 @@ use database::{
     WriteSource,
 };
 use deploy_config::{
+    ComponentSchemaStatus,
     FinishPushDiff,
+    SchemaStatus,
     StartPushResponse,
 };
 use errors::{
@@ -1903,10 +1907,12 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         schema_change: SchemaChange,
-    ) -> anyhow::Result<()> {
+        timeout: Duration,
+    ) -> anyhow::Result<SchemaStatus> {
+        let deadline = self.runtime().monotonic_now() + timeout;
         loop {
             let mut tx = self.begin(identity.clone()).await?;
-            let mut waiting = BTreeSet::new();
+            let mut components_status = BTreeMap::new();
 
             for (component_path, schema_id) in &schema_change.schema_ids {
                 let Some(schema_id) = schema_id else {
@@ -1922,24 +1928,18 @@ impl<RT: Runtime> Application<RT> {
                     .await?
                     .context("Missing schema document")?;
                 let SchemaMetadata { state, .. } = document.into_value().0.try_into()?;
-                let is_pending = match state {
-                    SchemaState::Pending => true,
-                    SchemaState::Active | SchemaState::Validated => false,
+                let schema_validation_complete = match state {
+                    SchemaState::Pending => false,
+                    SchemaState::Active | SchemaState::Validated => true,
                     SchemaState::Failed { error, table_name } => {
-                        let msg = match table_name {
-                            Some(t) => format!("Schema for table `{t}` failed: {error}"),
-                            None => format!("Schema failed: {error}"),
-                        };
-                        anyhow::bail!(ErrorMetadata::bad_request("SchemaFailed", msg))
+                        return Ok(SchemaStatus::Failed {
+                            error,
+                            component_path: component_path.clone(),
+                            table_name,
+                        });
                     },
-                    SchemaState::Overwritten => anyhow::bail!(ErrorMetadata::bad_request(
-                        "RaceDetected",
-                        "Push aborted since another push has been started."
-                    )),
+                    SchemaState::Overwritten => return Ok(SchemaStatus::RaceDetected),
                 };
-                if is_pending {
-                    waiting.insert(component_path.clone());
-                }
 
                 let component_id = if component_path.is_root() {
                     ComponentId::Root
@@ -1956,27 +1956,45 @@ impl<RT: Runtime> Application<RT> {
                     ComponentId::Child(internal_id)
                 };
                 let namespace = TableNamespace::from(component_id);
+                let mut indexes_complete = 0;
+                let mut indexes_total = 0;
                 for index in IndexModel::new(&mut tx)
                     .get_application_indexes(namespace)
                     .await?
                 {
-                    if index.config.is_backfilling() {
-                        waiting.insert(component_path.clone());
+                    if !index.config.is_backfilling() {
+                        indexes_complete += 1;
                     }
+                    indexes_total += 1;
                 }
+                components_status.insert(
+                    component_path.clone(),
+                    ComponentSchemaStatus {
+                        schema_validation_complete,
+                        indexes_complete,
+                        indexes_total,
+                    },
+                );
             }
 
-            if waiting.is_empty() {
-                break;
+            if components_status.values().all(|c| c.is_complete()) {
+                return Ok(SchemaStatus::Complete);
             }
 
-            tracing::info!("Waiting for schema changes to complete for {waiting:?}...");
-
+            let now = self.runtime().monotonic_now();
+            if now > deadline {
+                return Ok(SchemaStatus::InProgress {
+                    components: components_status,
+                });
+            }
             let token = tx.into_token()?;
             let subscription = self.subscribe(token).await?;
-            subscription.wait_for_invalidation().await;
+
+            tokio::select! {
+                _ = subscription.wait_for_invalidation() => {},
+                _ = self.runtime.wait(deadline.clone() - now) => {},
+            }
         }
-        Ok(())
     }
 
     pub async fn finish_push(

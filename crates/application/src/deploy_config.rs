@@ -575,3 +575,90 @@ pub struct FinishPushDiff {
     pub definition_diffs: BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,
     pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
 }
+
+#[derive(Debug)]
+pub enum SchemaStatus {
+    InProgress {
+        components: BTreeMap<ComponentPath, ComponentSchemaStatus>,
+    },
+    Failed {
+        error: String,
+        component_path: ComponentPath,
+        table_name: Option<String>,
+    },
+    RaceDetected,
+    Complete,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum SchemaStatusJson {
+    #[serde(rename_all = "camelCase")]
+    InProgress {
+        components: BTreeMap<String, ComponentSchemaStatusJson>,
+    },
+    #[serde(rename_all = "camelCase")]
+    Failed {
+        error: String,
+        component_path: String,
+        table_name: Option<String>,
+    },
+    RaceDetected,
+    Complete,
+}
+
+impl From<SchemaStatus> for SchemaStatusJson {
+    fn from(value: SchemaStatus) -> Self {
+        match value {
+            SchemaStatus::InProgress { components } => SchemaStatusJson::InProgress {
+                components: components
+                    .into_iter()
+                    .map(|(k, v)| (String::from(k), v.into()))
+                    .collect(),
+            },
+            SchemaStatus::Failed {
+                error,
+                component_path,
+                table_name,
+            } => SchemaStatusJson::Failed {
+                error,
+                component_path: String::from(component_path),
+                table_name,
+            },
+            SchemaStatus::RaceDetected => SchemaStatusJson::RaceDetected,
+            SchemaStatus::Complete => SchemaStatusJson::Complete,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ComponentSchemaStatus {
+    pub schema_validation_complete: bool,
+    pub indexes_complete: usize,
+    pub indexes_total: usize,
+}
+
+impl ComponentSchemaStatus {
+    pub fn is_complete(&self) -> bool {
+        self.schema_validation_complete && self.indexes_complete == self.indexes_total
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ComponentSchemaStatusJson {
+    pub schema_validation_complete: bool,
+    pub indexes_complete: usize,
+    pub indexes_total: usize,
+}
+
+impl From<ComponentSchemaStatus> for ComponentSchemaStatusJson {
+    fn from(value: ComponentSchemaStatus) -> Self {
+        Self {
+            schema_validation_complete: value.schema_validation_complete,
+            indexes_complete: value.indexes_complete,
+            indexes_total: value.indexes_total,
+        }
+    }
+}

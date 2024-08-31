@@ -129,7 +129,7 @@ async function startComponentsPushAndCodegen(
   }
   const rootComponent = isComponent.component;
 
-  changeSpinner(ctx, "Traversing component definitions...");
+  changeSpinner(ctx, "Finding component definitions...");
   // Create a list of relevant component directories. These are just for knowing
   // while directories to bundle in bundleDefinitions and bundleImplementations.
   // This produces a bundle in memory as a side effect but it's thrown away.
@@ -238,6 +238,7 @@ async function startComponentsPushAndCodegen(
     return null;
   }
 
+  changeSpinner(ctx, "Uploading functions to Convex...");
   const startPushResponse = await startPush(
     ctx,
     options.url,
@@ -248,7 +249,7 @@ async function startComponentsPushAndCodegen(
   verbose && console.log("startPush:");
   verbose && console.dir(startPushResponse, { depth: null });
 
-  changeSpinner(ctx, "Finalizing code generation...");
+  changeSpinner(ctx, "Generating TypeScript bindings...");
   await withTmpDir(async (tmpDir) => {
     await doFinalComponentCodegen(
       ctx,
@@ -306,7 +307,6 @@ export async function runComponentsPush(
     return;
   }
 
-  changeSpinner(ctx, "Waiting for schema...");
   await waitForSchema(ctx, options.adminKey, options.url, startPushResponse);
 
   const finishPushResponse = await finishPush(

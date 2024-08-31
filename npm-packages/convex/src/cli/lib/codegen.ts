@@ -142,7 +142,12 @@ export async function doInitialComponentCodegen(
   ctx: Context,
   tmpDir: TempDir,
   componentDirectory: ComponentDirectory,
-  opts?: { dryRun?: boolean; generateCommonJSApi?: boolean; debug?: boolean },
+  opts?: {
+    dryRun?: boolean;
+    generateCommonJSApi?: boolean;
+    debug?: boolean;
+    verbose?: boolean;
+  },
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
 
@@ -156,7 +161,7 @@ export async function doInitialComponentCodegen(
   const isPublishedPackage =
     componentDirectory.definitionPath.endsWith(".js") &&
     !componentDirectory.isRoot;
-  if (isPublishedPackage) {
+  if (isPublishedPackage && opts?.verbose) {
     logMessage(
       ctx,
       `skipping initial codegen for installed package ${componentDirectory.path}`,
