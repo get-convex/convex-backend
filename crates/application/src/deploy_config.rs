@@ -44,6 +44,7 @@ use errors::ErrorMetadata;
 use isolate::EvaluateAppDefinitionsResult;
 use keybroker::Identity;
 use maplit::btreeset;
+use minitrace::future::FutureExt;
 use model::{
     auth::{
         types::AuthDiff,
@@ -112,6 +113,7 @@ use value::{
 use crate::Application;
 
 impl<RT: Runtime> Application<RT> {
+    #[minitrace::trace]
     pub async fn start_push(&self, request: StartPushRequest) -> anyhow::Result<StartPushResponse> {
         let unix_timestamp = self.runtime.unix_timestamp();
         let dry_run = request.dry_run;
@@ -211,6 +213,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(resp)
     }
 
+    #[minitrace::trace]
     async fn evaluate_components(
         &self,
         config: &ProjectConfig,
@@ -354,6 +357,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
+    #[minitrace::trace]
     pub async fn wait_for_schema(
         &self,
         identity: Identity,
@@ -443,11 +447,14 @@ impl<RT: Runtime> Application<RT> {
 
             tokio::select! {
                 _ = subscription.wait_for_invalidation() => {},
-                _ = self.runtime.wait(deadline.clone() - now) => {},
+                _ = self.runtime.wait(deadline.clone() - now)
+                    .in_span(minitrace::Span::enter_with_local_parent("wait_for_deadline"))
+                 => {},
             }
         }
     }
 
+    #[minitrace::trace]
     pub async fn finish_push(
         &self,
         start_push: StartPushResponse,

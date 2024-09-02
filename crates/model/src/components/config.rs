@@ -91,6 +91,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Self { tx }
     }
 
+    #[minitrace::trace]
     pub async fn apply_component_definitions_diff(
         &mut self,
         new_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
@@ -184,6 +185,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         ))
     }
 
+    #[minitrace::trace]
     pub async fn create_component_definition(
         &mut self,
         definition: ComponentDefinitionMetadata,
@@ -196,6 +198,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Ok((id.into(), diff))
     }
 
+    #[minitrace::trace]
     pub async fn modify_component_definition(
         &mut self,
         existing: &ParsedDocument<ComponentDefinitionMetadata>,
@@ -208,6 +211,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Ok(diff)
     }
 
+    #[minitrace::trace]
     pub async fn delete_component_definition(
         &mut self,
         existing: &ParsedDocument<ComponentDefinitionMetadata>,
@@ -406,6 +410,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .transpose()
     }
 
+    #[minitrace::trace]
     pub async fn apply_component_tree_diff(
         &mut self,
         app: &CheckedComponent,
@@ -504,6 +509,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Ok(diffs)
     }
 
+    #[minitrace::trace]
     async fn create_component(
         &mut self,
         id: DeveloperDocumentId,
@@ -569,6 +575,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
+    #[minitrace::trace]
     async fn modify_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
@@ -632,6 +639,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
+    #[minitrace::trace]
     async fn unmount_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
@@ -675,6 +683,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
+    #[minitrace::trace]
     pub async fn delete_component(&mut self, component_id: ComponentId) -> anyhow::Result<()> {
         let ComponentId::Child(id) = component_id else {
             anyhow::bail!("Cannot delete root component");

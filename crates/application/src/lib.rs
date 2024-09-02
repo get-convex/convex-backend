@@ -729,6 +729,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
+    #[minitrace::trace]
     pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
         self.database.subscribe(token).await
     }

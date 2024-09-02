@@ -158,6 +158,7 @@ pub async fn upload_package(
     ))
 }
 
+#[minitrace::trace]
 pub async fn download_package(
     storage: Arc<dyn Storage>,
     key: ObjectKey,

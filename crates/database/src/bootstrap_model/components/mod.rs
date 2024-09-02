@@ -156,6 +156,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(Some(component_doc))
     }
 
+    #[minitrace::trace]
     pub async fn load_all_components(
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<ComponentMetadata>>> {
@@ -354,6 +355,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn load_all_definitions(
         &mut self,
     ) -> anyhow::Result<

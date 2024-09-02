@@ -42,6 +42,7 @@ use futures::{
     StreamExt,
 };
 use indexing::interval::IntervalMap;
+use minitrace::future::FutureExt as MinitraceFutureExt;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
@@ -416,9 +417,11 @@ impl Subscription {
 
     pub fn wait_for_invalidation(&self) -> impl Future<Output = ()> {
         let future = self.receiver.wait_for(SubscriptionState::Invalid);
+        let span = minitrace::Span::enter_with_local_parent("wait_for_invalidation");
         async move {
             let _: Result<_, _> = future.await;
         }
+        .in_span(span)
     }
 }
 
