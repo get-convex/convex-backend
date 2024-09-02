@@ -161,11 +161,13 @@ export async function doInitialComponentCodegen(
   const isPublishedPackage =
     componentDirectory.definitionPath.endsWith(".js") &&
     !componentDirectory.isRoot;
-  if (isPublishedPackage && opts?.verbose) {
-    logMessage(
-      ctx,
-      `skipping initial codegen for installed package ${componentDirectory.path}`,
-    );
+  if (isPublishedPackage) {
+    if (opts?.verbose) {
+      logMessage(
+        ctx,
+        `skipping initial codegen for installed package ${componentDirectory.path}`,
+      );
+    }
     return;
   }
 
