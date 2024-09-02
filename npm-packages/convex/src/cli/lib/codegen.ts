@@ -259,7 +259,7 @@ export async function doFinalComponentCodegen(
     serverContents,
     "typescript",
     serverDTSPath,
-    opts,
+    { prettierIgnore: true, ...opts },
   );
 
   const apiDTSPath = path.join(codegenDir, "api.d.ts");
@@ -269,14 +269,10 @@ export async function doFinalComponentCodegen(
     rootComponent,
     componentDirectory,
   );
-  await writeFormattedFile(
-    ctx,
-    tmpDir,
-    apiContents,
-    "typescript",
-    apiDTSPath,
-    opts,
-  );
+  await writeFormattedFile(ctx, tmpDir, apiContents, "typescript", apiDTSPath, {
+    prettierIgnore: true,
+    ...opts,
+  });
 
   if (opts?.generateCommonJSApi || projectConfig.generateCommonJSApi) {
     const apiCjsDTSPath = path.join(codegenDir, "api_cjs.d.ts");
@@ -286,7 +282,7 @@ export async function doFinalComponentCodegen(
       apiContents,
       "typescript",
       apiCjsDTSPath,
-      opts,
+      { prettierIgnore: true, ...opts },
     );
   }
 }
@@ -356,7 +352,7 @@ async function doDataModelCodegen(
     schemaContent.DTS,
     "typescript",
     path.join(codegenDir, "dataModel.d.ts"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
   return ["dataModel.d.ts"];
 }
@@ -374,7 +370,7 @@ async function doServerCodegen(
     serverContent.JS,
     "typescript",
     path.join(codegenDir, "server.js"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
 
   await writeFormattedFile(
@@ -383,7 +379,7 @@ async function doServerCodegen(
     serverContent.DTS,
     "typescript",
     path.join(codegenDir, "server.d.ts"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
 
   return ["server.js", "server.d.ts"];
@@ -402,7 +398,7 @@ async function doInitialComponentServerCodegen(
     componentServerJS(),
     "typescript",
     path.join(codegenDir, "server.js"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
 
   // Don't write our stub if the file already exists: It probably
@@ -415,7 +411,7 @@ async function doInitialComponentServerCodegen(
       componentServerStubDTS(isRoot),
       "typescript",
       path.join(codegenDir, "server.d.ts"),
-      opts,
+      { prettierIgnore: true, ...opts },
     );
   }
 
@@ -437,7 +433,7 @@ async function doInitialComponentApiCodegen(
     apiJS,
     "typescript",
     path.join(codegenDir, "api.js"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
 
   // Don't write the `.d.ts` stub if it already exists.
@@ -450,7 +446,7 @@ async function doInitialComponentApiCodegen(
       apiStubDTS,
       "typescript",
       apiDTSPath,
-      opts,
+      { prettierIgnore: true, ...opts },
     );
   }
 
@@ -464,7 +460,7 @@ async function doInitialComponentApiCodegen(
       apiCjsJS,
       "typescript",
       path.join(codegenDir, "api_cjs.cjs"),
-      opts,
+      { prettierIgnore: true, ...opts },
     );
 
     const cjsStubPath = path.join(codegenDir, "api_cjs.d.cts");
@@ -475,7 +471,7 @@ async function doInitialComponentApiCodegen(
         apiStubDTS,
         "typescript",
         cjsStubPath,
-        opts,
+        { prettierIgnore: true, ...opts },
       );
     }
     writtenFiles.push("api_cjs.cjs", "api_cjs.d.cts");
@@ -502,7 +498,7 @@ async function doApiCodegen(
     apiContent.JS,
     "typescript",
     path.join(codegenDir, "api.js"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
   await writeFormattedFile(
     ctx,
@@ -510,7 +506,7 @@ async function doApiCodegen(
     apiContent.DTS,
     "typescript",
     path.join(codegenDir, "api.d.ts"),
-    opts,
+    { prettierIgnore: true, ...opts },
   );
   const writtenFiles = ["api.js", "api.d.ts"];
 
@@ -522,7 +518,7 @@ async function doApiCodegen(
       apiCjsContent.JS,
       "typescript",
       path.join(codegenDir, "api_cjs.cjs"),
-      opts,
+      { prettierIgnore: true, ...opts },
     );
     await writeFormattedFile(
       ctx,
@@ -530,7 +526,7 @@ async function doApiCodegen(
       apiCjsContent.DTS,
       "typescript",
       path.join(codegenDir, "api_cjs.d.cts"),
-      opts,
+      { prettierIgnore: true, ...opts },
     );
     writtenFiles.push("api_cjs.cjs", "api_cjs.d.cts");
   }
@@ -547,6 +543,7 @@ async function writeFormattedFile(
   options?: {
     dryRun?: boolean;
     debug?: boolean;
+    prettierIgnore?: boolean;
   },
 ) {
   // Run prettier so we don't have to think about formatting!
@@ -558,11 +555,13 @@ async function writeFormattedFile(
     pluginSearchDirs: false,
   });
   // Then add prettierignore comments so we don't fight with users' prettier configs
-  formattedContents = `/* prettier-ignore-start */
+  if (options?.prettierIgnore) {
+    formattedContents = `/* prettier-ignore-start */
 
 ${formattedContents}
 /* prettier-ignore-end */
 `;
+  }
   if (options?.debug) {
     // NB: The `test_codegen_projects_are_up_to_date` smoke test depends
     // on this output format.
