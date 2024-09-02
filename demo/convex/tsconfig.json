@@ -10,7 +10,7 @@
     "allowJs": true,
     "strict": true,
     "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
+    "jsx": "react",
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
 

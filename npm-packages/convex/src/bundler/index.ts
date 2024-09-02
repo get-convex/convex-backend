@@ -79,6 +79,7 @@ async function doEsbuild(
       platform: platform,
       format: "esm",
       target: "esnext",
+      jsx: "automatic",
       outdir: "out",
       outbase: dir,
       conditions: ["convex", "module"],

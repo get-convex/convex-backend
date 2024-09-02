@@ -2,6 +2,16 @@
 
 ## Unpublished
 
+- Upgrade esbuild from 0.17 to 0.23. It's possible to use an npm override to use
+  a different version of esbuild if you need to stay on an older version,
+  although changes to the esbuild API could break this in the future.
+
+  See
+  [esbuild changelog](https://github.com/evanw/esbuild/blob/main/CHANGELOG.md)
+  for the full list of changes. One standout: tsconfig.json is no longer used by
+  esbuild for `jsx` setting. Convex now sets it manually to
+  ["automatic"](https://esbuild.github.io/api/#jsx).
+
 ## 1.15.0
 
 - Added new command, `npx convex function-spec`, that exposes the function
