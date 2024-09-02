@@ -61,6 +61,11 @@ impl TryFrom<StartPushResponse> for SerializedStartPushResponse {
 
     fn try_from(value: StartPushResponse) -> Result<Self, Self::Error> {
         Ok(Self {
+            environment_variables: value
+                .environment_variables
+                .into_iter()
+                .map(|(k, v)| Ok((String::from(k), String::from(v))))
+                .collect::<anyhow::Result<_>>()?,
             external_deps_id: value
                 .external_deps_id
                 .map(|id| String::from(DeveloperDocumentId::from(id))),
@@ -86,6 +91,11 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
 
     fn try_from(value: SerializedStartPushResponse) -> Result<Self, Self::Error> {
         Ok(Self {
+            environment_variables: value
+                .environment_variables
+                .into_iter()
+                .map(|(k, v)| Ok((k.parse()?, v.parse()?)))
+                .collect::<anyhow::Result<_>>()?,
             external_deps_id: value
                 .external_deps_id
                 .map(|id| {
@@ -119,6 +129,8 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedStartPushResponse {
+    environment_variables: BTreeMap<String, String>,
+
     // Pointers to uploaded code.
     external_deps_id: Option<String>,
     component_definition_packages: BTreeMap<String, JsonValue>,

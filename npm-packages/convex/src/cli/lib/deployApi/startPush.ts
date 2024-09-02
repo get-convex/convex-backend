@@ -29,6 +29,8 @@ export const schemaChange = z.object({
 export type SchemaChange = z.infer<typeof schemaChange>;
 
 export const startPushResponse = z.object({
+  environmentVariables: z.record(z.string(), z.string()),
+
   externalDepsId: z.nullable(z.string()),
   componentDefinitionPackages: z.record(componentDefinitionPath, sourcePackage),
 

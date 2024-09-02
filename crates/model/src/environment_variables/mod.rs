@@ -100,7 +100,7 @@ impl PreloadedEnvironmentVariables {
         tx: &mut Transaction<RT>,
         name: &EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
-        let key = Some(ConvexValue::try_from(name.0.clone())?);
+        let key = Some(ConvexValue::try_from(String::from(name.clone()))?);
         let Some(doc) = self.range.get(tx, &key)? else {
             return Ok(None);
         };
@@ -275,7 +275,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
 fn value_query_from_env_var(env_var: &EnvVarName) -> anyhow::Result<Query> {
     let range = vec![IndexRangeExpression::Eq(
         NAME_FIELD.clone(),
-        ConvexValue::try_from(env_var.0.clone())?.into(),
+        ConvexValue::try_from(String::from(env_var.clone()))?.into(),
     )];
     Ok(Query::index_range(IndexRange {
         index_name: ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone(),

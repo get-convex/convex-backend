@@ -23,7 +23,7 @@ impl TryFrom<PersistedEnvironmentVariable> for ConvexObject {
             EnvironmentVariable { name, value }
         ): PersistedEnvironmentVariable,
     ) -> anyhow::Result<ConvexObject> {
-        obj!("name" => name.0, "value" => value.0)
+        obj!("name" => String::from(name), "value" => String::from(value))
     }
 }
 

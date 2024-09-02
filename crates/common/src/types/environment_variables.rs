@@ -15,14 +15,26 @@ use serde::{
     Clone, Debug, Eq, PartialEq, PartialOrd, Ord,
     Serialize, Deserialize, derive_more::Display, Hash,
 )]
-pub struct EnvVarName(pub String);
+pub struct EnvVarName(String);
+
+impl From<EnvVarName> for String {
+    fn from(value: EnvVarName) -> Self {
+        value.0
+    }
+}
 
 #[rustfmt::skip]
 #[derive(
     Clone, Debug, Eq, PartialEq, PartialOrd, Ord,
     Serialize, Deserialize, derive_more::Display, Hash,
 )]
-pub struct EnvVarValue(pub String);
+pub struct EnvVarValue(String);
+
+impl From<EnvVarValue> for String {
+    fn from(value: EnvVarValue) -> Self {
+        value.0
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct EnvironmentVariable {

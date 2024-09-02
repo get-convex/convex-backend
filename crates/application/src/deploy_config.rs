@@ -1,15 +1,25 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
+use std::{
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
+    time::Duration,
 };
 
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     auth::AuthInfo,
-    bootstrap_model::components::definition::ComponentDefinitionMetadata,
+    bootstrap_model::{
+        components::definition::ComponentDefinitionMetadata,
+        schema::{
+            SchemaMetadata,
+            SchemaState,
+        },
+    },
     components::{
         ComponentDefinitionPath,
+        ComponentId,
         ComponentName,
         ComponentPath,
         Resource,
@@ -25,6 +35,8 @@ use common::{
     },
 };
 use database::{
+    BootstrapComponentsModel,
+    IndexModel,
     WriteSource,
     SCHEMAS_TABLE,
 };
@@ -33,10 +45,14 @@ use isolate::EvaluateAppDefinitionsResult;
 use keybroker::Identity;
 use maplit::btreeset;
 use model::{
-    auth::types::AuthDiff,
+    auth::{
+        types::AuthDiff,
+        AuthInfoModel,
+    },
     components::{
         config::{
             ComponentConfigModel,
+            ComponentDefinitionConfigModel,
             ComponentDefinitionDiff,
             ComponentDiff,
             SchemaChange,
@@ -60,6 +76,10 @@ use model::{
         ConfigMetadata,
         ModuleConfig,
     },
+    deployment_audit_log::types::{
+        ComponentDiffs,
+        DeploymentAuditLogEvent,
+    },
     environment_variables::EnvironmentVariablesModel,
     external_packages::types::ExternalDepsPackageId,
     modules::module_versions::{
@@ -67,7 +87,10 @@ use model::{
         ModuleSource,
         SourceMap,
     },
-    source_packages::types::SourcePackage,
+    source_packages::{
+        types::SourcePackage,
+        upload_download::download_package,
+    },
     udf_config::types::UdfConfig,
 };
 use rand::Rng;
@@ -79,7 +102,12 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
-use value::identifier::Identifier;
+use value::{
+    identifier::Identifier,
+    DeveloperDocumentId,
+    ResolvedDocumentId,
+    TableNamespace,
+};
 
 use crate::Application;
 
@@ -103,10 +131,12 @@ impl<RT: Runtime> Application<RT> {
             .get(&ComponentDefinitionPath::root())
             .context("No package for app?")?;
 
-        let identity = Identity::system();
-        let mut tx = self.begin(identity.clone()).await?;
-        let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
-        tx.into_token()?;
+        let environment_variables = {
+            let mut tx = self.begin(Identity::system()).await?;
+            let vars = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+            tx.into_token()?;
+            vars
+        };
         // TODO(ENG-6500): Fold in our reads here into the hash.
         let (auth_module, app_analysis) = self
             .analyze_modules_with_auth_config(
@@ -139,7 +169,7 @@ impl<RT: Runtime> Application<RT> {
                 app_analysis,
                 app_udf_config,
                 unix_timestamp,
-                environment_variables,
+                environment_variables.clone(),
             )
             .await?;
         // Build and typecheck the component tree. We don't strictly need to do this
@@ -157,7 +187,7 @@ impl<RT: Runtime> Application<RT> {
         let app = ctx.instantiate_root().await?;
 
         let schema_change = {
-            let mut tx = self.begin(identity.clone()).await?;
+            let mut tx = self.begin(Identity::system()).await?;
             let schema_change = ComponentConfigModel::new(&mut tx)
                 .start_component_schema_changes(&app, &evaluated_components)
                 .await?;
@@ -170,6 +200,7 @@ impl<RT: Runtime> Application<RT> {
             schema_change
         };
         let resp = StartPushResponse {
+            environment_variables,
             external_deps_id,
             component_definition_packages,
             app_auth: auth_info,
@@ -322,6 +353,177 @@ impl<RT: Runtime> Application<RT> {
             )
             .await
     }
+
+    pub async fn wait_for_schema(
+        &self,
+        identity: Identity,
+        schema_change: SchemaChange,
+        timeout: Duration,
+    ) -> anyhow::Result<SchemaStatus> {
+        let deadline = self.runtime().monotonic_now() + timeout;
+        loop {
+            let mut tx = self.begin(identity.clone()).await?;
+            let mut components_status = BTreeMap::new();
+
+            for (component_path, schema_id) in &schema_change.schema_ids {
+                let Some(schema_id) = schema_id else {
+                    continue;
+                };
+                let schema_table_number = tx.table_mapping().tablet_number(schema_id.table())?;
+                let schema_id = ResolvedDocumentId::new(
+                    schema_id.table(),
+                    DeveloperDocumentId::new(schema_table_number, schema_id.internal_id()),
+                );
+                let document = tx
+                    .get(schema_id)
+                    .await?
+                    .context("Missing schema document")?;
+                let SchemaMetadata { state, .. } = document.into_value().0.try_into()?;
+                let schema_validation_complete = match state {
+                    SchemaState::Pending => false,
+                    SchemaState::Active | SchemaState::Validated => true,
+                    SchemaState::Failed { error, table_name } => {
+                        return Ok(SchemaStatus::Failed {
+                            error,
+                            component_path: component_path.clone(),
+                            table_name,
+                        });
+                    },
+                    SchemaState::Overwritten => return Ok(SchemaStatus::RaceDetected),
+                };
+
+                let component_id = if component_path.is_root() {
+                    ComponentId::Root
+                } else {
+                    let existing = BootstrapComponentsModel::new(&mut tx)
+                        .resolve_path(component_path.clone())
+                        .await?;
+                    let allocated = schema_change.allocated_component_ids.get(component_path);
+                    let internal_id = match (existing, allocated) {
+                        (None, Some(id)) => *id,
+                        (Some(doc), None) => doc.id().into(),
+                        r => anyhow::bail!("Invalid existing component state: {r:?}"),
+                    };
+                    ComponentId::Child(internal_id)
+                };
+                let namespace = TableNamespace::from(component_id);
+                let mut indexes_complete = 0;
+                let mut indexes_total = 0;
+                for index in IndexModel::new(&mut tx)
+                    .get_application_indexes(namespace)
+                    .await?
+                {
+                    if !index.config.is_backfilling() {
+                        indexes_complete += 1;
+                    }
+                    indexes_total += 1;
+                }
+                components_status.insert(
+                    component_path.clone(),
+                    ComponentSchemaStatus {
+                        schema_validation_complete,
+                        indexes_complete,
+                        indexes_total,
+                    },
+                );
+            }
+
+            if components_status.values().all(|c| c.is_complete()) {
+                return Ok(SchemaStatus::Complete);
+            }
+
+            let now = self.runtime().monotonic_now();
+            if now > deadline {
+                return Ok(SchemaStatus::InProgress {
+                    components: components_status,
+                });
+            }
+            let token = tx.into_token()?;
+            let subscription = self.subscribe(token).await?;
+
+            tokio::select! {
+                _ = subscription.wait_for_invalidation() => {},
+                _ = self.runtime.wait(deadline.clone() - now) => {},
+            }
+        }
+    }
+
+    pub async fn finish_push(
+        &self,
+        start_push: StartPushResponse,
+        dry_run: bool,
+    ) -> anyhow::Result<FinishPushDiff> {
+        // Download all source packages. We can remove this once we don't store source
+        // in the database.
+        let mut downloaded_source_packages = BTreeMap::new();
+        for (definition_path, source_package) in &start_push.component_definition_packages {
+            let package = download_package(
+                self.modules_storage().clone(),
+                source_package.storage_key.clone(),
+                source_package.sha256.clone(),
+            )
+            .await?;
+            downloaded_source_packages.insert(definition_path.clone(), package);
+        }
+
+        // TODO: We require system identity for creating system tables.
+        let mut tx = self.begin(Identity::system()).await?;
+
+        // Validate that environment variables haven't changed since `start_push`.
+        let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+        if environment_variables != start_push.environment_variables {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "RaceDetected",
+                "Environment variables have changed during push"
+            ));
+        }
+
+        // Update app state: auth info and UDF server version.
+        let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
+
+        // Diff the component definitions.
+        let (definition_diffs, modules_by_definition, udf_config_by_definition) =
+            ComponentDefinitionConfigModel::new(&mut tx)
+                .apply_component_definitions_diff(
+                    &start_push.analysis,
+                    &start_push.component_definition_packages,
+                    &downloaded_source_packages,
+                )
+                .await?;
+
+        // Diff component tree.
+        let component_diffs = ComponentConfigModel::new(&mut tx)
+            .apply_component_tree_diff(
+                &start_push.app,
+                udf_config_by_definition,
+                &start_push.schema_change,
+                modules_by_definition,
+            )
+            .await?;
+
+        if !dry_run {
+            let diffs = ComponentDiffs {
+                component_diffs: component_diffs.clone(),
+            };
+            self.commit_with_audit_log_events(
+                tx,
+                vec![DeploymentAuditLogEvent::PushConfigWithComponents {
+                    component_diffs: diffs,
+                }],
+                WriteSource::new("finish_push"),
+            )
+            .await?;
+        } else {
+            drop(tx);
+        }
+
+        let diff = FinishPushDiff {
+            auth_diff,
+            definition_diffs,
+            component_diffs,
+        };
+        Ok(diff)
+    }
 }
 
 struct ApplicationInitializerEvaluator<'a, RT: Runtime> {
@@ -417,6 +619,10 @@ impl StartPushRequest {
 
 #[derive(Debug)]
 pub struct StartPushResponse {
+    // We read the current environment variables when evaluating the definitions, so we need to
+    // cancel the push if they change before the commit point.
+    pub environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+
     pub external_deps_id: Option<ExternalDepsPackageId>,
     pub component_definition_packages: BTreeMap<ComponentDefinitionPath, SourcePackage>,
 
