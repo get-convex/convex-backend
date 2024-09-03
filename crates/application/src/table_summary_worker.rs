@@ -37,14 +37,14 @@ pub struct TableSummaryWorker<RT: Runtime> {
     persistence: Arc<dyn Persistence>,
 }
 
-struct Inner<RT: Runtime> {
-    handle: RT::Handle,
+struct Inner {
+    handle: Box<dyn SpawnHandle>,
     cancel_sender: oneshot::Sender<()>,
 }
 
 #[derive(Clone)]
-pub struct TableSummaryClient<RT: Runtime> {
-    inner: Arc<Mutex<Option<Inner<RT>>>>,
+pub struct TableSummaryClient {
+    inner: Arc<Mutex<Option<Inner>>>,
 }
 
 struct LastWriteInfo {
@@ -57,7 +57,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         runtime: RT,
         database: Database<RT>,
         persistence: Arc<dyn Persistence>,
-    ) -> TableSummaryClient<RT> {
+    ) -> TableSummaryClient {
         let table_summary_worker = Self {
             runtime: runtime.clone(),
             database,
@@ -134,14 +134,14 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
     }
 }
 
-impl<RT: Runtime> TableSummaryClient<RT> {
+impl TableSummaryClient {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         let inner = { self.inner.lock().take() };
-        if let Some(inner) = inner {
+        if let Some(mut inner) = inner {
             let _ = inner.cancel_sender.send(());
             // NB: We don't want to use `shutdown_and_join` here since we actually want to
             // block on our flush completing successfully.
-            inner.handle.into_join_future().await?;
+            inner.handle.join().await?;
         }
         Ok(())
     }

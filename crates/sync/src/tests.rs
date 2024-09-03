@@ -22,6 +22,7 @@ use common::{
     runtime::{
         shutdown_and_join,
         Runtime,
+        SpawnHandle,
     },
     types::{
         FunctionCaller,
@@ -55,10 +56,7 @@ use model::{
 };
 use must_let::must_let;
 use parking_lot::Mutex;
-use runtime::testing::{
-    TestFutureHandle,
-    TestRuntime,
-};
+use runtime::testing::TestRuntime;
 use sync_types::{
     AuthenticationToken,
     ClientMessage,
@@ -192,7 +190,7 @@ struct TestSyncWorker {
     tx: mpsc::UnboundedSender<(ClientMessage, tokio::time::Instant)>,
     rx: SingleFlightReceiver,
 
-    worker_handle: TestFutureHandle,
+    worker_handle: Box<dyn SpawnHandle>,
     worker_failed: Arc<Mutex<Option<anyhow::Error>>>,
 }
 

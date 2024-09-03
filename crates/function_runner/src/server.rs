@@ -157,9 +157,9 @@ impl<RT: Runtime> StorageForInstance<RT> for InstanceStorage {
 pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     rt: RT,
     sender: CoDelQueueSender<RT, IsolateRequest<RT>>,
-    scheduler: Arc<Mutex<Option<RT::Handle>>>,
-    concurrency_logger: Arc<Mutex<Option<RT::Handle>>>,
-    handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
+    scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
+    handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
     storage: S,
     index_cache: InMemoryIndexCache<RT>,
     module_cache: ModuleCache<RT>,

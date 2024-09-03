@@ -27,7 +27,6 @@ use common::{
     query_journal::QueryJournal,
     runtime::{
         Runtime,
-        SpawnHandle,
         UnixTimestamp,
     },
     types::{
@@ -499,7 +498,7 @@ async fn run_request<RT: Runtime>(
 
     // Spawn a separate Tokio thread to receive log lines.
     let (log_line_tx, log_line_rx) = oneshot::channel();
-    let log_line_processor = rt.spawn("log_line_processor", async move {
+    let mut log_line_processor = rt.spawn("log_line_processor", async move {
         let mut log_lines: Vec<LogLine> = vec![];
         while let Some(line) = log_line_receiver.next().await {
             log_lines.push(line);
@@ -541,7 +540,7 @@ async fn run_request<RT: Runtime>(
     if let Err(e) = r {
         let js_error = e.downcast::<JsError>()?;
         client.shutdown().await?;
-        log_line_processor.into_join_future().await?;
+        log_line_processor.join().await?;
         let log_lines = log_line_rx.await?.into();
         let outcome = UdfOutcome {
             path: path.for_logging(),
@@ -665,7 +664,7 @@ async fn run_request<RT: Runtime>(
         },
     };
     let outcome = client.shutdown().await?;
-    log_line_processor.into_join_future().await?;
+    log_line_processor.join().await?;
     let mut log_lines = log_line_rx.await?;
     DatabaseUdfEnvironment::<RT>::add_warnings_to_log_lines(
         &path.clone().for_logging(),
@@ -1068,7 +1067,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // The protocol is synchronous, so there should never be more than
     // one pending request at a time.
     let (sender, receiver) = mpsc::channel(1);
-    let v8_handle = rt.spawn_thread(|| async {
+    let mut v8_handle = rt.spawn_thread(|| async {
         if let Err(e) = v8_thread(receiver, Box::new(environment)).await {
             println!("Error in isolate thread: {:?}", e);
         }
@@ -1076,7 +1075,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
 
     let client = IsolateThreadClient::new(rt.clone(), sender, user_timeout, semaphore);
     let (sender, receiver) = oneshot::channel();
-    let tokio_handle = rt.spawn(
+    let mut tokio_handle = rt.spawn(
         "tokio_thread",
         tokio_thread(
             rt.clone(),
@@ -1098,8 +1097,8 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
 
     let r = receiver.await??;
 
-    tokio_handle.into_join_future().await?;
-    v8_handle.into_join_future().await?;
+    tokio_handle.join().await?;
+    v8_handle.join().await?;
 
     Ok(r)
 }

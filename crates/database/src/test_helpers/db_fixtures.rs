@@ -3,10 +3,7 @@ use std::sync::Arc;
 use common::{
     pause::PauseClient,
     persistence::Persistence,
-    runtime::{
-        Runtime,
-        SpawnHandle,
-    },
+    runtime::Runtime,
     testing::TestPersistence,
     virtual_system_mapping::VirtualSystemMapping,
 };
@@ -92,9 +89,8 @@ impl<RT: Runtime> DbFixtures<RT> {
         .await?;
         db.set_search_storage(search_storage.clone());
         if bootstrap_search_and_vector_indexes {
-            db.start_search_and_vector_bootstrap(PauseClient::new())
-                .into_join_future()
-                .await?;
+            let mut handle = db.start_search_and_vector_bootstrap(PauseClient::new());
+            handle.join().await?;
         }
         let build_index_args = BuildTextIndexArgs {
             search_storage: search_storage.clone(),

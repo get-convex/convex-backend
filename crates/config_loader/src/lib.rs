@@ -43,14 +43,14 @@ pub mod decoding;
 /// cloned unless the caller desires ownership.
 ///
 /// Requires running inside a Tokio runtime due to usage of [`tokio::fs`].
-pub struct ConfigLoader<RT: Runtime, D: ConfigDecoder + Send + 'static> {
+pub struct ConfigLoader<D: ConfigDecoder + Send + 'static> {
     config_rx: watch::Receiver<D::Output>,
     reload_tx: tokio::sync::mpsc::Sender<()>,
-    handle: RT::Handle,
+    handle: Box<dyn SpawnHandle>,
 }
 
-impl<RT: Runtime, D: ConfigDecoder + Send + 'static> ConfigLoader<RT, D> {
-    pub async fn new(
+impl<D: ConfigDecoder + Send + 'static> ConfigLoader<D> {
+    pub async fn new<RT: Runtime>(
         rt: RT,
         signal_kind: SignalKind,
         config_path: PathBuf,
@@ -127,7 +127,7 @@ impl<RT: Runtime, D: ConfigDecoder + Send + 'static> ConfigLoader<RT, D> {
     }
 }
 
-impl<RT: Runtime, D: ConfigDecoder + Send> Drop for ConfigLoader<RT, D> {
+impl<D: ConfigDecoder + Send> Drop for ConfigLoader<D> {
     fn drop(&mut self) {
         self.handle.shutdown()
     }

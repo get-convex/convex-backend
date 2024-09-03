@@ -32,7 +32,6 @@ use common::{
         SearchFilterExpression,
         SearchVersion,
     },
-    runtime::SpawnHandle,
     types::{
         IndexName,
         Timestamp,
@@ -1049,11 +1048,10 @@ async fn search_works_after_bootstrapping(rt: TestRuntime) -> anyhow::Result<()>
     let mut wait_for_blocked = pause_controller
         .wait_for_blocked(FINISHED_BOOTSTRAP_UPDATES)
         .boxed();
-    let bootstrap_fut = scenario
+    let mut handle = scenario
         .database
-        .start_search_and_vector_bootstrap(pause_client)
-        .into_join_future()
-        .fuse();
+        .start_search_and_vector_bootstrap(pause_client);
+    let bootstrap_fut = handle.join().fuse();
     pin_mut!(bootstrap_fut);
     select_biased! {
                 _ = bootstrap_fut => { panic!("bootstrap completed before pause");},

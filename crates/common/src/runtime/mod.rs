@@ -21,7 +21,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use futures::{
     channel::oneshot,
-    future::FusedFuture,
+    future::{
+        BoxFuture,
+        FusedFuture,
+    },
     select_biased,
     stream,
     FutureExt,
@@ -82,16 +85,15 @@ impl From<tokio::task::JoinError> for JoinError {
 }
 
 pub trait SpawnHandle: Send + Sync {
-    type Future: Future<Output = Result<(), JoinError>> + Send;
     fn shutdown(&mut self);
-    fn into_join_future(self) -> Self::Future;
+    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>>;
 }
 
 /// Shutdown the associated future, preempting it at its next yield point, and
 /// join on its result.
-pub async fn shutdown_and_join(mut handle: impl SpawnHandle) -> anyhow::Result<()> {
+pub async fn shutdown_and_join(mut handle: Box<dyn SpawnHandle>) -> anyhow::Result<()> {
     handle.shutdown();
-    if let Err(e) = handle.into_join_future().await {
+    if let Err(e) = handle.join().await {
         if !matches!(e, JoinError::Canceled) {
             return Err(e.into());
         }
@@ -167,7 +169,7 @@ pub async fn try_join<RT: Runtime, T: Send + 'static>(
     span: Span,
 ) -> anyhow::Result<T> {
     let (tx, rx) = oneshot::channel();
-    let handle = rt.spawn(
+    let mut handle = rt.spawn(
         name,
         async {
             let result = fut.await;
@@ -175,7 +177,7 @@ pub async fn try_join<RT: Runtime, T: Send + 'static>(
         }
         .in_span(span),
     );
-    handle.into_join_future().await?;
+    handle.join().await?;
     rx.await?
 }
 
@@ -188,13 +190,6 @@ pub async fn try_join<RT: Runtime, T: Send + 'static>(
 /// code can be parameterized by a given runtime implementation.
 #[async_trait]
 pub trait Runtime: Clone + Sync + Send + 'static {
-    /// Spawn handle type returned by `spawn`.
-    type Handle: SpawnHandle;
-
-    /// Spawn handle type returned by `spawn_thread` (which may be a different
-    /// type than `spawn`'s).
-    type ThreadHandle: SpawnHandle;
-
     /// Sleep for the given duration.
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>>;
 
@@ -203,7 +198,7 @@ pub trait Runtime: Clone + Sync + Send + 'static {
         &self,
         name: &'static str,
         f: impl Future<Output = ()> + Send + 'static,
-    ) -> Self::Handle;
+    ) -> Box<dyn SpawnHandle>;
 
     /// Spawn a future on a reserved OS thread. This is only really necessary
     /// for libraries like `V8` that care about being called from a
@@ -211,7 +206,7 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
         f: F,
-    ) -> Self::ThreadHandle;
+    ) -> Box<dyn SpawnHandle>;
 
     /// Return (a potentially-virtualized) system time. Compare with
     /// `std::time::UNIX_EPOCH` to obtain a Unix timestamp.

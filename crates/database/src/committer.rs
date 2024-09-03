@@ -824,7 +824,7 @@ struct ValidatedDocumentWrite {
 }
 
 pub struct CommitterClient<RT: Runtime> {
-    handle: Arc<Mutex<RT::Handle>>,
+    handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
     sender: mpsc::Sender<CommitterMessage<RT>>,
     persistence_reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,

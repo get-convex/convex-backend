@@ -25,7 +25,10 @@ use crate::{
         CoDelQueueSender,
         ExpiredInQueue,
     },
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        SpawnHandle,
+    },
 };
 
 struct Config {
@@ -41,7 +44,7 @@ struct Config {
 /// rather than a fixed enum of possible actions.
 pub struct BoundedThreadPool<RT: Runtime> {
     sender: CoDelQueueSender<RT, Request>,
-    handle: Arc<Mutex<<RT as Runtime>::Handle>>,
+    handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
 }
 
 impl<RT: Runtime> Clone for BoundedThreadPool<RT> {
@@ -129,7 +132,7 @@ struct Scheduler<RT: Runtime> {
     // loaded the (potentially expensive) state.
     available_workers: Vec<usize>,
 
-    handles: Arc<Mutex<Vec<RT::ThreadHandle>>>,
+    handles: Arc<Mutex<Vec<Box<dyn SpawnHandle>>>>,
 
     config: Config,
 }

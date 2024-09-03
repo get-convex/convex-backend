@@ -69,13 +69,13 @@ struct SubscriptionKey {
 // Provide large enough limit so we never hit this in practice.
 const SUBSCRIPTIONS_BUFFER: usize = 10000;
 
-pub struct SubscriptionsClient<RT: Runtime> {
-    handle: Arc<Mutex<RT::Handle>>,
+pub struct SubscriptionsClient {
+    handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
     log: LogReader,
     sender: mpsc::Sender<SubscriptionRequest>,
 }
 
-impl<RT: Runtime> Clone for SubscriptionsClient<RT> {
+impl Clone for SubscriptionsClient {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
@@ -85,7 +85,7 @@ impl<RT: Runtime> Clone for SubscriptionsClient<RT> {
     }
 }
 
-impl<RT: Runtime> SubscriptionsClient<RT> {
+impl SubscriptionsClient {
     pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
         let token = match self.log.refresh_reads_until_max_ts(token)? {
             Some(t) => t,
@@ -130,7 +130,7 @@ impl SubscriptionsWorker {
         log: LogOwner,
         runtime: RT,
         persistence_version: PersistenceVersion,
-    ) -> SubscriptionsClient<RT> {
+    ) -> SubscriptionsClient {
         let (tx, rx) = mpsc::channel(SUBSCRIPTIONS_BUFFER);
 
         let log_reader = log.reader();

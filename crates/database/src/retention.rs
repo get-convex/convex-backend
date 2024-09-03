@@ -73,6 +73,7 @@ use common::{
         new_rate_limiter,
         shutdown_and_join,
         Runtime,
+        SpawnHandle,
     },
     sha256::Sha256,
     sync::split_rw_lock::{
@@ -180,7 +181,7 @@ pub struct LeaderRetentionManager<RT: Runtime> {
     index_table_id: TabletId,
     checkpoint_reader: Reader<Checkpoint>,
     document_checkpoint_reader: Reader<Checkpoint>,
-    handles: Arc<Mutex<Vec<RT::Handle>>>,
+    handles: Arc<Mutex<Vec<Box<dyn SpawnHandle>>>>,
 }
 
 impl<RT: Runtime> Clone for LeaderRetentionManager<RT> {

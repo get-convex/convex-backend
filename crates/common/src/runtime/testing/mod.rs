@@ -21,12 +21,12 @@ use futures::{
     channel::oneshot,
     future::{
         self,
+        BoxFuture,
         FusedFuture,
     },
     pin_mut,
     Future,
     FutureExt,
-    TryFutureExt,
 };
 use parking_lot::Mutex;
 use rand::{
@@ -173,7 +173,7 @@ pub struct TestThreadHandle {
     #[allow(unused)]
     local_handle: tokio::task::JoinHandle<()>,
     command_tx: crossbeam_channel::Sender<ThreadCommand>,
-    completion_rx: oneshot::Receiver<bool>,
+    completion_rx: Option<oneshot::Receiver<bool>>,
     handle: Arc<Mutex<JoinHandle>>,
 }
 
@@ -183,9 +183,6 @@ enum ThreadCommand {
 }
 
 impl Runtime for TestRuntime {
-    type Handle = TestFutureHandle;
-    type ThreadHandle = TestThreadHandle;
-
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>> {
         // NB: `TestRuntime` uses Tokio's current thread runtime with the timer paused,
         // so can still achieve determinism. This sleep will suspend until either time
@@ -198,15 +195,17 @@ impl Runtime for TestRuntime {
         &self,
         _name: &'static str,
         f: impl Future<Output = ()> + Send + 'static,
-    ) -> Self::Handle {
+    ) -> Box<dyn SpawnHandle> {
         let handle = self.tokio_handle.spawn(f);
-        TestFutureHandle { handle }
+        Box::new(TestFutureHandle {
+            handle: Some(handle),
+        })
     }
 
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
         f: F,
-    ) -> Self::ThreadHandle {
+    ) -> Box<dyn SpawnHandle> {
         let (command_tx, command_rx) = crossbeam_channel::bounded::<ThreadCommand>(1);
         let (response_tx, response_rx) = crossbeam_channel::bounded(1);
         let (completion_tx, completion_rx) = oneshot::channel();
@@ -276,12 +275,12 @@ impl Runtime for TestRuntime {
             }
         });
         let local_handle = self.tokio_handle.spawn(local_future);
-        TestThreadHandle {
+        Box::new(TestThreadHandle {
             local_handle,
             command_tx,
-            completion_rx,
+            completion_rx: Some(completion_rx),
             handle,
-        }
+        })
     }
 
     fn system_time(&self) -> SystemTime {
@@ -321,16 +320,18 @@ impl RngCore for TestRng {
 }
 
 impl SpawnHandle for TestThreadHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
-
     fn shutdown(&mut self) {
         let _ = self.command_tx.try_send(ThreadCommand::Shutdown);
     }
 
-    fn into_join_future(self) -> Self::Future {
+    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
+        let completion_rx = self.completion_rx.take();
         async move {
+            let Some(completion_rx) = completion_rx else {
+                return Ok(());
+            };
             // Handle clean exit (either by shutdown or task completion)
-            if let Ok(was_canceled) = self.completion_rx.await {
+            if let Ok(was_canceled) = completion_rx.await {
                 return if !was_canceled {
                     Ok(())
                 } else {
@@ -370,18 +371,25 @@ impl SpawnHandle for TestThreadHandle {
 }
 
 pub struct TestFutureHandle {
-    handle: tokio::task::JoinHandle<()>,
+    handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl SpawnHandle for TestFutureHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
-
     fn shutdown(&mut self) {
-        self.handle.abort();
+        if let Some(ref mut handle) = self.handle {
+            handle.abort();
+        }
     }
 
-    fn into_join_future(self) -> Self::Future {
-        self.handle.map_err(|e| e.into()).boxed()
+    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
+        let handle = self.handle.take();
+        let future = async move {
+            if let Some(h) = handle {
+                h.await?;
+            }
+            Ok(())
+        };
+        future.boxed()
     }
 }
 
@@ -398,7 +406,7 @@ fn test_runtime2() -> anyhow::Result<()> {
         println!("there!");
         let _ = rx.await;
         r.shutdown();
-        let (Ok(()) | Err(JoinError::Canceled)) = r.into_join_future().await else {
+        let (Ok(()) | Err(JoinError::Canceled)) = r.join().await else {
             panic!("Expected JoinError::Canceled");
         };
     });

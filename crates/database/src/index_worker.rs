@@ -57,7 +57,6 @@ use common::{
         new_rate_limiter,
         RateLimiter,
         Runtime,
-        SpawnHandle,
     },
     types::{
         DatabaseIndexUpdate,
@@ -670,8 +669,8 @@ impl<RT: Runtime> IndexWriter<RT> {
                     })
             })
             .collect();
-        for handle in handles {
-            handle.into_join_future().await?;
+        for mut handle in handles {
+            handle.join().await?;
         }
         tx.close_channel();
         let _: Vec<_> = rx.try_collect().await?;

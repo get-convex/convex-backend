@@ -12,7 +12,10 @@ use common::{
     deleted_bitset::DeletedBitset,
     errors::report_error,
     id_tracker::StaticIdTracker,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        SpawnHandle,
+    },
     types::ObjectKey,
 };
 use futures::{
@@ -338,7 +341,7 @@ struct FragmentedSegmentPrefetchRequest {
 
 pub(crate) struct FragmentedSegmentPrefetcher<RT: Runtime> {
     tx: CoDelQueueSender<RT, FragmentedSegmentPrefetchRequest>,
-    _handle: <RT as Runtime>::Handle,
+    _handle: Box<dyn SpawnHandle>,
 }
 
 impl<RT: Runtime> FragmentedSegmentPrefetcher<RT> {

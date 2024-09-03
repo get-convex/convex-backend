@@ -26,10 +26,7 @@ use common::{
     },
     pause::PauseClient,
     persistence::PersistenceReader,
-    runtime::{
-        Runtime,
-        SpawnHandle,
-    },
+    runtime::Runtime,
     types::{
         unchecked_repeatable_ts,
         IndexName,
@@ -136,9 +133,8 @@ impl<RT: Runtime> Scenario<RT> {
             },
         )
         .await?;
-        db.start_search_and_vector_bootstrap(PauseClient::new())
-            .into_join_future()
-            .await?;
+        let mut handle = db.start_search_and_vector_bootstrap(PauseClient::new());
+        handle.join().await?;
 
         let self_ = Self {
             rt,
@@ -702,8 +698,8 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
             );
         }))
     }
-    for handle in handles {
-        handle.into_join_future().await?;
+    for mut handle in handles {
+        handle.join().await?;
     }
 
     Ok(())

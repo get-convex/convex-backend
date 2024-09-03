@@ -46,7 +46,6 @@ use common::{
     runtime::{
         testing::TestRuntime,
         Runtime,
-        SpawnHandle,
         UnixTimestamp,
     },
     testing::TestPersistence,
@@ -287,10 +286,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             },
         )
         .await?;
-        database
-            .start_search_and_vector_bootstrap(PauseClient::new())
-            .into_join_future()
-            .await?;
+        let mut handle = database.start_search_and_vector_bootstrap(PauseClient::new());
+        handle.join().await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
         let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let module_loader = Arc::new(UncachedModuleLoader {

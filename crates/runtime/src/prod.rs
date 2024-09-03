@@ -28,9 +28,11 @@ use common::{
 };
 use futures::{
     channel::oneshot,
-    future::FusedFuture,
+    future::{
+        BoxFuture,
+        FusedFuture,
+    },
     FutureExt,
-    TryFutureExt,
 };
 use parking_lot::Mutex;
 use rand::RngCore;
@@ -50,40 +52,49 @@ use tokio_metrics_collector::TaskMonitor;
 static INSTANT_EPOCH: LazyLock<Instant> = LazyLock::new(Instant::now);
 
 pub struct FutureHandle {
-    handle: tokio::task::JoinHandle<()>,
+    handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl SpawnHandle for FutureHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
-
     fn shutdown(&mut self) {
-        self.handle.abort();
+        if let Some(ref mut handle) = self.handle {
+            handle.abort();
+        }
     }
 
-    fn into_join_future(self) -> Self::Future {
-        self.handle.map_err(|e| e.into()).boxed()
+    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
+        let handle = self.handle.take();
+        async move {
+            if let Some(handle) = handle {
+                handle.await?;
+            }
+            Ok(())
+        }
+        .boxed()
     }
 }
 
 pub struct ThreadHandle {
     cancel: Option<oneshot::Sender<()>>,
-    done: oneshot::Receiver<bool>,
+    done: Option<oneshot::Receiver<bool>>,
     handle: Option<std::thread::JoinHandle<()>>,
 }
 
 impl SpawnHandle for ThreadHandle {
-    type Future = Pin<Box<dyn Future<Output = Result<(), JoinError>> + Send>>;
-
     fn shutdown(&mut self) {
         if let Some(cancel) = self.cancel.take() {
             let _ = cancel.send(());
         }
     }
 
-    fn into_join_future(mut self) -> Self::Future {
+    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
+        let done = self.done.take();
         let future = async move {
+            let Some(done) = done else {
+                return Ok(());
+            };
             // If the future exited cleanly, use its result.
-            if let Ok(was_canceled) = self.done.await {
+            if let Ok(was_canceled) = done.await {
                 return if !was_canceled {
                     Ok(())
                 } else {
@@ -125,7 +136,7 @@ impl ThreadHandle {
         ThreadHandle {
             handle: Some(thread_handle),
             cancel: Some(cancel_tx),
-            done: done_rx,
+            done: Some(done_rx),
         }
     }
 }
@@ -190,9 +201,6 @@ impl ProdRuntime {
 
 #[async_trait]
 impl Runtime for ProdRuntime {
-    type Handle = FutureHandle;
-    type ThreadHandle = ThreadHandle;
-
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>> {
         Box::pin(sleep(duration).fuse())
     }
@@ -201,17 +209,19 @@ impl Runtime for ProdRuntime {
         &self,
         name: &'static str,
         f: impl Future<Output = ()> + Send + 'static,
-    ) -> FutureHandle {
+    ) -> Box<dyn SpawnHandle> {
         let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
         let handle = self.rt.spawn(monitor.instrument(f));
-        FutureHandle { handle }
+        Box::new(FutureHandle {
+            handle: Some(handle),
+        })
     }
 
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
         f: F,
-    ) -> ThreadHandle {
-        ThreadHandle::spawn(self.rt.clone(), f)
+    ) -> Box<dyn SpawnHandle> {
+        Box::new(ThreadHandle::spawn(self.rt.clone(), f))
     }
 
     fn system_time(&self) -> SystemTime {

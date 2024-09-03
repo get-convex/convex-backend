@@ -27,7 +27,10 @@ use prometheus::{
 };
 use sync_types::backoff::Backoff;
 
-use crate::runtime::Runtime;
+use crate::runtime::{
+    Runtime,
+    SpawnHandle,
+};
 
 register_convex_counter!(
     COMMON_UNDEFINED_FILTER_TOTAL,
@@ -122,7 +125,7 @@ pub type FlushMetrics<RT: Runtime> = impl FnOnce() -> BoxFuture<'static, ()>;
 pub fn register_prometheus_exporter<RT: Runtime>(
     rt: RT,
     bind_addr: SocketAddr,
-) -> (RT::Handle, FlushMetrics<RT>) {
+) -> (Box<dyn SpawnHandle>, FlushMetrics<RT>) {
     let rt_ = rt.clone();
     let handle = rt.clone().spawn("prometheus_exporter", async move {
         let mut backoff = Backoff::new(Duration::from_millis(10), Duration::from_secs(10));

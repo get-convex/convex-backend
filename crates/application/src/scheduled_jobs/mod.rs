@@ -101,12 +101,12 @@ mod metrics;
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
 pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
 
-pub struct ScheduledJobRunner<RT: Runtime> {
-    executor: Arc<Mutex<RT::Handle>>,
-    garbage_collector: Arc<Mutex<RT::Handle>>,
+pub struct ScheduledJobRunner {
+    executor: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    garbage_collector: Arc<Mutex<Box<dyn SpawnHandle>>>,
 }
 
-impl<RT: Runtime> Clone for ScheduledJobRunner<RT> {
+impl Clone for ScheduledJobRunner {
     fn clone(&self) -> Self {
         Self {
             executor: self.executor.clone(),
@@ -115,8 +115,8 @@ impl<RT: Runtime> Clone for ScheduledJobRunner<RT> {
     }
 }
 
-impl<RT: Runtime> ScheduledJobRunner<RT> {
-    pub fn start(
+impl ScheduledJobRunner {
+    pub fn start<RT: Runtime>(
         rt: RT,
         instance_name: String,
         database: Database<RT>,

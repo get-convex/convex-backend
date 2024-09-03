@@ -221,7 +221,7 @@ pub struct ActionEnvironment<RT: Runtime> {
     next_task_id: TaskId,
     pending_task_sender: mpsc::UnboundedSender<TaskRequest>,
 
-    running_tasks: Option<RT::Handle>,
+    running_tasks: Option<Box<dyn SpawnHandle>>,
 
     // We have to store PromiseResolvers separate from TaskRequests because
     // TaskRequests will be executed in parallel, but PromiseResolvers are not Send.

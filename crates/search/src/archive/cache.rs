@@ -19,7 +19,10 @@ use common::{
     },
     bounded_thread_pool::BoundedThreadPool,
     knobs::ARCHIVE_FETCH_TIMEOUT_SECONDS,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        SpawnHandle,
+    },
     types::ObjectKey,
 };
 use futures::{
@@ -57,19 +60,19 @@ use super::{
 };
 use crate::SearchFileType;
 
-struct IndexMeta<RT: Runtime> {
+struct IndexMeta {
     size: u64,
     path: PathBuf,
-    cleaner: CacheCleaner<RT>,
+    cleaner: CacheCleaner,
 }
 
-impl<RT: Runtime> Drop for IndexMeta<RT> {
+impl Drop for IndexMeta {
     fn drop(&mut self) {
         let _ = self.cleaner.attempt_cleanup(self.path.clone());
     }
 }
 
-impl<RT: Runtime> SizedValue for IndexMeta<RT> {
+impl SizedValue for IndexMeta {
     fn size(&self) -> u64 {
         self.size
     }
@@ -96,9 +99,9 @@ impl<RT: Runtime> SizedValue for IndexMeta<RT> {
 pub struct ArchiveCacheManager<RT: Runtime> {
     path: PathBuf,
     max_size: u64,
-    cleaner: CacheCleaner<RT>,
+    cleaner: CacheCleaner,
     blocking_thread_pool: BoundedThreadPool<RT>,
-    cache: AsyncLru<RT, Key, IndexMeta<RT>>,
+    cache: AsyncLru<RT, Key, IndexMeta>,
     rt: RT,
 }
 
@@ -126,7 +129,7 @@ struct ArchiveFetcher<RT: Runtime> {
     cache_path: PathBuf,
     rt: RT,
     blocking_thread_pool: BoundedThreadPool<RT>,
-    cleaner: CacheCleaner<RT>,
+    cleaner: CacheCleaner,
 }
 
 impl<RT: Runtime> ArchiveFetcher<RT> {
@@ -142,7 +145,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         key: ObjectKey,
         search_file_type: SearchFileType,
         destination: PathBuf,
-    ) -> anyhow::Result<IndexMeta<RT>> {
+    ) -> anyhow::Result<IndexMeta> {
         let timer = metrics::archive_fetch_timer();
         let archive = search_storage
             .get(&key)
@@ -231,7 +234,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         search_storage: Arc<dyn Storage>,
         key: ObjectKey,
         search_file_type: SearchFileType,
-    ) -> anyhow::Result<IndexMeta<RT>> {
+    ) -> anyhow::Result<IndexMeta> {
         let mut timeout_fut = self.rt.wait(*ARCHIVE_FETCH_TIMEOUT_SECONDS).fuse();
         let destination = self.cache_path.join(Uuid::new_v4().simple().to_string());
 
@@ -425,12 +428,12 @@ fn set_readonly_blocking(path: &PathBuf, readonly: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-struct CacheCleaner<RT: Runtime> {
+struct CacheCleaner {
     cleanup_tx: UnboundedSender<PathBuf>,
-    cleanup_handle: Arc<RT::ThreadHandle>,
+    cleanup_handle: Arc<Box<dyn SpawnHandle>>,
 }
 
-impl<RT: Runtime> Clone for CacheCleaner<RT> {
+impl Clone for CacheCleaner {
     fn clone(&self) -> Self {
         Self {
             cleanup_tx: self.cleanup_tx.clone(),
@@ -439,8 +442,8 @@ impl<RT: Runtime> Clone for CacheCleaner<RT> {
     }
 }
 
-impl<RT: Runtime> CacheCleaner<RT> {
-    fn new(rt: RT) -> Self {
+impl CacheCleaner {
+    fn new<RT: Runtime>(rt: RT) -> Self {
         let (cleanup_tx, cleanup_rx) = unbounded();
         let cleanup_handle = Arc::new(rt.spawn_thread(|| cleanup_thread(cleanup_rx)));
         Self {

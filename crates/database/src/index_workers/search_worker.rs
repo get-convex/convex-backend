@@ -63,8 +63,8 @@ use crate::{
 };
 
 /// Builds and compacts text/vector search indexes.
-pub struct SearchIndexWorkers<RT: Runtime> {
-    handles: Vec<<RT as Runtime>::Handle>,
+pub struct SearchIndexWorkers {
+    handles: Vec<Box<dyn SpawnHandle>>,
 }
 
 enum SearchIndexWorker<RT: Runtime> {
@@ -87,8 +87,8 @@ impl<RT: Runtime> RetriableWorker<RT> for SearchIndexWorker<RT> {
     }
 }
 
-impl<RT: Runtime> SearchIndexWorkers<RT> {
-    pub fn create_and_start(
+impl SearchIndexWorkers {
+    pub fn create_and_start<RT: Runtime>(
         runtime: RT,
         database: Database<RT>,
         reader: Arc<dyn PersistenceReader>,

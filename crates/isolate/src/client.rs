@@ -591,8 +591,8 @@ impl<RT: Runtime> Request<RT> {
 /// [`IsolateClient`] is the "client" entry point to our V8 threads.
 pub struct IsolateClient<RT: Runtime> {
     rt: RT,
-    handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
-    scheduler: Arc<Mutex<Option<RT::Handle>>>,
+    handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
+    scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     sender: CoDelQueueSender<RT, Request<RT>>,
     allow_actions: bool,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
@@ -1125,7 +1125,7 @@ pub struct IsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     // that was recently used.
     available_workers: Vec<usize>,
 
-    handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
+    handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
 }
 
 impl<RT: Runtime, W: IsolateWorker<RT>> IsolateScheduler<RT, W> {
@@ -1133,7 +1133,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> IsolateScheduler<RT, W> {
         rt: RT,
         worker: W,
         max_workers: usize,
-        handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
+        handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
     ) -> Self {
         Self {
             rt,
@@ -1275,7 +1275,7 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     in_progress_count: HashMap<String, usize>,
     /// The max number of workers this scheduler is permitted to create.
     max_workers: usize,
-    handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
+    handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
     max_percent_per_client: usize,
 }
 
@@ -1293,7 +1293,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
         rt: RT,
         worker: W,
         max_workers: usize,
-        handles: Arc<Mutex<Vec<IsolateWorkerHandle<RT>>>>,
+        handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
         max_percent_per_client: usize,
     ) -> Self {
         Self {
@@ -1514,8 +1514,8 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     }
 }
 
-pub struct IsolateWorkerHandle<RT: Runtime> {
-    pub handle: RT::ThreadHandle,
+pub struct IsolateWorkerHandle {
+    pub handle: Box<dyn SpawnHandle>,
     heap_stats: SharedIsolateHeapStats,
 }
 

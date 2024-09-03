@@ -74,6 +74,7 @@ use common::{
     runtime::{
         RateLimiter,
         Runtime,
+        SpawnHandle,
     },
     sync::split_rw_lock::{
         new_split_rw_lock,
@@ -247,7 +248,7 @@ const MAX_VECTOR_ATTEMPTS: u32 = 5;
 #[derive(Clone)]
 pub struct Database<RT: Runtime> {
     committer: CommitterClient<RT>,
-    subscriptions: SubscriptionsClient<RT>,
+    subscriptions: SubscriptionsClient,
     log: LogReader,
     snapshot_manager: Reader<SnapshotManager<RT>>,
     pub(crate) runtime: RT,
@@ -865,7 +866,10 @@ impl<RT: Runtime> Database<RT> {
         tracing::info!("Set search storage to {search_storage:?}");
     }
 
-    pub fn start_search_and_vector_bootstrap(&self, pause_client: PauseClient) -> RT::Handle {
+    pub fn start_search_and_vector_bootstrap(
+        &self,
+        pause_client: PauseClient,
+    ) -> Box<dyn SpawnHandle> {
         let worker = self.new_search_and_vector_bootstrap_worker(pause_client);
         self.runtime
             .spawn("search_and_vector_bootstrap", async move {

@@ -19,7 +19,10 @@ use common::{
         CoDelQueueSender,
     },
     errors::recapture_stacktrace_noreport,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        SpawnHandle,
+    },
     types::IndexId,
 };
 use futures::{
@@ -71,7 +74,7 @@ const PAUSE_DURING_GENERATE_VALUE_LABEL: &str = "generate_value";
 pub struct AsyncLru<RT: Runtime, Key, Value> {
     inner: Arc<Mutex<Inner<RT, Key, Value>>>,
     label: &'static str,
-    handle: Arc<<RT as Runtime>::Handle>,
+    handle: Arc<Box<dyn SpawnHandle>>,
     // This tokio Mutex is safe only because it's stripped out of production
     // builds. We shouldn't use tokio locks for prod code (see
     // https://github.com/rust-lang/rust/issues/104883 for background and

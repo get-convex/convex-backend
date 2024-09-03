@@ -33,7 +33,7 @@ use crate::{
 /// If the higher level operation succeeds, call `Timeout::finish` to cancel the
 /// background job and prevent it from terminating the isolate.
 pub struct Timeout<RT: Runtime> {
-    handle: RT::Handle,
+    handle: Box<dyn SpawnHandle>,
     inner: Arc<Mutex<TimeoutInner<RT>>>,
     done_rx: async_broadcast::Receiver<()>,
 }
