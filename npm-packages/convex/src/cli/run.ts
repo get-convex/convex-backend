@@ -103,6 +103,7 @@ export const run = new Command("run")
         adminKey,
         functionName,
         args,
+        options.componentPath,
       );
     }
     return await runFunctionAndLog(

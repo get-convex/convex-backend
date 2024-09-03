@@ -125,6 +125,7 @@ export async function subscribeAndLog(
   adminKey: string,
   functionName: string,
   args: Record<string, Value>,
+  componentPath: string | undefined,
 ) {
   return subscribe(
     ctx,
@@ -132,6 +133,7 @@ export async function subscribeAndLog(
     adminKey,
     functionName,
     args,
+    componentPath,
     waitForever(),
     {
       onStart() {
@@ -156,6 +158,7 @@ export async function subscribe(
   adminKey: string,
   functionName: string,
   args: Record<string, Value>,
+  componentPath: string | undefined,
   until: Promise<unknown>,
   callbacks?: {
     onStart?: () => void;
@@ -177,7 +180,9 @@ export async function subscribe(
     },
   );
   client.setAdminAuth(adminKey);
-  const { unsubscribe } = client.subscribe(functionName, args);
+  const { unsubscribe } = client.subscribe(functionName, args, {
+    componentPath,
+  });
 
   callbacks?.onStart?.();
 

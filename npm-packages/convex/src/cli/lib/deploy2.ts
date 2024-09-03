@@ -154,7 +154,12 @@ export async function waitForSchema(
         return await ctx.crash({
           exitCode: 1,
           errorType: {
-            "invalid filesystem or db data": currentStatus.tableName ?? null,
+            "invalid filesystem or db data": currentStatus.tableName
+              ? {
+                  tableName: currentStatus.tableName,
+                  componentPath: currentStatus.componentPath,
+                }
+              : null,
           },
           printedMessage: null, // TODO - move logging into here
         });

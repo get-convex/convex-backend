@@ -16,7 +16,10 @@ export type ErrorType =
   // The `convex dev` command will wait for either file OR table data change
   // to retry (if a table name is specified as the value in this Object).
   | {
-      "invalid filesystem or db data": string | null;
+      "invalid filesystem or db data": {
+        tableName: string;
+        componentPath?: string;
+      } | null;
     }
   // The error was caused by either the local state (ie schema.ts content)
   // or the state of the deployment environment variables.

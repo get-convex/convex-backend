@@ -363,6 +363,7 @@ export async function waitForStableImportState(
     adminKey,
     "_system/cli/queryImport",
     { importId },
+    undefined,
     donePromise,
     {
       onChange: (value: any) => {

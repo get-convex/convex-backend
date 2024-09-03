@@ -24,6 +24,7 @@ type LocalQuery = {
   args: Record<string, Value>;
   numSubscribers: number;
   journal?: QueryJournal;
+  componentPath?: string;
 };
 
 export class LocalSyncState {
@@ -95,6 +96,7 @@ export class LocalSyncState {
         args,
         numSubscribers: 1,
         journal,
+        componentPath,
       };
       this.querySet.set(queryToken, query);
       this.queryIdToToken.set(queryId, queryToken);
@@ -279,6 +281,7 @@ export class LocalSyncState {
         udfPath: localQuery.canonicalizedUdfPath,
         args: [convexToJson(localQuery.args)],
         journal: localQuery.journal,
+        componentPath: localQuery.componentPath,
       };
       modifications.push(add);
 

@@ -306,7 +306,12 @@ export async function watchAndPush(
       return;
     }
     const fileSystemWatch = getFileSystemWatch(ctx, watch, cmdOptions);
-    const tableWatch = getTableWatch(ctx, options, tableNameTriggeringRetry);
+    const tableWatch = getTableWatch(
+      ctx,
+      options,
+      tableNameTriggeringRetry?.tableName ?? null,
+      tableNameTriggeringRetry?.componentPath,
+    );
     const envVarWatch = getDeplymentEnvVarWatch(
       ctx,
       options,
@@ -330,9 +335,14 @@ function getTableWatch(
     adminKey: string;
   },
   tableName: string | null,
+  componentPath: string | undefined,
 ) {
-  return getFunctionWatch(ctx, credentials, "_system/cli/queryTable", () =>
-    tableName !== null ? { tableName } : null,
+  return getFunctionWatch(
+    ctx,
+    credentials,
+    "_system/cli/queryTable",
+    () => (tableName !== null ? { tableName } : null),
+    componentPath,
   );
 }
 
@@ -349,6 +359,7 @@ function getDeplymentEnvVarWatch(
     credentials,
     "_system/cli/queryEnvironmentVariables",
     () => (shouldRetryOnDeploymentEnvVarChange ? {} : null),
+    undefined,
   );
 }
 
@@ -360,6 +371,7 @@ function getFunctionWatch(
   },
   functionName: string,
   getArgs: () => Record<string, Value> | null,
+  componentPath: string | undefined,
 ) {
   const [stopPromise, stop] = waitUntilCalled();
   return {
@@ -375,6 +387,7 @@ function getFunctionWatch(
         credentials.adminKey,
         functionName,
         args,
+        componentPath,
         stopPromise,
         {
           onChange: () => {

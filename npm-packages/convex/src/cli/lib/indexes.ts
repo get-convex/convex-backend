@@ -133,7 +133,11 @@ async function waitForReadySchema(
       return await ctx.crash({
         exitCode: 1,
         errorType: {
-          "invalid filesystem or db data": data.schemaState.tableName ?? null,
+          "invalid filesystem or db data": data.schemaState.tableName
+            ? {
+                tableName: data.schemaState.tableName,
+              }
+            : null,
         },
         printedMessage: null, // TODO - move logging into here
       });
