@@ -366,7 +366,7 @@ export async function bundleDefinitions(
           rootComponentDirectory,
         }),
       ],
-      sourcemap: false, // we're just building a deps map
+      sourcemap: true,
       ...SHARED_ESBUILD_OPTIONS,
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);

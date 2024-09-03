@@ -24,6 +24,7 @@ use common::{
         ComponentPath,
         Resource,
     },
+    errors::JsError,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -258,7 +259,15 @@ impl<RT: Runtime> Application<RT> {
                 .is_none());
 
             if let Some(schema_module) = &component_def.schema {
-                let schema = self.evaluate_schema(schema_module.clone()).await?;
+                let schema = match self.evaluate_schema(schema_module.clone()).await {
+                    Ok(schema) => schema,
+                    Err(e) => {
+                        // Try to downcast to a JsError and turn that into a user-visible error if
+                        // so.
+                        let e = e.downcast::<JsError>()?;
+                        anyhow::bail!(ErrorMetadata::bad_request("InvalidSchema", e.to_string()));
+                    },
+                };
                 anyhow::ensure!(component_schema_by_def_path
                     .insert(component_def.definition_path.clone(), schema)
                     .is_none());
@@ -286,14 +295,24 @@ impl<RT: Runtime> Application<RT> {
                 }
             }
 
-            evaluated_definitions = self
+            let definition_result = self
                 .evaluate_app_definitions(
                     app_definition.clone(),
                     component_definitions,
                     dependency_graph,
                     environment_variables,
                 )
-                .await?;
+                .await;
+            evaluated_definitions = match definition_result {
+                Ok(r) => r,
+                Err(e) => {
+                    let e = e.downcast::<JsError>()?;
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "InvalidConvexConfig",
+                        e.to_string()
+                    ));
+                },
+            };
         } else {
             evaluated_definitions.insert(
                 ComponentDefinitionPath::root(),
