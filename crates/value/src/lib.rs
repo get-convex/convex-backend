@@ -60,6 +60,7 @@ use anyhow::{
     Error,
 };
 use heap_size::HeapSize;
+pub use paste::paste;
 pub use sync_types::identifier;
 
 pub use crate::{

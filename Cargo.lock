@@ -8614,6 +8614,7 @@ dependencies = [
  "humansize",
  "imbl",
  "metrics",
+ "paste",
  "proptest",
  "proptest-derive",
  "serde",
