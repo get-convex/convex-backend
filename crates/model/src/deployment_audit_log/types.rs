@@ -45,6 +45,7 @@ use value::{
 };
 
 use crate::{
+    auth::types::AuthDiff,
     backend_state::types::BackendState,
     components::config::{
         ComponentDiff,
@@ -125,7 +126,7 @@ pub enum DeploymentAuditLogEvent {
         config_diff: ConfigDiff,
     },
     PushConfigWithComponents {
-        component_diffs: ComponentDiffs,
+        diffs: PushComponentDiffs,
     },
     BuildIndexes {
         #[cfg_attr(
@@ -224,9 +225,7 @@ impl DeploymentAuditLogEvent {
             DeploymentAuditLogEvent::PushConfig { config_diff } => {
                 ConvexObject::try_from(config_diff)
             },
-            DeploymentAuditLogEvent::PushConfigWithComponents { component_diffs } => {
-                component_diffs.try_into()
-            },
+            DeploymentAuditLogEvent::PushConfigWithComponents { diffs } => diffs.try_into(),
             DeploymentAuditLogEvent::BuildIndexes {
                 added_indexes,
                 removed_indexes,
@@ -358,7 +357,7 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                 config_diff: ConvexObject::try_from(fields)?.try_into()?,
             },
             "push_config_with_components" => DeploymentAuditLogEvent::PushConfigWithComponents {
-                component_diffs: ConvexObject::try_from(fields)?.try_into()?,
+                diffs: ConvexObject::try_from(fields)?.try_into()?,
             },
             "build_indexes" => {
                 let added_indexes = remove_vec(&mut fields, "added_indexes")?
@@ -482,14 +481,15 @@ impl TryFrom<SerializedIndexDiff> for AuditLogIndexDiff {
     any(test, feature = "testing"),
     derive(proptest_derive::Arbitrary, PartialEq)
 )]
-pub struct ComponentDiffs {
+pub struct PushComponentDiffs {
+    pub auth_diff: AuthDiff,
     pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
 }
 
-impl TryFrom<SerializedComponentDiffs> for ComponentDiffs {
+impl TryFrom<SerializedPushComponentDiffs> for PushComponentDiffs {
     type Error = anyhow::Error;
 
-    fn try_from(value: SerializedComponentDiffs) -> anyhow::Result<Self> {
+    fn try_from(value: SerializedPushComponentDiffs) -> anyhow::Result<Self> {
         let component_diffs = value
             .component_diffs
             .into_iter()
@@ -504,7 +504,10 @@ impl TryFrom<SerializedComponentDiffs> for ComponentDiffs {
                 },
             )
             .collect::<anyhow::Result<BTreeMap<ComponentPath, ComponentDiff>>>()?;
-        Ok(ComponentDiffs { component_diffs })
+        Ok(PushComponentDiffs {
+            auth_diff: value.auth_diff.unwrap_or_default(),
+            component_diffs,
+        })
     }
 }
 
@@ -514,15 +517,17 @@ struct ComponentPathAndDiff {
     component_diff: SerializedComponentDiff,
 }
 #[derive(Serialize, Deserialize)]
-struct SerializedComponentDiffs {
+struct SerializedPushComponentDiffs {
+    auth_diff: Option<AuthDiff>,
     component_diffs: Vec<ComponentPathAndDiff>,
 }
 
-impl TryFrom<ComponentDiffs> for SerializedComponentDiffs {
+impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
     type Error = anyhow::Error;
 
-    fn try_from(component_diffs: ComponentDiffs) -> anyhow::Result<Self> {
-        let component_diffs = component_diffs
+    fn try_from(value: PushComponentDiffs) -> anyhow::Result<Self> {
+        let auth_diff = value.auth_diff;
+        let component_diffs = value
             .component_diffs
             .into_iter()
             .map(|(path, diff)| {
@@ -534,11 +539,18 @@ impl TryFrom<ComponentDiffs> for SerializedComponentDiffs {
                 })
             })
             .collect::<anyhow::Result<Vec<ComponentPathAndDiff>>>()?;
-        Ok(SerializedComponentDiffs { component_diffs })
+        Ok(SerializedPushComponentDiffs {
+            auth_diff: Some(auth_diff),
+            component_diffs,
+        })
     }
 }
 
-codegen_convex_serialization!(ComponentDiffs, SerializedComponentDiffs, test_cases = 16);
+codegen_convex_serialization!(
+    PushComponentDiffs,
+    SerializedPushComponentDiffs,
+    test_cases = 16
+);
 
 #[cfg(test)]
 mod tests {

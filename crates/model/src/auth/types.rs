@@ -53,10 +53,10 @@ impl TryFrom<AuthInfoPersisted> for ConvexObject {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[cfg_attr(
     any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq, Default)
+    derive(proptest_derive::Arbitrary, PartialEq)
 )]
 pub struct AuthDiff {
     pub added: Vec<String>,

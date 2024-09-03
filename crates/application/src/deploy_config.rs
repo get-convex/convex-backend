@@ -79,8 +79,8 @@ use model::{
         ModuleConfig,
     },
     deployment_audit_log::types::{
-        ComponentDiffs,
         DeploymentAuditLogEvent,
+        PushComponentDiffs,
     },
     environment_variables::EnvironmentVariablesModel,
     external_packages::types::ExternalDepsPackageId,
@@ -528,14 +528,13 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         if !dry_run {
-            let diffs = ComponentDiffs {
+            let diffs = PushComponentDiffs {
+                auth_diff: auth_diff.clone(),
                 component_diffs: component_diffs.clone(),
             };
             self.commit_with_audit_log_events(
                 tx,
-                vec![DeploymentAuditLogEvent::PushConfigWithComponents {
-                    component_diffs: diffs,
-                }],
+                vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }],
                 WriteSource::new("finish_push"),
             )
             .await?;

@@ -73,7 +73,7 @@ export const indexDiff = v.object({
   removed_indexes: indexConfigs,
 });
 
-const authDiff = v.object({
+export const authDiff = v.object({
   added: v.array(v.string()),
   removed: v.array(v.string()),
 });
@@ -124,6 +124,7 @@ export const pushConfigWithComponents = v.object({
   action: v.literal("push_config_with_components"),
   member_id: v.int64(),
   metadata: v.object({
+    auth_diff: v.optional(authDiff),
     component_diffs: v.array(
       v.object({
         component_path: v.union(v.string(), v.null()),
