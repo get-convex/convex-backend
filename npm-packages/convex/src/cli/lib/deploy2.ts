@@ -110,7 +110,12 @@ export async function waitForSchema(
         // Schema validation failed. This could be either because the data
         // is bad or the schema is wrong. Classify this as a filesystem error
         // because adjusting `schema.ts` is the most normal next step.
-        logFailure(ctx, "Schema validation failed");
+        let msg = "Schema validation failed";
+        if (currentStatus.componentPath) {
+          msg += ` in component "${currentStatus.componentPath}"`;
+        }
+        msg += ".";
+        logFailure(ctx, msg);
         logError(ctx, chalk.red(`${currentStatus.error}`));
         return await ctx.crash({
           exitCode: 1,
