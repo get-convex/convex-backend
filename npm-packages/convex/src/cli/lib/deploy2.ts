@@ -4,7 +4,12 @@ import {
   logError,
   logFailure,
 } from "../../bundler/context.js";
-import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
+import {
+  deploymentFetch,
+  ErrorData,
+  logAndHandleFetchError,
+  ThrowingFetchError,
+} from "./utils/utils.js";
 import {
   schemaStatus,
   SchemaStatus,
@@ -17,6 +22,8 @@ import {
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
 import chalk from "chalk";
+import { getTargetDeploymentName } from "./deployment.js";
+import { deploymentDashboardUrlPage } from "../dashboard.js";
 
 /** Push configuration2 to the given remote origin. */
 export async function startPush(
@@ -44,7 +51,34 @@ export async function startPush(
     });
     return startPushResponse.parse(await response.json());
   } catch (error: unknown) {
-    // TODO incorporate AuthConfigMissingEnvironmentVariable logic
+    const data: ErrorData | undefined =
+      error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
+    if (data?.code === "AuthConfigMissingEnvironmentVariable") {
+      const errorMessage = data.message || "(no error message given)";
+      // If `npx convex dev` is running using --url there might not be a configured deployment
+      const configuredDeployment = getTargetDeploymentName();
+      const [, variableName] =
+        errorMessage.match(/Environment variable (\S+)/i) ?? [];
+      const variableQuery =
+        variableName !== undefined ? `?var=${variableName}` : "";
+      const dashboardUrl = deploymentDashboardUrlPage(
+        configuredDeployment,
+        `/settings/environment-variables${variableQuery}`,
+      );
+      const message =
+        `Environment variable ${chalk.bold(
+          variableName,
+        )} is used in auth config file but ` +
+        `its value was not set. Go to:\n\n    ${chalk.bold(
+          dashboardUrl,
+        )}\n\n  to set it up. `;
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem or env vars",
+        errForSentry: error,
+        printedMessage: message,
+      });
+    }
     logFailure(ctx, "Error: Unable to start push to " + url);
     return await logAndHandleFetchError(ctx, error);
   }
