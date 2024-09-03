@@ -64,7 +64,7 @@ function useUseAuthFromClerk(useAuth: UseAuth) {
                 template: "convex",
                 skipCache: forceRefreshToken,
               });
-            } catch (error) {
+            } catch {
               return null;
             }
           },

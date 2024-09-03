@@ -1,11 +1,7 @@
-import { Command, Option } from "@commander-js/extra-typings";
+import { Command, Option, OptionValues } from "@commander-js/extra-typings";
 
 declare module "@commander-js/extra-typings" {
-  interface Command<
-    Args extends any[] = [],
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    Opts extends OptionValues = {},
-  > {
+  interface Command<Args extends any[] = [], Opts extends OptionValues = {}> {
     /**
      * For a command that talks to the configured dev deployment by default,
      * add flags for talking to prod, preview, or other deployment in the same

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { assert, Equals } from "../test/type_testing.js";
 import { describe, test } from "vitest";
 import {
@@ -16,8 +17,6 @@ import {
   PartialApi,
   ConvertReturnType,
 } from "./api.js";
-
-/* eslint-disable @typescript-eslint/ban-types */
 
 test("PartialApi", () => {
   const api = {

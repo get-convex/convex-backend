@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-syntax */
 import { Command } from "@commander-js/extra-typings";
 import { init } from "./init.js";
 import { dashboard } from "./dashboard.js";

@@ -1,7 +1,6 @@
 /**
  * @vitest-environment custom-vitest-environment.ts
  */
-/* eslint-disable @typescript-eslint/ban-types */
 import { expect, vi, test, describe, beforeEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import React from "react";

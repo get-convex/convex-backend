@@ -1,6 +1,5 @@
 import { test, expect, describe, beforeEach, afterEach } from "vitest";
 import { oneoffContext } from "../../bundler/context.js";
-// eslint-disable-next-line no-restricted-imports
 import fs from "fs";
 import os from "os";
 import path from "path";

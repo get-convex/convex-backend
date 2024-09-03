@@ -225,7 +225,7 @@ export async function findExactVersionAndDependencies(
   try {
     const packageJsonString = ctx.fs.readUtf8File(modulePackageJsonPath);
     modulePackageJson = JSON.parse(packageJsonString);
-  } catch (error: any) {
+  } catch {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",

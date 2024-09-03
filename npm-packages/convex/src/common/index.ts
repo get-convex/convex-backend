@@ -46,7 +46,7 @@ export function validateDeploymentUrl(deploymentUrl: string) {
   // common failure pattern.
   try {
     new URL(deploymentUrl);
-  } catch (err) {
+  } catch {
     throw new Error(
       `Invalid deployment address: "${deploymentUrl}" is not a valid URL. If you believe this URL is correct, use the \`skipConvexDeploymentUrlCheck\` option to bypass this.`,
     );

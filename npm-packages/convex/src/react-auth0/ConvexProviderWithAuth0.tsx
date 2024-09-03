@@ -47,7 +47,7 @@ function useAuthFromAuth0() {
           cacheMode: forceRefreshToken ? "off" : "on",
         });
         return response.id_token as string;
-      } catch (error) {
+      } catch {
         return null;
       }
     },

@@ -155,11 +155,8 @@ export type SearchIndex = {
  */
 export class TableDefinition<
   DocumentType extends Validator<any, any, any> = Validator<any, any, any>,
-  // eslint-disable-next-line @typescript-eslint/ban-types
   Indexes extends GenericTableIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
   SearchIndexes extends GenericTableSearchIndexes = {},
-  // eslint-disable-next-line @typescript-eslint/ban-types
   VectorIndexes extends GenericTableVectorIndexes = {},
 > {
   private indexes: Index[];
@@ -564,7 +561,7 @@ type MaybeMakeLooseDataModel<
   ? DataModel
   : Expand<DataModel & AnyDataModel>;
 
-const systemSchema = defineSchema({
+const _systemSchema = defineSchema({
   _scheduled_functions: defineTable({
     name: v.string(),
     args: v.array(v.any()),
@@ -586,6 +583,6 @@ const systemSchema = defineSchema({
 });
 
 export interface SystemDataModel
-  extends DataModelFromSchemaDefinition<typeof systemSchema> {}
+  extends DataModelFromSchemaDefinition<typeof _systemSchema> {}
 
 export type SystemTableNames = TableNamesInDataModel<SystemDataModel>;

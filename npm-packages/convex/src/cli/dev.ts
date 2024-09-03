@@ -229,7 +229,6 @@ export async function watchAndPush(
   let tableNameTriggeringRetry;
   let shouldRetryOnDeploymentEnvVarChange;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const start = performance.now();
     tableNameTriggeringRetry = null;
@@ -457,7 +456,6 @@ function getFileSystemWatch(
       // drop filesystem events at this stage since we're already committed to doing
       // a push and resubscribing based on that push's observations.
       let deadline = performance.now() + quiescenceDelay;
-      // eslint-disable-next-line no-constant-condition
       while (true) {
         const now = performance.now();
         if (now >= deadline) {

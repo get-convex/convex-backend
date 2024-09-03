@@ -404,7 +404,7 @@ export class AuthenticationManager {
   private decodeToken(token: string) {
     try {
       return jwtDecode(token);
-    } catch (e) {
+    } catch {
       return null;
     }
   }

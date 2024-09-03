@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-types */
 import { GenericId } from "../values/index.js";
 import { describe, test } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
@@ -35,10 +34,10 @@ describe("Validators", () => {
 
     // Note: this test does not actually verify this property unless
     // the tsconfig.json option `"exactOptionalPropertyTypes": true` is used.
-    const optionals = v.object({ a, b, c, d, e, f, g, h, i, j, k, l });
+    const _optionals = v.object({ a, b, c, d, e, f, g, h, i, j, k, l });
     assert<
       Equals<
-        Infer<typeof optionals>,
+        Infer<typeof _optionals>,
         {
           a?: GenericId<"a">;
           b?: null;
@@ -85,7 +84,7 @@ describe("Validators", () => {
   });
 
   test("complex types look good", () => {
-    const obj = v.object({
+    const _obj = v.object({
       a: v.record(v.string(), v.string()),
       b: v.string(),
       c: v.union(v.string(), v.union(v.string(), v.number())),
@@ -101,6 +100,6 @@ describe("Validators", () => {
         foo: string;
       };
     };
-    assert<Equals<Infer<typeof obj>, Expected>>();
+    assert<Equals<Infer<typeof _obj>, Expected>>();
   });
 });

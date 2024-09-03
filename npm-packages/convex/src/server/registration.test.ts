@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { test, describe, expect } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
 import { v } from "../values/validator.js";
@@ -203,7 +204,6 @@ describe("argument inference", () => {
 
   test("config with no arg and validator", () => {
     type Args = API["module"]["configValidatorNoArg"]["_args"];
-    // eslint-disable-next-line @typescript-eslint/ban-types
     type ExpectedArgs = {};
     assert<Equals<Args, ExpectedArgs>>;
   });

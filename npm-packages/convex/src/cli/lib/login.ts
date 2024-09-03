@@ -148,7 +148,7 @@ async function performDeviceAuthorization(
       scope: SCOPE,
       audience: AUDIENCE,
     });
-  } catch (error) {
+  } catch {
     // We couldn't get verification URL from Auth0, proceed with manual auth
     return promptString(ctx, {
       message:
@@ -183,7 +183,7 @@ async function performDeviceAuthorization(
     try {
       await open(verification_uri_complete);
       changeSpinner(ctx, "Waiting for the confirmation...");
-    } catch (err: unknown) {
+    } catch {
       logError(ctx, chalk.red(`Unable to open browser.`));
       changeSpinner(
         ctx,

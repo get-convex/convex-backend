@@ -8,14 +8,14 @@ import {
 } from "./impl/registration_impl.js";
 import { EmptyObject } from "./registration.js";
 
-const myModule = {
+const _myModule = {
   query: queryGeneric((_) => false),
   action: actionGeneric((_) => "result"),
   mutation: mutationGeneric((_) => 123),
 };
 
 type API = ApiFromModules<{
-  myModule: typeof myModule;
+  myModule: typeof _myModule;
 }>;
 
 type SchedulableAPI = ReturnType<typeof justSchedulable<API>>;

@@ -192,7 +192,6 @@ export const convexImport = new Command("import")
       showSpinner(ctx, state.progress_message ?? "Importing");
       return checkpointCount;
     };
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const snapshotImportState = await waitForStableImportState(ctx, {
         importId,

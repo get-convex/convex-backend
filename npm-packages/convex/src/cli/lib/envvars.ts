@@ -7,7 +7,7 @@ import * as dotenv from "dotenv";
 import { Context, logWarning } from "../../bundler/context.js";
 import { loadPackageJson } from "./utils/utils.js";
 
-const FRAMEWORKS = [
+const _FRAMEWORKS = [
   "create-react-app",
   "Next.js",
   "Vite",
@@ -15,7 +15,7 @@ const FRAMEWORKS = [
   "SvelteKit",
   "Expo",
 ] as const;
-type Framework = (typeof FRAMEWORKS)[number];
+type Framework = (typeof _FRAMEWORKS)[number];
 
 type ConvexUrlWriteConfig = {
   envFile: string;

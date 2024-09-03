@@ -1,5 +1,3 @@
-/* eslint-disable no-var */
-
 /*
 https://github.com/beatgammit/base64-js/blob/88957c9943c7e2a0f03cdf73e71d579e433627d3/index.js
 Copyright (c) 2014 Jameson Little

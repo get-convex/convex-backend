@@ -49,7 +49,6 @@ async function flushAndExit(exitCode: number, err?: any) {
     Sentry.captureException(err);
   }
   await Sentry.close();
-  // eslint-disable-next-line no-restricted-syntax
   return process.exit(exitCode);
 }
 

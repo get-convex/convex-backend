@@ -90,7 +90,7 @@ export class ThrowingFetchError extends Error {
     let code, message;
     try {
       ({ code, message } = await response.json());
-    } catch (e: unknown) {
+    } catch {
       // Do nothing because the non-2XX response code is the primary error here.
     }
     return new ThrowingFetchError(msg, { code, message, response });
@@ -312,7 +312,7 @@ export async function hasProject(
       url: `teams/${teamSlug}/projects`,
     });
     return !!projects.find((project) => project.slug === projectSlug);
-  } catch (e) {
+  } catch {
     return false;
   }
 }
@@ -481,7 +481,7 @@ async function readGlobalConfig(ctx: Context): Promise<GlobalConfig | null> {
   let configFile;
   try {
     configFile = ctx.fs.readUtf8File(configPath);
-  } catch (err) {
+  } catch {
     return null;
   }
   try {

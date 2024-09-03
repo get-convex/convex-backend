@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/ban-types */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { GenericId } from "../values/index.js";
 import { describe, expect, test } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";

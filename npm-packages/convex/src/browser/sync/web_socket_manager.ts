@@ -321,7 +321,6 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        // eslint-disable-next-line  @typescript-eslint/no-unused-vars
         const _: never = this.socket;
       }
     }
@@ -367,7 +366,6 @@ export class WebSocketManager {
       }
       default: {
         // Enforce that the switch-case is exhaustive.
-        // eslint-disable-next-line  @typescript-eslint/no-unused-vars
         const _: never = this.socket;
         return Promise.resolve();
       }

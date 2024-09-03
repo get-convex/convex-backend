@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { GenericId } from "../values/index.js";
 import { test } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
@@ -14,11 +15,8 @@ type DataModel = {
   messages: {
     document: Message;
     fieldPaths: "body" | "_id";
-    // eslint-disable-next-line @typescript-eslint/ban-types
     indexes: {};
-    // eslint-disable-next-line @typescript-eslint/ban-types
     searchIndexes: {};
-    // eslint-disable-next-line @typescript-eslint/ban-types
     vectorIndexes: {};
   };
 };
@@ -100,7 +98,6 @@ test("can get() from system tables", () => {
 });
 
 test("system-level database reader can only get() from system tables", () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function get(db: DB, tableId: Id<TableNamesInDataModel<DataModel>>) {
     // @ts-expect-error We cannot query user tables from system GenericDatabaseReader
     return db.system.get(tableId);
@@ -108,7 +105,6 @@ test("system-level database reader can only get() from system tables", () => {
 });
 
 test("system-level database reader can only query() from system tables", () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function collect(db: DB, tableName: TableNamesInDataModel<DataModel>) {
     // @ts-expect-error We cannot query user tables from system GenericDatabaseReader
     return db.system.query(tableName).collect();

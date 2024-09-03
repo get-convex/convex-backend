@@ -48,7 +48,7 @@ export async function watchLogs(
       } else {
         processLogs(ctx, entries, dest, options?.success === true);
       }
-    } catch (e) {
+    } catch {
       numFailures += 1;
     }
     // Handle backoff

@@ -59,7 +59,7 @@ export async function typeCheckFunctionsInMode(
           if (result === "success") {
             return;
           }
-        } catch (e) {
+        } catch {
           // As expected, `runOnError` threw
         }
         await ctx.crash({
@@ -165,7 +165,7 @@ async function runTscInner(
     try {
       st = ctx.fs.stat(absPath);
       anyPathsFound = true;
-    } catch (err: any) {
+    } catch {
       // Just move on if we have a bogus path from `tsc`. We'll log below if
       // we fail to stat *any* of the paths emitted by `tsc`.
       // TODO: Switch to using their JS API so we can get machine readable output.

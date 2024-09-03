@@ -243,11 +243,8 @@ export type AnyDataModel = {
   [tableName: string]: {
     document: any;
     fieldPaths: GenericFieldPaths;
-    // eslint-disable-next-line @typescript-eslint/ban-types
     indexes: {};
-    // eslint-disable-next-line @typescript-eslint/ban-types
     searchIndexes: {};
-    // eslint-disable-next-line @typescript-eslint/ban-types
     vectorIndexes: {};
   };
 };

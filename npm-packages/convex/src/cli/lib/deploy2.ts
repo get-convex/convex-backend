@@ -66,7 +66,6 @@ export async function waitForSchema(
     "Backfilling indexes and checking that documents match your schema...",
   );
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     let currentStatus: SchemaStatus;
     try {

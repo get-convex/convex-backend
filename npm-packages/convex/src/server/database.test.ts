@@ -8,11 +8,8 @@ type CreateDataModel<Document> = {
   tableName: {
     document: Document;
     fieldPaths: "body" | "_id";
-    // eslint-disable-next-line @typescript-eslint/ban-types
     indexes: {};
-    // eslint-disable-next-line @typescript-eslint/ban-types
     searchIndexes: {};
-    // eslint-disable-next-line @typescript-eslint/ban-types
     vectorIndexes: {};
   };
 };

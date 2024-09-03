@@ -65,7 +65,7 @@ export interface InitCtx {}
  * convex.config.ts file in a component definition directory.
  *
  * @internal
- */ // eslint-disable-next-line @typescript-eslint/ban-types
+ */
 export type ComponentDefinition<Exports extends ComponentExports = any> = {
   /**
    * Install a component with the given definition in this component definition.
@@ -323,7 +323,6 @@ type RuntimeAppDefinition = AppDefinition &
 /**
  * @internal
  */
-// eslint-disable-next-line @typescript-eslint/ban-types
 export function defineComponent<Exports extends ComponentExports = any>(
   name: string,
 ): ComponentDefinition<Exports> {

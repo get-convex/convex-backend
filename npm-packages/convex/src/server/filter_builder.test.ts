@@ -21,11 +21,8 @@ type TableInfo = {
     | "bigintField"
     | "nestedObject"
     | "nestedObject.numberField";
-  // eslint-disable-next-line @typescript-eslint/ban-types
   indexes: {};
-  // eslint-disable-next-line @typescript-eslint/ban-types
   searchIndexes: {};
-  // eslint-disable-next-line @typescript-eslint/ban-types
   vectorIndexes: {};
 };
 

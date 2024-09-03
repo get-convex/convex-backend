@@ -1,5 +1,7 @@
 import { PluginBuild } from "esbuild";
 import path from "path";
+// TODO wasm contents aren't watched
+// eslint-disable-next-line no-restricted-imports
 import fs from "fs";
 
 export const wasmPlugin = {

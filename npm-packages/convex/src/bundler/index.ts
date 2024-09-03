@@ -127,7 +127,7 @@ async function doEsbuild(
       externalModuleNames: external.externalModuleNames,
       bundledModuleNames: external.bundledModuleNames,
     };
-  } catch (err) {
+  } catch {
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",

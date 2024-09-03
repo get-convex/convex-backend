@@ -50,7 +50,6 @@ export class Watcher {
     // definitely true on Mac with its FSEvents-based watcher.
     // TODO (CX-2151): Verify this condition on Windows and Linux.
     let curPath = observedPath;
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       const parsed = path.parse(curPath);
 

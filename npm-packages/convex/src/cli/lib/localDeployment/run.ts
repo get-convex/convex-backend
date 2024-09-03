@@ -206,7 +206,7 @@ export async function ensureBackendRunning(
         await new Promise((resolve) => setTimeout(resolve, 500));
         timeElapsedSecs += 0.5;
       }
-    } catch (e) {
+    } catch {
       await new Promise((resolve) => setTimeout(resolve, 500));
       timeElapsedSecs += 0.5;
     }

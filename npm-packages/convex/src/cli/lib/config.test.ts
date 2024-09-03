@@ -11,7 +11,6 @@ test("parseProjectConfig", async () => {
       if (args.printedMessage !== null) {
         logFailure(oneoffContext, args.printedMessage);
       }
-      // eslint-disable-next-line no-restricted-syntax
       throw new Error();
     },
   };

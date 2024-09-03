@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-syntax */
 import { test, expect } from "vitest";
 import fs from "fs";
 import os from "os";
