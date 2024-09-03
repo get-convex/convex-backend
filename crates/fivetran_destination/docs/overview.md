@@ -1,46 +1,40 @@
 ---
 name: Convex
-title: Convex destination connector for Fivetran
-description: Documentation and setup guide for the Convex destination connector for Fivetran
+title: Fivetran for Convex | Configuration and documentation
+description: Connect data sources to Convex with our partner-built Convex destination connector. Explore documentation and start syncing your applications, databases, events, files, and more.
+menuPosition: 55
+hidden: true
 ---
 
 # Convex {% typeBadge connector="convex_destination" /%} {% availabilityBadge connector="convex_destination" /%}
 
-[Convex](https://convex.dev) is an all-in-one backend platform with thoughtful, product-centric APIs.
+[Convex](https://convex.dev) is a full-stack TypeScript development platform with product-centric APIs. It can replace your database and server functions.
 
-Note that Convex can also be set up as a [source](/docs/databases/convex)
+> NOTE: Fivetran supports Convex as both a partner-built [database connector](/docs/databases/convex) and a destination.
+
+> NOTE: This destination is [partner-built](/docs/partner-built-program). For any questions related to the Convex destination and its documentation, refer to Convex's support team. For SLA details, see [Convex's Status and Guarantees documentation](https://docs.convex.dev/production/state).
 
 ---
 
 ## Setup guide
 
-Follow our [step-by-step Convex setup guide](/docs/destinations/convex_destination/setup-guide) to connect Convex as a destination with Fivetran.
-
----
-
-## Sync overview
-
-Once Fivetran is connected to your Convex destination, the connector will attempt to sync your data.
-It may ask you to update your `convex/schema.ts` in your deployment to match the format of your source.
-Once the `convex/schema.ts` matches, data will continu to sync.
-
----
-
-## Configuration
-
-You will need your deployment URL and deploy key in order to configure the Convex Connector for Fivetran. You can find both on your project's [Production Deployment Settings page](https://docs.convex.dev/dashboard/deployments/deployment-settings).
+Follow our [step-by-step Convex setup guide](/docs/destinations/convex/setup-guide) to connect Convex as a destination with Fivetran.
 
 ---
 
 ## Schema information
 
-Fivetran tries to replicate the database and columns from your configured source to your destination Convex according to Fivetran's [standard database update strategies](/docs/databases#transformationandmappingoverview).
+Fivetran tries to replicate the database and columns from your data source to your Convex destination according to Fivetran's [standard database update strategies](/docs/databases#transformationandmappingoverview).
 
-### Type transformations and mapping
+Once Fivetran connects to your Convex destination, the connector will attempt to load your data.
+It may ask you to update your `convex/schema.ts` in your destination to match the format of your source.
+Once the `convex/schema.ts` matches the source format, data will continue to sync.
 
-As the connector extracts your data from your source, it matches the supported Fivetran types to [Convex data types](https://docs.convex.dev/database/types).
+### Type transformation mapping
 
-The following table illustrates how the connector transforms the Fivetran data types into Convex data types.
+The Convex destination extracts data from your source, and it matches supported [Fivetran data types](/docs/destinations#datatypes) to [Convex data types](https://docs.convex.dev/database/types).
+
+We use the following data type conversions:
 
 | Fivetran Type | Convex Type | Equivalence |
 | ------------- | ----------- | ----------- |
@@ -59,22 +53,22 @@ The following table illustrates how the connector transforms the Fivetran data t
 | NULL          | Null        | Exact       |
 | JSON          | Object      | Inexact     |
 
-> NOTE: Short/Int are converted to float64 for ease of use in javascript (as `number`). There is no data loss as Number.MAX_SAFE_INTEGER = 2^53 - 1.
-> NOTE: Decimal is converted to string to ensure no data loss. Eg "1234.5678"
-> NOTE: Naive date uses standard string representation of YYYY-MM-DD.
-> NOTE: Naive datetime uses standard string representation of YYYY-MM-DD HH:MM:SS.
-> NOTE: UTC datetime uses milliseconds since UNIX epoch
+> NOTE: Short/Int are converted to float64 for ease of use in javascript (as `number`). There is no data loss as `Number.MAX_SAFE_INTEGER = 2^53 - 1`. Decimal is converted to STRING to ensure no data loss (e.g. "1234.5678").
+
+> NOTE: Naive date uses standard string representation of `YYYY-MM-DD`. Naive datetime uses standard string representation of `YYYY-MM-DD HH:MM:SS`.
+
+> NOTE: UTC datetime uses milliseconds since UNIX epoch.
 
 ### Fivetran-generated data
 
 Fivetran adds a single `fivetran` column containing a Convex object to the source data.
-Some of the fields (`synced`, `deleted`) are for internal purposes.
+Some of the columns (`synced`, `deleted`) are for internal purposes.
 
 ### Table and column name transformations
 
-If your source table is `default.cars`, then your convex table will be named `default_cars`.
+If your source table is `default.cars`, then your Convex table will be named `default_cars`.
 Convex deployments do not have a concept of namespaced tables, so it uses this notation to preserve
 the namespace information.
 
-Columns names that begin with `_` are not supported in Convex. Instead, those columns are synced to the
-destination nested within the `fivetran.columns` column. For example, a column named `_line` would end up in the `fivetran.columns.line` nested column.
+Column names that begin with `_` are not supported in Convex. Instead, those columns are synced to the
+destination nested within the `fivetran.columns` column. For example, a column named `_line` would be synced as a nested column named `fivetran.columns.line`.
