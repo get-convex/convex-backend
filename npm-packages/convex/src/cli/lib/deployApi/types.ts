@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { looseObject } from "./utils.js";
 
 export const reference = z.string();
 export type Reference = z.infer<typeof reference>;
 
-export const authInfo = z.object({
+export const authInfo = looseObject({
   applicationID: z.string(),
   domain: z.string(),
 });

@@ -7,10 +7,14 @@ import {
   componentPath,
 } from "./paths.js";
 import { Identifier, identifier } from "./types.js";
+import { looseObject } from "./utils.js";
 
 export const resource = z.union([
-  z.object({ type: z.literal("value"), value: z.string() }),
-  z.object({ type: z.literal("function"), path: componentFunctionPath }),
+  looseObject({ type: z.literal("value"), value: z.string() }),
+  looseObject({
+    type: z.literal("function"),
+    path: componentFunctionPath,
+  }),
 ]);
 export type Resource = z.infer<typeof resource>;
 
@@ -19,23 +23,23 @@ export type CheckedExport =
   | { type: "leaf"; resource: Resource };
 export const checkedExport: z.ZodType<CheckedExport> = z.lazy(() =>
   z.union([
-    z.object({
+    looseObject({
       type: z.literal("branch"),
       children: z.record(identifier, checkedExport),
     }),
-    z.object({
+    looseObject({
       type: z.literal("leaf"),
       resource,
     }),
   ]),
 );
 
-export const httpActionRoute = z.object({
+export const httpActionRoute = looseObject({
   method: z.string(),
   path: z.string(),
 });
 
-export const checkedHttpRoutes = z.object({
+export const checkedHttpRoutes = looseObject({
   httpModuleRoutes: z.nullable(z.array(httpActionRoute)),
   mounts: z.array(z.string()),
 });
@@ -48,7 +52,7 @@ export type CheckedComponent = {
   childComponents: Record<Identifier, CheckedComponent>;
 };
 export const checkedComponent: z.ZodType<CheckedComponent> = z.lazy(() =>
-  z.object({
+  looseObject({
     definitionPath: componentDefinitionPath,
     componentPath,
     args: z.record(identifier, resource),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { looseObject } from "./utils.js";
 
 export const moduleEnvironment = z.union([
   z.literal("isolate"),
@@ -6,7 +7,7 @@ export const moduleEnvironment = z.union([
 ]);
 export type ModuleEnvironment = z.infer<typeof moduleEnvironment>;
 
-export const moduleConfig = z.object({
+export const moduleConfig = looseObject({
   path: z.string(),
   source: z.string(),
   sourceMap: z.optional(z.string()),
@@ -14,13 +15,13 @@ export const moduleConfig = z.object({
 });
 export type ModuleConfig = z.infer<typeof moduleConfig>;
 
-export const nodeDependency = z.object({
+export const nodeDependency = looseObject({
   name: z.string(),
   version: z.string(),
 });
 export type NodeDependency = z.infer<typeof nodeDependency>;
 
-export const udfConfig = z.object({
+export const udfConfig = looseObject({
   serverVersion: z.string(),
   // RNG seed encoded as Convex bytes in JSON.
   importPhaseRngSeed: z.any(),
@@ -33,12 +34,12 @@ export const sourcePackage = z.any();
 export type SourcePackage = z.infer<typeof sourcePackage>;
 
 export const visibility = z.union([
-  z.object({ kind: z.literal("public") }),
-  z.object({ kind: z.literal("internal") }),
+  looseObject({ kind: z.literal("public") }),
+  looseObject({ kind: z.literal("internal") }),
 ]);
 export type Visibility = z.infer<typeof visibility>;
 
-export const analyzedFunction = z.object({
+export const analyzedFunction = looseObject({
   name: z.string(),
   pos: z.any(),
   udfType: z.union([
@@ -52,7 +53,7 @@ export const analyzedFunction = z.object({
 });
 export type AnalyzedFunction = z.infer<typeof analyzedFunction>;
 
-export const analyzedModule = z.object({
+export const analyzedModule = looseObject({
   functions: z.array(analyzedFunction),
   httpRoutes: z.any(),
   cronSpecs: z.any(),

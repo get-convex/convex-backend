@@ -8,8 +8,9 @@ import {
   componentDefinitionConfig,
 } from "./definitionConfig.js";
 import { authInfo } from "./types.js";
+import { looseObject } from "./utils.js";
 
-export const startPushRequest = z.object({
+export const startPushRequest = looseObject({
   adminKey: z.string(),
   dryRun: z.boolean(),
 
@@ -22,13 +23,13 @@ export const startPushRequest = z.object({
 });
 export type StartPushRequest = z.infer<typeof startPushRequest>;
 
-export const schemaChange = z.object({
+export const schemaChange = looseObject({
   allocatedComponentIds: z.any(),
   schemaIds: z.any(),
 });
 export type SchemaChange = z.infer<typeof schemaChange>;
 
-export const startPushResponse = z.object({
+export const startPushResponse = looseObject({
   environmentVariables: z.record(z.string(), z.string()),
 
   externalDepsId: z.nullable(z.string()),
@@ -43,7 +44,7 @@ export const startPushResponse = z.object({
 });
 export type StartPushResponse = z.infer<typeof startPushResponse>;
 
-export const componentSchemaStatus = z.object({
+export const componentSchemaStatus = looseObject({
   schemaValidationComplete: z.boolean(),
   indexesComplete: z.number(),
   indexesTotal: z.number(),
@@ -51,20 +52,20 @@ export const componentSchemaStatus = z.object({
 export type ComponentSchemaStatus = z.infer<typeof componentSchemaStatus>;
 
 export const schemaStatus = z.union([
-  z.object({
+  looseObject({
     type: z.literal("inProgress"),
     components: z.record(componentPath, componentSchemaStatus),
   }),
-  z.object({
+  looseObject({
     type: z.literal("failed"),
     error: z.string(),
     componentPath,
     tableName: z.nullable(z.string()),
   }),
-  z.object({
+  looseObject({
     type: z.literal("raceDetected"),
   }),
-  z.object({
+  looseObject({
     type: z.literal("complete"),
   }),
 ]);
