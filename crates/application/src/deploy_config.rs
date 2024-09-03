@@ -476,6 +476,7 @@ impl<RT: Runtime> Application<RT> {
     #[minitrace::trace]
     pub async fn finish_push(
         &self,
+        identity: Identity,
         start_push: StartPushResponse,
         dry_run: bool,
     ) -> anyhow::Result<FinishPushDiff> {
@@ -492,8 +493,7 @@ impl<RT: Runtime> Application<RT> {
             downloaded_source_packages.insert(definition_path.clone(), package);
         }
 
-        // TODO: We require system identity for creating system tables.
-        let mut tx = self.begin(Identity::system()).await?;
+        let mut tx = self.begin(identity.clone()).await?;
 
         // Validate that environment variables haven't changed since `start_push`.
         let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;

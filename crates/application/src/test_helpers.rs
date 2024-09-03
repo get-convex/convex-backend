@@ -338,7 +338,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 _ => anyhow::bail!("Unexpected schema status: {schema_status:?}"),
             }
         }
-        self.finish_push(start_push, false).await?;
+        self.finish_push(Identity::system(), start_push, false)
+            .await?;
         Ok(())
     }
 

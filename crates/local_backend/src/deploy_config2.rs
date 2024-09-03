@@ -236,7 +236,7 @@ pub async fn finish_push(
     State(st): State<LocalAppState>,
     Json(req): Json<FinishPushRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let _identity = must_be_admin_from_key_with_write_access(
+    let identity = must_be_admin_from_key_with_write_access(
         st.application.app_auth(),
         st.instance_name.clone(),
         req.admin_key.clone(),
@@ -246,7 +246,7 @@ pub async fn finish_push(
     let start_push = StartPushResponse::try_from(req.start_push)?;
     let resp = st
         .application
-        .finish_push(start_push, dry_run)
+        .finish_push(identity, start_push, dry_run)
         .await
         .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
     Ok(Json(SerializedFinishPushDiff::try_from(resp)?))
