@@ -483,6 +483,11 @@ impl TryFrom<SerializedIndexDiff> for AuditLogIndexDiff {
 )]
 pub struct PushComponentDiffs {
     pub auth_diff: AuthDiff,
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "prop::collection::btree_map(any::<ComponentPath>(), \
+                             any::<ComponentDiff>(), 0..4)")
+    )]
     pub component_diffs: BTreeMap<ComponentPath, ComponentDiff>,
 }
 
@@ -546,11 +551,7 @@ impl TryFrom<PushComponentDiffs> for SerializedPushComponentDiffs {
     }
 }
 
-codegen_convex_serialization!(
-    PushComponentDiffs,
-    SerializedPushComponentDiffs,
-    test_cases = 16
-);
+codegen_convex_serialization!(PushComponentDiffs, SerializedPushComponentDiffs);
 
 #[cfg(test)]
 mod tests {
