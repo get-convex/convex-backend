@@ -590,10 +590,13 @@ export type MutationBuilder<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ArgsValidator extends
+      | PropertyValidators
+      | Validator<any, "required", any>
+      | void,
     ReturnsValidator extends
       | PropertyValidators
-      | Validator<any, any, any>
+      | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
@@ -680,10 +683,13 @@ export type MutationBuilderWithTable<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ArgsValidator extends
+      | PropertyValidators
+      | Validator<any, "required", any>
+      | void,
     ReturnsValidator extends
       | PropertyValidators
-      | Validator<any, any, any>
+      | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
@@ -770,10 +776,13 @@ export type QueryBuilder<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ArgsValidator extends
+      | PropertyValidators
+      | Validator<any, "required", any>
+      | void,
     ReturnsValidator extends
       | PropertyValidators
-      | Validator<any, any, any>
+      | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
@@ -856,10 +865,13 @@ export type QueryBuilderWithTable<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ArgsValidator extends
+      | PropertyValidators
+      | Validator<any, "required", any>
+      | void,
     ReturnsValidator extends
       | PropertyValidators
-      | Validator<any, any, any>
+      | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends
@@ -942,10 +954,13 @@ export type ActionBuilder<
   Visibility extends FunctionVisibility,
 > = {
   <
-    ArgsValidator extends PropertyValidators | Validator<any, any, any> | void,
+    ArgsValidator extends
+      | PropertyValidators
+      | Validator<any, "required", any>
+      | void,
     ReturnsValidator extends
       | PropertyValidators
-      | Validator<any, any, any>
+      | Validator<any, "required", any>
       | void,
     ReturnValue extends ReturnValueForOptionalValidator<ReturnsValidator> = any,
     OneOrZeroArgs extends

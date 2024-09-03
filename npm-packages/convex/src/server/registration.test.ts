@@ -341,6 +341,35 @@ describe("argument and return value validators can be objects or validators", ()
         return { arg: arg };
       },
     }),
+
+    // This is syntx that we no longer want to support when typechecking because they result in undefined behavior.
+    mutationNoOptionalValidators: mutation({
+      // @ts-expect-error Optional validators are not supported at the top level
+      args: v.optional(v.string()),
+      // @ts-expect-error Optional validators are not supported at the top level
+      returns: v.optional(v.string()),
+      handler: () => {
+        return "result";
+      },
+    }),
+    queryNoOptionalValidators: query({
+      // @ts-expect-error Optional validators are not supported at the top level
+      args: v.optional(v.string()),
+      // @ts-expect-error Optional validators are not supported at the top level
+      returns: v.optional(v.string()),
+      handler: () => {
+        return "result";
+      },
+    }),
+    actionNoOptionalValidators: action({
+      // @ts-expect-error Optional validators are not supported at the top level
+      args: v.optional(v.string()),
+      // @ts-expect-error Optional validators are not supported at the top level
+      returns: v.optional(v.string()),
+      handler: () => {
+        return "result";
+      },
+    }),
   };
   type API = ApiFromModules<{ module: typeof module }>;
 
