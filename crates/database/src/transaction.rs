@@ -28,6 +28,10 @@ use common::{
             TABLES_TABLE,
         },
     },
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     document::{
         CreationTime,
         DocumentUpdate,
@@ -128,6 +132,7 @@ use crate::{
         TransactionWriteSize,
         Writes,
     },
+    ComponentRegistry,
     IndexModel,
     ReadSet,
     SchemaModel,
@@ -157,6 +162,7 @@ pub struct Transaction<RT: Runtime> {
     pub(crate) index: NestedWrites<TransactionIndex>,
     pub(crate) metadata: NestedWrites<TableRegistry>,
     pub(crate) schema_registry: NestedWrites<SchemaRegistry>,
+    pub(crate) component_registry: NestedWrites<ComponentRegistry>,
     pub(crate) count_snapshot: Arc<dyn TableCountSnapshot>,
     /// The change in the number of documents in table that have had writes in
     /// this transaction. If there is no entry for a table, assume deltas
@@ -195,6 +201,7 @@ pub struct SubtransactionToken {
     index: NestedWriteToken,
     tables: NestedWriteToken,
     schema_registry: NestedWriteToken,
+    component_registry: NestedWriteToken,
 }
 
 impl<RT: Runtime> Transaction<RT> {
@@ -205,6 +212,7 @@ impl<RT: Runtime> Transaction<RT> {
         index: TransactionIndex,
         metadata: TableRegistry,
         schema_registry: SchemaRegistry,
+        component_registry: ComponentRegistry,
         count: Arc<dyn TableCountSnapshot>,
         runtime: RT,
         usage_tracker: FunctionUsageTracker,
@@ -221,6 +229,7 @@ impl<RT: Runtime> Transaction<RT> {
             index: NestedWrites::new(index),
             metadata: NestedWrites::new(metadata),
             schema_registry: NestedWrites::new(schema_registry),
+            component_registry: NestedWrites::new(component_registry),
             count_snapshot: count,
             table_count_deltas: BTreeMap::new(),
             stats: BTreeMap::new(),
@@ -326,6 +335,7 @@ impl<RT: Runtime> Transaction<RT> {
             index: self.index.begin_nested(),
             tables: self.metadata.begin_nested(),
             schema_registry: self.schema_registry.begin_nested(),
+            component_registry: self.component_registry.begin_nested(),
         }
     }
 
@@ -334,6 +344,8 @@ impl<RT: Runtime> Transaction<RT> {
         self.index.commit_nested(tokens.index)?;
         self.metadata.commit_nested(tokens.tables)?;
         self.schema_registry.commit_nested(tokens.schema_registry)?;
+        self.component_registry
+            .commit_nested(tokens.component_registry)?;
         Ok(())
     }
 
@@ -343,6 +355,8 @@ impl<RT: Runtime> Transaction<RT> {
         self.metadata.rollback_nested(tokens.tables)?;
         self.schema_registry
             .rollback_nested(tokens.schema_registry)?;
+        self.component_registry
+            .rollback_nested(tokens.component_registry)?;
         Ok(())
     }
 
@@ -351,6 +365,7 @@ impl<RT: Runtime> Transaction<RT> {
         self.index.require_not_nested()?;
         self.metadata.require_not_nested()?;
         self.schema_registry.require_not_nested()?;
+        self.component_registry.require_not_nested()?;
         Ok(())
     }
 
@@ -679,6 +694,14 @@ impl<RT: Runtime> Transaction<RT> {
             .get_by_state(namespace, state, schema_tablet, &mut self.reads)
     }
 
+    pub(crate) fn get_component_path(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<ComponentPath> {
+        self.component_registry
+            .get_component_path(component_id, &mut self.reads)
+    }
+
     // XXX move to table model?
     #[cfg(any(test, feature = "testing"))]
     pub async fn create_system_table_testing(
@@ -874,6 +897,12 @@ impl<RT: Runtime> Transaction<RT> {
             old_document.as_ref(),
             new_document.as_ref(),
         )?;
+        let component_update = self.component_registry.begin_update(
+            self.metadata.table_mapping(),
+            id,
+            old_document.as_ref(),
+            new_document.as_ref(),
+        )?;
         let metadata_update = self.metadata.begin_update(
             index_update.registry(),
             id,
@@ -919,6 +948,7 @@ impl<RT: Runtime> Transaction<RT> {
         index_update.apply();
         metadata_update.apply();
         schema_update.apply();
+        component_update.apply();
 
         *self.table_count_deltas.entry(id.tablet_id).or_default() += delta;
         Ok(())

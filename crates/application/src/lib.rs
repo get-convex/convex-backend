@@ -2131,9 +2131,8 @@ impl<RT: Runtime> Application<RT> {
 
         // 4. run the function within the transaction
         let function_name = FunctionName::default_export();
-        let component_path = BootstrapComponentsModel::new(&mut tx)
-            .get_component_path(component)
-            .await?;
+        let component_path =
+            BootstrapComponentsModel::new(&mut tx).get_component_path(component)?;
         let path = CanonicalizedComponentFunctionPath {
             component: component_path,
             udf_path: CanonicalizedUdfPath::new(module_path, function_name),

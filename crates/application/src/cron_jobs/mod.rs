@@ -420,9 +420,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             TableNamespace::Global => ComponentId::Root,
             TableNamespace::ByComponent(id) => ComponentId::Child(id),
         };
-        let component_path = BootstrapComponentsModel::new(tx)
-            .get_component_path(component)
-            .await?;
+        let component_path = BootstrapComponentsModel::new(tx).get_component_path(component)?;
         Ok((component, component_path))
     }
 

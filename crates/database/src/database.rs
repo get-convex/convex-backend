@@ -29,6 +29,7 @@ use async_lru::async_lru::AsyncLru;
 use cmd_util::env::env_config;
 use common::{
     bootstrap_model::{
+        components::ComponentMetadata,
         index::{
             database_index::IndexedFields,
             IndexMetadata,
@@ -198,9 +199,11 @@ use crate::{
         WriteSource,
     },
     BootstrapComponentsModel,
+    ComponentRegistry,
     FollowerRetentionManager,
     TableIterator,
     Transaction,
+    COMPONENTS_TABLE,
     SCHEMAS_TABLE,
 };
 
@@ -607,12 +610,24 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
 
         let schema_registry = SchemaRegistry::bootstrap(schema_docs);
 
+        let component_tablet = table_mapping
+            .namespace(TableNamespace::Global)
+            .name_to_tablet()(COMPONENTS_TABLE.clone())?;
+        let component_by_id = index_registry.must_get_by_id(component_tablet)?.id;
+        let component_docs = Self::load_table_documents::<ComponentMetadata>(
+            &persistence_snapshot,
+            component_by_id,
+            component_tablet,
+        )
+        .await?;
+        let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         Ok(Self {
             ts: persistence_snapshot.timestamp(),
             bootstrap_metadata,
             snapshot: Snapshot {
                 table_registry,
                 schema_registry,
+                component_registry,
                 table_summaries,
                 index_registry,
                 in_memory_indexes,
@@ -1441,6 +1456,7 @@ impl<RT: Runtime> Database<RT> {
             transaction_index,
             snapshot.table_registry,
             snapshot.schema_registry,
+            snapshot.component_registry,
             count_snapshot,
             self.runtime.clone(),
             usage_tracker,
@@ -1805,7 +1821,7 @@ impl<RT: Runtime> Database<RT> {
             let tablet_id = *value.name.table();
             let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
             let component_id = ComponentId::from(table_namespace);
-            let component_path = components_model.get_component_path(component_id).await?;
+            let component_path = components_model.get_component_path(component_id)?;
             let table_name = table_mapping.tablet_name(tablet_id)?;
             let size = value.config.estimate_pricing_size_bytes()?;
             vector_index_storage
@@ -1825,9 +1841,8 @@ impl<RT: Runtime> Database<RT> {
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let mut document_counts = vec![];
         for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries() {
-            let component_path = components_model
-                .get_component_path(ComponentId::from(table_namespace))
-                .await?;
+            let component_path =
+                components_model.get_component_path(ComponentId::from(table_namespace))?;
             document_counts.push((component_path, table_name, summary.num_values() as u64));
         }
         Ok(document_counts)
@@ -1850,9 +1865,8 @@ impl<RT: Runtime> Database<RT> {
         for ((table_namespace, table_name), (document_size, index_size)) in
             documents_and_index_storage.into_iter()
         {
-            let component_path = components_model
-                .get_component_path(ComponentId::from(table_namespace))
-                .await?;
+            let component_path =
+                components_model.get_component_path(ComponentId::from(table_namespace))?;
             remapped_documents_and_index_storage.insert(
                 (component_path, table_name),
                 (document_size as u64, index_size as u64),

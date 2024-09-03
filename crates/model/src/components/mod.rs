@@ -38,7 +38,6 @@ use sync_types::{
     CanonicalizedUdfPath,
     UdfPath,
 };
-use value::TableNamespace;
 
 use crate::modules::ModuleModel;
 
@@ -83,7 +82,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             },
             Reference::Function(udf_path) => {
                 let mut m = BootstrapComponentsModel::new(self.tx);
-                let component_path = m.get_component_path(component_id).await?;
+                let component_path = m.get_component_path(component_id)?;
 
                 let path = CanonicalizedComponentFunctionPath {
                     component: component_path,
@@ -259,7 +258,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     ) -> anyhow::Result<BTreeMap<Reference, Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
         let component_type = m.load_component_type(component_id).await?;
-        let component_path = m.get_component_path(component_id).await?;
+        let component_path = m.get_component_path(component_id)?;
 
         let mut result = BTreeMap::new();
 
@@ -376,25 +375,19 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
 
         Ok(result)
     }
-
-    pub async fn get_component_path_for_namespace(
-        &mut self,
-        namespace: TableNamespace,
-    ) -> anyhow::Result<ComponentPath> {
-        let component_id = match namespace {
-            TableNamespace::Global => ComponentId::Root,
-            TableNamespace::ByComponent(id) => ComponentId::Child(id),
-        };
-        BootstrapComponentsModel::new(self.tx)
-            .get_component_path(component_id)
-            .await
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use common::{
-        bootstrap_model::index::IndexMetadata,
+        bootstrap_model::{
+            components::{
+                ComponentMetadata,
+                ComponentState,
+                ComponentType,
+            },
+            index::IndexMetadata,
+        },
         components::{
             CanonicalizedComponentModulePath,
             ComponentId,
@@ -409,7 +402,7 @@ mod tests {
     };
     use keybroker::Identity;
     use runtime::testing::TestRuntime;
-    use value::obj;
+    use value::DeveloperDocumentId;
 
     use crate::{
         modules::{
@@ -424,8 +417,14 @@ mod tests {
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
 
         let mut tx = db.begin(Identity::system()).await?;
+        let component_metadata = ComponentMetadata {
+            definition_id: DeveloperDocumentId::MIN,
+            component_type: ComponentType::App,
+            state: ComponentState::Active,
+        };
+
         let id = SystemMetadataModel::new_global(&mut tx)
-            .insert(&COMPONENTS_TABLE, obj!()?)
+            .insert(&COMPONENTS_TABLE, component_metadata.try_into()?)
             .await?;
         let component_id = ComponentId::Child(id.into());
 

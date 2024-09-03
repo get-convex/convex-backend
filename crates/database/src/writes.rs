@@ -47,6 +47,7 @@ use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
     reads::TransactionReadSet,
     schema_registry::SchemaRegistry,
+    ComponentRegistry,
     TableRegistry,
 };
 
@@ -62,6 +63,7 @@ pub trait PendingWrites: Clone {}
 impl PendingWrites for Writes {}
 impl PendingWrites for TableRegistry {}
 impl PendingWrites for SchemaRegistry {}
+impl PendingWrites for ComponentRegistry {}
 
 pub type NestedWriteToken = u32;
 

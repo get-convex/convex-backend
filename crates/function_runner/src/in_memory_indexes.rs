@@ -42,6 +42,7 @@ use common::{
 };
 use database::{
     BootstrapMetadata,
+    ComponentRegistry,
     DatabaseSnapshot,
     SchemaRegistry,
     TableCountSnapshot,
@@ -50,6 +51,7 @@ use database::{
     TransactionIdGenerator,
     TransactionIndex,
     TransactionTextSnapshot,
+    COMPONENTS_TABLE,
     SCHEMAS_TABLE,
 };
 use futures::{
@@ -74,6 +76,7 @@ use value::{
     },
     InternalId,
     TableName,
+    TableNamespace,
     TabletId,
 };
 
@@ -94,6 +97,7 @@ fn make_transaction<RT: Runtime>(
     rt: RT,
     table_registry: TableRegistry,
     schema_registry: SchemaRegistry,
+    component_registry: ComponentRegistry,
     index_registry: IndexRegistry,
     table_count_snapshot: Arc<dyn TableCountSnapshot>,
     database_index_snapshot: DatabaseIndexSnapshot,
@@ -116,6 +120,7 @@ fn make_transaction<RT: Runtime>(
         transaction_index,
         table_registry,
         schema_registry,
+        component_registry,
         table_count_snapshot,
         rt.clone(),
         usage_tracker,
@@ -263,6 +268,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     ) -> anyhow::Result<(
         TableRegistry,
         SchemaRegistry,
+        ComponentRegistry,
         IndexRegistry,
         DatabaseIndexSnapshot,
     )> {
@@ -320,6 +326,24 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             );
         }
         let schema_registry = SchemaRegistry::bootstrap(schema_docs);
+        let component_tablet = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENTS_TABLE)?
+            .tablet_id;
+        let components_by_id = index_registry.must_get_by_id(component_tablet)?.id;
+        let component_docs = self
+            .must_get_or_load_unpacked(
+                instance_name.clone(),
+                components_by_id,
+                &in_memory_index_last_modified,
+                persistence_snapshot.clone(),
+                component_tablet,
+                COMPONENTS_TABLE.clone(),
+            )
+            .await?
+            .map(TryFrom::try_from)
+            .try_collect()?;
+        let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {
             cache: self.clone(),
             instance_name: instance_name.clone(),
@@ -335,6 +359,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         Ok((
             table_registry,
             schema_registry,
+            component_registry,
             index_registry,
             database_index_snapshot,
         ))
@@ -370,7 +395,13 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         let persistence_snapshot =
             repeatable_persistence.read_snapshot(repeatable_persistence.upper_bound())?;
 
-        let (table_registry, schema_registry, index_registry, database_index_snapshot) = self
+        let (
+            table_registry,
+            schema_registry,
+            component_registry,
+            index_registry,
+            database_index_snapshot,
+        ) = self
             .load_registries(
                 persistence_snapshot,
                 instance_name,
@@ -385,6 +416,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             self.rt.clone(),
             table_registry,
             schema_registry,
+            component_registry,
             index_registry,
             table_count_snapshot,
             database_index_snapshot,

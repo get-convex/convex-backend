@@ -47,6 +47,7 @@ mod write_limits;
 mod write_log;
 mod writes;
 
+mod component_registry;
 mod schema_registry;
 mod table_iteration;
 #[cfg(any(test, feature = "testing"))]
@@ -54,6 +55,7 @@ pub mod test_helpers;
 #[cfg(test)]
 pub mod tests;
 pub mod text_index_worker;
+pub use component_registry::ComponentRegistry;
 pub use execution_size::FunctionExecutionSize;
 pub use index_worker::IndexWorker;
 pub use index_workers::{

@@ -202,29 +202,13 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         ))
     }
 
-    pub async fn get_component_path(
+    pub fn get_component_path(
         &mut self,
-        mut component_id: ComponentId,
+        component_id: ComponentId,
     ) -> anyhow::Result<ComponentPath> {
-        let mut path = Vec::new();
-        while let ComponentId::Child(internal_id) = component_id {
-            let component_doc_id = self.resolve_component_id(internal_id)?;
-            let component_doc: ParsedDocument<ComponentMetadata> = self
-                .tx
-                .get(component_doc_id)
-                .await?
-                .with_context(|| format!("component {internal_id} missing"))?
-                .try_into()?;
-            component_id = match &component_doc.component_type {
-                ComponentType::App => ComponentId::Root,
-                ComponentType::ChildComponent { parent, name, .. } => {
-                    path.push(name.clone());
-                    ComponentId::Child(*parent)
-                },
-            };
-        }
-        path.reverse();
-        Ok(ComponentPath::from(path))
+        self.tx
+            .get_component_path(component_id)
+            .with_context(|| format!("component {component_id:?} missing"))
     }
 
     pub async fn component_definition(
@@ -509,8 +493,7 @@ mod tests {
             .await?;
         assert_eq!(resolved_path.unwrap().id(), child_id);
         let path = BootstrapComponentsModel::new(&mut tx)
-            .get_component_path(ComponentId::Child(child_id.into()))
-            .await?;
+            .get_component_path(ComponentId::Child(child_id.into()))?;
         assert_eq!(
             path,
             ComponentPath::from(vec!["subcomponent_child".parse()?]),
