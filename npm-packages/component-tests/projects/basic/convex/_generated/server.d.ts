@@ -166,6 +166,19 @@ export declare const components: {
       systemEnvVarQuery: FunctionReference<"query", "internal", any, any>;
     };
   };
+  component: {
+    messages: {
+      hello: FunctionReference<"action", "internal", {}, any>;
+      insertMessage: FunctionReference<
+        "mutation",
+        "internal",
+        { channel: string; text: string },
+        any
+      >;
+      listMessages: FunctionReference<"query", "internal", {}, any>;
+      tryToPaginate: FunctionReference<"query", "internal", {}, any>;
+    };
+  };
 };
 
 /* prettier-ignore-end */

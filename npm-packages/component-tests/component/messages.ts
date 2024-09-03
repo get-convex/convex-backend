@@ -21,3 +21,13 @@ export const insertMessage = mutation({
     return await ctx.db.insert("messages", { channel, text });
   },
 });
+
+export const tryToPaginate = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").paginate({
+      cursor: null,
+      numItems: 10,
+    });
+  },
+});

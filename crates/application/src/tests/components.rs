@@ -185,6 +185,20 @@ async fn test_system_error_propagation(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_paginate_within_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("basic").await?;
+    let err = run_function(
+        &application,
+        "errors:tryPaginateWithinComponent".parse()?,
+        vec![],
+    )
+    .await?
+    .unwrap_err();
+    assert_contains(&err.error, "paginate() is only supported in the app");
+    Ok(())
+}
+#[convex_macro::test_runtime]
 async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules("mounted").await?;

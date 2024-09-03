@@ -161,6 +161,7 @@ export declare const components: {
         any
       >;
       listMessages: FunctionReference<"query", "internal", {}, any>;
+      tryToPaginate: FunctionReference<"query", "internal", {}, any>;
     };
   };
   envVars: {

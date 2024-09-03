@@ -7,3 +7,7 @@ export const throwSystemErrorFromQuery = query(async (ctx) => {
 export const throwSystemErrorFromAction = action(async (ctx) => {
   await ctx.runAction(components.errors.throwSystemError.fromAction, {});
 });
+
+export const tryPaginateWithinComponent = query(async (ctx) => {
+  await ctx.runQuery(components.component.messages.tryToPaginate, {});
+});

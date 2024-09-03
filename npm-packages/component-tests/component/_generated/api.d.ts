@@ -38,6 +38,7 @@ declare const fullApiWithMounts: typeof fullApi & {
       any
     >;
     listMessages: FunctionReference<"query", "public", {}, any>;
+    tryToPaginate: FunctionReference<"query", "public", {}, any>;
   };
 };
 

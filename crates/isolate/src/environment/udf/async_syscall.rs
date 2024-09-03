@@ -1455,6 +1455,13 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         };
 
         let component = provider.component()?;
+        if !component.is_root() {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "PaginationUnsupportedInComponents",
+                "paginate() is only supported in the app.",
+            ));
+        }
+
         let tx = provider.tx()?;
 
         let (
