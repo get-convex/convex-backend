@@ -5,15 +5,14 @@ use std::{
 
 use common::{
     components::ComponentId,
-    obj,
     types::ObjectKey,
 };
-use sync_types::Timestamp;
-use value::{
-    val,
-    ConvexObject,
-    ConvexValue,
+use serde::{
+    Deserialize,
+    Serialize,
 };
+use sync_types::Timestamp;
+use value::codegen_convex_serialization;
 
 const EXPORT_RETENTION: u64 = 14 * 24 * 60 * 60 * 1000000000; // 14 days
 
@@ -54,6 +53,133 @@ pub enum Export {
     },
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "state")]
+#[serde(rename_all = "snake_case")]
+enum SerializedExport {
+    Requested {
+        format: SerializedExportFormat,
+        component: Option<String>,
+    },
+    InProgress {
+        start_ts: u64,
+        format: SerializedExportFormat,
+        component: Option<String>,
+    },
+    Completed {
+        start_ts: u64,
+        complete_ts: u64,
+        expiration_ts: i64,
+        zip_object_key: String,
+        format: SerializedExportFormat,
+        component: Option<String>,
+    },
+    Failed {
+        start_ts: u64,
+        failed_ts: u64,
+        format: SerializedExportFormat,
+        component: Option<String>,
+    },
+}
+
+impl TryFrom<Export> for SerializedExport {
+    type Error = anyhow::Error;
+
+    fn try_from(value: Export) -> Result<Self, Self::Error> {
+        Ok(match value {
+            Export::Requested { format, component } => SerializedExport::Requested {
+                format: format.into(),
+                component: component.serialize_to_string(),
+            },
+            Export::InProgress {
+                start_ts,
+                format,
+                component,
+            } => SerializedExport::InProgress {
+                start_ts: start_ts.into(),
+                format: format.into(),
+                component: component.serialize_to_string(),
+            },
+            Export::Completed {
+                start_ts,
+                complete_ts,
+                expiration_ts,
+                zip_object_key,
+                format,
+                component,
+            } => SerializedExport::Completed {
+                start_ts: start_ts.into(),
+                complete_ts: complete_ts.into(),
+                expiration_ts: expiration_ts as i64,
+                zip_object_key: zip_object_key.to_string(),
+                format: format.into(),
+                component: component.serialize_to_string(),
+            },
+            Export::Failed {
+                start_ts,
+                failed_ts,
+                format,
+                component,
+            } => SerializedExport::Failed {
+                start_ts: start_ts.into(),
+                failed_ts: failed_ts.into(),
+                format: format.into(),
+                component: component.serialize_to_string(),
+            },
+        })
+    }
+}
+
+impl TryFrom<SerializedExport> for Export {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedExport) -> Result<Self, Self::Error> {
+        Ok(match value {
+            SerializedExport::Requested { format, component } => Export::Requested {
+                format: format.into(),
+                component: ComponentId::deserialize_from_string(component.as_deref())?,
+            },
+            SerializedExport::InProgress {
+                start_ts,
+                format,
+                component,
+            } => Export::InProgress {
+                start_ts: start_ts.try_into()?,
+                format: format.into(),
+                component: ComponentId::deserialize_from_string(component.as_deref())?,
+            },
+            SerializedExport::Completed {
+                start_ts,
+                complete_ts,
+                expiration_ts,
+                zip_object_key,
+                format,
+                component,
+            } => Export::Completed {
+                start_ts: start_ts.try_into()?,
+                complete_ts: complete_ts.try_into()?,
+                expiration_ts: expiration_ts as u64,
+                zip_object_key: zip_object_key.try_into()?,
+                format: format.into(),
+                component: ComponentId::deserialize_from_string(component.as_deref())?,
+            },
+            SerializedExport::Failed {
+                start_ts,
+                failed_ts,
+                format,
+                component,
+            } => Export::Failed {
+                start_ts: start_ts.try_into()?,
+                failed_ts: failed_ts.try_into()?,
+                format: format.into(),
+                component: ComponentId::deserialize_from_string(component.as_deref())?,
+            },
+        })
+    }
+}
+
+codegen_convex_serialization!(Export, SerializedExport);
+
 impl Export {
     pub fn format(&self) -> ExportFormat {
         match self {
@@ -80,6 +206,30 @@ pub enum ExportFormat {
     /// zip file containing a CleanJsonl for each table, and sidecar type info.
     Zip { include_storage: bool },
 }
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[serde(tag = "format")]
+#[serde(rename_all = "snake_case")]
+enum SerializedExportFormat {
+    Zip { include_storage: bool },
+}
+
+impl From<ExportFormat> for SerializedExportFormat {
+    fn from(value: ExportFormat) -> Self {
+        let ExportFormat::Zip { include_storage } = value;
+        SerializedExportFormat::Zip { include_storage }
+    }
+}
+
+impl From<SerializedExportFormat> for ExportFormat {
+    fn from(value: SerializedExportFormat) -> Self {
+        let SerializedExportFormat::Zip { include_storage } = value;
+        ExportFormat::Zip { include_storage }
+    }
+}
+
+codegen_convex_serialization!(ExportFormat, SerializedExportFormat);
 
 impl Export {
     pub fn requested(format: ExportFormat, component: ComponentId) -> Self {
@@ -206,201 +356,6 @@ impl Display for Export {
                 format: _,
                 component: _,
             } => write!(f, "failed"),
-        }
-    }
-}
-
-impl TryFrom<Export> for ConvexObject {
-    type Error = anyhow::Error;
-
-    fn try_from(e: Export) -> anyhow::Result<ConvexObject> {
-        match e {
-            Export::Completed {
-                start_ts,
-                complete_ts,
-                expiration_ts,
-                zip_object_key,
-                format,
-                component,
-            } => {
-                obj!(
-                    "start_ts" => i64::from(start_ts),
-                    "complete_ts" => i64::from(complete_ts),
-                    "expiration_ts" => expiration_ts as i64,
-                    "state" => "completed",
-                    "format" => format,
-                    "component" => component.serialize_to_string(),
-                    "zip_object_key" => zip_object_key.to_string(),
-                )
-            },
-            Export::Requested { format, component } => obj!(
-                "state" => "requested",
-                "format" => format,
-                "component" => component.serialize_to_string(),
-            ),
-            Export::InProgress {
-                start_ts,
-                format,
-                component,
-            } => {
-                obj!(
-                    "state" => "in_progress",
-                    "start_ts" => i64::from(start_ts),
-                    "format" => format,
-                    "component" => component.serialize_to_string(),
-                )
-            },
-            Export::Failed {
-                start_ts,
-                failed_ts,
-                format,
-                component,
-            } => {
-                obj!(
-                    "state" => "failed",
-                    "start_ts" => i64::from(start_ts),
-                    "failed_ts" => i64::from(failed_ts),
-                    "format" => format,
-                    "component" => component.serialize_to_string(),
-                )
-            },
-        }
-    }
-}
-
-impl TryFrom<ConvexObject> for Export {
-    type Error = anyhow::Error;
-
-    fn try_from(o: ConvexObject) -> anyhow::Result<Export> {
-        let format = match o.get("format") {
-            Some(format) => ExportFormat::try_from(format.clone())?,
-            _ => anyhow::bail!("invalid format: {:?}", o),
-        };
-        let component = match o.get("component") {
-            Some(ConvexValue::String(s)) => ComponentId::deserialize_from_string(Some(s))?,
-            Some(ConvexValue::Null) => ComponentId::Root,
-            None => ComponentId::Root,
-            _ => anyhow::bail!("invalid component: {:?}", o),
-        };
-        match o.get("state") {
-            Some(ConvexValue::String(s)) => match &s[..] {
-                "requested" => Ok(Export::Requested { format, component }),
-                "in_progress" => {
-                    if let Some(start_ts_value) = o.get("start_ts")
-                        && let ConvexValue::Int64(start_ts) = start_ts_value
-                    {
-                        Ok(Export::InProgress {
-                            start_ts: (*start_ts).try_into()?,
-                            format,
-                            component,
-                        })
-                    } else {
-                        Err(anyhow::anyhow!("No start_ts found for in_progress export."))
-                    }
-                },
-                "completed" => {
-                    let start_ts = match o.get("start_ts") {
-                        Some(ConvexValue::Int64(t)) => (*t).try_into()?,
-                        _ => anyhow::bail!("invalid start_ts: {:?}", o),
-                    };
-                    let complete_ts = match o.get("complete_ts") {
-                        Some(ConvexValue::Int64(t)) => (*t).try_into()?,
-                        _ => anyhow::bail!("invalid complete_ts: {:?}", o),
-                    };
-                    let expiration_ts = match o.get("expiration_ts") {
-                        Some(ConvexValue::Int64(t)) => *t as u64,
-                        _ => anyhow::bail!("invalid expiration_ts: {:?}", o),
-                    };
-                    let zip_object_key = match o.get("zip_object_key") {
-                        Some(ConvexValue::String(zip_object_key)) => {
-                            zip_object_key.clone().try_into()?
-                        },
-                        _ => anyhow::bail!("invalid object keys: {:?}", o),
-                    };
-                    Ok(Export::Completed {
-                        expiration_ts,
-                        start_ts,
-                        complete_ts,
-                        zip_object_key,
-                        format,
-                        component,
-                    })
-                },
-                "failed" => {
-                    let start_ts = match o.get("start_ts") {
-                        Some(ConvexValue::Int64(t)) => (*t).try_into()?,
-                        _ => anyhow::bail!("invalid start_ts: {:?}", o),
-                    };
-                    let failed_ts = match o.get("failed_ts") {
-                        Some(ConvexValue::Int64(t)) => (*t).try_into()?,
-                        _ => anyhow::bail!("invalid failed_ts: {:?}", o),
-                    };
-                    Ok(Export::Failed {
-                        start_ts,
-                        failed_ts,
-                        format,
-                        component,
-                    })
-                },
-                _ => Err(anyhow::anyhow!("Invalid export state {s}")),
-            },
-            Some(_) | None => Err(anyhow::anyhow!("No export state found for export.")),
-        }
-    }
-}
-
-impl TryFrom<ExportFormat> for ConvexValue {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ExportFormat) -> Result<Self, Self::Error> {
-        let v = match value {
-            ExportFormat::Zip { include_storage } => {
-                val!({"format" => "zip", "include_storage" => include_storage})
-            },
-        };
-        Ok(v)
-    }
-}
-
-impl TryFrom<ConvexValue> for ExportFormat {
-    type Error = anyhow::Error;
-
-    fn try_from(value: ConvexValue) -> Result<Self, Self::Error> {
-        let f = match &value {
-            ConvexValue::Object(o) => match o.get("format") {
-                Some(ConvexValue::String(format)) => match &**format {
-                    "zip" => match o.get("include_storage") {
-                        Some(ConvexValue::Boolean(include_storage)) => Self::Zip {
-                            include_storage: *include_storage,
-                        },
-                        _ => anyhow::bail!("invalid format {value:?}"),
-                    },
-                    _ => anyhow::bail!("invalid format {value:?}"),
-                },
-                _ => anyhow::bail!("invalid format {value:?}"),
-            },
-            _ => anyhow::bail!("invalid format {value:?}"),
-        };
-        Ok(f)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use proptest::prelude::*;
-    use sync_types::testing::assert_roundtrips;
-    use value::ConvexObject;
-
-    use super::Export;
-
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
-
-        #[test]
-        fn test_export_roundtrip(v in any::<Export>()) {
-            assert_roundtrips::<Export, ConvexObject>(v);
         }
     }
 }
