@@ -1,5 +1,5 @@
 use std::{
-    env,
+    hash::Hasher,
     io::Result,
     path::{
         Path,
@@ -7,16 +7,21 @@ use std::{
     },
 };
 
-use bytes::Bytes;
-use futures_util::future::join_all;
-use tokio::fs::{
-    self,
-    create_dir_all,
-};
+use fxhash::FxHasher32;
 
 // Make sure to select a rev off the `production` branch of the sdk
 // https://github.com/fivetran/fivetran_sdk/tree/production
 const REV: &str = "1fabb7626b6ec81a4f56d49a16a654210cb1d0be";
+
+const FILES: &[&str] = &[
+    "common.proto",
+    "connector_sdk.proto",
+    "destination_sdk.proto",
+];
+
+// File hash to protect against accidental changes to the vendored files:
+// Update this when updating `REV` above.
+const FILE_HASH: u64 = 3447879181;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {
@@ -42,74 +47,25 @@ fn set_protoc_path() {
     }
 }
 
-async fn download_bytes_of_file(url: &str) -> anyhow::Result<Bytes> {
-    Ok(reqwest::get(url).await?.bytes().await?)
-}
-
-async fn try_download_file(url: String, destination: &PathBuf) -> anyhow::Result<()> {
-    let bytes = match download_bytes_of_file(&url).await {
-        Ok(bytes) => bytes,
-        Err(err) => {
-            if destination.exists() {
-                println!(
-                    "cargo:warning=Could not download proto file from {url} ({err:?}). Proceeding \
-                     with the existing proto file."
-                );
-                return Ok(());
-            }
-            anyhow::bail!(err);
-        },
-    };
-    // Don't write to the file (and mark it as dirty) if it hasn't changed. Writing
-    // to a watched file during a build script bumps its modification time,
-    // which causes a subsequent `cargo build` to consider the file dirty.
-    if destination.exists() {
-        let existing_contents = fs::read(destination).await?;
-        if existing_contents == bytes {
-            return Ok(());
-        }
-    }
-    fs::write(destination, bytes).await?;
-    Ok(())
-}
-
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     set_protoc_path();
+    let protos_dir = PathBuf::from(format!("./fivetran_sdk/{REV}"));
 
-    let protos: &[&str] = &[
-        "common.proto",
-        "connector_sdk.proto",
-        "destination_sdk.proto",
-    ];
-    let protos_dir = Path::join(Path::new(&env::var("OUT_DIR").unwrap()), "protos");
-    create_dir_all(protos_dir.clone()).await?;
-
-    let source_urls: Vec<String> = protos
-        .iter()
-        .map(|proto| {
-            format!("https://raw.githubusercontent.com/fivetran/fivetran_sdk/{REV}/{proto}")
-        })
-        .collect();
-    let destination_files: Vec<PathBuf> = protos
-        .iter()
-        .map(|proto| Path::join(&protos_dir, proto))
-        .collect();
-
-    let result = join_all(
-        source_urls
-            .into_iter()
-            .zip(&destination_files)
-            .map(|(source_url, destination_file)| try_download_file(source_url, destination_file)),
-    )
-    .await;
-    for r in result {
-        r.expect("Failed to download proto file");
+    let mut proto_files = Vec::new();
+    let mut hasher = FxHasher32::default();
+    for file in FILES {
+        let path = protos_dir.join(file);
+        let contents = std::fs::read(&path)?;
+        hasher.write(&contents);
+        proto_files.push(path);
     }
-
+    let hash = hasher.finish();
+    if hash != FILE_HASH {
+        panic!("Files have hash {hash}, expected {FILE_HASH}");
+    }
     tonic_build::configure()
         .btree_map(["."])
-        .compile(&destination_files, &[protos_dir])?;
+        .compile(&proto_files, &[protos_dir])?;
 
     Ok(())
 }

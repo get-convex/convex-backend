@@ -1,0 +1,109 @@
+syntax = "proto3";
+option optimize_for = SPEED;
+option java_multiple_files = true;
+option go_package = "fivetran.com/fivetran_sdk";
+package fivetran_sdk;
+
+import "common.proto";
+
+// Fivetran (grpc client) <> Connector (grpc server)
+service Connector {
+    rpc ConfigurationForm (ConfigurationFormRequest) returns (ConfigurationFormResponse) {}
+    rpc Test (TestRequest) returns (TestResponse) {}
+    rpc Schema (SchemaRequest) returns (SchemaResponse) {}
+    rpc Update (UpdateRequest) returns (stream UpdateResponse) {}
+}
+
+message SchemaRequest {
+    map<string, string> configuration = 1;
+}
+
+message SchemaResponse {
+    oneof response {
+        bool schema_response_not_supported = 1;
+        SchemaList with_schema = 2;
+        TableList without_schema = 3;
+    }
+    optional bool selection_not_supported  = 4;
+}
+
+message UpdateRequest {
+    map<string, string> configuration = 1;
+    optional Selection selection = 2;
+    optional string state_json = 3;
+}
+
+message Selection {
+    oneof selection {
+        TablesWithNoSchema without_schema = 1;
+        TablesWithSchema with_schema = 2;
+    }
+}
+
+message TablesWithNoSchema {
+    repeated TableSelection tables = 1;
+    bool include_new_tables = 2;
+}
+
+message TablesWithSchema {
+    repeated SchemaSelection schemas = 1;
+    bool include_new_schemas = 2;
+}
+
+message SchemaSelection {
+    bool included = 1;
+    string schema_name = 2;
+    repeated TableSelection tables = 3;
+    bool include_new_tables = 4;
+}
+
+message TableSelection {
+    bool included = 1;
+    string table_name = 2;
+    map<string, bool> columns = 3;
+    bool include_new_columns = 4;
+}
+
+message UpdateResponse {
+    oneof response {
+        LogEntry log_entry = 1;
+        Operation operation = 2;
+    }
+}
+
+enum LogLevel {
+    INFO = 0;
+    WARNING = 1;
+    SEVERE = 2;
+}
+
+message LogEntry {
+    LogLevel level = 1;
+    string message = 2;
+}
+
+message Operation {
+    oneof op {
+        Record record = 1;
+        SchemaChange schema_change = 2;
+        Checkpoint checkpoint = 3;
+    }
+}
+
+message SchemaChange {
+    oneof change {
+        SchemaList with_schema = 1;
+        TableList without_schema = 2;
+    }
+}
+
+message Record {
+    optional string schema_name = 1;
+    string table_name = 2;
+    OpType type = 3;
+    map<string, ValueType> data = 4;
+}
+
+message Checkpoint {
+    string state_json = 1;
+}
