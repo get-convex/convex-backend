@@ -1,5 +1,3 @@
-mod instant;
-
 use std::{
     mem,
     pin::Pin,
@@ -42,7 +40,6 @@ use tokio::runtime::{
     UnhandledPanic,
 };
 
-use self::instant::TestInstant;
 use super::{
     JoinError,
     Runtime,
@@ -187,7 +184,6 @@ enum ThreadCommand {
 
 impl Runtime for TestRuntime {
     type Handle = TestFutureHandle;
-    type Instant = TestInstant;
     type ThreadHandle = TestThreadHandle;
 
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>> {
@@ -293,11 +289,8 @@ impl Runtime for TestRuntime {
         *CONVEX_EPOCH + elapsed
     }
 
-    fn monotonic_now(&self) -> Self::Instant {
-        TestInstant {
-            rt: self.clone(),
-            instant: tokio::time::Instant::now(),
-        }
+    fn monotonic_now(&self) -> tokio::time::Instant {
+        tokio::time::Instant::now()
     }
 
     fn rng(&self) -> Box<dyn RngCore> {

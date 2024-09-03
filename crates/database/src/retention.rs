@@ -73,7 +73,6 @@ use common::{
         new_rate_limiter,
         shutdown_and_join,
         Runtime,
-        RuntimeInstant,
     },
     sha256::Sha256,
     sync::split_rw_lock::{
@@ -1186,7 +1185,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
 
             // Rate limit so we don't overload the database
             while let Err(not_until) = rate_limiter.check() {
-                let delay = not_until.wait_time_from(rt.monotonic_now().as_nanos());
+                let delay = not_until.wait_time_from(rt.monotonic_now().into());
                 rt.wait(delay).await;
             }
 

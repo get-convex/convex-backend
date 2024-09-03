@@ -189,8 +189,8 @@ impl SyncTest {
 struct TestSyncWorker {
     rt: TestRuntime,
 
-    tx: mpsc::UnboundedSender<(ClientMessage, <TestRuntime as Runtime>::Instant)>,
-    rx: SingleFlightReceiver<TestRuntime>,
+    tx: mpsc::UnboundedSender<(ClientMessage, tokio::time::Instant)>,
+    rx: SingleFlightReceiver,
 
     worker_handle: TestFutureHandle,
     worker_failed: Arc<Mutex<Option<anyhow::Error>>>,

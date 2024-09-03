@@ -60,7 +60,6 @@ use common::{
     runtime::{
         shutdown_and_join,
         Runtime,
-        RuntimeInstant,
         SpawnHandle,
         UnixTimestamp,
     },
@@ -1268,7 +1267,7 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     /// `last_used_ts` older than `ISOLATE_IDLE_TIMEOUT` has already been
     /// recreated and there will be no penalty for reassigning this worker to a
     /// new client.
-    available_workers: HashMap<String, VecDeque<IdleWorkerState<RT>>>,
+    available_workers: HashMap<String, VecDeque<IdleWorkerState>>,
     /// Set of futures awaiting a response from an active worker.
     in_progress_workers: FuturesUnordered<oneshot::Receiver<ActiveWorkerState>>,
     /// Counts the number of active workers per client. Should only contain a
@@ -1280,9 +1279,9 @@ pub struct SharedIsolateScheduler<RT: Runtime, W: IsolateWorker<RT>> {
     max_percent_per_client: usize,
 }
 
-struct IdleWorkerState<RT: Runtime> {
+struct IdleWorkerState {
     worker_id: usize,
-    last_used_ts: RT::Instant,
+    last_used_ts: tokio::time::Instant,
 }
 struct ActiveWorkerState {
     worker_id: usize,

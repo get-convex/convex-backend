@@ -33,10 +33,7 @@ use common::{
         Order,
         Query,
     },
-    runtime::{
-        Runtime,
-        RuntimeInstant,
-    },
+    runtime::Runtime,
     sync::mpsc,
     types::{
         FunctionCaller,

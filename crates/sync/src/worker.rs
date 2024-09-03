@@ -123,8 +123,7 @@ impl Default for SyncWorkerConfig {
 
 /// Creates a channel which allows the sender to track the buffer size and
 /// opt-in to slow down if the buffer becomes too large.
-pub fn measurable_unbounded_channel<RT: Runtime>(
-) -> (SingleFlightSender<RT>, SingleFlightReceiver<RT>) {
+pub fn measurable_unbounded_channel() -> (SingleFlightSender, SingleFlightReceiver) {
     let buffer_size_bytes = Arc::new(AtomicUsize::new(0));
     // The channel is used to send/receive "size reduced" notifications.
     let (size_reduced_tx, size_reduced_rx) = mpsc::channel(1);
@@ -146,18 +145,18 @@ pub fn measurable_unbounded_channel<RT: Runtime>(
 /// Wrapper around UnboundedSender that counts Transition messages,
 /// allowing single-flighting, i.e. skipping transitions if the client is
 /// backlogged on receiving them.
-pub struct SingleFlightSender<RT: Runtime> {
-    inner: UnboundedSender<(ServerMessage, RT::Instant)>,
+pub struct SingleFlightSender {
+    inner: UnboundedSender<(ServerMessage, tokio::time::Instant)>,
 
     transition_count: Arc<AtomicUsize>,
     count_reduced_rx: mpsc::Receiver<()>,
 }
 
-impl<RT: Runtime> SingleFlightSender<RT> {
+impl SingleFlightSender {
     pub fn unbounded_send(
         &mut self,
-        msg: (ServerMessage, RT::Instant),
-    ) -> Result<(), TrySendError<(ServerMessage, RT::Instant)>> {
+        msg: (ServerMessage, tokio::time::Instant),
+    ) -> Result<(), TrySendError<(ServerMessage, tokio::time::Instant)>> {
         if matches!(&msg.0, ServerMessage::Transition { .. }) {
             self.transition_count.fetch_add(1, Ordering::SeqCst);
         }
@@ -176,15 +175,15 @@ impl<RT: Runtime> SingleFlightSender<RT> {
     }
 }
 
-pub struct SingleFlightReceiver<RT: Runtime> {
-    inner: UnboundedReceiver<(ServerMessage, RT::Instant)>,
+pub struct SingleFlightReceiver {
+    inner: UnboundedReceiver<(ServerMessage, tokio::time::Instant)>,
 
     transition_count: Arc<AtomicUsize>,
     size_reduced_tx: mpsc::Sender<()>,
 }
 
-impl<RT: Runtime> SingleFlightReceiver<RT> {
-    pub async fn next(&mut self) -> Option<(ServerMessage, RT::Instant)> {
+impl SingleFlightReceiver {
+    pub async fn next(&mut self) -> Option<(ServerMessage, tokio::time::Instant)> {
         let result = self.inner.next().await;
         if let Some(msg) = &result {
             if matches!(msg.0, ServerMessage::Transition { .. }) {
@@ -206,8 +205,8 @@ pub struct SyncWorker<RT: Runtime> {
     state: SyncState,
     host: ResolvedHostname,
 
-    rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
-    tx: SingleFlightSender<RT>,
+    rx: UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
+    tx: SingleFlightSender,
 
     // Queue of pending functions or mutations. For time being, we only execute
     // a single one since this is less error prone model for the developer.
@@ -247,8 +246,8 @@ impl<RT: Runtime> SyncWorker<RT> {
         rt: RT,
         host: ResolvedHostname,
         config: SyncWorkerConfig,
-        rx: UnboundedReceiver<(ClientMessage, RT::Instant)>,
-        tx: SingleFlightSender<RT>,
+        rx: UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
+        tx: SingleFlightSender,
     ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = receiver.buffered(1); // Execute at most one operation at a time.

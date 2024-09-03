@@ -6,7 +6,6 @@ use std::{
 use async_broadcast::broadcast;
 use common::runtime::{
     Runtime,
-    RuntimeInstant,
     SpawnHandle,
 };
 use futures::{
@@ -42,14 +41,14 @@ pub struct Timeout<RT: Runtime> {
 struct TimeoutInner<RT: Runtime> {
     rt: RT,
 
-    start: RT::Instant,
+    start: tokio::time::Instant,
     timeout: Option<Duration>,
 
     // How long has the timeout been in the paused state?
     pause_elapsed: Duration,
     max_time_paused: Option<Duration>,
 
-    state: TimeoutState<RT>,
+    state: TimeoutState,
 }
 
 impl<RT: Runtime> TimeoutInner<RT> {
@@ -57,7 +56,7 @@ impl<RT: Runtime> TimeoutInner<RT> {
         &mut self,
         timeout: Duration,
     ) -> Result<Option<TerminationReason>, impl Future<Output = ()> + 'static> {
-        let initial_deadline = self.start.clone() + timeout;
+        let initial_deadline = self.start + timeout;
         match self.state {
             TimeoutState::Running => {
                 // Extend the deadline by the time spent paused.
@@ -97,10 +96,10 @@ impl<RT: Runtime> TimeoutInner<RT> {
 }
 
 #[derive(Debug)]
-enum TimeoutState<RT: Runtime> {
+enum TimeoutState {
     Running,
     Paused {
-        pause_start: RT::Instant,
+        pause_start: tokio::time::Instant,
         pause_done: async_broadcast::Receiver<()>,
     },
     Finished,
@@ -180,7 +179,7 @@ impl<RT: Runtime> Timeout<RT> {
             let pause_start = inner.rt.monotonic_now();
             inner.state = TimeoutState::Paused {
                 pause_done: rx,
-                pause_start: pause_start.clone(),
+                pause_start,
             };
             pause_start
         };
@@ -226,7 +225,7 @@ impl<RT: Runtime> Timeout<RT> {
 
     pub fn get_function_execution_time(&self) -> FunctionExecutionTime {
         let inner = self.inner.lock();
-        let elapsed = inner.rt.monotonic_now() - inner.start.clone() - inner.pause_elapsed;
+        let elapsed = inner.rt.monotonic_now() - inner.start - inner.pause_elapsed;
         let limit = inner.timeout.unwrap_or(Duration::ZERO);
         FunctionExecutionTime { elapsed, limit }
     }
@@ -239,7 +238,7 @@ pub struct FunctionExecutionTime {
 
 pub struct PauseGuard<'a, RT: Runtime> {
     timeout: &'a mut Timeout<RT>,
-    pause_start: RT::Instant,
+    pause_start: tokio::time::Instant,
     pause_done: Option<async_broadcast::Sender<()>>,
 }
 

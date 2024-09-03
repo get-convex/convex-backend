@@ -466,7 +466,7 @@ impl<RT: Runtime> Application<RT> {
 
             tokio::select! {
                 _ = subscription.wait_for_invalidation() => {},
-                _ = self.runtime.wait(deadline.clone() - now)
+                _ = self.runtime.wait(deadline - now)
                     .in_span(minitrace::Span::enter_with_local_parent("wait_for_deadline"))
                  => {},
             }

@@ -38,7 +38,6 @@ use common::{
     },
     runtime::{
         Runtime,
-        RuntimeInstant,
         UnixTimestamp,
     },
     types::{
@@ -540,7 +539,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
-        start: RT::Instant,
+        start: tokio::time::Instant,
         caller: FunctionCaller,
         context: ExecutionContext,
     ) -> anyhow::Result<()> {
@@ -651,7 +650,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
-        start: RT::Instant,
+        start: tokio::time::Instant,
         caller: FunctionCaller,
         context: ExecutionContext,
     ) -> anyhow::Result<()> {
@@ -758,7 +757,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         identity: InertIdentity,
-        start: RT::Instant,
+        start: tokio::time::Instant,
         caller: FunctionCaller,
         log_lines: LogLines,
         context: ExecutionContext,
@@ -885,7 +884,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         error: &anyhow::Error,
         http_request: HttpActionRequestHead,
         identity: InertIdentity,
-        start: RT::Instant,
+        start: tokio::time::Instant,
         caller: FunctionCaller,
         log_lines: LogLines,
         context: ExecutionContext,

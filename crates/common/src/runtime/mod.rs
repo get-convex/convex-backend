@@ -195,9 +195,6 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     /// type than `spawn`'s).
     type ThreadHandle: SpawnHandle;
 
-    /// `std::time::Instant`-like type returned by `monotonic_now()`.
-    type Instant: RuntimeInstant;
-
     /// Sleep for the given duration.
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>>;
 
@@ -229,7 +226,7 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     }
 
     /// Return (a potentially-virtualized) reading from a monotonic clock.
-    fn monotonic_now(&self) -> Self::Instant;
+    fn monotonic_now(&self) -> tokio::time::Instant;
 
     /// Use the runtime's source of randomness.
     fn rng(&self) -> Box<dyn RngCore>;
@@ -244,28 +241,6 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     fn generate_timestamp(&self) -> anyhow::Result<Timestamp> {
         Timestamp::try_from(self.system_time())
     }
-}
-
-/// Abstraction over different `Instant` types associated with a `Runtime`. This
-/// is necessary for test runtime instants, which don't use the globally
-/// available system clock and need to retain a reference back to their
-/// originating runtime.
-pub trait RuntimeInstant:
-    Add<Duration, Output = Self>
-    + Clone
-    + Sub<Output = Duration>
-    + Sync
-    + Send
-    + Ord
-    + PartialOrd
-    + Eq
-    + PartialEq
-    + HeapSize
-{
-    fn elapsed(&self) -> Duration;
-
-    /// Convert an instant to nanoseconds relative to some (unspecified) epoch.
-    fn as_nanos(&self) -> Nanos;
 }
 
 /// Abstraction over a unix timestamp. Internally it stores a Duration since the
@@ -413,11 +388,45 @@ pub fn new_keyed_rate_limiter<RT: Runtime, K: Hash + Eq + Clone>(
     KeyedRateLimiter::dashmap_with_clock(quota, &RuntimeClock { runtime })
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
+pub struct GovernorInstant(tokio::time::Instant);
+
+impl From<tokio::time::Instant> for GovernorInstant {
+    fn from(instant: tokio::time::Instant) -> Self {
+        Self(instant)
+    }
+}
+
 impl<RT: Runtime> governor::clock::Clock for RuntimeClock<RT> {
-    type Instant = Nanos;
+    type Instant = GovernorInstant;
 
     fn now(&self) -> Self::Instant {
-        self.runtime.monotonic_now().as_nanos()
+        GovernorInstant(self.runtime.monotonic_now())
+    }
+}
+
+impl governor::clock::Reference for GovernorInstant {
+    fn duration_since(&self, earlier: Self) -> Nanos {
+        if earlier.0 < self.0 {
+            (self.0 - earlier.0).into()
+        } else {
+            Nanos::from(Duration::ZERO)
+        }
+    }
+
+    fn saturating_sub(&self, duration: Nanos) -> Self {
+        self.0
+            .checked_sub(duration.into())
+            .map(GovernorInstant)
+            .unwrap_or(*self)
+    }
+}
+
+impl Add<Nanos> for GovernorInstant {
+    type Output = GovernorInstant;
+
+    fn add(self, rhs: Nanos) -> Self::Output {
+        GovernorInstant(self.0 + rhs.into())
     }
 }
 

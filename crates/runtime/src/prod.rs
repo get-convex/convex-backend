@@ -3,10 +3,6 @@
 use std::{
     collections::HashMap,
     future::Future,
-    ops::{
-        Add,
-        Sub,
-    },
     pin::Pin,
     sync::LazyLock,
     thread,
@@ -19,7 +15,6 @@ use std::{
 use ::metrics::CONVEX_METRICS_REGISTRY;
 use async_trait::async_trait;
 use common::{
-    heap_size::HeapSize,
     knobs::{
         RUNTIME_DISABLE_LIFO_SLOT,
         RUNTIME_STACK_SIZE,
@@ -27,9 +22,7 @@ use common::{
     },
     runtime::{
         JoinError,
-        Nanos,
         Runtime,
-        RuntimeInstant,
         SpawnHandle,
     },
 };
@@ -198,7 +191,6 @@ impl ProdRuntime {
 #[async_trait]
 impl Runtime for ProdRuntime {
     type Handle = FutureHandle;
-    type Instant = ProdInstant;
     type ThreadHandle = ThreadHandle;
 
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>> {
@@ -226,10 +218,10 @@ impl Runtime for ProdRuntime {
         SystemTime::now()
     }
 
-    fn monotonic_now(&self) -> ProdInstant {
+    fn monotonic_now(&self) -> tokio::time::Instant {
         // Guarantee that all `ProdInstant`s handed out are after `SYNC_EPOCH`.
         LazyLock::force(&INSTANT_EPOCH);
-        ProdInstant(Instant::now())
+        tokio::time::Instant::now()
     }
 
     fn rng(&self) -> Box<dyn RngCore> {
@@ -238,49 +230,6 @@ impl Runtime for ProdRuntime {
         // platform, to be > statistically strong and unpredictable (meaning a
         // cryptographically secure PRNG). (Source: https://docs.rs/rand/latest/rand/rngs/struct.StdRng.html)
         Box::new(rand::thread_rng())
-    }
-}
-
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ProdInstant(Instant);
-
-impl Sub for ProdInstant {
-    type Output = Duration;
-
-    fn sub(self, rhs: Self) -> Duration {
-        self.0 - rhs.0
-    }
-}
-
-impl Add<Duration> for ProdInstant {
-    type Output = Self;
-
-    fn add(self, rhs: Duration) -> Self {
-        Self(self.0 + rhs)
-    }
-}
-
-impl RuntimeInstant for ProdInstant {
-    fn elapsed(&self) -> Duration {
-        self.0.elapsed()
-    }
-
-    fn as_nanos(&self) -> Nanos {
-        let nanos_u128 = self
-            .0
-            .checked_duration_since(*INSTANT_EPOCH)
-            .expect("Created an ProdInstant before INSTANT_EPOCH?")
-            .as_nanos();
-        let nanos_u64 =
-            u64::try_from(nanos_u128).expect("Program duration lasted longer than 584 years?");
-        Nanos::new(nanos_u64)
-    }
-}
-
-impl HeapSize for ProdInstant {
-    #[inline]
-    fn heap_size(&self) -> usize {
-        0
     }
 }
 

@@ -56,7 +56,6 @@ use common::{
     query_journal::QueryJournal,
     runtime::{
         Runtime,
-        RuntimeInstant,
         UnixTimestamp,
     },
     schemas::DatabaseSchema,

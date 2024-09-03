@@ -41,7 +41,6 @@ use common::{
     },
     runtime::{
         Runtime,
-        RuntimeInstant,
         SpawnHandle,
     },
     sync::{

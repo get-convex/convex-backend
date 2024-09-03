@@ -47,9 +47,9 @@ pub struct ExpiredInQueue;
 /// which was not used in the making of this implementation.
 pub struct CoDelQueue<RT: Runtime, T> {
     rt: RT,
-    buffer: VecDeque<(T, RT::Instant)>,
+    buffer: VecDeque<(T, tokio::time::Instant)>,
     capacity: usize,
-    last_time_empty: RT::Instant,
+    last_time_empty: tokio::time::Instant,
     idle_expiration: Duration,
     congested_expiration: Duration,
 }
@@ -101,7 +101,7 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
     }
 
     fn _is_idle(&self) -> bool {
-        (self.last_time_empty.clone() + self.idle_expiration) > self.rt.monotonic_now()
+        (self.last_time_empty + self.idle_expiration) > self.rt.monotonic_now()
     }
 
     fn update_last_time_empty(&mut self) {
@@ -114,7 +114,7 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
     fn log_metrics(&self) {
         log_codel_queue_size(self.len());
         log_codel_queue_overloaded(!self._is_idle());
-        log_codel_queue_time_since_empty(self.rt.monotonic_now() - self.last_time_empty.clone())
+        log_codel_queue_time_since_empty(self.rt.monotonic_now() - self.last_time_empty)
     }
 
     pub fn push(&mut self, item: T) -> Result<(), QueueFull> {
@@ -132,7 +132,7 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
         Ok(())
     }
 
-    fn pop_front(&mut self) -> Option<(T, RT::Instant)> {
+    fn pop_front(&mut self) -> Option<(T, tokio::time::Instant)> {
         let result = self.buffer.pop_front();
         // If the queue is newly empty, update last_empty_time=now().
         // This is redundant since it will remain empty and that will only
@@ -142,7 +142,7 @@ impl<RT: Runtime, T> CoDelQueue<RT, T> {
         result
     }
 
-    fn pop_back(&mut self) -> Option<(T, RT::Instant)> {
+    fn pop_back(&mut self) -> Option<(T, tokio::time::Instant)> {
         let result = self.buffer.pop_back();
         self.update_last_time_empty();
         result

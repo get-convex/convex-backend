@@ -58,7 +58,7 @@ pub struct Isolate<RT: Runtime> {
     heap_ctx_ptr: *mut HeapContext,
     limiter: ConcurrencyLimiter,
 
-    created: RT::Instant,
+    created: tokio::time::Instant,
 }
 
 /// Set a 64KB initial heap size
@@ -310,7 +310,7 @@ impl<RT: Runtime> Isolate<RT> {
         v8::HandleScope::new(&mut self.v8_isolate)
     }
 
-    pub fn created(&self) -> &RT::Instant {
+    pub fn created(&self) -> &tokio::time::Instant {
         &self.created
     }
 }

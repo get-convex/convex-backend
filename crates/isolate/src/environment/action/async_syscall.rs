@@ -9,7 +9,6 @@ use common::{
     },
     runtime::{
         Runtime,
-        RuntimeInstant,
         UnixTimestamp,
     },
 };

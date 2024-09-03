@@ -14,6 +14,7 @@ lru = { workspace = true }
 metrics = { path = "../metrics" }
 minitrace = { workspace = true }
 parking_lot = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 value = { path = "../value" }
 

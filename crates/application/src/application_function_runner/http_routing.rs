@@ -17,10 +17,7 @@ use common::{
         LogLines,
         SystemLogMetadata,
     },
-    runtime::{
-        Runtime,
-        RuntimeInstant,
-    },
+    runtime::Runtime,
     types::{
         FunctionCaller,
         ModuleEnvironment,

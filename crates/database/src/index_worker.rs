@@ -57,7 +57,6 @@ use common::{
         new_rate_limiter,
         RateLimiter,
         Runtime,
-        RuntimeInstant,
         SpawnHandle,
     },
     types::{
@@ -958,7 +957,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 // NB: We can't use `RateLimiter`'s async API since it internally relies on
                 // `futures-timer`. These timers will never get satisfied under our test
                 // runtime.
-                let delay = not_until.wait_time_from(self.runtime.monotonic_now().as_nanos());
+                let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
                 self.runtime.wait(delay).await;
             }
 

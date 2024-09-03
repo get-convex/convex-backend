@@ -2,10 +2,7 @@ use std::time::Duration;
 
 use common::{
     assert_obj,
-    runtime::{
-        Runtime,
-        RuntimeInstant,
-    },
+    runtime::Runtime,
     testing::assert_contains,
 };
 use must_let::must_let;

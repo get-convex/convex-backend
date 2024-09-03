@@ -19,10 +19,7 @@ use common::{
         CoDelQueueSender,
     },
     errors::recapture_stacktrace_noreport,
-    runtime::{
-        Runtime,
-        RuntimeInstant,
-    },
+    runtime::Runtime,
     types::IndexId,
 };
 use futures::{
@@ -97,20 +94,20 @@ impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
         }
     }
 }
-enum CacheResult<Value, RT: Runtime> {
+enum CacheResult<Value> {
     Ready {
         value: Arc<Value>,
         // Memoize the size to guard against implementations of `SizedValue`
         // that (unexpectedly) change while the value is in the cache.
         size: u64,
-        added: RT::Instant,
+        added: tokio::time::Instant,
     },
     Waiting {
         receiver: BroadcastReceiver<Result<Arc<Value>, Arc<anyhow::Error>>>,
     },
 }
 
-impl<Value: SizedValue, RT: Runtime> SizedValue for CacheResult<Value, RT> {
+impl<Value: SizedValue> SizedValue for CacheResult<Value> {
     fn size(&self) -> u64 {
         match self {
             CacheResult::Ready { size, .. } => *size,
@@ -120,7 +117,7 @@ impl<Value: SizedValue, RT: Runtime> SizedValue for CacheResult<Value, RT> {
 }
 
 struct Inner<RT: Runtime, Key, Value> {
-    cache: LruCache<Key, CacheResult<Value, RT>>,
+    cache: LruCache<Key, CacheResult<Value>>,
     current_size: u64,
     max_size: u64,
     label: &'static str,
@@ -129,7 +126,7 @@ struct Inner<RT: Runtime, Key, Value> {
 
 impl<RT: Runtime, Key, Value> Inner<RT, Key, Value> {
     fn new(
-        cache: LruCache<Key, CacheResult<Value, RT>>,
+        cache: LruCache<Key, CacheResult<Value>>,
         max_size: u64,
         label: &'static str,
         tx: CoDelQueueSender<RT, BuildValueRequest<Key, Value>>,
@@ -238,7 +235,7 @@ impl<
 
     fn _new(
         rt: RT,
-        cache: LruCache<Key, CacheResult<Value, RT>>,
+        cache: LruCache<Key, CacheResult<Value>>,
         max_size: u64,
         concurrency: usize,
         label: &'static str,

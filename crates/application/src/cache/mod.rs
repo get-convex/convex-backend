@@ -25,10 +25,7 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     query_journal::QueryJournal,
-    runtime::{
-        Runtime,
-        RuntimeInstant,
-    },
+    runtime::Runtime,
     types::{
         AllowedVisibility,
         FunctionCaller,
@@ -103,7 +100,7 @@ pub struct CacheManager<RT: Runtime> {
     function_router: FunctionRouter<RT>,
     udf_execution: FunctionExecutionLog<RT>,
 
-    cache: Cache<RT>,
+    cache: Cache,
 }
 
 impl<RT: Runtime> HeapSize for CacheManager<RT> {
@@ -146,18 +143,18 @@ impl CacheKey {
     }
 }
 
-enum CacheEntry<RT: Runtime> {
+enum CacheEntry {
     Ready(CacheResult),
     Waiting {
         id: u64,
-        started: RT::Instant,
+        started: tokio::time::Instant,
         receiver: Receiver<CacheResult>,
         // The UDF is being executed at this timestamp.
         ts: Timestamp,
     },
 }
 
-impl<RT: Runtime> CacheEntry<RT> {
+impl CacheEntry {
     /// Approximate size in-memory of the CacheEntry structure, including stack
     /// and heap allocated memory.
     fn size(&self) -> usize {
@@ -272,7 +269,7 @@ impl<RT: Runtime> CacheManager<RT> {
             // Bound the total time of the caching algorithm in cases we wait to
             // long before we start executing. If there is slowdown, we prefer to
             // fast fail instead of adding additional load to the system.
-            let elapsed = now.clone() - start.clone();
+            let elapsed = now - start;
             anyhow::ensure!(
                 elapsed <= *TOTAL_QUERY_TIMEOUT,
                 "Query execution time out: {elapsed:?}",
@@ -280,14 +277,9 @@ impl<RT: Runtime> CacheManager<RT> {
 
             // Step 1: Decide what we're going to do this iteration: use a cached value,
             // wait on someone else to run a UDF, or run the UDF ourselves.
-            let maybe_op = self.cache.plan_cache_op(
-                &key,
-                start.clone(),
-                now.clone(),
-                &identity,
-                ts,
-                context.clone(),
-            );
+            let maybe_op =
+                self.cache
+                    .plan_cache_op(&key, start, now, &identity, ts, context.clone());
             let op: CacheOp = match maybe_op {
                 Some(op) => op,
                 None => continue 'top,
@@ -561,14 +553,14 @@ impl<RT: Runtime> CacheManager<RT> {
 // A wrapper struct that makes sure that the waiting entry always gets removed
 // when the performing operation is dropped, even if the caller future gets
 // canceled.
-struct WaitingEntryGuard<'a, RT: Runtime> {
+struct WaitingEntryGuard<'a> {
     entry_id: Option<u64>,
     key: &'a CacheKey,
-    cache: Cache<RT>,
+    cache: Cache,
 }
 
-impl<'a, RT: Runtime> WaitingEntryGuard<'a, RT> {
-    fn new(entry_id: Option<u64>, key: &'a CacheKey, cache: Cache<RT>) -> Self {
+impl<'a> WaitingEntryGuard<'a> {
+    fn new(entry_id: Option<u64>, key: &'a CacheKey, cache: Cache) -> Self {
         Self {
             entry_id,
             key,
@@ -585,7 +577,7 @@ impl<'a, RT: Runtime> WaitingEntryGuard<'a, RT> {
     }
 }
 
-impl<'a, RT: Runtime> Drop for WaitingEntryGuard<'a, RT> {
+impl<'a> Drop for WaitingEntryGuard<'a> {
     fn drop(&mut self) {
         // Remove the cache entry from the cache if still present.
         if let Some(entry_id) = self.entry_id {
@@ -594,19 +586,19 @@ impl<'a, RT: Runtime> Drop for WaitingEntryGuard<'a, RT> {
     }
 }
 
-struct Inner<RT: Runtime> {
-    cache: LruCache<CacheKey, CacheEntry<RT>>,
+struct Inner {
+    cache: LruCache<CacheKey, CacheEntry>,
     size: usize,
 
     next_waiting_id: u64,
 }
 
 #[derive(Clone)]
-struct Cache<RT: Runtime> {
-    inner: Arc<Mutex<Inner<RT>>>,
+struct Cache {
+    inner: Arc<Mutex<Inner>>,
 }
 
-impl<RT: Runtime> Cache<RT> {
+impl Cache {
     fn new() -> Self {
         let inner = Inner {
             cache: LruCache::unbounded(),
@@ -621,8 +613,8 @@ impl<RT: Runtime> Cache<RT> {
     fn plan_cache_op(
         &self,
         key: &CacheKey,
-        start: RT::Instant,
-        now: RT::Instant,
+        start: tokio::time::Instant,
+        now: tokio::time::Instant,
         identity: &Identity,
         ts: Timestamp,
         context: ExecutionContext,
@@ -680,8 +672,8 @@ impl<RT: Runtime> Cache<RT> {
                 // occur on different threads, we're not guaranteed that
                 // `peer_started < now`. So, if the peer started *after* us,
                 // consider its `peer_elapsed` time to be zero.
-                let peer_started = cmp::min(now.clone(), peer_started.clone());
-                let peer_elapsed = now.clone() - peer_started;
+                let peer_started = cmp::min(now, *peer_started);
+                let peer_elapsed = now - peer_started;
                 if peer_elapsed >= *TOTAL_QUERY_TIMEOUT {
                     tracing::debug!(
                         "Peer timed out ({:?}), removing cache entry and retrying",
@@ -724,13 +716,13 @@ impl<RT: Runtime> Cache<RT> {
     }
 }
 
-impl<RT: Runtime> HeapSize for Cache<RT> {
+impl HeapSize for Cache {
     fn heap_size(&self) -> usize {
         self.inner.lock().size
     }
 }
 
-impl<RT: Runtime> Inner<RT> {
+impl Inner {
     // Remove only a `CacheEntry::Ready` from the cache, predicated on its
     // `executor_id` matching.
     fn remove_waiting(&mut self, key: &CacheKey, entry_id: u64) {
@@ -758,7 +750,7 @@ impl<RT: Runtime> Inner<RT> {
     fn put_waiting(
         &mut self,
         key: CacheKey,
-        now: RT::Instant,
+        now: tokio::time::Instant,
         ts: Timestamp,
     ) -> (Sender<CacheResult>, u64) {
         let id = self.next_waiting_id;

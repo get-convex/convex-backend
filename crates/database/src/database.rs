@@ -74,7 +74,6 @@ use common::{
     runtime::{
         RateLimiter,
         Runtime,
-        RuntimeInstant,
     },
     sync::split_rw_lock::{
         new_split_rw_lock,
@@ -934,7 +933,7 @@ impl<RT: Runtime> Database<RT> {
             )
             .then(|val| async {
                 while let Err(not_until) = rate_limiter.check() {
-                    let delay = not_until.wait_time_from(self.runtime.monotonic_now().as_nanos());
+                    let delay = not_until.wait_time_from(self.runtime.monotonic_now().into());
                     self.runtime.wait(delay).await;
                 }
                 val
