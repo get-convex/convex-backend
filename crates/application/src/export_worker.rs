@@ -42,6 +42,7 @@ use common::{
     runtime::Runtime,
     types::{
         IndexId,
+        ObjectKey,
         RepeatableTimestamp,
         TableName,
         Timestamp,
@@ -75,7 +76,6 @@ use model::{
         types::{
             Export,
             ExportFormat,
-            ExportObjectKeys,
         },
         EXPORTS_BY_STATE_AND_TS_INDEX,
         EXPORTS_STATE_FIELD,
@@ -334,7 +334,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         &mut self,
         format: ExportFormat,
         component: ComponentId,
-    ) -> anyhow::Result<(Timestamp, ExportObjectKeys, FunctionUsageTracker)> {
+    ) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
         let (ts, tables, by_id_indexes, system_tables, component_tree) = {
@@ -390,8 +390,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                     usage.clone(),
                 );
                 let (_, ()) = try_join!(uploader, zipper)?;
-                let object_keys = ExportObjectKeys::Zip(upload.complete().await?);
-                Ok((*ts, object_keys, usage))
+                let zip_object_key = upload.complete().await?;
+                Ok((*ts, zip_object_key, usage))
             },
         }
     }
@@ -833,12 +833,10 @@ mod tests {
         exports::types::{
             Export,
             ExportFormat,
-            ExportObjectKeys,
         },
         file_storage::types::FileStorageEntry,
         test_helpers::DbFixturesWithModel,
     };
-    use must_let::must_let;
     use runtime::testing::TestRuntime;
     use serde_json::json;
     use storage::{
@@ -952,7 +950,7 @@ mod tests {
             );
             db.commit(tx).await?;
         }
-        let (_, object_keys, usage) = export_worker
+        let (_, zip_object_key, usage) = export_worker
             .export_inner(
                 ExportFormat::Zip {
                     include_storage: true,
@@ -960,11 +958,10 @@ mod tests {
                 ComponentId::Root,
             )
             .await?;
-        must_let!(let ExportObjectKeys::Zip(object_key) = object_keys);
 
         // Check we can get the stored zip.
         let storage_stream = storage
-            .get(&object_key)
+            .get(&zip_object_key)
             .await?
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
@@ -1066,7 +1063,7 @@ mod tests {
                 .await?;
         }
 
-        let (_, object_keys, usage) = export_worker
+        let (_, zip_object_key, usage) = export_worker
             .export_inner(
                 ExportFormat::Zip {
                     include_storage: false,
@@ -1074,11 +1071,10 @@ mod tests {
                 ComponentId::Root,
             )
             .await?;
-        must_let!(let ExportObjectKeys::Zip(object_key) = object_keys);
 
         // Check we can get the stored zip.
         let storage_stream = storage
-            .get(&object_key)
+            .get(&zip_object_key)
             .await?
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
@@ -1127,7 +1123,7 @@ mod tests {
         write_test_data_in_component(&db, child_component, "", &mut expected_export_entries)
             .await?;
 
-        let (_, object_keys, usage) = export_worker
+        let (_, zip_object_key, usage) = export_worker
             .export_inner(
                 ExportFormat::Zip {
                     include_storage: false,
@@ -1135,11 +1131,10 @@ mod tests {
                 child_component,
             )
             .await?;
-        must_let!(let ExportObjectKeys::Zip(object_key) = object_keys);
 
         // Check we can get the stored zip.
         let storage_stream = storage
-            .get(&object_key)
+            .get(&zip_object_key)
             .await?
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
@@ -1221,7 +1216,7 @@ mod tests {
             ),
         );
 
-        let (_, object_keys, usage) = export_worker
+        let (_, zip_object_key, usage) = export_worker
             .export_inner(
                 ExportFormat::Zip {
                     include_storage: true,
@@ -1229,11 +1224,10 @@ mod tests {
                 ComponentId::Root,
             )
             .await?;
-        must_let!(let ExportObjectKeys::Zip(object_key) = object_keys);
 
         // Check we can get the stored zip.
         let storage_stream = storage
-            .get(&object_key)
+            .get(&zip_object_key)
             .await?
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
@@ -1285,7 +1279,7 @@ mod tests {
             .await?;
         db.commit(tx).await?;
 
-        let (_, object_keys, _) = export_worker
+        let (_, _zip_object_key, _) = export_worker
             .export_inner(
                 ExportFormat::Zip {
                     include_storage: false,
@@ -1293,7 +1287,6 @@ mod tests {
                 ComponentId::test_user(),
             )
             .await?;
-        must_let!(let ExportObjectKeys::Zip(_ok) = object_keys);
         Ok(())
     }
 
@@ -1320,11 +1313,10 @@ mod tests {
         assert_eq!(in_progress_export, deserialized_export);
 
         // Completed
-        let export = in_progress_export.clone().completed(
-            *ts,
-            *ts,
-            ExportObjectKeys::Zip(ObjectKey::try_from("asdf")?),
-        )?;
+        let export =
+            in_progress_export
+                .clone()
+                .completed(*ts, *ts, ObjectKey::try_from("asdf")?)?;
         let object: ConvexObject = export.clone().try_into()?;
         let deserialized_export = object.try_into()?;
         assert_eq!(export, deserialized_export);

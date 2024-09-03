@@ -191,7 +191,6 @@ use model::{
         types::{
             Export,
             ExportFormat,
-            ExportObjectKeys,
         },
         ExportsModel,
     },
@@ -1311,12 +1310,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         snapshot_ts: Timestamp,
     ) -> anyhow::Result<(StorageGetStream, String)> {
-        let stream = self
-            .get_export_inner(identity, snapshot_ts, move |keys| {
-                let ExportObjectKeys::Zip(key) = keys;
-                Ok(key)
-            })
-            .await?;
+        let stream = self.get_export_inner(identity, snapshot_ts).await?;
         let filename = format!(
             // This should match the format in SnapshotExport.tsx.
             "snapshot_{}_{snapshot_ts}.zip",
@@ -1329,7 +1323,6 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         snapshot_ts: Timestamp,
-        get_object_key: impl FnOnce(ExportObjectKeys) -> anyhow::Result<ObjectKey>,
     ) -> anyhow::Result<StorageGetStream> {
         let object_key = {
             let mut tx = self.begin(identity).await?;
@@ -1341,7 +1334,7 @@ impl<RT: Runtime> Application<RT> {
                 ))?
                 .try_into()?;
             match export.into_value() {
-                Export::Completed { object_keys, .. } => get_object_key(object_keys)?,
+                Export::Completed { zip_object_key, .. } => zip_object_key,
                 Export::Failed { .. } | Export::InProgress { .. } | Export::Requested { .. } => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "ExportNotComplete",

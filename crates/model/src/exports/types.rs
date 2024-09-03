@@ -8,7 +8,6 @@ use common::{
     obj,
     types::ObjectKey,
 };
-use maplit::btreemap;
 use sync_types::Timestamp;
 use value::{
     val,
@@ -40,7 +39,7 @@ pub enum Export {
         /// Expiration timestamp
         expiration_ts: u64,
         /// Object keys in S3
-        object_keys: ExportObjectKeys,
+        zip_object_key: ObjectKey,
         /// Format of the export
         format: ExportFormat,
         component: ComponentId,
@@ -104,7 +103,7 @@ impl Export {
         self,
         snapshot_ts: Timestamp,
         complete_ts: Timestamp,
-        object_keys: ExportObjectKeys,
+        zip_object_key: ObjectKey,
     ) -> anyhow::Result<Export> {
         let expiration_ts = Into::<u64>::into(complete_ts) + EXPORT_RETENTION;
         match self {
@@ -116,7 +115,7 @@ impl Export {
                     start_ts: snapshot_ts,
                     complete_ts,
                     expiration_ts,
-                    object_keys,
+                    zip_object_key,
                     format,
                     component,
                 })
@@ -129,7 +128,7 @@ impl Export {
                 start_ts: _,
                 complete_ts: _,
                 expiration_ts: _,
-                object_keys: _,
+                zip_object_key: _,
                 format: _,
                 component: _,
             }
@@ -165,7 +164,7 @@ impl Export {
                 start_ts: _,
                 complete_ts: _,
                 expiration_ts: _,
-                object_keys: _,
+                zip_object_key: _,
                 format: _,
                 component: _,
             }
@@ -197,7 +196,7 @@ impl Display for Export {
                 start_ts: _,
                 complete_ts: _,
                 expiration_ts: _,
-                object_keys: _,
+                zip_object_key: _,
                 format: _,
                 component: _,
             } => write!(f, "completed"),
@@ -220,25 +219,19 @@ impl TryFrom<Export> for ConvexObject {
                 start_ts,
                 complete_ts,
                 expiration_ts,
-                object_keys,
+                zip_object_key,
                 format,
                 component,
             } => {
-                let mut o = btreemap! {
-                    "start_ts".parse()? => val!(i64::from(start_ts)),
-                    "complete_ts".parse()? => val!(i64::from(complete_ts)),
-                    "expiration_ts".parse()? => val!(expiration_ts as i64),
-                    "state".parse()? => val!("completed"),
-                    "format".parse()? => val!(format),
-                    "component".parse()? => val!(component.serialize_to_string()),
-                };
-                match object_keys {
-                    ExportObjectKeys::Zip(object_key) => o.insert(
-                        "zip_object_key".parse()?,
-                        ConvexValue::try_from(object_key.to_string())?,
-                    ),
-                };
-                ConvexObject::try_from(o)
+                obj!(
+                    "start_ts" => i64::from(start_ts),
+                    "complete_ts" => i64::from(complete_ts),
+                    "expiration_ts" => expiration_ts as i64,
+                    "state" => "completed",
+                    "format" => format,
+                    "component" => component.serialize_to_string(),
+                    "zip_object_key" => zip_object_key.to_string(),
+                )
             },
             Export::Requested { format, component } => obj!(
                 "state" => "requested",
@@ -318,9 +311,9 @@ impl TryFrom<ConvexObject> for Export {
                         Some(ConvexValue::Int64(t)) => *t as u64,
                         _ => anyhow::bail!("invalid expiration_ts: {:?}", o),
                     };
-                    let object_keys = match o.get("zip_object_key") {
+                    let zip_object_key = match o.get("zip_object_key") {
                         Some(ConvexValue::String(zip_object_key)) => {
-                            ExportObjectKeys::Zip(String::from(zip_object_key.clone()).try_into()?)
+                            zip_object_key.clone().try_into()?
                         },
                         _ => anyhow::bail!("invalid object keys: {:?}", o),
                     };
@@ -328,7 +321,7 @@ impl TryFrom<ConvexObject> for Export {
                         expiration_ts,
                         start_ts,
                         complete_ts,
-                        object_keys,
+                        zip_object_key,
                         format,
                         component,
                     })
@@ -390,12 +383,6 @@ impl TryFrom<ConvexValue> for ExportFormat {
         };
         Ok(f)
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub enum ExportObjectKeys {
-    Zip(ObjectKey),
 }
 
 #[cfg(test)]
