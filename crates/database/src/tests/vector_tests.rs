@@ -198,7 +198,7 @@ impl<RT: Runtime> Scenario<RT> {
         let mut ids = vec![];
         for _ in 0..num_docs {
             let mut tx = self.database.begin(Identity::system()).await?;
-            let vector = self.rt.with_rng(random_vector_value);
+            let vector = random_vector_value(&mut self.rt.rng());
             let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
             let id = UserFacingModel::new_root_for_test(&mut tx)
                 .insert(TABLE_NAME.parse()?, obj)
@@ -470,18 +470,19 @@ impl<RT: Runtime> RandomizedTest<RT> {
 }
 
 #[convex_macro::test_runtime]
+
 async fn test_vector_search(rt: TestRuntime) -> anyhow::Result<()> {
     let scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
 
     let mut tx = scenario.database.begin(Identity::system()).await?;
 
-    let vector1 = rt.with_rng(random_vector_value);
+    let vector1 = random_vector_value(&mut rt.rng());
     let obj = assert_obj!(INDEXED_FIELD => vector1, "A" => ConvexValue::Int64(1017));
     let id1 = UserFacingModel::new_root_for_test(&mut tx)
         .insert(TABLE_NAME.parse()?, obj)
         .await?;
 
-    let vector2 = rt.with_rng(random_vector_value);
+    let vector2 = random_vector_value(&mut rt.rng());
     let obj = assert_obj!(INDEXED_FIELD => vector2);
     let id2 = UserFacingModel::new_root_for_test(&mut tx)
         .insert(TABLE_NAME.parse()?, obj.clone())
@@ -575,13 +576,15 @@ async fn test_vector_search_compaction(rt: TestRuntime) -> anyhow::Result<()> {
 
     let mut ids = vec![];
 
+    let mut rng = rt.rng();
+
     // Then compact the new round of segments and the original one into a single
     // large segment.
     for _ in 0..3 {
         // Create 3 segments and compact them into one segment
         for _ in 0..3 {
             let mut tx = scenario.database.begin(Identity::system()).await?;
-            let vector = rt.with_rng(random_vector_value);
+            let vector = random_vector_value(&mut rng);
             let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
             let id = UserFacingModel::new_root_for_test(&mut tx)
                 .insert(TABLE_NAME.parse()?, obj)
@@ -635,7 +638,7 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
     let mut tx = scenario.database.begin(Identity::system()).await?;
     // Create a segment with N vectors
     for _ in 0..4 {
-        let vector = rt.with_rng(random_vector_value);
+        let vector = random_vector_value(&mut rt.rng());
         let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
         let id = UserFacingModel::new_root_for_test(&mut tx)
             .insert(TABLE_NAME.parse()?, obj)
@@ -715,7 +718,7 @@ async fn test_vector_search_compaction_with_deletes(rt: TestRuntime) -> anyhow::
     // Create 3 segments and compact them into one segment
     for _ in 0..3 {
         let mut tx = scenario.database.begin(Identity::system()).await?;
-        let vector = rt.with_rng(random_vector_value);
+        let vector = random_vector_value(&mut rt.rng());
         let obj = assert_obj!(INDEXED_FIELD => vector, "A" => ConvexValue::Int64(1017));
         let id = UserFacingModel::new_root_for_test(&mut tx)
             .insert(TABLE_NAME.parse()?, obj)
@@ -905,7 +908,7 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
 #[convex_macro::test_runtime]
 async fn test_empty_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
     let scenario = Scenario::new(rt.clone(), ScenarioIndexState::Some).await?;
-    let query = rt.with_rng(random_vector);
+    let query = random_vector(&mut rt.rng());
     let results = scenario
         .search_with_limit(query, btreeset![], Some(10))
         .await?;
@@ -923,9 +926,10 @@ async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
         .namespace(TABLE_NAMESPACE)
         .name_to_number_user_input()(TABLE_NAME.parse()?)?;
 
+    let mut rng = rt.rng();
     let mut by_id = BTreeMap::new();
     for _ in 0..100 {
-        let vector = rt.with_rng(random_vector);
+        let vector = random_vector(&mut rng);
         let obj = assert_obj!(INDEXED_FIELD => vector_to_value(vector.clone()));
         let id = UserFacingModel::new_root_for_test(&mut tx)
             .insert(TABLE_NAME.parse()?, obj)
@@ -936,7 +940,7 @@ async fn test_recall_multi_segment(rt: TestRuntime) -> anyhow::Result<()> {
 
     let limit = 10u32;
 
-    let query = rt.with_rng(random_vector);
+    let query = random_vector(&mut rng);
     let mut expected: Vec<_> = by_id
         .iter()
         .map(|(id, vector)| PublicVectorSearchQueryResult {

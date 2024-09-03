@@ -84,7 +84,7 @@ async fn retry_failures<RT: Runtime>(
             if !expected_error {
                 report_error(&mut e);
             }
-            let delay = runtime.with_rng(|rng| backoff.fail(rng));
+            let delay = backoff.fail(&mut runtime.rng());
             tracing::error!(
                 "{name} died, num_failures: {}. Backing off for {}ms, expected: {}: {e:#}",
                 backoff.failures(),

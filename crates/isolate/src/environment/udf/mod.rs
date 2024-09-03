@@ -376,7 +376,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // Initialize the UDF's RNG from some high-quality entropy. As with
         // `unix_timestamp` below, the UDF is only deterministic modulo this
         // system-generated input.
-        let rng_seed = self.rt.with_rng(|rng| rng.gen());
+        let rng_seed = self.rt.rng().gen();
         let unix_timestamp = self.rt.unix_timestamp();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use

@@ -888,7 +888,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         if e.is_occ()
                             && (backoff.failures() as usize) < *UDF_EXECUTOR_OCC_MAX_RETRIES
                         {
-                            let sleep = self.runtime.with_rng(|rng| backoff.fail(rng));
+                            let sleep = backoff.fail(&mut self.runtime.rng());
                             tracing::warn!(
                                 "Optimistic concurrency control failed ({e}), retrying \
                                  {udf_path_string:?} after {sleep:?}",

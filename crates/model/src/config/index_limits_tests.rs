@@ -65,7 +65,7 @@ async fn insert_vector_doc_under_vector_limit_succeeds(rt: TestRuntime) -> anyho
     let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
     commit_schema(&rt, tp, &db).await?;
 
-    let vector = rt.with_rng(random_vector_value);
+    let vector = random_vector_value(&mut rt.rng());
 
     let mut tx = db.begin(Identity::system()).await?;
     UserFacingModel::new_root_for_test(&mut tx)
@@ -80,7 +80,7 @@ async fn insert_vector_doc_over_vector_limit_fails(rt: TestRuntime) -> anyhow::R
     let DbFixtures { db, tp, .. } = DbFixtures::new_with_model(&rt).await?;
     commit_schema(&rt, tp, &db).await?;
 
-    let vector = rt.with_rng(random_vector_value);
+    let vector = random_vector_value(&mut rt.rng());
 
     let mut tx = db.begin(Identity::system()).await?;
     tx.set_index_size_hard_limit(0);
@@ -136,7 +136,7 @@ async fn insert_doc_in_same_table_without_vector_succeeds(rt: TestRuntime) -> an
 }
 
 fn random_1536_vector_value(rt: &TestRuntime) -> ConvexValue {
-    rt.with_rng(|rng| vector_to_value(random_vector_with_dimens(rng, VECTOR_DIMENSIONS)))
+    vector_to_value(random_vector_with_dimens(&mut rt.rng(), VECTOR_DIMENSIONS))
 }
 
 // This looks like it should succeed, but here's why it doesn't:

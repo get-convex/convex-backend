@@ -49,7 +49,7 @@ impl BuildReason {
 // Timeout from 1/2 the target duration to 1.5 the target duration.
 pub async fn timeout_with_jitter<RT: Runtime>(rt: &RT, duration: Duration) {
     let half_timer = duration / 2;
-    let sleep = rt.with_rng(|rng| half_timer + duration.mul_f32(rng.gen::<f32>()));
+    let sleep = half_timer + duration.mul_f32(rt.rng().gen::<f32>());
     rt.wait(sleep).await;
 }
 

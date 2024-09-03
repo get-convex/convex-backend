@@ -127,7 +127,7 @@ impl<RT: Runtime> Application<RT> {
 
         let app_udf_config = UdfConfig {
             server_version: config.app_definition.udf_server_version.clone(),
-            import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+            import_phase_rng_seed: self.runtime.rng().gen(),
             import_phase_unix_timestamp: unix_timestamp,
         };
         let app_pkg = component_definition_packages
@@ -236,7 +236,7 @@ impl<RT: Runtime> Application<RT> {
         for component_def in &config.component_definitions {
             let udf_config = UdfConfig {
                 server_version: component_def.udf_server_version.clone(),
-                import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+                import_phase_rng_seed: self.runtime.rng().gen(),
                 import_phase_unix_timestamp: unix_timestamp,
             };
             component_udf_config_by_def_path

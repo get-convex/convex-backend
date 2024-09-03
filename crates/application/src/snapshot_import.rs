@@ -228,7 +228,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             loop {
                 if let Err(e) = worker.run().await {
                     report_error(&mut e.context("SnapshotImportWorker died"));
-                    let delay = worker.runtime.with_rng(|rng| worker.backoff.fail(rng));
+                    let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     worker.runtime.wait(delay).await;
                 } else {
                     worker.backoff.reset();

@@ -694,7 +694,7 @@ impl ValidatedUdfOutcome {
             path,
             arguments,
             identity,
-            rng_seed: rt.with_rng(|rng| rng.gen()),
+            rng_seed: rt.rng().gen(),
             observed_rng: false,
             unix_timestamp: rt.unix_timestamp(),
             observed_time: false,

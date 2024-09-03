@@ -40,7 +40,7 @@ use futures::{
     TryFutureExt,
 };
 use parking_lot::Mutex;
-use rand::rngs::ThreadRng;
+use rand::RngCore;
 use tokio::{
     runtime::{
         Builder,
@@ -199,7 +199,6 @@ impl ProdRuntime {
 impl Runtime for ProdRuntime {
     type Handle = FutureHandle;
     type Instant = ProdInstant;
-    type Rng = ThreadRng;
     type ThreadHandle = ThreadHandle;
 
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>> {
@@ -233,13 +232,12 @@ impl Runtime for ProdRuntime {
         ProdInstant(Instant::now())
     }
 
-    fn with_rng<R>(&self, f: impl FnOnce(&mut Self::Rng) -> R) -> R {
+    fn rng(&self) -> Box<dyn RngCore> {
         // `rand`'s default RNG is designed to be cryptographically secure:
         // > The PRNG algorithm in StdRng is chosen to be efficient on the current
         // platform, to be > statistically strong and unpredictable (meaning a
         // cryptographically secure PRNG). (Source: https://docs.rs/rand/latest/rand/rngs/struct.StdRng.html)
-        let mut rng = rand::thread_rng();
-        f(&mut rng)
+        Box::new(rand::thread_rng())
     }
 }
 

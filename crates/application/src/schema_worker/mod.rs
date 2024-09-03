@@ -80,7 +80,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
             loop {
                 if let Err(e) = worker.run().await {
-                    let delay = worker.runtime.with_rng(|rng| backoff.fail(rng));
+                    let delay = backoff.fail(&mut worker.runtime.rng());
                     report_error(&mut e.context("SchemaWorker died"));
                     tracing::error!("Schema worker failed, sleeping {delay:?}");
                     worker.runtime.wait(delay).await;
@@ -194,7 +194,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                                 .await
                             {
                                 if e.is_occ() {
-                                    let delay = self.runtime.with_rng(|rng| backoff.fail(rng));
+                                    let delay = backoff.fail(&mut self.runtime.rng());
                                     tracing::error!(
                                         "Schema worker failed to commit ({e}), retrying after \
                                          {delay:?}"

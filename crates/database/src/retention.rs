@@ -1023,7 +1023,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // Abuse backoff to get jitter by passing in the same constant for initial and
         // max backoff.
         let mut initial_backoff = Backoff::new(delay, delay);
-        let delay = rt.with_rng(|rng| initial_backoff.fail(rng));
+        let delay = initial_backoff.fail(&mut rt.rng());
         rt.wait(delay).await;
     }
 
@@ -1135,7 +1135,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             };
             if let Err(mut err) = r {
                 report_error(&mut err);
-                let delay = rt.with_rng(|rng| error_backoff.fail(rng));
+                let delay = error_backoff.fail(&mut rt.rng());
                 tracing::debug!("go_delete: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;
             } else {
@@ -1235,7 +1235,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             };
             if let Err(mut err) = r {
                 report_error(&mut err);
-                let delay = rt.with_rng(|rng| error_backoff.fail(rng));
+                let delay = error_backoff.fail(&mut rt.rng());
                 tracing::debug!("go_delete_documents: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;
             } else {
@@ -1461,7 +1461,7 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
             let is_failure = if age < min_failure_duration {
                 false
             } else {
-                let failure_die: f64 = self.rt.with_rng(|rng| rng.gen());
+                let failure_die: f64 = self.rt.rng().gen();
                 // failure_percentage might be >= 1.0, which will always cause failures because
                 // rng.gen() is between 0 and 1.0. That's totally fine, at some point it's ok
                 // for all writes to fail.

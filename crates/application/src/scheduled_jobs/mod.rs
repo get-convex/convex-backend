@@ -204,7 +204,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let mut backoff =
                 Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
             while let Err(mut e) = executor.run(&mut backoff).await {
-                let delay = executor.rt.with_rng(|rng| backoff.fail(rng));
+                let delay = backoff.fail(&mut executor.rt.rng());
                 tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
                 report_error(&mut e);
                 executor.rt.wait(delay).await;
@@ -349,14 +349,12 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let context = self.context.clone();
             let tx = job_finished_tx.clone();
 
-            let root = self.rt.with_rng(|rng| {
-                get_sampled_span(
-                    &self.instance_name,
-                    "scheduler/execute_job",
-                    rng,
-                    BTreeMap::new(),
-                )
-            });
+            let root = get_sampled_span(
+                &self.instance_name,
+                "scheduler/execute_job",
+                &mut self.rt.rng(),
+                BTreeMap::new(),
+            );
             self.rt.spawn(
                 "spawn_scheduled_job",
                 async move {
@@ -474,7 +472,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         } else {
             attempts.system_errors += 1;
         }
-        let delay = self.rt.with_rng(|rng| backoff.fail(rng));
+        let delay = backoff.fail(&mut self.rt.rng());
         tracing::error!("System error executing job, sleeping {delay:?}");
         job.next_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
 
@@ -775,7 +773,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .complete_action(job_id, &updated_job, usage_tracker.clone(), state.clone())
                     .await
                 {
-                    let delay = self.rt.with_rng(|rng| backoff.fail(rng));
+                    let delay = backoff.fail(&mut self.rt.rng());
                     tracing::error!("Failed to update action state, sleeping {delay:?}");
                     report_error(&mut err);
                     self.rt.wait(delay).await;
@@ -885,7 +883,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 *SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF,
             );
             while let Err(mut e) = garbage_collector.run(&mut backoff).await {
-                let delay = garbage_collector.rt.with_rng(|rng| backoff.fail(rng));
+                let delay = backoff.fail(&mut garbage_collector.rt.rng());
                 tracing::error!("Scheduled job garbage collector failed, sleeping {delay:?}");
                 // Only report OCCs that happen repeatedly
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {

@@ -478,7 +478,7 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
         let timer = crate::metrics::search_and_vector_bootstrap_timer();
         loop {
             if let Err(e) = self.run().await {
-                let delay = self.runtime.with_rng(|rng| self.backoff.fail(rng));
+                let delay = self.backoff.fail(&mut self.runtime.rng());
                 // Forgive OCC errors < N to match UDF mutation retry behavior.
                 if !e.is_occ() || (self.backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
                 {

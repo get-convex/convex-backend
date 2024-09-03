@@ -133,7 +133,7 @@ pub fn register_prometheus_exporter<RT: Runtime>(
         )
         .await
         {
-            let delay = rt.with_rng(|r| backoff.fail(r));
+            let delay = backoff.fail(&mut rt.rng());
             tracing::error!(
                 "Prometheus exporter server failed with error {e:?}, restarting after {}ms delay",
                 delay.as_millis()

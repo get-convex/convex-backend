@@ -233,7 +233,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             loop {
                 if let Err(e) = worker.run().await {
                     report_error(&mut e.context("IndexWorker died"));
-                    let delay = worker.runtime.with_rng(|rng| worker.backoff.fail(rng));
+                    let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     log::error!(
                         "IndexWorker died, num_failures: {}. Backing off for {}ms",
                         worker.backoff.failures(),
@@ -273,7 +273,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 if let Err(ref e) = r
                     && e.is_occ()
                 {
-                    let delay = worker.runtime.with_rng(|rng| worker.backoff.fail(rng));
+                    let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     log::error!(
                         "IndexWorker died, num_failures: {}. Backing off for {}ms",
                         worker.backoff.failures(),

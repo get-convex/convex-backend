@@ -246,12 +246,14 @@ async fn test_schedule_many(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_schedule_arguments_too_large(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        let mut rng = t.rt.rng();
+
         // Scheduling a hundred functions with 1KB argument should work.
-        let bytes_1k = t.rt.with_rng(|rng| {
+        let bytes_1k = {
             let mut bytes = [0u8; 1024];
             rng.fill_bytes(&mut bytes);
             bytes.to_vec()
-        });
+        };
         t.mutation(
             "scheduler:scheduleMany",
             assert_obj!("limit" => 100, "obj" => {
@@ -261,11 +263,11 @@ async fn test_schedule_arguments_too_large(rt: TestRuntime) -> anyhow::Result<()
         .await?;
 
         // Scheduling a hundred functions with 100KB arguments should not.
-        let bytes_100k = t.rt.with_rng(|rng| {
+        let bytes_100k = {
             let mut bytes = [0u8; 100 * 1024];
             rng.fill_bytes(&mut bytes);
             bytes.to_vec()
-        });
+        };
         let err = t
             .mutation_js_error(
                 "scheduler:scheduleMany",
@@ -287,11 +289,12 @@ async fn test_schedule_arguments_too_large(rt: TestRuntime) -> anyhow::Result<()
 #[convex_macro::test_runtime]
 async fn test_schedule_arguments_large(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
-        let bytes_1m = t.rt.with_rng(|rng| {
+        let mut rng = t.rt.rng();
+        let bytes_1m = {
             let mut bytes = [0u8; 1000 * 1024];
             rng.fill_bytes(&mut bytes);
             bytes.to_vec()
-        });
+        };
         let mut log_lines = t
             .mutation_log_lines(
                 "scheduler:scheduleMany",

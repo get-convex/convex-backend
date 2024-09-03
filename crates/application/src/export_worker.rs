@@ -197,7 +197,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             loop {
                 if let Err(e) = worker.run().await {
                     report_error(&mut e.context("ExportWorker died"));
-                    let delay = worker.runtime.with_rng(|rng| worker.backoff.fail(rng));
+                    let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     worker.runtime.wait(delay).await;
                 } else {
                     worker.backoff.reset();
@@ -322,7 +322,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 },
                 Err(mut e) => {
                     report_error(&mut e);
-                    let delay = self.runtime.with_rng(|rng| self.backoff.fail(rng));
+                    let delay = self.backoff.fail(&mut self.runtime.rng());
                     tracing::error!("Export failed, retrying in {delay:?}");
                     self.runtime.wait(delay).await;
                 },

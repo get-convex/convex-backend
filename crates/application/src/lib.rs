@@ -1553,7 +1553,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     async fn _evaluate_schema(&self, schema: ModuleConfig) -> anyhow::Result<DatabaseSchema> {
-        let rng_seed = self.runtime().with_rng(|rng| rng.gen());
+        let rng_seed = self.runtime().rng().gen();
         let unix_timestamp = self.runtime().unix_timestamp();
         let mut schema = self
             .runner()
@@ -2051,7 +2051,7 @@ impl<RT: Runtime> Application<RT> {
                 // yet, act like the most recent version.
                 let udf_config = UdfConfig {
                     server_version: Version::new(1000, 0, 0),
-                    import_phase_rng_seed: self.runtime.with_rng(|rng| rng.gen()),
+                    import_phase_rng_seed: self.runtime.rng().gen(),
                     import_phase_unix_timestamp: self.runtime.unix_timestamp(),
                 };
                 udf_config_model.set(udf_config.clone()).await?;

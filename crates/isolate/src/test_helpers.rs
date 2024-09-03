@@ -537,12 +537,13 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         };
 
         if self.isolate_v2_enabled {
+            let rng_seed = self.rt.rng().gen();
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
                 self.module_loader.clone(),
                 SeedData {
-                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    rng_seed,
                     unix_timestamp: self.rt.unix_timestamp(),
                 },
                 UdfType::Mutation,
@@ -684,12 +685,13 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         };
 
         if self.isolate_v2_enabled {
+            let rng_seed = self.rt.rng().gen();
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
                 self.module_loader.clone(),
                 SeedData {
-                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    rng_seed,
                     unix_timestamp: self.rt.unix_timestamp(),
                 },
                 UdfType::Query,
@@ -748,12 +750,13 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         );
 
         if self.isolate_v2_enabled {
+            let rng_seed = self.rt.rng().gen();
             let (_, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
                 self.module_loader.clone(),
                 SeedData {
-                    rng_seed: self.rt.with_rng(|rng| rng.gen()),
+                    rng_seed,
                     unix_timestamp: self.rt.unix_timestamp(),
                 },
                 UdfType::Query,

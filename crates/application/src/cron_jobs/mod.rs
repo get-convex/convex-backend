@@ -134,7 +134,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
                     report_error(&mut e);
                 }
-                let delay = executor.rt.with_rng(|rng| backoff.fail(rng));
+                let delay = backoff.fail(&mut executor.rt.rng());
                 tracing::error!("Cron job executor failed, sleeping {delay:?}");
                 executor.rt.wait(delay).await;
             }
@@ -234,14 +234,12 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             if next_ts > now || running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
                 return Ok(Some(next_ts));
             }
-            let root = self.rt.with_rng(|rng| {
-                get_sampled_span(
-                    &self.instance_name,
-                    "crons/execute_job",
-                    rng,
-                    BTreeMap::new(),
-                )
-            });
+            let root = get_sampled_span(
+                &self.instance_name,
+                "crons/execute_job",
+                &mut self.rt.rng(),
+                BTreeMap::new(),
+            );
             let context = self.clone();
             let tx = job_finished_tx.clone();
             self.rt.spawn(
@@ -311,7 +309,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     return result;
                 },
                 Err(mut e) => {
-                    let delay = self.rt.with_rng(|rng| function_backoff.fail(rng));
+                    let delay = function_backoff.fail(&mut self.rt.rng());
                     tracing::error!("System error executing job:, sleeping {delay:?}");
                     report_error(&mut e);
                     metrics::log_cron_job_failure(&e);
@@ -622,7 +620,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     )
                     .await
                 {
-                    let delay = self.rt.with_rng(|rng| backoff.fail(rng));
+                    let delay = backoff.fail(&mut self.rt.rng());
                     tracing::error!("Failed to update action state, sleeping {delay:?}");
                     report_error(&mut err);
                     self.rt.wait(delay).await;

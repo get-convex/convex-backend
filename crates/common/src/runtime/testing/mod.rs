@@ -31,7 +31,10 @@ use futures::{
     TryFutureExt,
 };
 use parking_lot::Mutex;
-use rand::SeedableRng;
+use rand::{
+    RngCore,
+    SeedableRng,
+};
 use rand_chacha::ChaCha12Rng;
 use tokio::runtime::{
     Builder,
@@ -185,7 +188,6 @@ enum ThreadCommand {
 impl Runtime for TestRuntime {
     type Handle = TestFutureHandle;
     type Instant = TestInstant;
-    type Rng = ChaCha12Rng;
     type ThreadHandle = TestThreadHandle;
 
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>> {
@@ -298,8 +300,30 @@ impl Runtime for TestRuntime {
         }
     }
 
-    fn with_rng<R>(&self, f: impl FnOnce(&mut Self::Rng) -> R) -> R {
-        self.with_state(|state| f(&mut state.rng))
+    fn rng(&self) -> Box<dyn RngCore> {
+        Box::new(TestRng { rt: self.clone() })
+    }
+}
+
+struct TestRng {
+    rt: TestRuntime,
+}
+
+impl RngCore for TestRng {
+    fn next_u32(&mut self) -> u32 {
+        self.rt.with_state(|state| state.rng.next_u32())
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.rt.with_state(|state| state.rng.next_u64())
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.rt.with_state(|state| state.rng.fill_bytes(dest))
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
+        self.rt.with_state(|state| state.rng.try_fill_bytes(dest))
     }
 }
 

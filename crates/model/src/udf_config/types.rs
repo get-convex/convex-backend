@@ -34,7 +34,7 @@ impl UdfConfig {
     pub fn new_for_test<RT: Runtime>(rt: &RT, udf_server_version: Version) -> Self {
         Self {
             server_version: udf_server_version,
-            import_phase_rng_seed: rt.with_rng(|rng| rng.gen()),
+            import_phase_rng_seed: rt.rng().gen(),
             import_phase_unix_timestamp: rt.unix_timestamp(),
         }
     }

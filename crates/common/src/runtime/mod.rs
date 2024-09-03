@@ -46,11 +46,7 @@ use minitrace::{
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
-#[cfg(not(any(test, feature = "testing")))]
-use rand::{
-    Rng,
-    RngCore,
-};
+use rand::RngCore;
 use serde::Serialize;
 use thiserror::Error;
 use uuid::Uuid;
@@ -202,9 +198,6 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     /// `std::time::Instant`-like type returned by `monotonic_now()`.
     type Instant: RuntimeInstant;
 
-    /// Source of randomness associated with the runtime.
-    type Rng: Rng;
-
     /// Sleep for the given duration.
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>>;
 
@@ -239,14 +232,12 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     fn monotonic_now(&self) -> Self::Instant;
 
     /// Use the runtime's source of randomness.
-    fn with_rng<R>(&self, f: impl FnOnce(&mut Self::Rng) -> R) -> R;
+    fn rng(&self) -> Box<dyn RngCore>;
 
     fn new_uuid_v4(&self) -> Uuid {
-        let bytes = self.with_rng(|rng| {
-            let mut bytes = [0u8; 16];
-            rng.fill_bytes(&mut bytes);
-            bytes
-        });
+        let mut rng = self.rng();
+        let mut bytes = [0u8; 16];
+        rng.fill_bytes(&mut bytes);
         uuid::Builder::from_random_bytes(bytes).into_uuid()
     }
 

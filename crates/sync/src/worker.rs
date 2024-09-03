@@ -469,17 +469,15 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
-                let root = self.rt.with_rng(|rng| {
-                    get_sampled_span(
-                        &self.host.instance_name,
-                        "sync-worker/mutation",
-                        rng,
-                        btreemap! {
-                           "udf_type".into() => UdfType::Mutation.to_lowercase_string().into(),
-                           "udf_path".into() => udf_path.clone().into(),
-                        },
-                    )
-                });
+                let root = get_sampled_span(
+                    &self.host.instance_name,
+                    "sync-worker/mutation",
+                    &mut self.rt.rng(),
+                    btreemap! {
+                       "udf_type".into() => UdfType::Mutation.to_lowercase_string().into(),
+                       "udf_path".into() => udf_path.clone().into(),
+                    },
+                );
                 let rt = self.rt.clone();
                 let client_version = self.config.client_version.clone();
                 let timer = mutation_queue_timer();
@@ -571,17 +569,15 @@ impl<RT: Runtime> SyncWorker<RT> {
                     Some(id) => RequestId::new_for_ws_session(id, request_id),
                     None => RequestId::new(),
                 };
-                let root = self.rt.with_rng(|rng| {
-                    get_sampled_span(
-                        &self.host.instance_name,
-                        "sync-worker/action",
-                        rng,
-                        btreemap! {
-                           "udf_type".into() => UdfType::Action.to_lowercase_string().into(),
-                           "udf_path".into() => udf_path.clone().into(),
-                        },
-                    )
-                });
+                let root = get_sampled_span(
+                    &self.host.instance_name,
+                    "sync-worker/action",
+                    &mut self.rt.rng(),
+                    btreemap! {
+                       "udf_type".into() => UdfType::Action.to_lowercase_string().into(),
+                       "udf_path".into() => udf_path.clone().into(),
+                    },
+                );
                 let future = async move {
                     let caller = FunctionCaller::SyncWorker(client_version);
                     let result = match component_path {
@@ -729,17 +725,15 @@ impl<RT: Runtime> SyncWorker<RT> {
             let identity_ = identity.clone();
             let client_version = self.config.client_version.clone();
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
-            let root = self.rt.with_rng(|rng| {
-                get_sampled_span(
-                    &self.host.instance_name,
-                    "sync-worker/update-queries",
-                    rng,
-                    btreemap! {
-                       "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
-                       "udf_path".into() => query.udf_path.clone().into(),
-                    },
-                )
-            });
+            let root = get_sampled_span(
+                &self.host.instance_name,
+                "sync-worker/update-queries",
+                &mut self.rt.rng(),
+                btreemap! {
+                   "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
+                   "udf_path".into() => query.udf_path.clone().into(),
+                },
+            );
             let subscriptions_client = subscriptions_client.clone();
             let future = async move {
                 let new_subscription = match current_subscription {
