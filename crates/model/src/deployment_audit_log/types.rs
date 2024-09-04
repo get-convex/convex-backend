@@ -5,23 +5,14 @@ use std::{
 };
 
 use common::{
-    bootstrap_model::index::{
-        DeveloperIndexConfig,
-        IndexMetadata,
-        SerializedDeveloperIndexConfig,
-        SerializedNamedDeveloperIndexConfig,
-    },
+    bootstrap_model::index::DeveloperIndexConfig,
     components::ComponentPath,
     log_streaming::{
         LogEvent,
         StructuredLogEvent,
     },
     runtime::UnixTimestamp,
-    types::{
-        GenericIndexName,
-        IndexDiff,
-        IndexName,
-    },
+    types::IndexName,
 };
 use database::LegacyIndexDiff;
 #[cfg(any(test, feature = "testing"))]
@@ -64,44 +55,6 @@ pub static DEPLOYMENT_AUDIT_LOG_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .parse()
         .expect("Invalid deployment audit log table")
 });
-
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct AuditLogIndexDiff {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
-        )
-    )]
-    pub added_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::collection::vec(any::<(IndexName, DeveloperIndexConfig)>(), 0..4)"
-        )
-    )]
-    pub removed_indexes: Vec<(IndexName, DeveloperIndexConfig)>,
-}
-
-impl From<IndexDiff> for AuditLogIndexDiff {
-    fn from(diff: IndexDiff) -> Self {
-        let added_indexes = diff
-            .added
-            .into_iter()
-            .map(|IndexMetadata::<TableName> { name, config }| (name, config.into()))
-            .collect();
-        let removed_indexes = diff
-            .dropped
-            .into_iter()
-            .map(|index| (index.name.clone(), index.into_value().config.into()))
-            .collect();
-        Self {
-            added_indexes,
-            removed_indexes,
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 #[cfg_attr(
@@ -413,69 +366,6 @@ impl TryFrom<DeploymentAuditLogEvent> for serde_json::Map<String, JsonValue> {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct SerializedIndexDiff {
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::vec(any::<
-                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
-    )]
-    pub added_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(strategy = "prop::collection::vec(any::<
-                             SerializedNamedDeveloperIndexConfig>(), 0..4)")
-    )]
-    pub removed_indexes: Vec<SerializedNamedDeveloperIndexConfig>,
-}
-
-impl TryFrom<AuditLogIndexDiff> for SerializedIndexDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(diff: AuditLogIndexDiff) -> anyhow::Result<Self> {
-        let convert_to_serialized =
-            |indexes: Vec<(GenericIndexName<TableName>, DeveloperIndexConfig)>| {
-                indexes
-                    .into_iter()
-                    .map(|(name, config)| {
-                        let name = name.to_string();
-                        let index_config = SerializedDeveloperIndexConfig::try_from(config)?;
-                        anyhow::Ok(SerializedNamedDeveloperIndexConfig { name, index_config })
-                    })
-                    .try_collect()
-            };
-        let added_indexes = convert_to_serialized(diff.added_indexes)?;
-        let removed_indexes = convert_to_serialized(diff.removed_indexes)?;
-        Ok(Self {
-            added_indexes,
-            removed_indexes,
-        })
-    }
-}
-
-impl TryFrom<SerializedIndexDiff> for AuditLogIndexDiff {
-    type Error = anyhow::Error;
-
-    fn try_from(diff: SerializedIndexDiff) -> anyhow::Result<Self> {
-        let convert_to_index_metadata = |indexes: Vec<SerializedNamedDeveloperIndexConfig>| {
-            indexes
-                .into_iter()
-                .map(
-                    |SerializedNamedDeveloperIndexConfig { name, index_config }| {
-                        anyhow::Ok((name.parse()?, index_config.try_into()?))
-                    },
-                )
-                .try_collect()
-        };
-        let added_indexes = convert_to_index_metadata(diff.added_indexes)?;
-        let removed_indexes = convert_to_index_metadata(diff.removed_indexes)?;
-        Ok(Self {
-            added_indexes,
-            removed_indexes,
-        })
-    }
-}
 #[derive(Clone, Debug)]
 #[cfg_attr(
     any(test, feature = "testing"),
