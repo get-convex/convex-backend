@@ -54,6 +54,7 @@ export const snapshotImportsTable = defineTable({
       v.null(),
       v.array(
         v.object({
+          component_path: v.optional(v.union(v.string(), v.null())),
           display_table_name: v.string(),
           tablet_id: v.union(v.string(), v.null()),
           total_num_rows_to_write: v.int64(),

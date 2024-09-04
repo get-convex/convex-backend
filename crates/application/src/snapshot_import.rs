@@ -106,6 +106,7 @@ use humansize::{
     FormatSize,
     BINARY,
 };
+use itertools::Itertools;
 use keybroker::Identity;
 use model::{
     deployment_audit_log::{
@@ -203,6 +204,14 @@ pub struct SnapshotImportWorker<RT: Runtime> {
     usage_tracking: UsageCounter,
     backoff: Backoff,
     pause_client: PauseClient,
+}
+
+struct TableChange {
+    added: u64,
+    deleted: usize,
+    existing: usize,
+    unit: &'static str,
+    is_missing_id_field: bool,
 }
 
 impl<RT: Runtime> SnapshotImportWorker<RT> {
@@ -424,13 +433,6 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             }
         }
 
-        struct TableChange {
-            added: u64,
-            deleted: usize,
-            existing: usize,
-            unit: &'static str,
-            is_missing_id_field: bool,
-        }
         let mut table_changes = BTreeMap::new();
         let db_snapshot = self.database.latest_snapshot()?;
         for (component_and_table, count_importing) in count_by_table.iter() {
@@ -496,6 +498,48 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         let mut require_manual_confirmation = false;
         let mut new_checkpoints = Vec::new();
 
+        for (
+            (component_path, table_name),
+            TableChange {
+                added,
+                deleted,
+                existing,
+                unit: _,
+                is_missing_id_field,
+            },
+        ) in table_changes.iter()
+        {
+            if *deleted > 0 {
+                // Deleting files can be destructive, so require confirmation.
+                require_manual_confirmation = true;
+            }
+            new_checkpoints.push(ImportTableCheckpoint {
+                component_path: component_path.clone(),
+                display_table_name: table_name.clone(),
+                tablet_id: None,
+                num_rows_written: 0,
+                total_num_rows_to_write: *added as i64,
+                existing_rows_to_delete: *deleted as i64,
+                existing_rows_in_table: *existing as i64,
+                is_missing_id_field: *is_missing_id_field,
+            });
+        }
+        let mut message_lines = Vec::new();
+        for (component_path, table_changes) in &table_changes
+            .into_iter()
+            .chunk_by(|((component_path, _), _)| component_path.clone())
+        {
+            if !component_path.is_root() {
+                message_lines.push(format!("Component {}", String::from(component_path)));
+            }
+            message_lines.extend(Self::render_table_changes(table_changes.collect()).into_iter());
+        }
+        Ok((message_lines, require_manual_confirmation, new_checkpoints))
+    }
+
+    fn render_table_changes(
+        table_changes: BTreeMap<(ComponentPath, TableName), TableChange>,
+    ) -> Vec<String> {
         // Looks like:
         /*
         table    | create  | delete                       |
@@ -504,26 +548,23 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         big      | 100,000 | 100,000 of 100,000 documents |
         messages | 20      | 21 of 21 documents           |
                 */
+        let mut message_lines = Vec::new();
         let mut parts = vec![(
             "table".to_string(),
             "create".to_string(),
             "delete".to_string(),
         )];
         for (
-            (component_path, table_name),
+            (_, table_name),
             TableChange {
                 added,
                 deleted,
                 existing,
                 unit,
-                is_missing_id_field,
+                is_missing_id_field: _,
             },
         ) in table_changes
         {
-            if deleted > 0 {
-                // Deleting files can be destructive, so require confirmation.
-                require_manual_confirmation = true;
-            }
             parts.push((
                 table_name.to_string(),
                 added.separate_with_commas(),
@@ -534,16 +575,6 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                     unit
                 ),
             ));
-            new_checkpoints.push(ImportTableCheckpoint {
-                component_path,
-                display_table_name: table_name.clone(),
-                tablet_id: None,
-                num_rows_written: 0,
-                total_num_rows_to_write: added as i64,
-                existing_rows_to_delete: deleted as i64,
-                existing_rows_in_table: existing as i64,
-                is_missing_id_field,
-            });
         }
         let part_lengths = (
             parts
@@ -562,7 +593,6 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 .max()
                 .expect("should be nonempty"),
         );
-        let mut message_lines = Vec::new();
         for (i, part) in parts.into_iter().enumerate() {
             message_lines.push(format!(
                 "{:3$} | {:4$} | {:5$} |",
@@ -570,14 +600,13 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             ));
             if i == 0 {
                 message_lines.push(format!(
-                    //
                     "{:-<1$}",
                     "",
                     part_lengths.0 + 3 + part_lengths.1 + 3 + part_lengths.2 + 2
                 ));
             }
         }
-        Ok((message_lines, require_manual_confirmation, new_checkpoints))
+        message_lines
     }
 
     async fn attempt_perform_import_and_mark_done(
@@ -2037,7 +2066,8 @@ async fn import_storage_table<RT: Runtime>(
             identity,
             import_id,
             format!(
-                "Imported \"_storage\" ({} files)",
+                "Imported \"_storage\"{} ({} files)",
+                component_path.in_component_str(),
                 num_files.separate_with_commas()
             ),
             component_path,
@@ -2316,7 +2346,8 @@ async fn import_single_table<RT: Runtime>(
             identity,
             import_id,
             format!(
-                "Imported \"{table_name}\" ({} documents)",
+                "Imported \"{table_name}\"{} ({} documents)",
+                component_path.in_component_str(),
                 num_objects.separate_with_commas()
             ),
             component_path,
