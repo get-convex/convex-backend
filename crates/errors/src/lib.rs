@@ -382,12 +382,12 @@ impl ErrorMetadata {
     fn metric_server_error_label_value(&self) -> Option<&'static str> {
         match self.code {
             ErrorCode::BadRequest
-            | ErrorCode::TransientNotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect
             | ErrorCode::RateLimited => None,
+            ErrorCode::TransientNotFound => Some("transient_not_found"),
             ErrorCode::OCC => Some("occ"),
             ErrorCode::OutOfRetention => Some("out_of_retention"),
             ErrorCode::Overloaded => Some("overloaded"),
@@ -817,7 +817,8 @@ mod tests {
         fn test_server_error_visibility(err in any::<ErrorMetadata>()) {
             // Error has visibility through sentry or custom metric.
             assert!(err.should_report_to_sentry().is_some() || err.custom_metric().is_some());
-            if err.metric_server_error_label().is_some() {
+            if err.metric_server_error_label().is_some()
+                && err.code != ErrorCode::TransientNotFound {
                 assert!(err.should_report_to_sentry().unwrap().0 >= sentry::Level::Warning);
                 if err.code == ErrorCode::Overloaded ||
                     err.code == ErrorCode::RejectedBeforeExecution {
