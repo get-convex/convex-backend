@@ -263,6 +263,46 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(())
     }
 
+    /// The old push flow split the index diff between indexes being added in
+    /// the `prepare_schema` phase and indexes being deleted in the
+    /// `apply_config` phase.
+    ///
+    /// This method merges the two halves to give a "full" index diff when the
+    /// index changes have been prepared but not committed.
+    #[minitrace::trace]
+    pub async fn get_full_index_diff(
+        &mut self,
+        namespace: TableNamespace,
+        next_schema: &Option<DatabaseSchema>,
+    ) -> anyhow::Result<IndexDiff> {
+        let empty = BTreeMap::new();
+        let tables_in_schema = next_schema
+            .as_ref()
+            .map(|schema| &schema.tables)
+            .unwrap_or(&empty);
+        let mut index_diff: IndexDiff = self.get_index_diff(namespace, tables_in_schema).await?;
+        anyhow::ensure!(index_diff.added.is_empty(), "Expected no new indexes");
+
+        // Find all indexes that are being replaced by their pending variant to count as
+        // added.
+        index_diff.added = index_diff
+            .identical
+            .iter()
+            .filter(|index| !index.config.is_enabled())
+            .map(|doc| {
+                doc.clone()
+                    .into_value()
+                    .map_table(&self.tx.table_mapping().tablet_to_name())
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+
+        index_diff
+            .identical
+            .retain(|index| index.config.is_enabled());
+
+        Ok(index_diff)
+    }
+
     // This method assumes it's being called in apply_config, or at least after
     // indexes have been added and backfilled.
     #[minitrace::trace]
@@ -271,7 +311,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         namespace: TableNamespace,
         next_schema: &Option<DatabaseSchema>,
     ) -> anyhow::Result<IndexDiff> {
-        let empty = std::collections::BTreeMap::new();
+        let empty = BTreeMap::new();
         let tables_in_schema = next_schema
             .as_ref()
             .map(|schema| &schema.tables)
@@ -280,7 +320,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         // Without a schema id, we cannot accurately determine the status of
         // indexes. So for legacy CLIs, we do nothing here and instead rely
         // on build_indexes / legacy_get_indexes to commit index changes.
-        let index_diff = IndexModel::new(self.tx)
+        let index_diff = self
             .commit_indexes_for_schema(namespace, tables_in_schema)
             .await?;
 
@@ -365,7 +405,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     ///  Given a set of tables from a not yet fully committed schema,
     ///  returns the difference between the indexes in those not yet committed
     ///  tables and the indexes in storage. We compare only the developer config
-    ///  and pending/enablded state of the indexes to determine the diff.
+    ///  and pending/enabled state of the indexes to determine the diff.
     pub async fn get_index_diff(
         &mut self,
         namespace: TableNamespace,

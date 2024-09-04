@@ -136,6 +136,7 @@ export const pushConfigWithComponents = v.object({
               v.literal("unmount"),
             ),
           }),
+          indexDiff: indexDiff,
           udfConfigDiff: serverVersion,
           moduleDiff: moduleDiff,
           cronDiff: cronDiff,

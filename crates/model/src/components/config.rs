@@ -62,6 +62,10 @@ use crate::{
         UdfServerVersionDiff,
     },
     cron_jobs::CronModel,
+    deployment_audit_log::types::{
+        AuditLogIndexDiff,
+        SerializedIndexDiff,
+    },
     initialize_application_system_table,
     modules::{
         module_versions::AnalyzedModule,
@@ -308,12 +312,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     .get(&new_node.definition_path)
                     .context("Missing definition for component")?;
                 let schema_id = if let Some(ref schema) = definition.schema {
-                    let index_diff = IndexModel::new(self.tx)
+                    IndexModel::new(self.tx)
                         .prepare_new_and_mutated_indexes(namespace, schema)
                         .await?;
-
-                    // TODO: Return this to the client for presentation.
-                    tracing::info!("Index diff for {path:?}: {index_diff:?}");
 
                     let (schema_id, schema_state) = SchemaModel::new(self.tx, namespace)
                         .submit_pending(schema.clone())
@@ -487,7 +488,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                     .await?
                 },
                 // Unmount an existing node.
-                (Some(existing_node), None) => self.unmount_component(existing_node).await?,
+                (Some(existing_node), None) => {
+                    // Don't recurse into unmounted nodes.
+                    if existing_node.state == ComponentState::Unmounted {
+                        continue;
+                    }
+                    self.unmount_component(existing_node).await?
+                },
                 (None, None) => anyhow::bail!("Unexpected None/None in stack"),
             };
             diffs.insert(path.clone(), diff);
@@ -554,6 +561,11 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
             .apply(schema_id)
             .await?;
+
+        let index_diff = IndexModel::new(self.tx)
+            .get_full_index_diff(component_id.into(), &next_schema)
+            .await?
+            .into();
         IndexModel::new(self.tx)
             .apply(component_id.into(), &next_schema)
             .await?;
@@ -564,6 +576,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 module_diff,
                 udf_config_diff,
                 cron_diff,
+                index_diff,
                 schema_diff,
             },
         ))
@@ -615,17 +628,30 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
             .apply(schema_id)
             .await?;
+
+        let index_diff = IndexModel::new(self.tx)
+            .get_full_index_diff(component_id.into(), &next_schema)
+            .await?
+            .into();
         IndexModel::new(self.tx)
             .apply(component_id.into(), &next_schema)
             .await?;
 
+        // Consider remounting a component to be a creation.
+        // TODO: Add an explicit remount diff type.
+        let diff_type = if existing.state == ComponentState::Unmounted {
+            ComponentDiffType::Create
+        } else {
+            ComponentDiffType::Modify
+        };
         Ok((
             existing.id().into(),
             ComponentDiff {
-                diff_type: ComponentDiffType::Modify,
+                diff_type,
                 module_diff,
                 udf_config_diff,
                 cron_diff,
+                index_diff,
                 schema_diff,
             },
         ))
@@ -658,6 +684,10 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
             .apply(None)
             .await?;
+        let index_diff = IndexModel::new(self.tx)
+            .get_full_index_diff(component_id.into(), &next_schema)
+            .await?
+            .into();
         IndexModel::new(self.tx)
             .apply(component_id.into(), &next_schema)
             .await?;
@@ -668,6 +698,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 module_diff,
                 udf_config_diff: None,
                 cron_diff,
+                index_diff,
                 schema_diff,
             },
         ))
@@ -795,6 +826,7 @@ pub struct ComponentDiff {
     pub module_diff: ModuleDiff,
     pub udf_config_diff: Option<UdfServerVersionDiff>,
     pub cron_diff: CronDiff,
+    pub index_diff: AuditLogIndexDiff,
     pub schema_diff: Option<SchemaDiff>,
 }
 
@@ -813,6 +845,7 @@ pub struct SerializedComponentDiff {
     module_diff: ModuleDiff,
     udf_config_diff: Option<UdfServerVersionDiff>,
     cron_diff: CronDiff,
+    index_diff: SerializedIndexDiff,
     schema_diff: Option<SerializedSchemaDiff>,
 }
 
@@ -849,6 +882,7 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
             module_diff: value.module_diff,
             udf_config_diff: value.udf_config_diff,
             cron_diff: value.cron_diff,
+            index_diff: value.index_diff.try_into()?,
             schema_diff: value.schema_diff.map(|diff| diff.try_into()).transpose()?,
         })
     }
@@ -863,6 +897,7 @@ impl TryFrom<SerializedComponentDiff> for ComponentDiff {
             module_diff: value.module_diff,
             udf_config_diff: value.udf_config_diff,
             cron_diff: value.cron_diff,
+            index_diff: value.index_diff.try_into()?,
             schema_diff: value.schema_diff.map(|diff| diff.try_into()).transpose()?,
         })
     }

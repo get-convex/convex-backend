@@ -24,6 +24,7 @@ import {
 import chalk from "chalk";
 import { getTargetDeploymentName } from "./deployment.js";
 import { deploymentDashboardUrlPage } from "../dashboard.js";
+import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
 
 /** Push configuration2 to the given remote origin. */
 export async function startPush(
@@ -184,7 +185,7 @@ export async function finishPush(
   adminKey: string,
   url: string,
   startPush: StartPushResponse,
-): Promise<void> {
+): Promise<FinishPushDiff> {
   changeSpinner(ctx, "Finalizing push...");
   const fetch = deploymentFetch(url, adminKey);
   try {
@@ -196,9 +197,8 @@ export async function finishPush(
       }),
       method: "POST",
     });
-    return await response.json();
+    return finishPushDiff.parse(await response.json());
   } catch (error: unknown) {
-    // TODO incorporate AuthConfigMissingEnvironmentVariable logic
     logFailure(ctx, "Error: Unable to finish push to " + url);
     return await logAndHandleFetchError(ctx, error);
   }

@@ -1,5 +1,10 @@
 import path from "path";
-import { Context, changeSpinner, logMessage } from "../../bundler/context.js";
+import {
+  Context,
+  changeSpinner,
+  logFinishedStep,
+  logMessage,
+} from "../../bundler/context.js";
 import {
   ProjectConfig,
   configFromProjectConfig,
@@ -37,6 +42,10 @@ import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsProvisionProd,
 } from "./api.js";
+import {
+  FinishPushDiff,
+  DeveloperIndexConfig,
+} from "./deployApi/finishPush.js";
 
 export async function runCodegen(ctx: Context, options: CodegenOptions) {
   // This also ensures the current directory is the project root.
@@ -286,7 +295,6 @@ export async function runComponentsPush(
   configPath: string,
   projectConfig: ProjectConfig,
 ) {
-  const verbose = options.verbose || options.dryRun;
   await ensureHasConvexDependency(ctx, "push");
 
   if (options.dryRun) {
@@ -315,5 +323,62 @@ export async function runComponentsPush(
     options.url,
     startPushResponse,
   );
-  verbose && console.log("finishPush:", finishPushResponse);
+  printDiff(ctx, finishPushResponse, options);
+}
+
+function printDiff(
+  ctx: Context,
+  finishPushResponse: FinishPushDiff,
+  opts: { verbose: boolean; dryRun: boolean },
+) {
+  if (opts.verbose) {
+    const diffString = JSON.stringify(finishPushResponse, null, 2);
+    logMessage(ctx, diffString);
+    return;
+  }
+  const { componentDiffs } = finishPushResponse;
+
+  // Print out index diffs for the root component.
+  let rootDiff = componentDiffs[""];
+  if (rootDiff) {
+    if (rootDiff.indexDiff.removed_indexes.length > 0) {
+      let msg = `${opts.dryRun ? "Would delete" : "Deleted"} table indexes:\n`;
+      for (let i = 0; i < rootDiff.indexDiff.removed_indexes.length; i++) {
+        const index = rootDiff.indexDiff.removed_indexes[i];
+        if (i > 0) {
+          msg += "\n";
+        }
+        msg += `  [-] ${formatIndex(index)}`;
+      }
+      logFinishedStep(ctx, msg);
+    }
+    if (rootDiff.indexDiff.added_indexes.length > 0) {
+      let msg = `${opts.dryRun ? "Would add" : "Added"} table indexes:\n`;
+      for (let i = 0; i < rootDiff.indexDiff.added_indexes.length; i++) {
+        const index = rootDiff.indexDiff.added_indexes[i];
+        if (i > 0) {
+          msg += "\n";
+        }
+        msg += `  [+] ${formatIndex(index)}`;
+      }
+      logFinishedStep(ctx, msg);
+    }
+  }
+
+  // Only show component level diffs for other components.
+  for (const [componentPath, componentDiff] of Object.entries(componentDiffs)) {
+    if (componentPath === "") {
+      continue;
+    }
+    if (componentDiff.diffType.type === "create") {
+      logFinishedStep(ctx, `Installed component ${componentPath}.`);
+    }
+    if (componentDiff.diffType.type === "unmount") {
+      logFinishedStep(ctx, `Unmounted component ${componentPath}.`);
+    }
+  }
+}
+
+function formatIndex(index: DeveloperIndexConfig) {
+  return `${index.name}`;
 }
