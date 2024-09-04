@@ -22,6 +22,7 @@ pub enum Export {
     Requested {
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     },
     InProgress {
         /// Timestamp when the first attempt
@@ -29,6 +30,7 @@ pub enum Export {
         start_ts: Timestamp,
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     },
     Completed {
         /// Timestamp for the successful (final) attempt at Export.
@@ -42,6 +44,7 @@ pub enum Export {
         /// Format of the export
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     },
     Failed {
         /// Timestamp for the failed (final) attempt at Export.
@@ -50,6 +53,7 @@ pub enum Export {
         failed_ts: Timestamp,
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     },
 }
 
@@ -60,11 +64,13 @@ enum SerializedExport {
     Requested {
         format: SerializedExportFormat,
         component: Option<String>,
+        requestor: Option<String>, // Option for backward compatibility until migration runs
     },
     InProgress {
         start_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
+        requestor: Option<String>, // Option for backward compatibility until migration runs
     },
     Completed {
         start_ts: u64,
@@ -73,12 +79,14 @@ enum SerializedExport {
         zip_object_key: String,
         format: SerializedExportFormat,
         component: Option<String>,
+        requestor: Option<String>, // Option for backward compatibility until migration runs
     },
     Failed {
         start_ts: u64,
         failed_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
+        requestor: Option<String>, // Option for backward compatibility until migration runs
     },
 }
 
@@ -87,18 +95,25 @@ impl TryFrom<Export> for SerializedExport {
 
     fn try_from(value: Export) -> Result<Self, Self::Error> {
         Ok(match value {
-            Export::Requested { format, component } => SerializedExport::Requested {
+            Export::Requested {
+                format,
+                component,
+                requestor,
+            } => SerializedExport::Requested {
                 format: format.into(),
                 component: component.serialize_to_string(),
+                requestor: Some(requestor.to_string()),
             },
             Export::InProgress {
                 start_ts,
                 format,
                 component,
+                requestor,
             } => SerializedExport::InProgress {
                 start_ts: start_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
+                requestor: Some(requestor.to_string()),
             },
             Export::Completed {
                 start_ts,
@@ -107,6 +122,7 @@ impl TryFrom<Export> for SerializedExport {
                 zip_object_key,
                 format,
                 component,
+                requestor,
             } => SerializedExport::Completed {
                 start_ts: start_ts.into(),
                 complete_ts: complete_ts.into(),
@@ -114,17 +130,20 @@ impl TryFrom<Export> for SerializedExport {
                 zip_object_key: zip_object_key.to_string(),
                 format: format.into(),
                 component: component.serialize_to_string(),
+                requestor: Some(requestor.to_string()),
             },
             Export::Failed {
                 start_ts,
                 failed_ts,
                 format,
                 component,
+                requestor,
             } => SerializedExport::Failed {
                 start_ts: start_ts.into(),
                 failed_ts: failed_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
+                requestor: Some(requestor.to_string()),
             },
         })
     }
@@ -135,18 +154,31 @@ impl TryFrom<SerializedExport> for Export {
 
     fn try_from(value: SerializedExport) -> Result<Self, Self::Error> {
         Ok(match value {
-            SerializedExport::Requested { format, component } => Export::Requested {
+            SerializedExport::Requested {
+                format,
+                component,
+                requestor,
+            } => Export::Requested {
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
+                requestor: requestor
+                    .map(|r| r.parse())
+                    .transpose()?
+                    .unwrap_or(ExportRequestor::SnapshotExport),
             },
             SerializedExport::InProgress {
                 start_ts,
                 format,
                 component,
+                requestor,
             } => Export::InProgress {
                 start_ts: start_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
+                requestor: requestor
+                    .map(|r| r.parse())
+                    .transpose()?
+                    .unwrap_or(ExportRequestor::SnapshotExport),
             },
             SerializedExport::Completed {
                 start_ts,
@@ -155,6 +187,7 @@ impl TryFrom<SerializedExport> for Export {
                 zip_object_key,
                 format,
                 component,
+                requestor,
             } => Export::Completed {
                 start_ts: start_ts.try_into()?,
                 complete_ts: complete_ts.try_into()?,
@@ -162,17 +195,26 @@ impl TryFrom<SerializedExport> for Export {
                 zip_object_key: zip_object_key.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
+                requestor: requestor
+                    .map(|r| r.parse())
+                    .transpose()?
+                    .unwrap_or(ExportRequestor::SnapshotExport),
             },
             SerializedExport::Failed {
                 start_ts,
                 failed_ts,
                 format,
                 component,
+                requestor,
             } => Export::Failed {
                 start_ts: start_ts.try_into()?,
                 failed_ts: failed_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
+                requestor: requestor
+                    .map(|r| r.parse())
+                    .transpose()?
+                    .unwrap_or(ExportRequestor::SnapshotExport),
             },
         })
     }
@@ -231,17 +273,36 @@ impl From<SerializedExportFormat> for ExportFormat {
 
 codegen_convex_serialization!(ExportFormat, SerializedExportFormat);
 
+#[derive(Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[strum(serialize_all = "camelCase")]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ExportRequestor {
+    /// The snapshot export feature in the CLI/Dashboard
+    SnapshotExport,
+    /// The team-level cloud backup feature
+    CloudBackup,
+}
+
 impl Export {
     pub fn requested(format: ExportFormat, component: ComponentId) -> Self {
-        Self::Requested { format, component }
+        Self::Requested {
+            format,
+            component,
+            requestor: ExportRequestor::SnapshotExport,
+        }
     }
 
     pub fn in_progress(self, ts: Timestamp) -> anyhow::Result<Export> {
         match self {
-            Self::Requested { format, component } => Ok(Self::InProgress {
+            Self::Requested {
+                format,
+                component,
+                requestor,
+            } => Ok(Self::InProgress {
                 start_ts: ts,
                 format,
                 component,
+                requestor,
             }),
             Self::Completed { .. } | Self::InProgress { .. } | Self::Failed { .. } => Err(
                 anyhow::anyhow!("Can only begin an export that is requested"),
@@ -258,7 +319,10 @@ impl Export {
         let expiration_ts = Into::<u64>::into(complete_ts) + EXPORT_RETENTION;
         match self {
             Self::InProgress {
-                format, component, ..
+                format,
+                component,
+                requestor,
+                ..
             } => {
                 anyhow::ensure!(snapshot_ts <= complete_ts);
                 Ok(Self::Completed {
@@ -268,11 +332,13 @@ impl Export {
                     zip_object_key,
                     format,
                     component,
+                    requestor,
                 })
             },
             Self::Requested {
                 format: _,
                 component: _,
+                requestor: _,
             }
             | Self::Completed {
                 start_ts: _,
@@ -281,12 +347,14 @@ impl Export {
                 zip_object_key: _,
                 format: _,
                 component: _,
+                requestor: _,
             }
             | Self::Failed {
                 start_ts: _,
                 failed_ts: _,
                 format: _,
                 component: _,
+                requestor: _,
             } => Err(anyhow::anyhow!(
                 "Can only complete an export that is in_progress"
             )),
@@ -296,7 +364,10 @@ impl Export {
     pub fn failed(self, snapshot_ts: Timestamp, failed_ts: Timestamp) -> anyhow::Result<Export> {
         match self {
             Self::InProgress {
-                format, component, ..
+                format,
+                component,
+                requestor,
+                ..
             } => {
                 anyhow::ensure!(snapshot_ts <= failed_ts);
                 Ok(Self::Failed {
@@ -304,11 +375,13 @@ impl Export {
                     failed_ts,
                     format,
                     component,
+                    requestor,
                 })
             },
             Self::Requested {
                 format: _,
                 component: _,
+                requestor: _,
             }
             | Self::Completed {
                 start_ts: _,
@@ -317,12 +390,14 @@ impl Export {
                 zip_object_key: _,
                 format: _,
                 component: _,
+                requestor: _,
             }
             | Self::Failed {
                 start_ts: _,
                 failed_ts: _,
                 format: _,
                 component: _,
+                requestor: _,
             } => Err(anyhow::anyhow!(
                 "Can only fail an export that is in_progress"
             )),
@@ -336,11 +411,13 @@ impl Display for Export {
             Self::Requested {
                 format: _,
                 component: _,
+                requestor: _,
             } => write!(f, "requested"),
             Self::InProgress {
                 start_ts: _,
                 format: _,
                 component: _,
+                requestor: _,
             } => write!(f, "in_progress"),
             Self::Completed {
                 start_ts: _,
@@ -349,12 +426,14 @@ impl Display for Export {
                 zip_object_key: _,
                 format: _,
                 component: _,
+                requestor: _,
             } => write!(f, "completed"),
             Self::Failed {
                 start_ts: _,
                 failed_ts: _,
                 format: _,
                 component: _,
+                requestor: _,
             } => write!(f, "failed"),
         }
     }
