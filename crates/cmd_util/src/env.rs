@@ -19,8 +19,9 @@ use tracing_subscriber::{
     Layer,
 };
 
-pub fn env_config<T: Debug + FromStr>(name: &str, default: T) -> T
+pub fn env_config<T>(name: &str, default: T) -> T
 where
+    T: Debug + FromStr + PartialEq,
     <T as FromStr>::Err: Debug,
 {
     let var_s = match env::var(name) {
@@ -33,7 +34,9 @@ where
     };
     match T::from_str(&var_s) {
         Ok(v) => {
-            tracing::info!("Overriding {name} to {v:?} from environment");
+            if v != default {
+                tracing::info!("Overriding {name} to {v:?} from environment");
+            }
             v
         },
         Err(e) => {

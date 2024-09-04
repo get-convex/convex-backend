@@ -48,6 +48,18 @@ pub struct SamplingConfig {
     by_regex: Vec<(Option<String>, Regex, f64)>,
 }
 
+impl PartialEq for SamplingConfig {
+    fn eq(&self, other: &Self) -> bool {
+        if self.by_regex.len() != other.by_regex.len() {
+            return false;
+        }
+        self.by_regex
+            .iter()
+            .zip(&other.by_regex)
+            .all(|(a, b)| a.0 == b.0 && a.1.as_str() == b.1.as_str() && a.2 == b.2)
+    }
+}
+
 impl SamplingConfig {
     fn sample_ratio(&self, instance_name: &str, name: &str) -> f64 {
         self.by_regex
