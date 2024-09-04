@@ -450,7 +450,7 @@ pub static RETENTION_FAIL_ALL_MULTIPLIER: LazyLock<usize> =
 pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
         "DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS",
-        10 * 60,
+        5 * 60,
     ))
 });
 

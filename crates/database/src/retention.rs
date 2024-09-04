@@ -895,7 +895,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                      {total_deleted_rows:?}"
                 );
                 // we're not done deleting everything.
-                return Ok((new_cursor, total_expired_entries));
+                return Ok((new_cursor, scanned_documents));
             }
         }
         tracing::debug!(
@@ -1204,7 +1204,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete_documents: loaded checkpoint: {cursor:?}");
-                let (new_cursor, expired_documents_processed) = Self::delete_documents(
+                let (new_cursor, scanned_documents) = Self::delete_documents(
                     min_document_snapshot_ts,
                     persistence.clone(),
                     &rt,
@@ -1222,14 +1222,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
 
-                // If we deleted >= the delete batch size, we probably returned
+                // If we scanned >= the scanned batch, we probably returned
                 // early and have more work to do, so run again immediately.
-                is_working =
-                    expired_documents_processed >= *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS;
+                is_working = scanned_documents >= *DOCUMENT_RETENTION_MAX_SCANNED_DOCUMENTS;
                 if is_working {
                     tracing::trace!(
-                        "go_delete_documents: processed {expired_documents_processed:?} rows, \
-                         more to go"
+                        "go_delete_documents: processed {scanned_documents:?} rows, more to go"
                     );
                 }
             };
