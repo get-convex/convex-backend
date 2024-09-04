@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use common::{
     bootstrap_model::{
         components::{
@@ -123,6 +125,31 @@ impl ComponentRegistry {
         }
         path.reverse();
         Some(ComponentPath::from(path))
+    }
+
+    pub fn all_component_paths(
+        &self,
+        reads: &mut TransactionReadSet,
+    ) -> BTreeMap<ComponentId, ComponentPath> {
+        reads.record_indexed_derived(
+            TabletIndexName::by_id(self.components_tablet),
+            IndexedFields::by_id(),
+            Interval::all(),
+        );
+        let mut paths = BTreeMap::new();
+        for id in self.components.keys() {
+            let path = self.get_component_path(ComponentId::Child(*id), reads);
+            if let Some(path) = path {
+                if path.is_root() {
+                    paths.insert(ComponentId::Root, path);
+                } else {
+                    paths.insert(ComponentId::Child(*id), path);
+                }
+            }
+        }
+        // In case the component doesn't exist, we still want to return the root path.
+        paths.insert(ComponentId::Root, ComponentPath::root());
+        paths
     }
 
     fn get_component(

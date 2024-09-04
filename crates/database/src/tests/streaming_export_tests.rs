@@ -1,5 +1,6 @@
 use common::{
     assert_obj,
+    components::ComponentPath,
     types::TableName,
 };
 use keybroker::Identity;
@@ -60,18 +61,21 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                 (
                     ts1,
                     doc1sort.developer_id(),
+                    ComponentPath::root(),
                     table_mapping.tablet_name(doc1sort.id().tablet_id)?,
                     Some(doc1sort.clone())
                 ),
                 (
                     ts1,
                     doc2sort.developer_id(),
+                    ComponentPath::root(),
                     table_mapping.tablet_name(doc2sort.id().tablet_id)?,
                     Some(doc2sort.clone())
                 ),
                 (
                     ts2,
                     doc3.developer_id(),
+                    ComponentPath::root(),
                     table_mapping.tablet_name(doc3.id().tablet_id)?,
                     Some(doc3.clone())
                 ),
@@ -96,6 +100,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
             deltas: vec![(
                 ts2,
                 doc3.developer_id(),
+                ComponentPath::root(),
                 table_mapping.tablet_name(doc3.id().tablet_id)?,
                 Some(doc3.clone())
             )],
@@ -122,6 +127,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
             deltas: vec![(
                 ts1,
                 doc1.developer_id(),
+                ComponentPath::root(),
                 table_mapping.tablet_name(doc1.id().tablet_id)?,
                 Some(doc1.clone())
             )],
@@ -148,12 +154,14 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
                 (
                     ts1,
                     doc1sort.developer_id(),
+                    ComponentPath::root(),
                     table_mapping.tablet_name(doc1sort.id().tablet_id)?,
                     Some(doc1sort.clone())
                 ),
                 (
                     ts1,
                     doc2sort.developer_id(),
+                    ComponentPath::root(),
                     table_mapping.tablet_name(doc2sort.id().tablet_id)?,
                     Some(doc2sort.clone())
                 ),
@@ -254,6 +262,7 @@ async fn document_deltas_should_not_ignore_rows_from_tables_that_were_not_delete
             deltas: vec![(
                 ts_insert,
                 remaining_doc.developer_id(),
+                ComponentPath::root(),
                 table_mapping.tablet_name(remaining_doc.id().tablet_id)?,
                 Some(remaining_doc.clone())
             ),],
@@ -278,10 +287,10 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let ts1 = db.commit(tx).await?;
     // Same timestamp => sorted by internal id.
     let mut docs1sorted = vec![
-        (ts1, "table1".parse()?, doc1.clone()),
-        (ts1, "table2".parse()?, doc2.clone()),
+        (ts1, ComponentPath::root(), "table1".parse()?, doc1.clone()),
+        (ts1, ComponentPath::root(), "table2".parse()?, doc2.clone()),
     ];
-    docs1sorted.sort_by_key(|(_, _, d)| d.id());
+    docs1sorted.sort_by_key(|(_, _, _, d)| d.id());
     let mut tx = db.begin(Identity::system()).await?;
     let doc3 = TestFacingModel::new(&mut tx)
         .insert_and_get("table3".parse()?, assert_obj!("f" => 3))
@@ -296,11 +305,11 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let doc4 = doc4.to_resolved(tablet_id);
     let ts2 = db.commit(tx).await?;
     let mut docs2sorted = vec![
-        (ts1, "table1".parse()?, doc1),
-        (ts2, "table2".parse()?, doc4.clone()),
-        (ts2, "table3".parse()?, doc3),
+        (ts1, ComponentPath::root(), "table1".parse()?, doc1),
+        (ts2, ComponentPath::root(), "table2".parse()?, doc4.clone()),
+        (ts2, ComponentPath::root(), "table3".parse()?, doc3),
     ];
-    docs2sorted.sort_by_key(|(_, _, d)| d.id());
+    docs2sorted.sort_by_key(|(_, _, _, d)| d.id());
 
     let db_ = db.clone();
     let snapshot_list_all =
@@ -355,7 +364,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
     let snapshot_table_filter = snapshot_list_all(None, Some("table2".parse()?), None).await?;
     assert_eq!(
         snapshot_table_filter.0,
-        vec![(ts2, "table2".parse()?, doc4)]
+        vec![(ts2, ComponentPath::root(), "table2".parse()?, doc4)]
     );
     assert_eq!(snapshot_table_filter.1, ts2);
 
@@ -378,12 +387,12 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
         SnapshotPage {
             documents: vec![docs1sorted[0].clone()],
             snapshot: ts1,
-            cursor: Some(docs1sorted[0].2.id()),
+            cursor: Some(docs1sorted[0].3.id()),
             has_more: true,
         },
     );
 
-    let snapshot_cursor = snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].2.id())).await?;
+    let snapshot_cursor = snapshot_list_all(Some(ts1), None, Some(docs1sorted[0].3.id())).await?;
     assert_eq!(snapshot_cursor.0, vec![docs1sorted[1].clone()]);
     assert_eq!(snapshot_cursor.1, ts1);
 

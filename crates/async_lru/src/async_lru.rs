@@ -18,6 +18,10 @@ use common::{
         CoDelQueueReceiver,
         CoDelQueueSender,
     },
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     errors::recapture_stacktrace_noreport,
     runtime::{
         Runtime,
@@ -163,6 +167,11 @@ impl SizedValue for TableMapping {
     }
 }
 impl SizedValue for BTreeMap<TabletId, IndexId> {
+    fn size(&self) -> u64 {
+        1
+    }
+}
+impl SizedValue for BTreeMap<ComponentId, ComponentPath> {
     fn size(&self) -> u64 {
         1
     }

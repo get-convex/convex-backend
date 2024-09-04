@@ -743,6 +743,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         cursor: Timestamp,
         table_filter: Option<TableName>,
+        component_filter: Option<ComponentPath>,
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
@@ -752,6 +753,7 @@ impl<RT: Runtime> Application<RT> {
                 Some(cursor),
                 StreamingExportTableFilter {
                     table_name: table_filter,
+                    component_path: component_filter,
                     ..Default::default()
                 },
                 rows_read_limit,
@@ -767,6 +769,7 @@ impl<RT: Runtime> Application<RT> {
         snapshot: Option<Timestamp>,
         cursor: Option<(Option<TabletId>, DeveloperDocumentId)>,
         table_filter: Option<TableName>,
+        component_filter: Option<ComponentPath>,
     ) -> anyhow::Result<SnapshotPage> {
         self.database
             .list_snapshot(
@@ -775,6 +778,7 @@ impl<RT: Runtime> Application<RT> {
                 cursor,
                 StreamingExportTableFilter {
                     table_name: table_filter,
+                    component_path: component_filter,
                     ..Default::default()
                 },
                 *SNAPSHOT_LIST_LIMIT,

@@ -203,6 +203,7 @@ use crate::{
     FollowerRetentionManager,
     TableIterator,
     Transaction,
+    TransactionReadSet,
     COMPONENTS_TABLE,
     SCHEMAS_TABLE,
 };
@@ -264,6 +265,7 @@ pub struct Database<RT: Runtime> {
     // /api/list_snapshot.
     table_mapping_snapshot_cache: AsyncLru<RT, Timestamp, TableMapping>,
     by_id_indexes_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<TabletId, IndexId>>,
+    component_paths_snapshot_cache: AsyncLru<RT, Timestamp, BTreeMap<ComponentId, ComponentPath>>,
     list_snapshot_table_iterator_cache: Arc<
         Mutex<
             Option<(
@@ -307,6 +309,7 @@ pub struct DocumentDeltas {
     pub deltas: Vec<(
         Timestamp,
         DeveloperDocumentId,
+        ComponentPath,
         TableName,
         Option<ResolvedDocument>,
     )>,
@@ -319,7 +322,7 @@ pub struct DocumentDeltas {
 
 #[derive(PartialEq, Eq, Debug)]
 pub struct SnapshotPage {
-    pub documents: Vec<(Timestamp, TableName, ResolvedDocument)>,
+    pub documents: Vec<(Timestamp, ComponentPath, TableName, ResolvedDocument)>,
     pub snapshot: Timestamp,
     pub cursor: Option<ResolvedDocumentId>,
     pub has_more: bool,
@@ -725,6 +728,7 @@ impl ShutdownSignal {
 #[derive(Clone)]
 pub struct StreamingExportTableFilter {
     pub table_name: Option<TableName>,
+    pub component_path: Option<ComponentPath>,
     pub namespace: Option<TableNamespace>,
     pub include_hidden: bool,
     pub include_system: bool,
@@ -735,6 +739,7 @@ impl Default for StreamingExportTableFilter {
         Self {
             table_name: None,
             namespace: None,
+            component_path: None,
             // Allow snapshot imports to be streamed by default.
             // Note this behavior is kind of odd for `--require-empty` imports
             // because the rows are streamed before they are committed to Convex,
@@ -836,6 +841,8 @@ impl<RT: Runtime> Database<RT> {
             AsyncLru::new(runtime.clone(), 10, 2, "table_mapping_snapshot");
         let by_id_indexes_snapshot_cache =
             AsyncLru::new(runtime.clone(), 10, 2, "by_id_indexes_snapshot");
+        let component_paths_snapshot_cache =
+            AsyncLru::new(runtime.clone(), 10, 2, "component_paths_snapshot");
         let list_snapshot_table_iterator_cache = Arc::new(Mutex::new(None));
         let database = Self {
             committer,
@@ -853,6 +860,7 @@ impl<RT: Runtime> Database<RT> {
             bootstrap_metadata,
             table_mapping_snapshot_cache,
             by_id_indexes_snapshot_cache,
+            component_paths_snapshot_cache,
             list_snapshot_table_iterator_cache,
         };
 
@@ -1044,6 +1052,49 @@ impl<RT: Runtime> Database<RT> {
             }
         }
         Ok(by_id_indexes)
+    }
+
+    async fn snapshot_component_paths(
+        &self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Arc<BTreeMap<ComponentId, ComponentPath>>> {
+        self.component_paths_snapshot_cache
+            .get(
+                *ts,
+                self.clone().compute_snapshot_component_paths(ts).boxed(),
+            )
+            .await
+    }
+
+    async fn compute_snapshot_component_paths(
+        self,
+        ts: RepeatableTimestamp,
+    ) -> anyhow::Result<BTreeMap<ComponentId, ComponentPath>> {
+        let table_iterator = self.table_iterator(ts, 100, None);
+        let (_, snapshot) = self.snapshot_manager.lock().latest();
+        let component_tablet_id = snapshot
+            .table_registry
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENTS_TABLE)?
+            .tablet_id;
+        let component_by_id = snapshot
+            .index_registry
+            .must_get_by_id(component_tablet_id)?
+            .id();
+        let stream =
+            table_iterator.stream_documents_in_table(component_tablet_id, component_by_id, None);
+        pin_mut!(stream);
+        let mut component_docs = Vec::new();
+        while let Some((component_doc, _)) = stream.try_next().await? {
+            let component_doc: ParsedDocument<ComponentMetadata> = component_doc.try_into()?;
+            component_docs.push(component_doc);
+        }
+        let component_registry =
+            ComponentRegistry::bootstrap(snapshot.table_registry.table_mapping(), component_docs)?;
+        let component_paths =
+            component_registry.all_component_paths(&mut TransactionReadSet::new());
+        Ok(component_paths)
     }
 
     async fn initialize(rt: &RT, persistence: &mut Arc<dyn Persistence>) -> anyhow::Result<()> {
@@ -1525,6 +1576,7 @@ impl<RT: Runtime> Database<RT> {
         table_filter: &StreamingExportTableFilter,
         tablet_id: TabletId,
         table_mapping: &TableMapping,
+        component_paths: &BTreeMap<ComponentId, ComponentPath>,
     ) -> bool {
         if !table_mapping.id_exists(tablet_id) {
             // Always exclude deleted tablets.
@@ -1550,6 +1602,18 @@ impl<RT: Runtime> Database<RT> {
         {
             return false;
         }
+        if let Some(component_path_filter) = &table_filter.component_path {
+            if !table_mapping
+                .tablet_namespace(tablet_id)
+                .is_ok_and(|namespace| {
+                    component_paths
+                        .get(&namespace.into())
+                        .is_some_and(|component_path| component_path == component_path_filter)
+                })
+            {
+                return false;
+            }
+        }
         true
     }
 
@@ -1567,9 +1631,13 @@ impl<RT: Runtime> Database<RT> {
             unauthorized_error("document_deltas")
         );
         anyhow::ensure!(rows_read_limit >= rows_returned_limit);
-        let (upper_bound, table_mapping) = {
+        let (upper_bound, table_mapping, component_paths) = {
             let mut tx = self.begin(identity).await?;
-            (tx.begin_timestamp(), tx.table_mapping().clone())
+            (
+                tx.begin_timestamp(),
+                tx.table_mapping().clone(),
+                tx.all_component_paths(),
+            )
         };
         let repeatable_persistence = RepeatablePersistence::new(
             self.reader.clone(),
@@ -1615,11 +1683,21 @@ impl<RT: Runtime> Database<RT> {
                 new_cursor = Some(ts);
             }
             // Skip deltas for system and non-selected tables.
-            if Self::streaming_export_table_filter(&filter, id.table(), &table_mapping) {
+            if Self::streaming_export_table_filter(
+                &filter,
+                id.table(),
+                &table_mapping,
+                &component_paths,
+            ) {
                 let table_number = table_mapping.tablet_number(id.table())?;
                 let table_name = table_mapping.tablet_name(id.table())?;
+                let component_id = table_mapping.tablet_namespace(id.table())?.into();
+                let component_path = component_paths
+                    .get(&component_id)
+                    .cloned()
+                    .unwrap_or_else(ComponentPath::root);
                 let id = DeveloperDocumentId::new(table_number, id.internal_id());
-                deltas.push((ts, id, table_name, maybe_doc));
+                deltas.push((ts, id, component_path, table_name, maybe_doc));
                 if new_cursor.is_none() && deltas.len() >= rows_returned_limit {
                     // We want to finish, but we have to process all documents at this timestamp.
                     new_cursor = Some(ts);
@@ -1662,6 +1740,7 @@ impl<RT: Runtime> Database<RT> {
         };
         let table_mapping = self.snapshot_table_mapping(snapshot).await?;
         let by_id_indexes = self.snapshot_by_id_indexes(snapshot).await?;
+        let component_paths = self.snapshot_component_paths(snapshot).await?;
         let resolved_cursor = cursor
             .map(|(tablet, developer_id)| match tablet {
                 Some(tablet_id) => Ok(ResolvedDocumentId::new(tablet_id, developer_id)),
@@ -1676,11 +1755,15 @@ impl<RT: Runtime> Database<RT> {
             .iter()
             .map(|(tablet_id, ..)| tablet_id)
             .filter(|tablet_id| {
-                Self::streaming_export_table_filter(&table_filter, *tablet_id, &table_mapping)
-                    && resolved_cursor
-                        .as_ref()
-                        .map(|c| *tablet_id >= c.tablet_id)
-                        .unwrap_or(true)
+                Self::streaming_export_table_filter(
+                    &table_filter,
+                    *tablet_id,
+                    &table_mapping,
+                    &component_paths,
+                ) && resolved_cursor
+                    .as_ref()
+                    .map(|c| *tablet_id >= c.tablet_id)
+                    .unwrap_or(true)
             })
             .collect();
         let mut tablet_ids = tablet_ids.into_iter();
@@ -1728,7 +1811,13 @@ impl<RT: Runtime> Database<RT> {
             rows_read += 1;
             let id = doc.id();
             let table_name = table_mapping.tablet_name(id.tablet_id)?;
-            documents.push((ts, table_name, doc));
+            let namespace = table_mapping.tablet_namespace(id.tablet_id)?;
+            let component_id = ComponentId::from(namespace);
+            let component_path = component_paths
+                .get(&component_id)
+                .cloned()
+                .unwrap_or_else(ComponentPath::root);
+            documents.push((ts, component_path, table_name, doc));
             if rows_read >= rows_read_limit || documents.len() >= rows_returned_limit {
                 new_cursor = Some(id);
                 break;

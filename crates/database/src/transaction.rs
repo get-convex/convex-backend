@@ -246,6 +246,10 @@ impl<RT: Runtime> Transaction<RT> {
         self.index.index_registry().persistence_version()
     }
 
+    pub fn all_component_paths(&mut self) -> BTreeMap<ComponentId, ComponentPath> {
+        self.component_registry.all_component_paths(&mut self.reads)
+    }
+
     pub fn table_mapping(&mut self) -> &TableMapping {
         self.take_table_mapping_dep();
         self.metadata.table_mapping()
