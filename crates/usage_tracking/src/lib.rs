@@ -27,7 +27,10 @@ use pb::usage::{
     CounterWithTag as CounterWithTagProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
-use value::heap_size::WithHeapSize;
+use value::{
+    heap_size::WithHeapSize,
+    sha256::Sha256Digest,
+};
 
 mod metrics;
 
@@ -232,6 +235,7 @@ pub trait StorageUsageTracker: Send + Sync {
         storage_api: &'static str,
         storage_id: StorageUuid,
         content_type: Option<ContentType>,
+        sha256: Sha256Digest,
     ) -> Box<dyn StorageCallTracker>;
 }
 
@@ -280,6 +284,7 @@ impl StorageUsageTracker for UsageCounter {
         storage_api: &'static str,
         storage_id: StorageUuid,
         content_type: Option<ContentType>,
+        sha256: Sha256Digest,
     ) -> Box<dyn StorageCallTracker> {
         let execution_id = ExecutionId::new();
         metrics::storage::log_storage_call();
@@ -290,6 +295,7 @@ impl StorageUsageTracker for UsageCounter {
             storage_id: storage_id.to_string(),
             call: storage_api.to_string(),
             content_type: content_type.map(|c| c.to_string()),
+            sha256: sha256.as_hex(),
         }]);
 
         Box::new(IndependentStorageCallTracker::new(
@@ -467,6 +473,7 @@ impl StorageUsageTracker for FunctionUsageTracker {
         storage_api: &'static str,
         _storage_id: StorageUuid,
         _content_type: Option<ContentType>,
+        _sha256: Sha256Digest,
     ) -> Box<dyn StorageCallTracker> {
         let mut state = self.state.lock();
         metrics::storage::log_storage_call();

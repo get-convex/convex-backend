@@ -224,7 +224,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let FileStorageEntry {
             storage_id,
             storage_key,
-            sha256: _,
+            sha256,
             size,
             content_type,
         } = file;
@@ -241,7 +241,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
         let call_tracker =
-            usage_tracker.track_storage_call("get range", storage_id, content_type.clone());
+            usage_tracker.track_storage_call("get range", storage_id, content_type.clone(), sha256);
 
         Ok(FileRangeStream {
             content_length,
@@ -406,6 +406,7 @@ impl<RT: Runtime> FileStorage<RT> {
             .as_ref()
             .map(|ct| ct.parse())
             .transpose()?;
+        let sha256 = entry.sha256.clone();
 
         // Start/Complete transaction after the slow upload process
         // to avoid OCC risk.
@@ -419,7 +420,7 @@ impl<RT: Runtime> FileStorage<RT> {
             .await?;
 
         usage_tracker
-            .track_storage_call("store", storage_id, content_type)
+            .track_storage_call("store", storage_id, content_type, sha256)
             .track_storage_ingress_size(size as u64);
         Ok(virtual_id)
     }

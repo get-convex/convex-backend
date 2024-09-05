@@ -519,6 +519,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         "snapshot_export",
                         file_storage_entry.storage_id.clone(),
                         content_type,
+                        file_storage_entry.sha256.clone(),
                     )
                     .track_storage_egress_size(file_stream.content_length as u64);
                 zip_snapshot_upload

@@ -73,13 +73,14 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .await?;
         let storage_id = entry.storage_id.clone();
         let size = entry.size;
+        let sha256 = entry.sha256.clone();
         let storage_doc_id = self
             .action_callbacks
             .storage_store_file_entry(self.identity.clone(), self.component_id(), entry)
             .await?;
 
         self.usage_tracker
-            .track_storage_call("store", storage_id, content_type)
+            .track_storage_call("store", storage_id, content_type, sha256)
             .track_storage_ingress_size(size as u64);
 
         Ok(storage_doc_id)
