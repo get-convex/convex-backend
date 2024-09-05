@@ -1052,8 +1052,7 @@ mod tests {
 
         let mut tx = db.begin(Identity::system()).await?;
         let (_, child_component) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids("component".parse()?)
-            .await?;
+            .must_component_path_to_ids(&"component".parse()?)?;
 
         for (path_prefix, component) in [
             ("", ComponentId::Root),
@@ -1115,8 +1114,7 @@ mod tests {
 
         let mut tx = db.begin(Identity::system()).await?;
         let (_, child_component) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids("component".parse()?)
-            .await?;
+            .must_component_path_to_ids(&"component".parse()?)?;
 
         // Data in root component doesn't matter.
         write_test_data_in_component(&db, ComponentId::Root, "", &mut BTreeMap::new()).await?;

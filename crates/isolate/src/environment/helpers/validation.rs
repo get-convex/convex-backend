@@ -274,8 +274,7 @@ impl ValidatedPathAndArgs {
                 },
                 PublicFunctionPath::Component(path) => {
                     let (_, component) = BootstrapComponentsModel::new(tx)
-                        .component_path_to_ids(path.component.clone())
-                        .await?;
+                        .must_component_path_to_ids(&path.component)?;
                     ResolvedComponentFunctionPath {
                         component,
                         udf_path: path.udf_path,
@@ -322,8 +321,7 @@ impl ValidatedPathAndArgs {
                     .resolve_public_export_path(path)
                     .await?;
                 let (_, component) = BootstrapComponentsModel::new(tx)
-                    .component_path_to_ids(path.component.clone())
-                    .await?;
+                    .must_component_path_to_ids(&path.component)?;
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
@@ -332,8 +330,7 @@ impl ValidatedPathAndArgs {
             },
             PublicFunctionPath::Component(path) => {
                 let (_, component) = BootstrapComponentsModel::new(tx)
-                    .component_path_to_ids(path.component.clone())
-                    .await?;
+                    .must_component_path_to_ids(&path.component)?;
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
@@ -595,9 +592,8 @@ impl ValidatedHttpPath {
                 .fail_while_paused_or_disabled()
                 .await?;
         }
-        let (_, component) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(path.component.clone())
-            .await?;
+        let (_, component) =
+            BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
         let path = ResolvedComponentFunctionPath {
             component,
             udf_path: path.udf_path,

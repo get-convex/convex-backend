@@ -70,6 +70,7 @@ use database::{
     SchemaModel,
     TableModel,
     Transaction,
+    TransactionReadSet,
     SCHEMAS_TABLE,
 };
 use errors::{
@@ -437,14 +438,10 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         let db_snapshot = self.database.latest_snapshot()?;
         for (component_and_table, count_importing) in count_by_table.iter() {
             let (component_path, table_name) = component_and_table;
-            let component_id = {
-                // TODO(lee) read this from db_snapshot once we have ComponentRegistry.
-                let mut tx = self.database.begin(Identity::system()).await?;
-                let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-                    .component_path_to_ids(component_path.clone())
-                    .await?;
-                component_id
-            };
+            let (_, component_id) = db_snapshot
+                .component_registry
+                .component_path_to_ids(component_path, &mut TransactionReadSet::new())?
+                .with_context(|| ImportError::ComponentMissing(component_path.clone()))?;
             if !table_name.is_system() {
                 let table_summary = db_snapshot.table_summary(component_id.into(), table_name);
                 let to_delete = match mode {
@@ -809,6 +806,9 @@ pub enum ImportError {
 
     #[error("{0:?} isn't a valid table name: {1}")]
     InvalidName(String, anyhow::Error),
+
+    #[error("Component '{0}' must be created before importing")]
+    ComponentMissing(ComponentPath),
 
     #[error("Import wasn't valid UTF8: {0}")]
     NotUtf8(std::io::Error),
@@ -2258,8 +2258,8 @@ async fn import_single_table<RT: Runtime>(
     let component_id = {
         let mut tx = database.begin(Identity::system()).await?;
         let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(component_path.clone())
-            .await?;
+            .component_path_to_ids(component_path)?
+            .with_context(|| ImportError::ComponentMissing(component_path.clone()))?;
         component_id
     };
     let (table_id, num_to_skip) = match table_mapping_for_import
@@ -2483,8 +2483,8 @@ async fn prepare_table_for_import<RT: Runtime>(
     };
     let mut tx = database.begin(identity.clone()).await?;
     let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-        .component_path_to_ids(component_path.clone())
-        .await?;
+        .component_path_to_ids(component_path)?
+        .with_context(|| ImportError::ComponentMissing(component_path.clone()))?;
     let existing_active_table_id = tx
         .table_mapping()
         .namespace(component_id.into())
@@ -3539,10 +3539,39 @@ a,b
 
         let mut tx = app.begin(new_admin_id()).await?;
         assert!(!TableModel::new(&mut tx).table_exists(ComponentId::Root.into(), &table_name));
-        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(component_path)
-            .await?;
+        let (_, component_id) =
+            BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path)?;
         assert_eq!(tx.count(component_id.into(), &table_name).await?, 1);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_import_into_missing_component(rt: TestRuntime) -> anyhow::Result<()> {
+        let app = Application::new_for_tests(&rt).await?;
+        let table_name: TableName = "table1".parse()?;
+        let component_path: ComponentPath = "component".parse()?;
+        let test_csv = r#"
+a,b
+"foo","bar"
+"#;
+        let err = do_import(
+            &app,
+            new_admin_id(),
+            ImportFormat::Csv(table_name.clone()),
+            ImportMode::Replace,
+            component_path.clone(),
+            stream_from_str(test_csv),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.is_bad_request());
+        assert!(
+            err.to_string()
+                .contains("Component 'component' must be created before importing"),
+            "{}",
+            err.to_string()
+        );
         Ok(())
     }
 

@@ -204,9 +204,7 @@ async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> 
     application.load_component_tests_modules("mounted").await?;
     let mut tx = application.begin(Identity::system()).await?;
     let mut components_model = BootstrapComponentsModel::new(&mut tx);
-    let (_, component_id) = components_model
-        .component_path_to_ids(component_path())
-        .await?;
+    let (_, component_id) = components_model.must_component_path_to_ids(&component_path())?;
 
     // Create a table in a new namespace
     let table_namespace = TableNamespace::from(component_id);
@@ -254,9 +252,7 @@ async fn unmount_component(application: &Application<TestRuntime>) -> anyhow::Re
     application.load_component_tests_modules("empty").await?;
     let mut tx = application.begin(Identity::system()).await?;
     let mut components_model = BootstrapComponentsModel::new(&mut tx);
-    let (_, component_id) = components_model
-        .component_path_to_ids(component_path())
-        .await?;
+    let (_, component_id) = components_model.must_component_path_to_ids(&component_path())?;
     Ok(component_id)
 }
 
@@ -294,9 +290,7 @@ async fn test_unmounted_component_state(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let mut components_model = BootstrapComponentsModel::new(&mut tx);
     // Component at the same path should be remounted with the same id.
-    let (_, new_component_id) = components_model
-        .component_path_to_ids(component_path())
-        .await?;
+    let (_, new_component_id) = components_model.must_component_path_to_ids(&component_path())?;
     assert_eq!(component_id, new_component_id);
     let component = components_model
         .load_component(component_id)
@@ -357,9 +351,8 @@ async fn test_descendents_unmounted(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let mut components_model = BootstrapComponentsModel::new(&mut tx);
     let env_vars_child_component = ComponentPath::deserialize(Some("envVars/component"))?;
-    let (_, component_id) = components_model
-        .component_path_to_ids(env_vars_child_component)
-        .await?;
+    let (_, component_id) =
+        components_model.must_component_path_to_ids(&env_vars_child_component)?;
     let metadata = components_model
         .load_component(component_id)
         .await?
@@ -435,9 +428,8 @@ async fn test_mounted_component_delete_component_errors_out(rt: TestRuntime) -> 
     let application = Application::new_for_tests(&rt).await?;
     application.load_component_tests_modules("mounted").await?;
     let mut tx = application.begin(Identity::system()).await?;
-    let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-        .component_path_to_ids(component_path())
-        .await?;
+    let (_, component_id) =
+        BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path())?;
     assert!(application
         .delete_component(&Identity::system(), component_id)
         .await

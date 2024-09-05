@@ -419,9 +419,8 @@ impl<RT: Runtime> Application<RT> {
                 let component_id = if component_path.is_root() {
                     ComponentId::Root
                 } else {
-                    let existing = BootstrapComponentsModel::new(&mut tx)
-                        .resolve_path(component_path.clone())
-                        .await?;
+                    let existing =
+                        BootstrapComponentsModel::new(&mut tx).resolve_path(component_path)?;
                     let allocated = schema_change.allocated_component_ids.get(component_path);
                     let internal_id = match (existing, allocated) {
                         (None, Some(id)) => *id,

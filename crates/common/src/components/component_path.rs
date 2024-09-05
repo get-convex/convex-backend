@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     ops::Deref,
     path::PathBuf,
     str::FromStr,
@@ -171,6 +172,12 @@ impl ComponentPath {
 impl From<ComponentPath> for String {
     fn from(path: ComponentPath) -> String {
         path.path.iter().map(|name| &***name).join("/")
+    }
+}
+
+impl Display for ComponentPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from(self.clone()))
     }
 }
 

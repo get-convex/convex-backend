@@ -97,22 +97,19 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 let mut m = BootstrapComponentsModel::new(self.tx);
                 let internal_id = match component_id {
                     ComponentId::Root => {
-                        let root_component = m
-                            .root_component()
-                            .await?
-                            .context("Missing root component")?;
+                        let root_component =
+                            m.root_component()?.context("Missing root component")?;
                         root_component.id().into()
                     },
                     ComponentId::Child(id) => id,
                 };
                 let parent = (internal_id, child_component.clone());
-                let child_component =
-                    m.component_in_parent(Some(parent)).await?.ok_or_else(|| {
-                        ErrorMetadata::bad_request(
-                            "InvalidReference",
-                            format!("Child component {:?} not found", child_component),
-                        )
-                    })?;
+                let child_component = m.component_in_parent(Some(parent))?.ok_or_else(|| {
+                    ErrorMetadata::bad_request(
+                        "InvalidReference",
+                        format!("Child component {:?} not found", child_component),
+                    )
+                })?;
                 let child_id = ComponentId::Child(child_component.id().into());
                 let Some(resource) = self.resolve_export(child_id, attributes).await? else {
                     anyhow::bail!(ErrorMetadata::bad_request(
@@ -188,17 +185,15 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                         let mut m = BootstrapComponentsModel::new(self.tx);
                         let internal_id = match component_id {
                             ComponentId::Root => {
-                                let root_component = m
-                                    .root_component()
-                                    .await?
-                                    .context("Missing root component")?;
+                                let root_component =
+                                    m.root_component()?.context("Missing root component")?;
                                 root_component.id().into()
                             },
                             ComponentId::Child(id) => id,
                         };
                         let parent = (internal_id, child_name.clone());
                         let child_component =
-                            m.component_in_parent(Some(parent)).await?.ok_or_else(|| {
+                            m.component_in_parent(Some(parent))?.ok_or_else(|| {
                                 ErrorMetadata::bad_request(
                                     "InvalidReference",
                                     format!("Child component {child_name:?} not found"),
@@ -335,8 +330,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             for instantiation in definition.child_components {
                 let parent = (component.id().into(), instantiation.name.clone());
                 let child_component = m
-                    .component_in_parent(Some(parent))
-                    .await?
+                    .component_in_parent(Some(parent))?
                     .context("Missing child component")?;
                 result.insert(instantiation.name, child_component);
             }

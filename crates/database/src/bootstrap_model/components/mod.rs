@@ -29,10 +29,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    maybe_val,
     query::{
-        IndexRange,
-        IndexRangeExpression,
         Order,
         Query,
     },
@@ -69,8 +66,8 @@ pub static COMPONENTS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
 
 pub static COMPONENTS_BY_PARENT_INDEX: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&COMPONENTS_TABLE, "by_parent_and_name"));
-static PARENT_FIELD: LazyLock<FieldPath> = LazyLock::new(|| "parent".parse().unwrap());
-static NAME_FIELD: LazyLock<FieldPath> = LazyLock::new(|| "name".parse().unwrap());
+pub static PARENT_FIELD: LazyLock<FieldPath> = LazyLock::new(|| "parent".parse().unwrap());
+pub static NAME_FIELD: LazyLock<FieldPath> = LazyLock::new(|| "name".parse().unwrap());
 
 pub struct ComponentsTable;
 
@@ -103,57 +100,26 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Self { tx }
     }
 
-    pub async fn component_in_parent(
+    pub fn component_in_parent(
         &mut self,
         parent_and_name: Option<(DeveloperDocumentId, ComponentName)>,
     ) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
-        let range = match parent_and_name {
-            Some((parent, name)) => vec![
-                IndexRangeExpression::Eq(PARENT_FIELD.clone(), maybe_val!(parent.to_string())),
-                IndexRangeExpression::Eq(NAME_FIELD.clone(), maybe_val!(name.to_string())),
-            ],
-            None => vec![IndexRangeExpression::Eq(
-                PARENT_FIELD.clone(),
-                maybe_val!(null),
-            )],
-        };
-        let mut query = ResolvedQuery::new(
-            self.tx,
-            TableNamespace::Global,
-            Query::index_range(IndexRange {
-                index_name: COMPONENTS_BY_PARENT_INDEX.clone(),
-                range,
-                order: Order::Asc,
-            }),
-        )?;
-        let doc = query.next(self.tx, Some(1)).await?;
-        doc.map(TryFrom::try_from).transpose()
+        self.tx
+            .component_registry
+            .component_in_parent(parent_and_name, &mut self.tx.reads)
     }
 
-    pub async fn root_component(
-        &mut self,
-    ) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
-        self.component_in_parent(None).await
+    pub fn root_component(&mut self) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
+        self.component_in_parent(None)
     }
 
-    pub async fn resolve_path(
+    pub fn resolve_path(
         &mut self,
-        path: ComponentPath,
+        path: &ComponentPath,
     ) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
-        let mut component_doc = match self.root_component().await? {
-            Some(doc) => doc,
-            None => return Ok(None),
-        };
-        for name in path.iter() {
-            component_doc = match self
-                .component_in_parent(Some((component_doc.id().into(), name.clone())))
-                .await?
-            {
-                Some(doc) => doc,
-                None => return Ok(None),
-            };
-        }
-        Ok(Some(component_doc))
+        self.tx
+            .component_registry
+            .resolve_path(path, &mut self.tx.reads)
     }
 
     #[minitrace::trace]
@@ -236,7 +202,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         id: ComponentId,
     ) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
         let result = match id {
-            ComponentId::Root => self.root_component().await?,
+            ComponentId::Root => self.root_component()?,
             ComponentId::Child(internal_id) => {
                 let component_doc_id = self.resolve_component_id(internal_id)?;
                 self.tx
@@ -298,7 +264,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         id: ComponentDefinitionId,
     ) -> anyhow::Result<Option<ParsedDocument<ComponentDefinitionMetadata>>> {
         let internal_id = match id {
-            ComponentDefinitionId::Root => match self.root_component().await? {
+            ComponentDefinitionId::Root => match self.root_component()? {
                 Some(root_component) => root_component.definition_id,
                 None => return Ok(None),
             },
@@ -360,29 +326,28 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         Ok(definitions)
     }
 
-    pub async fn component_path_to_ids(
+    pub fn component_path_to_ids(
         &mut self,
-        path: ComponentPath,
-    ) -> anyhow::Result<(ComponentDefinitionId, ComponentId)> {
-        if path.is_root() {
-            Ok((ComponentDefinitionId::Root, ComponentId::Root))
-        } else {
-            let component_metadata = self
-                .resolve_path(path)
-                .await?
-                .context("Component not found")?;
-            Ok((
-                ComponentDefinitionId::Child(component_metadata.definition_id),
-                ComponentId::Child(component_metadata.id().into()),
-            ))
-        }
+        path: &ComponentPath,
+    ) -> anyhow::Result<Option<(ComponentDefinitionId, ComponentId)>> {
+        self.tx
+            .component_registry
+            .component_path_to_ids(path, &mut self.tx.reads)
     }
 
-    pub async fn function_path_to_module(
+    pub fn must_component_path_to_ids(
         &mut self,
-        path: CanonicalizedComponentFunctionPath,
+        path: &ComponentPath,
+    ) -> anyhow::Result<(ComponentDefinitionId, ComponentId)> {
+        self.component_path_to_ids(path)?
+            .context("Component path not found")
+    }
+
+    pub fn function_path_to_module(
+        &mut self,
+        path: &CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<CanonicalizedComponentModulePath> {
-        let (_, component) = self.component_path_to_ids(path.component).await?;
+        let (_, component) = self.must_component_path_to_ids(&path.component)?;
         Ok(CanonicalizedComponentModulePath {
             component,
             module_path: path.udf_path.module().clone(),
@@ -489,8 +454,7 @@ mod tests {
             )
             .await?;
         let resolved_path = BootstrapComponentsModel::new(&mut tx)
-            .resolve_path(ComponentPath::from(vec!["subcomponent_child".parse()?]))
-            .await?;
+            .resolve_path(&ComponentPath::from(vec!["subcomponent_child".parse()?]))?;
         assert_eq!(resolved_path.unwrap().id(), child_id);
         let path = BootstrapComponentsModel::new(&mut tx)
             .get_component_path(ComponentId::Child(child_id.into()))?;

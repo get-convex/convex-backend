@@ -75,9 +75,8 @@ async fn create_scheduled_job<'a>(
         "key".to_string(),
         serde_json::Value::String("value".to_string()),
     );
-    let (_, component) = BootstrapComponentsModel::new(tx)
-        .component_path_to_ids(path.component.clone())
-        .await?;
+    let (_, component) =
+        BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
     let mut model = SchedulerModel::new(tx, component.into());
     let job_id = model
         .schedule(

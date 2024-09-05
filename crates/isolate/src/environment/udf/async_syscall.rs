@@ -571,9 +571,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<FunctionHandle> {
         let tx = self.phase.tx()?;
-        let (_, component) = BootstrapComponentsModel::new(tx)
-            .component_path_to_ids(path.component)
-            .await?;
+        let (_, component) =
+            BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
         FunctionHandlesModel::new(tx)
             .get(component, path.udf_path)
             .await
@@ -1243,8 +1242,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 let path = provider.lookup_function_handle(handle).await?;
                 let tx = provider.tx()?;
                 let (_, component) = BootstrapComponentsModel::new(tx)
-                    .component_path_to_ids(path.component.clone())
-                    .await?;
+                    .must_component_path_to_ids(&path.component)?;
                 ResolvedComponentFunctionPath {
                     component,
                     udf_path: path.udf_path,
@@ -1266,8 +1264,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                     Resource::Function(path) => {
                         let tx = provider.tx()?;
                         let (_, component) = BootstrapComponentsModel::new(tx)
-                            .component_path_to_ids(path.component.clone())
-                            .await?;
+                            .must_component_path_to_ids(&path.component)?;
                         ResolvedComponentFunctionPath {
                             component,
                             udf_path: path.udf_path,

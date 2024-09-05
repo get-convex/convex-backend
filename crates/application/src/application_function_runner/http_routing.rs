@@ -281,9 +281,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let mut routed_path = RoutedHttpPath(head.url.path().to_string());
         let method = RoutableMethod::try_from(head.method.clone())?;
         loop {
-            let (definition_id, current_id) = model
-                .component_path_to_ids(current_component_path.clone())
-                .await?;
+            let (definition_id, current_id) =
+                model.must_component_path_to_ids(&current_component_path)?;
             let definition = model.load_definition_metadata(definition_id).await?;
             let http_routes = ModuleModel::new(model.tx)
                 .get_http(current_id)
