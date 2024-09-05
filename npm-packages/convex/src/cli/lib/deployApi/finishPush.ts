@@ -20,6 +20,9 @@ export const componentDiffType = z.discriminatedUnion("type", [
   looseObject({
     type: z.literal("unmount"),
   }),
+  looseObject({
+    type: z.literal("remount"),
+  }),
 ]);
 export type ComponentDiffType = z.infer<typeof componentDiffType>;
 

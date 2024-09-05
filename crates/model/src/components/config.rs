@@ -637,10 +637,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .apply(component_id.into(), &next_schema)
             .await?;
 
-        // Consider remounting a component to be a creation.
-        // TODO: Add an explicit remount diff type.
         let diff_type = if existing.state == ComponentState::Unmounted {
-            ComponentDiffType::Create
+            ComponentDiffType::Remount
         } else {
             ComponentDiffType::Modify
         };
@@ -813,7 +811,7 @@ pub enum ComponentDiffType {
     Create,
     Modify,
     Unmount,
-    // TODO remount
+    Remount,
 }
 
 #[derive(Debug, Clone)]
@@ -836,6 +834,7 @@ pub enum SerializedComponentDiffType {
     Create,
     Modify,
     Unmount,
+    Remount,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -857,6 +856,7 @@ impl TryFrom<ComponentDiffType> for SerializedComponentDiffType {
             ComponentDiffType::Create => Self::Create,
             ComponentDiffType::Modify => Self::Modify,
             ComponentDiffType::Unmount => Self::Unmount,
+            ComponentDiffType::Remount => Self::Remount,
         })
     }
 }
@@ -869,6 +869,7 @@ impl TryFrom<SerializedComponentDiffType> for ComponentDiffType {
             SerializedComponentDiffType::Create => Self::Create,
             SerializedComponentDiffType::Modify => Self::Modify,
             SerializedComponentDiffType::Unmount => Self::Unmount,
+            SerializedComponentDiffType::Remount => Self::Remount,
         })
     }
 }

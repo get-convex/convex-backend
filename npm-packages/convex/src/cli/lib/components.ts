@@ -376,6 +376,9 @@ function printDiff(
     if (componentDiff.diffType.type === "unmount") {
       logFinishedStep(ctx, `Unmounted component ${componentPath}.`);
     }
+    if (componentDiff.diffType.type === "remount") {
+      logFinishedStep(ctx, `Remounted component ${componentPath}.`);
+    }
   }
 }
 
