@@ -89,14 +89,14 @@ const moduleDiff = v.object({
   added: v.array(v.string()),
   removed: v.array(v.string()),
 });
-const cronDiff = v.optional(
+export const cronDiffType = v.optional(
   v.object({
     added: v.array(v.string()),
     updated: v.array(v.string()),
     deleted: v.array(v.string()),
   }),
 );
-const schemaDiff = v.optional(
+export const schemaDiffType = v.optional(
   v.union(
     v.null(),
     v.object({
@@ -115,9 +115,25 @@ export const pushConfig = v.object({
     auth: authDiff,
     server_version: serverVersion,
     modules: moduleDiff,
-    crons: cronDiff,
-    schema: schemaDiff,
+    crons: cronDiffType,
+    schema: schemaDiffType,
   }),
+});
+
+export const componentDiff = v.object({
+  diffType: v.object({
+    type: v.union(
+      v.literal("create"),
+      v.literal("modify"),
+      v.literal("unmount"),
+      v.literal("remount"),
+    ),
+  }),
+  indexDiff: indexDiff,
+  udfConfigDiff: serverVersion,
+  moduleDiff: moduleDiff,
+  cronDiff: cronDiffType,
+  schemaDiff: schemaDiffType,
 });
 
 export const pushConfigWithComponents = v.object({
@@ -128,20 +144,7 @@ export const pushConfigWithComponents = v.object({
     component_diffs: v.array(
       v.object({
         component_path: v.union(v.string(), v.null()),
-        component_diff: v.object({
-          diffType: v.object({
-            type: v.union(
-              v.literal("create"),
-              v.literal("modify"),
-              v.literal("unmount"),
-            ),
-          }),
-          indexDiff: indexDiff,
-          udfConfigDiff: serverVersion,
-          moduleDiff: moduleDiff,
-          cronDiff: cronDiff,
-          schemaDiff: schemaDiff,
-        }),
+        component_diff: componentDiff,
       }),
     ),
   }),
