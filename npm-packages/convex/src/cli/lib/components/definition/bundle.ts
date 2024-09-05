@@ -567,6 +567,30 @@ export async function bundleImplementations(
         externalNodeDependencies,
       };
     } else {
+      // Reject push if components have node bundles in non-root directories.
+      if (directory.path !== rootComponentDirectory.path) {
+        const nodeResult: {
+          modules: Bundle[];
+          externalDependencies: Map<string, string>;
+          bundledModuleNames: Set<string>;
+        } = await bundle(
+          ctx,
+          resolvedPath,
+          entryPoints.node,
+          true,
+          "node",
+          path.join("_deps", "node"),
+          nodeExternalPackages,
+        );
+        if (nodeResult.modules.length > 0) {
+          // TODO(ENG-7116) Remove error and bundle the component node actions when we are ready to support them.
+          await ctx.crash({
+            exitCode: 1,
+            errorType: "invalid filesystem data",
+            printedMessage: `"use node" directive is not supported in components. Remove it from the component at: ${resolvedPath}.`,
+          });
+        }
+      }
       // definitionPath is the canonical form
       const definitionPath = encodeDefinitionPath(
         toComponentDefinitionPath(rootComponentDirectory, directory),

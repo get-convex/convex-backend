@@ -32,6 +32,7 @@ use common::{
     types::{
         EnvVarName,
         EnvVarValue,
+        ModuleEnvironment,
         NodeDependency,
     },
 };
@@ -715,6 +716,26 @@ impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
     type Error = anyhow::Error;
 
     fn try_from(value: ComponentDefinitionConfigJson) -> Result<Self, Self::Error> {
+        let functions: Vec<ModuleConfig> = value
+            .functions
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<anyhow::Result<_>>()?;
+        for module in &functions {
+            match module.environment {
+                ModuleEnvironment::Node => {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "NodeActionsNotSupported",
+                        format!(
+                            "Node actions are not supported in components. Remove `\"use node;\" \
+                             from {}",
+                            module.path.as_str()
+                        )
+                    ));
+                },
+                ModuleEnvironment::Invalid | ModuleEnvironment::Isolate => {},
+            }
+        }
         Ok(Self {
             definition_path: value.definition_path.parse()?,
             definition: value.definition.try_into()?,
@@ -724,11 +745,7 @@ impl TryFrom<ComponentDefinitionConfigJson> for ComponentDefinitionConfig {
                 .map(|s| s.parse())
                 .collect::<anyhow::Result<_>>()?,
             schema: value.schema.map(TryInto::try_into).transpose()?,
-            functions: value
-                .functions
-                .into_iter()
-                .map(TryInto::try_into)
-                .collect::<anyhow::Result<_>>()?,
+            functions,
             udf_server_version: value.udf_server_version.parse()?,
         })
     }
