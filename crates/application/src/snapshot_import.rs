@@ -756,20 +756,21 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         SchemasForImport,
         Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>,
     )> {
-        let (object_key, format) = {
+        let (object_key, format, component_path) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let mut model = SnapshotImportModel::new(&mut tx);
             let snapshot_import = model.get(import_id).await?.context("import not found")?;
             (
                 snapshot_import.object_key.clone(),
                 snapshot_import.format.clone(),
+                snapshot_import.component_path.clone(),
             )
         };
         let body_stream = move || {
             let object_key = object_key.clone();
             async move { self.read_snapshot_import(&object_key).await }
         };
-        let objects = parse_objects(format.clone(), body_stream).boxed();
+        let objects = parse_objects(format.clone(), component_path, body_stream).boxed();
 
         // Remapping could be more extensive here, it's just relatively simple to handle
         // optional types. We do remapping after parsing rather than during parsing
@@ -902,14 +903,17 @@ fn map_zip_error(e: ZipError) -> anyhow::Error {
 /// 4. If a table has a GeneratedSchema, the GeneratedSchema will be yielded
 ///    before any Objects in that table.
 #[try_stream(ok = ImportUnit, error = anyhow::Error)]
-async fn parse_objects<'a, Fut>(format: ImportFormat, stream_body: impl Fn() -> Fut + 'a)
-where
+async fn parse_objects<'a, Fut>(
+    format: ImportFormat,
+    component_path: ComponentPath,
+    stream_body: impl Fn() -> Fut + 'a,
+) where
     Fut: Future<Output = anyhow::Result<StorageObjectReader>> + 'a,
 {
     match format {
         ImportFormat::Csv(table_name) => {
             let reader = stream_body().await?;
-            yield ImportUnit::NewTable(ComponentPath::TODO(), table_name);
+            yield ImportUnit::NewTable(component_path, table_name);
             let mut reader = csv_async::AsyncReader::from_reader(reader);
             if !reader.has_headers() {
                 anyhow::bail!(ImportError::CsvMissingHeaders);
@@ -946,7 +950,7 @@ where
         },
         ImportFormat::JsonLines(table_name) => {
             let reader = stream_body().await?;
-            yield ImportUnit::NewTable(ComponentPath::TODO(), table_name);
+            yield ImportUnit::NewTable(component_path, table_name);
             let mut reader = BufReader::new(reader);
             let mut line = String::new();
             let mut lineno = 1;
@@ -965,7 +969,7 @@ where
         },
         ImportFormat::JsonArray(table_name) => {
             let reader = stream_body().await?;
-            yield ImportUnit::NewTable(ComponentPath::TODO(), table_name);
+            yield ImportUnit::NewTable(component_path, table_name);
             let mut buf = Vec::new();
             let mut truncated_reader =
                 reader.take((*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES as u64) + 1);
@@ -981,6 +985,7 @@ where
             }
         },
         ImportFormat::Zip => {
+            let base_component_path = component_path;
             let mut reader = stream_body().await?.compat();
             let mut zip_reader = ZipFileReader::new(&mut reader)
                 .await
@@ -1004,7 +1009,8 @@ where
                 let mut storage_metadata: BTreeMap<_, Vec<_>> = BTreeMap::new();
                 let mut generated_schemas: BTreeMap<_, Vec<_>> = BTreeMap::new();
                 for (i, filename) in filenames.iter().enumerate() {
-                    let documents_table_name = parse_documents_jsonl_table_name(filename)?;
+                    let documents_table_name =
+                        parse_documents_jsonl_table_name(filename, &base_component_path)?;
                     if let Some((component_path, table_name)) = documents_table_name.clone()
                         && table_name == *TABLES_TABLE
                     {
@@ -1012,7 +1018,9 @@ where
                             zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                         table_metadata.insert(
                             component_path,
-                            parse_documents_jsonl(entry_reader).try_collect().await?,
+                            parse_documents_jsonl(entry_reader, &base_component_path)
+                                .try_collect()
+                                .await?,
                         );
                     } else if let Some((component_path, table_name)) = documents_table_name
                         && table_name == *FILE_STORAGE_VIRTUAL_TABLE
@@ -1021,11 +1029,15 @@ where
                             zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                         storage_metadata.insert(
                             component_path,
-                            parse_documents_jsonl(entry_reader).try_collect().await?,
+                            parse_documents_jsonl(entry_reader, &base_component_path)
+                                .try_collect()
+                                .await?,
                         );
-                    } else if let Some((component_path, table_name)) =
-                        parse_table_filename(filename, &GENERATED_SCHEMA_PATTERN)?
-                    {
+                    } else if let Some((component_path, table_name)) = parse_table_filename(
+                        filename,
+                        &base_component_path,
+                        &GENERATED_SCHEMA_PATTERN,
+                    )? {
                         let entry_reader =
                             zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
                         tracing::info!(
@@ -1059,7 +1071,7 @@ where
                         // Yield StorageFileChunk for each file in this component.
                         for (i, filename) in filenames.iter().enumerate() {
                             if let Some((file_component_path, storage_id)) =
-                                parse_storage_filename(filename)?
+                                parse_storage_filename(filename, &base_component_path)?
                                 && file_component_path == component_path
                             {
                                 let entry_reader =
@@ -1089,11 +1101,12 @@ where
 
             // Second pass: user tables.
             for (i, filename) in filenames.iter().enumerate() {
-                if let Some((_, table_name)) = parse_documents_jsonl_table_name(filename)?
+                if let Some((_, table_name)) =
+                    parse_documents_jsonl_table_name(filename, &base_component_path)?
                     && !table_name.is_system()
                 {
                     let entry_reader = zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
-                    let stream = parse_documents_jsonl(entry_reader);
+                    let stream = parse_documents_jsonl(entry_reader, &base_component_path);
                     pin_mut!(stream);
                     while let Some(unit) = stream.try_next().await? {
                         yield unit;
@@ -1104,7 +1117,10 @@ where
     }
 }
 
-fn parse_component_path(mut filename: &str) -> anyhow::Result<ComponentPath> {
+fn parse_component_path(
+    mut filename: &str,
+    base_component_path: &ComponentPath,
+) -> anyhow::Result<ComponentPath> {
     let mut component_names = Vec::new();
     while let Some(captures) = COMPONENT_NAME_PATTERN.captures(filename) {
         filename = captures.get(1).map_or("", |c| c.as_str());
@@ -1121,11 +1137,16 @@ fn parse_component_path(mut filename: &str) -> anyhow::Result<ComponentPath> {
         component_names.push(component_name);
     }
     component_names.reverse();
-    Ok(ComponentPath::from(component_names))
+    let mut component_path = base_component_path.clone();
+    for component_name in component_names {
+        component_path = component_path.push(component_name);
+    }
+    Ok(component_path)
 }
 
 fn parse_table_filename(
     filename: &str,
+    base_component_path: &ComponentPath,
     regex: &Regex,
 ) -> anyhow::Result<Option<(ComponentPath, TableName)>> {
     match regex.captures(filename) {
@@ -1142,7 +1163,7 @@ fn parse_table_filename(
                 )
             })?;
             let prefix = captures.get(1).map_or("", |c| c.as_str());
-            let component_path = parse_component_path(prefix)?;
+            let component_path = parse_component_path(prefix, base_component_path)?;
             Ok(Some((component_path, table_name)))
         },
     }
@@ -1150,6 +1171,7 @@ fn parse_table_filename(
 
 fn parse_storage_filename(
     filename: &str,
+    base_component_path: &ComponentPath,
 ) -> anyhow::Result<Option<(ComponentPath, DeveloperDocumentId)>> {
     match STORAGE_FILE_PATTERN.captures(filename) {
         None => Ok(None),
@@ -1168,7 +1190,7 @@ fn parse_storage_filename(
                 )
             })?;
             let prefix = captures.get(1).map_or("", |c| c.as_str());
-            let component_path = parse_component_path(prefix)?;
+            let component_path = parse_component_path(prefix, base_component_path)?;
             Ok(Some((component_path, storage_id)))
         },
     }
@@ -1176,14 +1198,18 @@ fn parse_storage_filename(
 
 fn parse_documents_jsonl_table_name(
     filename: &str,
+    base_component_path: &ComponentPath,
 ) -> anyhow::Result<Option<(ComponentPath, TableName)>> {
-    parse_table_filename(filename, &DOCUMENTS_PATTERN)
+    parse_table_filename(filename, base_component_path, &DOCUMENTS_PATTERN)
 }
 
 #[try_stream(ok = ImportUnit, error = anyhow::Error)]
-async fn parse_documents_jsonl<R: TokioAsyncRead + Unpin>(entry_reader: ZipEntryReader<'_, R>) {
+async fn parse_documents_jsonl<'a, R: TokioAsyncRead + Unpin>(
+    entry_reader: ZipEntryReader<'a, R>,
+    base_component_path: &'a ComponentPath,
+) {
     let (component_path, table_name) =
-        parse_documents_jsonl_table_name(entry_reader.entry().filename())?
+        parse_documents_jsonl_table_name(entry_reader.entry().filename(), base_component_path)?
             .context("expected documents.jsonl file")?;
     tracing::info!("importing zip file containing table {table_name}");
     yield ImportUnit::NewTable(component_path, table_name);
@@ -1272,13 +1298,22 @@ pub async fn upload_import_file<RT: Runtime>(
     identity: Identity,
     format: ImportFormat,
     mode: ImportMode,
+    component_path: ComponentPath,
     body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
 ) -> anyhow::Result<DeveloperDocumentId> {
     if !identity.is_admin() {
         anyhow::bail!(ImportError::Unauthorized);
     }
     let object_key = application.upload_snapshot_import(body_stream).await?;
-    store_uploaded_import(application, identity, format, mode, object_key).await
+    store_uploaded_import(
+        application,
+        identity,
+        format,
+        mode,
+        component_path,
+        object_key,
+    )
+    .await
 }
 
 pub async fn store_uploaded_import<RT: Runtime>(
@@ -1286,6 +1321,7 @@ pub async fn store_uploaded_import<RT: Runtime>(
     identity: Identity,
     format: ImportFormat,
     mode: ImportMode,
+    component_path: ComponentPath,
     object_key: ObjectKey,
 ) -> anyhow::Result<DeveloperDocumentId> {
     let (_, id, _) = application
@@ -1299,7 +1335,12 @@ pub async fn store_uploaded_import<RT: Runtime>(
                 async {
                     let mut model = SnapshotImportModel::new(tx);
                     model
-                        .start_import(format.clone(), mode, object_key.clone())
+                        .start_import(
+                            format.clone(),
+                            mode,
+                            component_path.clone(),
+                            object_key.clone(),
+                        )
                         .await
                 }
                 .into()
@@ -1426,10 +1467,18 @@ pub async fn do_import<RT: Runtime>(
     identity: Identity,
     format: ImportFormat,
     mode: ImportMode,
+    component_path: ComponentPath,
     body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
 ) -> anyhow::Result<u64> {
-    let import_id =
-        upload_import_file(application, identity.clone(), format, mode, body_stream).await?;
+    let import_id = upload_import_file(
+        application,
+        identity.clone(),
+        format,
+        mode,
+        component_path,
+        body_stream,
+    )
+    .await?;
 
     let snapshot_import = wait_for_import_worker(application, identity.clone(), import_id).await?;
     match &snapshot_import.state {
@@ -2677,7 +2726,10 @@ mod tests {
             IndexConfig,
             IndexMetadata,
         },
-        components::ComponentPath,
+        components::{
+            ComponentId,
+            ComponentPath,
+        },
         db_schema,
         document::ResolvedDocument,
         object_validator,
@@ -2700,9 +2752,11 @@ mod tests {
         value::ConvexValue,
     };
     use database::{
+        BootstrapComponentsModel,
         IndexModel,
         ResolvedQuery,
         SchemaModel,
+        TableModel,
         UserFacingModel,
     };
     use errors::ErrorMetadataAnyhowExt;
@@ -2773,41 +2827,64 @@ mod tests {
 
     #[test]
     fn test_filename_regex() -> anyhow::Result<()> {
-        let (_, table_name) = parse_documents_jsonl_table_name("users/documents.jsonl")?.unwrap();
+        let (_, table_name) =
+            parse_documents_jsonl_table_name("users/documents.jsonl", &ComponentPath::root())?
+                .unwrap();
         assert_eq!(table_name, "users".parse()?);
         // Regression test, checking that the '.' is escaped.
-        assert!(parse_documents_jsonl_table_name("users/documentsxjsonl")?.is_none());
+        assert!(
+            parse_documents_jsonl_table_name("users/documentsxjsonl", &ComponentPath::root())?
+                .is_none()
+        );
         // When an export is unzipped and re-zipped, sometimes there's a prefix.
-        let (_, table_name) =
-            parse_documents_jsonl_table_name("snapshot/users/documents.jsonl")?.unwrap();
+        let (_, table_name) = parse_documents_jsonl_table_name(
+            "snapshot/users/documents.jsonl",
+            &ComponentPath::root(),
+        )?
+        .unwrap();
         assert_eq!(table_name, "users".parse()?);
-        let (_, table_name) =
-            parse_table_filename("users/generated_schema.jsonl", &GENERATED_SCHEMA_PATTERN)?
-                .unwrap();
+        let (_, table_name) = parse_table_filename(
+            "users/generated_schema.jsonl",
+            &ComponentPath::root(),
+            &GENERATED_SCHEMA_PATTERN,
+        )?
+        .unwrap();
         assert_eq!(table_name, "users".parse()?);
-        let (_, storage_id) =
-            parse_storage_filename("_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f.gif")?.unwrap();
+        let (_, storage_id) = parse_storage_filename(
+            "_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f.gif",
+            &ComponentPath::root(),
+        )?
+        .unwrap();
         assert_eq!(&storage_id.to_string(), "kg2ah8mk1xtg35g7zyexyc96e96yr74f");
-        let (_, storage_id) =
-            parse_storage_filename("snapshot/_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f.gif")?
-                .unwrap();
+        let (_, storage_id) = parse_storage_filename(
+            "snapshot/_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f.gif",
+            &ComponentPath::root(),
+        )?
+        .unwrap();
         assert_eq!(&storage_id.to_string(), "kg2ah8mk1xtg35g7zyexyc96e96yr74f");
         // No file extension.
-        let (_, storage_id) =
-            parse_storage_filename("_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f")?.unwrap();
+        let (_, storage_id) = parse_storage_filename(
+            "_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f",
+            &ComponentPath::root(),
+        )?
+        .unwrap();
         assert_eq!(&storage_id.to_string(), "kg2ah8mk1xtg35g7zyexyc96e96yr74f");
         Ok(())
     }
 
     #[test]
     fn test_component_path_regex() -> anyhow::Result<()> {
-        let (component_path, table_name) =
-            parse_documents_jsonl_table_name("_components/waitlist/tbl/documents.jsonl")?.unwrap();
+        let (component_path, table_name) = parse_documents_jsonl_table_name(
+            "_components/waitlist/tbl/documents.jsonl",
+            &ComponentPath::root(),
+        )?
+        .unwrap();
         assert_eq!(&String::from(component_path), "waitlist");
         assert_eq!(&table_name.to_string(), "tbl");
 
         let (component_path, table_name) = parse_documents_jsonl_table_name(
             "some/parentdir/_components/waitlist/tbl/documents.jsonl",
+            &ComponentPath::root(),
         )?
         .unwrap();
         assert_eq!(&String::from(component_path), "waitlist");
@@ -2815,6 +2892,26 @@ mod tests {
 
         let (component_path, table_name) = parse_documents_jsonl_table_name(
             "_components/waitlist/_components/ratelimit/tbl/documents.jsonl",
+            &ComponentPath::root(),
+        )?
+        .unwrap();
+        assert_eq!(&String::from(component_path), "waitlist/ratelimit");
+        assert_eq!(&table_name.to_string(), "tbl");
+
+        let (component_path, table_name) = parse_documents_jsonl_table_name(
+            "_components/waitlist/_components/ratelimit/tbl/documents.jsonl",
+            &"friendship".parse()?,
+        )?
+        .unwrap();
+        assert_eq!(
+            &String::from(component_path),
+            "friendship/waitlist/ratelimit"
+        );
+        assert_eq!(&table_name.to_string(), "tbl");
+
+        let (component_path, table_name) = parse_documents_jsonl_table_name(
+            "tbl/documents.jsonl",
+            &"waitlist/ratelimit".parse()?,
         )?
         .unwrap();
         assert_eq!(&String::from(component_path), "waitlist/ratelimit");
@@ -2859,7 +2956,7 @@ mod tests {
         upload.write(Bytes::copy_from_slice(v.as_bytes())).await?;
         let object_key = upload.complete().await?;
         let stream = || storage.get_reader(&object_key);
-        parse_objects(format, stream)
+        parse_objects(format, ComponentPath::root(), stream)
             .filter_map(|line| async move {
                 match line {
                     Ok(super::ImportUnit::Object(object)) => Some(Ok(object)),
@@ -3146,6 +3243,7 @@ a
             new_admin_id(),
             ImportFormat::Csv(table_name.parse()?),
             ImportMode::Replace,
+            ComponentPath::root(),
             stream_from_str(test_csv),
         )
         .await?;
@@ -3419,6 +3517,35 @@ a
         Ok(())
     }
 
+    #[convex_macro::test_runtime]
+    async fn test_import_into_component(rt: TestRuntime) -> anyhow::Result<()> {
+        let app = Application::new_for_tests(&rt).await?;
+        app.load_component_tests_modules("with-schema").await?;
+        let table_name: TableName = "table1".parse()?;
+        let component_path: ComponentPath = "component".parse()?;
+        let test_csv = r#"
+a,b
+"foo","bar"
+"#;
+        do_import(
+            &app,
+            new_admin_id(),
+            ImportFormat::Csv(table_name.clone()),
+            ImportMode::Replace,
+            component_path.clone(),
+            stream_from_str(test_csv),
+        )
+        .await?;
+
+        let mut tx = app.begin(new_admin_id()).await?;
+        assert!(!TableModel::new(&mut tx).table_exists(ComponentId::Root.into(), &table_name));
+        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(component_path)
+            .await?;
+        assert_eq!(tx.count(component_id.into(), &table_name).await?, 1);
+        Ok(())
+    }
+
     async fn activate_schema<RT: Runtime>(
         app: &Application<RT>,
         schema: DatabaseSchema,
@@ -3490,6 +3617,7 @@ a
             new_admin_id(),
             ImportFormat::Csv(table_name.parse()?),
             ImportMode::Replace,
+            ComponentPath::root(),
             stream_from_str(input),
         )
         .await

@@ -12,12 +12,15 @@ use axum::{
     extract::State,
     response::IntoResponse,
 };
-use common::http::{
-    extract::{
-        Json,
-        Query,
+use common::{
+    components::ComponentPath,
+    http::{
+        extract::{
+            Json,
+            Query,
+        },
+        HttpResponseError,
     },
-    HttpResponseError,
 };
 use errors::ErrorMetadata;
 use futures::{
@@ -51,6 +54,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct ImportQueryArgs {
     table_name: Option<String>,
+    component_path: Option<String>,
     format: ImportFormatArg,
     #[serde(default)]
     mode: ImportMode,
@@ -128,6 +132,7 @@ pub async fn import(
     ExtractIdentity(identity): ExtractIdentity,
     Query(ImportQueryArgs {
         table_name,
+        component_path,
         format,
         mode,
     }): Query<ImportQueryArgs>,
@@ -135,11 +140,20 @@ pub async fn import(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
+    let component_path = ComponentPath::deserialize(component_path.as_deref())?;
     let body_stream = stream
         .into_data_stream()
         .map_err(anyhow::Error::from)
         .boxed();
-    let num_written = do_import(&st.application, identity, format, mode, body_stream).await?;
+    let num_written = do_import(
+        &st.application,
+        identity,
+        format,
+        mode,
+        component_path,
+        body_stream,
+    )
+    .await?;
     Ok(Json(ImportResponse { num_written }))
 }
 
@@ -202,6 +216,7 @@ pub async fn import_finish_upload(
         import:
             ImportQueryArgs {
                 table_name,
+                component_path,
                 format,
                 mode,
             },
@@ -211,12 +226,14 @@ pub async fn import_finish_upload(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
+    let component_path = ComponentPath::deserialize(component_path.as_deref())?;
     let import_id = st
         .application
         .import_finish_upload(
             identity,
             format,
             mode,
+            component_path,
             ClientDrivenUploadToken(upload_token),
             part_tokens
                 .into_iter()
@@ -240,6 +257,7 @@ pub async fn prepare_import(
     ExtractIdentity(identity): ExtractIdentity,
     Query(ImportQueryArgs {
         table_name,
+        component_path,
         format,
         mode,
     }): Query<ImportQueryArgs>,
@@ -247,12 +265,20 @@ pub async fn prepare_import(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
     let format = parse_format_arg(table_name, format)?;
+    let component_path = ComponentPath::deserialize(component_path.as_deref())?;
     let body_stream = stream
         .into_data_stream()
         .map_err(anyhow::Error::from)
         .boxed();
-    let import_id =
-        upload_import_file(&st.application, identity, format, mode, body_stream).await?;
+    let import_id = upload_import_file(
+        &st.application,
+        identity,
+        format,
+        mode,
+        component_path,
+        body_stream,
+    )
+    .await?;
     Ok(Json(PrepareImportResponse {
         import_id: import_id.encode(),
     }))

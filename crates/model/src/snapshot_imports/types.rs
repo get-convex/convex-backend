@@ -22,6 +22,7 @@ pub struct SnapshotImport {
     pub state: ImportState,
     pub format: ImportFormat,
     pub mode: ImportMode,
+    pub component_path: ComponentPath,
     pub object_key: ObjectKey,
     pub member_id: Option<MemberId>,
     pub checkpoints: Option<Vec<ImportTableCheckpoint>>,
@@ -32,6 +33,7 @@ struct SerializedSnapshotImport {
     state: SerializedImportState,
     format: SerializedImportFormat,
     mode: String,
+    component_path: Option<String>,
     object_key: String,
     member_id: Option<i64>,
     checkpoints: Option<Vec<SerializedImportTableCheckpoint>>,
@@ -45,6 +47,7 @@ impl TryFrom<SnapshotImport> for SerializedSnapshotImport {
             state: import.state.try_into()?,
             format: import.format.try_into()?,
             mode: import.mode.to_string(),
+            component_path: import.component_path.serialize(),
             object_key: import.object_key.to_string(),
             member_id: import.member_id.map(|member_id| member_id.0 as i64),
             checkpoints: import
@@ -63,6 +66,7 @@ impl TryFrom<SerializedSnapshotImport> for SnapshotImport {
             state: import.state.try_into()?,
             format: import.format.try_into()?,
             mode: import.mode.parse()?,
+            component_path: ComponentPath::deserialize(import.component_path.as_deref())?,
             object_key: import.object_key.try_into()?,
             member_id: import.member_id.map(|member_id| MemberId(member_id as u64)),
             checkpoints: import

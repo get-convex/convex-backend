@@ -75,6 +75,13 @@ export const convexImport = new Command("import")
         "- ZIP files must have one directory per table, containing <table>/documents.jsonl. Snapshot exports from the Convex dashboard have this format.",
     ).choices(["csv", "jsonLines", "jsonArray", "zip"]),
   )
+  .addOption(
+    new Option(
+      "--component-path <path>",
+      "Path to the component in the component tree defined in convex.config.ts",
+      // TODO(ENG-6967): Remove hideHelp before launching components
+    ).hideHelp(),
+  )
   .addDeploymentSelectionOptions(actionDescription("Import data into"))
   .argument("<path>", "Path to the input file")
   .showHelpAfterError()
@@ -156,6 +163,7 @@ export const convexImport = new Command("import")
     }
     const importArgs = {
       tableName: tableName === null ? undefined : tableName,
+      componentPath: options.componentPath,
       mode,
       format,
     };
@@ -458,7 +466,12 @@ export async function uploadForImport(
     deploymentUrl: string;
     adminKey: string;
     filePath: string;
-    importArgs: { tableName?: string; mode: string; format: string };
+    importArgs: {
+      tableName?: string;
+      componentPath?: string;
+      mode: string;
+      format: string;
+    };
     onImportFailed: (e: any) => Promise<void>;
   },
 ) {

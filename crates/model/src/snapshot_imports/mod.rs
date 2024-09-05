@@ -95,12 +95,14 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         &mut self,
         format: ImportFormat,
         mode: ImportMode,
+        component_path: ComponentPath,
         object_key: ObjectKey,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let snapshot_import = SnapshotImport {
             state: ImportState::Uploaded,
             format,
             mode,
+            component_path,
             object_key,
             member_id: self.tx.identity().member_id(),
             checkpoints: None,

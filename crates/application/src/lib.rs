@@ -1922,6 +1922,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         format: ImportFormat,
         mode: ImportMode,
+        component_path: ComponentPath,
         upload_token: ClientDrivenUploadToken,
         part_tokens: Vec<ClientDrivenUploadPartToken>,
     ) -> anyhow::Result<DeveloperDocumentId> {
@@ -1935,7 +1936,7 @@ impl<RT: Runtime> Application<RT> {
             .snapshot_imports_storage
             .finish_client_driven_upload(upload_token, part_tokens)
             .await?;
-        store_uploaded_import(self, identity, format, mode, object_key).await
+        store_uploaded_import(self, identity, format, mode, component_path, object_key).await
     }
 
     pub async fn upload_snapshot_import(
