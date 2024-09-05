@@ -270,6 +270,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
 
     fn persistence_version(&self) -> PersistenceVersion;
+    fn is_system(&self) -> bool;
     fn table_filter(&self) -> TableFilter;
     fn component(&self) -> anyhow::Result<ComponentId>;
 
@@ -346,6 +347,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn persistence_version(&self) -> PersistenceVersion {
         self.persistence_version
+    }
+
+    fn is_system(&self) -> bool {
+        self.path.udf_path.is_system()
     }
 
     fn table_filter(&self) -> TableFilter {
@@ -493,6 +498,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         };
         let mut tx = self.phase.take_tx()?;
         let tokens = tx.begin_subtransaction();
+
+        let query_journal = if self.is_system() && udf_type == UdfType::Query {
+            self.prev_journal.clone()
+        } else {
+            QueryJournal::new()
+        };
         let (mut tx, outcome) = self
             .udf_callback
             .execute_udf(
@@ -508,7 +519,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                     module_loader: self.phase.module_loader().clone(),
                 },
                 tx,
-                QueryJournal::new(),
+                query_journal,
                 self.context.clone(),
             )
             .await?;
@@ -521,7 +532,12 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         self.phase.put_tx(tx)?;
 
         let outcome = match (udf_type, outcome) {
-            (UdfType::Query, FunctionOutcome::Query(outcome)) => outcome,
+            (UdfType::Query, FunctionOutcome::Query(outcome)) => {
+                if self.is_system() && outcome.result.is_ok() {
+                    self.next_journal = outcome.journal.clone();
+                }
+                outcome
+            },
             (UdfType::Mutation, FunctionOutcome::Mutation(outcome)) => outcome,
             _ => anyhow::bail!("Unexpected outcome for {udf_type:?}"),
         };
@@ -1454,7 +1470,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         };
 
         let component = provider.component()?;
-        if !component.is_root() {
+        if !component.is_root() && !provider.is_system() {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "PaginationUnsupportedInComponents",
                 "paginate() is only supported in the app.",

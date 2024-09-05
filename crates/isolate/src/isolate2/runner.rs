@@ -868,6 +868,10 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
         self.tx.persistence_version()
     }
 
+    fn is_system(&self) -> bool {
+        self.is_system
+    }
+
     fn table_filter(&self) -> TableFilter {
         if self.is_system {
             TableFilter::IncludePrivateSystemTables
