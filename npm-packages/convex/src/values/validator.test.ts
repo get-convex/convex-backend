@@ -1,5 +1,5 @@
 import { GenericId } from "../values/index.js";
-import { describe, test } from "vitest";
+import { describe, test, expect } from "vitest";
 import { assert, Equals } from "../test/type_testing.js";
 import { v, Infer } from "../values/validator.js";
 
@@ -67,12 +67,20 @@ describe("Validators", () => {
     v.array(optional);
 
     v.record(required, required);
+
+    const invalidRecordError = "Record validator cannot have optional ";
     // @ts-expect-error This should be an error
-    v.record(required, optional);
+    expect(() => v.record(required, optional)).toThrowError(
+      invalidRecordError + "values",
+    );
     // @ts-expect-error This should be an error
-    v.record(optional, required);
+    expect(() => v.record(optional, required)).toThrowError(
+      invalidRecordError + "keys",
+    );
     // @ts-expect-error This should be an error
-    v.record(optional, optional);
+    expect(() => v.record(optional, optional)).toThrowError(
+      invalidRecordError + "keys",
+    );
 
     v.union(required, required);
     // @ts-expect-error This should be an error
@@ -81,6 +89,26 @@ describe("Validators", () => {
     v.union(required, optional);
     // @ts-expect-error This should be an error
     v.union(optional, required);
+  });
+
+  test("Record validators cannot have non-strings as arguments", () => {
+    v.record(v.id("table1"), v.string());
+    v.record(v.union(v.id("table1"), v.id("table2")), v.string());
+
+    // @ts-expect-error This should be an error
+    v.record(v.number(), v.string());
+    // @ts-expect-error This should be an error
+    v.record(v.int64(), v.string());
+    // @ts-expect-error This should be an error
+    v.record(v.float64(), v.string());
+    // @ts-expect-error This should be an error
+    v.record(v.null(), v.string());
+    // @ts-expect-error This should be an error
+    v.record(v.boolean(), v.string());
+
+    // These patterns will compile, but will be rejected by the server
+    v.record(v.union(v.literal("abc"), v.literal("def")), v.string());
+    v.record(v.union(v.id("table1"), v.literal("def")), v.string());
   });
 
   test("complex types look good", () => {

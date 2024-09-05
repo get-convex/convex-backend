@@ -58,7 +58,7 @@ fs.rmSync(path.join(tmpPackage, "dist", "internal-esm-types"), {
 
 // Remove a few more @internal types
 console.log("modifying types to remove remaining @internal types");
-rewriteDtsToRemoveInternal(tmpPackage);
+auditInternal(tmpPackage);
 
 run("tar", "czvf", tarball, "-C", tmpDir, "package");
 fs.rmSync(tmpDir, { recursive: true });
@@ -114,34 +114,9 @@ function run(...args) {
 // manually remove a list of @internal properties.
 //
 // To maintain declaration maps it's helpful to avoid changing line numbers.
-function rewriteDtsToRemoveInternal(dirname) {
-  // Properties aren't removed by tsc --removeInternal
-  replaceType(
-    dirname,
-    "values/validator.d.ts",
-    `/** @internal */
-    record: <Key extends Validator<any, "required", any>, Value extends Validator<any, "required", any>>(keys: Key, values: Value) => VRecord<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, "required", string>;`,
-    `/* @internal
-    record: <Key extends Validator<any, "required", any>, Value extends Validator<any, "required", any>>(keys: Key, values: Value) => VRecord<Value["isOptional"] extends true ? { [key in Infer<Key>]?: Value["type"] | undefined; } : Record<Infer<Key>, Value["type"]>, Key, Value, "required", string>; */`,
-  );
+function auditInternal(dirname) {
   auditForInternal(path.join(dirname, "dist", "cjs-types"));
   auditForInternal(path.join(dirname, "dist", "esm-types"));
-}
-
-function replaceType(dirname, relPath, needle, replacement) {
-  for (const types of [
-    path.join(dirname, "dist", "cjs-types"),
-    path.join(dirname, "dist", "esm-types"),
-  ]) {
-    const file = path.join(types, relPath);
-    let contents = fs.readFileSync(file, { encoding: "utf-8" });
-    if (!contents.includes(needle)) {
-      throw new Error(`Can't find string ${needle} in ${file}`);
-    }
-    const modified = contents.replace(needle, replacement);
-    fs.writeFileSync(file, modified, { encoding: "utf-8" });
-    console.log("replaced\n", needle, "\nwith\n", replacement);
-  }
 }
 
 // Assert that no `@internal` docstrings exist in types.

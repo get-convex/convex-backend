@@ -1259,7 +1259,9 @@ mod tests {
     }
 
     #[test]
-    fn test_record_must_have_string_keys() -> anyhow::Result<()> {
+    fn test_record_can_have_string_keys() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.string(), v.number()) })`
         let validator_json = json!({
             "type": "object",
             "value": {
@@ -1267,31 +1269,7 @@ mod tests {
                     "fieldType": {
                         "type": "record",
                         "keys": {
-                            "type": "number",
-                        },
-                        "values": {
-                            "type": "number"
-                        }
-                    },
-                    "optional": false
-                },
-            }
-        });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
-        assert_eq!(e.short_msg(), "InvalidRecordType");
-        Ok(())
-    }
-
-    #[test]
-    fn test_record_with_string_literal_keys_must_have_optional_value() -> anyhow::Result<()> {
-        let validator_json = json!({
-            "type": "object",
-            "value": {
-                "myArg": {
-                    "fieldType": {
-                        "type": "record",
-                        "keys": {
-                            "type": "number",
+                            "type": "string",
                         },
                         "values": {
                             "fieldType": { "type": "number" },
@@ -1302,13 +1280,14 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
-        assert_eq!(e.short_msg(), "InvalidRecordType");
+        assert!(Validator::try_from(validator_json).is_ok());
         Ok(())
     }
 
     #[test]
     fn test_record_can_have_string_subset_as_key() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.id("users"), v.number()) })`
         let validator_json = json!({
             "type": "object",
             "value": {
@@ -1321,7 +1300,7 @@ mod tests {
                         },
                         "values": {
                             "fieldType": { "type": "number" },
-                            "optional": true,
+                            "optional": false,
                         }
                     },
                     "optional": false
@@ -1334,6 +1313,8 @@ mod tests {
 
     #[test]
     fn test_record_key_any() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.any(), v.number()) })`
         let validator_json = json!({
             "type": "object",
             "value": {
@@ -1353,7 +1334,161 @@ mod tests {
                 },
             }
         });
-        must_let::must_let!(let Err(e) =Validator::try_from(validator_json));
+        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        assert_eq!(e.short_msg(), "InvalidRecordType");
+        Ok(())
+    }
+
+    #[test]
+    fn test_record_cannot_have_number_keys() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.number(), v.number()) })`
+        let validator_json = json!({
+            "type": "object",
+            "value": {
+                "myArg": {
+                    "fieldType": {
+                        "type": "record",
+                        "keys": {
+                            "type": "number",
+                        },
+                        "values": {
+                            "fieldType": { "type": "number" },
+                            "optional": false,
+                        }
+                    },
+                    "optional": false
+                },
+            }
+        });
+        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        assert_eq!(e.short_msg(), "InvalidRecordType");
+        Ok(())
+    }
+
+    #[test]
+    fn test_record_cannot_have_optional_values() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.id("users"), v.optional(v.number())) })`
+        let validator_json = json!({
+            "type": "object",
+            "value": {
+                "myArg": {
+                    "fieldType": {
+                        "type": "record",
+                        "keys": {
+                            "type": "id",
+                            "tableName": "users",
+                        },
+                        "values": {
+                            "fieldType": { "type": "number" },
+                            "optional": true,
+                        }
+                    },
+                    "optional": false
+                },
+            }
+        });
+        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        assert_eq!(e.short_msg(), "InvalidRecordType");
+        Ok(())
+    }
+
+    #[test]
+    fn test_record_can_have_unions() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.union(v.id("users"), v.string()),
+        // v.optional(v.number())) })`
+        let validator_json = json!({
+            "type": "object",
+            "value": {
+                "myArg": {
+                    "fieldType": {
+                        "type": "record",
+                        "keys": {
+                            "type": "union",
+                            "value": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "tableName": "users",
+                                "type": "id"
+                              }
+                            ]
+                        },
+                        "values": {
+                            "fieldType": { "type": "number" },
+                            "optional": false,
+                        }
+                    },
+                    "optional": false
+                },
+            }
+        });
+        assert!(Validator::try_from(validator_json).is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_record_cannot_have_unions_with_literals() -> anyhow::Result<()> {
+        // Tests validator with type
+        // `v.object({ myArg: v.record(v.union(v.literal("abc"), v.string()),
+        // v.optional(v.number())) })`
+        let validator_json = json!({
+            "type": "object",
+            "value": {
+                "myArg": {
+                    "fieldType": {
+                        "type": "record",
+                        "keys": {
+                            "type": "union",
+                            "value": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "literal",
+                                "value": "abc",
+                            }
+                            ]
+                        },
+                        "values": {
+                            "fieldType": { "type": "number" },
+                            "optional": false,
+                        }
+                    },
+                    "optional": false
+                },
+            }
+        });
+        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
+        assert_eq!(e.short_msg(), "InvalidRecordType");
+        Ok(())
+    }
+
+    #[test]
+    fn test_record_cannot_have_string_literal_keys() -> anyhow::Result<()> {
+        let validator_json = json!({
+            "type": "object",
+            "value": {
+                "myArg": {
+                    "fieldType": {
+                        "type": "record",
+                        "keys": {
+                            "type": "literal",
+                            "value": "abc",
+                        },
+                        "values": {
+                            "fieldType": { "type": "number" },
+                            "optional":false,
+                        }
+                    },
+                    "optional": false
+                },
+            }
+        });
+        must_let::must_let!(let Err(e) = Validator::try_from(validator_json));
         assert_eq!(e.short_msg(), "InvalidRecordType");
         Ok(())
     }

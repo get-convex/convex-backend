@@ -171,22 +171,19 @@ export const v = {
     return new VObject<ObjectType<T>, T>({ isOptional: "required", fields });
   },
 
-  /** @internal */
+  /**
+   * Validates that the value is a Record with keys and values that match the given types.
+   * @param keys The validator for the keys of the record. This cannot contain string literals.
+   * @param values The validator for the values of the record.
+   */
   record: <
-    Key extends Validator<any, "required", any>,
+    Key extends Validator<string, "required", any>,
     Value extends Validator<any, "required", any>,
   >(
     keys: Key,
     values: Value,
   ) => {
-    // TODO enforce that Infer<key> extends string
-    return new VRecord<
-      Value["isOptional"] extends true
-        ? { [key in Infer<Key>]?: Value["type"] }
-        : Record<Infer<Key>, Value["type"]>,
-      Key,
-      Value
-    >({
+    return new VRecord<Record<Infer<Key>, Value["type"]>, Key, Value>({
       isOptional: "required",
       key: keys,
       value: values,

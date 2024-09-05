@@ -408,15 +408,7 @@ export class VArray<
 }
 
 /**
- * Validator for an object that produces indexed types.
- *
- * If the value validator is not optional, it produces a `Record` type, which is an alias
- * for `{[key: K]: V}`.
- *
- * If the value validator is optional, it produces a mapped object type,
- * with optional keys: `{[key in K]?: V}`.
- *
- * This is used within the validator builder, {@link v}.
+ * The type of the `v.record()` validator.
  */
 export class VRecord<
   Type,
@@ -425,9 +417,24 @@ export class VRecord<
   IsOptional extends OptionalProperty = "required",
   FieldPaths extends string = string,
 > extends BaseValidator<Type, IsOptional, FieldPaths> {
+  /**
+   * The validator for the keys of the record.
+   */
   readonly key: Key;
+
+  /**
+   * The validator for the values of the record.
+   */
   readonly value: Value;
+
+  /**
+   * The kind of validator, `"record"`.
+   */
   readonly kind = "record" as const;
+
+  /**
+   * Usually you'd use `v.record(key, value)` instead.
+   */
   constructor({
     isOptional,
     key,
@@ -438,6 +445,12 @@ export class VRecord<
     value: Value;
   }) {
     super({ isOptional });
+    if ((key.isOptional as OptionalProperty) === "optional") {
+      throw new Error("Record validator cannot have optional keys");
+    }
+    if ((value.isOptional as OptionalProperty) === "optional") {
+      throw new Error("Record validator cannot have optional values");
+    }
     this.key = key;
     this.value = value;
   }

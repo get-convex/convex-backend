@@ -625,10 +625,11 @@ impl TryFrom<ValidatorJson> for Validator {
                 Box::new(values.try_into()?),
             )),
             ValidatorJson::Record { keys, values } => {
+                let error_short_code = "InvalidRecordType";
                 let keys_validator = Validator::try_from(keys)?;
                 if !keys_validator.is_subset(&Validator::String) {
                     anyhow::bail!(ErrorMetadata::bad_request(
-                        "InvalidRecordType",
+                        error_short_code,
                         format!(
                             "Records can only have string keys. Your validator contains a record \
                              with key typed as `{keys_validator}`, which is not a subtype of \
@@ -637,20 +638,16 @@ impl TryFrom<ValidatorJson> for Validator {
                     ))
                 }
                 let values_validator = FieldValidator::try_from(values)?;
-                if keys_validator.is_string_subtype_with_string_literal()
-                    && !values_validator.optional
-                {
-                    let optional_values_validator = FieldValidator {
-                        optional: true,
-                        validator: values_validator.validator.clone(),
-                    };
+                if keys_validator.is_string_subtype_with_string_literal() {
                     anyhow::bail!(ErrorMetadata::bad_request(
-                        "InvalidRecordType",
-                        format!(
-                            "Records with string literal keys must have an optional value. Your \
-                             validator has value type {values_validator} instead of \
-                             {optional_values_validator}"
-                        )
+                        error_short_code,
+                        format!("Records cannot have string literal keys")
+                    ));
+                }
+                if values_validator.optional {
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        error_short_code,
+                        format!("Records cannot have optional values")
                     ));
                 }
                 Ok(Validator::Record(
@@ -706,15 +703,12 @@ impl TryFrom<Validator> for JsonValue {
                 keys: JsonValue::try_from(*k)?,
                 values: JsonValue::try_from(*v)?,
             },
-            Validator::Record(k, v) => {
-                let optional_value = k.is_string_subtype_with_string_literal();
-                ValidatorJson::Record {
-                    keys: JsonValue::try_from(*k)?,
-                    values: JsonValue::try_from(FieldValidator {
-                        optional: optional_value,
-                        validator: *v,
-                    })?,
-                }
+            Validator::Record(k, v) => ValidatorJson::Record {
+                keys: JsonValue::try_from(*k)?,
+                values: JsonValue::try_from(FieldValidator {
+                    optional: false,
+                    validator: *v,
+                })?,
             },
             Validator::Object(o) => ValidatorJson::Object {
                 value: o.try_into()?,
