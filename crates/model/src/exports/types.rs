@@ -64,13 +64,13 @@ enum SerializedExport {
     Requested {
         format: SerializedExportFormat,
         component: Option<String>,
-        requestor: Option<String>, // Option for backward compatibility until migration runs
+        requestor: String,
     },
     InProgress {
         start_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
-        requestor: Option<String>, // Option for backward compatibility until migration runs
+        requestor: String,
     },
     Completed {
         start_ts: u64,
@@ -79,14 +79,14 @@ enum SerializedExport {
         zip_object_key: String,
         format: SerializedExportFormat,
         component: Option<String>,
-        requestor: Option<String>, // Option for backward compatibility until migration runs
+        requestor: String,
     },
     Failed {
         start_ts: u64,
         failed_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
-        requestor: Option<String>, // Option for backward compatibility until migration runs
+        requestor: String,
     },
 }
 
@@ -102,7 +102,7 @@ impl TryFrom<Export> for SerializedExport {
             } => SerializedExport::Requested {
                 format: format.into(),
                 component: component.serialize_to_string(),
-                requestor: Some(requestor.to_string()),
+                requestor: requestor.to_string(),
             },
             Export::InProgress {
                 start_ts,
@@ -113,7 +113,7 @@ impl TryFrom<Export> for SerializedExport {
                 start_ts: start_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
-                requestor: Some(requestor.to_string()),
+                requestor: requestor.to_string(),
             },
             Export::Completed {
                 start_ts,
@@ -130,7 +130,7 @@ impl TryFrom<Export> for SerializedExport {
                 zip_object_key: zip_object_key.to_string(),
                 format: format.into(),
                 component: component.serialize_to_string(),
-                requestor: Some(requestor.to_string()),
+                requestor: requestor.to_string(),
             },
             Export::Failed {
                 start_ts,
@@ -143,7 +143,7 @@ impl TryFrom<Export> for SerializedExport {
                 failed_ts: failed_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
-                requestor: Some(requestor.to_string()),
+                requestor: requestor.to_string(),
             },
         })
     }
@@ -161,10 +161,7 @@ impl TryFrom<SerializedExport> for Export {
             } => Export::Requested {
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
-                requestor: requestor
-                    .map(|r| r.parse())
-                    .transpose()?
-                    .unwrap_or(ExportRequestor::SnapshotExport),
+                requestor: requestor.parse()?,
             },
             SerializedExport::InProgress {
                 start_ts,
@@ -175,10 +172,7 @@ impl TryFrom<SerializedExport> for Export {
                 start_ts: start_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
-                requestor: requestor
-                    .map(|r| r.parse())
-                    .transpose()?
-                    .unwrap_or(ExportRequestor::SnapshotExport),
+                requestor: requestor.parse()?,
             },
             SerializedExport::Completed {
                 start_ts,
@@ -195,10 +189,7 @@ impl TryFrom<SerializedExport> for Export {
                 zip_object_key: zip_object_key.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
-                requestor: requestor
-                    .map(|r| r.parse())
-                    .transpose()?
-                    .unwrap_or(ExportRequestor::SnapshotExport),
+                requestor: requestor.parse()?,
             },
             SerializedExport::Failed {
                 start_ts,
@@ -211,10 +202,7 @@ impl TryFrom<SerializedExport> for Export {
                 failed_ts: failed_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
-                requestor: requestor
-                    .map(|r| r.parse())
-                    .transpose()?
-                    .unwrap_or(ExportRequestor::SnapshotExport),
+                requestor: requestor.parse()?,
             },
         })
     }
