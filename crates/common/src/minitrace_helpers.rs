@@ -1,9 +1,14 @@
 use std::{
     collections::BTreeMap,
+    hash::{
+        Hash,
+        Hasher,
+    },
     str::FromStr,
 };
 
 use anyhow::Context;
+use fnv::FnvHasher;
 use minitrace::{
     collector::SpanContext,
     Span,
@@ -40,6 +45,29 @@ pub fn get_sampled_span<R: Rng>(
     match should_sample {
         true => Span::root(name.to_owned(), SpanContext::random()).with_properties(|| properties),
         false => Span::noop(),
+    }
+}
+
+/// Psuedorandomly sample a span based on `key`, deterministically making the
+/// same decision each time this function is called with the same `key`.
+pub fn get_keyed_sampled_span<K: Hash + std::fmt::Debug>(
+    key: K,
+    instance_name: &str,
+    name: &str,
+    span_ctx: SpanContext,
+    properties: BTreeMap<String, String>,
+) -> Span {
+    let mut hasher = FnvHasher::default();
+    key.hash(&mut hasher);
+    let hash = hasher.finish() as u32;
+    let sample_ratio = REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(instance_name, name);
+    let threshold = ((u32::MAX as f64) * sample_ratio) as u32;
+    if hash < threshold {
+        tracing::info!("Sampling span for {key:?}: {name}");
+        Span::root(name.to_owned(), span_ctx).with_properties(|| properties)
+    } else {
+        tracing::info!("Not sampling span for {key:?}: {name}");
+        Span::noop()
     }
 }
 

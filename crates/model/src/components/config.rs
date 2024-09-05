@@ -253,6 +253,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Self { tx }
     }
 
+    #[minitrace::trace]
     pub async fn start_component_schema_changes(
         &mut self,
         app: &CheckedComponent,
@@ -358,6 +359,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         self.initialize_component_namespace(component_id).await
     }
 
+    #[minitrace::trace]
     async fn initialize_component_namespace(
         &mut self,
         component_id: ComponentId,

@@ -179,6 +179,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         Ok(FunctionHandle::new(document.developer_id()))
     }
 
+    #[minitrace::trace]
     pub async fn apply_config_diff(
         &mut self,
         component: ComponentId,

@@ -39,6 +39,7 @@ use common::{
 use database::{
     BootstrapComponentsModel,
     IndexModel,
+    Token,
     WriteSource,
     SCHEMAS_TABLE,
 };
@@ -386,84 +387,15 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<SchemaStatus> {
         let deadline = self.runtime().monotonic_now() + timeout;
         loop {
-            let mut tx = self.begin(identity.clone()).await?;
-            let mut components_status = BTreeMap::new();
-
-            for (component_path, schema_id) in &schema_change.schema_ids {
-                let Some(schema_id) = schema_id else {
-                    continue;
-                };
-                let schema_table_number = tx.table_mapping().tablet_number(schema_id.table())?;
-                let schema_id = ResolvedDocumentId::new(
-                    schema_id.table(),
-                    DeveloperDocumentId::new(schema_table_number, schema_id.internal_id()),
-                );
-                let document = tx
-                    .get(schema_id)
-                    .await?
-                    .context("Missing schema document")?;
-                let SchemaMetadata { state, .. } = document.into_value().0.try_into()?;
-                let schema_validation_complete = match state {
-                    SchemaState::Pending => false,
-                    SchemaState::Active | SchemaState::Validated => true,
-                    SchemaState::Failed { error, table_name } => {
-                        return Ok(SchemaStatus::Failed {
-                            error,
-                            component_path: component_path.clone(),
-                            table_name,
-                        });
-                    },
-                    SchemaState::Overwritten => return Ok(SchemaStatus::RaceDetected),
-                };
-
-                let component_id = if component_path.is_root() {
-                    ComponentId::Root
-                } else {
-                    let existing =
-                        BootstrapComponentsModel::new(&mut tx).resolve_path(component_path)?;
-                    let allocated = schema_change.allocated_component_ids.get(component_path);
-                    let internal_id = match (existing, allocated) {
-                        (None, Some(id)) => *id,
-                        (Some(doc), None) => doc.id().into(),
-                        r => anyhow::bail!("Invalid existing component state: {r:?}"),
-                    };
-                    ComponentId::Child(internal_id)
-                };
-                let namespace = TableNamespace::from(component_id);
-                let mut indexes_complete = 0;
-                let mut indexes_total = 0;
-                for index in IndexModel::new(&mut tx)
-                    .get_application_indexes(namespace)
-                    .await?
-                {
-                    if !index.config.is_backfilling() {
-                        indexes_complete += 1;
-                    }
-                    indexes_total += 1;
-                }
-                components_status.insert(
-                    component_path.clone(),
-                    ComponentSchemaStatus {
-                        schema_validation_complete,
-                        indexes_complete,
-                        indexes_total,
-                    },
-                );
-            }
-
-            if components_status.values().all(|c| c.is_complete()) {
-                return Ok(SchemaStatus::Complete);
-            }
-
+            let (status, token) = self
+                .load_component_schema_status(&identity, &schema_change)
+                .await?;
             let now = self.runtime().monotonic_now();
-            if now > deadline {
-                return Ok(SchemaStatus::InProgress {
-                    components: components_status,
-                });
+            let in_progress = matches!(status, SchemaStatus::InProgress { .. });
+            if !in_progress || now > deadline {
+                return Ok(status);
             }
-            let token = tx.into_token()?;
             let subscription = self.subscribe(token).await?;
-
             tokio::select! {
                 _ = subscription.wait_for_invalidation() => {},
                 _ = self.runtime.wait(deadline - now)
@@ -471,6 +403,89 @@ impl<RT: Runtime> Application<RT> {
                  => {},
             }
         }
+    }
+
+    #[minitrace::trace]
+    async fn load_component_schema_status(
+        &self,
+        identity: &Identity,
+        schema_change: &SchemaChange,
+    ) -> anyhow::Result<(SchemaStatus, Token)> {
+        let mut tx = self.begin(identity.clone()).await?;
+        let mut components_status = BTreeMap::new();
+        for (component_path, schema_id) in &schema_change.schema_ids {
+            let Some(schema_id) = schema_id else {
+                continue;
+            };
+            let schema_table_number = tx.table_mapping().tablet_number(schema_id.table())?;
+            let schema_id = ResolvedDocumentId::new(
+                schema_id.table(),
+                DeveloperDocumentId::new(schema_table_number, schema_id.internal_id()),
+            );
+            let document = tx
+                .get(schema_id)
+                .await?
+                .context("Missing schema document")?;
+            let SchemaMetadata { state, .. } = document.into_value().0.try_into()?;
+            let schema_validation_complete = match state {
+                SchemaState::Pending => false,
+                SchemaState::Active | SchemaState::Validated => true,
+                SchemaState::Failed { error, table_name } => {
+                    let status = SchemaStatus::Failed {
+                        error,
+                        component_path: component_path.clone(),
+                        table_name,
+                    };
+                    return Ok((status, tx.into_token()?));
+                },
+                SchemaState::Overwritten => {
+                    return Ok((SchemaStatus::RaceDetected, tx.into_token()?))
+                },
+            };
+
+            let component_id = if component_path.is_root() {
+                ComponentId::Root
+            } else {
+                let existing =
+                    BootstrapComponentsModel::new(&mut tx).resolve_path(component_path)?;
+                let allocated = schema_change.allocated_component_ids.get(component_path);
+                let internal_id = match (existing, allocated) {
+                    (None, Some(id)) => *id,
+                    (Some(doc), None) => doc.id().into(),
+                    r => anyhow::bail!("Invalid existing component state: {r:?}"),
+                };
+                ComponentId::Child(internal_id)
+            };
+            let namespace = TableNamespace::from(component_id);
+            let mut indexes_complete = 0;
+            let mut indexes_total = 0;
+            for index in IndexModel::new(&mut tx)
+                .get_application_indexes(namespace)
+                .await?
+            {
+                if !index.config.is_backfilling() {
+                    indexes_complete += 1;
+                }
+                indexes_total += 1;
+            }
+            components_status.insert(
+                component_path.clone(),
+                ComponentSchemaStatus {
+                    schema_validation_complete,
+                    indexes_complete,
+                    indexes_total,
+                },
+            );
+        }
+        let status = if components_status.values().all(|c| c.is_complete()) {
+            SchemaStatus::Complete
+        } else {
+            SchemaStatus::InProgress {
+                components: components_status,
+            }
+        };
+        let token = tx.into_token()?;
+        Ok((status, token))
     }
 
     #[minitrace::trace]

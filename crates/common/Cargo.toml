@@ -28,6 +28,7 @@ enum-iterator = { workspace = true }
 errors = { path = "../errors" }
 event-listener = { workspace = true }
 float_next_after = { workspace = true }
+fnv = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 futures-util = { workspace = true }

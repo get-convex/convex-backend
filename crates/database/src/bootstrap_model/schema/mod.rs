@@ -221,6 +221,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         Ok(schema_doc.map(|doc| (doc.id(), doc.into_value().schema)))
     }
 
+    #[minitrace::trace]
     pub async fn submit_pending(
         &mut self,
         schema: DatabaseSchema,

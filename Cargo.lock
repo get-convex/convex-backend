@@ -1193,6 +1193,7 @@ dependencies = [
  "errors",
  "event-listener 5.3.1",
  "float_next_after",
+ "fnv",
  "futures",
  "futures-async-stream",
  "futures-util",

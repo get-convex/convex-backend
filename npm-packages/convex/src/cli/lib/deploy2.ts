@@ -25,10 +25,12 @@ import chalk from "chalk";
 import { getTargetDeploymentName } from "./deployment.js";
 import { deploymentDashboardUrlPage } from "../dashboard.js";
 import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
+import { Reporter, Span } from "./tracing.js";
 
 /** Push configuration2 to the given remote origin. */
 export async function startPush(
   ctx: Context,
+  span: Span,
   url: string,
   request: StartPushRequest,
   verbose?: boolean,
@@ -49,6 +51,9 @@ export async function startPush(
     const response = await fetch("/api/deploy2/start_push", {
       body: JSON.stringify(request),
       method: "POST",
+      headers: {
+        traceparent: span.encodeW3CTraceparent(),
+      },
     });
     return startPushResponse.parse(await response.json());
   } catch (error: unknown) {
@@ -90,6 +95,7 @@ const SCHEMA_TIMEOUT_MS = 10_000;
 
 export async function waitForSchema(
   ctx: Context,
+  span: Span,
   adminKey: string,
   url: string,
   startPush: StartPushResponse,
@@ -111,6 +117,9 @@ export async function waitForSchema(
           timeoutMs: SCHEMA_TIMEOUT_MS,
         }),
         method: "POST",
+        headers: {
+          traceparent: span.encodeW3CTraceparent(),
+        },
       });
       currentStatus = schemaStatus.parse(await response.json());
     } catch (error: unknown) {
@@ -182,6 +191,7 @@ export async function waitForSchema(
 
 export async function finishPush(
   ctx: Context,
+  span: Span,
   adminKey: string,
   url: string,
   startPush: StartPushResponse,
@@ -196,6 +206,9 @@ export async function finishPush(
         dryRun: false,
       }),
       method: "POST",
+      headers: {
+        traceparent: span.encodeW3CTraceparent(),
+      },
     });
     return finishPushDiff.parse(await response.json());
   } catch (error: unknown) {
@@ -212,3 +225,27 @@ export type AppDefinitionConfigWithoutImpls = Omit<
   AppDefinitionConfig,
   "schema" | "functions" | "auth"
 >;
+
+export async function reportPushCompleted(
+  ctx: Context,
+  adminKey: string,
+  url: string,
+  reporter: Reporter,
+) {
+  const fetch = deploymentFetch(url, adminKey);
+  try {
+    const response = await fetch("/api/deploy2/report_push_completed", {
+      body: JSON.stringify({
+        adminKey,
+        spans: reporter.spans,
+      }),
+      method: "POST",
+    });
+    await response.json();
+  } catch (error: unknown) {
+    logFailure(
+      ctx,
+      "Error: Unable to report push completed to " + url + ": " + error,
+    );
+  }
+}

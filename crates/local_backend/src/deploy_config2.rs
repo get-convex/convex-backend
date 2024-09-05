@@ -23,6 +23,14 @@ use common::{
     },
 };
 use errors::ErrorMetadataAnyhowExt;
+use minitrace::{
+    collector::EventRecord,
+    prelude::{
+        SpanId,
+        SpanRecord,
+        TraceId,
+    },
+};
 use model::{
     auth::types::AuthDiff,
     components::{
@@ -44,6 +52,7 @@ use serde::{
 };
 use serde_json::Value as JsonValue;
 use value::{
+    base64,
     ConvexObject,
     DeveloperDocumentId,
 };
@@ -252,6 +261,41 @@ pub async fn finish_push(
     Ok(Json(SerializedFinishPushDiff::try_from(resp)?))
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReportPushCompletedRequest {
+    admin_key: String,
+    spans: Vec<SerializedCompletedSpan>,
+}
+
+pub async fn report_push_completed(
+    st: LocalAppState,
+    req: ReportPushCompletedRequest,
+) -> anyhow::Result<Vec<SpanRecord>> {
+    let _identity = must_be_admin_from_key_with_write_access(
+        st.application.app_auth(),
+        st.instance_name.clone(),
+        req.admin_key.clone(),
+    )
+    .await?;
+    let spans = req
+        .spans
+        .into_iter()
+        .map(|s| s.try_into())
+        .collect::<anyhow::Result<Vec<SpanRecord>>>()?;
+    Ok(spans)
+}
+
+#[debug_handler]
+pub async fn report_push_completed_handler(
+    State(st): State<LocalAppState>,
+    Json(req): Json<ReportPushCompletedRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let spans = report_push_completed(st, req).await?;
+    tracing::debug!("Received spans: {:?}", spans);
+    Ok(Json(()))
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedFinishPushDiff {
@@ -276,6 +320,90 @@ impl TryFrom<FinishPushDiff> for SerializedFinishPushDiff {
                 .into_iter()
                 .map(|(k, v)| Ok((String::from(k), v.try_into()?)))
                 .collect::<anyhow::Result<_>>()?,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedCompletedSpan {
+    trace_id: String,
+    parent_id: String,
+    span_id: String,
+    begin_time_unix_ns: String,
+    duration_ns: String,
+    name: String,
+    properties: BTreeMap<String, String>,
+    events: Vec<SerializedEventRecord>,
+}
+
+impl TryFrom<SerializedCompletedSpan> for SpanRecord {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedCompletedSpan) -> Result<Self, Self::Error> {
+        let trace_id_buf = base64::decode_urlsafe(&value.trace_id)?;
+        let trace_id = u128::from_le_bytes(trace_id_buf[..].try_into()?);
+
+        let parent_id_buf = base64::decode_urlsafe(&value.parent_id)?;
+        let parent_id = u64::from_le_bytes(parent_id_buf[..].try_into()?);
+
+        let span_id_buf = base64::decode_urlsafe(&value.span_id)?;
+        let span_id = u64::from_le_bytes(span_id_buf[..].try_into()?);
+
+        let begin_time_unix_ns_buf = base64::decode_urlsafe(&value.begin_time_unix_ns)?;
+        let begin_time_unix_ns = u64::from_le_bytes(begin_time_unix_ns_buf[..].try_into()?);
+
+        let duration_ns_buf = base64::decode_urlsafe(&value.duration_ns)?;
+        let duration_ns = u64::from_le_bytes(duration_ns_buf[..].try_into()?);
+
+        let properties = value
+            .properties
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect::<Vec<_>>();
+
+        let events = value
+            .events
+            .into_iter()
+            .map(|e| e.try_into())
+            .collect::<anyhow::Result<_>>()?;
+
+        Ok(Self {
+            trace_id: TraceId(trace_id),
+            parent_id: SpanId(parent_id),
+            span_id: SpanId(span_id),
+            begin_time_unix_ns,
+            duration_ns,
+            name: value.name.into(),
+            properties,
+            events,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SerializedEventRecord {
+    name: String,
+    timestamp_unix_ns: String,
+    properties: BTreeMap<String, String>,
+}
+
+impl TryFrom<SerializedEventRecord> for EventRecord {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedEventRecord) -> Result<Self, Self::Error> {
+        let timestamp_unix_ns_buf = base64::decode_urlsafe(&value.timestamp_unix_ns)?;
+        let timestamp_unix_ns = u64::from_le_bytes(timestamp_unix_ns_buf[..].try_into()?);
+        let properties = value
+            .properties
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into()))
+            .collect::<Vec<_>>();
+        Ok(Self {
+            name: value.name.into(),
+            timestamp_unix_ns,
+            properties,
         })
     }
 }

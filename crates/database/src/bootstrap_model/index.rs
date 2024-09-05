@@ -533,6 +533,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// Inserts new and updated mutated indexes so they can be backfilled.
     /// Returns the complete index diff, even though only the additions are
     /// immediately applied (the rest will be applied in apply_config)
+    #[minitrace::trace]
     pub async fn prepare_new_and_mutated_indexes(
         &mut self,
         namespace: TableNamespace,

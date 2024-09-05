@@ -162,6 +162,10 @@ pub async fn router(st: LocalAppState) -> Router {
             post(deploy_config2::wait_for_schema),
         )
         .route("/deploy2/finish_push", post(deploy_config2::finish_push))
+        .route(
+            "/deploy2/report_push_completed",
+            post(deploy_config2::report_push_completed_handler),
+        )
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))
         .route("/schema_state/:schema_id", get(schema_state))

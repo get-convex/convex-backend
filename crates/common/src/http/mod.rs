@@ -70,7 +70,10 @@ use http::{
 };
 use itertools::Itertools;
 use maplit::btreemap;
-use minitrace::future::FutureExt as _;
+use minitrace::{
+    future::FutureExt as _,
+    prelude::SpanContext,
+};
 use prometheus::{
     PullingGauge,
     TextEncoder,
@@ -100,7 +103,10 @@ use crate::{
     errors::report_error,
     knobs::HTTP_SERVER_TCP_BACKLOG,
     metrics::log_client_version_unsupported,
-    minitrace_helpers::get_sampled_span,
+    minitrace_helpers::{
+        get_keyed_sampled_span,
+        get_sampled_span,
+    },
     version::{
         ClientVersion,
         ClientVersionState,
@@ -808,6 +814,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
     ExtractClientVersion(client_version): ExtractClientVersion,
+    ExtractTraceparent(traceparent): ExtractTraceparent,
     req: http::request::Request<Body>,
     next: axum::middleware::Next,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -823,13 +830,23 @@ pub async fn stats_middleware<RM: RouteMapper>(
     // notably for /http/*rest
     let path = req.uri().path();
     let root = {
-        let mut rng = rand::thread_rng();
-        get_sampled_span(
-            &resolved_host.instance_name,
-            path,
-            &mut rng,
-            btreemap!["request_id".to_owned() => request_id.to_string()],
-        )
+        if let Some(span_ctx) = traceparent {
+            get_keyed_sampled_span(
+                span_ctx.trace_id,
+                &resolved_host.instance_name,
+                path,
+                span_ctx,
+                btreemap!["request_id".to_owned() => request_id.to_string()],
+            )
+        } else {
+            let mut rng = rand::thread_rng();
+            get_sampled_span(
+                &resolved_host.instance_name,
+                path,
+                &mut rng,
+                btreemap!["request_id".to_owned() => request_id.to_string()],
+            )
+        }
     };
 
     let resp = next.run(req).in_span(root).await;
@@ -1042,6 +1059,30 @@ where
             ))
         })?;
         Ok(Self(request_id))
+    }
+}
+
+pub const TRACEPARENT_HEADER: &str = "traceparent";
+
+pub struct ExtractTraceparent(pub Option<SpanContext>);
+
+#[async_trait]
+impl<S> FromRequestParts<S> for ExtractTraceparent
+where
+    S: Send + Sync,
+{
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let traceparent = parts
+            .headers
+            .get(HeaderName::from_static(TRACEPARENT_HEADER))
+            .and_then(|h| h.to_str().ok())
+            .and_then(SpanContext::decode_w3c_traceparent);
+        Ok(Self(traceparent))
     }
 }
 

@@ -45,6 +45,7 @@ p256 = { version = "0.11.1", features = [ "ecdh" ] }
 event-listener = "5.3.1"
 flexbuffers = "2"
 float_next_after = "1.0.0"
+fnv = "1.0.7"
 fxhash = "0.2.1"
 spki = "0.7.3"
 futures = "0.3"

@@ -11,7 +11,12 @@ import {
   getFunctionsDirectoryPath,
   readProjectConfig,
 } from "./config.js";
-import { finishPush, startPush, waitForSchema } from "./deploy2.js";
+import {
+  finishPush,
+  reportPushCompleted,
+  startPush,
+  waitForSchema,
+} from "./deploy2.js";
 import { version } from "../version.js";
 import { PushOptions, runNonComponentsPush } from "./push.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
@@ -37,7 +42,7 @@ import { withTmpDir } from "../../bundler/fs.js";
 import { ROOT_DEFINITION_FILENAME } from "./components/constants.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import chalk from "chalk";
-import { StartPushResponse } from "./deployApi/startPush.js";
+import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
 import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsProvisionProd,
@@ -46,6 +51,7 @@ import {
   FinishPushDiff,
   DeveloperIndexConfig,
 } from "./deployApi/finishPush.js";
+import { Reporter, Span } from "./tracing.js";
 
 export async function runCodegen(ctx: Context, options: CodegenOptions) {
   // This also ensures the current directory is the project root.
@@ -63,12 +69,18 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
       deploymentSelection,
     );
 
-    await startComponentsPushAndCodegen(ctx, projectConfig, configPath, {
-      ...options,
-      ...credentials,
-      generateCommonJSApi: options.commonjs,
-      verbose: options.dryRun,
-    });
+    await startComponentsPushAndCodegen(
+      ctx,
+      Span.noop(),
+      projectConfig,
+      configPath,
+      {
+        ...options,
+        ...credentials,
+        generateCommonJSApi: options.commonjs,
+        verbose: options.dryRun,
+      },
+    );
   } else {
     if (options.init) {
       await doInitCodegen(ctx, functionsDirectoryPath, false, {
@@ -104,6 +116,7 @@ export async function runPush(ctx: Context, options: PushOptions) {
 
 async function startComponentsPushAndCodegen(
   ctx: Context,
+  parentSpan: Span,
   projectConfig: ProjectConfig,
   configPath: string,
   options: {
@@ -142,46 +155,47 @@ async function startComponentsPushAndCodegen(
   // Create a list of relevant component directories. These are just for knowing
   // while directories to bundle in bundleDefinitions and bundleImplementations.
   // This produces a bundle in memory as a side effect but it's thrown away.
-  //
-  // This is the very first time we traverse the component graph.
-  // We're just traversing to discover
-  const { components, dependencyGraph } = await componentGraph(
-    ctx,
-    absWorkingDir,
-    rootComponent,
-    verbose,
+  const { components, dependencyGraph } = await parentSpan.enterAsync(
+    "componentGraph",
+    () => componentGraph(ctx, absWorkingDir, rootComponent, verbose),
   );
 
   changeSpinner(ctx, "Generating server code...");
-  await withTmpDir(async (tmpDir) => {
-    await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
-    for (const directory of components.values()) {
-      await doInitialComponentCodegen(ctx, tmpDir, directory, options);
-    }
-  });
+  await parentSpan.enterAsync("doInitialComponentCodegen", () =>
+    withTmpDir(async (tmpDir) => {
+      await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
+      for (const directory of components.values()) {
+        await doInitialComponentCodegen(ctx, tmpDir, directory, options);
+      }
+    }),
+  );
 
   changeSpinner(ctx, "Bundling component definitions...");
   // This bundles everything but the actual function definitions
   const {
     appDefinitionSpecWithoutImpls,
     componentDefinitionSpecsWithoutImpls,
-  } = await bundleDefinitions(
-    ctx,
-    absWorkingDir,
-    dependencyGraph,
-    rootComponent,
-    // Note that this *includes* the root component.
-    [...components.values()],
+  } = await parentSpan.enterAsync("bundleDefinitions", () =>
+    bundleDefinitions(
+      ctx,
+      absWorkingDir,
+      dependencyGraph,
+      rootComponent,
+      // Note that this *includes* the root component.
+      [...components.values()],
+    ),
   );
 
   changeSpinner(ctx, "Bundling component schemas and implementations...");
   const { appImplementation, componentImplementations } =
-    await bundleImplementations(
-      ctx,
-      rootComponent,
-      [...components.values()],
-      projectConfig.node.externalPackages,
-      verbose,
+    await parentSpan.enterAsync("bundleImplementations", () =>
+      bundleImplementations(
+        ctx,
+        rootComponent,
+        [...components.values()],
+        projectConfig.node.externalPackages,
+        verbose,
+      ),
     );
   if (options.debugBundlePath) {
     const { config: localConfig } = await configFromProjectConfig(
@@ -246,47 +260,72 @@ async function startComponentsPushAndCodegen(
     );
     return null;
   }
+  logStartPushSizes(parentSpan, startPushRequest);
 
   changeSpinner(ctx, "Uploading functions to Convex...");
-  const startPushResponse = await startPush(
-    ctx,
-    options.url,
-    startPushRequest,
-    verbose,
+  const startPushResponse = await parentSpan.enterAsync("startPush", (span) =>
+    startPush(ctx, span, options.url, startPushRequest, verbose),
   );
 
   verbose && console.log("startPush:");
   verbose && console.dir(startPushResponse, { depth: null });
 
   changeSpinner(ctx, "Generating TypeScript bindings...");
-  await withTmpDir(async (tmpDir) => {
-    await doFinalComponentCodegen(
-      ctx,
-      tmpDir,
-      rootComponent,
-      rootComponent,
-      startPushResponse,
-      options,
-    );
-    for (const directory of components.values()) {
+  await parentSpan.enterAsync("doFinalComponentCodegen", () =>
+    withTmpDir(async (tmpDir) => {
       await doFinalComponentCodegen(
         ctx,
         tmpDir,
         rootComponent,
-        directory,
+        rootComponent,
         startPushResponse,
         options,
       );
+      for (const directory of components.values()) {
+        await doFinalComponentCodegen(
+          ctx,
+          tmpDir,
+          rootComponent,
+          directory,
+          startPushResponse,
+          options,
+        );
+      }
+    }),
+  );
+
+  changeSpinner(ctx, "Running TypeScript...");
+  await parentSpan.enterAsync("typeCheckFunctionsInMode", async () => {
+    await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
+    for (const directory of components.values()) {
+      await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
     }
   });
 
-  changeSpinner(ctx, "Running TypeScript...");
-  await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
-  for (const directory of components.values()) {
-    await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
-  }
-
   return startPushResponse;
+}
+
+function logStartPushSizes(span: Span, startPushRequest: StartPushRequest) {
+  let v8Size = 0;
+  let v8Count = 0;
+  let nodeSize = 0;
+  let nodeCount = 0;
+
+  for (const componentDefinition of startPushRequest.componentDefinitions) {
+    for (const module of componentDefinition.functions) {
+      if (module.environment === "isolate") {
+        v8Size += module.source.length + (module.sourceMap ?? "").length;
+        v8Count += 1;
+      } else if (module.environment === "node") {
+        nodeSize += module.source.length + (module.sourceMap ?? "").length;
+        nodeCount += 1;
+      }
+    }
+  }
+  span.setProperty("v8_size", v8Size.toString());
+  span.setProperty("v8_count", v8Count.toString());
+  span.setProperty("node_size", nodeSize.toString());
+  span.setProperty("node_count", nodeCount.toString());
 }
 
 export async function runComponentsPush(
@@ -295,6 +334,10 @@ export async function runComponentsPush(
   configPath: string,
   projectConfig: ProjectConfig,
 ) {
+  const reporter = new Reporter();
+  const pushSpan = Span.root(reporter, "runComponentsPush");
+  pushSpan.setProperty("cli_version", version);
+
   await ensureHasConvexDependency(ctx, "push");
 
   if (options.dryRun) {
@@ -305,25 +348,33 @@ export async function runComponentsPush(
     });
   }
 
-  const startPushResponse = await startComponentsPushAndCodegen(
-    ctx,
-    projectConfig,
-    configPath,
-    options,
+  const startPushResponse = await pushSpan.enterAsync(
+    "startComponentsPushAndCodegen",
+    (span) =>
+      startComponentsPushAndCodegen(
+        ctx,
+        span,
+        projectConfig,
+        configPath,
+        options,
+      ),
   );
   if (!startPushResponse) {
     return;
   }
 
-  await waitForSchema(ctx, options.adminKey, options.url, startPushResponse);
+  await pushSpan.enterAsync("waitForSchema", (span) =>
+    waitForSchema(ctx, span, options.adminKey, options.url, startPushResponse),
+  );
 
-  const finishPushResponse = await finishPush(
-    ctx,
-    options.adminKey,
-    options.url,
-    startPushResponse,
+  const finishPushResponse = await pushSpan.enterAsync("finishPush", (span) =>
+    finishPush(ctx, span, options.adminKey, options.url, startPushResponse),
   );
   printDiff(ctx, finishPushResponse, options);
+  pushSpan.end();
+
+  // Asynchronously report that the push completed.
+  void reportPushCompleted(ctx, options.adminKey, options.url, reporter);
 }
 
 function printDiff(
