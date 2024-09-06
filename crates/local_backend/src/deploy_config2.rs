@@ -5,6 +5,7 @@ use std::{
 
 use application::deploy_config::{
     FinishPushDiff,
+    SchemaStatus,
     SchemaStatusJson,
     StartPushRequest,
     StartPushResponse,
@@ -195,6 +196,7 @@ const DEFAULT_SCHEMA_TIMEOUT_MS: u32 = 10_000;
 pub struct WaitForSchemaRequest {
     admin_key: String,
     schema_change: SerializedSchemaChange,
+    dry_run: bool,
     timeout_ms: Option<u32>,
 }
 
@@ -225,6 +227,14 @@ pub async fn wait_for_schema(
     .await?;
     let timeout = Duration::from_millis(req.timeout_ms.unwrap_or(DEFAULT_SCHEMA_TIMEOUT_MS) as u64);
     let schema_change = req.schema_change.try_into()?;
+
+    // We can't query schema in a dry run, since we didn't commit the schema changes
+    // in a `start_push` dry run. Just return immediately.
+    if req.dry_run {
+        tracing::info!("Skipping wait_for_schema in dry run");
+        return Ok(Json(SchemaStatusJson::from(SchemaStatus::Complete)));
+    }
+
     let resp = st
         .application
         .wait_for_schema(identity, schema_change, timeout)
@@ -251,11 +261,20 @@ pub async fn finish_push(
         req.admin_key.clone(),
     )
     .await?;
-    let dry_run = req.dry_run;
+
     let start_push = StartPushResponse::try_from(req.start_push)?;
+
+    // We can't actually run `finish_push` in a dry run, since we rolled back all of
+    // our changes during start push.
+    if req.dry_run {
+        tracing::info!("Skipping finish_push in dry run");
+        let empty_diff = FinishPushDiff::default();
+        return Ok(Json(SerializedFinishPushDiff::try_from(empty_diff)?));
+    }
+
     let resp = st
         .application
-        .finish_push(identity, start_push, dry_run)
+        .finish_push(identity, start_push)
         .await
         .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
     Ok(Json(SerializedFinishPushDiff::try_from(resp)?))

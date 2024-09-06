@@ -493,7 +493,6 @@ impl<RT: Runtime> Application<RT> {
         &self,
         identity: Identity,
         start_push: StartPushResponse,
-        dry_run: bool,
     ) -> anyhow::Result<FinishPushDiff> {
         // Download all source packages. We can remove this once we don't store source
         // in the database.
@@ -542,20 +541,16 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
 
-        if !dry_run {
-            let diffs = PushComponentDiffs {
-                auth_diff: auth_diff.clone(),
-                component_diffs: component_diffs.clone(),
-            };
-            self.commit_with_audit_log_events(
-                tx,
-                vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }],
-                WriteSource::new("finish_push"),
-            )
-            .await?;
-        } else {
-            drop(tx);
-        }
+        let diffs = PushComponentDiffs {
+            auth_diff: auth_diff.clone(),
+            component_diffs: component_diffs.clone(),
+        };
+        self.commit_with_audit_log_events(
+            tx,
+            vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }],
+            WriteSource::new("finish_push"),
+        )
+        .await?;
 
         let diff = FinishPushDiff {
             auth_diff,
@@ -832,6 +827,7 @@ pub struct NodeDependencyJson {
     version: String,
 }
 
+#[derive(Default)]
 pub struct FinishPushDiff {
     pub auth_diff: AuthDiff,
     pub definition_diffs: BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,

@@ -31,21 +31,26 @@ import { Reporter, Span } from "./tracing.js";
 export async function startPush(
   ctx: Context,
   span: Span,
-  url: string,
   request: StartPushRequest,
-  verbose?: boolean,
+  options: {
+    url: string;
+    verbose?: boolean;
+  },
 ): Promise<StartPushResponse> {
-  if (verbose) {
+  if (options.verbose) {
     const custom = (_k: string | number, s: any) =>
       typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
     console.log(JSON.stringify(request, custom, 2));
   }
   const onError = (err: any) => {
     if (err.toString() === "TypeError: fetch failed") {
-      changeSpinner(ctx, `Fetch failed, is ${url} correct? Retrying...`);
+      changeSpinner(
+        ctx,
+        `Fetch failed, is ${options.url} correct? Retrying...`,
+      );
     }
   };
-  const fetch = deploymentFetch(url, request.adminKey, onError);
+  const fetch = deploymentFetch(options.url, request.adminKey, onError);
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
@@ -85,7 +90,7 @@ export async function startPush(
         printedMessage: message,
       });
     }
-    logFailure(ctx, "Error: Unable to start push to " + url);
+    logFailure(ctx, "Error: Unable to start push to " + options.url);
     return await logAndHandleFetchError(ctx, error);
   }
 }
@@ -96,11 +101,14 @@ const SCHEMA_TIMEOUT_MS = 10_000;
 export async function waitForSchema(
   ctx: Context,
   span: Span,
-  adminKey: string,
-  url: string,
   startPush: StartPushResponse,
+  options: {
+    adminKey: string;
+    url: string;
+    dryRun: boolean;
+  },
 ) {
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(options.url, options.adminKey);
 
   changeSpinner(
     ctx,
@@ -112,9 +120,10 @@ export async function waitForSchema(
     try {
       const response = await fetch("/api/deploy2/wait_for_schema", {
         body: JSON.stringify({
-          adminKey,
+          adminKey: options.adminKey,
           schemaChange: startPush.schemaChange,
           timeoutMs: SCHEMA_TIMEOUT_MS,
+          dryRun: options.dryRun,
         }),
         method: "POST",
         headers: {
@@ -123,7 +132,7 @@ export async function waitForSchema(
       });
       currentStatus = schemaStatus.parse(await response.json());
     } catch (error: unknown) {
-      logFailure(ctx, "Error: Unable to wait for schema from " + url);
+      logFailure(ctx, "Error: Unable to wait for schema from " + options.url);
       return await logAndHandleFetchError(ctx, error);
     }
     switch (currentStatus.type) {
@@ -192,18 +201,21 @@ export async function waitForSchema(
 export async function finishPush(
   ctx: Context,
   span: Span,
-  adminKey: string,
-  url: string,
   startPush: StartPushResponse,
+  options: {
+    adminKey: string;
+    url: string;
+    dryRun: boolean;
+  },
 ): Promise<FinishPushDiff> {
   changeSpinner(ctx, "Finalizing push...");
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(options.url, options.adminKey);
   try {
     const response = await fetch("/api/deploy2/finish_push", {
       body: JSON.stringify({
-        adminKey,
+        adminKey: options.adminKey,
         startPush,
-        dryRun: false,
+        dryRun: options.dryRun,
       }),
       method: "POST",
       headers: {
@@ -212,7 +224,7 @@ export async function finishPush(
     });
     return finishPushDiff.parse(await response.json());
   } catch (error: unknown) {
-    logFailure(ctx, "Error: Unable to finish push to " + url);
+    logFailure(ctx, "Error: Unable to finish push to " + options.url);
     return await logAndHandleFetchError(ctx, error);
   }
 }

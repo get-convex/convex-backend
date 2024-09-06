@@ -131,7 +131,6 @@ async function startComponentsPushAndCodegen(
     writePushRequest?: string;
   },
 ): Promise<StartPushResponse | null> {
-  const verbose = options.verbose || options.dryRun;
   const convexDir = await getFunctionsDirectoryPath(ctx);
 
   // '.' means use the process current working directory, it's the default behavior.
@@ -157,7 +156,7 @@ async function startComponentsPushAndCodegen(
   // This produces a bundle in memory as a side effect but it's thrown away.
   const { components, dependencyGraph } = await parentSpan.enterAsync(
     "componentGraph",
-    () => componentGraph(ctx, absWorkingDir, rootComponent, verbose),
+    () => componentGraph(ctx, absWorkingDir, rootComponent, options.verbose),
   );
 
   changeSpinner(ctx, "Generating server code...");
@@ -194,7 +193,7 @@ async function startComponentsPushAndCodegen(
         rootComponent,
         [...components.values()],
         projectConfig.node.externalPackages,
-        verbose,
+        options.verbose,
       ),
     );
   if (options.debugBundlePath) {
@@ -202,7 +201,7 @@ async function startComponentsPushAndCodegen(
       ctx,
       projectConfig,
       configPath,
-      verbose,
+      options.verbose,
     );
     // TODO(ENG-6972): Actually write the bundles for components.
     await handleDebugBundlePath(ctx, options.debugBundlePath, localConfig);
@@ -246,7 +245,7 @@ async function startComponentsPushAndCodegen(
   }
   const startPushRequest = {
     adminKey: options.adminKey,
-    dryRun: false,
+    dryRun: options.dryRun,
     functions: projectConfig.functions,
     appDefinition,
     componentDefinitions,
@@ -264,11 +263,12 @@ async function startComponentsPushAndCodegen(
 
   changeSpinner(ctx, "Uploading functions to Convex...");
   const startPushResponse = await parentSpan.enterAsync("startPush", (span) =>
-    startPush(ctx, span, options.url, startPushRequest, verbose),
+    startPush(ctx, span, startPushRequest, options),
   );
 
-  verbose && console.log("startPush:");
-  verbose && console.dir(startPushResponse, { depth: null });
+  if (options.verbose) {
+    logMessage(ctx, "startPush: " + JSON.stringify(startPushResponse, null, 2));
+  }
 
   changeSpinner(ctx, "Generating TypeScript bindings...");
   await parentSpan.enterAsync("doFinalComponentCodegen", () =>
@@ -340,14 +340,6 @@ export async function runComponentsPush(
 
   await ensureHasConvexDependency(ctx, "push");
 
-  if (options.dryRun) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: "dryRun not allowed yet",
-    });
-  }
-
   const startPushResponse = await pushSpan.enterAsync(
     "startComponentsPushAndCodegen",
     (span) =>
@@ -364,17 +356,19 @@ export async function runComponentsPush(
   }
 
   await pushSpan.enterAsync("waitForSchema", (span) =>
-    waitForSchema(ctx, span, options.adminKey, options.url, startPushResponse),
+    waitForSchema(ctx, span, startPushResponse, options),
   );
 
   const finishPushResponse = await pushSpan.enterAsync("finishPush", (span) =>
-    finishPush(ctx, span, options.adminKey, options.url, startPushResponse),
+    finishPush(ctx, span, startPushResponse, options),
   );
   printDiff(ctx, finishPushResponse, options);
   pushSpan.end();
 
   // Asynchronously report that the push completed.
-  void reportPushCompleted(ctx, options.adminKey, options.url, reporter);
+  if (!options.dryRun) {
+    void reportPushCompleted(ctx, options.adminKey, options.url, reporter);
+  }
 }
 
 function printDiff(
