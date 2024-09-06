@@ -5,6 +5,7 @@ use serde::Serialize;
 use sync_types::headers::ConvexAdminAuthorization;
 
 /// Encrypted system key
+#[derive(Clone)]
 pub struct SystemKey(String);
 
 impl SystemKey {
@@ -13,6 +14,13 @@ impl SystemKey {
         &self.0
     }
 }
+
+impl std::fmt::Debug for SystemKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        f.write_str("SystemKey(*****)")
+    }
+}
+
 /// Encrypted admin key
 #[derive(Serialize, Clone)]
 pub struct AdminKey(String);
