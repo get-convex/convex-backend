@@ -19,3 +19,21 @@ export const systemEnvVarAction = action(async (ctx) => {
     {},
   );
 });
+
+export const dateNow = query(async (ctx) => {
+  const myDateNow = Date.now();
+  const componentDateNow = await ctx.runQuery(
+    components.component.messages.dateNow,
+    {},
+  );
+  return [myDateNow, componentDateNow];
+});
+
+export const mathRandom = query(async (ctx) => {
+  const componentRandom = await ctx.runQuery(
+    components.component.messages.mathRandom,
+    {},
+  );
+  const myRandom = Math.random();
+  return [myRandom, componentRandom];
+});

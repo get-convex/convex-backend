@@ -31,3 +31,17 @@ export const tryToPaginate = query({
     });
   },
 });
+
+export const dateNow = query({
+  args: {},
+  handler: async () => {
+    return Date.now();
+  },
+});
+
+export const mathRandom = query({
+  args: {},
+  handler: async () => {
+    return Math.random();
+  },
+});

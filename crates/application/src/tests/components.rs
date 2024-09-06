@@ -5,6 +5,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    runtime::Runtime,
     testing::assert_contains,
     types::{
         EnvironmentVariable,
@@ -21,6 +22,7 @@ use errors::ErrorMetadataAnyhowExt;
 use futures::FutureExt;
 use itertools::Itertools;
 use keybroker::Identity;
+use must_let::must_let;
 use runtime::testing::TestRuntime;
 use serde_json::{
     json,
@@ -42,16 +44,16 @@ use crate::{
     FunctionReturn,
 };
 
-async fn run_function(
-    application: &Application<TestRuntime>,
+async fn run_function<RT: Runtime>(
+    application: &Application<RT>,
     udf_path: CanonicalizedUdfPath,
     args: Vec<JsonValue>,
 ) -> anyhow::Result<Result<FunctionReturn, FunctionError>> {
     run_component_function(application, udf_path, args, ComponentPath::root()).await
 }
 
-async fn run_component_function(
-    application: &Application<TestRuntime>,
+async fn run_component_function<RT: Runtime>(
+    application: &Application<RT>,
     udf_path: CanonicalizedUdfPath,
     args: Vec<JsonValue>,
     component: ComponentPath,
@@ -235,6 +237,44 @@ async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> 
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     assert!(!table_model.table_exists(table_namespace, &table_name));
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_date_now_within_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("basic").await?;
+    let result = run_function(&application, "componentEntry:dateNow".parse()?, vec![])
+        .await??
+        .value;
+    must_let!(let ConvexValue::Array(dates) = result);
+    assert_eq!(dates.len(), 2);
+    must_let!(let ConvexValue::Float64(parent_date) = dates[0].clone());
+    must_let!(let ConvexValue::Float64(child_date) = dates[1].clone());
+    // Today these are equal because we're using TestRuntime.
+    // We want the guarantee that child_date <= parent_date for queries (because
+    // the child might be cached), and child_date == parent_date for mutations.
+    // But right now we actually have the opposite guarantee.
+    // TODO: Fix this.
+    assert!(child_date >= parent_date);
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_math_random_within_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("basic").await?;
+    let result = run_function(&application, "componentEntry:mathRandom".parse()?, vec![])
+        .await??
+        .value;
+    must_let!(let ConvexValue::Array(randoms) = result);
+    assert_eq!(randoms.len(), 2);
+    must_let!(let ConvexValue::Float64(parent_random) = randoms[0].clone());
+    must_let!(let ConvexValue::Float64(child_random) = randoms[1].clone());
+    // Ensure that a child component has a different random seed from the parent.
+    // TODO: the child's random seed should depend on the parent's, so the
+    // entire query can be deterministic.
+    assert!(parent_random != child_random);
     Ok(())
 }
 

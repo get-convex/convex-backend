@@ -30,6 +30,7 @@ declare const fullApi: ApiFromModules<{
 }>;
 declare const fullApiWithMounts: typeof fullApi & {
   messages: {
+    dateNow: FunctionReference<"query", "public", {}, any>;
     hello: FunctionReference<"action", "public", {}, any>;
     insertMessage: FunctionReference<
       "mutation",
@@ -38,6 +39,7 @@ declare const fullApiWithMounts: typeof fullApi & {
       any
     >;
     listMessages: FunctionReference<"query", "public", {}, any>;
+    mathRandom: FunctionReference<"query", "public", {}, any>;
     tryToPaginate: FunctionReference<"query", "public", {}, any>;
   };
 };

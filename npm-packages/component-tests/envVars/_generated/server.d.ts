@@ -153,6 +153,7 @@ export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 export declare const components: {
   component: {
     messages: {
+      dateNow: FunctionReference<"query", "internal", {}, any>;
       hello: FunctionReference<"action", "internal", {}, any>;
       insertMessage: FunctionReference<
         "mutation",
@@ -161,6 +162,7 @@ export declare const components: {
         any
       >;
       listMessages: FunctionReference<"query", "internal", {}, any>;
+      mathRandom: FunctionReference<"query", "internal", {}, any>;
       tryToPaginate: FunctionReference<"query", "internal", {}, any>;
     };
   };
