@@ -1110,7 +1110,7 @@ async fn log_middleware(
 
     tracing::info!(
         target: "convex-cloud-http",
-        "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:?}",
+        "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:.3}ms",
         site_id,
         LogOptFmt(remote_addr),
         method,
@@ -1121,7 +1121,7 @@ async fn log_middleware(
         LogOptFmt(user_agent),
         LogOptFmt(content_type),
         LogOptFmt(content_length),
-        start.elapsed(),
+        start.elapsed().as_secs_f64() * 1000.0,
     );
     Ok(resp)
 }
