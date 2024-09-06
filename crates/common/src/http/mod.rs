@@ -134,18 +134,10 @@ mod metrics {
         MetricLabel,
     };
 
-    use crate::version::SERVER_VERSION_STR;
-
     register_convex_histogram!(
         HTTP_HANDLE_DURATION_SECONDS,
         "Time to handle an HTTP request",
-        &[
-            "endpoint",
-            "method",
-            "status",
-            "client_version",
-            "server_version"
-        ]
+        &["endpoint", "method", "status", "client_version"]
     );
 
     pub fn log_http_request(
@@ -163,7 +155,6 @@ mod metrics {
             MetricLabel::new("method", method),
             MetricLabel::new("status", status),
             MetricLabel::new("client_version", client_version),
-            MetricLabel::new("server_version", &*SERVER_VERSION_STR),
         ];
         log_distribution_with_labels(
             &HTTP_HANDLE_DURATION_SECONDS,
