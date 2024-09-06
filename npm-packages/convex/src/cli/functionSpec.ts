@@ -34,6 +34,7 @@ export const functionSpec = new Command("function-spec")
       deploymentUrl,
       adminKey,
       "_system/cli/modules:apiSpec",
+      undefined,
       {},
     )) as any[];
 

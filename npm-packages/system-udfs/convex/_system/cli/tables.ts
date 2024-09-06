@@ -1,21 +1,21 @@
 import { paginationOptsValidator } from "convex/server";
 import { queryPrivateSystem } from "../secretSystemTables";
-import { maximumBytesRead, maximumRowsRead } from "../paginationLimits";
+import { performOp } from "udf-syscall-ffi";
 
 export default queryPrivateSystem({
   args: {
     paginationOpts: paginationOptsValidator,
   },
-  handler: async (ctx, { paginationOpts }) => {
-    const results = await ctx.db
-      .query("_tables")
-      .filter((q) => q.eq(q.field("state"), "active"))
-      .paginate({ ...paginationOpts, maximumBytesRead, maximumRowsRead });
+  handler: async () => {
+    const tables: Record<number, string> = performOp(
+      "getTableMappingWithoutSystemTables",
+    );
+    // We don't need to paginate but keep the PaginationResult return type for backwards
+    // compatibility.
     return {
-      ...results,
-      page: results.page
-        .filter((table) => !table.name.startsWith("_"))
-        .map((table) => ({ name: table.name })),
+      page: Object.values(tables).map((name) => ({ name })),
+      isDone: true,
+      continueCursor: "end",
     };
   },
 });

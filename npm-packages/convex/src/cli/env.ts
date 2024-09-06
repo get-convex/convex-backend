@@ -93,6 +93,7 @@ const envGet = new Command("get")
       url,
       adminKey,
       "_system/cli/queryEnvironmentVariables:get",
+      undefined,
       { name: envVarName },
     )) as EnvVar | null;
     if (envVar === null) {
@@ -145,6 +146,7 @@ const envList = new Command("list")
       url,
       adminKey,
       "_system/cli/queryEnvironmentVariables",
+      undefined,
       {},
     )) as EnvVar[];
     if (envs.length === 0) {

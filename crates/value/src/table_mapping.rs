@@ -439,13 +439,14 @@ fn table_does_not_exist(table: &TableName) -> ErrorMetadata {
 #[derive(Serialize)]
 pub struct TableMappingValue(BTreeMap<TableNumber, TableName>);
 
-impl From<TableMapping> for TableMappingValue {
-    fn from(table_mapping: TableMapping) -> Self {
+impl From<NamespacedTableMapping> for TableMappingValue {
+    fn from(table_mapping: NamespacedTableMapping) -> Self {
         TableMappingValue(
             table_mapping
                 .iter()
-                .filter(|(_, _, _, name)| !name.is_system())
-                .map(|(_, _, number, name)| (number, name.clone()))
+                .filter(|(_, _, name)| !name.is_system())
+                .filter(|(tablet_id, ..)| table_mapping.is_active(*tablet_id))
+                .map(|(_, number, name)| (number, name.clone()))
                 .collect(),
         )
     }

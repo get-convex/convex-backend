@@ -43,6 +43,14 @@ export const data = new Command("data")
       .choices(["asc", "desc"])
       .default("desc"),
   )
+  .addOption(
+    new Option(
+      "--component-path <path>",
+      "Path to the component in the component tree defined in convex.config.ts.\n" +
+        "  By default, inspects data in the root component",
+      // TODO(ENG-6967): Remove hideHelp before launching components
+    ).hideHelp(),
+  )
   .addDeploymentSelectionOptions(actionDescription("Inspect the database in"))
   .showHelpAfterError()
   .action(async (tableName, options) => {
@@ -59,9 +67,16 @@ export const data = new Command("data")
       await listDocuments(ctx, deploymentUrl, adminKey, tableName, {
         ...options,
         order: options.order as "asc" | "desc",
+        componentPath: options.componentPath ?? "",
       });
     } else {
-      await listTables(ctx, deploymentUrl, adminKey, deploymentName);
+      await listTables(
+        ctx,
+        deploymentUrl,
+        adminKey,
+        deploymentName,
+        options.componentPath ?? "",
+      );
     }
   });
 
@@ -70,12 +85,14 @@ async function listTables(
   deploymentUrl: string,
   adminKey: string,
   deploymentName: string | undefined,
+  componentPath: string,
 ) {
   const tables = (await runPaginatedQuery(
     ctx,
     deploymentUrl,
     adminKey,
     "_system/cli/tables",
+    componentPath,
     {},
   )) as { name: string }[];
   if (tables.length === 0) {
@@ -100,6 +117,7 @@ async function listDocuments(
   options: {
     limit: number;
     order: "asc" | "desc";
+    componentPath: string;
   },
 ) {
   const data = (await runPaginatedQuery(
@@ -107,6 +125,7 @@ async function listDocuments(
     deploymentUrl,
     adminKey,
     "_system/cli/tableData",
+    options.componentPath,
     {
       table: tableName,
       order: options.order ?? "desc",

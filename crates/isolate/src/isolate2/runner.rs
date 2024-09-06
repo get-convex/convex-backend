@@ -781,7 +781,10 @@ impl<RT: Runtime> UdfShared<RT> {
 
     fn get_table_mapping_without_system_tables(&self) -> TableMappingValue {
         let inner = self.inner.lock();
-        inner.table_mapping.clone().into()
+        inner
+            .table_mapping
+            .namespace(TableNamespace::by_component_TODO())
+            .into()
     }
 }
 

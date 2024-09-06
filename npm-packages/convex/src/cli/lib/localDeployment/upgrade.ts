@@ -146,6 +146,7 @@ async function handleUpgrade(
     deploymentUrl,
     args.adminKey,
     "_system/cli/queryEnvironmentVariables",
+    undefined,
     {},
   )) as Array<{
     name: string;

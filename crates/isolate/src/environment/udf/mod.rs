@@ -237,7 +237,8 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     }
 
     fn get_table_mapping_without_system_tables(&mut self) -> anyhow::Result<TableMappingValue> {
-        Ok(self.phase.tx()?.table_mapping().clone().into())
+        let namespace = self.phase.component()?.into();
+        Ok(self.phase.tx()?.table_mapping().namespace(namespace).into())
     }
 
     fn get_all_table_mappings(&mut self) -> anyhow::Result<NamespacedTableMapping> {

@@ -242,6 +242,12 @@ export default defineSchema({
       v.literal("deleting"),
       v.literal("hidden"),
     ),
+    namespace: v.optional(
+      v.object({
+        kind: v.literal("byComponent"),
+        id: v.string(),
+      }),
+    ),
   }),
   _components: defineTable({
     definitionId: v.id("_component_definitions"),

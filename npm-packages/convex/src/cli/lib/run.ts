@@ -55,6 +55,7 @@ export async function runPaginatedQuery(
   deploymentUrl: string,
   adminKey: string,
   functionName: string,
+  componentPath: string | undefined,
   args: Record<string, Value>,
   limit?: number,
 ) {
@@ -67,6 +68,7 @@ export async function runPaginatedQuery(
       deploymentUrl,
       adminKey,
       functionName,
+      componentPath,
       {
         ...args,
         // The pagination is limited on the backend, so the 10000
@@ -89,23 +91,30 @@ export async function runQuery(
   deploymentUrl: string,
   adminKey: string,
   functionName: string,
+  componentPath: string | undefined,
   args: Record<string, Value>,
 ): Promise<Value> {
-  const client = new ConvexHttpClient(deploymentUrl);
-  client.setAdminAuth(adminKey);
-
-  try {
-    return await client.query(
-      makeFunctionReference<"query">(functionName),
-      args,
-    );
-  } catch (err) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem or env vars",
-      printedMessage: `Failed to run query "${functionName}":\n${chalk.red((err as Error).toString().trim())}`,
-    });
-  }
+  let onResult: (result: Value) => void;
+  const resultPromise = new Promise<Value>((resolve) => {
+    onResult = resolve;
+  });
+  const [donePromise, onDone] = waitUntilCalled();
+  await subscribe(
+    ctx,
+    deploymentUrl,
+    adminKey,
+    functionName,
+    args,
+    componentPath,
+    donePromise,
+    {
+      onChange: (result) => {
+        onDone();
+        onResult(result);
+      },
+    },
+  );
+  return resultPromise;
 }
 
 export function formatValue(value: Value) {
