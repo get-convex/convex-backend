@@ -84,7 +84,7 @@ impl BitXorAssign for Sha256Digest {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Sha256 {
     inner: sha2::Sha256,
 }

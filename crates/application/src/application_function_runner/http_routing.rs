@@ -178,6 +178,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 },
             }
         }
+
+        let response_sha256 = response_streamer.complete();
+
         match outcome_result {
             Ok(outcome) => {
                 let result = outcome.result.clone();
@@ -197,6 +200,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     caller,
                     usage_tracker,
                     context,
+                    response_sha256,
                 );
                 Ok(result)
             },
@@ -229,6 +233,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             caller,
                             usage_tracker,
                             context,
+                            response_sha256,
                         );
                         Ok(HttpActionResult::Streamed)
                     },
@@ -251,6 +256,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             caller,
                             usage_tracker,
                             context,
+                            response_sha256,
                         );
                         Ok(result)
                     },
@@ -265,6 +271,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     caller,
                     log_lines,
                     context,
+                    response_sha256,
                 );
                 Err(e)
             },

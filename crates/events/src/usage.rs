@@ -18,29 +18,32 @@ pub enum UdfType {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum UsageEvent {
     FunctionCall {
-        // The ExecutionId of a particular UDF
+        /// The ExecutionId of a particular UDF
         id: String,
         /// The path of a component. Uniquely identifies a component in a
         /// project.
         component_path: Option<String>,
-        // The path / name of the UDF
+        /// The path / name of the UDF
         udf_id: String,
-        // The type of the udf identifier (http, function, cli)
+        /// The type of the udf identifier (http, function, cli)
         udf_id_type: String,
-        // "storage", "mutation", "cached_query" etc.
+        /// "storage", "mutation", "cached_query" etc.
         tag: String,
-        // The memory used in megabytes by the UDF, or 0 if we don't track memory for this tag
-        // type.
+        /// The memory used in megabytes by the UDF, or 0 if we don't track
+        /// memory for this tag type.
         memory_megabytes: u64,
-        // The duration in milliseconds of the UDF, or 0 if we don't track execution time for this
-        // tag type.
+        /// The duration in milliseconds of the UDF, or 0 if we don't track
+        /// execution time for this tag type.
         duration_millis: u64,
-        // Whether this was run in V8 or Node, or "unknown".
+        /// Whether this was run in V8 or Node, or "unknown".
         environment: String,
-        // True if we think it's a call we should track in usage. Right now this is basically any
-        // UDF that's neither system nor triggered by the CLI . This could be derived from path and
-        // udf type, but it seems better to be explicit)
+        /// True if we think it's a call we should track in usage. Right now
+        /// this is basically any UDF that's neither system nor
+        /// triggered by the CLI . This could be derived from path and
+        /// udf type, but it seems better to be explicit)
         is_tracked: bool,
+        /// The sha256 of the response body. Only set for HTTP actions.
+        response_sha256: Option<String>,
     },
     /// A set of storage calls originating from a single user function
     /// invocation.

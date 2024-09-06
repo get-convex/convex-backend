@@ -20,6 +20,10 @@ use http::{
 };
 use serde_json::Value as JsonValue;
 use url::Url;
+use value::sha256::{
+    Sha256,
+    Sha256Digest,
+};
 
 pub const HTTP_ACTION_BODY_LIMIT: usize = 20 << 20;
 
@@ -190,6 +194,7 @@ pub struct HttpActionResponseHead {
 pub struct HttpActionResponseStreamer {
     head: Option<HttpActionResponseHead>,
     total_bytes_sent: usize,
+    sha256: Sha256,
     pub sender: mpsc::UnboundedSender<HttpActionResponsePart>,
 }
 
@@ -198,6 +203,7 @@ impl HttpActionResponseStreamer {
         Self {
             head: None,
             total_bytes_sent: 0,
+            sha256: Sha256::new(),
             sender,
         }
     }
@@ -230,6 +236,7 @@ impl HttpActionResponseStreamer {
             "Sending response body before response head"
         );
         self.total_bytes_sent += bytes.len();
+        self.sha256.update(&bytes);
         self.sender
             .unbounded_send(HttpActionResponsePart::BodyChunk(bytes))?;
         Ok(())
@@ -241,5 +248,9 @@ impl HttpActionResponseStreamer {
             HttpActionResponsePart::BodyChunk(b) => self.send_body(b)?,
         }
         Ok(())
+    }
+
+    pub fn complete(self) -> Sha256Digest {
+        self.sha256.finalize()
     }
 }

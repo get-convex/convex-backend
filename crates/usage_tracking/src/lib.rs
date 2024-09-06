@@ -55,6 +55,9 @@ pub enum CallType {
     HttpAction {
         duration: Duration,
         memory_in_mb: u64,
+
+        /// Sha256 of the response body
+        response_sha256: Sha256Digest,
     },
     Export,
     CachedQuery,
@@ -104,6 +107,15 @@ impl CallType {
         }
         .to_string()
     }
+
+    fn response_sha256(&self) -> Option<String> {
+        match self {
+            CallType::HttpAction {
+                response_sha256, ..
+            } => Some(response_sha256.as_hex()),
+            _ => None,
+        }
+    }
 }
 
 impl UsageCounter {
@@ -134,6 +146,7 @@ impl UsageCounter {
             duration_millis: call_type.duration_millis(),
             environment: call_type.environment(),
             is_tracked: should_track_calls,
+            response_sha256: call_type.response_sha256(),
         });
 
         // We always track bandwidth, even for system udfs.

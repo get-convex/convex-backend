@@ -32,7 +32,10 @@ use usage_tracking::{
     CallType,
     FunctionUsageTracker,
 };
-use value::TableNamespace;
+use value::{
+    sha256::Sha256Digest,
+    TableNamespace,
+};
 use vector::VectorSearch;
 
 use crate::{
@@ -412,6 +415,7 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
         CallType::HttpAction {
             duration: Duration::from_secs(5),
             memory_in_mb: 100,
+            response_sha256: Sha256Digest::from([0; 32]),
         },
         tx_usage.gather_user_stats(),
     );

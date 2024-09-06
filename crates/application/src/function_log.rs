@@ -86,6 +86,7 @@ use value::{
         HeapSize,
         WithHeapSize,
     },
+    sha256::Sha256Digest,
     ConvexArray,
 };
 /// A function's execution is summarized by this structure and stored in the
@@ -867,6 +868,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: FunctionUsageTracker,
         context: ExecutionContext,
+        response_sha256: Sha256Digest,
     ) {
         self._log_http_action(
             outcome,
@@ -876,6 +878,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::Track(usage),
             context,
+            response_sha256,
         )
     }
 
@@ -888,6 +891,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         log_lines: LogLines,
         context: ExecutionContext,
+        response_sha256: Sha256Digest,
     ) {
         let js_err = JsError::from_error_ref(error);
         let outcome = HttpActionOutcome::new(
@@ -907,6 +911,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::SystemError,
             context,
+            response_sha256,
         )
     }
 
@@ -919,6 +924,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: TrackUsage,
         context: ExecutionContext,
+        response_sha256: Sha256Digest,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -930,6 +936,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     CallType::HttpAction {
                         duration: execution_time,
                         memory_in_mb: outcome.memory_in_mb(),
+                        response_sha256,
                     },
                     usage_stats,
                 );
