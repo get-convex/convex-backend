@@ -302,8 +302,8 @@ async function askToConfirmImport(
 
 function snapshotImportDashboardLink(deploymentName: string | undefined) {
   return deploymentName === undefined
-    ? "https://dashboard.convex.dev/d/settings/snapshot-export"
-    : deploymentDashboardUrlPage(deploymentName, "/settings/snapshot-export");
+    ? "https://dashboard.convex.dev/deployment/settings/snapshots"
+    : deploymentDashboardUrlPage(deploymentName, "/settings/snapshots");
 }
 
 async function askToConfirmImportWithExistingImports(
