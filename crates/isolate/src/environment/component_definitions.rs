@@ -183,14 +183,18 @@ impl AppDefinitionEvaluator {
         filename: &str,
         source: FullModuleSource,
     ) -> anyhow::Result<ComponentDefinitionMetadata> {
-        let environment_variables =
-            (filename == APP_CONFIG_FILE_NAME).then_some(self.environment_variables.clone());
+        let environment_variables = if path.is_root() {
+            let mut env_vars = self.environment_variables.clone();
+            env_vars.extend(self.system_env_vars.clone());
+            Some(env_vars)
+        } else {
+            None
+        };
         let env = DefinitionEnvironment {
             expected_filename: filename.to_string(),
             source,
             evaluated_definitions: evaluated_components.clone(),
             environment_variables,
-            system_env_vars: self.system_env_vars.clone(),
         };
 
         let (handle, state) = isolate.start_request(client_id.into(), env).await?;
@@ -332,7 +336,6 @@ impl ComponentInitializerEvaluator {
             },
             evaluated_definitions: self.evaluated_definitions,
             environment_variables: None,
-            system_env_vars: BTreeMap::new(),
         };
         let (handle, state) = isolate.start_request(client_id.into(), env).await?;
         let mut handle_scope = isolate.handle_scope();
@@ -448,8 +451,6 @@ struct DefinitionEnvironment {
     /// Environment variables are allowed in app but not in
     /// component config.
     environment_variables: Option<BTreeMap<EnvVarName, EnvVarValue>>,
-    /// System env vars are allowed everywhere.
-    system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
@@ -479,16 +480,12 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         &mut self,
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
-        if let Some(value) = self.system_env_vars.get(&name) {
-            return Ok(Some(value.clone()));
-        }
         self.environment_variables
             .as_ref()
             .map(|env_vars| env_vars.get(&name).cloned())
             .context(ErrorMetadata::bad_request(
                 "EnvironmentVariablesUnsupported",
-                "Environment variables not supported in the component's convex.config.ts. \
-                 Consider passing them into your component via arguments.",
+                "Environment variables are only supported in the app's convex.config.ts.",
             ))
     }
 

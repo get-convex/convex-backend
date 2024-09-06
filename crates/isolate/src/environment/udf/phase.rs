@@ -408,10 +408,6 @@ impl<RT: Runtime> UdfPhase<RT> {
         }
     }
 
-    pub fn system_env_vars(&self) -> &BTreeMap<EnvVarName, EnvVarValue> {
-        &self.system_env_vars
-    }
-
     pub fn module_loader(&self) -> &Arc<dyn ModuleLoader<RT>> {
         &self.module_loader
     }
