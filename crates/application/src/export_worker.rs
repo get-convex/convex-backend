@@ -20,6 +20,7 @@ use async_zip::{
 };
 use bytes::Bytes;
 use common::{
+    self,
     async_compat::TokioAsyncWriteCompatExt,
     backoff::Backoff,
     bootstrap_model::tables::TABLES_TABLE,
@@ -33,12 +34,6 @@ use common::{
     },
     errors::report_error,
     execution_context::ExecutionId,
-    maybe_val,
-    query::{
-        IndexRange,
-        IndexRangeExpression,
-        Order,
-    },
     runtime::Runtime,
     types::{
         IndexId,
@@ -52,7 +47,6 @@ use common::{
 use database::{
     Database,
     IndexModel,
-    ResolvedQuery,
     SystemMetadataModel,
     TableSummary,
     Transaction,
@@ -77,9 +71,7 @@ use model::{
             Export,
             ExportFormat,
         },
-        EXPORTS_BY_STATE_AND_TS_INDEX,
-        EXPORTS_STATE_FIELD,
-        EXPORTS_TS_FIELD,
+        ExportsModel,
     },
     file_storage::{
         types::FileStorageEntry,
@@ -230,8 +222,9 @@ impl<RT: Runtime> ExportWorker<RT> {
     // finish (it's in_progress), restart that export.
     pub async fn run(&mut self) -> anyhow::Result<()> {
         let mut tx = self.database.begin(Identity::system()).await?;
-        let export_requested = Self::export_in_state(&mut tx, "requested").await?;
-        let export_in_progress = Self::export_in_state(&mut tx, "in_progress").await?;
+        let mut exports_model = ExportsModel::new(&mut tx);
+        let export_requested = exports_model.latest_requested().await?;
+        let export_in_progress = exports_model.latest_in_progress().await?;
         match (export_requested, export_in_progress) {
             (Some(_), Some(_)) => {
                 anyhow::bail!("Can only have one export requested or in progress at once.")
@@ -271,47 +264,6 @@ impl<RT: Runtime> ExportWorker<RT> {
         let subscription = self.database.subscribe(token).await?;
         subscription.wait_for_invalidation().await;
         Ok(())
-    }
-
-    pub async fn export_in_state(
-        tx: &mut Transaction<RT>,
-        export_state: &str,
-    ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
-        let index_range = IndexRange {
-            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
-            range: vec![IndexRangeExpression::Eq(
-                EXPORTS_STATE_FIELD.clone(),
-                maybe_val!(export_state),
-            )],
-            order: Order::Asc,
-        };
-        let query = common::query::Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(tx, TableNamespace::Global, query)?;
-        query_stream
-            .expect_at_most_one(tx)
-            .await?
-            .map(|doc| doc.try_into())
-            .transpose()
-    }
-
-    pub async fn completed_export_at_ts(
-        tx: &mut Transaction<RT>,
-        snapshot_ts: Timestamp,
-    ) -> anyhow::Result<Option<ResolvedDocument>> {
-        let index_range = IndexRange {
-            index_name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
-            range: vec![
-                IndexRangeExpression::Eq(EXPORTS_STATE_FIELD.clone(), maybe_val!("completed")),
-                IndexRangeExpression::Eq(
-                    EXPORTS_TS_FIELD.clone(),
-                    maybe_val!(i64::from(snapshot_ts)),
-                ),
-            ],
-            order: Order::Desc,
-        };
-        let query = common::query::Query::index_range(index_range);
-        let mut query_stream = ResolvedQuery::new(tx, TableNamespace::Global, query)?;
-        query_stream.expect_at_most_one(tx).await
     }
 
     async fn export(&mut self, export: ParsedDocument<Export>) -> anyhow::Result<()> {
@@ -812,7 +764,6 @@ mod tests {
         document::ParsedDocument,
         types::{
             ConvexOrigin,
-            ObjectKey,
             TableName,
         },
         value::ConvexObject,
@@ -831,10 +782,7 @@ mod tests {
     use headers::ContentType;
     use keybroker::Identity;
     use model::{
-        exports::types::{
-            Export,
-            ExportFormat,
-        },
+        exports::types::ExportFormat,
         file_storage::types::FileStorageEntry,
         test_helpers::DbFixturesWithModel,
     };
@@ -1286,46 +1234,6 @@ mod tests {
                 ComponentId::test_user(),
             )
             .await?;
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_export_deserialization(rt: TestRuntime) -> anyhow::Result<()> {
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
-
-        // Requested
-        let requested_export = Export::requested(
-            ExportFormat::Zip {
-                include_storage: false,
-            },
-            ComponentId::test_user(),
-        );
-        let object: ConvexObject = requested_export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(requested_export, deserialized_export);
-
-        let ts = db.begin(Identity::system()).await?.begin_timestamp();
-        // InProgress
-        let in_progress_export = requested_export.clone().in_progress(*ts)?;
-        let object: ConvexObject = in_progress_export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(in_progress_export, deserialized_export);
-
-        // Completed
-        let export =
-            in_progress_export
-                .clone()
-                .completed(*ts, *ts, ObjectKey::try_from("asdf")?)?;
-        let object: ConvexObject = export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(export, deserialized_export);
-
-        // Failed
-        let export = in_progress_export.failed(*ts, *ts)?;
-        let object: ConvexObject = export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(export, deserialized_export);
-
         Ok(())
     }
 }

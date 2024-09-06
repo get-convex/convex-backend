@@ -1289,14 +1289,11 @@ impl<RT: Runtime> Application<RT> {
             .into());
         }
         let mut tx = self.begin(identity).await?;
-        let export_requested = ExportWorker::export_in_state(&mut tx, "requested").await?;
-        let export_in_progress = ExportWorker::export_in_state(&mut tx, "in_progress").await?;
+        let mut exports_model = ExportsModel::new(&mut tx);
+        let export_requested = exports_model.latest_requested().await?;
+        let export_in_progress = exports_model.latest_in_progress().await?;
         match (export_requested, export_in_progress) {
-            (None, None) => {
-                ExportsModel::new(&mut tx)
-                    .insert_requested(format, component)
-                    .await
-            },
+            (None, None) => exports_model.insert_requested(format, component).await,
             _ => Err(
                 anyhow::anyhow!("Can only have one export requested or in progress at once")
                     .context(ErrorMetadata::bad_request(
@@ -1330,7 +1327,9 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<StorageGetStream> {
         let object_key = {
             let mut tx = self.begin(identity).await?;
-            let export_doc = ExportWorker::completed_export_at_ts(&mut tx, snapshot_ts).await?;
+            let export_doc = ExportsModel::new(&mut tx)
+                .completed_export_at_ts(snapshot_ts)
+                .await?;
             let export: ParsedDocument<Export> = export_doc
                 .context(ErrorMetadata::transient_not_found(
                     "ExportNotFound",
