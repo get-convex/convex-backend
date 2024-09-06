@@ -442,6 +442,7 @@ pub enum RequestType<RT: Runtime> {
         environment_data: EnvironmentData<RT>,
         response: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
         queue_timer: Timer<VMHistogram>,
+        reactor_depth: usize,
         udf_callback: Box<dyn UdfCallback<RT>>,
     },
     Action {
@@ -514,6 +515,7 @@ pub trait UdfCallback<RT: Runtime>: Send + Sync {
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
+        reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)>;
 }
 
@@ -738,6 +740,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
+        reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let timer = metrics::execute_timer(&udf_type, path_and_args.npm_version());
         let (tx, rx) = oneshot::channel();
@@ -759,6 +762,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             },
             response: tx,
             queue_timer: queue_timer(),
+            reactor_depth,
             udf_callback: Box::new(self.clone()),
         };
         self.send_request(Request::new(
@@ -1105,9 +1109,17 @@ impl<RT: Runtime> UdfCallback<RT> for IsolateClient<RT> {
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
+        reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        self.execute_udf(udf_type, path_and_args, transaction, journal, context)
-            .await
+        self.execute_udf(
+            udf_type,
+            path_and_args,
+            transaction,
+            journal,
+            context,
+            reactor_depth,
+        )
+        .await
     }
 }
 
@@ -1716,6 +1728,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 environment_data,
                 mut response,
                 queue_timer,
+                reactor_depth,
                 udf_callback,
             } => {
                 drop(queue_timer);
@@ -1726,6 +1739,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                     environment_data,
                     heap_stats.clone(),
                     request,
+                    reactor_depth,
                     udf_callback,
                 );
                 let r = environment

@@ -476,3 +476,14 @@ async fn test_mounted_component_delete_component_errors_out(rt: TestRuntime) -> 
         .is_err());
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_infinite_loop_in_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("basic").await?;
+    let err = run_function(&application, "errors:tryInfiniteLoop".parse()?, vec![])
+        .await?
+        .unwrap_err();
+    assert_contains(&err.error, "Cross component call depth limit exceeded");
+    Ok(())
+}

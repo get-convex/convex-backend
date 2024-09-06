@@ -205,6 +205,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
 
     context: ExecutionContext,
 
+    reactor_depth: usize,
     udf_callback: Box<dyn UdfCallback<RT>>,
 }
 
@@ -326,6 +327,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             journal,
             context,
         }: UdfRequest<RT>,
+        reactor_depth: usize,
         udf_callback: Box<dyn UdfCallback<RT>>,
     ) -> Self {
         let persistence_version = transaction.persistence_version();
@@ -361,6 +363,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             heap_stats,
             context,
 
+            reactor_depth,
             udf_callback,
         }
     }

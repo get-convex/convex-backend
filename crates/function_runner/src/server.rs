@@ -425,6 +425,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                         environment_data,
                         response: tx,
                         queue_timer: queue_timer(),
+                        reactor_depth: 0,
                         udf_callback: Box::new(self.clone()),
                     },
                     EncodedSpan::from_parent(),
@@ -486,6 +487,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerC
         transaction: Transaction<RT>,
         journal: QueryJournal,
         context: ExecutionContext,
+        reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         let (tx, rx) = oneshot::channel();
         let request = IsolateRequest::new(
@@ -502,6 +504,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerC
                 environment_data,
                 response: tx,
                 queue_timer: queue_timer(),
+                reactor_depth,
                 udf_callback: Box::new(self.clone()),
             },
             EncodedSpan::from_parent(),

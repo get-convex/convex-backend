@@ -18,7 +18,10 @@ use common::{
     },
     document::DeveloperDocument,
     execution_context::ExecutionContext,
-    knobs::MAX_SYSCALL_BATCH_SIZE,
+    knobs::{
+        MAX_REACTOR_CALL_DEPTH,
+        MAX_SYSCALL_BATCH_SIZE,
+    },
     query::{
         Cursor,
         CursorPosition,
@@ -496,6 +499,22 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 anyhow::bail!(ErrorMetadata::bad_request("InvalidArgs", e.message));
             },
         };
+
+        // NB: Since this is a user error, we need to do this check before we take the
+        // transaction below.
+        let new_reactor_depth = if matches!(udf_type, UdfType::Query | UdfType::Mutation) {
+            if self.reactor_depth >= *MAX_REACTOR_CALL_DEPTH {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "MaximumCallDepthExceeded",
+                    "Cross component call depth limit exceeded. Do you have an infinite loop in \
+                     your app?"
+                ));
+            }
+            self.reactor_depth + 1
+        } else {
+            0
+        };
+
         let mut tx = self.phase.take_tx()?;
         let tokens = tx.begin_subtransaction();
 
@@ -521,6 +540,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 tx,
                 query_journal,
                 self.context.clone(),
+                new_reactor_depth,
             )
             .await?;
         match (udf_type, &outcome) {

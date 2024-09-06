@@ -565,6 +565,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
+                    0,
                 )
                 .await?;
             let FunctionOutcome::Mutation(outcome) = outcome else {
@@ -710,6 +711,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     journal.unwrap_or_else(QueryJournal::new),
                     ExecutionContext::new_for_test(),
+                    0,
                 )
                 .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
@@ -773,6 +775,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
+                    0,
                 )
                 .await?;
             match outcome {
@@ -1207,6 +1210,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
         _transaction: Transaction<RT>,
         _journal: QueryJournal,
         _context: ExecutionContext,
+        _reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::bail!("Component calls not implemented in tests yet")
     }
@@ -1416,6 +1420,7 @@ pub async fn bogus_udf_request<RT: Runtime>(
         response: sender,
         queue_timer: queue_timer(),
         udf_callback: Box::new(BogusUdfCallback),
+        reactor_depth: 0,
     };
     Ok(Request {
         client_id: client_id.to_string(),
@@ -1439,6 +1444,7 @@ impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
         _transaction: Transaction<RT>,
         _journal: QueryJournal,
         _context: ExecutionContext,
+        _reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
         anyhow::bail!("BogusUdfCallback called")
     }

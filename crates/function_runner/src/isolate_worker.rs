@@ -86,6 +86,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 environment_data,
                 mut response,
                 queue_timer,
+                reactor_depth,
                 udf_callback,
             } => {
                 drop(queue_timer);
@@ -97,6 +98,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                     environment_data,
                     heap_stats.clone(),
                     request,
+                    reactor_depth,
                     udf_callback,
                 );
                 let r = environment
