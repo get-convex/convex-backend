@@ -873,9 +873,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 provider.lookup_function_handle(handle).await?
             },
             None => {
-                let reference = with_argument_error("scheduler", || {
-                    parse_name_or_reference(name, reference).context(ArgName("name"))
-                })?;
+                let reference = parse_name_or_reference("scheduler", name, reference)?;
                 match provider.resolve(reference).await? {
                     Resource::Value(v) => {
                         anyhow::bail!(ErrorMetadata::bad_request(
@@ -1270,8 +1268,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 }
             },
             None => {
-                let reference =
-                    parse_name_or_reference(name, reference).context(ArgName("name"))?;
+                let reference = parse_name_or_reference("runUdf", name, reference)?;
                 let resource = provider.resolve(reference).await?;
                 match resource {
                     Resource::ResolvedSystemUdf(path) => path,
@@ -1319,7 +1316,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                 return Ok(serde_json::to_value(function_handle)?);
             },
             None => {
-                let reference = parse_name_or_reference(name, reference)?;
+                let reference = parse_name_or_reference("createFunctionHandle", name, reference)?;
                 match provider.resolve(reference).await? {
                     Resource::Function(path) => path,
                     Resource::ResolvedSystemUdf { .. } => {

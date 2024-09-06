@@ -115,7 +115,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     .await?
             },
             None => {
-                let reference = parse_name_or_reference(name, reference)?;
+                let reference = parse_name_or_reference("runQuery", name, reference)?;
                 self.resolve_function(&reference)?
             },
         };
@@ -160,7 +160,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     .await?
             },
             None => {
-                let reference = parse_name_or_reference(name, reference)?;
+                let reference = parse_name_or_reference("runMutation", name, reference)?;
                 self.resolve_function(&reference)?
             },
         };
@@ -202,7 +202,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     .await?
             },
             None => {
-                let reference = parse_name_or_reference(name, reference)?;
+                let reference = parse_name_or_reference("runAction", name, reference)?;
                 self.resolve_function(&reference)?
             },
         };
@@ -246,9 +246,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     .await?
             },
             None => {
-                let reference = with_argument_error("scheduler", || {
-                    parse_name_or_reference(name, reference).context(ArgName("name"))
-                })?;
+                let reference = parse_name_or_reference("scheduler", name, reference)?;
                 self.resolve_function(&reference)?
             },
         };
@@ -425,7 +423,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 return Ok(serde_json::to_value(function_handle)?);
             },
             None => {
-                let reference = parse_name_or_reference(name, reference)?;
+                let reference = parse_name_or_reference("createFunctionHandle", name, reference)?;
                 self.resolve_function(&reference)?
             },
         };
@@ -441,12 +439,13 @@ impl<RT: Runtime> TaskExecutor<RT> {
 }
 
 pub fn parse_name_or_reference(
+    function_name: &str,
     name: Option<String>,
     reference: Option<String>,
 ) -> anyhow::Result<Reference> {
-    match (name, reference) {
+    with_argument_error(function_name, || match (name, reference) {
         (Some(name), _) => Ok(Reference::Function(name.parse()?)),
         (_, Some(reference)) => Ok(reference.parse()?),
         _ => anyhow::bail!("Missing required argument 'name'"),
-    }
+    })
 }
