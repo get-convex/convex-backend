@@ -319,13 +319,10 @@ export function encodeDefinitionPath(
   const components = s.split(path.sep);
   return components
     .map((s) => {
-      const escaped = s
-        .replaceAll("-", "_")
-        .replaceAll("+", "_")
-        .replaceAll(" ", "_")
-        .replaceAll(".", "_");
+      // some important characters to escape include @-+ .
+      const escaped = s.replace(/[^a-zA-Z0-9_]/g, "_");
       if (escaped.length <= 64 && escaped === s) {
-        // If escaping lost any information then
+        // If escaping lost no information then use orig.
         return escaped;
       }
       const hash = crypto.createHash("md5").update(s).digest("hex");
