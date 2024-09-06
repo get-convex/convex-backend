@@ -79,6 +79,7 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
         ...credentials,
         generateCommonJSApi: options.commonjs,
         verbose: options.dryRun,
+        codegen: true,
       },
     );
   } else {
@@ -129,6 +130,7 @@ async function startComponentsPushAndCodegen(
     generateCommonJSApi?: boolean;
     debug: boolean;
     writePushRequest?: string;
+    codegen: boolean;
   },
 ): Promise<StartPushResponse | null> {
   const convexDir = await getFunctionsDirectoryPath(ctx);
@@ -159,15 +161,17 @@ async function startComponentsPushAndCodegen(
     () => componentGraph(ctx, absWorkingDir, rootComponent, options.verbose),
   );
 
-  changeSpinner(ctx, "Generating server code...");
-  await parentSpan.enterAsync("doInitialComponentCodegen", () =>
-    withTmpDir(async (tmpDir) => {
-      await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
-      for (const directory of components.values()) {
-        await doInitialComponentCodegen(ctx, tmpDir, directory, options);
-      }
-    }),
-  );
+  if (options.codegen) {
+    changeSpinner(ctx, "Generating server code...");
+    await parentSpan.enterAsync("doInitialComponentCodegen", () =>
+      withTmpDir(async (tmpDir) => {
+        await doInitialComponentCodegen(ctx, tmpDir, rootComponent, options);
+        for (const directory of components.values()) {
+          await doInitialComponentCodegen(ctx, tmpDir, directory, options);
+        }
+      }),
+    );
+  }
 
   changeSpinner(ctx, "Bundling component definitions...");
   // This bundles everything but the actual function definitions
@@ -270,29 +274,31 @@ async function startComponentsPushAndCodegen(
     logMessage(ctx, "startPush: " + JSON.stringify(startPushResponse, null, 2));
   }
 
-  changeSpinner(ctx, "Generating TypeScript bindings...");
-  await parentSpan.enterAsync("doFinalComponentCodegen", () =>
-    withTmpDir(async (tmpDir) => {
-      await doFinalComponentCodegen(
-        ctx,
-        tmpDir,
-        rootComponent,
-        rootComponent,
-        startPushResponse,
-        options,
-      );
-      for (const directory of components.values()) {
+  if (options.codegen) {
+    changeSpinner(ctx, "Generating TypeScript bindings...");
+    await parentSpan.enterAsync("doFinalComponentCodegen", () =>
+      withTmpDir(async (tmpDir) => {
         await doFinalComponentCodegen(
           ctx,
           tmpDir,
           rootComponent,
-          directory,
+          rootComponent,
           startPushResponse,
           options,
         );
-      }
-    }),
-  );
+        for (const directory of components.values()) {
+          await doFinalComponentCodegen(
+            ctx,
+            tmpDir,
+            rootComponent,
+            directory,
+            startPushResponse,
+            options,
+          );
+        }
+      }),
+    );
+  }
 
   changeSpinner(ctx, "Running TypeScript...");
   await parentSpan.enterAsync("typeCheckFunctionsInMode", async () => {

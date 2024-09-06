@@ -230,7 +230,11 @@ export async function doFinalComponentCodegen(
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
   startPushResponse: StartPushResponse,
-  opts?: { dryRun?: boolean; debug?: boolean; generateCommonJSApi?: boolean },
+  opts?: {
+    dryRun?: boolean;
+    debug?: boolean;
+    generateCommonJSApi?: boolean;
+  },
 ) {
   const { projectConfig } = await readProjectConfig(ctx);
 
