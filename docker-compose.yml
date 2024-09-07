@@ -1,0 +1,8 @@
+services:
+  convex-backend:
+    build: .
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    volumes:
+      - .:/convex
