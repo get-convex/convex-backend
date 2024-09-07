@@ -123,13 +123,17 @@ async function* codegenApiWithMounts(
   definitionPath: ComponentDefinitionPath,
 ): AsyncGenerator<string> {
   const mountTree = await buildMountTree(ctx, startPush, definitionPath, []);
-  if (!mountTree) {
+  if (mountTree) {
+    yield "export type Mounts = ";
+    yield* codegenMountTree(mountTree);
+    yield `;`;
+    yield `// For now fullApiWithMounts is only fullApi which provides`;
+    yield `// jump-to-definition in component client code.`;
+    yield `// Use Mounts for the same type without the inference.`;
     yield "declare const fullApiWithMounts: typeof fullApi;";
-    return;
+  } else {
+    yield "declare const fullApiWithMounts: typeof fullApi;";
   }
-  yield "declare const fullApiWithMounts: typeof fullApi &";
-  yield* codegenMountTree(mountTree);
-  yield `;`;
 }
 
 function* codegenMountTree(tree: MountTree): Generator<string> {
