@@ -54,7 +54,7 @@ export type FunctionExecutionCompletion = {
 
 export type FunctionExecutionProgess = {
   kind: "Progress";
-  componentPath?: string;
+  componentPath?: string | null;
   identifier: string;
   udfType: UdfType;
   // Unix timestamp (in seconds)
