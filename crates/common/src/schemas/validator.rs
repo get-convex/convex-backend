@@ -667,7 +667,10 @@ impl Validator {
             Validator::Set(element_validator) => {
                 json_schemas::set(element_validator.to_json_schema(value_format))
             },
-            Validator::Record(..) => json_schemas::any(),
+            Validator::Record(key_validator, value_validator) => json_schemas::record(
+                key_validator.to_string(),
+                value_validator.to_json_schema(value_format),
+            ),
             Validator::Map(key_validator, value_validator) => json_schemas::map(
                 key_validator.to_json_schema(value_format),
                 value_validator.to_json_schema(value_format),

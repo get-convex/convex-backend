@@ -146,6 +146,16 @@ pub fn map(key_schema: JsonValue, value_schema: JsonValue) -> JsonValue {
     })
 }
 
+pub fn record(key_type: String, value_schema: JsonValue) -> JsonValue {
+    json!({
+        "type": "object",
+        "$description": format!("Record with keys of type {}", key_type),
+        "additionalProperties": {
+          "type": value_schema
+        }
+    })
+}
+
 pub fn union(variant_schemas: Vec<JsonValue>) -> JsonValue {
     json!({ "anyOf": variant_schemas })
 }
