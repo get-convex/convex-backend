@@ -44,17 +44,11 @@ pub static EXPORTS_TABLE: LazyLock<TableName> =
 pub static EXPORTS_BY_STATE_AND_TS_INDEX: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&EXPORTS_TABLE, "by_state_and_ts"));
 
-pub static EXPORTS_BY_REQUESTOR: LazyLock<IndexName> =
-    LazyLock::new(|| system_index(&EXPORTS_TABLE, "by_requestor"));
-
 pub static EXPORTS_STATE_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "state".parse().expect("Invalid built-in field"));
 
 pub static EXPORTS_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "start_ts".parse().expect("Invalid built-in field"));
-
-static EXPORTS_REQUESTOR_FIELD: LazyLock<FieldPath> =
-    LazyLock::new(|| "requestor".parse().expect("Invalid built-in field"));
 
 pub struct ExportsTable;
 impl SystemTable for ExportsTable {
@@ -63,18 +57,12 @@ impl SystemTable for ExportsTable {
     }
 
     fn indexes(&self) -> Vec<SystemIndex> {
-        vec![
-            SystemIndex {
-                name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
-                fields: vec![EXPORTS_STATE_FIELD.clone(), EXPORTS_TS_FIELD.clone()]
-                    .try_into()
-                    .unwrap(),
-            },
-            SystemIndex {
-                name: EXPORTS_BY_REQUESTOR.clone(),
-                fields: vec![EXPORTS_REQUESTOR_FIELD.clone()].try_into().unwrap(),
-            },
-        ]
+        vec![SystemIndex {
+            name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
+            fields: vec![EXPORTS_STATE_FIELD.clone(), EXPORTS_TS_FIELD.clone()]
+                .try_into()
+                .unwrap(),
+        }]
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
