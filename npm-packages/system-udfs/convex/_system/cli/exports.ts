@@ -4,10 +4,6 @@ import { queryPrivateSystem } from "../secretSystemTables";
 export const getLatest = queryPrivateSystem({
   args: {},
   handler: async ({ db }): Promise<Export | null> => {
-    return await db
-      .query("_exports")
-      .withIndex("by_requestor", (q) => q.eq("requestor", "snapshotExport"))
-      .order("desc")
-      .first();
+    return await db.query("_exports").order("desc").first();
   },
 });
