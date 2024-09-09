@@ -223,7 +223,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         Ok(())
     }
 
-    async fn get_table_metadata(
+    pub async fn get_table_metadata(
         &mut self,
         tablet_id: TabletId,
     ) -> anyhow::Result<ParsedDocument<TableMetadata>> {

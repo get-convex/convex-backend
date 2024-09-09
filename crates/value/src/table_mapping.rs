@@ -119,6 +119,12 @@ impl TableMapping {
             })
     }
 
+    pub fn iter_active_namespaces(
+        &self,
+    ) -> impl Iterator<Item = (&TableNamespace, &OrdMap<TableName, TabletId>)> {
+        self.table_name_to_canonical_tablet.iter()
+    }
+
     pub fn namespaces_for_name(&self, name: &TableName) -> Vec<TableNamespace> {
         self.iter()
             .filter(|(_, _, _, table_name)| *table_name == name)
