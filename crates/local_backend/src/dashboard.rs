@@ -1,3 +1,4 @@
+use anyhow::Context;
 use application::valid_identifier::ValidIdentifier;
 use axum::{
     debug_handler,
@@ -19,6 +20,7 @@ use common::{
     },
 };
 use database::IndexModel;
+use errors::ErrorMetadata;
 use http::StatusCode;
 use model::virtual_system_mapping;
 use serde::{
@@ -171,9 +173,13 @@ pub async fn get_source_code(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_member(&identity)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
+    let path = path.parse().context(ErrorMetadata::bad_request(
+        "InvalidModulePath",
+        "Invalid module path",
+    ))?;
     let source_code = st
         .application
-        .get_source_code(identity, path.parse()?, component)
+        .get_source_code(identity, path, component)
         .await?;
     Ok(Json(source_code))
 }
