@@ -66,7 +66,7 @@ export async function withInMemoryWebSocket(
     socket!.send(encodeServerMessage(message));
   }
 
-  const s = wss.address();
+  const s: any = wss.address();
   const address = typeof s === "string" ? s : `http://127.0.0.1:${s.port}`;
 
   try {
