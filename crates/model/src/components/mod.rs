@@ -82,7 +82,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
             },
             Reference::Function(udf_path) => {
                 let mut m = BootstrapComponentsModel::new(self.tx);
-                let component_path = m.get_component_path(component_id)?;
+                let component_path = m.must_component_path(component_id)?;
 
                 let path = CanonicalizedComponentFunctionPath {
                     component: component_path,
@@ -253,7 +253,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
     ) -> anyhow::Result<BTreeMap<Reference, Resource>> {
         let mut m = BootstrapComponentsModel::new(self.tx);
         let component_type = m.load_component_type(component_id).await?;
-        let component_path = m.get_component_path(component_id)?;
+        let component_path = m.must_component_path(component_id)?;
 
         let mut result = BTreeMap::new();
 

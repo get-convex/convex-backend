@@ -1913,7 +1913,7 @@ impl<RT: Runtime> Database<RT> {
             let tablet_id = *value.name.table();
             let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
             let component_id = ComponentId::from(table_namespace);
-            let component_path = components_model.get_component_path(component_id)?;
+            let component_path = components_model.must_component_path(component_id)?;
             let table_name = table_mapping.tablet_name(tablet_id)?;
             let size = value.config.estimate_pricing_size_bytes()?;
             vector_index_storage
@@ -1934,7 +1934,7 @@ impl<RT: Runtime> Database<RT> {
         let mut document_counts = vec![];
         for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries() {
             let component_path =
-                components_model.get_component_path(ComponentId::from(table_namespace))?;
+                components_model.must_component_path(ComponentId::from(table_namespace))?;
             document_counts.push((component_path, table_name, summary.num_values() as u64));
         }
         Ok(document_counts)
@@ -1957,12 +1957,22 @@ impl<RT: Runtime> Database<RT> {
         for ((table_namespace, table_name), (document_size, index_size)) in
             documents_and_index_storage.into_iter()
         {
-            let component_path =
-                components_model.get_component_path(ComponentId::from(table_namespace))?;
-            remapped_documents_and_index_storage.insert(
-                (component_path, table_name),
-                (document_size as u64, index_size as u64),
-            );
+            if let Some(component_path) =
+                components_model.get_component_path(ComponentId::from(table_namespace))
+            {
+                remapped_documents_and_index_storage.insert(
+                    (component_path, table_name),
+                    (document_size as u64, index_size as u64),
+                );
+            } else {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push
+                anyhow::ensure!(
+                    document_size == 0 && index_size == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has document size {document_size} and index size {index_size}",
+                );
+            }
         }
         Ok(remapped_documents_and_index_storage)
     }

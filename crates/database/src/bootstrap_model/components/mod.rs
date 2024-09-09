@@ -168,12 +168,15 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         ))
     }
 
-    pub fn get_component_path(
+    pub fn get_component_path(&mut self, component_id: ComponentId) -> Option<ComponentPath> {
+        self.tx.get_component_path(component_id)
+    }
+
+    pub fn must_component_path(
         &mut self,
         component_id: ComponentId,
     ) -> anyhow::Result<ComponentPath> {
-        self.tx
-            .get_component_path(component_id)
+        self.get_component_path(component_id)
             .with_context(|| format!("component {component_id:?} missing"))
     }
 
@@ -457,7 +460,7 @@ mod tests {
             .resolve_path(&ComponentPath::from(vec!["subcomponent_child".parse()?]))?;
         assert_eq!(resolved_path.unwrap().id(), child_id);
         let path = BootstrapComponentsModel::new(&mut tx)
-            .get_component_path(ComponentId::Child(child_id.into()))?;
+            .must_component_path(ComponentId::Child(child_id.into()))?;
         assert_eq!(
             path,
             ComponentPath::from(vec!["subcomponent_child".parse()?]),

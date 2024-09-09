@@ -120,7 +120,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             anyhow::bail!(function_handle_not_found());
         }
         let component_path =
-            BootstrapComponentsModel::new(self.tx).get_component_path(metadata.component)?;
+            BootstrapComponentsModel::new(self.tx).must_component_path(metadata.component)?;
         Ok(CanonicalizedComponentFunctionPath {
             component: component_path,
             udf_path: metadata.path,
@@ -138,7 +138,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
             if handle.deleted_ts.is_none() {
                 let path = CanonicalizedComponentFunctionPath {
                     component: BootstrapComponentsModel::new(self.tx)
-                        .get_component_path(handle.component)?,
+                        .must_component_path(handle.component)?,
                     udf_path: handle.path.clone(),
                 };
                 handles.insert(path, FunctionHandle::new(handle.developer_id()));
