@@ -334,16 +334,20 @@ export async function validateOrSelectProject(
     url: `teams/${teamSlug}/projects`,
   });
   if (projects.length === 0) {
-    // Unexpected error
-    // eslint-disable-next-line no-restricted-syntax
-    throw new Error("No projects found");
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `No existing projects! Run this command again and choose "create a new project."`,
+    });
   }
   if (!projectSlug) {
     const nonDemoProjects = projects.filter((project) => !project.isDemo);
     if (nonDemoProjects.length === 0) {
-      // Unexpected error
-      // eslint-disable-next-line no-restricted-syntax
-      throw new Error("No projects found");
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `No existing non-demo projects! Run this command again and choose "create a new project."`,
+      });
     }
     // Prompt the user to select project.
     switch (nonDemoProjects.length) {
