@@ -1913,13 +1913,22 @@ impl<RT: Runtime> Database<RT> {
             let tablet_id = *value.name.table();
             let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
             let component_id = ComponentId::from(table_namespace);
-            let component_path = components_model.must_component_path(component_id)?;
             let table_name = table_mapping.tablet_name(tablet_id)?;
             let size = value.config.estimate_pricing_size_bytes()?;
-            vector_index_storage
-                .entry((component_path, table_name))
-                .and_modify(|sum| *sum += size)
-                .or_insert(size);
+            if let Some(component_path) = components_model.get_component_path(component_id) {
+                vector_index_storage
+                    .entry((component_path, table_name))
+                    .and_modify(|sum| *sum += size)
+                    .or_insert(size);
+            } else {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push
+                anyhow::ensure!(
+                    size == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has non-zero vector index size {size}",
+                );
+            }
         }
         Ok(vector_index_storage)
     }
@@ -1933,9 +1942,20 @@ impl<RT: Runtime> Database<RT> {
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let mut document_counts = vec![];
         for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries() {
-            let component_path =
-                components_model.must_component_path(ComponentId::from(table_namespace))?;
-            document_counts.push((component_path, table_name, summary.num_values() as u64));
+            let count = summary.num_values() as u64;
+            if let Some(component_path) =
+                components_model.get_component_path(ComponentId::from(table_namespace))
+            {
+                document_counts.push((component_path, table_name, count));
+            } else {
+                // If there is no component path for this table namespace, this must be an empty
+                // user table left over from incomplete components push
+                anyhow::ensure!(
+                    count == 0,
+                    "Table {table_name} is in an orphaned TableNamespace without a component, but \
+                     has document count {count}",
+                );
+            }
         }
         Ok(document_counts)
     }
