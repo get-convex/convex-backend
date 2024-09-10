@@ -23,7 +23,10 @@ use database::{
     Transaction,
 };
 use sync_types::Timestamp;
-use types::ExportFormat;
+use types::{
+    ExportFormat,
+    ExportRequestor,
+};
 use value::{
     FieldPath,
     TableName,
@@ -83,11 +86,12 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         &mut self,
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     ) -> anyhow::Result<()> {
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &EXPORTS_TABLE,
-                Export::requested(format, component).try_into()?,
+                Export::requested(format, component, requestor).try_into()?,
             )
             .await?;
         Ok(())
@@ -156,12 +160,17 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use common::{
         components::ComponentId,
         types::ObjectKey,
     };
     use database::test_helpers::DbFixtures;
-    use runtime::testing::TestRuntime;
+    use proptest::prelude::*;
+    use runtime::testing::{
+        TestDriver,
+        TestRuntime,
+    };
     use sync_types::Timestamp;
     use value::ConvexObject;
 
@@ -185,6 +194,7 @@ mod tests {
                 include_storage: false,
             },
             ComponentId::test_user(),
+            ExportRequestor::SnapshotExport,
         );
         let object: ConvexObject = requested_export.clone().try_into()?;
         let deserialized_export = object.try_into()?;
@@ -214,16 +224,32 @@ mod tests {
         Ok(())
     }
 
-    #[convex_macro::test_runtime]
-    async fn test_export_model(rt: TestRuntime) -> anyhow::Result<()> {
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 32 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
+
+        #[test]
+        fn proptest_export_model(
+            format in any::<ExportFormat>(),
+            component in any::<ComponentId>(),
+            requestor in any::<ExportRequestor>(),
+        ) {
+            let td = TestDriver::new();
+            let rt = td.rt();
+            td.run_until(test_export_model(rt, format, component, requestor)).unwrap();
+        }
+    }
+
+    async fn test_export_model(
+        rt: TestRuntime,
+        format: ExportFormat,
+        component: ComponentId,
+        requestor: ExportRequestor,
+    ) -> anyhow::Result<()> {
         let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let mut tx = db.begin_system().await?;
         let mut exports_model = ExportsModel::new(&mut tx);
-        let format = ExportFormat::Zip {
-            include_storage: false,
-        };
         exports_model
-            .insert_requested(format, ComponentId::Root)
+            .insert_requested(format, component, requestor)
             .await?;
         let items: Vec<_> = exports_model
             .list()
@@ -233,8 +259,8 @@ mod tests {
             .collect();
         let expected = Export::Requested {
             format,
-            component: ComponentId::Root,
-            requestor: ExportRequestor::SnapshotExport,
+            component,
+            requestor,
         };
         assert_eq!(items, vec![expected.clone()]);
         assert_eq!(

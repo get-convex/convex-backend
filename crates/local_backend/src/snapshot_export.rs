@@ -26,7 +26,10 @@ use common::{
 };
 use errors::ErrorMetadata;
 use http::StatusCode;
-use model::exports::types::ExportFormat;
+use model::exports::types::{
+    ExportFormat,
+    ExportRequestor,
+};
 use serde::Deserialize;
 use storage::StorageGetStream;
 use sync_types::Timestamp;
@@ -45,8 +48,8 @@ const MAX_CACHE_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 30);
 #[serde(rename_all = "camelCase")]
 pub struct RequestZipExport {
     #[serde(default)]
-    include_storage: bool,
-    component: Option<String>,
+    pub include_storage: bool,
+    pub component: Option<String>,
 }
 
 #[minitrace::trace]
@@ -61,7 +64,12 @@ pub async fn request_zip_export(
     must_be_admin_with_write_access(&identity)?;
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
     st.application
-        .request_export(identity, ExportFormat::Zip { include_storage }, component)
+        .request_export(
+            identity,
+            ExportFormat::Zip { include_storage },
+            component,
+            ExportRequestor::SnapshotExport,
+        )
         .await?;
     Ok(StatusCode::OK)
 }

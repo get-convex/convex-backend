@@ -191,6 +191,7 @@ use model::{
         types::{
             Export,
             ExportFormat,
+            ExportRequestor,
         },
         ExportsModel,
     },
@@ -1277,6 +1278,7 @@ impl<RT: Runtime> Application<RT> {
         identity: Identity,
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(identity.is_admin(), unauthorized_error("request_export"));
         let snapshot = self.latest_snapshot()?;
@@ -1293,7 +1295,11 @@ impl<RT: Runtime> Application<RT> {
         let export_requested = exports_model.latest_requested().await?;
         let export_in_progress = exports_model.latest_in_progress().await?;
         match (export_requested, export_in_progress) {
-            (None, None) => exports_model.insert_requested(format, component).await,
+            (None, None) => {
+                exports_model
+                    .insert_requested(format, component, requestor)
+                    .await
+            },
             _ => Err(
                 anyhow::anyhow!("Can only have one export requested or in progress at once")
                     .context(ErrorMetadata::bad_request(

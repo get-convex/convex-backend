@@ -261,7 +261,7 @@ impl From<SerializedExportFormat> for ExportFormat {
 
 codegen_convex_serialization!(ExportFormat, SerializedExportFormat);
 
-#[derive(Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[strum(serialize_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum ExportRequestor {
@@ -272,11 +272,15 @@ pub enum ExportRequestor {
 }
 
 impl Export {
-    pub fn requested(format: ExportFormat, component: ComponentId) -> Self {
+    pub fn requested(
+        format: ExportFormat,
+        component: ComponentId,
+        requestor: ExportRequestor,
+    ) -> Self {
         Self::Requested {
             format,
             component,
-            requestor: ExportRequestor::SnapshotExport,
+            requestor,
         }
     }
 
