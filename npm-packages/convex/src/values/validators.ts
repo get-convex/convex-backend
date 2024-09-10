@@ -458,7 +458,8 @@ export class VRecord<
   get json(): ValidatorJSON {
     return {
       type: this.kind,
-      keys: this.key.json,
+      // This cast is needed because TypeScript thinks the key type is too wide
+      keys: this.key.json as RecordKeyValidatorJSON,
       values: {
         fieldType: this.value.json,
         optional: false,
@@ -630,6 +631,17 @@ export type ValidatorJSON =
   | { type: "literal"; value: JSONValue }
   | { type: "id"; tableName: string }
   | { type: "array"; value: ValidatorJSON }
-  | { type: "record"; keys: ValidatorJSON; values: ObjectFieldType }
+  | {
+      type: "record";
+      keys: RecordKeyValidatorJSON;
+      values: RecordValueValidatorJSON;
+    }
   | { type: "object"; value: Record<string, ObjectFieldType> }
   | { type: "union"; value: ValidatorJSON[] };
+
+type RecordKeyValidatorJSON =
+  | { type: "string" }
+  | { type: "id"; tableName: string }
+  | { type: "union"; value: RecordKeyValidatorJSON[] };
+
+type RecordValueValidatorJSON = ObjectFieldType & { optional: false };
