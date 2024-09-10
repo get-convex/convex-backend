@@ -1103,7 +1103,8 @@ async fn log_middleware(
     let content_length = get_header(resp.headers(), http::header::CONTENT_LENGTH);
     let content_type = get_header(resp.headers(), http::header::CONTENT_TYPE);
 
-    if uri == "/instance_version" || uri == "/get_backend_info" {
+    let path = uri.path();
+    if path == "/instance_version" || path == "/instance_name" || path == "/get_backend_info" {
         // Skip logging for these high volume, less useful endpoints
         return Ok(resp);
     }
