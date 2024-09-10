@@ -112,6 +112,7 @@ export const dev = new Command("dev")
   .addOption(new Option("--local-site-port <port>").hideHelp())
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
+  .addOption(new Option("--live-component-sources").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext;
@@ -207,6 +208,7 @@ export const dev = new Command("dev")
           debug: false,
           debugBundlePath: cmdOptions.debugBundlePath,
           codegen: cmdOptions.codegen === "enable",
+          liveComponentSources: !!cmdOptions.liveComponentSources,
         },
         cmdOptions,
       ),

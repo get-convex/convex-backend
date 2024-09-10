@@ -26,6 +26,7 @@ export const codegen = new Command("codegen")
   )
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
+  .addOption(new Option("--live-component-sources").hideHelp())
   // Experimental option
   .addOption(
     new Option(
@@ -44,5 +45,6 @@ export const codegen = new Command("codegen")
       commonjs: !!options.commonjs,
       url: options.url,
       adminKey: options.adminKey,
+      liveComponentSources: !!options.liveComponentSources,
     });
   });

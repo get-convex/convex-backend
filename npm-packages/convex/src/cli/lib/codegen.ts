@@ -42,6 +42,7 @@ export type CodegenOptions = {
   typecheck: TypeCheckMode;
   init: boolean;
   commonjs: boolean;
+  liveComponentSources: boolean;
 };
 
 export async function doInitCodegen(

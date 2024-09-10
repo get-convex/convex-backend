@@ -48,6 +48,7 @@ export const run = new Command("run")
       // TODO(ENG-6967): Remove hideHelp before launching components
     ).hideHelp(),
   )
+  .addOption(new Option("--live-component-sources").hideHelp())
 
   .showHelpAfterError()
   .action(async (functionName, argsString, options) => {
@@ -87,6 +88,7 @@ export const run = new Command("run")
           codegen: options.codegen === "enable",
           url: deploymentUrl,
           cleanupHandle: null,
+          liveComponentSources: !!options.liveComponentSources,
         },
         {
           once: true,

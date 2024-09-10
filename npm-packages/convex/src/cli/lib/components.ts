@@ -80,6 +80,7 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
         generateCommonJSApi: options.commonjs,
         verbose: options.dryRun,
         codegen: true,
+        liveComponentSources: options.liveComponentSources,
       },
     );
   } else {
@@ -131,6 +132,7 @@ async function startComponentsPushAndCodegen(
     debug: boolean;
     writePushRequest?: string;
     codegen: boolean;
+    liveComponentSources?: boolean;
   },
 ): Promise<StartPushResponse | null> {
   const convexDir = await getFunctionsDirectoryPath(ctx);
@@ -158,7 +160,14 @@ async function startComponentsPushAndCodegen(
   // This produces a bundle in memory as a side effect but it's thrown away.
   const { components, dependencyGraph } = await parentSpan.enterAsync(
     "componentGraph",
-    () => componentGraph(ctx, absWorkingDir, rootComponent, options.verbose),
+    () =>
+      componentGraph(
+        ctx,
+        absWorkingDir,
+        rootComponent,
+        !!options.liveComponentSources,
+        options.verbose,
+      ),
   );
 
   if (options.codegen) {
@@ -186,6 +195,7 @@ async function startComponentsPushAndCodegen(
       rootComponent,
       // Note that this *includes* the root component.
       [...components.values()],
+      !!options.liveComponentSources,
     ),
   );
 

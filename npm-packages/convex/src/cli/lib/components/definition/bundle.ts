@@ -162,27 +162,43 @@ function hackyMapping(componentPath: EncodedComponentDefinitionPath): string {
 }
 
 // Share configuration between the component definition discovery and bundling passes.
-const SHARED_ESBUILD_OPTIONS = {
-  bundle: true,
-  platform: "browser",
-  format: "esm",
-  target: "esnext",
+function sharedEsbuildOptions({
+  liveComponentSources = false,
+}: {
+  liveComponentSources?: boolean;
+}) {
+  const options = {
+    bundle: true,
+    platform: "browser",
+    format: "esm",
+    target: "esnext",
 
-  // false is the default for splitting.
-  // It's simpler to evaluate these on the server when we don't need a whole
-  // filesystem. Enabled this for speed once the server supports it.
-  splitting: false,
+    conditions: ["convex", "module"] as string[],
 
-  // place output files in memory at their source locations
-  write: false,
-  outdir: path.parse(process.cwd()).root,
-  outbase: path.parse(process.cwd()).root,
+    // `false` is the default for splitting. It's simpler to evaluate these on
+    // the server as a single file.
+    // Splitting could be enabled for speed once the server supports it.
+    splitting: false,
 
-  minify: true,
-  keepNames: true,
+    // place output files in memory at their source locations
+    write: false,
+    outdir: path.parse(process.cwd()).root,
+    outbase: path.parse(process.cwd()).root,
 
-  metafile: true,
-} as const satisfies BuildOptions;
+    minify: true,
+    keepNames: true,
+
+    metafile: true,
+  } as const satisfies BuildOptions;
+
+  // Link directly to component sources (usually .ts) in order to
+  // skip the build step. This also causes codegen to run for components
+  // loaded from npm packages.
+  if (liveComponentSources) {
+    options.conditions.push("@convex-dev/component-source");
+  }
+  return options;
+}
 
 // Use the esbuild metafile to discover the dependency graph in which component
 // definitions are nodes.
@@ -190,6 +206,7 @@ export async function componentGraph(
   ctx: Context,
   absWorkingDir: string,
   rootComponentDirectory: ComponentDirectory,
+  liveComponentSources: boolean,
   verbose: boolean = true,
 ): Promise<{
   components: Map<string, ComponentDirectory>;
@@ -211,7 +228,7 @@ export async function componentGraph(
       sourcemap: "external",
       sourcesContent: false,
 
-      ...SHARED_ESBUILD_OPTIONS,
+      ...sharedEsbuildOptions({ liveComponentSources }),
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);
   } catch (err: any) {
@@ -343,6 +360,7 @@ export async function bundleDefinitions(
   dependencyGraph: [ComponentDirectory, ComponentDirectory][],
   rootComponentDirectory: ComponentDirectory,
   componentDirectories: ComponentDirectory[],
+  liveComponentSources: boolean,
   verbose: boolean = false,
 ): Promise<{
   appDefinitionSpecWithoutImpls: AppDefinitionSpecWithoutImpls;
@@ -364,7 +382,7 @@ export async function bundleDefinitions(
         }),
       ],
       sourcemap: true,
-      ...SHARED_ESBUILD_OPTIONS,
+      ...sharedEsbuildOptions({ liveComponentSources }),
     });
     await registerEsbuildReads(ctx, absWorkingDir, result.metafile);
   } catch (err: any) {

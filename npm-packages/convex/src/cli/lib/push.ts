@@ -25,6 +25,7 @@ export type PushOptions = {
   url: string;
   writePushRequest?: string;
   cleanupHandle: CleanupDeploymentFunc | null;
+  liveComponentSources: boolean;
 };
 
 export async function runNonComponentsPush(

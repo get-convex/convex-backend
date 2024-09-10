@@ -111,6 +111,7 @@ export const deploy = new Command("deploy")
       .hideHelp()
       .conflicts("preview-create"),
   )
+  .addOption(new Option("--live-component-sources").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext;
@@ -232,6 +233,7 @@ async function deployToNewPreviewDeployment(
     codegen: options.codegen === "enable",
     url: previewUrl,
     cleanupHandle: null,
+    liveComponentSources: false,
   };
   showSpinner(ctx, `Deploying to ${previewUrl}...`);
   await runPush(oneoffContext, pushOptions);
@@ -273,6 +275,7 @@ async function deployToExistingDeployment(
     adminKey?: string | undefined;
     url?: string | undefined;
     writePushRequest?: string | undefined;
+    liveComponentSources?: boolean | undefined;
   },
 ) {
   const deploymentSelection = deploymentSelectionFromOptions({
@@ -327,6 +330,7 @@ async function deployToExistingDeployment(
     url,
     writePushRequest: options.writePushRequest,
     cleanupHandle: null,
+    liveComponentSources: !!options.liveComponentSources,
   };
   showSpinner(
     ctx,
