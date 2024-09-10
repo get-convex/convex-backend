@@ -203,17 +203,22 @@ function use<Definition extends ComponentDefinition<any>>(
   }
   const name =
     options?.name ||
+    // added recently
+    importedComponentDefinition.defaultName ||
+    // can be removed once backend is out
     importedComponentDefinition.componentDefinitionPath.split("/").pop()!;
   this._childComponents.push([name, importedComponentDefinition, {}]);
   return new InstalledComponent(definition, name);
 }
 
-// At runtime when you import a ComponentDefinition, this is all it is
+// At runtime when you import a ComponentDefinition, this is all it is.
+//
 /**
  * @internal
  */
 export type ImportedComponentDefinition = {
   componentDefinitionPath: string;
+  defaultName: string;
 };
 
 function exportAppForAnalysis(

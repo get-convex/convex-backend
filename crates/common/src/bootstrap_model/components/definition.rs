@@ -73,6 +73,14 @@ impl ComponentDefinitionMetadata {
     pub fn is_app(&self) -> bool {
         self.definition_type == ComponentDefinitionType::App
     }
+
+    pub fn default_name_string(&self) -> String {
+        match self.definition_type {
+            // This isn't used anywhere, the name of the App component is hardcoded.
+            ComponentDefinitionType::App => "root".to_string(),
+            ComponentDefinitionType::ChildComponent { ref name, args: _ } => name.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -170,7 +178,7 @@ pub struct SerializedComponentDefinitionMetadata {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-enum SerializedComponentDefinitionType {
+pub enum SerializedComponentDefinitionType {
     App {},
     ChildComponent {
         name: String,
@@ -180,7 +188,7 @@ enum SerializedComponentDefinitionType {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-enum SerializedComponentArgumentValidator {
+pub enum SerializedComponentArgumentValidator {
     Value { value: String },
 }
 

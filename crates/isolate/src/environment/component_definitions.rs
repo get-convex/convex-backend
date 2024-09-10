@@ -526,9 +526,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
             let synthetic_module = FullModuleSource {
                 source: format!(
                     "export default {{ export: () => {{ return {} }}, componentDefinitionPath: \
-                     \"{}\", }}",
+                     \"{}\", defaultName: \"{}\"}}",
                     serde_json::to_string(&serialized_def)?,
-                    String::from(def_path.clone())
+                    String::from(def_path.clone()),
+                    def.default_name_string()
                 ),
                 source_map: None,
             };
