@@ -46,7 +46,7 @@ export const convexExport = new Command("export")
   .addDeploymentSelectionOptions(actionDescription("Export data from"))
   .showHelpAfterError()
   .action(async (options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     const deploymentSelection = deploymentSelectionFromOptions(options);
 

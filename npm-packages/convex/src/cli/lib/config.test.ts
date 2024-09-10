@@ -5,11 +5,12 @@ import stripAnsi from "strip-ansi";
 
 test("parseProjectConfig", async () => {
   // Make a context that throws on crashes so we can detect them.
+  const originalContext = oneoffContext();
   const ctx = {
-    ...oneoffContext,
+    ...originalContext,
     crash: (args: { printedMessage: string | null }) => {
       if (args.printedMessage !== null) {
-        logFailure(oneoffContext, args.printedMessage);
+        logFailure(originalContext, args.printedMessage);
       }
       throw new Error();
     },

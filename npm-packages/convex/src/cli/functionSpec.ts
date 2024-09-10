@@ -20,7 +20,7 @@ export const functionSpec = new Command("function-spec")
   )
   .showHelpAfterError()
   .action(async (options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     const deploymentSelection = deploymentSelectionFromOptions(options);
 
     const { adminKey, url: deploymentUrl } =

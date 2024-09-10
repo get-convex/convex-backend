@@ -9,7 +9,7 @@ export const docs = new Command("docs")
   .description("Open the docs in the browser")
   .option("--no-open", "Print docs URL instead of opening it in your browser")
   .action(async (options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     // Usually we'd call `getConfiguredDeploymentName` but in this
     // command we don't care at all if the user is in the right directory
     const configuredDeployment = getTargetDeploymentName();

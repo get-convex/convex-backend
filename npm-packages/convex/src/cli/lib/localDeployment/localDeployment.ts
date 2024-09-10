@@ -19,17 +19,13 @@ import {
   runLocalBackend,
 } from "./run.js";
 import { handlePotentialUpgrade } from "./upgrade.js";
-import {
-  CleanupDeploymentFunc,
-  OnDeploymentActivityFunc,
-} from "../deployment.js";
+import { OnDeploymentActivityFunc } from "../deployment.js";
 import { promptSearch } from "../utils/prompts.js";
 
 export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
   adminKey: string;
-  cleanupHandle: CleanupDeploymentFunc;
   onActivity: OnDeploymentActivityFunc;
 };
 
@@ -59,11 +55,16 @@ export async function handleLocalDeployment(
       ctx,
       `Found existing deployment for project ${options.projectSlug}`,
     );
+    // If it's still running for some reason, exit and tell the user to kill it.
+    // It's fine if a different backend is running on these ports though since we'll
+    // pick new ones.
     await ensureBackendStopped(ctx, {
       ports: {
         cloud: existingDeploymentForProject.config.ports.cloud,
       },
       maxTimeSecs: 5,
+      deploymentName: existingDeploymentForProject.deploymentName,
+      allowOtherDeployments: true,
     });
   }
 
@@ -106,17 +107,21 @@ export async function handleLocalDeployment(
     forceUpgrade: options.forceUpgrade,
   });
 
+  const cleanupFunc = ctx.removeCleanup(cleanupHandle);
+  ctx.registerCleanup(async () => {
+    if (cleanupFunc !== null) {
+      await cleanupFunc();
+    }
+    await bigBrainPause(ctx, {
+      projectSlug: options.projectSlug,
+      teamSlug: options.teamSlug,
+    });
+  });
+
   return {
     adminKey,
     deploymentName,
     deploymentUrl: localDeploymentUrl(ports.cloud),
-    cleanupHandle: async () => {
-      await cleanupHandle();
-      await bigBrainPause(ctx, {
-        projectSlug: options.projectSlug,
-        teamSlug: options.teamSlug,
-      });
-    },
     onActivity,
   };
 }
@@ -137,7 +142,7 @@ async function handleOffline(
   });
   const ports = await choosePorts(ctx, options.ports);
   saveDeploymentConfig(ctx, deploymentName, config);
-  const { cleanupHandle } = await runLocalBackend(ctx, {
+  await runLocalBackend(ctx, {
     binaryPath,
     ports,
     deploymentName,
@@ -146,7 +151,6 @@ async function handleOffline(
     adminKey: config.adminKey,
     deploymentName,
     deploymentUrl: localDeploymentUrl(ports.cloud),
-    cleanupHandle,
     onActivity: async (isOffline: boolean, wasOffline: boolean) => {
       await ensureBackendRunning(ctx, {
         cloudPort: ports.cloud,

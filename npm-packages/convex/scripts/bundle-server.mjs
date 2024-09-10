@@ -14,8 +14,9 @@ const out = [];
 // Only bundle "setup.ts" from `udf/_system`.
 const udfDir = process.argv[2];
 const setupPath = path.join(udfDir, "setup.ts");
+const ctx = oneoffContext();
 const setupBundles = (
-  await bundle(oneoffContext, process.argv[2], [setupPath], true, "browser")
+  await bundle(ctx, process.argv[2], [setupPath], true, "browser")
 ).modules;
 if (setupBundles.length !== 1) {
   throw new Error("Got more than one setup bundle?");
@@ -26,19 +27,9 @@ for (const systemDir of systemDirs) {
   if (path.basename(systemDir) !== "_system") {
     throw new Error(`Refusing to bundle non-system directory ${systemDir}`);
   }
-  const entryPoints = await entryPointsByEnvironment(
-    oneoffContext,
-    systemDir,
-    false,
-  );
+  const entryPoints = await entryPointsByEnvironment(ctx, systemDir, false);
   const bundles = (
-    await bundle(
-      oneoffContext,
-      systemDir,
-      entryPoints.isolate,
-      false,
-      "browser",
-    )
+    await bundle(ctx, systemDir, entryPoints.isolate, false, "browser")
   ).modules;
   out.push(...bundles);
 }

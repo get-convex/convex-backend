@@ -21,7 +21,7 @@ export const reinit = new Command("reinit")
     ),
   )
   .action(async (_options) => {
-    return oneoffContext.crash({
+    return oneoffContext().crash({
       exitCode: 1,
       errorType: "fatal",
       errForSentry:

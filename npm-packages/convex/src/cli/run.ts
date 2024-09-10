@@ -52,7 +52,7 @@ export const run = new Command("run")
 
   .showHelpAfterError()
   .action(async (functionName, argsString, options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     const deploymentSelection = deploymentSelectionFromOptions(options);
 
@@ -87,7 +87,6 @@ export const run = new Command("run")
           debug: false,
           codegen: options.codegen === "enable",
           url: deploymentUrl,
-          cleanupHandle: null,
           liveComponentSources: !!options.liveComponentSources,
         },
         {

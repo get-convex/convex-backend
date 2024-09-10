@@ -114,7 +114,7 @@ export const deploy = new Command("deploy")
   .addOption(new Option("--live-component-sources").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     storeAdminKeyEnvVar(cmdOptions.adminKey);
     const configuredDeployKey = readAdminKeyFromEnvVar() ?? null;
@@ -232,11 +232,10 @@ async function deployToNewPreviewDeployment(
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
     url: previewUrl,
-    cleanupHandle: null,
     liveComponentSources: false,
   };
   showSpinner(ctx, `Deploying to ${previewUrl}...`);
-  await runPush(oneoffContext, pushOptions);
+  await runPush(ctx, pushOptions);
   logFinishedStep(ctx, `Deployed Convex functions to ${previewUrl}`);
 
   if (options.previewRun !== undefined) {
@@ -329,14 +328,13 @@ async function deployToExistingDeployment(
     codegen: options.codegen === "enable",
     url,
     writePushRequest: options.writePushRequest,
-    cleanupHandle: null,
     liveComponentSources: !!options.liveComponentSources,
   };
   showSpinner(
     ctx,
     `Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`,
   );
-  await runPush(oneoffContext, pushOptions);
+  await runPush(ctx, pushOptions);
   logFinishedStep(
     ctx,
     `${

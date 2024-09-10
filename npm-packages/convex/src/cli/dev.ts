@@ -115,7 +115,11 @@ export const dev = new Command("dev")
   .addOption(new Option("--live-component-sources").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
+    process.on("SIGINT", async () => {
+      logVerbose(ctx, "Received SIGINT, cleaning up...");
+      await ctx.flushAndExit(-2);
+    });
 
     if (cmdOptions.debugBundlePath !== undefined && !cmdOptions.once) {
       return await ctx.crash({
@@ -175,19 +179,6 @@ export const dev = new Command("dev")
       ...cmdOptions,
       localOptions,
     });
-    let cleanupHandle = credentials.cleanupHandle;
-    process.on("SIGINT", async () => {
-      logVerbose(ctx, "Received SIGINT, cleaning up...");
-      if (cleanupHandle !== null) {
-        logVerbose(ctx, "About to run cleanup handle.");
-        // Sometimes `SIGINT` gets sent twice, so set `cleanupHandle` to null to prevent double-cleanup
-        const f = cleanupHandle;
-        cleanupHandle = null;
-        await f();
-      }
-      logVerbose(ctx, "Cleaned up. Exiting.");
-      process.exit(-2);
-    });
 
     await usageStateWarning(ctx);
 
@@ -214,6 +205,7 @@ export const dev = new Command("dev")
       ),
     );
     await Promise.race(promises);
+    await ctx.flushAndExit(0);
   });
 
 export async function watchAndPush(
@@ -296,15 +288,9 @@ export async function watchAndPush(
       stopSpinner(ctx);
     }
     if (cmdOptions.once) {
-      if (options.cleanupHandle !== null) {
-        await options.cleanupHandle();
-      }
       return;
     }
     if (pushed && cmdOptions.untilSuccess) {
-      if (options.cleanupHandle !== null) {
-        await options.cleanupHandle();
-      }
       return;
     }
     const fileSystemWatch = getFileSystemWatch(ctx, watch, cmdOptions);

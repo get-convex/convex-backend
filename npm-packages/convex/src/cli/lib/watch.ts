@@ -1,12 +1,7 @@
 import chokidar from "chokidar";
 import path from "path";
 import { Observations, RecordingFs, WatchEvent } from "../../bundler/fs.js";
-import {
-  Context,
-  ErrorType,
-  logFailure,
-  logWarning,
-} from "../../bundler/context.js";
+import { Context, ErrorType, logFailure } from "../../bundler/context.js";
 import * as Sentry from "@sentry/node";
 import { Ora } from "ora";
 
@@ -100,6 +95,7 @@ export class Crash extends Error {
 }
 
 export class WatchContext implements Context {
+  private _cleanupFns: Record<string, () => Promise<void>> = {};
   fs: RecordingFs;
   deprecationMessagePrinted: boolean;
   spinner: Ora | undefined;
@@ -109,25 +105,35 @@ export class WatchContext implements Context {
     this.deprecationMessagePrinted = false;
   }
 
-  crash(args: {
+  async crash(args: {
     exitCode: number;
     errorType?: ErrorType;
     errForSentry?: any;
     printedMessage: string | null;
-    messageLevel?: "error" | "warning";
   }): Promise<never> {
     if (args.errForSentry) {
       Sentry.captureException(args.errForSentry);
     }
     if (args.printedMessage !== null) {
-      if (args.messageLevel === "warning") {
-        logWarning(this, args.printedMessage);
-      } else {
-        logFailure(this, args.printedMessage);
-      }
+      logFailure(this, args.printedMessage);
+    }
+    for (const fn of Object.values(this._cleanupFns)) {
+      await fn();
     }
     // Okay to throw here. We've wrapped it in a Crash that we'll catch later.
     // eslint-disable-next-line no-restricted-syntax
     throw new Crash(args.errorType, args.errForSentry);
+  }
+
+  registerCleanup(fn: () => Promise<void>): string {
+    const handle = Math.random().toString(36).slice(2);
+    this._cleanupFns[handle] = fn;
+    return handle;
+  }
+
+  removeCleanup(handle: string) {
+    const value = this._cleanupFns[handle];
+    delete this._cleanupFns[handle];
+    return value ?? null;
   }
 }

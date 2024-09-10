@@ -86,7 +86,7 @@ export const convexImport = new Command("import")
   .argument("<path>", "Path to the input file")
   .showHelpAfterError()
   .action(async (filePath, options, command) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     if (command.args.length > 1) {
       return await ctx.crash({

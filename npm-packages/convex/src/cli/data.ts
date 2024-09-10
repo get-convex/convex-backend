@@ -54,7 +54,7 @@ export const data = new Command("data")
   .addDeploymentSelectionOptions(actionDescription("Inspect the database in"))
   .showHelpAfterError()
   .action(async (tableName, options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     const deploymentSelection = deploymentSelectionFromOptions(options);
 
     const {

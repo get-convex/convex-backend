@@ -132,7 +132,7 @@ export async function runLocalBackend(
     binaryPath: string;
   },
 ): Promise<{
-  cleanupHandle: () => Promise<void>;
+  cleanupHandle: string;
 }> {
   const { ports } = args;
   const deploymentDir = deploymentStateDir(args.deploymentName);
@@ -160,6 +160,10 @@ export async function runLocalBackend(
         `Local backend exited with code ${code}, full command \`${commandStr}\``,
       );
     });
+  const cleanupHandle = ctx.registerCleanup(async () => {
+    logVerbose(ctx, `Stopping local backend on port ${ports.cloud}`);
+    p.kill("SIGTERM");
+  });
 
   await ensureBackendRunning(ctx, {
     cloudPort: ports.cloud,
@@ -168,10 +172,7 @@ export async function runLocalBackend(
   });
 
   return {
-    cleanupHandle: async () => {
-      logVerbose(ctx, `Stopping local backend on port ${ports.cloud}`);
-      p.kill("SIGTERM");
-    },
+    cleanupHandle,
   };
 }
 
@@ -221,6 +222,9 @@ export async function ensureBackendStopped(
       site?: number;
     };
     maxTimeSecs: number;
+    deploymentName: string;
+    // Whether to allow a deployment with a different name to run on this port
+    allowOtherDeployments: boolean;
   },
 ) {
   logVerbose(
@@ -235,6 +239,28 @@ export async function ensureBackendStopped(
     // Both ports are free
     if (cloudPort === args.ports.cloud && sitePort === args.ports.site) {
       return;
+    }
+    try {
+      const instanceNameResp = await fetch(
+        `${localDeploymentUrl(args.ports.cloud)}/instance_name`,
+      );
+      if (instanceNameResp.ok) {
+        const instanceName = await instanceNameResp.text();
+        if (instanceName !== args.deploymentName) {
+          if (args.allowOtherDeployments) {
+            return;
+          }
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `A different local backend ${instanceName} is running on selected port ${args.ports.cloud}`,
+          });
+        }
+      }
+    } catch (error: any) {
+      logVerbose(ctx, `Error checking if backend is running: ${error.message}`);
+      // Backend is probably not running
+      continue;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
     timeElapsedSecs += 0.5;

@@ -20,7 +20,7 @@ export const typecheck = new Command("typecheck")
     "Run TypeScript typechecking on your Convex functions with `tsc --noEmit`.",
   )
   .action(async () => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     const { configPath, config: localConfig } = await readConfig(ctx, false);
     await ensureHasConvexDependency(ctx, "typecheck");
     await typeCheckFunctions(

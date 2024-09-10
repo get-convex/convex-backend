@@ -35,7 +35,7 @@ export const codegen = new Command("codegen")
     ).hideHelp(),
   )
   .action(async (options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     await runCodegen(ctx, {
       dryRun: !!options.dryRun,

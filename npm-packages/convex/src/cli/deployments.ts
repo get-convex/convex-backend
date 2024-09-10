@@ -14,7 +14,7 @@ type Deployment = {
 export const deployments = new Command("deployments")
   .description("List deployments associated with a project")
   .action(async () => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     const { projectConfig: config } = await readProjectConfig(ctx);
 
     const url = `teams/${config.team}/projects/${config.project}/deployments`;

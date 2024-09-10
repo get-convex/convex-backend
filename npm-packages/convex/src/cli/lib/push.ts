@@ -12,7 +12,6 @@ import { pushSchema } from "./indexes.js";
 import { typeCheckFunctionsInMode } from "./typecheck.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
-import { CleanupDeploymentFunc } from "./deployment.js";
 
 export type PushOptions = {
   adminKey: string;
@@ -24,7 +23,6 @@ export type PushOptions = {
   codegen: boolean;
   url: string;
   writePushRequest?: string;
-  cleanupHandle: CleanupDeploymentFunc | null;
   liveComponentSources: boolean;
 };
 

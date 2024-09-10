@@ -47,7 +47,6 @@ import { promptOptions, promptString } from "./lib/utils/prompts.js";
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
-  cleanupHandle: (() => Promise<void>) | null;
 };
 
 /**
@@ -79,7 +78,6 @@ export async function deploymentCredentialsOrConfigure(
 ): Promise<
   DeploymentCredentials & {
     deploymentName?: DeploymentName;
-    cleanupHandle: null | (() => Promise<void>);
   }
 > {
   if (cmdOptions.url !== undefined && cmdOptions.adminKey !== undefined) {
@@ -87,7 +85,7 @@ export async function deploymentCredentialsOrConfigure(
       url: cmdOptions.url,
       adminKey: cmdOptions.adminKey,
     });
-    return { ...credentials, cleanupHandle: null };
+    return { ...credentials };
   }
   const { projectSlug, teamSlug } = await selectProject(
     ctx,
@@ -103,7 +101,6 @@ export async function deploymentCredentialsOrConfigure(
     deploymentName,
     deploymentUrl: url,
     adminKey,
-    cleanupHandle,
   } = await ensureDeploymentProvisioned(ctx, {
     teamSlug,
     projectSlug,
@@ -117,7 +114,7 @@ export async function deploymentCredentialsOrConfigure(
     deploymentType: deploymentOptions.kind,
   });
 
-  return { deploymentName, url, adminKey, cleanupHandle };
+  return { deploymentName, url, adminKey };
 }
 
 async function handleManuallySetUrlAndAdminKey(
@@ -429,7 +426,6 @@ async function ensureDeploymentProvisioned(
         );
       return {
         ...credentials,
-        cleanupHandle: null,
         onActivity: null,
       };
     }

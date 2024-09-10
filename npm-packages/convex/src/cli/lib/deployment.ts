@@ -251,6 +251,5 @@ export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
   adminKey: string;
-  cleanupHandle: CleanupDeploymentFunc | null;
   onActivity: OnDeploymentActivityFunc | null;
 };

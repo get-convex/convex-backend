@@ -66,7 +66,7 @@ export const networkTest = new Command("network-test")
 
   .addOption(new Option("--url <url>"))
   .action(async (options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     const timeoutSeconds = options.timeout
       ? Number.parseFloat(options.timeout)
       : 30;

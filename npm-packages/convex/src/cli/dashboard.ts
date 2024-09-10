@@ -21,7 +21,7 @@ export const dashboard = new Command("dashboard")
   .addDeploymentSelectionOptions(actionDescription("Open the dashboard for"))
   .showHelpAfterError()
   .action(async (options) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     const deploymentSelection = deploymentSelectionFromOptions(options);
     const { deploymentName } = await fetchDeploymentCredentialsProvisionProd(

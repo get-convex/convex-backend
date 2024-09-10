@@ -45,6 +45,8 @@ export interface Context {
     errForSentry?: any;
     printedMessage: string | null;
   }): Promise<never>;
+  registerCleanup(fn: () => Promise<void>): string;
+  removeCleanup(handle: string): (() => Promise<void>) | null;
 }
 
 async function flushAndExit(exitCode: number, err?: any) {
@@ -64,24 +66,45 @@ export type OneoffCtx = Context & {
   flushAndExit: (exitCode: number, err?: any) => Promise<never>;
 };
 
-export const oneoffContext: OneoffCtx = {
-  fs: nodeFs,
-  deprecationMessagePrinted: false,
-  spinner: undefined,
-  async crash(args: {
+class OneoffContextImpl {
+  private _cleanupFns: Record<string, () => Promise<void>> = {};
+  public fs: Filesystem = nodeFs;
+  public deprecationMessagePrinted: boolean = false;
+  public spinner: Ora | undefined = undefined;
+  crash = async (args: {
     exitCode: number;
     errorType?: ErrorType;
     errForSentry?: any;
     printedMessage: string | null;
-  }) {
+  }) => {
     if (args.printedMessage !== null) {
-      logFailure(oneoffContext, args.printedMessage);
+      logFailure(this, args.printedMessage);
     }
-    return await flushAndExit(args.exitCode, args.errForSentry);
-  },
-  flushAndExit,
-};
+    return await this.flushAndExit(args.exitCode, args.errForSentry);
+  };
+  flushAndExit = async (exitCode: number, err?: any) => {
+    logVerbose(this, "Flushing and exiting");
+    const fns = Object.values(this._cleanupFns);
+    logVerbose(this, `Running ${fns.length} cleanup functions`);
+    for (const fn of fns) {
+      await fn();
+    }
+    logVerbose(this, "All cleanup functions ran");
+    return flushAndExit(exitCode, err);
+  };
+  registerCleanup(fn: () => Promise<void>) {
+    const handle = Math.random().toString(36).slice(2);
+    this._cleanupFns[handle] = fn;
+    return handle;
+  }
+  removeCleanup(handle: string) {
+    const value = this._cleanupFns[handle];
+    delete this._cleanupFns[handle];
+    return value ?? null;
+  }
+}
 
+export const oneoffContext: () => OneoffCtx = () => new OneoffContextImpl();
 // console.error before it started being red by default in Node v20
 function logToStderr(...args: unknown[]) {
   process.stderr.write(`${format(...args)}\n`);

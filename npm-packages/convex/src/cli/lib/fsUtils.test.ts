@@ -7,7 +7,7 @@ import { recursivelyDelete } from "./fsUtils.js";
 
 describe("fsUtils", () => {
   let tmpDir: string;
-  const ctx = oneoffContext;
+  const ctx = oneoffContext();
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);

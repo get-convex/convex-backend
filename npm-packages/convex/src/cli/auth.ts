@@ -2,7 +2,7 @@ import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
 
 const list = new Command("list").action(async () => {
-  const ctx = oneoffContext;
+  const ctx = oneoffContext();
   await ctx.crash({
     exitCode: 1,
     errorType: "fatal",
@@ -13,7 +13,7 @@ const list = new Command("list").action(async () => {
 });
 
 const rm = new Command("remove").action(async () => {
-  const ctx = oneoffContext;
+  const ctx = oneoffContext();
   await ctx.crash({
     exitCode: 1,
     errorType: "fatal",
@@ -27,7 +27,7 @@ const add = new Command("add")
   .addOption(new Option("--identity-provider-url <url>").hideHelp())
   .addOption(new Option("--application-id <applicationId>").hideHelp())
   .action(async () => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     await ctx.crash({
       exitCode: 1,
       errorType: "fatal",

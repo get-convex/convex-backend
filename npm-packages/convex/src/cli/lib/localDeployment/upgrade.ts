@@ -40,7 +40,7 @@ export async function handlePotentialUpgrade(
     adminKey: string;
     forceUpgrade: boolean;
   },
-): Promise<{ cleanupHandle: () => Promise<void> }> {
+): Promise<{ cleanupHandle: string }> {
   const newConfig = {
     ports: args.ports,
     backendVersion: args.newVersion,
@@ -123,7 +123,7 @@ async function handleUpgrade(
     };
     adminKey: string;
   },
-): Promise<{ cleanupHandle: () => Promise<void> }> {
+): Promise<{ cleanupHandle: string }> {
   const { binaryPath: oldBinaryPath } = await ensureBackendBinaryDownloaded(
     ctx,
     {
@@ -183,8 +183,16 @@ async function handleUpgrade(
   });
 
   logVerbose(ctx, "Stopping the backend on the old version");
-  await oldCleanupHandle();
-  await ensureBackendStopped(ctx, { ports: args.ports, maxTimeSecs: 5 });
+  const oldCleanupFunc = ctx.removeCleanup(oldCleanupHandle);
+  if (oldCleanupFunc) {
+    await oldCleanupFunc();
+  }
+  await ensureBackendStopped(ctx, {
+    ports: args.ports,
+    maxTimeSecs: 5,
+    deploymentName: args.deploymentName,
+    allowOtherDeployments: false,
+  });
 
   // TODO(ENG-7078) save old artifacts to backup files
   logVerbose(ctx, "Running backend on new version");

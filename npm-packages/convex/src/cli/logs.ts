@@ -27,7 +27,7 @@ export const logs = new Command("logs")
   .addDeploymentSelectionOptions(actionDescription("Watch logs from"))
   .showHelpAfterError()
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
 
     const deploymentSelection = deploymentSelectionFromOptions(cmdOptions);
     const credentials = await fetchDeploymentCredentialsProvisionProd(

@@ -35,7 +35,7 @@ const envSet = new Command("set")
   .allowExcessArguments(false)
   .action(async (originalName, originalValue, _options, cmd) => {
     const options = cmd.optsWithGlobals();
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     await ensureHasConvexDependency(ctx, "env set");
     const [name, value] = await allowEqualsSyntax(
       ctx,
@@ -78,7 +78,7 @@ const envGet = new Command("get")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (envVarName, _options, cmd) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     await ensureHasConvexDependency(ctx, "env get");
     const options = cmd.optsWithGlobals();
     const deploymentSelection = deploymentSelectionFromOptions(options);
@@ -116,7 +116,7 @@ const envRemove = new Command("remove")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (name, _options, cmd) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     const options = cmd.optsWithGlobals();
     await ensureHasConvexDependency(ctx, "env remove");
     const where = await callUpdateEnvironmentVariables(ctx, options, [
@@ -131,7 +131,7 @@ const envList = new Command("list")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (_options, cmd) => {
-    const ctx = oneoffContext;
+    const ctx = oneoffContext();
     await ensureHasConvexDependency(ctx, "env list");
     const options = cmd.optsWithGlobals();
     const deploymentSelection = deploymentSelectionFromOptions(options);
