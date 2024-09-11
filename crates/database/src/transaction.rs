@@ -698,10 +698,7 @@ impl<RT: Runtime> Transaction<RT> {
             .get_by_state(namespace, state, schema_tablet, &mut self.reads)
     }
 
-    pub(crate) fn get_component_path(
-        &mut self,
-        component_id: ComponentId,
-    ) -> Option<ComponentPath> {
+    pub fn get_component_path(&mut self, component_id: ComponentId) -> Option<ComponentPath> {
         self.component_registry
             .get_component_path(component_id, &mut self.reads)
     }
