@@ -83,7 +83,7 @@ importers:
       '@sentry/node': ^7.23.0
       '@sentry/tracing': ^7.23.0
       '@swc/core': 1.3.107
-      '@testing-library/react': ~14.0.0
+      '@testing-library/react': ~16.0.1
       '@types/adm-zip': ^0.5.5
       '@types/deep-equal': 1.0.1
       '@types/detect-port': ~1.3.5
@@ -160,7 +160,7 @@ importers:
       '@sentry/node': 7.119.0
       '@sentry/tracing': 7.114.0
       '@swc/core': 1.3.107
-      '@testing-library/react': 14.0.0_nnrd3gsncyragczmpvfhocinkq
+      '@testing-library/react': 16.0.1_adb5muplocaqdaz4b6fdumzavy
       '@types/adm-zip': 0.5.5
       '@types/deep-equal': 1.0.1
       '@types/detect-port': 1.3.5
@@ -168,7 +168,7 @@ importers:
       '@types/inquirer': 8.2.10
       '@types/jwt-encode': 1.0.3
       '@types/node': 18.19.50
-      '@types/react': 18.3.5
+      '@types/react': 18.3.1
       '@types/react-dom': 18.3.0
       '@types/semver': 7.5.8
       '@types/ws': 8.5.12
@@ -3500,29 +3500,38 @@ packages:
       '@swc/counter': 0.1.3
     dev: true
 
-  /@testing-library/dom/9.3.4:
-    resolution: {integrity: sha512-FlS4ZWlp97iiNWig0Muq8p+3rVDjRiYE+YKGbAqXOu9nwJFFOdL00kFpz42M+4huzYi86vAK1sOOfyOG45muIQ==}
-    engines: {node: '>=14'}
+  /@testing-library/dom/10.4.0:
+    resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
+    engines: {node: '>=18'}
     dependencies:
       '@babel/code-frame': 7.24.7
       '@babel/runtime': 7.25.6
       '@types/aria-query': 5.0.4
-      aria-query: 5.1.3
+      aria-query: 5.3.0
       chalk: 4.1.2
       dom-accessibility-api: 0.5.16
       lz-string: 1.5.0
       pretty-format: 27.5.1
     dev: true
 
-  /@testing-library/react/14.0.0_nnrd3gsncyragczmpvfhocinkq:
-    resolution: {integrity: sha512-S04gSNJbYE30TlIMLTzv6QCTzt9AqIF5y6s6SzVFILNcNvbV/jU96GeiTPillGQo+Ny64M/5PV7klNYYgv5Dfg==}
-    engines: {node: '>=14'}
+  /@testing-library/react/16.0.1_adb5muplocaqdaz4b6fdumzavy:
+    resolution: {integrity: sha512-dSmwJVtJXmku+iocRhWOUFbrERC76TX2Mnf0ATODz8brzAZrMBbzLwQixlBSanZxR6LddK3eiwpSFZgDET1URg==}
+    engines: {node: '>=18'}
     peerDependencies:
+      '@testing-library/dom': ^10.0.0
+      '@types/react': ^18.0.0
+      '@types/react-dom': ^18.0.0
       react: ^18.0.0
       react-dom: ^18.0.0
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
     dependencies:
       '@babel/runtime': 7.25.6
-      '@testing-library/dom': 9.3.4
+      '@testing-library/dom': 10.4.0
+      '@types/react': 18.3.1
       '@types/react-dom': 18.3.0
       react: 18.3.1
       react-dom: 18.3.1_react@18.3.1
@@ -3694,11 +3703,11 @@ packages:
   /@types/react-dom/18.3.0:
     resolution: {integrity: sha512-EhwApuTmMBmXuFOikhQLIBUn6uFg81SwLMOAUgodJF14SOBOCMdU04gDoYi0WOJJHD144TL32z4yDqCW3dnkQg==}
     dependencies:
-      '@types/react': 18.3.5
+      '@types/react': 18.3.1
     dev: true
 
-  /@types/react/18.3.5:
-    resolution: {integrity: sha512-WeqMfGJLGuLCqHGYRGHxnKrXcTitc6L/nBUWfWPcTarG3t9PsquqUMuVeXZeca+mglY4Vo5GZjCi0A3Or2lnxA==}
+  /@types/react/18.3.1:
+    resolution: {integrity: sha512-V0kuGBX3+prX+DQ/7r2qsv1NsdfnCLnTgnRJ1pYnxykBhGMz+qj+box5lq7XsO5mtZsBqpjwwTu/7wszPfMBcw==}
     dependencies:
       '@types/prop-types': 15.7.12
       csstype: 3.1.3
@@ -4300,10 +4309,10 @@ packages:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
     dev: true
 
-  /aria-query/5.1.3:
-    resolution: {integrity: sha512-R5iJ5lkuHybztUfuOAznmboyjWq8O6sqNqtK7CLOqdydi54VNbORp49mb14KbWgG1QD3JFO9hJdZ+y4KutfdOQ==}
+  /aria-query/5.3.0:
+    resolution: {integrity: sha512-b0P0sZPKtyu8HkeRAfCq0IfURZK+SuwMjY1UXGBU27wpAiTwQAIlq56IbIO+ytk/JjS1fMR14ee5WBBfKi5J6A==}
     dependencies:
-      deep-equal: 2.1.0
+      dequal: 2.0.3
     dev: true
 
   /array-buffer-byte-length/1.0.1:
@@ -5134,6 +5143,11 @@ packages:
 
   /deps-regex/0.2.0:
     resolution: {integrity: sha512-PwuBojGMQAYbWkMXOY9Pd/NWCDNHVH12pnS7WHqZkTSeMESe4hwnKKRp0yR87g37113x4JPbo/oIvXY+s/f56Q==}
+    dev: true
+
+  /dequal/2.0.3:
+    resolution: {integrity: sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA==}
+    engines: {node: '>=6'}
     dev: true
 
   /detect-file/1.0.0:
