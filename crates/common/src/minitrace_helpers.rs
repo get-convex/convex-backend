@@ -5,6 +5,7 @@ use std::{
         Hasher,
     },
     str::FromStr,
+    sync::LazyLock,
 };
 
 use anyhow::Context;
@@ -13,10 +14,14 @@ use minitrace::{
     collector::SpanContext,
     Span,
 };
+use parking_lot::Mutex;
 use rand::Rng;
 use regex::Regex;
 
 use crate::knobs::REQUEST_TRACE_SAMPLE_CONFIG;
+
+static SAMPLING_CONFIG_FROM_LOADER: LazyLock<Mutex<Option<SamplingConfig>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 #[derive(Clone, Debug)]
 pub struct EncodedSpan(pub Option<String>);
@@ -40,7 +45,7 @@ pub fn get_sampled_span<R: Rng>(
     rng: &mut R,
     properties: BTreeMap<String, String>,
 ) -> Span {
-    let sample_ratio = REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(instance_name, name);
+    let sample_ratio = get_sampling_ratio(instance_name, name);
     let should_sample = rng.gen_bool(sample_ratio);
     match should_sample {
         true => Span::root(name.to_owned(), SpanContext::random()).with_properties(|| properties),
@@ -60,7 +65,7 @@ pub fn get_keyed_sampled_span<K: Hash + std::fmt::Debug>(
     let mut hasher = FnvHasher::default();
     key.hash(&mut hasher);
     let hash = hasher.finish() as u32;
-    let sample_ratio = REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(instance_name, name);
+    let sample_ratio = get_sampling_ratio(instance_name, name);
     let threshold = ((u32::MAX as f64) * sample_ratio) as u32;
     if hash < threshold {
         tracing::info!("Sampling span for {key:?}: {name}");
@@ -68,6 +73,32 @@ pub fn get_keyed_sampled_span<K: Hash + std::fmt::Debug>(
     } else {
         tracing::info!("Not sampling span for {key:?}: {name}");
         Span::noop()
+    }
+}
+
+/// Sets the sampling configuration to be used by the `get_sampled_span`
+/// function
+pub fn set_sampling_config(config_str: &str) {
+    match config_str.parse() {
+        Ok(config) => {
+            *SAMPLING_CONFIG_FROM_LOADER.lock() = Some(config);
+            tracing::info!("Sampling config set to: {}", config_str);
+        },
+        Err(e) => {
+            tracing::error!("Failed to parse sampling config: {}", e);
+        },
+    }
+}
+
+fn get_sampling_ratio(instance_name: &str, name: &str) -> f64 {
+    if SAMPLING_CONFIG_FROM_LOADER.lock().is_some() {
+        SAMPLING_CONFIG_FROM_LOADER
+            .lock()
+            .as_ref()
+            .unwrap()
+            .sample_ratio(instance_name, name)
+    } else {
+        REQUEST_TRACE_SAMPLE_CONFIG.sample_ratio(instance_name, name)
     }
 }
 
