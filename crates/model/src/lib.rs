@@ -307,8 +307,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
             .namespace(namespace)
             .id(table.table_name())?
             .tablet_id;
-        let mut index_model = IndexModel::new(tx);
-        let existing_indexes: BTreeMap<_, _> = index_model
+        let existing_indexes: BTreeMap<_, _> = IndexModel::new(tx)
             .all_indexes_on_table(table_id)
             .await?
             .into_iter()
@@ -373,8 +372,9 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                 .any(|defined_index| defined_index.name == index_name)
             {
                 // Existing index is not referenced any more.
-                // Dry-run trace for now
-                tracing::info!("Would have deleted unused index {}", index_name);
+                IndexModel::new(tx)
+                    .drop_system_index(namespace, index_name)
+                    .await?;
             }
         }
     }
