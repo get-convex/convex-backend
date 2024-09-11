@@ -46,7 +46,10 @@ use common::{
         IndexMetadata,
     },
     runtime::Runtime,
-    types::TabletIndexName,
+    types::{
+        IndexName,
+        TabletIndexName,
+    },
     virtual_system_mapping::VirtualSystemMapping,
 };
 use components::handles::FunctionHandlesTable;
@@ -254,7 +257,6 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                 .await?;
         }
     } else {
-        // Create new indexes as backfilling.
         let table_id = tx
             .table_mapping()
             .namespace(namespace)
@@ -278,13 +280,17 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                 anyhow::Ok((index.name.clone(), developer_config.fields.clone()))
             })
             .try_collect()?;
+
+        // Create new indexes as backfilling.
+        let defined_indexes = table.indexes();
         for index in table.indexes() {
             let index_name = TabletIndexName::new(table_id, index.name.descriptor().clone())?;
             match existing_indexes.get(&index_name) {
                 Some(existing_fields) => anyhow::ensure!(
                     existing_fields == &index.fields,
-                    "{index_name} has the wrong fields: {existing_fields} != {}",
-                    index.fields
+                    "{} has the wrong fields: {existing_fields} != {}",
+                    index.name,
+                    index.fields,
                 ),
                 None => {
                     let index_metadata = IndexMetadata::new_backfilling(
@@ -296,6 +302,20 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                         .add_system_index(namespace, index_metadata)
                         .await?;
                 },
+            }
+        }
+
+        // Remove indexes that are no longer referenced
+        for (index, _) in existing_indexes {
+            let index_name =
+                IndexName::new(table.table_name().clone(), index.descriptor().clone())?;
+            if !defined_indexes
+                .iter()
+                .any(|defined_index| defined_index.name == index_name)
+            {
+                // Existing index is not referenced any more.
+                // Dry-run trace for now
+                tracing::info!("Would have deleted unused index {}", index_name);
             }
         }
     }
