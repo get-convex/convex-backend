@@ -35,7 +35,10 @@
 #![feature(iter_from_coroutine)]
 
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::LazyLock,
 };
 
@@ -45,6 +48,7 @@ use common::{
         IndexConfig,
         IndexMetadata,
     },
+    document::CREATION_TIME_FIELD_PATH,
     runtime::Runtime,
     types::{
         IndexName,
@@ -52,7 +56,15 @@ use common::{
     },
     virtual_system_mapping::VirtualSystemMapping,
 };
-use components::handles::FunctionHandlesTable;
+use components::handles::{
+    FunctionHandlesTable,
+    BY_COMPONENT_PATH_INDEX,
+};
+use cron_jobs::{
+    CRON_JOBS_INDEX_BY_NAME,
+    CRON_JOBS_INDEX_BY_NEXT_TS,
+    CRON_JOB_LOGS_INDEX_BY_NAME_TS,
+};
 pub use database::defaults::{
     SystemIndex,
     SystemTable,
@@ -69,7 +81,21 @@ use database::{
     Transaction,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
 };
+use environment_variables::ENVIRONMENT_VARIABLES_INDEX_BY_NAME;
+use exports::EXPORTS_BY_STATE_AND_TS_INDEX;
+use file_storage::FILE_STORAGE_ID_INDEX;
 use keybroker::Identity;
+use maplit::btreeset;
+use modules::{
+    MODULE_INDEX_BY_DELETED,
+    MODULE_INDEX_BY_PATH,
+};
+use scheduled_jobs::{
+    SCHEDULED_JOBS_INDEX,
+    SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS,
+    SCHEDULED_JOBS_INDEX_BY_UDF_PATH,
+};
+use session_requests::SESSION_REQUESTS_INDEX;
 use strum::IntoEnumIterator;
 pub use value::METADATA_PREFIX;
 use value::{
@@ -205,6 +231,28 @@ pub static DEFAULT_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNumber>> =
         default_table_numbers
     });
 
+/// System indexes all end with creation time. Except for these ones which
+/// are too large and not worth to backfill.
+///
+/// New indexes should add creation time as a final tiebreak field.
+static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = LazyLock::new(|| {
+    btreeset! {
+        BY_COMPONENT_PATH_INDEX.clone(),
+        CRON_JOBS_INDEX_BY_NAME.clone(),
+        CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+        CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
+        ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone(),
+        EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
+        FILE_STORAGE_ID_INDEX.clone(),
+        MODULE_INDEX_BY_DELETED.clone(),
+        MODULE_INDEX_BY_PATH.clone(),
+        SCHEDULED_JOBS_INDEX.clone(),
+        SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
+        SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
+        SESSION_REQUESTS_INDEX.clone(),
+    }
+});
+
 /// Idempotently initialize all the tables.
 pub async fn initialize_application_system_tables<RT: Runtime>(
     database: &Database<RT>,
@@ -280,7 +328,21 @@ pub async fn initialize_application_system_table<RT: Runtime>(
 
         // Create new indexes as backfilling.
         let defined_indexes = table.indexes();
-        for index in table.indexes() {
+        for index in defined_indexes.iter() {
+            if !SYSTEM_INDEXES_WITHOUT_CREATION_TIME.contains(&index.name) {
+                anyhow::ensure!(
+                    index.fields.last() == Some(&*CREATION_TIME_FIELD_PATH),
+                    "System index {} should end with _creationTime",
+                    index.name
+                );
+            } else {
+                anyhow::ensure!(
+                    index.fields.last() != Some(&*CREATION_TIME_FIELD_PATH),
+                    "System index {} correctly ends with _creationTime. Doesn't need to be in \
+                     SYSTEM_INDEXES_WITHOUT_CREATION_TIME list.",
+                    index.name
+                );
+            }
             let index_name = TabletIndexName::new(table_id, index.name.descriptor().clone())?;
             match existing_indexes.get(&index_name) {
                 Some(existing_fields) => anyhow::ensure!(
@@ -292,8 +354,8 @@ pub async fn initialize_application_system_table<RT: Runtime>(
                 None => {
                     let index_metadata = IndexMetadata::new_backfilling(
                         *tx.begin_timestamp(),
-                        index.name,
-                        index.fields,
+                        index.name.clone(),
+                        index.fields.clone(),
                     );
                     IndexModel::new(tx)
                         .add_system_index(namespace, index_metadata)
@@ -367,10 +429,22 @@ pub fn virtual_system_mapping() -> VirtualSystemMapping {
 
 #[cfg(test)]
 mod test_default_table_numbers {
-    use database::defaults::DEFAULT_BOOTSTRAP_TABLE_NUMBERS;
+    use std::sync::Arc;
+
+    use common::testing::TestPersistence;
+    use database::{
+        defaults::DEFAULT_BOOTSTRAP_TABLE_NUMBERS,
+        test_helpers::{
+            DbFixtures,
+            DbFixturesArgs,
+        },
+    };
+    use runtime::testing::TestRuntime;
 
     use crate::{
         app_system_tables,
+        test_helpers::DbFixturesWithModel,
+        virtual_system_mapping,
         DEFAULT_TABLE_NUMBERS,
     };
 
@@ -399,5 +473,19 @@ mod test_default_table_numbers {
                 "{table_name} missing from DEFAULT_TABLE_NUMBERS"
             );
         }
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_initialize_model(rt: TestRuntime) -> anyhow::Result<()> {
+        let args = DbFixturesArgs {
+            tp: Some(Arc::new(TestPersistence::new())),
+            virtual_system_mapping: virtual_system_mapping(),
+            ..Default::default()
+        };
+        // Initialize
+        DbFixtures::new_with_model_and_args(&rt, args.clone()).await?;
+        // Reinitialize (should work a second time - simulating a restart)
+        DbFixtures::new_with_model_and_args(&rt, args).await?;
+        Ok(())
     }
 }

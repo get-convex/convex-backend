@@ -36,6 +36,7 @@ pub struct DbFixtures<RT: Runtime> {
     pub test_usage_logger: TestUsageEventLogger,
 }
 
+#[derive(Clone)]
 pub struct DbFixturesArgs {
     pub tp: Option<Arc<dyn Persistence>>,
     pub searcher: Option<Arc<dyn Searcher>>,
