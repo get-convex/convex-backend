@@ -143,7 +143,7 @@ export function logVerbose(ctx: Context, ...logged: any) {
 
 // Start a spinner.
 // To change its message use changeSpinner.
-// To print warnings/erros while it's running use logError or logWarning.
+// To print warnings/errors while it's running use logError or logWarning.
 // To stop it due to an error use logFailure.
 // To stop it due to success use logFinishedStep.
 export function showSpinner(ctx: Context, message: string) {

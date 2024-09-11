@@ -367,6 +367,8 @@ async function selectExistingProject(
   const functionsPath = functionsDir(configName(), existingProjectConfig);
 
   await doCodegen(ctx, functionsPath, "disable");
+
+  logFinishedStep(ctx, `Reinitialized project ${chalk.bold(projectSlug)}`);
   return { teamSlug, projectSlug };
 }
 
