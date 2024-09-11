@@ -70,6 +70,7 @@ async function doEsbuild(
   platform: esbuild.Platform,
   chunksFolder: string,
   externalPackages: Map<string, ExternalPackage>,
+  extraConditions: string[],
 ): Promise<EsBuildResult> {
   const external = createExternalPlugin(ctx, externalPackages);
   try {
@@ -82,7 +83,7 @@ async function doEsbuild(
       jsx: "automatic",
       outdir: "out",
       outbase: dir,
-      conditions: ["convex", "module"],
+      conditions: ["convex", "module", ...extraConditions],
       // The wasmPlugin should be last so it doesn't run on external modules.
       plugins: [external.plugin, wasmPlugin],
       write: false,
@@ -146,6 +147,7 @@ export async function bundle(
   platform: esbuild.Platform,
   chunksFolder = "_deps",
   externalPackagesAllowList: string[] = [],
+  extraConditions: string[] = [],
 ): Promise<{
   modules: Bundle[];
   externalDependencies: Map<string, string>;
@@ -163,6 +165,7 @@ export async function bundle(
     platform,
     chunksFolder,
     availableExternalPackages,
+    extraConditions,
   );
   if (result.errors.length) {
     const errorMessage = result.errors
@@ -245,12 +248,24 @@ async function externalPackageVersions(
   return versions;
 }
 
-export async function bundleSchema(ctx: Context, dir: string) {
+export async function bundleSchema(
+  ctx: Context,
+  dir: string,
+  extraConditions: string[],
+) {
   let target = path.resolve(dir, "schema.ts");
   if (!ctx.fs.exists(target)) {
     target = path.resolve(dir, "schema.js");
   }
-  const result = await bundle(ctx, dir, [target], true, "browser");
+  const result = await bundle(
+    ctx,
+    dir,
+    [target],
+    true,
+    "browser",
+    undefined,
+    extraConditions,
+  );
   return result.modules;
 }
 

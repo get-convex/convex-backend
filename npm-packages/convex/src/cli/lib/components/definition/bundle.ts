@@ -497,6 +497,7 @@ export async function bundleImplementations(
   rootComponentDirectory: ComponentDirectory,
   componentDirectories: ComponentDirectory[],
   nodeExternalPackages: string[],
+  extraConditions: string[],
   verbose: boolean = false,
 ): Promise<{
   appImplementation: {
@@ -521,9 +522,11 @@ export async function bundleImplementations(
     );
     let schema;
     if (ctx.fs.exists(path.resolve(resolvedPath, "schema.ts"))) {
-      schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
+      schema =
+        (await bundleSchema(ctx, resolvedPath, extraConditions))[0] || null;
     } else if (ctx.fs.exists(path.resolve(resolvedPath, "schema.js"))) {
-      schema = (await bundleSchema(ctx, resolvedPath))[0] || null;
+      schema =
+        (await bundleSchema(ctx, resolvedPath, extraConditions))[0] || null;
     } else {
       schema = null;
     }
@@ -537,7 +540,16 @@ export async function bundleImplementations(
       modules: Bundle[];
       externalDependencies: Map<string, string>;
       bundledModuleNames: Set<string>;
-    } = await bundle(ctx, resolvedPath, entryPoints.isolate, true, "browser");
+    } = await bundle(
+      ctx,
+      resolvedPath,
+      entryPoints.isolate,
+      true,
+      "browser",
+      undefined,
+      undefined,
+      extraConditions,
+    );
 
     if (convexResult.externalDependencies.size !== 0) {
       return await ctx.crash({
@@ -563,6 +575,7 @@ export async function bundleImplementations(
         "node",
         path.join("_deps", "node"),
         nodeExternalPackages,
+        extraConditions,
       );
 
       const externalNodeDependencies: NodeDependency[] = [];
@@ -596,6 +609,7 @@ export async function bundleImplementations(
           "node",
           path.join("_deps", "node"),
           nodeExternalPackages,
+          extraConditions,
         );
         if (nodeResult.modules.length > 0) {
           // TODO(ENG-7116) Remove error and bundle the component node actions when we are ready to support them.

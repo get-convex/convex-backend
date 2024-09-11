@@ -207,6 +207,7 @@ async function startComponentsPushAndCodegen(
         rootComponent,
         [...components.values()],
         projectConfig.node.externalPackages,
+        options.liveComponentSources ? ["@convex-dev/component-source"] : [],
         options.verbose,
       ),
     );

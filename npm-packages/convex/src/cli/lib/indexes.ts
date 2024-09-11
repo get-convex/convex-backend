@@ -60,7 +60,7 @@ export async function pushSchema(
     // Don't do anything.
     return {};
   }
-  const bundles = await bundleSchema(ctx, schemaDir);
+  const bundles = await bundleSchema(ctx, schemaDir, []);
 
   changeSpinner(ctx, "Checking for index or schema changes...");
 
