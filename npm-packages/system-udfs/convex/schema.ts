@@ -145,6 +145,7 @@ export const completedExport = v.object({
       include_storage: v.boolean(),
     }),
   ),
+  requestor: v.literal("snapshotExport"),
 });
 
 const cronJobStatus = v.union(
@@ -280,16 +281,19 @@ export default defineSchema({
         state: v.literal("failed"),
         start_ts: v.int64(),
         failed_ts: v.int64(),
+        requestor: v.literal("snapshotExport"),
       }),
       v.object({
         state: v.literal("in_progress"),
         start_ts: v.int64(),
+        requestor: v.literal("snapshotExport"),
       }),
       v.object({
         state: v.literal("requested"),
+        requestor: v.literal("snapshotExport"),
       }),
     ),
-  ),
+  ).index("by_requestor", ["requestor"]),
   _deployment_audit_log: deploymentAuditLogTable,
   _scheduled_jobs: defineTable({
     nextTs: v.union(v.int64(), v.null()),
