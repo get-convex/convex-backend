@@ -1,7 +1,10 @@
 # Changelog
 
-## Unpublished
+## 1.16.0
 
+- Added support for a new validator, `v.record`. This is a typed key-value
+  object in TypeScript. More information can be found in the
+  [docs](https://docs.convex.dev/functions/validation#record-objects).
 - Upgrade esbuild from 0.17 to 0.23. It's possible to use an npm override to use
   a different version of esbuild if you need to stay on an older version,
   although changes to the esbuild API could break this in the future.
