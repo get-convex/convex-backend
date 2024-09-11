@@ -123,13 +123,6 @@ export async function buildComponentDirectory(
 export type ComponentDefinitionPath = string & {
   __brand: "ComponentDefinitionPath";
 };
-/**
- * EncodedComponentDefinitionPath is the identifier of a component definition
- * sent to the server.
- */
-export type EncodedComponentDefinitionPath = string & {
-  __brand: "EncodedComponentDefinitionPath";
-};
 
 export function toComponentDefinitionPath(
   rootComponent: ComponentDirectory,

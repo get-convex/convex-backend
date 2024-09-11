@@ -36,10 +36,7 @@ import { promisify } from "util";
 import zlib from "zlib";
 import { recursivelyDelete } from "./fsUtils.js";
 import { NodeDependency } from "./deployApi/modules.js";
-import {
-  ComponentDefinitionPath,
-  EncodedComponentDefinitionPath,
-} from "./components/definition/directoryStructure.js";
+import { ComponentDefinitionPath } from "./components/definition/directoryStructure.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -634,11 +631,11 @@ interface BundledModuleInfo {
  */
 export type ComponentDefinitionSpec = {
   /** This path is relative to the app (root component) directory. */
-  definitionPath: EncodedComponentDefinitionPath;
+  definitionPath: ComponentDefinitionPath;
   /** This path is relative to the app (root component) directory. */
   origDefinitionPath: ComponentDefinitionPath;
   /** Dependencies are paths to the directory of the dependency component definition from the app (root component) directory */
-  dependencies: EncodedComponentDefinitionPath[];
+  dependencies: ComponentDefinitionPath[];
 
   // All other paths are relative to the directory of the definitionPath above.
 

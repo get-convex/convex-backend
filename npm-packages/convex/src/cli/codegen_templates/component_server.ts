@@ -17,7 +17,6 @@ import { Context } from "../../bundler/context.js";
 import { CanonicalizedModulePath } from "../lib/deployApi/paths.js";
 import { Value, jsonToConvex } from "../../values/value.js";
 import { z } from "zod";
-import { encodeDefinitionPath } from "../lib/components/definition/bundle.js";
 
 export function componentServerJS(): string {
   const result = `
@@ -277,12 +276,12 @@ export async function componentServerDTS(
     componentDirectory,
   );
 
-  const analysis = startPush.analysis[encodeDefinitionPath(definitionPath)];
+  const analysis = startPush.analysis[definitionPath];
   if (!analysis) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `No analysis found for component ${encodeDefinitionPath(definitionPath as any)} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
+      printedMessage: `No analysis found for component ${definitionPath} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
     });
   }
   for (const childComponent of analysis.definition.childComponents) {

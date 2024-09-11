@@ -15,7 +15,6 @@ import {
 import { Identifier } from "../lib/deployApi/types.js";
 import { ComponentDefinitionPath } from "../lib/deployApi/paths.js";
 import { resolveFunctionReference } from "./component_server.js";
-import { encodeDefinitionPath } from "../lib/components/definition/bundle.js";
 
 export function componentApiJs() {
   const lines = [];
@@ -161,13 +160,12 @@ async function buildMountTree(
   attributes: string[],
 ): Promise<MountTree | null> {
   // TODO make these types more precise when receiving analysis from server
-  const analysis =
-    startPush.analysis[encodeDefinitionPath(definitionPath as any)];
+  const analysis = startPush.analysis[definitionPath];
   if (!analysis) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `No analysis found for component ${encodeDefinitionPath(definitionPath as any)} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
+      printedMessage: `No analysis found for component ${definitionPath} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
     });
   }
   let current = analysis.definition.exports.branch;

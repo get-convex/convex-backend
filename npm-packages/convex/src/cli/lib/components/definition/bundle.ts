@@ -1,5 +1,4 @@
 import path from "path";
-import crypto from "crypto";
 import {
   ComponentDirectory,
   ComponentDefinitionPath,
@@ -7,7 +6,6 @@ import {
   isComponentDirectory,
   qualifiedDefinitionPath,
   toComponentDefinitionPath,
-  EncodedComponentDefinitionPath,
 } from "./directoryStructure.js";
 import {
   Context,
@@ -145,9 +143,9 @@ function componentPlugin({
             rootComponentDirectory,
             imported,
           );
-          const encodedPath = hackyMapping(encodeDefinitionPath(componentPath));
+          const importPath = definitionImportPath(componentPath);
           return {
-            path: encodedPath,
+            path: importPath,
             external: true,
           };
         }
@@ -157,8 +155,8 @@ function componentPlugin({
 }
 
 /** The path on the deployment that identifier a component definition. */
-function hackyMapping(componentPath: EncodedComponentDefinitionPath): string {
-  return `./_componentDeps/${Buffer.from(componentPath).toString("base64").replace(/=+$/, "")}`;
+function definitionImportPath(componentPath: ComponentDefinitionPath): string {
+  return `./_componentDeps/${Buffer.from(componentPath).toString("base64url")}`;
 }
 
 // Share configuration between the component definition discovery and bundling passes.
@@ -328,26 +326,6 @@ async function findComponentDependencies(
   return { components, dependencyGraph };
 }
 
-// Each path component is less than 64 bytes and is limited to a-zA-Z0-9
-// This is the only version of the path the server will receive.
-export function encodeDefinitionPath(
-  s: ComponentDefinitionPath,
-): EncodedComponentDefinitionPath {
-  const components = s.split(path.sep);
-  return components
-    .map((s) => {
-      // some important characters to escape include @-+ .
-      const escaped = s.replace(/[^a-zA-Z0-9_]/g, "_");
-      if (escaped.length <= 64 && escaped === s) {
-        // If escaping lost no information then use orig.
-        return escaped;
-      }
-      const hash = crypto.createHash("md5").update(s).digest("hex");
-      return `${escaped.slice(0, 50)}${hash.slice(0, 14)}`;
-    })
-    .join(path.sep) as EncodedComponentDefinitionPath;
-}
-
 // NB: If a directory linked to is not a member of the passed
 // componentDirectories array then there will be external links
 // with no corresponding definition bundle.
@@ -453,8 +431,9 @@ export async function bundleDefinitions(
 
   const componentDefinitionSpecsWithoutImpls: ComponentDefinitionSpecWithoutImpls[] =
     componentBundles.map(({ directory, outputJs, outputJsMap }) => ({
-      definitionPath: encodeDefinitionPath(
-        toComponentDefinitionPath(rootComponentDirectory, directory),
+      definitionPath: toComponentDefinitionPath(
+        rootComponentDirectory,
+        directory,
       ),
       origDefinitionPath: toComponentDefinitionPath(
         rootComponentDirectory,
@@ -470,13 +449,13 @@ export async function bundleDefinitions(
         rootComponentDirectory,
         dependencyGraph,
         directory.definitionPath,
-      ).map(encodeDefinitionPath),
+      ),
     }));
   const appDeps = getDeps(
     rootComponentDirectory,
     dependencyGraph,
     appBundle.directory.definitionPath,
-  ).map(encodeDefinitionPath);
+  );
   const appDefinitionSpecWithoutImpls: AppDefinitionSpecWithoutImpls = {
     definition: {
       path: path.relative(rootComponentDirectory.path, appBundle.outputJs.path),
@@ -508,7 +487,7 @@ export async function bundleImplementations(
   componentImplementations: {
     schema: Bundle | null;
     functions: Bundle[];
-    definitionPath: EncodedComponentDefinitionPath;
+    definitionPath: ComponentDefinitionPath;
   }[];
 }> {
   let appImplementation;
@@ -621,8 +600,9 @@ export async function bundleImplementations(
         }
       }
       // definitionPath is the canonical form
-      const definitionPath = encodeDefinitionPath(
-        toComponentDefinitionPath(rootComponentDirectory, directory),
+      const definitionPath = toComponentDefinitionPath(
+        rootComponentDirectory,
+        directory,
       );
       componentImplementations.push({ definitionPath, schema, functions });
     }
