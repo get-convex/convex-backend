@@ -48,14 +48,12 @@ use crate::{
         index_workers::IndexWorkerMetadataTable,
         schema::SchemasTable,
         table::TablesTable,
-        virtual_tables::VirtualTablesTable,
     },
     ComponentDefinitionsTable,
     ComponentsTable,
     INDEX_WORKER_METADATA_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
     SCHEMAS_TABLE,
-    VIRTUAL_TABLES_TABLE,
 };
 
 pub fn system_index(table: &impl Deref<Target = TableName>, name: &'static str) -> IndexName {
@@ -97,7 +95,6 @@ pub fn bootstrap_system_tables() -> Vec<&'static dyn SystemTable> {
         &TablesTable,
         &IndexTable,
         &SchemasTable,
-        &VirtualTablesTable,
         &IndexWorkerMetadataTable,
         &ComponentDefinitionsTable,
         &ComponentsTable,
@@ -111,7 +108,6 @@ pub static DEFAULT_BOOTSTRAP_TABLE_NUMBERS: LazyLock<BTreeMap<TableName, TableNu
             TABLES_TABLE.clone() => tn(1),
             INDEX_TABLE.clone() => tn(2),
             SCHEMAS_TABLE.clone() => tn(20),
-            VIRTUAL_TABLES_TABLE.clone() => tn(26),
             INDEX_WORKER_METADATA_TABLE.clone() => tn(30),
             COMPONENT_DEFINITIONS_TABLE.clone() => tn(31),
             COMPONENTS_TABLE.clone() => tn(32),

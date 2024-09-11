@@ -67,7 +67,6 @@ use database::{
     SchemasTable,
     TablesTable,
     Transaction,
-    VirtualTablesTable,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
 };
 use keybroker::Identity;
@@ -140,7 +139,6 @@ enum DefaultTableNumber {
     CronJobLogs = 21,
     BackendState = 24,
     ExternalPackages = 25,
-    VirtualTables = 26,
     ScheduledJobs = 27,
     FileStorage = 28,
     SnapshotImports = 29,
@@ -179,7 +177,6 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::CronJobLogs => &CronJobLogsTable,
             DefaultTableNumber::BackendState => &BackendStateTable,
             DefaultTableNumber::ExternalPackages => &ExternalPackagesTable,
-            DefaultTableNumber::VirtualTables => &VirtualTablesTable,
             DefaultTableNumber::ScheduledJobs => &ScheduledJobsTable,
             DefaultTableNumber::FileStorage => &FileStorageTable,
             DefaultTableNumber::SnapshotImports => &SnapshotImportsTable,
