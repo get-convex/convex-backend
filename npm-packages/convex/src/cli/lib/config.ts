@@ -632,13 +632,11 @@ interface BundledModuleInfo {
 export type ComponentDefinitionSpec = {
   /** This path is relative to the app (root component) directory. */
   definitionPath: ComponentDefinitionPath;
-  /** This path is relative to the app (root component) directory. */
-  origDefinitionPath: ComponentDefinitionPath;
+
   /** Dependencies are paths to the directory of the dependency component definition from the app (root component) directory */
   dependencies: ComponentDefinitionPath[];
 
   // All other paths are relative to the directory of the definitionPath above.
-
   definition: Bundle;
   schema: Bundle;
   functions: Bundle[];
@@ -646,7 +644,7 @@ export type ComponentDefinitionSpec = {
 
 export type AppDefinitionSpec = Omit<
   ComponentDefinitionSpec,
-  "definitionPath" | "origDefinitionPath"
+  "definitionPath"
 > & {
   // Only app (root) component specs contain an auth bundle.
   auth: Bundle | null;

@@ -39,7 +39,6 @@ import {
 } from "./deployApi/definitionConfig.js";
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { withTmpDir } from "../../bundler/fs.js";
-import { ROOT_DEFINITION_FILENAME } from "./components/constants.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 import chalk from "chalk";
 import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
@@ -52,6 +51,23 @@ import {
   DeveloperIndexConfig,
 } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
+import {
+  DEFINITION_FILENAME_JS,
+  DEFINITION_FILENAME_TS,
+} from "./components/constants.js";
+
+async function findComponentRootPath(ctx: Context, functionsDir: string) {
+  // Default to `.ts` but fallback to `.js` if not present.
+  let componentRootPath = path.resolve(
+    path.join(functionsDir, DEFINITION_FILENAME_TS),
+  );
+  if (!ctx.fs.exists(componentRootPath)) {
+    componentRootPath = path.resolve(
+      path.join(functionsDir, DEFINITION_FILENAME_JS),
+    );
+  }
+  return componentRootPath;
+}
 
 export async function runCodegen(ctx: Context, options: CodegenOptions) {
   // This also ensures the current directory is the project root.
@@ -59,9 +75,12 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
 
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const functionsDirectoryPath = functionsDir(configPath, projectConfig);
-  const componentRootPath = path.resolve(
-    path.join(functionsDirectoryPath, ROOT_DEFINITION_FILENAME),
+
+  const componentRootPath = await findComponentRootPath(
+    ctx,
+    functionsDirectoryPath,
   );
+
   if (ctx.fs.exists(componentRootPath)) {
     const deploymentSelection = deploymentSelectionFromOptions(options);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
@@ -106,9 +125,7 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
 export async function runPush(ctx: Context, options: PushOptions) {
   const { configPath, projectConfig } = await readProjectConfig(ctx);
   const convexDir = functionsDir(configPath, projectConfig);
-  const componentRootPath = path.resolve(
-    path.join(convexDir, ROOT_DEFINITION_FILENAME),
-  );
+  const componentRootPath = await findComponentRootPath(ctx, convexDir);
   if (ctx.fs.exists(componentRootPath)) {
     await runComponentsPush(ctx, options, configPath, projectConfig);
   } else {

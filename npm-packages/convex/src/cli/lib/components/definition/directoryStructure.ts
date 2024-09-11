@@ -1,9 +1,8 @@
 import path from "path";
 import { Context } from "../../../../bundler/context.js";
 import {
-  COMPILED_DEFINITION_FILENAME,
-  DEFINITION_FILENAME,
-  ROOT_DEFINITION_FILENAME,
+  DEFINITION_FILENAME_JS,
+  DEFINITION_FILENAME_TS,
 } from "../constants.js";
 import { getFunctionsDirectoryPath } from "../../config.js";
 
@@ -19,8 +18,19 @@ import { getFunctionsDirectoryPath } from "../../config.js";
  * (e.g. 'convex-waitlist' instead of '../node_modules/convex-waitlist/convex.config.ts')
  */
 export type ComponentDirectory = {
+  /**
+   * Is this component directory for the root component?
+   */
   isRoot: boolean;
+
+  /**
+   * Absolute local filesystem path to the component definition's directory.
+   */
   path: string;
+
+  /**
+   * Absolute local filesystem path to the `convex.config.{ts,js}` file within the component definition.
+   */
   definitionPath: string;
 };
 
@@ -57,13 +67,11 @@ export function isComponentDirectory(
     return { kind: "err", why: `Not a directory` };
   }
 
-  // Check that we have a definition file.
-  let filename = isRoot
-    ? ROOT_DEFINITION_FILENAME
-    : COMPILED_DEFINITION_FILENAME;
+  // Check that we have a definition file, defaulting to `.ts` but falling back to `.js`.
+  let filename = DEFINITION_FILENAME_TS;
   let definitionPath = path.resolve(path.join(directory, filename));
   if (!ctx.fs.exists(definitionPath)) {
-    filename = isRoot ? ROOT_DEFINITION_FILENAME : DEFINITION_FILENAME;
+    filename = DEFINITION_FILENAME_JS;
     definitionPath = path.resolve(path.join(directory, filename));
   }
   if (!ctx.fs.exists(definitionPath)) {
@@ -128,15 +136,27 @@ export function toComponentDefinitionPath(
   rootComponent: ComponentDirectory,
   component: ComponentDirectory,
 ): ComponentDefinitionPath {
-  return path.relative(
+  // First, compute a file system relative path.
+  const relativePath: string = path.relative(
     rootComponent.path,
     component.path,
-  ) as ComponentDefinitionPath;
+  );
+
+  // Then, convert it to a ComponentDefinitionPath, which always uses POSIX conventions.
+  const definitionPath = relativePath.split(path.sep).join(path.posix.sep);
+
+  return definitionPath as ComponentDefinitionPath;
 }
 
 export function toAbsolutePath(
   rootComponent: ComponentDirectory,
   componentDefinitionPath: ComponentDefinitionPath,
 ) {
-  return path.normalize(path.join(rootComponent.path, componentDefinitionPath));
+  // Repeat the process from `toComponentDefinitionPath` in reverse: First
+  // convert to a relative local filesystem path, and then join it to
+  // the root component's absolute path.
+  const relativePath = componentDefinitionPath
+    .split(path.posix.sep)
+    .join(path.sep);
+  return path.normalize(path.join(rootComponent.path, relativePath));
 }

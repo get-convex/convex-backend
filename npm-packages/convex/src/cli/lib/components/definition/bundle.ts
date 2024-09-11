@@ -435,10 +435,6 @@ export async function bundleDefinitions(
         rootComponentDirectory,
         directory,
       ),
-      origDefinitionPath: toComponentDefinitionPath(
-        rootComponentDirectory,
-        directory,
-      ),
       definition: {
         path: path.relative(directory.path, outputJs.path),
         source: outputJs.text,

@@ -1,3 +1,2 @@
-export const ROOT_DEFINITION_FILENAME = "convex.config.ts";
-export const DEFINITION_FILENAME = "convex.config.ts";
-export const COMPILED_DEFINITION_FILENAME = "convex.config.js";
+export const DEFINITION_FILENAME_TS = "convex.config.ts";
+export const DEFINITION_FILENAME_JS = "convex.config.js";
