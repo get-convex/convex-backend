@@ -10,6 +10,7 @@ use anyhow::Context;
 use common::{
     bootstrap_model::components::definition::{
         ComponentDefinitionMetadata,
+        ComponentDefinitionType,
         SerializedComponentDefinitionMetadata,
     },
     components::{
@@ -523,13 +524,22 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
                 return Ok(None);
             };
             let serialized_def = SerializedComponentDefinitionMetadata::try_from(def.clone())?;
+
+            let default_name_string = match def.definition_type {
+                ComponentDefinitionType::App => anyhow::bail!(ErrorMetadata::bad_request(
+                    "NoImportAppDuringDefinitionEvaluation",
+                    format!("App should not be imported while evaluating app definition")
+                )),
+                ComponentDefinitionType::ChildComponent { ref name, args: _ } => name.to_string(),
+            };
+
             let synthetic_module = FullModuleSource {
                 source: format!(
                     "export default {{ export: () => {{ return {} }}, componentDefinitionPath: \
                      \"{}\", defaultName: \"{}\"}}",
                     serde_json::to_string(&serialized_def)?,
                     String::from(def_path.clone()),
-                    def.default_name_string()
+                    default_name_string
                 ),
                 source_map: None,
             };

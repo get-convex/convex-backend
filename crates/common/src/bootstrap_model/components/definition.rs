@@ -73,14 +73,6 @@ impl ComponentDefinitionMetadata {
     pub fn is_app(&self) -> bool {
         self.definition_type == ComponentDefinitionType::App
     }
-
-    pub fn default_name_string(&self) -> String {
-        match self.definition_type {
-            // This isn't used anywhere, the name of the App component is hardcoded.
-            ComponentDefinitionType::App => "root".to_string(),
-            ComponentDefinitionType::ChildComponent { ref name, args: _ } => name.to_string(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
