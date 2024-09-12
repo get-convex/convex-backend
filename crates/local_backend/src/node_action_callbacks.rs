@@ -16,10 +16,8 @@ use axum::{
 };
 use common::{
     components::{
-        CanonicalizedComponentFunctionPath,
         ComponentFunctionPath,
         ComponentId,
-        ComponentPath,
         PublicFunctionPath,
     },
     execution_context::{
@@ -77,14 +75,22 @@ use vector::{
 
 use crate::{
     authentication::ExtractAuthenticationToken,
-    parse::parse_udf_path,
     public_api::{
         export_value,
-        UdfPostRequest,
         UdfResponse,
     },
     LocalAppState,
 };
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeCallbackUdfPostRequest {
+    pub path: Option<String>,
+    pub reference: Option<String>,
+    pub args: UdfArgsJson,
+
+    pub format: Option<String>,
+}
 
 /// This is like `public_query_post`, except it allows calling internal
 /// functions as well. This should not be used for any publicly accessible
@@ -96,21 +102,21 @@ pub async fn internal_query_post(
     State(st): State<LocalAppState>,
     ExtractActionIdentity {
         identity,
-        component_id: _,
+        component_id,
     }: ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractExecutionContext(context): ExtractExecutionContext,
-    Json(req): Json<UdfPostRequest>,
+    Json(req): Json<NodeCallbackUdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let udf_path = parse_udf_path(&req.path)?;
+    let path = st
+        .application
+        .canonicalized_function_path(identity.clone(), component_id, req.path, req.reference)
+        .await?;
     let udf_return = st
         .application
         .read_only_udf(
             context.request_id,
-            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
-                component: ComponentPath::TODO(),
-                udf_path,
-            }),
+            PublicFunctionPath::Component(path),
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::Action {
@@ -144,21 +150,21 @@ pub async fn internal_mutation_post(
     State(st): State<LocalAppState>,
     ExtractActionIdentity {
         identity,
-        component_id: _,
+        component_id,
     }: ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractExecutionContext(context): ExtractExecutionContext,
-    Json(req): Json<UdfPostRequest>,
+    Json(req): Json<NodeCallbackUdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let udf_path = parse_udf_path(&req.path)?;
+    let path = st
+        .application
+        .canonicalized_function_path(identity.clone(), component_id, req.path, req.reference)
+        .await?;
     let udf_result = st
         .application
         .mutation_udf(
             context.request_id,
-            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
-                component: ComponentPath::TODO(),
-                udf_path,
-            }),
+            PublicFunctionPath::Component(path),
             req.args.into_arg_vec(),
             identity,
             None,
@@ -197,21 +203,21 @@ pub async fn internal_action_post(
     State(st): State<LocalAppState>,
     ExtractActionIdentity {
         identity,
-        component_id: _,
+        component_id,
     }: ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractExecutionContext(context): ExtractExecutionContext,
-    Json(req): Json<UdfPostRequest>,
+    Json(req): Json<NodeCallbackUdfPostRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let udf_path = parse_udf_path(&req.path)?;
+    let path = st
+        .application
+        .canonicalized_function_path(identity.clone(), component_id, req.path, req.reference)
+        .await?;
     let udf_result = st
         .application
         .action_udf(
             context.request_id,
-            PublicFunctionPath::Component(CanonicalizedComponentFunctionPath {
-                component: ComponentPath::TODO(),
-                udf_path,
-            }),
+            PublicFunctionPath::Component(path),
             req.args.into_arg_vec(),
             identity,
             FunctionCaller::Action {
@@ -241,7 +247,8 @@ pub async fn internal_action_post(
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScheduleJobRequest {
-    udf_path: String,
+    reference: Option<String>,
+    udf_path: Option<String>,
     udf_args: UdfArgsJson,
     scheduled_ts: f64,
 }
@@ -264,9 +271,13 @@ pub async fn schedule_job(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let scheduled_ts = UnixTimestamp::from_secs_f64(req.scheduled_ts);
     // User might have entered an invalid path, so this is a developer error.
-    let udf_path = req.udf_path.parse::<CanonicalizedUdfPath>().map_err(|e| {
-        anyhow::anyhow!(ErrorMetadata::bad_request("InvalidUdfPath", e.to_string()))
-    })?;
+    let path = st
+        .application
+        .canonicalized_function_path(identity.clone(), component_id, req.udf_path, req.reference)
+        .await
+        .map_err(|e| {
+            anyhow::anyhow!(ErrorMetadata::bad_request("InvalidUdfPath", e.to_string()))
+        })?;
     let udf_args = req.udf_args.into_arg_vec();
     let job_id = st
         .application
@@ -274,10 +285,7 @@ pub async fn schedule_job(
         .schedule_job(
             identity,
             component_id,
-            CanonicalizedComponentFunctionPath {
-                component: ComponentPath::TODO(),
-                udf_path,
-            },
+            path,
             udf_args,
             scheduled_ts,
             context,

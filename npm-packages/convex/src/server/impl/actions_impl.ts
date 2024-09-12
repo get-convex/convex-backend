@@ -22,7 +22,7 @@ function syscallArgs(
 export function getFunctionAddress(functionReference: any) {
   // The `run*` syscalls expect either a UDF path at "name" or a serialized
   // reference at "reference". Dispatch on `functionReference` to coerce
-  // it to one ore the other.
+  // it to one or the other.
   let functionAddress;
 
   // Legacy path for passing in UDF paths directly as function references.

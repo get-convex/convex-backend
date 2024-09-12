@@ -43,6 +43,8 @@ use common::{
         ComponentId,
         ComponentPath,
         PublicFunctionPath,
+        Reference,
+        Resource,
     },
     document::{
         DocumentUpdate,
@@ -167,6 +169,7 @@ use model::{
         config::ComponentConfigModel,
         handles::FunctionHandlesModel,
         types::ProjectConfig,
+        ComponentsModel,
     },
     config::{
         module_loader::ModuleLoader,
@@ -2753,6 +2756,41 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
         let mut tx = self.begin(identity).await?;
         FunctionHandlesModel::new(&mut tx).lookup(handle).await
+    }
+
+    pub async fn canonicalized_function_path(
+        &self,
+        identity: Identity,
+        component_id: ComponentId,
+        path: Option<String>,
+        reference: Option<String>,
+    ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        let reference = match (path, reference) {
+            (None, None) => anyhow::bail!(ErrorMetadata::bad_request(
+                "MissingUdfPathOrFunctionReference",
+                "Missing UDF path or function reference. One must be provided."
+            )),
+            (Some(path), None) => Reference::Function(path.parse()?),
+            (None, Some(reference)) => reference.parse()?,
+            (Some(_), Some(_)) => anyhow::bail!(ErrorMetadata::bad_request(
+                "InvalidUdfPathOrFunctionReference",
+                "Both UDF path and function reference provided. Only one must be provided."
+            )),
+        };
+        // Reading from a separate transaction here is safe because the component id to
+        // component path mapping is stable.
+        let mut tx = self.begin(identity).await?;
+        let mut components_model = ComponentsModel::new(&mut tx);
+        let resource = components_model
+            .resolve(component_id, None, &reference)
+            .await?;
+        let path = match resource {
+            Resource::Function(path) => path,
+            Resource::Value(_) | Resource::ResolvedSystemUdf(_) => {
+                anyhow::bail!("Resource type not supported for internal query")
+            },
+        };
+        Ok(path)
     }
 
     pub fn files_storage(&self) -> Arc<dyn Storage> {

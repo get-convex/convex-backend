@@ -51,7 +51,7 @@ use crate::{
     RouterState,
 };
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct UdfPostRequest {
     pub path: String,

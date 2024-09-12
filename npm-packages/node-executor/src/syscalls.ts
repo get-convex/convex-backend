@@ -14,7 +14,8 @@ const STATUS_CODE_BAD_REQUEST = 400;
 const STATUS_CODE_UDF_FAILED = 560;
 
 const runFunctionArgs = z.object({
-  name: z.string(),
+  name: z.optional(z.string()),
+  reference: z.optional(z.string()),
   args: z.any(),
   version: z.string(),
 });
@@ -32,7 +33,8 @@ const runFunctionReturn = z.union([
 ]);
 
 const scheduleSchema = z.object({
-  name: z.string(),
+  name: z.optional(z.string()),
+  reference: z.optional(z.string()),
   ts: z.number(),
   args: z.any(),
   version: z.string(),
@@ -181,7 +183,9 @@ export class SyscallsImpl {
       const parsedArgs = argValidator.parse(args);
       return parsedArgs;
     } catch (e) {
-      throw new Error(`Invalid ${operationName} request`);
+      throw new Error(
+        `Invalid ${operationName} request with args ${JSON.stringify(args)}`,
+      );
     }
   }
 
@@ -354,7 +358,11 @@ export class SyscallsImpl {
     };
     const queryResult = await this.actionCallback({
       version: queryArgs.version,
-      body: { path: queryArgs.name, args: queryArgs.args },
+      body: {
+        path: queryArgs.name,
+        reference: queryArgs.reference,
+        args: queryArgs.args,
+      },
       path: "/api/actions/query",
       operationName,
       responseValidator: runFunctionReturn,
@@ -391,7 +399,11 @@ export class SyscallsImpl {
     };
     const mutationResult = await this.actionCallback({
       version: mutationArgs.version,
-      body: { path: mutationArgs.name, args: mutationArgs.args },
+      body: {
+        path: mutationArgs.name,
+        reference: mutationArgs.reference,
+        args: mutationArgs.args,
+      },
       path: "/api/actions/mutation",
       operationName,
       responseValidator: runFunctionReturn,
@@ -428,7 +440,11 @@ export class SyscallsImpl {
     };
     const actionResult = await this.actionCallback({
       version: actionArgs.version,
-      body: { path: actionArgs.name, args: actionArgs.args },
+      body: {
+        path: actionArgs.name,
+        reference: actionArgs.reference,
+        args: actionArgs.args,
+      },
       path: "/api/actions/action",
       operationName,
       responseValidator: runFunctionReturn,
@@ -486,6 +502,7 @@ export class SyscallsImpl {
     const { jobId } = await this.actionCallback({
       version: scheduleArgs.version,
       body: {
+        reference: scheduleArgs.reference,
         udfPath: scheduleArgs.name,
         udfArgs: scheduleArgs.args,
         scheduledTs: scheduleArgs.ts,
