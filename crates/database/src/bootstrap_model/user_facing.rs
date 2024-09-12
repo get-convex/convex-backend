@@ -134,7 +134,11 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
                 .get(self.namespace, id, version)
                 .await;
             if let Ok(Some((document, _))) = &result {
+                let component_path = self
+                    .tx
+                    .must_component_path(ComponentId::from(self.namespace))?;
                 self.tx.reads.record_read_document(
+                    component_path,
                     table_name,
                     document.size(),
                     &self.tx.usage_tracker,
@@ -337,7 +341,11 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .tx
             .virtual_system_mapping()
             .is_virtual_table(table_name);
+        let component_path = self
+            .tx
+            .must_component_path(ComponentId::from(self.namespace))?;
         self.tx.reads.record_read_document(
+            component_path,
             table_name.clone(),
             document.size(),
             &self.tx.usage_tracker,

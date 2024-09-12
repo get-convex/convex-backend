@@ -2062,9 +2062,10 @@ impl<RT: Runtime> Database<RT> {
         let timer = metrics::vector::vector_search_timer();
         let usage = FunctionUsageTracker::new();
         let snapshot = self.snapshot(ts)?;
+        let component_id = query.component_id;
         let table_mapping = snapshot
             .table_mapping()
-            .namespace(TableNamespace::from(query.component_id));
+            .namespace(TableNamespace::from(component_id));
         if !table_mapping.name_exists(query.index_name.table()) {
             return Ok((vec![], usage.gather_user_stats()));
         }
@@ -2091,7 +2092,11 @@ impl<RT: Runtime> Database<RT> {
             .map(|r| r.to_public(table_number))
             .collect();
         let size: u64 = results.iter().map(|row| row.size() as u64).sum();
+        let component_path = snapshot
+            .component_registry
+            .must_component_path(component_id, &mut TransactionReadSet::new())?;
         usage.track_vector_egress_size(
+            component_path,
             table_mapping.tablet_name(*index_name.table())?.to_string(),
             size,
             // We don't have system owned vector indexes.

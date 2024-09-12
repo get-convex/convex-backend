@@ -10,6 +10,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    components::ComponentPath,
     execution_context::ExecutionId,
     types::{
         ModuleEnvironment,
@@ -179,10 +180,10 @@ impl UsageCounter {
     ) {
         // Merge the storage stats.
         let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();
-        for (storage_api, function_count) in stats.storage_calls {
+        for ((component_path, storage_api), function_count) in stats.storage_calls {
             usage_metrics.push(UsageEvent::FunctionStorageCalls {
                 id: execution_id.to_string(),
-                component_path: component_path.clone(),
+                component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 call: storage_api,
                 count: function_count,
@@ -196,40 +197,40 @@ impl UsageCounter {
             egress: stats.storage_egress_size,
         });
         // Merge "by table" bandwidth stats.
-        for (table_name, ingress_size) in stats.database_ingress_size {
+        for ((component_path, table_name), ingress_size) in stats.database_ingress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
-                component_path: component_path.clone(),
+                component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: ingress_size,
                 egress: 0,
             });
         }
-        for (table_name, egress_size) in stats.database_egress_size {
+        for ((component_path, table_name), egress_size) in stats.database_egress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
-                component_path: component_path.clone(),
+                component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: 0,
                 egress: egress_size,
             });
         }
-        for (table_name, ingress_size) in stats.vector_ingress_size {
+        for ((component_path, table_name), ingress_size) in stats.vector_ingress_size {
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
-                component_path: component_path.clone(),
+                component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: ingress_size,
                 egress: 0,
             });
         }
-        for (table_name, egress_size) in stats.vector_egress_size {
+        for ((component_path, table_name), egress_size) in stats.vector_egress_size {
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
-                component_path: component_path.clone(),
+                component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: 0,
@@ -245,6 +246,7 @@ impl UsageCounter {
 pub trait StorageUsageTracker: Send + Sync {
     fn track_storage_call(
         &self,
+        component_path: ComponentPath,
         storage_api: &'static str,
         storage_id: StorageUuid,
         content_type: Option<ContentType>,
@@ -294,6 +296,7 @@ impl StorageCallTracker for IndependentStorageCallTracker {
 impl StorageUsageTracker for UsageCounter {
     fn track_storage_call(
         &self,
+        component_path: ComponentPath,
         storage_api: &'static str,
         storage_id: StorageUuid,
         content_type: Option<ContentType>,
@@ -303,6 +306,7 @@ impl StorageUsageTracker for UsageCounter {
         metrics::storage::log_storage_call();
         self.usage_logger.record(vec![UsageEvent::StorageCall {
             id: execution_id.to_string(),
+            component_path: component_path.serialize(),
             // Ideally we would track the Id<_storage> instead of the StorageUuid
             // but it's a bit annoying for now, so just going with this.
             storage_id: storage_id.to_string(),
@@ -361,6 +365,7 @@ impl FunctionUsageTracker {
     // calling this method.
     pub fn track_database_ingress_size(
         &self,
+        component_path: ComponentPath,
         table_name: String,
         ingress_size: u64,
         skip_logging: bool,
@@ -372,11 +377,12 @@ impl FunctionUsageTracker {
         let mut state = self.state.lock();
         state
             .database_ingress_size
-            .mutate_entry_or_default(table_name.clone(), |count| *count += ingress_size);
+            .mutate_entry_or_default((component_path, table_name), |count| *count += ingress_size);
     }
 
     pub fn track_database_egress_size(
         &self,
+        component_path: ComponentPath,
         table_name: String,
         egress_size: u64,
         skip_logging: bool,
@@ -388,7 +394,7 @@ impl FunctionUsageTracker {
         let mut state = self.state.lock();
         state
             .database_egress_size
-            .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
+            .mutate_entry_or_default((component_path, table_name), |count| *count += egress_size);
     }
 
     // Tracks the vector ingress surcharge and database usage for documents
@@ -405,6 +411,7 @@ impl FunctionUsageTracker {
     // have at least one vector that's actually used in the index.
     pub fn track_vector_ingress_size(
         &self,
+        component_path: ComponentPath,
         table_name: String,
         ingress_size: u64,
         skip_logging: bool,
@@ -416,14 +423,15 @@ impl FunctionUsageTracker {
         // Note that vector search counts as both database and vector bandwidth
         // per the comment above.
         let mut state = self.state.lock();
+        let key = (component_path, table_name);
         state
             .database_ingress_size
-            .mutate_entry_or_default(table_name.clone(), |count| {
+            .mutate_entry_or_default(key.clone(), |count| {
                 *count += ingress_size;
             });
         state
             .vector_ingress_size
-            .mutate_entry_or_default(table_name.clone(), |count| {
+            .mutate_entry_or_default(key, |count| {
                 *count += ingress_size;
             });
     }
@@ -443,6 +451,7 @@ impl FunctionUsageTracker {
     // impact a vector index.
     pub fn track_vector_egress_size(
         &self,
+        component_path: ComponentPath,
         table_name: String,
         egress_size: u64,
         skip_logging: bool,
@@ -454,12 +463,13 @@ impl FunctionUsageTracker {
         // Note that vector search counts as both database and vector bandwidth
         // per the comment above.
         let mut state = self.state.lock();
+        let key = (component_path, table_name);
         state
             .database_egress_size
-            .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
+            .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
         state
             .vector_egress_size
-            .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
+            .mutate_entry_or_default(key, |count| *count += egress_size);
     }
 }
 
@@ -483,6 +493,7 @@ impl StorageCallTracker for FunctionUsageTracker {
 impl StorageUsageTracker for FunctionUsageTracker {
     fn track_storage_call(
         &self,
+        component_path: ComponentPath,
         storage_api: &'static str,
         _storage_id: StorageUuid,
         _content_type: Option<ContentType>,
@@ -492,7 +503,9 @@ impl StorageUsageTracker for FunctionUsageTracker {
         metrics::storage::log_storage_call();
         state
             .storage_calls
-            .mutate_entry_or_default(storage_api.to_string(), |count| *count += 1);
+            .mutate_entry_or_default((component_path, storage_api.to_string()), |count| {
+                *count += 1
+            });
         Box::new(self.clone())
     }
 }
@@ -504,13 +517,13 @@ type StorageAPI = String;
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionUsageStats {
-    pub storage_calls: WithHeapSize<BTreeMap<StorageAPI, u64>>,
+    pub storage_calls: WithHeapSize<BTreeMap<(ComponentPath, StorageAPI), u64>>,
     pub storage_ingress_size: u64,
     pub storage_egress_size: u64,
-    pub database_ingress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-    pub database_egress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-    pub vector_ingress_size: WithHeapSize<BTreeMap<TableName, u64>>,
-    pub vector_egress_size: WithHeapSize<BTreeMap<TableName, u64>>,
+    pub database_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub database_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub vector_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
 }
 
 impl FunctionUsageStats {
@@ -527,51 +540,57 @@ impl FunctionUsageStats {
 
     fn merge(&mut self, other: Self) {
         // Merge the storage stats.
-        for (storage_api, function_count) in other.storage_calls {
+        for (key, function_count) in other.storage_calls {
             self.storage_calls
-                .mutate_entry_or_default(storage_api, |count| *count += function_count);
+                .mutate_entry_or_default(key, |count| *count += function_count);
         }
         self.storage_ingress_size += other.storage_ingress_size;
         self.storage_egress_size += other.storage_egress_size;
 
         // Merge "by table" bandwidth other.
-        for (table_name, ingress_size) in other.database_ingress_size {
+        for (key, ingress_size) in other.database_ingress_size {
             self.database_ingress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += ingress_size);
+                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
         }
-        for (table_name, egress_size) in other.database_egress_size {
+        for (key, egress_size) in other.database_egress_size {
             self.database_egress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
+                .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
         }
-        for (table_name, ingress_size) in other.vector_ingress_size {
+        for (key, ingress_size) in other.vector_ingress_size {
             self.vector_ingress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += ingress_size);
+                .mutate_entry_or_default(key.clone(), |count| *count += ingress_size);
         }
-        for (table_name, egress_size) in other.vector_egress_size {
+        for (key, egress_size) in other.vector_egress_size {
             self.vector_egress_size
-                .mutate_entry_or_default(table_name.clone(), |count| *count += egress_size);
+                .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
         }
     }
 }
 
-fn to_by_tag_count(counts: impl Iterator<Item = (String, u64)>) -> Vec<CounterWithTagProto> {
+fn to_by_tag_count(
+    counts: impl Iterator<Item = ((ComponentPath, String), u64)>,
+) -> Vec<CounterWithTagProto> {
     counts
-        .map(|(tag, count)| CounterWithTagProto {
-            name: Some(tag),
-            count: Some(count),
-        })
+        .map(
+            |((component_path, table_name), count)| CounterWithTagProto {
+                component_path: component_path.serialize(),
+                table_name: Some(table_name),
+                count: Some(count),
+            },
+        )
         .collect()
 }
 
 fn from_by_tag_count(
     counts: Vec<CounterWithTagProto>,
-) -> anyhow::Result<impl Iterator<Item = (String, u64)>> {
+) -> anyhow::Result<impl Iterator<Item = ((ComponentPath, String), u64)>> {
     let counts: Vec<_> = counts
         .into_iter()
         .map(|c| -> anyhow::Result<_> {
-            let name = c.name.context("Missing `tag` field")?;
+            let component_path = ComponentPath::deserialize(c.component_path.as_deref())?;
+            let name = c.table_name.context("Missing `tag` field")?;
             let count = c.count.context("Missing `count` field")?;
-            Ok((name, count))
+            Ok(((component_path, name), count))
         })
         .try_collect()?;
     Ok(counts.into_iter())

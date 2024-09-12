@@ -6,6 +6,7 @@ use std::{
 use async_trait::async_trait;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
+    components::ComponentId,
     document::DeveloperDocument,
     index::IndexKeyBytes,
     interval::Interval,
@@ -212,7 +213,9 @@ impl IndexRange {
                 .record_read_document(&v, self.printable_index_name.table())?;
 
             // Database bandwidth for index reads
+            let component_path = tx.must_component_path(ComponentId::from(self.namespace))?;
             tx.usage_tracker.track_database_egress_size(
+                component_path,
                 self.printable_index_name.table().to_string(),
                 index_bytes as u64,
                 self.printable_index_name.is_system_owned(),

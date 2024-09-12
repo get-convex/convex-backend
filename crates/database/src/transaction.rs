@@ -703,6 +703,28 @@ impl<RT: Runtime> Transaction<RT> {
             .get_component_path(component_id, &mut self.reads)
     }
 
+    pub fn must_component_path(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<ComponentPath> {
+        self.component_registry
+            .must_component_path(component_id, &mut self.reads)
+    }
+
+    /// Get the component path for a document ID. This might be None when table
+    /// namespaces for new components are created in `start_push`,  but
+    /// components have not yet been created.
+    pub fn component_path_for_document_id(
+        &mut self,
+        id: ResolvedDocumentId,
+    ) -> anyhow::Result<Option<ComponentPath>> {
+        self.component_registry.component_path_from_document_id(
+            self.metadata.table_mapping(),
+            id,
+            &mut self.reads,
+        )
+    }
+
     // XXX move to table model?
     #[cfg(any(test, feature = "testing"))]
     pub async fn create_system_table_testing(
@@ -859,7 +881,11 @@ impl<RT: Runtime> Transaction<RT> {
         let result = match range_results.into_iter().next() {
             Some((_, doc, timestamp)) => {
                 let is_virtual_table = self.virtual_system_mapping().is_virtual_table(&table_name);
+                let component_path = self
+                    .component_path_for_document_id(doc.id())?
+                    .unwrap_or_default();
                 self.reads.record_read_document(
+                    component_path,
                     table_name,
                     doc.size(),
                     &self.usage_tracker,
@@ -993,7 +1019,11 @@ impl<RT: Runtime> Transaction<RT> {
         table_name: &TableName,
     ) -> anyhow::Result<()> {
         let is_virtual_table = self.virtual_system_mapping().is_virtual_table(table_name);
+        let component_path = self
+            .component_path_for_document_id(document.id())?
+            .unwrap_or_default();
         self.reads.record_read_document(
+            component_path,
             table_name.clone(),
             document.size(),
             &self.usage_tracker,
@@ -1061,6 +1091,7 @@ pub struct IndexRangeRequest {
 pub struct FinalTransaction {
     pub(crate) begin_timestamp: RepeatableTimestamp,
     pub(crate) table_mapping: TableMapping,
+    pub(crate) component_registry: ComponentRegistry,
 
     pub(crate) reads: TransactionReadSet,
     pub(crate) writes: Writes,
@@ -1082,6 +1113,7 @@ impl FinalTransaction {
 
         let begin_timestamp = transaction.begin_timestamp();
         let table_mapping = transaction.table_mapping().clone();
+        let component_registry = transaction.component_registry.deref().clone();
         // Note that we do a best effort validation for memory index sizes. We
         // use the latest snapshot instead of the transaction base snapshot. This
         // is both more accurate and also avoids pedant hitting transient errors.
@@ -1090,6 +1122,7 @@ impl FinalTransaction {
         Ok(Self {
             begin_timestamp,
             table_mapping,
+            component_registry,
             reads: transaction.reads,
             writes: transaction.writes.into_flat()?,
             usage_tracker: transaction.usage_tracker.clone(),

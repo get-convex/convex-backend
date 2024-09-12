@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context;
 use common::{
     bootstrap_model::{
         components::{
@@ -134,6 +135,27 @@ impl ComponentRegistry {
         }
         path.reverse();
         Some(ComponentPath::from(path))
+    }
+
+    pub fn must_component_path(
+        &self,
+        component_id: ComponentId,
+        reads: &mut TransactionReadSet,
+    ) -> anyhow::Result<ComponentPath> {
+        self.get_component_path(component_id, reads)
+            .with_context(|| format!("Component {component_id:?} not found"))
+    }
+
+    pub fn component_path_from_document_id(
+        &self,
+        table_mapping: &TableMapping,
+        id: ResolvedDocumentId,
+        reads: &mut TransactionReadSet,
+    ) -> anyhow::Result<Option<ComponentPath>> {
+        let tablet_id = id.tablet_id;
+        let table_namespace = table_mapping.tablet_namespace(tablet_id)?;
+        let component_id = ComponentId::from(table_namespace);
+        Ok(self.get_component_path(component_id, reads))
     }
 
     pub fn all_component_paths(

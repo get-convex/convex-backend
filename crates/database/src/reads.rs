@@ -7,6 +7,7 @@ use std::{
 use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
+    components::ComponentPath,
     document::PackedDocument,
     interval::{
         Interval,
@@ -336,6 +337,7 @@ impl TransactionReadSet {
 
     pub fn record_read_document(
         &mut self,
+        component_path: ComponentPath,
         table_name: TableName,
         document_size: usize,
         usage_tracker: &FunctionUsageTracker,
@@ -344,6 +346,7 @@ impl TransactionReadSet {
         // Database bandwidth for document reads
         let is_system_table = table_name.is_system() && !is_virtual_table;
         usage_tracker.track_database_egress_size(
+            component_path,
             table_name.to_string(),
             document_size as u64,
             is_system_table,

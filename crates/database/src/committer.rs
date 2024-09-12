@@ -15,6 +15,10 @@ use common::{
         TableState,
         TABLES_TABLE,
     },
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     document::{
         DocumentUpdate,
         ParsedDocument,
@@ -118,7 +122,9 @@ use crate::{
         WriteSource,
     },
     writes::DocumentWrite,
+    ComponentRegistry,
     Transaction,
+    TransactionReadSet,
 };
 
 enum PersistenceWrite {
@@ -697,6 +703,7 @@ impl<RT: Runtime> Committer<RT> {
         metrics::log_write_tx(&transaction);
 
         let table_mapping = transaction.table_mapping.clone();
+        let component_registry = transaction.component_registry.clone();
         let usage_tracking = transaction.usage_tracker.clone();
         let ValidatedCommit {
             index_writes,
@@ -720,6 +727,7 @@ impl<RT: Runtime> Committer<RT> {
                     &index_writes,
                     &document_writes,
                     &table_mapping,
+                    &component_registry,
                 );
                 Self::write_to_persistence(persistence, index_writes, document_writes).await?;
                 Ok(PersistenceWrite::Commit {
@@ -743,13 +751,24 @@ impl<RT: Runtime> Committer<RT> {
         index_writes: &BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         document_writes: &Vec<ValidatedDocumentWrite>,
         table_mapping: &TableMapping,
+        component_registry: &ComponentRegistry,
     ) {
         for (_, index_write) in index_writes {
             if let DatabaseIndexValue::NonClustered(doc) = index_write.value {
-                if let Ok(table_name) = table_mapping.tablet_name(doc.tablet_id) {
+                let tablet_id = doc.tablet_id;
+                let Ok(table_namespace) = table_mapping.tablet_namespace(tablet_id) else {
+                    continue;
+                };
+                let component_id = ComponentId::from(table_namespace);
+                let component_path = component_registry
+                    .get_component_path(component_id, &mut TransactionReadSet::new())
+                    // It's possible that the component gets deleted in this transaction. In that case, miscount the usage as root.
+                    .unwrap_or(ComponentPath::root());
+                if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Index metadata is never a vector
                     // Database bandwidth for index writes
                     usage_tracker.track_database_ingress_size(
+                        component_path,
                         table_name.to_string(),
                         index_write.key.size() as u64,
                         // Exclude indexes on system tables or reserved system indexes on user
@@ -768,16 +787,27 @@ impl<RT: Runtime> Committer<RT> {
             } = validated_write;
             if let Some(document) = document {
                 let document_write_size = document_id.size() + document.size();
-                if let Ok(table_name) = table_mapping.tablet_name(document.id().tablet_id) {
+                let tablet_id = document.id().tablet_id;
+                let Ok(table_namespace) = table_mapping.tablet_namespace(tablet_id) else {
+                    continue;
+                };
+                let component_id = ComponentId::from(table_namespace);
+                let component_path = component_registry
+                    .get_component_path(component_id, &mut TransactionReadSet::new())
+                    // It's possible that the component gets deleted in this transaction. In that case, miscount the usage as root.
+                    .unwrap_or(ComponentPath::root());
+                if let Ok(table_name) = table_mapping.tablet_name(tablet_id) {
                     // Database bandwidth for document writes
                     if *doc_in_vector_index == DocInVectorIndex::Absent {
                         usage_tracker.track_database_ingress_size(
+                            component_path,
                             table_name.to_string(),
                             document_write_size as u64,
                             table_name.is_system(),
                         );
                     } else {
                         usage_tracker.track_vector_ingress_size(
+                            component_path,
                             table_name.to_string(),
                             document_write_size as u64,
                             table_name.is_system(),

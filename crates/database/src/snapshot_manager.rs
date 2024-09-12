@@ -10,6 +10,10 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     bootstrap_model::tables::TableState,
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     document::{
         DocumentUpdate,
         ResolvedDocument,
@@ -53,6 +57,7 @@ use crate::{
     ComponentRegistry,
     TableRegistry,
     TableSummary,
+    TransactionReadSet,
 };
 
 const MAX_TRANSACTION_WINDOW: Duration = Duration::from_secs(10);
@@ -348,6 +353,11 @@ impl<RT: Runtime> Snapshot<RT> {
         }
 
         Ok(document_storage_by_table)
+    }
+
+    pub fn component_ids_to_paths(&self) -> BTreeMap<ComponentId, ComponentPath> {
+        self.component_registry
+            .all_component_paths(&mut TransactionReadSet::new())
     }
 }
 

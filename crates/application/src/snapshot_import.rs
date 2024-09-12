@@ -2090,6 +2090,7 @@ async fn import_storage_table<RT: Runtime>(
             .transpose()?;
         usage
             .track_storage_call(
+                component_path.clone(),
                 "snapshot_import",
                 entry.storage_id,
                 content_type,
@@ -3516,7 +3517,7 @@ a
         .await?;
 
         let stats = usage.gather_user_stats();
-        assert!(stats.database_ingress_size[&table_name.to_string()] > 0);
+        assert!(stats.database_ingress_size[&(component_path, table_name.to_string())] > 0);
         assert_eq!(stats.storage_ingress_size, 9);
 
         Ok(())

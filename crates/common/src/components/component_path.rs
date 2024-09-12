@@ -72,7 +72,7 @@ impl HeapSize for ComponentName {
 // path can potentially change when the component tree changes during a push, so
 // we should resolve this path to a `ComponentId` within a transaction
 // as soon as possible.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentPath {
     path: WithHeapSize<Vec<ComponentName>>,

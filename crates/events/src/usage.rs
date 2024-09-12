@@ -67,6 +67,7 @@ pub enum UsageEvent {
     /// snapshot import/export)
     StorageCall {
         id: String,
+        component_path: Option<String>,
         storage_id: String,
         call: String,
         content_type: Option<String>,

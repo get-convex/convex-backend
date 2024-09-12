@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use common::{
+    components::ComponentPath,
     runtime::Runtime,
     sha256::{
         DigestHeader,
@@ -80,7 +81,13 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .await?;
 
         self.usage_tracker
-            .track_storage_call("store", storage_id, content_type, sha256)
+            .track_storage_call(
+                ComponentPath::TODO(),
+                "store",
+                storage_id,
+                content_type,
+                sha256,
+            )
             .track_storage_ingress_size(size as u64);
 
         Ok(storage_doc_id)

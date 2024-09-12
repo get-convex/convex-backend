@@ -7,7 +7,10 @@ use std::{
 use anyhow::Context;
 use bytes::Bytes;
 use common::{
-    components::ComponentId,
+    components::{
+        ComponentId,
+        ComponentPath,
+    },
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -240,8 +243,13 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let stream = storage_get_stream.stream;
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
-        let call_tracker =
-            usage_tracker.track_storage_call("get range", storage_id, content_type.clone(), sha256);
+        let call_tracker = usage_tracker.track_storage_call(
+            ComponentPath::TODO(),
+            "get range",
+            storage_id,
+            content_type.clone(),
+            sha256,
+        );
 
         Ok(FileRangeStream {
             content_length,
@@ -415,12 +423,13 @@ impl<RT: Runtime> FileStorage<RT> {
             .transactional_file_storage
             .store_file_entry(&mut tx, namespace, entry)
             .await?;
+        let component_path = tx.must_component_path(ComponentId::from(namespace))?;
         self.database
             .commit_with_write_source(tx, "file_storage_store_file")
             .await?;
 
         usage_tracker
-            .track_storage_call("store", storage_id, content_type, sha256)
+            .track_storage_call(component_path, "store", storage_id, content_type, sha256)
             .track_storage_ingress_size(size as u64);
         Ok(virtual_id)
     }

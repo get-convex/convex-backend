@@ -27,6 +27,7 @@ use common::{
     components::{
         ComponentId,
         ComponentName,
+        ComponentPath,
     },
     document::{
         ParsedDocument,
@@ -289,7 +290,7 @@ impl<RT: Runtime> ExportWorker<RT> {
     ) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
-        let (ts, tables, by_id_indexes, system_tables, component_tree) = {
+        let (ts, tables, component_ids_to_paths, by_id_indexes, system_tables, component_tree) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
             let component_tree = ComponentTree::new(&mut tx, component).await?;
@@ -309,6 +310,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     )
                 })
                 .collect();
+            let component_ids_to_paths = snapshot.component_ids_to_paths();
             let system_tables = snapshot
                 .table_registry
                 .iter_active_system_tables()
@@ -317,6 +319,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             (
                 tx.begin_timestamp(),
                 tables,
+                component_ids_to_paths,
                 by_id_indexes,
                 system_tables,
                 component_tree,
@@ -335,6 +338,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     writer,
                     component_tree,
                     tables.clone(),
+                    &component_ids_to_paths,
                     ts,
                     by_id_indexes,
                     system_tables,
@@ -355,6 +359,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         component_tree: &'a ComponentTree,
         zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
         tables: &'a mut BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
+        component_ids_to_paths: &BTreeMap<ComponentId, ComponentPath>,
         snapshot_ts: RepeatableTimestamp,
         by_id_indexes: &BTreeMap<TabletId, IndexId>,
         system_tables: &BTreeMap<(TableNamespace, TableName), TabletId>,
@@ -362,6 +367,10 @@ impl<RT: Runtime> ExportWorker<RT> {
         usage: FunctionUsageTracker,
     ) -> anyhow::Result<()> {
         let namespace: TableNamespace = component_tree.id.into();
+        let component_path = component_ids_to_paths
+            .get(&component_tree.id)
+            .cloned()
+            .unwrap_or_default();
         let tablet_ids: BTreeSet<_> = tables
             .iter()
             .filter(|(_, (ns, ..))| *ns == namespace)
@@ -468,6 +477,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .transpose()?;
                 usage
                     .track_storage_call(
+                        component_path.clone(),
                         "snapshot_export",
                         file_storage_entry.storage_id.clone(),
                         content_type,
@@ -507,7 +517,12 @@ impl<RT: Runtime> ExportWorker<RT> {
 
             // Write documents from stream to table uploads
             while let Some((doc, _ts)) = stream.try_next().await? {
-                usage.track_database_egress_size(table_name.to_string(), doc.size() as u64, false);
+                usage.track_database_egress_size(
+                    component_path.clone(),
+                    table_name.to_string(),
+                    doc.size() as u64,
+                    false,
+                );
                 table_upload.write(doc).await?;
             }
             table_upload.complete().await?;
@@ -525,6 +540,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 child,
                 zip_snapshot_upload,
                 tables,
+                component_ids_to_paths,
                 snapshot_ts,
                 by_id_indexes,
                 system_tables,
@@ -542,6 +558,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         mut writer: ChannelWriter,
         component_tree: ComponentTree,
         mut tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
+        component_ids_to_paths: &BTreeMap<ComponentId, ComponentPath>,
         snapshot_ts: RepeatableTimestamp,
         by_id_indexes: BTreeMap<TabletId, IndexId>,
         system_tables: BTreeMap<(TableNamespace, TableName), TabletId>,
@@ -555,6 +572,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             &component_tree,
             &mut zip_snapshot_upload,
             &mut tables,
+            component_ids_to_paths,
             snapshot_ts,
             &by_id_indexes,
             &system_tables,
@@ -760,7 +778,10 @@ mod tests {
     use anyhow::Context;
     use bytes::Bytes;
     use common::{
-        components::ComponentId,
+        components::{
+            ComponentId,
+            ComponentPath,
+        },
         document::ParsedDocument,
         types::{
             ConvexOrigin,
@@ -929,9 +950,10 @@ mod tests {
         assert_eq!(zip_entries, expected_export_entries);
 
         let usage = usage.gather_user_stats();
-        assert!(usage.database_egress_size["table_0"] > 0);
-        assert!(usage.database_egress_size["table_1"] > 0);
-        assert!(usage.database_egress_size["table_2"] > 0);
+        let component_path = ComponentPath::test_user();
+        assert!(usage.database_egress_size[&(component_path.clone(), "table_0".to_string())] > 0);
+        assert!(usage.database_egress_size[&(component_path.clone(), "table_1".to_string())] > 0);
+        assert!(usage.database_egress_size[&(component_path, "table_2".to_string())] > 0);
 
         Ok(())
     }
@@ -1000,8 +1022,9 @@ mod tests {
         expected_export_entries.insert("README.md".to_string(), README_MD_CONTENTS.to_string());
 
         let mut tx = db.begin(Identity::system()).await?;
-        let (_, child_component) = BootstrapComponentsModel::new(&mut tx)
-            .must_component_path_to_ids(&"component".parse()?)?;
+        let component_path = "component".parse()?;
+        let (_, child_component) =
+            BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path)?;
 
         for (path_prefix, component) in [
             ("", ComponentId::Root),
@@ -1041,7 +1064,7 @@ mod tests {
         assert_eq!(zip_entries, expected_export_entries);
 
         let usage = usage.gather_user_stats();
-        assert!(usage.database_egress_size["messages"] > 0);
+        assert!(usage.database_egress_size[&(component_path, "messages".to_string())] > 0);
         Ok(())
     }
 
@@ -1062,8 +1085,9 @@ mod tests {
         expected_export_entries.insert("README.md".to_string(), README_MD_CONTENTS.to_string());
 
         let mut tx = db.begin(Identity::system()).await?;
-        let (_, child_component) = BootstrapComponentsModel::new(&mut tx)
-            .must_component_path_to_ids(&"component".parse()?)?;
+        let component_path = "component".parse()?;
+        let (_, child_component) =
+            BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path)?;
 
         // Data in root component doesn't matter.
         write_test_data_in_component(&db, ComponentId::Root, "", &mut BTreeMap::new()).await?;
@@ -1100,7 +1124,7 @@ mod tests {
         assert_eq!(zip_entries, expected_export_entries);
 
         let usage = usage.gather_user_stats();
-        assert!(usage.database_egress_size["messages"] > 0);
+        assert!(usage.database_egress_size[&(component_path, "messages".to_string())] > 0);
         Ok(())
     }
 

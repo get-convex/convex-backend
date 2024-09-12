@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context;
 use errors::ErrorMetadata;
 use imbl::OrdMap;
 use serde::Serialize;
@@ -204,21 +205,21 @@ impl TableMapping {
         self.tablet_to_table
             .get(&id)
             .map(|(_, _, name)| name.clone())
-            .ok_or_else(|| anyhow::anyhow!("cannot find table {id:?}"))
+            .with_context(|| format!("cannot find table {id:?}"))
     }
 
     pub fn tablet_number(&self, id: TabletId) -> anyhow::Result<TableNumber> {
         self.tablet_to_table
             .get(&id)
             .map(|(_, number, ..)| *number)
-            .ok_or_else(|| anyhow::anyhow!("cannot find table {id:?}"))
+            .with_context(|| format!("cannot find table {id:?}"))
     }
 
     pub fn tablet_namespace(&self, id: TabletId) -> anyhow::Result<TableNamespace> {
         self.tablet_to_table
             .get(&id)
             .map(|(namespace, ..)| *namespace)
-            .ok_or_else(|| anyhow::anyhow!("cannot find table {id:?}"))
+            .with_context(|| format!("cannot find table {id:?}"))
     }
 
     pub fn tablet_to_name(&self) -> impl Fn(TabletId) -> anyhow::Result<TableName> + '_ {
