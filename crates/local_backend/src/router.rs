@@ -46,11 +46,18 @@ use tower_http::{
 };
 
 use crate::{
+    app_metrics::{
+        cache_hit_percentage,
+        latency_percentiles,
+        table_rate,
+        udf_rate,
+    },
     dashboard::{
         delete_component,
         delete_tables,
         get_indexes,
         get_source_code,
+        run_test_function,
         shapes2,
     },
     deploy_config::{
@@ -128,27 +135,20 @@ pub async fn router(st: LocalAppState) -> Router {
         // header). Passes version in the URL because websockets can't do it in header.
         .route("/:client_version/sync", get(sync_client_version_url));
 
-    let dashboard_routes = Router::new()
+    let dashboard_routes = common_dashboard_routes()
         // Scheduled jobs routes
         .route("/cancel_all_jobs", post(cancel_all_jobs))
         .route("/cancel_job", post(cancel_job))
         // Environment variable routes
         .route("/update_environment_variables", post(update_environment_variables))
         // Administrative routes for the dashboard
-        .route("/shapes2", get(shapes2))
-        .route("/get_indexes", get(get_indexes))
-        .route("/delete_tables", post(delete_tables))
-        .route("/delete_component", post(delete_component))
-        .route("/get_source_code", get(get_source_code))
-        // Metrics routes
-        .route("/app_metrics/stream_udf_execution", get(stream_udf_execution))
-        .route("/app_metrics/stream_function_logs", get(stream_function_logs))
         .layer(ServiceBuilder::new());
 
     let cli_routes = Router::new()
         .route("/push_config", post(push_config))
         .route("/prepare_schema", post(prepare_schema))
         .route("/deploy2/start_push", post(deploy_config2::start_push))
+        .route("/run_test_function", post(run_test_function))
         .layer(
             ServiceBuilder::new()
                 .layer(HandleErrorLayer::new(|_: Infallible| async {
@@ -272,6 +272,28 @@ pub fn http_action_routes() -> Router<RouterState> {
         .route("/*rest", http_action_handler())
         .route("/", http_action_handler())
         .layer(DefaultBodyLimit::max(HTTP_ACTION_BODY_LIMIT))
+}
+
+pub fn app_metrics_routes() -> Router<LocalAppState> {
+    Router::new()
+        .route("/stream_udf_execution", get(stream_udf_execution))
+        .route("/stream_function_logs", get(stream_function_logs))
+        .route("/udf_rate", get(udf_rate))
+        .route("/cache_hit_percentage", get(cache_hit_percentage))
+        .route("/table_rate", get(table_rate))
+        .route("/latency_percentiles", get(latency_percentiles))
+}
+
+// Routes with the same handlers for the local backend + closed source backend
+pub fn common_dashboard_routes() -> Router<LocalAppState> {
+    Router::new()
+        .route("/shapes2", get(shapes2))
+        .route("/get_indexes", get(get_indexes))
+        .route("/delete_tables", post(delete_tables))
+        .route("/delete_component", post(delete_component))
+        .route("/get_source_code", get(get_source_code))
+        // Metrics routes
+        .nest("/app_metrics", app_metrics_routes())
 }
 
 pub async fn cors() -> CorsLayer {

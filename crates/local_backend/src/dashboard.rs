@@ -1,5 +1,8 @@
 use anyhow::Context;
-use application::valid_identifier::ValidIdentifier;
+use application::{
+    deploy_config::ModuleJson,
+    valid_identifier::ValidIdentifier,
+};
 use axum::{
     debug_handler,
     extract::State,
@@ -12,17 +15,24 @@ use common::{
             Json,
             Query,
         },
+        ExtractClientVersion,
+        ExtractRequestId,
         HttpResponseError,
     },
     shapes::{
         dashboard_shape_json,
         reduced::ReducedShape,
     },
+    types::FunctionCaller,
 };
 use database::IndexModel;
 use errors::ErrorMetadata;
 use http::StatusCode;
-use model::virtual_system_mapping;
+use isolate::UdfArgsJson;
+use model::{
+    config::types::ModuleConfig,
+    virtual_system_mapping,
+};
 use serde::{
     Deserialize,
     Serialize,
@@ -34,10 +44,15 @@ use value::{
 
 use crate::{
     admin::{
+        must_be_admin_from_key,
         must_be_admin_member,
         must_be_admin_member_with_write_access,
     },
     authentication::ExtractIdentity,
+    public_api::{
+        export_value,
+        UdfResponse,
+    },
     schema::IndexMetadataResponse,
     LocalAppState,
 };
@@ -182,4 +197,54 @@ pub async fn get_source_code(
         .get_source_code(identity, path, component)
         .await?;
     Ok(Json(source_code))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunTestFunctionArgs {
+    admin_key: String,
+    bundle: ModuleJson,
+    args: UdfArgsJson,
+    format: String,
+    component_id: Option<String>,
+}
+
+#[debug_handler]
+pub async fn run_test_function(
+    State(st): State<LocalAppState>,
+    ExtractRequestId(request_id): ExtractRequestId,
+    ExtractClientVersion(client_version): ExtractClientVersion,
+    Json(req): Json<RunTestFunctionArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let identity = must_be_admin_from_key(
+        st.application.app_auth(),
+        st.instance_name.clone(),
+        req.admin_key.clone(),
+    )
+    .await?;
+    let args = req.args.into_arg_vec();
+    let module: ModuleConfig = req.bundle.try_into()?;
+    let component_id = ComponentId::deserialize_from_string(req.component_id.as_deref())?;
+    let udf_return = st
+        .application
+        .execute_standalone_module(
+            request_id,
+            module,
+            args,
+            identity,
+            FunctionCaller::Tester(client_version.clone()),
+            component_id,
+        )
+        .await?;
+    let value_format = Some(req.format.parse()?);
+    let response = match udf_return {
+        Ok(result) => UdfResponse::Success {
+            value: export_value(result.value, value_format, client_version)?,
+            log_lines: result.log_lines,
+        },
+        Err(error) => {
+            UdfResponse::error(error.error, error.log_lines, value_format, client_version)?
+        },
+    };
+    Ok(Json(response))
 }

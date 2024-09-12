@@ -73,6 +73,7 @@ use search::{
 use serde::Serialize;
 
 pub mod admin;
+mod app_metrics;
 mod args_structs;
 pub mod authentication;
 pub mod config;
