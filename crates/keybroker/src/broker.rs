@@ -96,7 +96,7 @@ use crate::{
     secret::InstanceSecret,
 };
 
-const ACTION_KEY_VERSION: u8 = 1;
+const ACTION_KEY_VERSION: u8 = 2;
 const ADMIN_KEY_VERSION: u8 = 1;
 const CURSOR_VERSION: u8 = 7;
 const STORE_FILE_AUTHZ_VERSION: u8 = 1;
@@ -964,7 +964,7 @@ impl KeyBroker {
         }
     }
 
-    pub fn issue_action_token(&self) -> ActionCallbackToken {
+    pub fn issue_action_token(&self, component_id: ComponentId) -> ActionCallbackToken {
         let now = SystemTime::now();
         let since_epoch = now
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -972,6 +972,7 @@ impl KeyBroker {
 
         let proto = ActionCallbackTokenProto {
             issued_s: since_epoch.as_secs(),
+            component_id: component_id.serialize_to_string(),
         };
 
         self.encryptor.encode_proto(ACTION_KEY_VERSION, proto)
@@ -982,8 +983,11 @@ impl KeyBroker {
         &self,
         token: &ActionCallbackToken,
         validity: Duration,
-    ) -> anyhow::Result<SystemTime> {
-        let ActionCallbackTokenProto { issued_s } = self
+    ) -> anyhow::Result<(SystemTime, ComponentId)> {
+        let ActionCallbackTokenProto {
+            issued_s,
+            component_id,
+        } = self
             .encryptor
             .decode_proto(ACTION_KEY_VERSION, token)
             .with_context(|| format!("Couldn't decode ActionCallbackTokenProto {token}"))?;
@@ -1002,7 +1006,9 @@ impl KeyBroker {
             return Err(anyhow::anyhow!("Action callback token expired"));
         }
 
-        Ok(SystemTime::UNIX_EPOCH + Duration::from_secs(issued_s))
+        let system_time = SystemTime::UNIX_EPOCH + Duration::from_secs(issued_s);
+        let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
+        Ok((system_time, component_id))
     }
 }
 
@@ -1189,14 +1195,15 @@ mod tests {
     fn test_action_token() -> anyhow::Result<()> {
         let kb = KeyBroker::dev();
         let before_issue = SystemTime::now();
-        let token = kb.issue_action_token();
+        let token = kb.issue_action_token(ComponentId::test_user());
         let after_issue = SystemTime::now();
 
         // Should be valid if checked with validity of 1 minute.
-        let issue_time = kb.check_action_token(&token, Duration::from_secs(60))?;
+        let (issue_time, component_id) = kb.check_action_token(&token, Duration::from_secs(60))?;
         // Note we round down the issue time to nearest second.
         assert!(issue_time > before_issue - Duration::from_secs(1));
         assert!(issue_time < after_issue);
+        assert_eq!(component_id, ComponentId::test_user());
 
         // Should be invalid if checked with validity of 0.
         let err = kb

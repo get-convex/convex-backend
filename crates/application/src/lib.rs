@@ -2460,6 +2460,19 @@ impl<RT: Runtime> Application<RT> {
         Ok(identity)
     }
 
+    pub async fn validate_component_id(
+        &self,
+        identity: Identity,
+        component_id: ComponentId,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.begin(identity).await?;
+        anyhow::ensure!(
+            tx.get_component_path(component_id).is_some(),
+            "Component {component_id:?} not found"
+        );
+        Ok(())
+    }
+
     pub async fn udf_rate(
         &self,
         identity: Identity,

@@ -1318,7 +1318,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     user_identity: tx.user_identity(),
                     auth_header: token_to_authorization_header(tx.authentication_token())?,
                     environment_variables,
-                    callback_token: self.key_broker.issue_action_token(),
+                    callback_token: self.key_broker.issue_action_token(path.component),
                     context: context.clone(),
                     encoded_parent_trace: EncodedSpan::from_parent().0,
                 };

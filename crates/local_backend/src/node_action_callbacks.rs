@@ -94,7 +94,10 @@ use crate::{
 #[debug_handler]
 pub async fn internal_query_post(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id: _,
+    }: ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<UdfPostRequest>,
@@ -139,7 +142,10 @@ pub async fn internal_query_post(
 #[debug_handler]
 pub async fn internal_mutation_post(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id: _,
+    }: ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<UdfPostRequest>,
@@ -189,7 +195,10 @@ pub async fn internal_mutation_post(
 #[debug_handler]
 pub async fn internal_action_post(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id: _,
+    }: ExtractActionIdentity,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<UdfPostRequest>,
@@ -246,7 +255,10 @@ pub struct ScheduleJobResponse {
 #[debug_handler]
 pub async fn schedule_job(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id,
+    }: ExtractActionIdentity,
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<ScheduleJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
@@ -261,7 +273,7 @@ pub async fn schedule_job(
         .runner()
         .schedule_job(
             identity,
-            ComponentId::TODO(),
+            component_id,
             CanonicalizedComponentFunctionPath {
                 component: ComponentPath::TODO(),
                 udf_path,
@@ -285,7 +297,10 @@ pub struct CancelDeveloperJobRequest {
 #[debug_handler]
 pub async fn cancel_developer_job(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id: _,
+    }: ExtractActionIdentity,
     Json(CancelDeveloperJobRequest { id }): Json<CancelDeveloperJobRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let virtual_doc_id = DeveloperDocumentId::from_str(&id).context(ErrorMetadata::bad_request(
@@ -302,7 +317,10 @@ pub async fn cancel_developer_job(
 #[debug_handler]
 pub async fn vector_search(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id,
+    }: ExtractActionIdentity,
     ExtractActionName(action_name): ExtractActionName,
     ExtractExecutionContext(context): ExtractExecutionContext,
     Json(req): Json<VectorSearchRequest>,
@@ -312,7 +330,10 @@ pub async fn vector_search(
         let message = e.to_string();
         e.context(ErrorMetadata::bad_request("InvalidVectorQuery", message))
     })?;
-    let (results, usage_stats) = st.application.vector_search(identity, query).await?;
+    let (results, usage_stats) = st
+        .application
+        .vector_search(identity.clone(), query)
+        .await?;
 
     // This is a workaround. The correct way to track usage is to return in the
     // response, and then Node.js should aggregate it and then send it back to
@@ -322,7 +343,13 @@ pub async fn vector_search(
     if let Some(action_name) = action_name {
         let usage = FunctionUsageTracker::new();
         usage.add(usage_stats);
-        let component = ComponentPath::TODO();
+        let mut tx = st.application.begin(identity).await?;
+        let component = tx
+            .get_component_path(component_id)
+            .context(ErrorMetadata::bad_request(
+                "MissingComponent",
+                format!("Failed to find a component for id {component_id:?}"),
+            ))?;
         let udf_path: CanonicalizedUdfPath = action_name
             .parse()
             .context(format!("Unexpected udf path format, got {action_name}"))?;
@@ -345,11 +372,14 @@ pub async fn vector_search(
 #[debug_handler]
 pub async fn storage_generate_upload_url(
     State(st): State<LocalAppState>,
+    ExtractActionIdentity {
+        identity: _,
+        component_id,
+    }: ExtractActionIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
-    let component = ComponentId::TODO();
     let url = st
         .application
-        .storage_generate_upload_url(component)
+        .storage_generate_upload_url(component_id)
         .await?;
     Ok(Json(json!({ "url": url })))
 }
@@ -363,14 +393,17 @@ pub struct GetParams {
 #[debug_handler]
 pub async fn storage_get_url(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id,
+    }: ExtractActionIdentity,
     Json(req): Json<GetParams>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let storage_id = req.storage_id.parse()?;
     let url = st
         .application
         .runner()
-        .storage_get_url(identity, ComponentId::TODO(), storage_id)
+        .storage_get_url(identity, component_id, storage_id)
         .await?;
     Ok(Json(json!({ "url": url })))
 }
@@ -378,11 +411,13 @@ pub async fn storage_get_url(
 #[debug_handler]
 pub async fn storage_get_metadata(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id,
+    }: ExtractActionIdentity,
     Json(req): Json<GetParams>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let storage_id = req.storage_id.parse()?;
-    let component = ComponentId::TODO();
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
     struct FileMetadataJson {
@@ -395,7 +430,7 @@ pub async fn storage_get_metadata(
     let file_metadata = st
         .application
         .runner()
-        .storage_get_file_entry(identity, component, storage_id)
+        .storage_get_file_entry(identity, component_id, storage_id)
         .await?
         .map(
             |FileStorageEntry {
@@ -420,14 +455,16 @@ pub async fn storage_get_metadata(
 #[debug_handler]
 pub async fn storage_delete(
     State(st): State<LocalAppState>,
-    ExtractActionIdentity(identity): ExtractActionIdentity,
+    ExtractActionIdentity {
+        identity,
+        component_id,
+    }: ExtractActionIdentity,
     Json(req): Json<GetParams>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let storage_id = req.storage_id.parse()?;
-    let component = ComponentId::TODO();
     st.application
         .runner()
-        .storage_delete(identity, component, storage_id)
+        .storage_delete(identity, component_id, storage_id)
         .await?;
     Ok(Json(json!(null)))
 }
@@ -437,7 +474,7 @@ pub static CONVEX_ACTIONS_CALLBACK_TOKEN: &str = "Convex-Action-Callback-Token";
 async fn check_actions_token(
     st: &LocalAppState,
     headers: &HeaderMap,
-) -> anyhow::Result<SystemTime> {
+) -> anyhow::Result<(SystemTime, ComponentId)> {
     let value = headers
         .get(CONVEX_ACTIONS_CALLBACK_TOKEN)
         .context("Missing callback token - is the call from actions?")?;
@@ -483,7 +520,10 @@ pub async fn action_callbacks_middleware(
 
 // Similar to ExtractIdentity, but validates as of the action token issue time
 // instead of the current time.
-pub struct ExtractActionIdentity(pub Identity);
+pub struct ExtractActionIdentity {
+    identity: Identity,
+    component_id: ComponentId,
+}
 
 #[async_trait]
 impl FromRequestParts<LocalAppState> for ExtractActionIdentity {
@@ -498,8 +538,15 @@ impl FromRequestParts<LocalAppState> for ExtractActionIdentity {
 
         // Validate the auth token based on when the action token was issued. This
         // prevents errors due to auth token expiring in the middle of long action.
-        let issue_time = check_actions_token(st, &parts.headers).await?;
-        Ok(Self(st.application.authenticate(token, issue_time).await?))
+        let (issue_time, component_id) = check_actions_token(st, &parts.headers).await?;
+        let identity = st.application.authenticate(token, issue_time).await?;
+        st.application
+            .validate_component_id(identity.clone(), component_id)
+            .await?;
+        Ok(Self {
+            identity,
+            component_id,
+        })
     }
 }
 
@@ -605,7 +652,11 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_cancel_recursive_scheduled_job(rt: ProdRuntime) -> anyhow::Result<()> {
         let backend = setup_backend_for_test(rt.clone()).await?;
-        let callback_token = backend.st.application.key_broker().issue_action_token();
+        let callback_token = backend
+            .st
+            .application
+            .key_broker()
+            .issue_action_token(ComponentId::test_user());
         backend
             .st
             .application

@@ -5,4 +5,6 @@ package convex_actions;
 message ActionCallbackToken {
     // Time of issue, measured in seconds since the epoch.
     uint64 issued_s = 2;
+    // Component id of the current node action.
+    optional string component_id = 3;
 }
