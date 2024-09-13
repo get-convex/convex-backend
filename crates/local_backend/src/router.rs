@@ -238,7 +238,7 @@ pub fn storage_api_routes() -> Router<RouterState> {
 // IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
 // such as adding or removing a route, or changing limits, also need to be
 // applied to `crates_private/usher/src/proxy.rs`.
-pub fn action_callback_routes(st: LocalAppState) -> Router<LocalAppState> {
+pub fn action_callback_routes<S>(st: LocalAppState) -> Router<S> {
     Router::new()
         .route("/query", post(internal_query_post))
         .route("/mutation", post(internal_mutation_post))
@@ -254,6 +254,7 @@ pub fn action_callback_routes(st: LocalAppState) -> Router<LocalAppState> {
         // All routes above this line get the increased limit
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_RPC_REQUEST_SIZE))
         .layer(axum::middleware::from_fn_with_state(st.clone(), action_callbacks_middleware))
+        .with_state(st)
 }
 
 pub fn import_routes() -> Router<LocalAppState> {
