@@ -69,10 +69,10 @@ use http::{
     Uri,
 };
 use itertools::Itertools;
-use maplit::btreemap;
 use minitrace::{
     future::FutureExt as _,
     prelude::SpanContext,
+    Span,
 };
 use prometheus::{
     PullingGauge,
@@ -103,10 +103,6 @@ use crate::{
     errors::report_error,
     knobs::HTTP_SERVER_TCP_BACKLOG,
     metrics::log_client_version_unsupported,
-    minitrace_helpers::{
-        get_keyed_sampled_span,
-        get_sampled_span,
-    },
     version::{
         ClientVersion,
         ClientVersionState,
@@ -803,7 +799,6 @@ pub async fn stats_middleware<RM: RouteMapper>(
     State(route_metric_mapper): State<RM>,
     matched_path: Option<axum::extract::MatchedPath>,
     ExtractRequestId(request_id): ExtractRequestId,
-    ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
     ExtractClientVersion(client_version): ExtractClientVersion,
     ExtractTraceparent(traceparent): ExtractTraceparent,
     req: http::request::Request<Body>,
@@ -817,29 +812,12 @@ pub async fn stats_middleware<RM: RouteMapper>(
         .map(|r| r.as_str().to_owned())
         .unwrap_or("unknown".to_owned());
 
-    // Configure tracing. Prefer path to route - since matched path can have *,
-    // notably for /http/*rest
+    // Sampling isn't done here, and should be done upstream
     let path = req.uri().path();
-    let root = {
-        if let Some(span_ctx) = traceparent {
-            get_keyed_sampled_span(
-                span_ctx.trace_id,
-                &resolved_host.instance_name,
-                path,
-                span_ctx,
-                btreemap!["request_id".to_owned() => request_id.to_string()],
-            )
-        } else {
-            let mut rng = rand::thread_rng();
-            get_sampled_span(
-                &resolved_host.instance_name,
-                path,
-                &mut rng,
-                btreemap!["request_id".to_owned() => request_id.to_string()],
-            )
-        }
+    let root = match traceparent {
+        Some(span_ctx) => Span::root(path.to_owned(), span_ctx),
+        None => Span::noop(),
     };
-
     let resp = next.run(req).in_span(root).await;
 
     let client_version_s = client_version.to_string();
