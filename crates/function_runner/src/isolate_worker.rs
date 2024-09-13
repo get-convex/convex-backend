@@ -29,8 +29,10 @@ use isolate::{
         service_request_timer,
         RequestStatus,
     },
+    HttpActionResult,
     IsolateConfig,
 };
+use sync_types::CanonicalizedUdfPath;
 #[derive(Clone)]
 pub(crate) struct FunctionRunnerIsolateWorker<RT: Runtime> {
     rt: RT,
@@ -173,6 +175,56 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 finish_service_request_timer(timer, status);
                 let _ = response.send(r);
                 format!("Action: {udf_path:?}")
+            },
+            RequestType::HttpAction {
+                request,
+                environment_data,
+                mut response,
+                queue_timer,
+                action_callbacks,
+                fetch_client,
+                log_line_sender,
+                http_response_streamer,
+            } => {
+                drop(queue_timer);
+                let timer = service_request_timer(&UdfType::HttpAction);
+                let udf_path: CanonicalizedUdfPath =
+                    request.http_module_path.path().udf_path.clone();
+                let environment = ActionEnvironment::new(
+                    self.rt.clone(),
+                    request.http_module_path.path().component,
+                    environment_data,
+                    request.identity,
+                    request.transaction,
+                    action_callbacks,
+                    fetch_client,
+                    log_line_sender,
+                    Some(http_response_streamer),
+                    heap_stats.clone(),
+                    request.context,
+                );
+                let r = environment
+                    .run_http_action(
+                        client_id,
+                        isolate,
+                        isolate_clean,
+                        request.http_module_path,
+                        request.routed_path,
+                        request.http_request,
+                        response.cancellation().boxed(),
+                    )
+                    .await;
+                let status = match &r {
+                    Ok(outcome) => match outcome.result {
+                        // Note that the stream could potentially encounter errors later
+                        HttpActionResult::Streamed => RequestStatus::Success,
+                        HttpActionResult::Error(_) => RequestStatus::DeveloperError,
+                    },
+                    Err(_) => RequestStatus::SystemError,
+                };
+                finish_service_request_timer(timer, status);
+                let _ = response.send(r);
+                format!("Http: {udf_path:?}")
             },
             _ => {
                 report_error(&mut anyhow::anyhow!(

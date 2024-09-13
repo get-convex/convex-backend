@@ -16,7 +16,10 @@ use common::{
         CoDelQueueSender,
     },
     execution_context::ExecutionContext,
-    http::fetch::FetchClient,
+    http::{
+        fetch::FetchClient,
+        RoutedHttpPath,
+    },
     knobs::{
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         ISOLATE_QUEUE_SIZE,
@@ -60,6 +63,7 @@ use isolate::{
     client::{
         initialize_v8,
         EnvironmentData,
+        HttpActionRequest,
         IsolateWorkerHandle,
         Request as IsolateRequest,
         RequestType as IsolateRequestType,
@@ -75,8 +79,11 @@ use isolate::{
     ActionRequestParams,
     ConcurrencyLimiter,
     FunctionOutcome,
+    HttpActionRequest as HttpActionRequestInner,
+    HttpActionResponseStreamer,
     IsolateConfig,
     UdfCallback,
+    ValidatedHttpPath,
     ValidatedPathAndArgs,
 };
 use keybroker::{
@@ -120,6 +127,38 @@ const MAX_ISOLATE_WORKERS: usize = 128;
 // We gather prometheus stats every 30 seconds, so we should make sure we log
 // active permits more frequently than that.
 const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
+
+pub struct RunRequestArgs {
+    pub instance_name: String,
+    pub instance_secret: InstanceSecret,
+    pub reader: Arc<dyn PersistenceReader>,
+    pub convex_origin: ConvexOrigin,
+    pub bootstrap_metadata: BootstrapMetadata,
+    pub table_count_snapshot: Arc<dyn TableCountSnapshot>,
+    pub text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
+    pub action_callbacks: Arc<dyn ActionCallbacks>,
+    pub fetch_client: Arc<dyn FetchClient>,
+    pub log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
+    pub udf_type: UdfType,
+    pub identity: Identity,
+    pub ts: RepeatableTimestamp,
+    pub existing_writes: FunctionWrites,
+    pub system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    pub in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
+    pub context: ExecutionContext,
+}
+
+pub struct FunctionMetadata {
+    pub path_and_args: ValidatedPathAndArgs,
+    pub journal: QueryJournal,
+}
+
+pub struct HttpActionMetadata {
+    pub http_response_streamer: HttpActionResponseStreamer,
+    pub http_module_path: ValidatedHttpPath,
+    pub routed_path: RoutedHttpPath,
+    pub http_request: HttpActionRequestInner,
+}
 
 #[async_trait]
 pub trait StorageForInstance<RT: Runtime>: Debug + Clone + Send + Sync + 'static {
@@ -336,25 +375,64 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     #[minitrace::trace]
     pub async fn run_function_no_retention_check(
         &self,
-        instance_name: String,
-        instance_secret: InstanceSecret,
-        reader: Arc<dyn PersistenceReader>,
-        convex_origin: ConvexOrigin,
-        bootstrap_metadata: BootstrapMetadata,
-        table_count_snapshot: Arc<dyn TableCountSnapshot>,
-        text_index_snapshot: Arc<dyn TransactionTextSnapshot>,
-        action_callbacks: Arc<dyn ActionCallbacks>,
-        fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
-        path_and_args: ValidatedPathAndArgs,
-        udf_type: UdfType,
-        identity: Identity,
-        ts: RepeatableTimestamp,
-        existing_writes: FunctionWrites,
-        journal: QueryJournal,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-        in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
-        context: ExecutionContext,
+        run_request_args: RunRequestArgs,
+        function_metadata: FunctionMetadata,
+    ) -> anyhow::Result<(
+        Option<FunctionFinalTransaction>,
+        FunctionOutcome,
+        FunctionUsageStats,
+    )> {
+        if run_request_args.udf_type == UdfType::HttpAction {
+            anyhow::bail!("You can't run http actions from this method");
+        }
+        self.run_function_no_retention_check_inner(run_request_args, Some(function_metadata), None)
+            .await
+    }
+
+    #[minitrace::trace]
+    pub async fn run_http_action_no_retention_check(
+        &self,
+        run_request_args: RunRequestArgs,
+        http_action_metadata: HttpActionMetadata,
+    ) -> anyhow::Result<(FunctionOutcome, FunctionUsageStats)> {
+        if run_request_args.udf_type != UdfType::HttpAction {
+            anyhow::bail!("You can only run http actions with this method");
+        }
+        let (_, outcome, stats) = self
+            .run_function_no_retention_check_inner(
+                run_request_args,
+                None,
+                Some(http_action_metadata),
+            )
+            .await?;
+
+        Ok((outcome, stats))
+    }
+
+    #[minitrace::trace]
+    pub async fn run_function_no_retention_check_inner(
+        &self,
+        RunRequestArgs {
+            instance_name,
+            instance_secret,
+            reader,
+            convex_origin,
+            bootstrap_metadata,
+            table_count_snapshot,
+            text_index_snapshot,
+            action_callbacks,
+            fetch_client,
+            log_line_sender,
+            udf_type,
+            identity,
+            ts,
+            existing_writes,
+            system_env_vars,
+            in_memory_index_last_modified,
+            context,
+        }: RunRequestArgs,
+        function_metadata: Option<FunctionMetadata>,
+        http_action_metadata: Option<HttpActionMetadata>,
     ) -> anyhow::Result<(
         Option<FunctionFinalTransaction>,
         FunctionOutcome,
@@ -410,6 +488,10 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
 
         match udf_type {
             UdfType::Query | UdfType::Mutation => {
+                let FunctionMetadata {
+                    path_and_args,
+                    journal,
+                } = function_metadata.context("Missing function metadata for query or mutation")?;
                 let (tx, rx) = oneshot::channel();
                 let request = IsolateRequest::new(
                     instance_name,
@@ -439,6 +521,8 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 ))
             },
             UdfType::Action => {
+                let FunctionMetadata { path_and_args, .. } =
+                    function_metadata.context("Missing function metadata for action")?;
                 let (tx, rx) = oneshot::channel();
                 let log_line_sender =
                     log_line_sender.context("Missing log line sender for action")?;
@@ -469,7 +553,43 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 ))
             },
             UdfType::HttpAction => {
-                anyhow::bail!("Funrun does not support http actions yet")
+                let HttpActionMetadata {
+                    http_response_streamer,
+                    http_module_path,
+                    routed_path,
+                    http_request,
+                } = http_action_metadata.context("Missing http action metadata")?;
+                let (tx, rx) = oneshot::channel();
+                let log_line_sender =
+                    log_line_sender.context("Missing log line sender for http action")?;
+                let request = IsolateRequest::new(
+                    instance_name,
+                    IsolateRequestType::HttpAction {
+                        request: HttpActionRequest {
+                            http_module_path,
+                            routed_path,
+                            http_request,
+                            identity,
+                            transaction,
+                            context,
+                        },
+                        response: tx,
+                        queue_timer: queue_timer(),
+                        action_callbacks,
+                        fetch_client,
+                        log_line_sender,
+                        http_response_streamer,
+                        environment_data,
+                    },
+                    EncodedSpan::from_parent(),
+                );
+                self.send_request(request)?;
+                let outcome = Self::receive_response(rx).await??;
+                Ok((
+                    None,
+                    FunctionOutcome::HttpAction(outcome),
+                    usage_tracker.gather_user_stats(),
+                ))
             },
         }
     }
@@ -593,31 +713,37 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .upgrade()
             .context(shutdown_error())?;
 
+        let request_metadata = RunRequestArgs {
+            instance_name: self.instance_name.clone(),
+            instance_secret: self.instance_secret,
+            reader: self.persistence_reader.clone(),
+            convex_origin: self.convex_origin.clone(),
+            bootstrap_metadata: self.database.bootstrap_metadata.clone(),
+            table_count_snapshot,
+            text_index_snapshot,
+            action_callbacks,
+            fetch_client: self.fetch_client.clone(),
+            log_line_sender,
+            udf_type,
+            identity,
+            ts,
+            existing_writes,
+            system_env_vars,
+            in_memory_index_last_modified,
+            context,
+        };
+
         // NOTE: We run the function without checking retention until after the
         // function execution. It is important that we do not surface any errors
         // or results until after we call `validate_run_function_result` below.
         let result = self
             .server
             .run_function_no_retention_check(
-                self.instance_name.clone(),
-                self.instance_secret,
-                self.persistence_reader.clone(),
-                self.convex_origin.clone(),
-                self.database.bootstrap_metadata.clone(),
-                table_count_snapshot,
-                text_index_snapshot,
-                action_callbacks,
-                self.fetch_client.clone(),
-                log_line_sender,
-                path_and_args,
-                udf_type,
-                identity,
-                ts,
-                existing_writes,
-                journal,
-                system_env_vars,
-                in_memory_index_last_modified,
-                context,
+                request_metadata,
+                FunctionMetadata {
+                    path_and_args,
+                    journal,
+                },
             )
             .await;
         validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;

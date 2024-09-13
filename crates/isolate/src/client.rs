@@ -387,12 +387,12 @@ pub struct UdfRequest<RT: Runtime> {
 }
 
 pub struct HttpActionRequest<RT: Runtime> {
-    http_module_path: ValidatedHttpPath,
-    routed_path: RoutedHttpPath,
-    http_request: http_action::HttpActionRequest,
-    transaction: Transaction<RT>,
-    identity: Identity,
-    context: ExecutionContext,
+    pub http_module_path: ValidatedHttpPath,
+    pub routed_path: RoutedHttpPath,
+    pub http_request: http_action::HttpActionRequest,
+    pub transaction: Transaction<RT>,
+    pub identity: Identity,
+    pub context: ExecutionContext,
 }
 
 pub struct ActionRequest<RT: Runtime> {

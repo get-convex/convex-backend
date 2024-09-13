@@ -12,6 +12,13 @@ message ValidatedPathAndArgs {
   optional string component_id = 5;
 }
 
+message ValidatedHttpPath {
+  optional string path = 1;
+  optional ComponentPath component_path = 22;
+  optional string component_id = 3;
+  optional string npm_version = 4;
+}
+
 message ComponentPath {
   repeated string path = 1;
 }
