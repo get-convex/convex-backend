@@ -80,15 +80,16 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .storage_store_file_entry(self.identity.clone(), self.component_id(), entry)
             .await?;
 
+        let component_path = ComponentPath::TODO();
         self.usage_tracker
             .track_storage_call(
-                ComponentPath::TODO(),
+                component_path.clone(),
                 "store",
                 storage_id,
                 content_type,
                 sha256,
             )
-            .track_storage_ingress_size(size as u64);
+            .track_storage_ingress_size(component_path, size as u64);
 
         Ok(storage_doc_id)
     }
