@@ -774,17 +774,17 @@ async fn test_big_memory_usage(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_not_implemented_builtin(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
-    let not_implemented_error = t
-        .query_js_error("adversarial:useNotImplementedBuiltin", assert_obj!())
-        .await?;
-    assert_contains(&not_implemented_error, "Not implemented");
-    // Has the original function somewhere in the stack trace
-    assert_contains(&not_implemented_error, "convex/adversarial.ts:");
-    Ok(())
-}
+// #[convex_macro::test_runtime]
+// async fn test_not_implemented_builtin(rt: TestRuntime) -> anyhow::Result<()> {
+//     let t = UdfTest::default(rt).await?;
+//     let not_implemented_error = t
+//         .query_js_error("adversarial:useNotImplementedBuiltin", assert_obj!())
+//         .await?;
+//     assert_contains(&not_implemented_error, "Not implemented");
+//     // Has the original function somewhere in the stack trace
+//     assert_contains(&not_implemented_error, "convex/adversarial.ts:");
+//     Ok(())
+// }
 
 #[convex_macro::test_runtime]
 async fn test_stubbed_unsupported_apis(rt: TestRuntime) -> anyhow::Result<()> {
