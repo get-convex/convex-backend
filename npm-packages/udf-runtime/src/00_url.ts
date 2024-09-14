@@ -34,6 +34,14 @@ type Update =
   | {
       type: "searchParams";
       value: [string, string][];
+    }
+  | {
+      type: "username";
+      value: string;
+    }
+  | {
+      type: "password";
+      value: string;
     };
 
 class URLSearchParams {
@@ -164,6 +172,8 @@ type UrlInfo = {
   protocol: string;
   search: string;
   href: string;
+  password: string;
+  username: string;
 };
 
 type URLInfoResult =
@@ -259,11 +269,18 @@ class URL {
   }
 
   get password() {
-    return throwNotImplementedMethodError("get password", "URL");
+    return this._urlInfo.password;
   }
 
   set password(_password: string) {
-    throwNotImplementedMethodError("set password", "URL");
+    if(!this.host || this.host === "" || this.protocol === "file:") {
+      throw new TypeError("Failed to set the 'username' property on 'URL' because the URL's host is null or the URL's protocol is " + this.protocol === "file:" ? "file protocol" : "host");
+    }
+
+    this.updateUrl({
+      type: "password",
+      value: _password,
+    });
   }
 
   get pathname() {
@@ -319,11 +336,18 @@ class URL {
   }
 
   get username() {
-    return throwNotImplementedMethodError("get username", "URL");
+    return this._urlInfo.username;
   }
 
   set username(_username: string) {
-    throwNotImplementedMethodError("set username", "URL");
+    if(!this.host || this.host === "" || this.protocol === "file:") {
+      throw new TypeError("Failed to set the 'username' property on 'URL' because the URL's host is null or the URL's protocol is " + this.protocol === "file:" ? "file protocol" : "host");
+    }
+
+    this.updateUrl({
+      type: "username",
+      value: _username,
+    });
   }
 
   toString() {

@@ -13,7 +13,6 @@ import { wrapInTests } from "./testHelpers";
  * https://github.com/denoland/deno/blob/10e4b2e14046b74469f7310c599579a6611513fe/cli/tests/unit/url_test.ts
  *
  * Known limitations:
- *  - URLs with  password / username are unsupported (CX-3088)
  *  - URLs with scheme other than `http` and `https` are unsupported (CX-3087)
  *  - setting the host is unsupported (CX-3090)
  */
@@ -59,17 +58,17 @@ function urlProtocolParsing() {
   assert.throws(() => new URL("*://foo"), TypeError, "Invalid URL: '*://foo'");
 }
 
-// function urlAuthenticationParsing() {
-//   const specialUrl = new URL("http://foo:bar@baz");
-//   assert.strictEqual(specialUrl.username, "foo");
-//   assert.strictEqual(specialUrl.password, "bar");
-//   assert.strictEqual(specialUrl.hostname, "baz");
-//   assert.throws(() => new URL("file://foo:bar@baz"), TypeError, "Invalid URL");
-//   const nonSpecialUrl = new URL("abcd://foo:bar@baz");
-//   assert.strictEqual(nonSpecialUrl.username, "foo");
-//   assert.strictEqual(nonSpecialUrl.password, "bar");
-//   assert.strictEqual(nonSpecialUrl.hostname, "baz");
-// }
+function urlAuthenticationParsing() {
+  const specialUrl = new URL("http://foo:bar@baz");
+  assert.strictEqual(specialUrl.username, "foo");
+  assert.strictEqual(specialUrl.password, "bar");
+  assert.strictEqual(specialUrl.hostname, "baz");
+  assert.throws(() => new URL("file://foo:bar@baz"), TypeError, "Invalid URL");
+  const nonSpecialUrl = new URL("abcd://foo:bar@baz");
+  assert.strictEqual(nonSpecialUrl.username, "foo");
+  assert.strictEqual(nonSpecialUrl.password, "bar");
+  assert.strictEqual(nonSpecialUrl.hostname, "baz");
+}
 
 function urlHostnameParsing() {
   // IPv6.
@@ -141,12 +140,12 @@ function urlModifications() {
   url.hostname = "foo.bar";
   assert.strictEqual(url.href, "https://foo.bar:8000/qux/quux?foo=bar&baz=12");
 
-  // password / username unsupported
-  //   url.password = "qux";
-  //   assert.strictEqual(
-  //     url.href,
-  //     "https://foo:qux@foo.bar:8080/qux/quux?foo=bar&baz=12"
-  //   );
+  
+  url.password = "qux";
+  assert.strictEqual(
+    url.href,
+    "https://foo:qux@foo.bar:8080/qux/quux?foo=bar&baz=12"
+  );
   url.pathname = "/foo/bar%qat";
   assert.strictEqual(
     url.href,
@@ -159,12 +158,12 @@ function urlModifications() {
   url.search = "?foo=bar&foo=baz";
   assert.strictEqual(url.href, "http://foo.bar/foo/bar%qat?foo=bar&foo=baz");
   assert.deepEqual(url.searchParams.getAll("foo"), ["bar", "baz"]);
-  // password / username unsupported
-  //   url.username = "foo@bar";
-  //   assert.strictEqual(
-  //     url.href,
-  //     "http://foo%40bar:qux@foo.bar/foo/bar%qat?foo=bar&foo=baz"
-  //   );
+
+  url.username = "foo@bar";
+  assert.strictEqual(
+    url.href,
+    "http://foo%40bar:qux@foo.bar/foo/bar%qat?foo=bar&foo=baz"
+  );
   url.searchParams.set("bar", "qat");
   assert.strictEqual(
     url.href,
@@ -180,9 +179,9 @@ function urlModifyHref() {
   const url = new URL("http://example.com/");
   url.href = "https://example.com:8080/baz/qat#qux";
   assert.strictEqual(url.protocol, "https:");
-  // password / username unsupported
-  //   assert.strictEqual(url.username, "foo");
-  //   assert.strictEqual(url.password, "bar");
+
+  assert.strictEqual(url.username, "foo");
+  assert.strictEqual(url.password, "bar");
   assert.strictEqual(url.host, "example.com:8080");
   assert.strictEqual(url.hostname, "example.com");
   assert.strictEqual(url.pathname, "/baz/qat");
@@ -310,15 +309,14 @@ function urlTrim() {
 }
 
 function urlEncoding() {
-  // password / username unsupported
-  // assert.strictEqual(
-  //   new URL("http://a !$&*()=,;+'\"@example.com").username,
-  //   "a%20!$&*()%3D,%3B+'%22"
-  // );
-  // assert.strictEqual(
-  //   new URL("http://:a !$&*()=,;+'\"@example.com").password,
-  //   "a%20!$&*()%3D,%3B+'%22"
-  // );
+  assert.strictEqual(
+    new URL("http://a !$&*()=,;+'\"@example.com").username,
+    "a%20!$&*()%3D,%3B+'%22"
+  );
+  assert.strictEqual(
+    new URL("http://:a !$&*()=,;+'\"@example.com").password,
+    "a%20!$&*()%3D,%3B+'%22"
+  );
 
   // https://url.spec.whatwg.org/#idna
   assert.strictEqual(new URL("http://mañana/c?d#e").hostname, "xn--maana-pta");
