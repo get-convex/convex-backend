@@ -197,11 +197,15 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
         Update::Pathname { value } => parsed_url.set_path(&value),
         Update::Search { value } => parsed_url.set_query(value.as_deref()),
         Update::Username { value } => parsed_url
-        .set_username(value.as_deref())
-        .map_err(|_e| anyhow::anyhow!("Failed to set username"))?,
+            .set_username(
+                value
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("No username provided"))?,
+            )
+            .map_err(|_e| anyhow::anyhow!("Failed to set username"))?,
         Update::Password { value } => parsed_url
-        .set_password(value.as_deref())
-        .map_err(|_e| anyhow::anyhow!("Failed to set password"))?,
+            .set_password(value.as_deref())
+            .map_err(|_e| anyhow::anyhow!("Failed to set password"))?,
     }
 
     let url_info: UrlInfo = parsed_url.try_into()?;
