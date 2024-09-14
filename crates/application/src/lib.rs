@@ -1283,7 +1283,10 @@ impl<RT: Runtime> Application<RT> {
         component: ComponentId,
         requestor: ExportRequestor,
     ) -> anyhow::Result<()> {
-        anyhow::ensure!(identity.is_admin(), unauthorized_error("request_export"));
+        anyhow::ensure!(
+            identity.is_admin() || identity.is_system(),
+            unauthorized_error("request_export")
+        );
         let snapshot = self.latest_snapshot()?;
         let user_table_count = snapshot.table_registry.user_table_names().count();
         if user_table_count == 0 {
