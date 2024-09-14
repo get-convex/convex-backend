@@ -274,7 +274,7 @@ class URL {
 
   set password(_password: string) {
     if(!this.host || this.host === "" || this.protocol === "file:") {
-      throw new TypeError("Failed to set the 'username' property on 'URL' because the URL's host is null or the URL's protocol is " + this.protocol === "file:" ? "file protocol" : "host");
+      throw new TypeError("Failed to set the 'password' property on 'URL' because the URL's host is null or the URL's protocol is " + this.protocol === "file:" ? "file protocol" : "host");
     }
 
     this.updateUrl({
