@@ -64,6 +64,11 @@ function urlAuthenticationParsing() {
   assert.strictEqual(specialUrl.password, "bar");
   assert.strictEqual(specialUrl.hostname, "baz");
   assert.throws(() => new URL("file://foo:bar@baz"), TypeError, "Invalid URL");
+  // non http/https protocols not supported yet
+  // const nonSpecialUrl = new URL("abcd://foo:bar@baz");
+  // assert.strictEqual(nonSpecialUrl.username, "foo");
+  // assert.strictEqual(nonSpecialUrl.password, "bar");
+  // assert.strictEqual(nonSpecialUrl.hostname, "baz");
 }
 
 function urlHostnameParsing() {

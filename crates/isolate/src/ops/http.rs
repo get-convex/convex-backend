@@ -263,10 +263,6 @@ impl TryFrom<Url> for UrlInfo {
     type Error = anyhow::Error;
 
     fn try_from(value: Url) -> Result<Self, Self::Error> {
-        // if value.username() != "" || value.password().is_some() {
-        //     anyhow::bail!("Unsupported URL with username and password")
-        // }
-
         if value.scheme() != "http" && value.scheme() != "https" {
             anyhow::bail!(
                 "Unsupported URL scheme -- http and https are supported (scheme was {})",
