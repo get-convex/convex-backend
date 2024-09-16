@@ -119,7 +119,7 @@ importers:
       inquirer: ^9.1.4
       inquirer-search-list: ~1.2.6
       jsdom: ~24.1.0
-      jwt-decode: ^3.1.2
+      jwt-decode: ^4.0.0
       jwt-encode: ~1.0.1
       knip: ~5.30.2
       open: ^8.3.0
@@ -143,7 +143,7 @@ importers:
     dependencies:
       esbuild: 0.23.0
       globals: 15.9.0
-      jwt-decode: 3.1.2
+      jwt-decode: 4.0.0
       prettier: 3.2.5
     devDependencies:
       '@auth0/auth0-react': 2.0.1_nnrd3gsncyragczmpvfhocinkq
@@ -4487,7 +4487,6 @@ packages:
 
   /bare-events/2.4.2:
     resolution: {integrity: sha512-qMKFd2qG/36aA4GwvKq8MxnPgCQAmBWmSyLWsJcbn8v03wvIPQ/hG1Ms8bPzndZxMDoHpxez5VOS+gC9Yi24/Q==}
-    requiresBuild: true
     dev: false
     optional: true
 
@@ -7700,8 +7699,9 @@ packages:
       safe-buffer: 5.2.1
     dev: true
 
-  /jwt-decode/3.1.2:
-    resolution: {integrity: sha512-UfpWE/VZn0iP50d8cz9NrZLM9lSWhcJ+0Gt/nm4by88UL+J1SiKN8/5dkjMmbEzwL2CAe+67GsegCbIKtbp75A==}
+  /jwt-decode/4.0.0:
+    resolution: {integrity: sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA==}
+    engines: {node: '>=18'}
     dev: false
 
   /jwt-encode/1.0.1:

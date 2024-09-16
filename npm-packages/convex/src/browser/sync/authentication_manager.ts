@@ -1,6 +1,6 @@
 import { LocalSyncState } from "./local_state.js";
 import { AuthError, Transition } from "./protocol.js";
-import jwtDecode from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 
 // setTimout uses 32 bit integer, so it can only
 // schedule about 24 days in the future.
