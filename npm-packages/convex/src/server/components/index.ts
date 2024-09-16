@@ -70,7 +70,7 @@ export type ComponentDefinition<Exports extends ComponentExports = any> = {
   /**
    * Install a component with the given definition in this component definition.
    *
-   * Takes a component definition, and an optional name.
+   * Takes a component definition and an optional name.
    *
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
@@ -101,7 +101,7 @@ export type AppDefinition = {
   /**
    * Install a component with the given definition in this component definition.
    *
-   * Takes a component definition, an optional name, and the args it requires.
+   * Takes a component definition and an optional name.
    *
    * For editor tooling this method expects a {@link ComponentDefinition}
    * but at runtime the object that is imported will be a {@link ImportedComponentDefinition}
