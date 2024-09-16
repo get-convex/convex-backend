@@ -384,24 +384,41 @@ export async function resolveFunctionReference(
   // The server sends down `udfType` capitalized.
   const udfType = analyzedFunction.udfType.toLowerCase();
 
-  const argsValidator = parseValidator(analyzedFunction.args);
   let argsType = "any";
-  if (argsValidator) {
-    if (argsValidator.type === "object" || argsValidator.type === "any") {
-      argsType = validatorToType(argsValidator);
-    } else {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `Invalid function args: ${analyzedFunction.args}`,
-      });
+  try {
+    const argsValidator = parseValidator(analyzedFunction.args);
+    if (argsValidator) {
+      if (argsValidator.type === "object" || argsValidator.type === "any") {
+        argsType = validatorToType(argsValidator);
+      } else {
+        // eslint-disable-next-line no-restricted-syntax
+        throw new Error(
+          `Unexpected argument validator type: ${argsValidator.type}`,
+        );
+      }
     }
+  } catch (e) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Invalid function args: ${analyzedFunction.args}`,
+      errForSentry: e,
+    });
   }
 
-  const returnsValidator = parseValidator(analyzedFunction.returns);
   let returnsType = "any";
-  if (returnsValidator) {
-    returnsType = validatorToType(returnsValidator);
+  try {
+    const returnsValidator = parseValidator(analyzedFunction.returns);
+    if (returnsValidator) {
+      returnsType = validatorToType(returnsValidator);
+    }
+  } catch (e) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Invalid function returns: ${analyzedFunction.returns}`,
+      errForSentry: e,
+    });
   }
 
   return `FunctionReference<"${udfType}", "${visibility}", ${argsType}, ${returnsType}>`;
@@ -444,7 +461,7 @@ function validatorToType(validator: ConvexValidator): string {
   } else if (validator.type === "array") {
     return `Array<${validatorToType(validator.value)}>`;
   } else if (validator.type === "record") {
-    return `Record<${validatorToType(validator.keys)}, ${validatorToType(validator.values)}>`;
+    return `Record<${validatorToType(validator.keys)}, ${validatorToType(validator.values.fieldType)}>`;
   } else if (validator.type === "union") {
     return validator.value.map(validatorToType).join(" | ");
   } else if (validator.type === "object") {
