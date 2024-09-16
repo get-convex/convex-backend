@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "npm-run-all --parallel dev:backend dev:frontend",
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "dev:backend": "convex dev",
     "dev:frontend": "vite --open --clearScreen false",
     "predev": "convex dev --until-success"
