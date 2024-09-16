@@ -108,7 +108,7 @@ importers:
       esbuild-plugin-external-global: ~1.0.1
       eslint: '9'
       eslint-config-prettier: ^8.5.0
-      eslint-plugin-react: ^7.31.11
+      eslint-plugin-react: ^7.36.1
       eslint-plugin-react-hooks: ^4.6.0
       eslint-plugin-require-extensions: ~0.1.3
       eslint-plugin-vitest: ~0.5.4
@@ -322,7 +322,7 @@ importers:
       convex: workspace:*
       eslint-config-prettier: ^8.5.0
       eslint-plugin-prettier: ^4.1.0
-      eslint-plugin-react: ^7.31.11
+      eslint-plugin-react: ^7.36.1
       eslint-plugin-react-hooks: ^4.6.0
       id-encoding: workspace:*
       jest: ^29.5.0
