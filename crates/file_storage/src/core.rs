@@ -243,9 +243,8 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let stream = storage_get_stream.stream;
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
-        let component_path = ComponentPath::TODO();
         let call_tracker = usage_tracker.track_storage_call(
-            component_path.clone(),
+            ComponentPath::TODO(),
             "get range",
             storage_id,
             content_type.clone(),
@@ -256,12 +255,11 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             content_length,
             content_range,
             content_type,
-            stream: Self::track_stream_usage(component_path, stream, get_file_type, call_tracker),
+            stream: Self::track_stream_usage(stream, get_file_type, call_tracker),
         })
     }
 
     fn track_stream_usage(
-        component_path: ComponentPath,
         stream: BoxStream<'static, futures::io::Result<bytes::Bytes>>,
         get_file_type: GetFileType,
         storage_call_tracker: Box<dyn StorageCallTracker>,
@@ -293,8 +291,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                     if let Ok(ref bytes) = bytes {
                         let bytes_size = bytes.len() as u64;
                         log_get_file_chunk_size(bytes_size, get_file_type);
-                        storage_call_tracker
-                            .track_storage_egress_size(component_path.clone(), bytes_size);
+                        storage_call_tracker.track_storage_egress_size(bytes_size);
                     }
                     bytes
                 }),
@@ -432,14 +429,8 @@ impl<RT: Runtime> FileStorage<RT> {
             .await?;
 
         usage_tracker
-            .track_storage_call(
-                component_path.clone(),
-                "store",
-                storage_id,
-                content_type,
-                sha256,
-            )
-            .track_storage_ingress_size(component_path, size as u64);
+            .track_storage_call(component_path, "store", storage_id, content_type, sha256)
+            .track_storage_ingress_size(size as u64);
         Ok(virtual_id)
     }
 }

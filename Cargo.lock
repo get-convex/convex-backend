@@ -8495,7 +8495,6 @@ dependencies = [
  "common",
  "events",
  "headers",
- "maplit",
  "metrics",
  "parking_lot",
  "pb",

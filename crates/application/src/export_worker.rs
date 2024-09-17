@@ -483,10 +483,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         content_type,
                         file_storage_entry.sha256.clone(),
                     )
-                    .track_storage_egress_size(
-                        component_path.clone(),
-                        file_stream.content_length as u64,
-                    );
+                    .track_storage_egress_size(file_stream.content_length as u64);
                 zip_snapshot_upload
                     .stream_full_file(path, file_stream.stream)
                     .await?;
@@ -1221,13 +1218,7 @@ mod tests {
 
         let usage = usage.gather_user_stats();
         assert!(usage.database_egress_size.is_empty());
-        assert_eq!(
-            *usage
-                .storage_egress_size
-                .get(&ComponentPath::test_user())
-                .unwrap(),
-            3
-        );
+        assert_eq!(usage.storage_egress_size, 3);
 
         Ok(())
     }
