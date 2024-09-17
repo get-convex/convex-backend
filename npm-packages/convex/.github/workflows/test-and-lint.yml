@@ -21,10 +21,10 @@ jobs:
       - name: Node setup
         uses: actions/setup-node@v4
         with:
-          node-version: "16.15.1"
+          node-version: "18.18.0"
 
-      - name: NPM v7
-        run: npm install -g npm@7 --registry=https://registry.npmjs.org
+      - name: NPM v8
+        run: npm install -g npm@8 --registry=https://registry.npmjs.org
 
       - run: npm i
 
