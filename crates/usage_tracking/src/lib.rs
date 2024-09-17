@@ -1,5 +1,6 @@
 #![feature(iterator_try_collect)]
 #![feature(lazy_cell)]
+#![feature(let_chains)]
 
 use std::{
     collections::BTreeMap,
@@ -23,8 +24,10 @@ use events::usage::{
     UsageEventLogger,
 };
 use headers::ContentType;
+use maplit::btreemap;
 use parking_lot::Mutex;
 use pb::usage::{
+    CounterWithComponent as CounterWithComponentProto,
     CounterWithTag as CounterWithTagProto,
     FunctionUsageStats as FunctionUsageStatsProto,
 };
@@ -179,7 +182,7 @@ impl UsageCounter {
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
         // Merge the storage stats.
-        let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();
+        let (_, udf_id) = udf_path.clone().into_component_and_udf_path();
         for ((component_path, storage_api), function_count) in stats.storage_calls {
             usage_metrics.push(UsageEvent::FunctionStorageCalls {
                 id: execution_id.to_string(),
@@ -189,13 +192,25 @@ impl UsageCounter {
                 count: function_count,
             });
         }
-        usage_metrics.push(UsageEvent::FunctionStorageBandwidth {
-            id: execution_id.to_string(),
-            component_path: component_path.clone(),
-            udf_id: udf_id.clone(),
-            ingress: stats.storage_ingress_size,
-            egress: stats.storage_egress_size,
-        });
+
+        for (component_path, ingress_size) in stats.storage_ingress_size {
+            usage_metrics.push(UsageEvent::FunctionStorageBandwidth {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                ingress: ingress_size,
+                egress: 0,
+            });
+        }
+        for (component_path, egress_size) in stats.storage_egress_size {
+            usage_metrics.push(UsageEvent::FunctionStorageBandwidth {
+                id: execution_id.to_string(),
+                component_path: component_path.serialize(),
+                udf_id: udf_id.clone(),
+                ingress: 0,
+                egress: egress_size,
+            });
+        }
         // Merge "by table" bandwidth stats.
         for ((component_path, table_name), ingress_size) in stats.database_ingress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
@@ -255,8 +270,8 @@ pub trait StorageUsageTracker: Send + Sync {
 }
 
 pub trait StorageCallTracker: Send + Sync {
-    fn track_storage_ingress_size(&self, ingress_size: u64);
-    fn track_storage_egress_size(&self, egress_size: u64);
+    fn track_storage_ingress_size(&self, component_path: ComponentPath, ingress_size: u64);
+    fn track_storage_egress_size(&self, component_path: ComponentPath, egress_size: u64);
 }
 
 struct IndependentStorageCallTracker {
@@ -274,19 +289,21 @@ impl IndependentStorageCallTracker {
 }
 
 impl StorageCallTracker for IndependentStorageCallTracker {
-    fn track_storage_ingress_size(&self, ingress_size: u64) {
+    fn track_storage_ingress_size(&self, component_path: ComponentPath, ingress_size: u64) {
         metrics::storage::log_storage_ingress_size(ingress_size);
         self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
             id: self.execution_id.to_string(),
+            component_path: component_path.serialize(),
             ingress: ingress_size,
             egress: 0,
         }]);
     }
 
-    fn track_storage_egress_size(&self, egress_size: u64) {
+    fn track_storage_egress_size(&self, component_path: ComponentPath, egress_size: u64) {
         metrics::storage::log_storage_egress_size(egress_size);
         self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
             id: self.execution_id.to_string(),
+            component_path: component_path.serialize(),
             ingress: 0,
             egress: egress_size,
         }]);
@@ -477,16 +494,20 @@ impl FunctionUsageTracker {
 // aggregate over the entire UDF and not worry about sending usage events or
 // creating unique execution ids.
 impl StorageCallTracker for FunctionUsageTracker {
-    fn track_storage_ingress_size(&self, ingress_size: u64) {
+    fn track_storage_ingress_size(&self, component_path: ComponentPath, ingress_size: u64) {
         let mut state = self.state.lock();
         metrics::storage::log_storage_ingress_size(ingress_size);
-        state.storage_ingress_size += ingress_size;
+        state
+            .storage_ingress_size
+            .mutate_entry_or_default(component_path, |count| *count += ingress_size);
     }
 
-    fn track_storage_egress_size(&self, egress_size: u64) {
+    fn track_storage_egress_size(&self, component_path: ComponentPath, egress_size: u64) {
         let mut state = self.state.lock();
         metrics::storage::log_storage_egress_size(egress_size);
-        state.storage_egress_size += egress_size;
+        state
+            .storage_egress_size
+            .mutate_entry_or_default(component_path, |count| *count += egress_size);
     }
 }
 
@@ -515,11 +536,10 @@ type StorageAPI = String;
 
 /// User-facing UDF stats, built
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct FunctionUsageStats {
     pub storage_calls: WithHeapSize<BTreeMap<(ComponentPath, StorageAPI), u64>>,
-    pub storage_ingress_size: u64,
-    pub storage_egress_size: u64,
+    pub storage_ingress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
+    pub storage_egress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
     pub database_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub database_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
@@ -531,8 +551,8 @@ impl FunctionUsageStats {
         AggregatedFunctionUsageStats {
             database_read_bytes: self.database_egress_size.values().sum(),
             database_write_bytes: self.database_ingress_size.values().sum(),
-            storage_read_bytes: self.storage_egress_size,
-            storage_write_bytes: self.storage_ingress_size,
+            storage_read_bytes: self.storage_egress_size.values().sum(),
+            storage_write_bytes: self.storage_ingress_size.values().sum(),
             vector_index_read_bytes: self.vector_egress_size.values().sum(),
             vector_index_write_bytes: self.vector_ingress_size.values().sum(),
         }
@@ -544,8 +564,14 @@ impl FunctionUsageStats {
             self.storage_calls
                 .mutate_entry_or_default(key, |count| *count += function_count);
         }
-        self.storage_ingress_size += other.storage_ingress_size;
-        self.storage_egress_size += other.storage_egress_size;
+        for (key, ingress_size) in other.storage_ingress_size {
+            self.storage_ingress_size
+                .mutate_entry_or_default(key, |count| *count += ingress_size);
+        }
+        for (key, egress_size) in other.storage_egress_size {
+            self.storage_egress_size
+                .mutate_entry_or_default(key, |count| *count += egress_size);
+        }
 
         // Merge "by table" bandwidth other.
         for (key, ingress_size) in other.database_ingress_size {
@@ -567,6 +593,84 @@ impl FunctionUsageStats {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+mod usage_arbitrary {
+    use proptest::prelude::*;
+
+    use crate::{
+        ComponentPath,
+        FunctionUsageStats,
+        StorageAPI,
+        TableName,
+        WithHeapSize,
+    };
+
+    impl Arbitrary for FunctionUsageStats {
+        type Parameters = ();
+        type Strategy = BoxedStrategy<Self>;
+
+        fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+            let strategies = (
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, StorageAPI)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(any::<ComponentPath>(), 0..=1024u64, 0..=4)
+                    .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(any::<ComponentPath>(), 0..=1024u64, 0..=4)
+                    .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
+            );
+            strategies
+                .prop_map(
+                    |(
+                        storage_calls,
+                        storage_ingress_size,
+                        storage_egress_size,
+                        database_ingress_size,
+                        database_egress_size,
+                        vector_ingress_size,
+                        vector_egress_size,
+                    )| FunctionUsageStats {
+                        storage_calls,
+                        storage_ingress_size,
+                        storage_egress_size,
+                        database_ingress_size,
+                        database_egress_size,
+                        vector_ingress_size,
+                        vector_egress_size,
+                    },
+                )
+                .boxed()
+        }
+    }
+}
+
 fn to_by_tag_count(
     counts: impl Iterator<Item = ((ComponentPath, String), u64)>,
 ) -> Vec<CounterWithTagProto> {
@@ -578,6 +682,17 @@ fn to_by_tag_count(
                 count: Some(count),
             },
         )
+        .collect()
+}
+
+fn to_by_component_count(
+    counts: impl Iterator<Item = (ComponentPath, u64)>,
+) -> Vec<CounterWithComponentProto> {
+    counts
+        .map(|(component_path, count)| CounterWithComponentProto {
+            component_path: component_path.serialize(),
+            count: Some(count),
+        })
         .collect()
 }
 
@@ -596,12 +711,32 @@ fn from_by_tag_count(
     Ok(counts.into_iter())
 }
 
+fn from_by_component_tag_count(
+    counts: Vec<CounterWithComponentProto>,
+) -> anyhow::Result<impl Iterator<Item = (ComponentPath, u64)>> {
+    let counts: Vec<_> = counts
+        .into_iter()
+        .map(|c| -> anyhow::Result<_> {
+            let component_path = ComponentPath::deserialize(c.component_path.as_deref())?;
+            let count = c.count.context("Missing `count` field")?;
+            Ok((component_path, count))
+        })
+        .try_collect()?;
+    Ok(counts.into_iter())
+}
+
 impl From<FunctionUsageStats> for FunctionUsageStatsProto {
     fn from(stats: FunctionUsageStats) -> Self {
         FunctionUsageStatsProto {
             storage_calls: to_by_tag_count(stats.storage_calls.into_iter()),
-            storage_ingress_size: Some(stats.storage_ingress_size),
-            storage_egress_size: Some(stats.storage_egress_size),
+            storage_ingress_size: Some(stats.storage_ingress_size.values().sum()),
+            storage_ingress_size_by_component: to_by_component_count(
+                stats.storage_ingress_size.into_iter(),
+            ),
+            storage_egress_size: Some(stats.storage_egress_size.values().sum()),
+            storage_egress_size_by_component: to_by_component_count(
+                stats.storage_egress_size.into_iter(),
+            ),
             database_ingress_size: to_by_tag_count(stats.database_ingress_size.into_iter()),
             database_egress_size: to_by_tag_count(stats.database_egress_size.into_iter()),
             vector_ingress_size: to_by_tag_count(stats.vector_ingress_size.into_iter()),
@@ -615,12 +750,35 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
 
     fn try_from(stats: FunctionUsageStatsProto) -> anyhow::Result<Self> {
         let storage_calls = from_by_tag_count(stats.storage_calls)?.collect();
-        let storage_ingress_size = stats
-            .storage_ingress_size
-            .context("Missing `storage_ingress_size` field")?;
-        let storage_egress_size = stats
-            .storage_egress_size
-            .context("Missing `storage_egress_size` field")?;
+        // TODO(ENG-7342) Remove support for old protos
+        let storage_ingress_size = if let Some(storage_ingress_size) = stats.storage_ingress_size
+            && stats.storage_ingress_size_by_component.is_empty()
+        {
+            if storage_ingress_size > 0 {
+                btreemap! {
+                    ComponentPath::root() => storage_ingress_size,
+                }
+                .into_iter()
+                .collect()
+            } else {
+                btreemap! {}.into_iter().collect()
+            }
+        } else {
+            from_by_component_tag_count(stats.storage_ingress_size_by_component)?.collect()
+        };
+        // TODO(ENG-7342) Remove support for old protos
+        let storage_egress_size = if let Some(storage_egress_size) = stats.storage_egress_size
+            && stats.storage_egress_size_by_component.is_empty()
+            && storage_egress_size > 0
+        {
+            btreemap! {
+                ComponentPath::root() => storage_egress_size,
+            }
+            .into_iter()
+            .collect()
+        } else {
+            from_by_component_tag_count(stats.storage_egress_size_by_component)?.collect()
+        };
         let database_ingress_size = from_by_tag_count(stats.database_ingress_size)?.collect();
         let database_egress_size = from_by_tag_count(stats.database_egress_size)?.collect();
         let vector_ingress_size = from_by_tag_count(stats.vector_ingress_size)?.collect();

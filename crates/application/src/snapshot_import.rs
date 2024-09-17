@@ -2096,7 +2096,7 @@ async fn import_storage_table<RT: Runtime>(
                 content_type,
                 entry.sha256,
             )
-            .track_storage_ingress_size(file_size);
+            .track_storage_ingress_size(component_path.clone(), file_size);
         num_files += 1;
         if let Some(import_id) = import_id {
             best_effort_update_progress_message(
@@ -3517,8 +3517,11 @@ a
         .await?;
 
         let stats = usage.gather_user_stats();
-        assert!(stats.database_ingress_size[&(component_path, table_name.to_string())] > 0);
-        assert_eq!(stats.storage_ingress_size, 9);
+        assert!(stats.database_ingress_size[&(component_path.clone(), table_name.to_string())] > 0);
+        assert_eq!(
+            *stats.storage_ingress_size.get(&component_path).unwrap(),
+            9u64
+        );
 
         Ok(())
     }

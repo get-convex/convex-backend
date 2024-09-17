@@ -13,6 +13,7 @@ anyhow = { workspace = true }
 common = { path = "../common" }
 events = { path = "../events" }
 headers = { workspace = true }
+maplit = { workspace = true }
 metrics = { path = "../metrics" }
 parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
 pb = { path = "../pb" }

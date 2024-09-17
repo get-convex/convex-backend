@@ -77,6 +77,7 @@ pub enum UsageEvent {
     /// import/export).
     StorageBandwidth {
         id: String,
+        component_path: Option<String>,
         ingress: u64,
         egress: u64,
     },
