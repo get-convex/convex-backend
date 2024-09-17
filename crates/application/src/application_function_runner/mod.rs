@@ -86,6 +86,10 @@ use errors::{
 };
 use file_storage::TransactionalFileStorage;
 use function_runner::{
+    server::{
+        FunctionMetadata,
+        HttpActionMetadata,
+    },
     FunctionReads,
     FunctionRunner,
     FunctionWrites,
@@ -111,6 +115,7 @@ use isolate::{
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
     FunctionResult,
+    HttpActionOutcome,
     IsolateClient,
     IsolateConfig,
     IsolateHeapStats,
@@ -232,6 +237,7 @@ pub struct FunctionRouter<RT: Runtime> {
     query_limiter: Arc<Limiter>,
     mutation_limiter: Arc<Limiter>,
     action_limiter: Arc<Limiter>,
+    http_action_limiter: Arc<Limiter>,
 
     rt: RT,
     database: Database<RT>,
@@ -265,6 +271,11 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 UdfType::Action,
                 *APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
             )),
+            http_action_limiter: Arc::new(Limiter::new(
+                ModuleEnvironment::Isolate,
+                UdfType::HttpAction,
+                *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
+            )),
         }
     }
 }
@@ -283,7 +294,17 @@ impl<RT: Runtime> FunctionRouter<RT> {
         // All queries and mutations are run in the isolate environment.
         let timer = function_total_timer(ModuleEnvironment::Isolate, udf_type);
         let (tx, outcome) = self
-            .function_runner_execute(tx, path_and_args, udf_type, journal, context, None)
+            .function_runner_execute(
+                tx,
+                udf_type,
+                context,
+                None,
+                Some(FunctionMetadata {
+                    journal,
+                    path_and_args,
+                }),
+                None,
+            )
             .await?;
         let tx = tx.with_context(|| format!("Missing transaction in response for {udf_type}"))?;
         timer.finish();
@@ -301,16 +322,44 @@ impl<RT: Runtime> FunctionRouter<RT> {
         let (_, outcome) = self
             .function_runner_execute(
                 tx,
-                path_and_args,
                 UdfType::Action,
-                QueryJournal::new(),
                 context,
                 Some(log_line_sender),
+                Some(FunctionMetadata {
+                    journal: QueryJournal::new(),
+                    path_and_args,
+                }),
+                None,
             )
             .await?;
 
         let FunctionOutcome::Action(outcome) = outcome else {
             anyhow::bail!("Calling an action returned an invalid outcome")
+        };
+        Ok(outcome)
+    }
+
+    #[minitrace::trace]
+    pub(crate) async fn execute_http_action(
+        &self,
+        tx: Transaction<RT>,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
+        http_action_metadata: HttpActionMetadata,
+        context: ExecutionContext,
+    ) -> anyhow::Result<HttpActionOutcome> {
+        let (_, outcome) = self
+            .function_runner_execute(
+                tx,
+                UdfType::HttpAction,
+                context,
+                Some(log_line_sender),
+                None,
+                Some(http_action_metadata),
+            )
+            .await?;
+
+        let FunctionOutcome::HttpAction(outcome) = outcome else {
+            anyhow::bail!("Calling an http action returned an invalid outcome")
         };
         Ok(outcome)
     }
@@ -321,11 +370,11 @@ impl<RT: Runtime> FunctionRouter<RT> {
     async fn function_runner_execute(
         &self,
         mut tx: Transaction<RT>,
-        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
-        journal: QueryJournal,
         context: ExecutionContext,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
+        function_metadata: Option<FunctionMetadata>,
+        http_action_metadata: Option<HttpActionMetadata>,
     ) -> anyhow::Result<(Option<Transaction<RT>>, FunctionOutcome)> {
         let in_memory_index_last_modified = self
             .database
@@ -337,7 +386,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
             UdfType::Query => &self.query_limiter,
             UdfType::Mutation => &self.mutation_limiter,
             UdfType::Action => &self.action_limiter,
-            UdfType::HttpAction => anyhow::bail!("Function runner does not support http actions"),
+            UdfType::HttpAction => &self.http_action_limiter,
         };
 
         let request_guard = limiter.acquire_permit_with_timeout(&self.rt).await?;
@@ -346,13 +395,13 @@ impl<RT: Runtime> FunctionRouter<RT> {
         let (function_tx, outcome, usage_stats) = self
             .function_runner
             .run_function(
-                path_and_args,
                 udf_type,
                 tx.identity().clone(),
                 tx.begin_timestamp(),
                 tx.writes().as_flat()?.clone().into(),
-                journal,
                 log_line_sender,
+                function_metadata,
+                http_action_metadata,
                 self.system_env_vars.clone(),
                 in_memory_index_last_modified,
                 context,

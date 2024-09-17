@@ -1145,3 +1145,7 @@ pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
 /// Batch size for migration that rewrites virtual tables.
 pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MIGRATION_REWRITE_BATCH_SIZE", 100));
+
+/// Fraction that represents the percentage of HTTP actions to execute in FunRun
+pub static EXECUTE_HTTP_ACTIONS_IN_FUNRUN: LazyLock<f64> =
+    LazyLock::new(|| env_config("EXECUTE_HTTP_ACTIONS_IN_FUNRUN", 0.0));

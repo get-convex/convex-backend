@@ -10,6 +10,7 @@ use common::{
     errors::JsError,
     execution_context::ExecutionContext,
     http::RoutedHttpPath,
+    knobs::EXECUTE_HTTP_ACTIONS_IN_FUNRUN,
     log_lines::{
         run_function_and_collect_log_lines,
         LogLevel,
@@ -30,6 +31,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadataAnyhowExt;
+use function_runner::server::HttpActionMetadata;
 use futures::{
     channel::mpsc,
     select_biased,
@@ -52,6 +54,7 @@ use model::modules::{
     ModuleModel,
     HTTP_MODULE_PATH,
 };
+use rand::Rng;
 use sync_types::{
     CanonicalizedUdfPath,
     FunctionName,
@@ -116,21 +119,38 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // completion, but still stream the response as it comes in, so we
         // create another channel here.
         let (isolate_response_sender, mut isolate_response_receiver) = mpsc::unbounded();
-        let outcome_future = self
-            .http_actions
-            .execute_http_action(
-                validated_path,
-                routed_path,
-                http_request,
-                identity.clone(),
-                action_callbacks,
-                self.fetch_client.clone(),
-                log_line_sender,
-                HttpActionResponseStreamer::new(isolate_response_sender),
-                tx,
-                context.clone(),
-            )
-            .boxed();
+        let outcome_future = if self.runtime.rng().gen_bool(*EXECUTE_HTTP_ACTIONS_IN_FUNRUN) {
+            self.isolate_functions
+                .execute_http_action(
+                    tx,
+                    log_line_sender,
+                    HttpActionMetadata {
+                        http_response_streamer: HttpActionResponseStreamer::new(
+                            isolate_response_sender,
+                        ),
+                        http_module_path: validated_path,
+                        routed_path,
+                        http_request,
+                    },
+                    context.clone(),
+                )
+                .boxed()
+        } else {
+            self.http_actions
+                .execute_http_action(
+                    validated_path,
+                    routed_path,
+                    http_request,
+                    identity.clone(),
+                    action_callbacks,
+                    self.fetch_client.clone(),
+                    log_line_sender,
+                    HttpActionResponseStreamer::new(isolate_response_sender),
+                    tx,
+                    context.clone(),
+                )
+                .boxed()
+        };
 
         let context_ = context.clone();
         let mut outcome_and_log_lines_fut = Box::pin(

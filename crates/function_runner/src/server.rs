@@ -682,13 +682,13 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
     #[minitrace::trace]
     async fn run_function(
         &self,
-        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,
-        journal: QueryJournal,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
+        function_metadata: Option<FunctionMetadata>,
+        http_action_metadata: Option<HttpActionMetadata>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         context: ExecutionContext,
@@ -736,16 +736,27 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         // NOTE: We run the function without checking retention until after the
         // function execution. It is important that we do not surface any errors
         // or results until after we call `validate_run_function_result` below.
-        let result = self
-            .server
-            .run_function_no_retention_check(
-                request_metadata,
-                FunctionMetadata {
-                    path_and_args,
-                    journal,
-                },
-            )
-            .await;
+        let result = match udf_type {
+            UdfType::Query | UdfType::Mutation | UdfType::Action => {
+                self.server
+                    .run_function_no_retention_check(
+                        request_metadata,
+                        function_metadata
+                            .context("Missing function metadata for query, mutation or action")?,
+                    )
+                    .await
+            },
+            UdfType::HttpAction => {
+                let (outcome, stats) = self
+                    .server
+                    .run_http_action_no_retention_check(
+                        request_metadata,
+                        http_action_metadata.context("Missing http action metadata")?,
+                    )
+                    .await?;
+                Ok((None, outcome, stats))
+            },
+        };
         validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;
         result
     }

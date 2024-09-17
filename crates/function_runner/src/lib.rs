@@ -13,7 +13,6 @@ use common::{
     document::DocumentUpdate,
     execution_context::ExecutionContext,
     log_lines::LogLine,
-    query_journal::QueryJournal,
     runtime::Runtime,
     types::{
         IndexId,
@@ -33,7 +32,6 @@ use imbl::OrdMap;
 use isolate::{
     ActionCallbacks,
     FunctionOutcome,
-    ValidatedPathAndArgs,
 };
 use keybroker::Identity;
 use model::environment_variables::types::{
@@ -42,6 +40,10 @@ use model::environment_variables::types::{
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::strategy::Strategy;
+use server::{
+    FunctionMetadata,
+    HttpActionMetadata,
+};
 use sync_types::Timestamp;
 use usage_tracking::FunctionUsageStats;
 use value::{
@@ -59,13 +61,13 @@ pub mod server;
 pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
     async fn run_function(
         &self,
-        path_and_args: ValidatedPathAndArgs,
         udf_type: UdfType,
         identity: Identity,
         ts: RepeatableTimestamp,
         existing_writes: FunctionWrites,
-        journal: QueryJournal,
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
+        function_metadata: Option<FunctionMetadata>,
+        http_action_metadata: Option<HttpActionMetadata>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         context: ExecutionContext,
