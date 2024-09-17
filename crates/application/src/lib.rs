@@ -1282,7 +1282,7 @@ impl<RT: Runtime> Application<RT> {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<DeveloperDocumentId> {
         anyhow::ensure!(
             identity.is_admin() || identity.is_system(),
             unauthorized_error("request_export")
@@ -1300,7 +1300,7 @@ impl<RT: Runtime> Application<RT> {
         let mut exports_model = ExportsModel::new(&mut tx);
         let export_requested = exports_model.latest_requested().await?;
         let export_in_progress = exports_model.latest_in_progress().await?;
-        match (export_requested, export_in_progress) {
+        let snapshot_id = match (export_requested, export_in_progress) {
             (None, None) => {
                 exports_model
                     .insert_requested(format, component, requestor)
@@ -1315,7 +1315,7 @@ impl<RT: Runtime> Application<RT> {
             ),
         }?;
         self.commit(tx, "request_export").await?;
-        Ok(())
+        Ok(snapshot_id.into())
     }
 
     pub async fn get_zip_export(

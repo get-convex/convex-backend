@@ -30,6 +30,7 @@ use types::{
 };
 use value::{
     FieldPath,
+    ResolvedDocumentId,
     TableName,
     TableNamespace,
 };
@@ -105,14 +106,13 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ResolvedDocumentId> {
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &EXPORTS_TABLE,
                 Export::requested(format, component, requestor).try_into()?,
             )
-            .await?;
-        Ok(())
+            .await
     }
 
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<Export>>> {
