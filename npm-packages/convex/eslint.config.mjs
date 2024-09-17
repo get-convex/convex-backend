@@ -3,7 +3,7 @@
 import tseslint from "typescript-eslint";
 import reactHooksPlugin from "eslint-plugin-react-hooks";
 import reactPlugin from "eslint-plugin-react";
-import vitest from "eslint-plugin-vitest";
+import vitest from "@vitest/eslint-plugin";
 import { fixupPluginRules } from "@eslint/compat";
 import globals from "globals";
 import path from "node:path";

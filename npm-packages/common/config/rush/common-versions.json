@@ -75,6 +75,7 @@
     /**
      * Until an upgrade to ESLint 9 is done
      */
-     "eslint": ["^8.29.0"]
+     "eslint": ["^8.29.0"],
+     "eslint-plugin-react-hooks": ["^4.6.2"]
   }
 }
