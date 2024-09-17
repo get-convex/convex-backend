@@ -240,9 +240,16 @@ export class ConvexReactClient {
   constructor(address: string, options?: ConvexReactClientOptions) {
     // Validate address immediately since validation by the lazily-instantiated
     // internal client does not occur synchronously.
+    if (address === undefined) {
+      throw new Error(
+        "No address provided to ConvexReactClient.\n" +
+          "If trying to deploy to production, make sure to follow all the instructions found at https://docs.convex.dev/production/hosting/\n" +
+          "If running locally, make sure to run `convex dev` and ensure the .env.local file is populated.",
+      );
+    }
     if (typeof address !== "string") {
       throw new Error(
-        "ConvexReactClient requires a URL like 'https://happy-otter-123.convex.cloud'.",
+        `ConvexReactClient requires a URL like 'https://happy-otter-123.convex.cloud', received something of type ${typeof address} instead.`,
       );
     }
     if (!address.includes("://")) {
