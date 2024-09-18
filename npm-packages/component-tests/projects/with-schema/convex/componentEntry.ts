@@ -1,5 +1,6 @@
 import { Doc } from "../../../component/_generated/dataModel";
-import { query, components, action, mutation } from "./_generated/server";
+import { query, action, mutation } from "./_generated/server";
+import { components } from "./_generated/api";
 
 export const list = query(async (ctx): Promise<Doc<"messages">[]> => {
   const result = await ctx.runQuery(

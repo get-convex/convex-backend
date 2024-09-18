@@ -91,6 +91,4 @@ export const internalAction = internalActionGeneric;
  */
 export const httpAction = httpActionGeneric;
 
-export const components = componentsGeneric();
-
 /* prettier-ignore-end */

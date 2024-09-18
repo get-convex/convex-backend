@@ -252,12 +252,7 @@ export async function doFinalComponentCodegen(
   // Only `server.d.ts` and `api.d.ts` depend on analyze results, where we replace the stub
   // generated during initial codegen with a more precise type.
   const serverDTSPath = path.join(codegenDir, "server.d.ts");
-  const serverContents = await componentServerDTS(
-    ctx,
-    startPushResponse,
-    rootComponent,
-    componentDirectory,
-  );
+  const serverContents = await componentServerDTS(componentDirectory);
   await writeFormattedFile(
     ctx,
     tmpDir,

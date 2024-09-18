@@ -1,4 +1,5 @@
-import { query, components, action } from "./_generated/server";
+import { query, action } from "./_generated/server";
+import { components } from "./_generated/api";
 import { api } from "./_generated/api";
 
 export const throwSystemErrorFromQuery = query(async (ctx) => {

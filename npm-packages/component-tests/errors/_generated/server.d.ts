@@ -150,6 +150,4 @@ export type DatabaseReader = GenericDatabaseReader<DataModel>;
  */
 export type DatabaseWriter = GenericDatabaseWriter<DataModel>;
 
-export declare const components: {};
-
 /* prettier-ignore-end */

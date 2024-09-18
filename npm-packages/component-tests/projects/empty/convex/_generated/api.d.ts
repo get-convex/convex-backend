@@ -35,4 +35,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
+export declare const components: {};
+
 /* prettier-ignore-end */
