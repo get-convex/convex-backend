@@ -9,6 +9,7 @@ import {
 import { Expand, UnionToIntersection } from "../type_utils.js";
 import { PaginationOptions, PaginationResult } from "./pagination.js";
 import { getFunctionAddress } from "./impl/actions_impl.js";
+import { functionName } from "./functionName.js";
 
 /**
  * The type of a Convex function.
@@ -61,11 +62,6 @@ export type FunctionReference<
   _returnType: ReturnType;
   _componentPath: ComponentPath;
 };
-
-/**
- * A symbol for accessing the name of a {@link FunctionReference} at runtime.
- */
-export const functionName = Symbol.for("functionName");
 
 /**
  * Get the name of a function from a {@link FunctionReference}.

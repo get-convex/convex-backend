@@ -2,8 +2,9 @@ import { convexToJson, jsonToConvex, Value } from "../../values/index.js";
 import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
-import { functionName, FunctionReference } from "../../server/api.js";
-import { extractReferencePath, isFunctionHandle } from "../components/index.js";
+import { FunctionReference } from "../../server/api.js";
+import { extractReferencePath, isFunctionHandle } from "../components/paths.js";
+import { functionName } from "../functionName.js";
 
 function syscallArgs(
   requestId: string,
