@@ -163,10 +163,6 @@ export type {
   ArgsAndOptions,
   FunctionReturnType,
 } from "./api.js";
-
-/**
- * @internal
- */
 export {
   defineApp,
   defineComponent,
@@ -174,9 +170,6 @@ export {
   currentSystemUdfInComponent,
   createFunctionHandle,
 } from "./components/index.js";
-/**
- * @internal
- */
 export type {
   ComponentDefinition,
   AnyComponents,

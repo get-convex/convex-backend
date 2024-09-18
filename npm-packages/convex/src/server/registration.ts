@@ -65,7 +65,11 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
   scheduler: Scheduler;
 
   /**
-   * @internal
+   * Call a query function within the same transaction.
+   *
+   * NOTE: often you can call the query's function directly instead of using this.
+   * `runQuery` incurs overhead of running argument and return value validation,
+   * and creating a new isolated JS context.
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,
@@ -73,7 +77,15 @@ export interface GenericMutationCtx<DataModel extends GenericDataModel> {
   ) => Promise<FunctionReturnType<Query>>;
 
   /**
-   * @internal
+   * Call a mutation function within the same transaction.
+   *
+   * NOTE: often you can call the mutation's function directly instead of using this.
+   * `runMutation` incurs overhead of running argument and return value validation,
+   * and creating a new isolated JS context.
+   *
+   * The mutation runs in a sub-transaction, so if the mutation throws an error,
+   * all of its writes will be rolled back. Additionally, a successful mutation's
+   * writes will be serializable with other writes in the transaction.
    */
   runMutation: <
     Mutation extends FunctionReference<"mutation", "public" | "internal">,
@@ -128,7 +140,11 @@ export interface GenericQueryCtx<DataModel extends GenericDataModel> {
   storage: StorageReader;
 
   /**
-   * @internal
+   * Call a query function within the same transaction.
+   *
+   * NOTE: often you can call the query's function directly instead of using this.
+   * `runQuery` incurs overhead of running argument and return value validation,
+   * and creating a new isolated JS context.
    */
   runQuery: <Query extends FunctionReference<"query", "public" | "internal">>(
     query: Query,

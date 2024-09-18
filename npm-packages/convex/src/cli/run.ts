@@ -44,9 +44,9 @@ export const run = new Command("run")
   .addOption(
     new Option(
       "--component <path>",
-      "Path to the component in the component tree defined in convex.config.ts",
-      // TODO(ENG-6967): Remove hideHelp before launching components
-    ).hideHelp(),
+      "Path to the component in the component tree defined in convex.config.ts. " +
+        "Components are in closed beta. This flag is unstable and may change in subsequent releases.",
+    ),
   )
   .addOption(new Option("--live-component-sources").hideHelp())
 

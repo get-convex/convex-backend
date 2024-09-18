@@ -15,7 +15,17 @@ import {
 import { toReferencePath } from "./paths.js";
 
 /**
- * @internal
+ * A serializable reference to a Convex function.
+ * Passing a this reference to another component allows that component to call this
+ * function during the current function execution or at any later time.
+ * Function handles are used like `api.folder.function` FunctionReferences,
+ * e.g. `ctx.scheduler.runAfter(0, functionReference, args)`.
+ *
+ * A function reference is stable across code pushes but it's possible
+ * the Convex function it refers to might no longer exist.
+ *
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
 export type FunctionHandle<
   Type extends FunctionType,
@@ -24,7 +34,17 @@ export type FunctionHandle<
 > = string & FunctionReference<Type, "internal", Args, ReturnType>;
 
 /**
- * @internal
+ * Create a serializable reference to a Convex function.
+ * Passing a this reference to another component allows that component to call this
+ * function during the current function execution or at any later time.
+ * Function handles are used like `api.folder.function` FunctionReferences,
+ * e.g. `ctx.scheduler.runAfter(0, functionReference, args)`.
+ *
+ * A function reference is stable across code pushes but it's possible
+ * the Convex function it refers to might no longer exist.
+ *
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
 export async function createFunctionHandle<
   Type extends FunctionType,
@@ -47,15 +67,11 @@ interface ComponentExports {
 }
 
 /**
- * @internal
- */
-export interface InitCtx {}
-
-/**
  * An object of this type should be the default export of a
  * convex.config.ts file in a component definition directory.
  *
- * @internal
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
 export type ComponentDefinition<Exports extends ComponentExports = any> = {
   /**
@@ -86,7 +102,8 @@ type ComponentDefinitionExports<T extends ComponentDefinition<any>> =
  * An object of this type should be the default export of a
  * convex.config.ts file in a component-aware convex directory.
  *
- * @internal
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
 export type AppDefinition = {
   /**
@@ -202,10 +219,14 @@ function use<Definition extends ComponentDefinition<any>>(
   return new InstalledComponent(definition, name);
 }
 
-// At runtime when you import a ComponentDefinition, this is all it is.
-//
 /**
- * @internal
+ * The runtime type of a ComponentDefinition. TypeScript will claim
+ * the default export of a module like "cool-component/convex.config.js"
+ * is a `@link ComponentDefinition}, but during component definition evaluation
+ * this is its type instead.
+ *
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
 export type ImportedComponentDefinition = {
   componentDefinitionPath: string;
@@ -317,7 +338,18 @@ type RuntimeAppDefinition = AppDefinition &
   };
 
 /**
- * @internal
+ * Define a component, a piece of a Convex deployment with namespaced resources.
+ *
+ * The default
+ * the default export of a module like "cool-component/convex.config.js"
+ * is a `@link ComponentDefinition}, but during component definition evaluation
+ * this is its type instead.
+ *
+ * @param name Name must be alphanumeric plus underscores. Typically these are
+ * lowercase with underscores like `"onboarding_flow_tracker"`.
+ *
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
 export function defineComponent<Exports extends ComponentExports = any>(
   name: string,
@@ -340,9 +372,11 @@ export function defineComponent<Exports extends ComponentExports = any>(
 }
 
 /**
- * Experimental - DO NOT USE.
+ * Attach components, reuseable pieces of a Convex deployment, to this Convex app.
+ *
+ * This is a feature of components, which are currently in closed beta.
+ * This API is unstable and may change in subsequent releases.
  */
-// TODO Make this not experimental.
 export function defineApp(): AppDefinition {
   const ret: RuntimeAppDefinition = {
     _isRoot: true,
@@ -398,12 +432,6 @@ function createChildComponents(
   return new Proxy({}, handler);
 }
 
-/**
- * @internal
- */
 export const componentsGeneric = () => createChildComponents("components", []);
 
-/**
- * @internal
- */
 export type AnyComponents = AnyChildComponents;
