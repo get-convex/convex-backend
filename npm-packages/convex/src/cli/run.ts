@@ -43,7 +43,7 @@ export const run = new Command("run")
   )
   .addOption(
     new Option(
-      "--component-path <path>",
+      "--component <path>",
       "Path to the component in the component tree defined in convex.config.ts",
       // TODO(ENG-6967): Remove hideHelp before launching components
     ).hideHelp(),
@@ -104,7 +104,7 @@ export const run = new Command("run")
         adminKey,
         functionName,
         args,
-        options.componentPath,
+        options.component,
       );
     }
     return await runFunctionAndLog(
@@ -113,6 +113,6 @@ export const run = new Command("run")
       adminKey,
       functionName,
       args,
-      options.componentPath,
+      options.component,
     );
   });

@@ -45,7 +45,7 @@ export const data = new Command("data")
   )
   .addOption(
     new Option(
-      "--component-path <path>",
+      "--component <path>",
       "Path to the component in the component tree defined in convex.config.ts.\n" +
         "  By default, inspects data in the root component",
       // TODO(ENG-6967): Remove hideHelp before launching components
@@ -67,7 +67,7 @@ export const data = new Command("data")
       await listDocuments(ctx, deploymentUrl, adminKey, tableName, {
         ...options,
         order: options.order as "asc" | "desc",
-        componentPath: options.componentPath ?? "",
+        componentPath: options.component ?? "",
       });
     } else {
       await listTables(
@@ -75,7 +75,7 @@ export const data = new Command("data")
         deploymentUrl,
         adminKey,
         deploymentName,
-        options.componentPath ?? "",
+        options.component ?? "",
       );
     }
   });

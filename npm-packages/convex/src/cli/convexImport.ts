@@ -77,7 +77,7 @@ export const convexImport = new Command("import")
   )
   .addOption(
     new Option(
-      "--component-path <path>",
+      "--component <path>",
       "Path to the component in the component tree defined in convex.config.ts",
       // TODO(ENG-6967): Remove hideHelp before launching components
     ).hideHelp(),
@@ -163,7 +163,7 @@ export const convexImport = new Command("import")
     }
     const importArgs = {
       tableName: tableName === null ? undefined : tableName,
-      componentPath: options.componentPath,
+      componentPath: options.component,
       mode,
       format,
     };
