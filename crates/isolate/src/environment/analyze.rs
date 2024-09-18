@@ -500,19 +500,30 @@ fn udf_analyze<RT: Runtime>(
 
         // Call `exportArgs` to get the args validator.
         let export_args = strings::exportArgs.create(scope)?;
-        let args = if let Some(export_args_value) = function.get(scope, export_args.into()) {
-            if export_args_value.is_function() {
+
+        let args = match function.get(scope, export_args.into()) {
+            Some(export_args_value) if export_args_value.is_function() => {
                 let export_args_function: v8::Local<v8::Function> = export_args_value.try_into()?;
-                let result_v8: v8::Local<v8::String> = scope
+                let result_v8 = scope
                     .with_try_catch(|s| export_args_function.call(s, function.into(), &[]))??
-                    .context("Missing return value from successful function call")?
-                    .try_into()?;
-                let result_str = helpers::to_rust_string(scope, &result_v8)?;
+                    .context("Missing return value from successful function call")?;
+                let result_v8_str = match v8::Local::<v8::String>::try_from(result_v8) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        let message = format!(
+                            "Invalid exportArgs return value: \
+                             {module_path:?}:{property_name}.exportArgs() didn't return a string."
+                        );
+                        return Ok(Err(JsError::from_message(message)));
+                    },
+                };
+                let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
                 let args_json = match serde_json::from_str::<JsonValue>(&result_str) {
                     Ok(args_json) => args_json,
                     Err(json_error) => {
                         let message = format!(
-                            "Unable to parse JSON returned from `exportArgs`: {json_error}"
+                            "Invalid JSON returned from \
+                             {module_path:?}:{property_name}.exportArgs(): {json_error}"
                         );
                         return Ok(Err(JsError::from_message(message)));
                     },
@@ -520,61 +531,83 @@ fn udf_analyze<RT: Runtime>(
                 match ArgsValidator::try_from(args_json) {
                     Ok(validator) => validator,
                     Err(parse_error) => {
-                        let message =
-                            format!("Unable to parse JSON from `exportArgs`: {parse_error}");
+                        let message = format!(
+                            "Invalid JSON returned from \
+                             {module_path:?}:{property_name}.exportArgs(): {parse_error}"
+                        );
                         return Ok(Err(JsError::from_message(message)));
                     },
                 }
-            } else if export_args_value.is_undefined() {
-                // `exportArgs` will be undefined if this is before npm
-                // package v0.13.0. Default to `Unvalidated`.
+            },
+            // `exportArgs` will be undefined if this is before npm
+            // package v0.13.0. Default to `Unvalidated`.
+            Some(export_args_value) if export_args_value.is_undefined() => {
                 ArgsValidator::Unvalidated
-            } else {
-                let message = "`exportArgs` is not a function or `undefined`.".to_string();
+            },
+            Some(_) => {
+                let message = format!(
+                    "{module_path:?}:{property_name}.exportArgs is not a function or `undefined`."
+                );
                 return Ok(Err(JsError::from_message(message)));
-            }
-        } else {
-            ArgsValidator::Unvalidated
+            },
+            None => ArgsValidator::Unvalidated,
         };
 
         // TODO(CX-6287) unify argument and returns validators
         // Call `exportReturns` to get the returns validator.
         let export_output = strings::exportReturns.create(scope)?;
-        let returns = if let Some(export_output_value) = function.get(scope, export_output.into()) {
-            if export_output_value.is_function() {
+        let returns = match function.get(scope, export_output.into()) {
+            Some(export_output_value) if export_output_value.is_function() => {
                 let export_output_function: v8::Local<v8::Function> =
                     export_output_value.try_into()?;
-                let result_v8: v8::Local<v8::String> = scope
+                let result_v8 = scope
                     .with_try_catch(|s| export_output_function.call(s, function.into(), &[]))??
-                    .context("Missing return value from successful function call")?
-                    .try_into()?;
-                let result_str = helpers::to_rust_string(scope, &result_v8)?;
+                    .context("Missing return value from successful function call")?;
+
+                let result_v8_str = match v8::Local::<v8::String>::try_from(result_v8) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        let message = format!(
+                            "Invalid exportReturns return value: \
+                             {module_path:?}:{property_name}.exportReturns() didn't return a \
+                             string."
+                        );
+                        return Ok(Err(JsError::from_message(message)));
+                    },
+                };
+                let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
                 let output_json = match serde_json::from_str::<JsonValue>(&result_str) {
                     Ok(validator) => validator,
                     Err(parse_error) => {
-                        let message =
-                            format!("Unable to parse JSON from `exportReturns`: {parse_error}");
+                        let message = format!(
+                            "Invalid JSON returned from \
+                             {module_path:?}:{property_name}.exportReturns(): {parse_error}"
+                        );
                         return Ok(Err(JsError::from_message(message)));
                     },
                 };
                 match ReturnsValidator::try_from(output_json) {
                     Ok(validator) => validator,
                     Err(parse_error) => {
-                        let message =
-                            format!("Unable to parse JSON from `exportReturns`: {parse_error}");
+                        let message = format!(
+                            "Invalid JSON returned from \
+                             {module_path:?}:{property_name}.exportReturns(): {parse_error}"
+                        );
                         return Ok(Err(JsError::from_message(message)));
                     },
                 }
-            } else if export_output_value.is_undefined() {
-                // `exportReturns` will be undefined for old npm versions.
-                // Default to `Unvalidated`.
+            },
+            Some(export_output_value) if export_output_value.is_undefined() => {
                 ReturnsValidator::Unvalidated
-            } else {
-                let message = format!("`exportReturns` is not a function or `undefined`.");
+            },
+            Some(_) => {
+                let message = format!(
+                    "{module_path:?}:{property_name}.exportReturns is not a function or \
+                     `undefined`."
+                );
                 return Ok(Err(JsError::from_message(message)));
-            }
-        } else {
-            ReturnsValidator::Unvalidated
+            },
+            None => ReturnsValidator::Unvalidated,
         };
 
         let visibility = match (is_public, is_internal) {
