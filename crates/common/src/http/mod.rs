@@ -478,11 +478,17 @@ impl HttpError {
         }
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub async fn error_message_from_bytes(
         bytes: hyper::body::Bytes,
     ) -> (Cow<'static, str>, Cow<'static, str>) {
         let ResponseErrorMessage { code, message } =
-            serde_json::from_slice(&bytes).expect("Couldn't deserialize as json");
+            serde_json::from_slice(&bytes).unwrap_or_else(|_| {
+                panic!(
+                    "Couldn't deserialize as json: {}",
+                    String::from_utf8_lossy(&bytes)
+                )
+            });
 
         (code, message)
     }

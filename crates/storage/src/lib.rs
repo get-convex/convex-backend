@@ -116,7 +116,7 @@ impl StorageGetStream {
     }
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug, derive_more::Constructor)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug, derive_more::Constructor, derive_more::Into)]
 pub struct StorageCacheKey(String);
 
 #[derive(Clone, PartialEq, Eq, Debug)]

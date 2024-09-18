@@ -29,6 +29,7 @@ use types::{
     ExportRequestor,
 };
 use value::{
+    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -146,7 +147,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
             )],
             order: Order::Asc,
         };
-        let query = common::query::Query::index_range(index_range);
+        let query = Query::index_range(index_range);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         query_stream
             .expect_at_most_one(self.tx)
@@ -170,9 +171,22 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
             ],
             order: Order::Desc,
         };
-        let query = common::query::Query::index_range(index_range);
+        let query = Query::index_range(index_range);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         query_stream.expect_at_most_one(self.tx).await
+    }
+
+    pub async fn get(
+        &mut self,
+        snapshot_id: DeveloperDocumentId,
+    ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
+        let query = Query::get(EXPORTS_TABLE.clone(), snapshot_id);
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
+        query_stream
+            .expect_at_most_one(self.tx)
+            .await?
+            .map(|doc| doc.try_into())
+            .transpose()
     }
 }
 
@@ -266,7 +280,7 @@ mod tests {
         let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let mut tx = db.begin_system().await?;
         let mut exports_model = ExportsModel::new(&mut tx);
-        exports_model
+        let snapshot_id = exports_model
             .insert_requested(format, component, requestor)
             .await?;
         let items: Vec<_> = exports_model
@@ -290,6 +304,14 @@ mod tests {
             expected
         );
         assert_eq!(exports_model.latest_in_progress().await?, None);
+        assert_eq!(
+            exports_model
+                .get(snapshot_id.developer_id)
+                .await?
+                .unwrap()
+                .into_value(),
+            expected
+        );
         Ok(())
     }
 }

@@ -259,6 +259,7 @@ use storage::{
     ClientDrivenUploadPartToken,
     ClientDrivenUploadToken,
     Storage,
+    StorageCacheKey,
     StorageExt,
     StorageGetStream,
     Upload,
@@ -1287,15 +1288,6 @@ impl<RT: Runtime> Application<RT> {
             identity.is_admin() || identity.is_system(),
             unauthorized_error("request_export")
         );
-        let snapshot = self.latest_snapshot()?;
-        let user_table_count = snapshot.table_registry.user_table_names().count();
-        if user_table_count == 0 {
-            return Err(ErrorMetadata::bad_request(
-                "NoTables",
-                format!("There are no tables to export."),
-            )
-            .into());
-        }
         let mut tx = self.begin(identity).await?;
         let mut exports_model = ExportsModel::new(&mut tx);
         let export_requested = exports_model.latest_requested().await?;
@@ -1365,6 +1357,11 @@ impl<RT: Runtime> Application<RT> {
             ),
         )?;
         Ok(storage_get_stream)
+    }
+
+    /// Returns the cloud export key - fully qualified to the instance.
+    pub async fn cloud_export_key(&self, zip_export_key: ObjectKey) -> StorageCacheKey {
+        self.exports_storage.cache_key(&zip_export_key)
     }
 
     pub async fn update_environment_variables(
