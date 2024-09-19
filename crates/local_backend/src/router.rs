@@ -68,15 +68,6 @@ use crate::{
     deploy_config2,
     environment_variables::update_environment_variables,
     http_actions::http_action_handler,
-    import::{
-        cancel_import,
-        import,
-        import_finish_upload,
-        import_start_upload,
-        import_upload_part,
-        perform_import,
-        prepare_import,
-    },
     logs::{
         stream_function_logs,
         stream_udf_execution,
@@ -116,6 +107,15 @@ use crate::{
     snapshot_export::{
         get_zip_export,
         request_zip_export,
+    },
+    snapshot_import::{
+        cancel_import,
+        import,
+        import_finish_upload,
+        import_start_upload,
+        import_upload_part,
+        perform_import,
+        prepare_import,
     },
     storage::{
         storage_get,

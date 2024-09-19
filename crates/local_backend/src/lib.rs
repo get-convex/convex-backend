@@ -83,7 +83,6 @@ pub mod deploy_config;
 pub mod deploy_config2;
 pub mod environment_variables;
 pub mod http_actions;
-pub mod import;
 pub mod logs;
 pub mod node_action_callbacks;
 pub mod parse;
@@ -93,6 +92,7 @@ pub mod router;
 pub mod scheduling;
 pub mod schema;
 pub mod snapshot_export;
+pub mod snapshot_import;
 pub mod storage;
 pub mod subs;
 
