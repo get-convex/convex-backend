@@ -717,11 +717,17 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         match component {
             Some(component) => {
                 if component.state != ComponentState::Unmounted {
-                    anyhow::bail!("Component must be unmounted before deletion");
+                    anyhow::bail!(ErrorMetadata::bad_request(
+                        "ComponentMustBeUnmounted",
+                        "Component must be unmounted before deletion"
+                    ));
                 }
             },
             None => {
-                anyhow::bail!("Component not found");
+                anyhow::bail!(ErrorMetadata::transient_not_found(
+                    "ComponentNotFound",
+                    format!("Component with ID {:?} not found", component_id)
+                ));
             },
         }
 
