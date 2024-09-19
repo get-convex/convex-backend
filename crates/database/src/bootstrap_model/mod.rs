@@ -11,7 +11,6 @@ pub mod schema;
 pub mod system_metadata;
 pub mod table;
 pub mod user_facing;
-pub mod virtual_tables;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_facing;

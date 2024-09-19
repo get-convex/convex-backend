@@ -140,7 +140,6 @@ pub use self::{
             TABLES_INDEX,
         },
         user_facing::UserFacingModel,
-        virtual_tables::VIRTUAL_TABLES_TABLE,
     },
     database::{
         unauthorized_error,
