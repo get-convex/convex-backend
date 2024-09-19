@@ -50,6 +50,7 @@ use database::{
     Transaction,
     TransactionIdGenerator,
     TransactionIndex,
+    TransactionReadSet,
     TransactionTextSnapshot,
     COMPONENTS_TABLE,
     SCHEMAS_TABLE,
@@ -305,8 +306,36 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot.persistence().version(),
         )?;
         DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;
+        let component_tablet = table_mapping
+            .namespace(TableNamespace::Global)
+            .id(&COMPONENTS_TABLE)?
+            .tablet_id;
+        let components_by_id = index_registry.must_get_by_id(component_tablet)?.id;
+        let component_docs = self
+            .must_get_or_load_unpacked(
+                instance_name.clone(),
+                components_by_id,
+                &in_memory_index_last_modified,
+                persistence_snapshot.clone(),
+                component_tablet,
+                COMPONENTS_TABLE.clone(),
+            )
+            .await?
+            .map(TryFrom::try_from)
+            .try_collect()?;
+        let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
+        // Each component's namespace has a _schemas table.
+        // Note there may be _schemas table in other namespaces, but we don't care about
+        // those (and also they're not necessarily loaded into memory yet).
+        // This argument only applies because we're in the function runner, which
+        // can only operate in components' namespaces -- internal database workers
+        // like IndexWorker and SchemaWorker include schemas from all namespaces.
         let mut schema_docs = BTreeMap::new();
-        for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
+        let component_ids = component_registry
+            .all_component_paths(&mut TransactionReadSet::new())
+            .into_keys();
+        for component_id in component_ids {
+            let namespace = component_id.into();
             let schema_tablet =
                 table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
             let index_id = index_registry.must_get_by_id(schema_tablet)?.id;
@@ -326,24 +355,6 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             );
         }
         let schema_registry = SchemaRegistry::bootstrap(schema_docs);
-        let component_tablet = table_mapping
-            .namespace(TableNamespace::Global)
-            .id(&COMPONENTS_TABLE)?
-            .tablet_id;
-        let components_by_id = index_registry.must_get_by_id(component_tablet)?.id;
-        let component_docs = self
-            .must_get_or_load_unpacked(
-                instance_name.clone(),
-                components_by_id,
-                &in_memory_index_last_modified,
-                persistence_snapshot.clone(),
-                component_tablet,
-                COMPONENTS_TABLE.clone(),
-            )
-            .await?
-            .map(TryFrom::try_from)
-            .try_collect()?;
-        let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {
             cache: self.clone(),
             instance_name: instance_name.clone(),
