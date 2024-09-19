@@ -129,7 +129,7 @@ export const componentDiff = v.object({
       v.literal("remount"),
     ),
   }),
-  indexDiff: indexDiff,
+  indexDiff: v.optional(indexDiff),
   udfConfigDiff: serverVersion,
   moduleDiff: moduleDiff,
   cronDiff: cronDiffType,

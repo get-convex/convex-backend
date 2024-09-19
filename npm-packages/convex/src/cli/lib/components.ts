@@ -419,7 +419,7 @@ function printDiff(
 
   // Print out index diffs for the root component.
   let rootDiff = componentDiffs[""];
-  if (rootDiff) {
+  if (rootDiff && rootDiff.indexDiff) {
     if (rootDiff.indexDiff.removed_indexes.length > 0) {
       let msg = `${opts.dryRun ? "Would delete" : "Deleted"} table indexes:\n`;
       for (let i = 0; i < rootDiff.indexDiff.removed_indexes.length; i++) {

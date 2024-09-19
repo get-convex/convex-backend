@@ -852,7 +852,7 @@ pub struct SerializedComponentDiff {
     module_diff: ModuleDiff,
     udf_config_diff: Option<UdfServerVersionDiff>,
     cron_diff: CronDiff,
-    index_diff: SerializedIndexDiff,
+    index_diff: Option<SerializedIndexDiff>,
     schema_diff: Option<SerializedSchemaDiff>,
 }
 
@@ -891,7 +891,7 @@ impl TryFrom<ComponentDiff> for SerializedComponentDiff {
             module_diff: value.module_diff,
             udf_config_diff: value.udf_config_diff,
             cron_diff: value.cron_diff,
-            index_diff: value.index_diff.try_into()?,
+            index_diff: Some(value.index_diff.try_into()?),
             schema_diff: value.schema_diff.map(|diff| diff.try_into()).transpose()?,
         })
     }
@@ -906,7 +906,10 @@ impl TryFrom<SerializedComponentDiff> for ComponentDiff {
             module_diff: value.module_diff,
             udf_config_diff: value.udf_config_diff,
             cron_diff: value.cron_diff,
-            index_diff: value.index_diff.try_into()?,
+            index_diff: match value.index_diff {
+                Some(index_diff) => index_diff.try_into()?,
+                None => AuditLogIndexDiff::default(),
+            },
             schema_diff: value.schema_diff.map(|diff| diff.try_into()).transpose()?,
         })
     }
