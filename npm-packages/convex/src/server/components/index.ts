@@ -24,7 +24,7 @@ import { setReferencePath, toReferencePath } from "./paths.js";
  * A function reference is stable across code pushes but it's possible
  * the Convex function it refers to might no longer exist.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export type FunctionHandle<
@@ -43,7 +43,7 @@ export type FunctionHandle<
  * A function reference is stable across code pushes but it's possible
  * the Convex function it refers to might no longer exist.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export async function createFunctionHandle<
@@ -70,7 +70,7 @@ interface ComponentExports {
  * An object of this type should be the default export of a
  * convex.config.ts file in a component definition directory.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export type ComponentDefinition<Exports extends ComponentExports = any> = {
@@ -102,7 +102,7 @@ type ComponentDefinitionExports<T extends ComponentDefinition<any>> =
  * An object of this type should be the default export of a
  * convex.config.ts file in a component-aware convex directory.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export type AppDefinition = {
@@ -220,7 +220,7 @@ function use<Definition extends ComponentDefinition<any>>(
  * is a `@link ComponentDefinition}, but during component definition evaluation
  * this is its type instead.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export type ImportedComponentDefinition = {
@@ -343,7 +343,7 @@ type RuntimeAppDefinition = AppDefinition &
  * @param name Name must be alphanumeric plus underscores. Typically these are
  * lowercase with underscores like `"onboarding_flow_tracker"`.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export function defineComponent<Exports extends ComponentExports = any>(
@@ -369,7 +369,7 @@ export function defineComponent<Exports extends ComponentExports = any>(
 /**
  * Attach components, reuseable pieces of a Convex deployment, to this Convex app.
  *
- * This is a feature of components, which are currently in closed beta.
+ * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
 export function defineApp(): AppDefinition {
