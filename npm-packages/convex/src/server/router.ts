@@ -142,7 +142,7 @@ export type RouteSpec = RouteSpecWithPath | RouteSpecWithPathPrefix;
 export class HttpRouter {
   exactRoutes: Map<string, Map<RoutableMethod, PublicHttpAction>> = new Map();
   prefixRoutes: Map<RoutableMethod, Map<string, PublicHttpAction>> = new Map();
-  isRouter = true;
+  isRouter: true = true;
 
   /**
    * Specify an HttpAction to be used to respond to requests

@@ -12,7 +12,7 @@ import {
   ComponentDefinitionAnalysis,
   ComponentDefinitionType,
 } from "./definition.js";
-import { toReferencePath } from "./paths.js";
+import { setReferencePath, toReferencePath } from "./paths.js";
 
 /**
  * A serializable reference to a Convex function.
@@ -158,15 +158,10 @@ class InstalledComponent<Definition extends ComponentDefinition<any>> {
    */
   _name: string;
 
-  /**
-   * @internal
-   */
-  [toReferencePath]: string;
-
   constructor(definition: Definition, name: string) {
     this._definition = definition;
     this._name = name;
-    this[toReferencePath] = `_reference/childComponent/${name}`;
+    setReferencePath(this, `_reference/childComponent/${name}`);
   }
 
   get exports(): ComponentDefinitionExports<Definition> {
