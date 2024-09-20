@@ -19,6 +19,7 @@ import {
   bareDeploymentFetch,
   formatDuration,
   formatSize,
+  ThrowingFetchError,
 } from "./lib/utils/utils.js";
 import chalk from "chalk";
 
@@ -37,6 +38,12 @@ export const networkTest = new Command("network-test")
     new Option(
       "--ip-family <ipFamily>",
       "IP family to use (ipv4, ipv6, or auto)",
+    ),
+  )
+  .addOption(
+    new Option(
+      "--speed-test",
+      "Perform a large echo test to measure network speed.",
     ),
   )
   .addOption(
@@ -87,6 +94,7 @@ async function runNetworkTest(
     url?: string | undefined;
     adminKey?: string | undefined;
     ipFamily?: string;
+    speedTest?: boolean;
   },
 ) {
   showSpinner(ctx, "Performing network test...");
@@ -105,9 +113,12 @@ async function runNetworkTest(
   // Fifth, check a small echo request, much smaller than most networks' MTU.
   await checkEcho(ctx, url, 128);
 
-  // Finally, try a few large echo requests, much larger than most networks' MTU.
+  // Finally, try a large echo request, much larger than most networks' MTU.
   await checkEcho(ctx, url, 4 * 1024 * 1024);
-  await checkEcho(ctx, url, 64 * 1024 * 1024);
+  // Also do a 64MiB echo test if the user has requested a speed test.
+  if (options.speedTest) {
+    await checkEcho(ctx, url, 64 * 1024 * 1024);
+  }
 
   logFinishedStep(ctx, "Network test passed.");
 }
@@ -226,44 +237,53 @@ async function checkHttp(ctx: Context, urlString: string) {
   if (isHttps) {
     url.protocol = "http:";
     url.port = "80";
-    await checkHttpOnce(ctx, "HTTP", url.toString(), 301, false);
+    await checkHttpOnce(ctx, "HTTP", url.toString(), false);
   }
-  await checkHttpOnce(ctx, isHttps ? "HTTPS" : "HTTP", urlString, 200, true);
+  await checkHttpOnce(ctx, isHttps ? "HTTPS" : "HTTP", urlString, true);
 }
 
+// Be sure to test this function against *prod* (with both HTTP & HTTPS) when
+// making changes.
 async function checkHttpOnce(
   ctx: Context,
   name: string,
   url: string,
-  expectedStatus: number,
   allowRedirects: boolean,
 ) {
+  const start = performance.now();
   try {
-    const start = performance.now();
     // Be sure to use the same `deploymentFetch` we use elsewhere so we're actually
     // getting coverage of our network stack.
     const fetch = bareDeploymentFetch(url);
     const instanceNameUrl = new URL("/instance_name", url);
-    // Set `maxRedirects` to 0 so our HTTP test doesn't try HTTPS.
     const resp = await fetch(instanceNameUrl.toString(), {
       redirect: allowRedirects ? "follow" : "manual",
     });
-    if (resp.status !== expectedStatus) {
+    if (resp.status !== 200) {
       // eslint-disable-next-line no-restricted-syntax
       throw new Error(`Unexpected status code: ${resp.status}`);
     }
-    const duration = performance.now() - start;
-    logMessage(
-      ctx,
-      `${chalk.green(`✔`)} OK: ${name} check (${formatDuration(duration)})`,
-    );
   } catch (e: any) {
-    return ctx.crash({
-      exitCode: 1,
-      errorType: "transient",
-      printedMessage: `FAIL: ${name} check (${e})`,
-    });
+    // Redirects return a 301, which causes `bareDeploymentFetch` to throw an
+    // ThrowingFetchError. Catch that here and succeed if we're not following
+    // redirects.
+    const isOkayRedirect =
+      !allowRedirects &&
+      e instanceof ThrowingFetchError &&
+      e.response.status === 301;
+    if (!isOkayRedirect) {
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "transient",
+        printedMessage: `FAIL: ${name} check (${e})`,
+      });
+    }
   }
+  const duration = performance.now() - start;
+  logMessage(
+    ctx,
+    `${chalk.green(`✔`)} OK: ${name} check (${formatDuration(duration)})`,
+  );
 }
 
 async function checkEcho(ctx: Context, url: string, size: number) {
