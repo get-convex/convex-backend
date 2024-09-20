@@ -16,8 +16,11 @@ dist/internal-types/test
 dist/types/test
 test_fixtures
 src/test
+custom-vitest-environment
 
 .eslintrc.*
+.prettierignore
+.prettierrc.cjs
 *.tgz
 test-esm.mjs
 jest.config.mjs
@@ -29,3 +32,7 @@ tmpPackage*
 tmpDist*
 api-extractor-configs/temp/
 *.log
+.knip.json
+
+# rush output
+*.chunks.jsonl

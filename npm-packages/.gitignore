@@ -78,3 +78,6 @@ package-lock.json
 
 # Rush changelog
 common/changes
+
+# Rush
+*.chunks.jsonl
