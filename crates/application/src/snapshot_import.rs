@@ -55,6 +55,7 @@ use common::{
     schemas::DatabaseSchema,
     types::{
         FieldName,
+        FullyQualifiedObjectKey,
         MemberId,
         ObjectKey,
         StorageUuid,
@@ -1314,6 +1315,27 @@ pub async fn upload_import_file<RT: Runtime>(
         object_key,
     )
     .await
+}
+
+pub async fn start_cloud_import<RT: Runtime>(
+    application: &Application<RT>,
+    identity: Identity,
+    source_object_key: FullyQualifiedObjectKey,
+) -> anyhow::Result<()> {
+    let object_key: ObjectKey = application
+        .exports_storage
+        .copy_object(source_object_key)
+        .await?;
+    store_uploaded_import(
+        application,
+        identity,
+        ImportFormat::Zip,
+        ImportMode::Replace,
+        ComponentPath::root(),
+        object_key,
+    )
+    .await?;
+    Ok(())
 }
 
 pub async fn store_uploaded_import<RT: Runtime>(

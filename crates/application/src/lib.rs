@@ -80,6 +80,7 @@ use common::{
         CursorMs,
         EnvVarName,
         EnvVarValue,
+        FullyQualifiedObjectKey,
         FunctionCaller,
         IndexId,
         IndexName,
@@ -259,7 +260,6 @@ use storage::{
     ClientDrivenUploadPartToken,
     ClientDrivenUploadToken,
     Storage,
-    StorageCacheKey,
     StorageExt,
     StorageGetStream,
     Upload,
@@ -461,7 +461,8 @@ pub struct Application<RT: Runtime> {
     files_storage: Arc<dyn Storage>,
     modules_storage: Arc<dyn Storage>,
     search_storage: Arc<dyn Storage>,
-    exports_storage: Arc<dyn Storage>,
+    // TODO not pub
+    pub exports_storage: Arc<dyn Storage>,
     snapshot_imports_storage: Arc<dyn Storage>,
     usage_tracking: UsageCounter,
     key_broker: KeyBroker,
@@ -1360,8 +1361,8 @@ impl<RT: Runtime> Application<RT> {
     }
 
     /// Returns the cloud export key - fully qualified to the instance.
-    pub async fn cloud_export_key(&self, zip_export_key: ObjectKey) -> StorageCacheKey {
-        self.exports_storage.cache_key(&zip_export_key)
+    pub async fn cloud_export_key(&self, zip_export_key: ObjectKey) -> FullyQualifiedObjectKey {
+        self.exports_storage.fully_qualified_key(&zip_export_key)
     }
 
     pub async fn update_environment_variables(

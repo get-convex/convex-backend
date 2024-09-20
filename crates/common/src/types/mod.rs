@@ -76,7 +76,10 @@ pub use index::{
     INDEX_BY_ID_DESCRIPTOR,
 };
 pub use maybe_value::MaybeValue;
-pub use object_key::ObjectKey;
+pub use object_key::{
+    FullyQualifiedObjectKey,
+    ObjectKey,
+};
 pub use table::TableStats;
 #[cfg(any(test, feature = "testing"))]
 pub use timestamp::unchecked_repeatable_ts;

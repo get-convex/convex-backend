@@ -21,7 +21,10 @@ use std::{
         Write,
     },
     mem,
-    path::PathBuf,
+    path::{
+        Path,
+        PathBuf,
+    },
     pin::Pin,
     sync::Arc,
     task::{
@@ -37,7 +40,10 @@ use bytes::Bytes;
 use common::{
     errors::report_error,
     runtime::Runtime,
-    types::ObjectKey,
+    types::{
+        FullyQualifiedObjectKey,
+        ObjectKey,
+    },
 };
 use futures::{
     channel::{
@@ -165,10 +171,16 @@ pub trait Storage: Send + Sync + Debug {
         key: &ObjectKey,
         bytes_range: std::ops::Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>>;
+    /// Copy from source storage (potentially different bucket) into current
+    /// bucket
+    async fn copy_object(&self, source: FullyQualifiedObjectKey) -> anyhow::Result<ObjectKey>;
     fn storage_type_proto(&self) -> pb::searchlight::StorageType;
     /// Return a cache key suitable for the given ObjectKey, even in
     /// a multi-tenant cache.
     fn cache_key(&self, key: &ObjectKey) -> StorageCacheKey;
+    /// Return a fully qualified key, including info on bucket name
+    /// and suitable for access in multi-tenant scenario
+    fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey;
 }
 
 pub struct ObjectAttributes {
@@ -998,6 +1010,12 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         StorageCacheKey(path.to_string_lossy().to_string())
     }
 
+    fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey {
+        let key = self.path_for_key(key.clone());
+        let path = self.dir.join(key);
+        path.to_string_lossy().to_string().into()
+    }
+
     fn get_small_range(
         &self,
         key: &ObjectKey,
@@ -1037,6 +1055,15 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         Ok(Some(ObjectAttributes {
             size: buf.len() as u64,
         }))
+    }
+
+    async fn copy_object(&self, source: FullyQualifiedObjectKey) -> anyhow::Result<ObjectKey> {
+        let source: String = source.into();
+        let source_path = Path::new(&source);
+        let key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
+        let dest_path = self.dir.join(self.path_for_key(key.clone()));
+        fs::copy(source_path, dest_path)?;
+        Ok(key)
     }
 
     fn storage_type_proto(&self) -> pb::searchlight::StorageType {

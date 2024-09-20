@@ -23,6 +23,11 @@ pub struct ObjectKey(
     String,
 );
 
+/// Fully qualified object key. For s3, in the format
+/// {bucket}/{prefix}-{object_key}
+#[derive(Debug, Clone, derive_more::From, derive_more::Into)]
+pub struct FullyQualifiedObjectKey(String);
+
 impl TryFrom<ObjectKey> for ConvexString {
     type Error = anyhow::Error;
 
