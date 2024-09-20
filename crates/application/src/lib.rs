@@ -461,8 +461,7 @@ pub struct Application<RT: Runtime> {
     files_storage: Arc<dyn Storage>,
     modules_storage: Arc<dyn Storage>,
     search_storage: Arc<dyn Storage>,
-    // TODO not pub
-    pub exports_storage: Arc<dyn Storage>,
+    exports_storage: Arc<dyn Storage>,
     snapshot_imports_storage: Arc<dyn Storage>,
     usage_tracking: UsageCounter,
     key_broker: KeyBroker,
