@@ -1323,7 +1323,7 @@ pub async fn start_cloud_import<RT: Runtime>(
     source_object_key: FullyQualifiedObjectKey,
 ) -> anyhow::Result<()> {
     let object_key: ObjectKey = application
-        .exports_storage
+        .snapshot_imports_storage
         .copy_object(source_object_key)
         .await?;
     store_uploaded_import(

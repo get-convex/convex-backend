@@ -4,6 +4,10 @@ use std::{
 };
 
 use regex::Regex;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use value::ConvexString;
 
 // Regex to restrict object keys to alphanumeric characters, /, -, _, and
@@ -25,7 +29,18 @@ pub struct ObjectKey(
 
 /// Fully qualified object key. For s3, in the format
 /// {bucket}/{prefix}-{object_key}
-#[derive(Debug, Clone, derive_more::From, derive_more::Into)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct FullyQualifiedObjectKey(String);
 
 impl TryFrom<ObjectKey> for ConvexString {
