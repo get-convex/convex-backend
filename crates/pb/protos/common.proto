@@ -161,3 +161,27 @@ message Interval {
     google.protobuf.Empty after_all = 3;
   }
 }
+
+message HttpActionRequestHead {
+  repeated HttpHeader http_headers = 1;
+  string url = 2;
+  string method = 3;
+}
+
+message HttpActionResponseHead {
+  uint32 status = 1;
+  repeated HttpHeader http_headers = 2;
+}
+
+message HttpHeader {
+  string key = 1;
+  // HTTP header values can contain non-ASCII bytes.
+  bytes value = 2;
+}
+
+message HttpActionResponse {
+  oneof message_type {
+    HttpActionResponseHead head = 1;
+    bytes body = 2;
+  }
+}

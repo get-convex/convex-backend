@@ -148,6 +148,7 @@ pub struct RunRequestArgs {
     pub context: ExecutionContext,
 }
 
+#[derive(Clone)]
 pub struct FunctionMetadata {
     pub path_and_args: ValidatedPathAndArgs,
     pub journal: QueryJournal,
@@ -376,37 +377,19 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     pub async fn run_function_no_retention_check(
         &self,
         run_request_args: RunRequestArgs,
-        function_metadata: FunctionMetadata,
+        function_metadata: Option<FunctionMetadata>,
+        http_action_metadata: Option<HttpActionMetadata>,
     ) -> anyhow::Result<(
         Option<FunctionFinalTransaction>,
         FunctionOutcome,
         FunctionUsageStats,
     )> {
-        if run_request_args.udf_type == UdfType::HttpAction {
-            anyhow::bail!("You can't run http actions from this method");
-        }
-        self.run_function_no_retention_check_inner(run_request_args, Some(function_metadata), None)
-            .await
-    }
-
-    #[minitrace::trace]
-    pub async fn run_http_action_no_retention_check(
-        &self,
-        run_request_args: RunRequestArgs,
-        http_action_metadata: HttpActionMetadata,
-    ) -> anyhow::Result<(FunctionOutcome, FunctionUsageStats)> {
-        if run_request_args.udf_type != UdfType::HttpAction {
-            anyhow::bail!("You can only run http actions with this method");
-        }
-        let (_, outcome, stats) = self
-            .run_function_no_retention_check_inner(
-                run_request_args,
-                None,
-                Some(http_action_metadata),
-            )
-            .await?;
-
-        Ok((outcome, stats))
+        self.run_function_no_retention_check_inner(
+            run_request_args,
+            function_metadata,
+            http_action_metadata,
+        )
+        .await
     }
 
     #[minitrace::trace]
@@ -739,22 +722,13 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         let result = match udf_type {
             UdfType::Query | UdfType::Mutation | UdfType::Action => {
                 self.server
-                    .run_function_no_retention_check(
-                        request_metadata,
-                        function_metadata
-                            .context("Missing function metadata for query, mutation or action")?,
-                    )
+                    .run_function_no_retention_check(request_metadata, function_metadata, None)
                     .await
             },
             UdfType::HttpAction => {
-                let (outcome, stats) = self
-                    .server
-                    .run_http_action_no_retention_check(
-                        request_metadata,
-                        http_action_metadata.context("Missing http action metadata")?,
-                    )
-                    .await?;
-                Ok((None, outcome, stats))
+                self.server
+                    .run_function_no_retention_check(request_metadata, None, http_action_metadata)
+                    .await
             },
         };
         validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use common::identity::InertIdentity;
 use pb::outcome::{
     function_outcome::Outcome as OutcomeProto,
@@ -12,6 +13,8 @@ use crate::{
         },
         udf::outcome::UdfOutcome,
     },
+    HttpActionRequestHead,
+    ValidatedHttpPath,
     ValidatedPathAndArgs,
 };
 
@@ -32,22 +35,40 @@ pub enum FunctionOutcome {
 impl FunctionOutcome {
     pub fn from_proto(
         FunctionOutcomeProto { outcome }: FunctionOutcomeProto,
-        path_and_args: ValidatedPathAndArgs,
+        path_and_args: Option<ValidatedPathAndArgs>,
+        http_metadata: Option<(ValidatedHttpPath, HttpActionRequestHead)>,
         identity: InertIdentity,
     ) -> anyhow::Result<Self> {
         let outcome = outcome.ok_or_else(|| anyhow::anyhow!("Missing outcome"))?;
         match outcome {
             OutcomeProto::Query(outcome) => Ok(FunctionOutcome::Query(UdfOutcome::from_proto(
                 outcome,
-                path_and_args,
+                path_and_args.context("Missing path and args")?,
                 identity,
             )?)),
-            OutcomeProto::Mutation(outcome) => Ok(FunctionOutcome::Mutation(
-                UdfOutcome::from_proto(outcome, path_and_args, identity)?,
-            )),
-            OutcomeProto::Action(outcome) => Ok(FunctionOutcome::Action(
-                ActionOutcome::from_proto(outcome, path_and_args, identity)?,
-            )),
+            OutcomeProto::Mutation(outcome) => {
+                Ok(FunctionOutcome::Mutation(UdfOutcome::from_proto(
+                    outcome,
+                    path_and_args.context("Missing path and args")?,
+                    identity,
+                )?))
+            },
+            OutcomeProto::Action(outcome) => {
+                Ok(FunctionOutcome::Action(ActionOutcome::from_proto(
+                    outcome,
+                    path_and_args.context("Missing path and args")?,
+                    identity,
+                )?))
+            },
+            OutcomeProto::HttpAction(outcome) => {
+                let (http_path, http_request) = http_metadata.context("Missing http metadata")?;
+                Ok(FunctionOutcome::HttpAction(HttpActionOutcome::from_proto(
+                    outcome,
+                    http_request,
+                    http_path.npm_version().clone(),
+                    identity,
+                )?))
+            },
         }
     }
 }
@@ -60,9 +81,7 @@ impl TryFrom<FunctionOutcome> for FunctionOutcomeProto {
             FunctionOutcome::Query(outcome) => OutcomeProto::Query(outcome.try_into()?),
             FunctionOutcome::Mutation(outcome) => OutcomeProto::Mutation(outcome.try_into()?),
             FunctionOutcome::Action(outcome) => OutcomeProto::Action(outcome.try_into()?),
-            FunctionOutcome::HttpAction(_) => {
-                anyhow::bail!("Funrun does not support http actions")
-            },
+            FunctionOutcome::HttpAction(outcome) => OutcomeProto::HttpAction(outcome.try_into()?),
         };
         Ok(FunctionOutcomeProto {
             outcome: Some(outcome),

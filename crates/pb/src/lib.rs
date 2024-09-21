@@ -4,6 +4,7 @@ pub mod authentication_token;
 pub mod document_id;
 pub mod error_metadata;
 pub mod field_path;
+pub mod http;
 pub mod user_identity_attributes;
 pub mod common {
     include!(concat!(env!("OUT_DIR"), "/common.rs"));

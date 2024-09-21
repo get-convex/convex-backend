@@ -11,6 +11,7 @@ doctest = false
 anyhow = { workspace = true }
 convex_sync_types = { path = "../convex/sync_types" }
 errors = { path = "../errors" }
+http = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 tonic = { workspace = true }

@@ -12,6 +12,7 @@ message FunctionOutcome {
     UdfOutcome query = 1;
     UdfOutcome mutation = 2;
     ActionOutcome action = 3;
+    HttpActionOutcome http_action = 4;
   }
 }
 
@@ -38,6 +39,16 @@ message ActionOutcome {
 
   common.FunctionResult result = 7;
   SyscallTrace syscall_trace = 8;
+}
+
+
+message HttpActionOutcome {
+  google.protobuf.Timestamp unix_timestamp = 1;
+
+  common.FunctionResult result = 2;
+  SyscallTrace syscall_trace = 3;
+
+  uint64 memory_in_mb = 4;
 }
 
 message SyscallTrace {

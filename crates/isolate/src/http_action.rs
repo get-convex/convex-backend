@@ -1,9 +1,12 @@
 use core::fmt;
 
 use bytes::Bytes;
-use common::types::{
-    HttpActionRoute,
-    RoutableMethod,
+use common::{
+    http::normalize_header_map,
+    types::{
+        HttpActionRoute,
+        RoutableMethod,
+    },
 };
 use futures::{
     channel::mpsc,
@@ -18,6 +21,7 @@ use http::{
     Method,
     StatusCode,
 };
+use pb::common::HttpHeader;
 use serde_json::Value as JsonValue;
 use url::Url;
 use value::sha256::{
@@ -67,6 +71,30 @@ impl HttpActionRequestHead {
     }
 }
 
+impl TryFrom<pb::common::HttpActionRequestHead> for HttpActionRequestHead {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        pb::common::HttpActionRequestHead {
+            http_headers,
+            url,
+            method,
+        }: pb::common::HttpActionRequestHead,
+    ) -> Result<Self, Self::Error> {
+        let headers = http_headers
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<HeaderMap, _>>()?;
+        let url = Url::parse(&url)?;
+        let method = method.parse()?;
+        Ok(Self {
+            headers,
+            url,
+            method,
+        })
+    }
+}
+
 #[cfg(any(test, feature = "testing"))]
 impl proptest::arbitrary::Arbitrary for HttpActionRequest {
     type Parameters = ();
@@ -81,13 +109,12 @@ impl proptest::arbitrary::Arbitrary for HttpActionRequest {
         use proptest::prelude::*;
         use proptest_http::{
             ArbitraryHeaderMap,
-            ArbitraryMethod,
             ArbitraryUri,
         };
         prop_compose! {
             fn inner()(
                 ArbitraryHeaderMap(headers) in any::<ArbitraryHeaderMap>(),
-                ArbitraryMethod(method) in any::<ArbitraryMethod>(),
+                method in any::<RoutableMethod>(),
                 ArbitraryUri(uri) in any::<ArbitraryUri>(),
                 body in any::<Option<Vec<u8>>>()) -> anyhow::Result<HttpActionRequest> {
                     let origin: String = "http://example-deployment.convex.site/".to_string();
@@ -96,7 +123,7 @@ impl proptest::arbitrary::Arbitrary for HttpActionRequest {
                 Ok(HttpActionRequest {
                     head: HttpActionRequestHead {
                         headers,
-                        method,
+                        method: method.to_string().parse()?,
                         url,
                     },
                     body: body.map(|body| stream::once(async move { Ok(body.into())}).boxed())
@@ -188,6 +215,37 @@ impl HttpActionResponsePart {
 pub struct HttpActionResponseHead {
     pub status: StatusCode,
     pub headers: HeaderMap,
+}
+
+impl TryFrom<pb::common::HttpActionResponseHead> for HttpActionResponseHead {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        pb::common::HttpActionResponseHead {
+            status,
+            http_headers,
+        }: pb::common::HttpActionResponseHead,
+    ) -> Result<Self, Self::Error> {
+        let status = StatusCode::from_u16(status as u16)?;
+        let headers = http_headers
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<Result<HeaderMap, _>>()?;
+        Ok(Self { status, headers })
+    }
+}
+
+impl From<HttpActionResponseHead> for pb::common::HttpActionResponseHead {
+    fn from(HttpActionResponseHead { status, headers }: HttpActionResponseHead) -> Self {
+        let status = u16::from(status) as u32;
+        let http_headers = normalize_header_map(headers)
+            .map(HttpHeader::from)
+            .collect();
+        Self {
+            status,
+            http_headers,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

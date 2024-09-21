@@ -16,14 +16,20 @@ use pb::{
         function_result::Result as FunctionResultTypeProto,
         FunctionResult as FunctionResultProto,
     },
-    outcome::ActionOutcome as ActionOutcomeProto,
+    outcome::{
+        ActionOutcome as ActionOutcomeProto,
+        HttpActionOutcome as HttpActionOutcomeProto,
+    },
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
+use semver::Version;
 use serde_json::Value as JsonValue;
 use value::ConvexValue;
 
 use super::HttpActionResult;
+#[cfg(any(test, feature = "testing"))]
+use crate::HttpActionRequest;
 use crate::{
     environment::helpers::{
         JsonPackedValue,
@@ -164,6 +170,7 @@ impl Arbitrary for ActionOutcome {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct HttpActionOutcome {
     pub route: HttpActionRoute,
     pub http_request: HttpActionRequestHead,
@@ -207,6 +214,108 @@ impl HttpActionOutcome {
     pub fn memory_in_mb(&self) -> u64 {
         self.memory_in_mb
     }
+
+    pub(crate) fn from_proto(
+        HttpActionOutcomeProto {
+            unix_timestamp,
+            result,
+            syscall_trace,
+            memory_in_mb,
+        }: HttpActionOutcomeProto,
+        http_request: HttpActionRequestHead,
+        udf_server_version: Option<Version>,
+        identity: InertIdentity,
+    ) -> anyhow::Result<Self> {
+        let result = result.ok_or_else(|| anyhow::anyhow!("Missing result"))?;
+        let result = match result.result {
+            Some(FunctionResultTypeProto::JsonPackedValue(_)) => {
+                anyhow::bail!("Http actions not expected to have aresult")
+            },
+            Some(FunctionResultTypeProto::JsError(js_error)) => {
+                HttpActionResult::Error(js_error.try_into()?)
+            },
+            None => HttpActionResult::Streamed,
+        };
+        Ok(Self {
+            identity,
+            unix_timestamp: unix_timestamp
+                .context("Missing unix_timestamp")?
+                .try_into()?,
+            result,
+            syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
+            memory_in_mb,
+            http_request: http_request.clone(),
+            udf_server_version,
+            route: HttpActionRoute {
+                method: http_request.method.try_into()?,
+                path: http_request.url.to_string(),
+            },
+        })
+    }
+}
+
+impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        HttpActionOutcome {
+            route: _,
+            http_request: _,
+            identity: _,
+            unix_timestamp,
+            result,
+            syscall_trace,
+            udf_server_version: _,
+            memory_in_mb,
+        }: HttpActionOutcome,
+    ) -> anyhow::Result<Self> {
+        let result = match result {
+            HttpActionResult::Streamed => None,
+            HttpActionResult::Error(js_error) => {
+                Some(FunctionResultTypeProto::JsError(js_error.try_into()?))
+            },
+        };
+        Ok(Self {
+            unix_timestamp: Some(unix_timestamp.into()),
+            result: Some(FunctionResultProto { result }),
+            syscall_trace: Some(syscall_trace.try_into()?),
+            memory_in_mb,
+        })
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl Arbitrary for HttpActionOutcome {
+    type Parameters = ();
+
+    type Strategy = impl Strategy<Value = HttpActionOutcome>;
+
+    fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
+        (
+            any::<HttpActionRequest>(),
+            any::<HttpActionResult>(),
+            any::<InertIdentity>(),
+            any::<UnixTimestamp>(),
+            any::<SyscallTrace>(),
+            any::<u64>(),
+        )
+            .prop_map(
+                |(request, result, identity, unix_timestamp, syscall_trace, memory_in_mb)| Self {
+                    http_request: request.head.clone(),
+                    result,
+                    route: HttpActionRoute {
+                        method: request.head.method.try_into().unwrap(),
+                        path: request.head.url.to_string(),
+                    },
+                    identity,
+                    unix_timestamp,
+                    syscall_trace,
+                    memory_in_mb,
+                    // Ok to not generate semver::Version because it is not serialized anyway
+                    udf_server_version: None,
+                },
+            )
+    }
 }
 
 #[cfg(test)]
@@ -216,8 +325,10 @@ mod tests {
     use super::{
         ActionOutcome,
         ActionOutcomeProto,
+        HttpActionOutcomeProto,
         ValidatedPathAndArgs,
     };
+    use crate::HttpActionOutcome;
 
     proptest! {
         #![proptest_config(
@@ -241,6 +352,22 @@ mod tests {
                 proto,
                 path_and_args,
                 identity
+            ).unwrap();
+            assert_eq!(udf_outcome, udf_outcome_from_proto);
+        }
+
+        #[test]
+        fn test_http_action_outcome_roundtrips(udf_outcome in any::<HttpActionOutcome>()) {
+            let udf_outcome_clone = udf_outcome.clone();
+            let http_request = udf_outcome.http_request.clone();
+            let version = udf_outcome.udf_server_version.clone();
+            let identity = udf_outcome_clone.identity.clone();
+            let proto = HttpActionOutcomeProto::try_from(udf_outcome_clone).unwrap();
+            let udf_outcome_from_proto = HttpActionOutcome::from_proto(
+                proto,
+                http_request,
+                version,
+                identity,
             ).unwrap();
             assert_eq!(udf_outcome, udf_outcome_from_proto);
         }

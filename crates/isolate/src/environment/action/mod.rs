@@ -182,6 +182,10 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
 pub enum HttpActionResult {
     Streamed,
     Error(JsError),

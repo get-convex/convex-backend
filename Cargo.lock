@@ -5032,6 +5032,7 @@ dependencies = [
  "anyhow",
  "convex_sync_types",
  "errors",
+ "http 1.1.0",
  "pb_build",
  "proptest",
  "prost",
