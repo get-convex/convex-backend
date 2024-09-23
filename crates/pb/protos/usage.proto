@@ -4,11 +4,9 @@ package usage;
 
 message FunctionUsageStats {
     repeated CounterWithTag storage_calls = 1;
-    // TODO(ENG-7342): Remove after services are pushed with by_component version
-    optional uint64 storage_ingress_size = 2;
+    reserved 2;
     repeated CounterWithComponent storage_ingress_size_by_component = 8;
-    // TODO(ENG-7342): Remove after services are pushed with by_component version
-    optional uint64 storage_egress_size = 3;
+    reserved 3;
     repeated CounterWithComponent storage_egress_size_by_component = 9;
     repeated CounterWithTag database_ingress_size = 4;
     repeated CounterWithTag database_egress_size = 5;

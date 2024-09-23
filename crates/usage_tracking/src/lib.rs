@@ -24,7 +24,6 @@ use events::usage::{
     UsageEventLogger,
 };
 use headers::ContentType;
-use maplit::btreemap;
 use parking_lot::Mutex;
 use pb::usage::{
     CounterWithComponent as CounterWithComponentProto,
@@ -729,11 +728,9 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
     fn from(stats: FunctionUsageStats) -> Self {
         FunctionUsageStatsProto {
             storage_calls: to_by_tag_count(stats.storage_calls.into_iter()),
-            storage_ingress_size: Some(stats.storage_ingress_size.values().sum()),
             storage_ingress_size_by_component: to_by_component_count(
                 stats.storage_ingress_size.into_iter(),
             ),
-            storage_egress_size: Some(stats.storage_egress_size.values().sum()),
             storage_egress_size_by_component: to_by_component_count(
                 stats.storage_egress_size.into_iter(),
             ),
@@ -750,35 +747,10 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
 
     fn try_from(stats: FunctionUsageStatsProto) -> anyhow::Result<Self> {
         let storage_calls = from_by_tag_count(stats.storage_calls)?.collect();
-        // TODO(ENG-7342) Remove support for old protos
-        let storage_ingress_size = if let Some(storage_ingress_size) = stats.storage_ingress_size
-            && stats.storage_ingress_size_by_component.is_empty()
-        {
-            if storage_ingress_size > 0 {
-                btreemap! {
-                    ComponentPath::root() => storage_ingress_size,
-                }
-                .into_iter()
-                .collect()
-            } else {
-                btreemap! {}.into_iter().collect()
-            }
-        } else {
-            from_by_component_tag_count(stats.storage_ingress_size_by_component)?.collect()
-        };
-        // TODO(ENG-7342) Remove support for old protos
-        let storage_egress_size = if let Some(storage_egress_size) = stats.storage_egress_size
-            && stats.storage_egress_size_by_component.is_empty()
-            && storage_egress_size > 0
-        {
-            btreemap! {
-                ComponentPath::root() => storage_egress_size,
-            }
-            .into_iter()
-            .collect()
-        } else {
-            from_by_component_tag_count(stats.storage_egress_size_by_component)?.collect()
-        };
+        let storage_ingress_size =
+            from_by_component_tag_count(stats.storage_ingress_size_by_component)?.collect();
+        let storage_egress_size =
+            from_by_component_tag_count(stats.storage_egress_size_by_component)?.collect();
         let database_ingress_size = from_by_tag_count(stats.database_ingress_size)?.collect();
         let database_egress_size = from_by_tag_count(stats.database_egress_size)?.collect();
         let vector_ingress_size = from_by_tag_count(stats.vector_ingress_size)?.collect();
