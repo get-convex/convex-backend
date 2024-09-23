@@ -768,7 +768,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             let object_key = object_key.clone();
             async move { self.read_snapshot_import(&object_key).await }
         };
-        let objects = parse_objects(format.clone(), component_path, body_stream).boxed();
+        let objects = parse_objects(format.clone(), component_path.clone(), body_stream).boxed();
 
         // Remapping could be more extensive here, it's just relatively simple to handle
         // optional types. We do remapping after parsing rather than during parsing
@@ -778,9 +778,19 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
 
         let initial_schemas = schemas_for_import(&mut tx).await?;
 
+        let mut components_model = BootstrapComponentsModel::new(&mut tx);
+        let (_, component_id) = components_model
+            .must_component_path_to_ids(&component_path)
+            .with_context(|| ImportError::ComponentMissing(component_path))?;
         let objects = match format {
             ImportFormat::Csv(table_name) => {
-                remap_empty_string_by_schema(table_name, &mut tx, objects).await?
+                remap_empty_string_by_schema(
+                    TableNamespace::from(component_id),
+                    table_name,
+                    &mut tx,
+                    objects,
+                )
+                .await?
             },
             _ => objects,
         }
@@ -2680,11 +2690,12 @@ async fn table_number_for_import(
 }
 
 async fn remap_empty_string_by_schema<'a, RT: Runtime>(
+    namespace: TableNamespace,
     table_name: TableName,
     tx: &mut Transaction<RT>,
     objects: BoxStream<'a, anyhow::Result<ImportUnit>>,
 ) -> anyhow::Result<BoxStream<'a, anyhow::Result<ImportUnit>>> {
-    if let Some((_, schema)) = SchemaModel::new(tx, TableNamespace::by_component_TODO())
+    if let Some((_, schema)) = SchemaModel::new(tx, namespace)
         .get_by_state(SchemaState::Active)
         .await?
     {
