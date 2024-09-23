@@ -11,6 +11,7 @@ use model::backend_state::{
     BackendStateModel,
     DISABLED_ERROR_MESSAGE,
     PAUSED_ERROR_MESSAGE,
+    SUSPENDED_ERROR_MESSAGE,
 };
 use runtime::testing::TestRuntime;
 use value::assert_obj;
@@ -62,6 +63,26 @@ async fn test_action_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_http_action_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
     test_http_action_helper(rt, BackendState::Disabled).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_while_suspended(rt: TestRuntime) -> anyhow::Result<()> {
+    test_query_helper(rt, BackendState::Suspended, SUSPENDED_ERROR_MESSAGE).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_mutation_while_suspended(rt: TestRuntime) -> anyhow::Result<()> {
+    test_mutation_helper(rt, BackendState::Suspended, SUSPENDED_ERROR_MESSAGE).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_action_while_suspended(rt: TestRuntime) -> anyhow::Result<()> {
+    test_action_helper(rt, BackendState::Suspended, SUSPENDED_ERROR_MESSAGE).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_http_action_while_suspended(rt: TestRuntime) -> anyhow::Result<()> {
+    test_http_action_helper(rt, BackendState::Suspended).await
 }
 
 async fn test_query_helper(
@@ -128,6 +149,7 @@ fn assert_error(error: anyhow::Error, backend_state: BackendState) {
     let error_message = match backend_state {
         BackendState::Paused => "NoRunWhilePaused",
         BackendState::Disabled => "NoRunWhileDisabled",
+        BackendState::Suspended => "NoRunWhileSuspended",
         BackendState::Running => return,
     };
     let error_metadata = error.downcast_ref::<ErrorMetadata>().unwrap();

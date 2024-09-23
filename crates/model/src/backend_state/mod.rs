@@ -41,6 +41,10 @@ pub const DISABLED_ERROR_MESSAGE: &str = "You have exceeded the free plan limits
                                           deployments have been disabled. Please upgrade to a Pro \
                                           plan or reach out to us at support@convex.dev for help.";
 
+pub const SUSPENDED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is \
+                                           suspended. Please contact Convex if you believe this \
+                                           is a mistake.";
+
 pub static BACKEND_STATE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_backend_state"
         .parse()
@@ -104,7 +108,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         Ok(backend_state)
     }
 
-    pub async fn fail_while_paused_or_disabled(&mut self) -> anyhow::Result<()> {
+    pub async fn fail_while_not_running(&mut self) -> anyhow::Result<()> {
         let backend_state = self.get_backend_state().await?;
         match backend_state {
             BackendState::Running => {},
@@ -115,6 +119,10 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             BackendState::Disabled => anyhow::bail!(ErrorMetadata::bad_request(
                 "NoRunWhileDisabled",
                 DISABLED_ERROR_MESSAGE,
+            )),
+            BackendState::Suspended => anyhow::bail!(ErrorMetadata::bad_request(
+                "NoRunWhileSuspended",
+                SUSPENDED_ERROR_MESSAGE,
             )),
         };
         Ok(())

@@ -37,6 +37,7 @@ use model::{
         BackendStateModel,
         DISABLED_ERROR_MESSAGE,
         PAUSED_ERROR_MESSAGE,
+        SUSPENDED_ERROR_MESSAGE,
     },
     components::ComponentsModel,
     modules::{
@@ -319,6 +320,11 @@ impl ValidatedPathAndArgs {
                     DISABLED_ERROR_MESSAGE.to_string(),
                 )));
             },
+            BackendState::Suspended => {
+                return Ok(Err(JsError::from_message(
+                    SUSPENDED_ERROR_MESSAGE.to_string(),
+                )));
+            },
         }
 
         let path = match public_path.clone() {
@@ -593,9 +599,7 @@ impl ValidatedHttpPath {
         npm_version: Option<Version>,
     ) -> anyhow::Result<Self> {
         if !udf_path.is_system() {
-            BackendStateModel::new(tx)
-                .fail_while_paused_or_disabled()
-                .await?;
+            BackendStateModel::new(tx).fail_while_not_running().await?;
         }
         Ok(Self {
             path: ResolvedComponentFunctionPath {
@@ -618,9 +622,7 @@ impl ValidatedHttpPath {
             path.udf_path,
         );
         if !path.udf_path.is_system() {
-            BackendStateModel::new(tx)
-                .fail_while_paused_or_disabled()
-                .await?;
+            BackendStateModel::new(tx).fail_while_not_running().await?;
         }
         let (_, component) =
             BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
