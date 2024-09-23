@@ -64,6 +64,7 @@ pub mod pii;
 pub mod pool_stats;
 pub mod query;
 pub mod query_journal;
+pub mod retriable_stream;
 pub mod runtime;
 pub mod schemas;
 pub mod sha256;
