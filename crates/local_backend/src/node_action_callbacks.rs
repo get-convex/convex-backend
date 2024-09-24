@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use axum::{
     debug_handler,
     extract::{
+        FromRef,
         FromRequestParts,
         State,
     },
@@ -510,11 +511,19 @@ fn get_encoded_span(headers: &HeaderMap) -> anyhow::Result<EncodedSpan> {
     ))
 }
 
-pub async fn action_callbacks_middleware(
-    State(st): State<LocalAppState>,
+pub async fn action_callbacks_middleware<S>(
     req: axum::extract::Request,
     next: axum::middleware::Next,
-) -> Result<impl IntoResponse, HttpResponseError> {
+) -> Result<impl IntoResponse, HttpResponseError>
+where
+    LocalAppState: FromRef<S>,
+    S: Send + Sync + Clone + 'static,
+{
+    let st = LocalAppState::from_ref(
+        req.extensions()
+            .get::<S>()
+            .context("Missing LocalAppState")?,
+    );
     // Validate we have an valid token in order to call any methods in this
     // actions_callback router.
     check_actions_token(&st, req.headers()).await?;
@@ -534,19 +543,24 @@ pub struct ExtractActionIdentity {
 }
 
 #[async_trait]
-impl FromRequestParts<LocalAppState> for ExtractActionIdentity {
+impl<S> FromRequestParts<S> for ExtractActionIdentity
+where
+    LocalAppState: FromRef<S>,
+    S: Send + Sync + Clone + 'static,
+{
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        st: &LocalAppState,
+        st: &S,
     ) -> Result<Self, Self::Rejection> {
+        let st = LocalAppState::from_ref(st);
         let token: AuthenticationToken =
             parts.extract::<ExtractAuthenticationToken>().await?.into();
 
         // Validate the auth token based on when the action token was issued. This
         // prevents errors due to auth token expiring in the middle of long action.
-        let (issue_time, component_id) = check_actions_token(st, &parts.headers).await?;
+        let (issue_time, component_id) = check_actions_token(&st, &parts.headers).await?;
         let identity = st.application.authenticate(token, issue_time).await?;
         st.application
             .validate_component_id(identity.clone(), component_id)
@@ -561,12 +575,12 @@ impl FromRequestParts<LocalAppState> for ExtractActionIdentity {
 pub struct ExtractActionName(pub Option<String>);
 
 #[async_trait]
-impl FromRequestParts<LocalAppState> for ExtractActionName {
+impl<S> FromRequestParts<S> for ExtractActionName {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        _st: &LocalAppState,
+        _st: &S,
     ) -> Result<Self, Self::Rejection> {
         let action_name = parts
             .headers
@@ -673,8 +687,8 @@ mod tests {
 
         // Schedule a job
         let schedule_body = serde_json::to_vec(&json!({
-            "udfPath": "node_actions:scheduleJob",
-            "udfArgs": [{"name": "getCounter.js"}],
+            "udfPath": "node_actions:sleepAnHour",
+            "udfArgs": [],
             "scheduledTs": Into::<i64>::into(rt.generate_timestamp()?) / 1_000_000_000,
         }))?;
         let req = Request::builder()

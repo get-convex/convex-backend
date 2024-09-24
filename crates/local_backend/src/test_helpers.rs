@@ -53,7 +53,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
         ShutdownSignal::new(preempt_tx),
     )
     .await?;
-    let router = router(st.clone()).await;
+    let router = router(st.clone());
     let app = ConvexHttpService::new(
         router,
         "backend_test",

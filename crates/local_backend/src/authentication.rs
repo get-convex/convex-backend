@@ -8,7 +8,10 @@ use anyhow::{
 use async_trait::async_trait;
 use authentication::extract_bearer_token;
 use axum::{
-    extract::FromRequestParts,
+    extract::{
+        FromRef,
+        FromRequestParts,
+    },
     RequestPartsExt,
 };
 use common::{
@@ -103,15 +106,20 @@ impl From<ExtractAuthenticationToken> for AuthenticationToken {
 pub struct ExtractIdentity(pub Identity);
 
 #[async_trait]
-impl FromRequestParts<LocalAppState> for ExtractIdentity {
+impl<S> FromRequestParts<S> for ExtractIdentity
+where
+    LocalAppState: FromRef<S>,
+    S: Send + Sync + Clone + 'static,
+{
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
         parts: &mut axum::http::request::Parts,
-        st: &LocalAppState,
+        st: &S,
     ) -> Result<Self, Self::Rejection> {
         let token: AuthenticationToken =
             parts.extract::<ExtractAuthenticationToken>().await?.into();
+        let st = LocalAppState::from_ref(st);
 
         Ok(Self(
             st.application

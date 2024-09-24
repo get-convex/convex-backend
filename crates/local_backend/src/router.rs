@@ -6,7 +6,11 @@ use std::{
 
 use axum::{
     error_handling::HandleErrorLayer,
-    extract::DefaultBodyLimit,
+    extract::{
+        DefaultBodyLimit,
+        FromRef,
+        State,
+    },
     routing::{
         get,
         post,
@@ -129,7 +133,18 @@ use crate::{
     RouterState,
 };
 
-pub async fn router(st: LocalAppState) -> Router {
+pub async fn add_extension<S, B>(
+    State(st): State<S>,
+    mut request: http::Request<B>,
+) -> http::Request<B>
+where
+    S: Clone + Send + Sync + 'static,
+{
+    request.extensions_mut().insert(st);
+    request
+}
+
+pub fn router(st: LocalAppState) -> Router {
     let browser_routes = Router::new()
         // Called by the browser (and optionally authenticated by a cookie or `Authorization`
         // header). Passes version in the URL because websockets can't do it in header.
@@ -172,7 +187,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))
         .merge(import_routes())
-        .layer(cli_cors().await);
+        .layer(cli_cors());
 
     let snapshot_export_routes = Router::new()
         .route("/request/zip", post(request_zip_export))
@@ -181,7 +196,13 @@ pub async fn router(st: LocalAppState) -> Router {
     let api_routes = Router::new()
         .merge(cli_routes)
         .merge(dashboard_routes)
-        .nest("/actions", action_callback_routes(st.clone()))
+        .nest(
+            "/actions",
+            action_callback_routes().layer(axum::middleware::map_request_with_state(
+                st.clone(),
+                add_extension::<LocalAppState, _>,
+            )),
+        )
         .nest("/export", snapshot_export_routes);
 
     // Endpoints migrated to use the RouterState trait instead of application.
@@ -191,7 +212,7 @@ pub async fn router(st: LocalAppState) -> Router {
         .nest("/storage", storage_api_routes());
     let migrated = Router::new()
         .nest("/api", migrated_api_routes)
-        .layer(cors().await)
+        .layer(cors())
         // Order matters. Layers only apply to routes above them.
         // Notably, any layers added here won't apply to common routes
         // added inside `serve_http`
@@ -209,7 +230,7 @@ pub async fn router(st: LocalAppState) -> Router {
         // /instance_name is used by the CLI and dashboard to check connectivity!
         .route("/instance_name", get(|| async move { instance_name }))
         .route("/instance_version", get(|| async move { version }))
-        .layer(cors().await)
+        .layer(cors())
         .with_state(st)
         .merge(migrated)
 }
@@ -238,7 +259,11 @@ pub fn storage_api_routes() -> Router<RouterState> {
 // IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
 // such as adding or removing a route, or changing limits, also need to be
 // applied to `crates_private/usher/src/proxy.rs`.
-pub fn action_callback_routes<S>(st: LocalAppState) -> Router<S> {
+pub fn action_callback_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Send + Sync + Clone + 'static,
+{
     Router::new()
         .route("/query", post(internal_query_post))
         .route("/mutation", post(internal_mutation_post))
@@ -253,11 +278,14 @@ pub fn action_callback_routes<S>(st: LocalAppState) -> Router<S> {
         .route("/storage_delete", post(storage_delete))
         // All routes above this line get the increased limit
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_RPC_REQUEST_SIZE))
-        .layer(axum::middleware::from_fn_with_state(st.clone(), action_callbacks_middleware))
-        .with_state(st)
+        .layer(axum::middleware::from_fn(action_callbacks_middleware))
 }
 
-pub fn import_routes() -> Router<LocalAppState> {
+pub fn import_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/import", post(import))
         .route("/import/start_upload", post(import_start_upload))
@@ -275,7 +303,11 @@ pub fn http_action_routes() -> Router<RouterState> {
         .layer(DefaultBodyLimit::max(HTTP_ACTION_BODY_LIMIT))
 }
 
-pub fn app_metrics_routes() -> Router<LocalAppState> {
+pub fn app_metrics_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))
@@ -286,7 +318,11 @@ pub fn app_metrics_routes() -> Router<LocalAppState> {
 }
 
 // Routes with the same handlers for the local backend + closed source backend
-pub fn common_dashboard_routes() -> Router<LocalAppState> {
+pub fn common_dashboard_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
     Router::new()
         .route("/shapes2", get(shapes2))
         .route("/get_indexes", get(get_indexes))
@@ -297,7 +333,7 @@ pub fn common_dashboard_routes() -> Router<LocalAppState> {
         .nest("/app_metrics", app_metrics_routes())
 }
 
-pub async fn cors() -> CorsLayer {
+pub fn cors() -> CorsLayer {
     CorsLayer::new()
         .allow_headers(vec![CONTENT_TYPE, "sentry-trace".parse().unwrap(), "baggage".parse().unwrap(), CONVEX_CLIENT_HEADER, AUTHORIZATION])
         .allow_credentials(true)

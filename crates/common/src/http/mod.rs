@@ -1125,7 +1125,7 @@ impl<T: fmt::Display> fmt::Display for LogOptFmt<T> {
 
 // CLI endpoints can be used from browser IDEs (e.g. StackBlitz), which send
 // different headers.
-pub async fn cli_cors() -> CorsLayer {
+pub fn cli_cors() -> CorsLayer {
     CorsLayer::new()
         .allow_headers(vec![
             CONTENT_TYPE,

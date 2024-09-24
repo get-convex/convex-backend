@@ -84,7 +84,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         ShutdownSignal::new(preempt_tx.clone()),
     )
     .await?;
-    let router = router(st.clone()).await;
+    let router = router(st.clone());
     let mut shutdown_rx_ = shutdown_rx.clone();
     let http_service = ConvexHttpService::new(
         router,
