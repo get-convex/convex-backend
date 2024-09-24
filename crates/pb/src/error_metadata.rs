@@ -30,6 +30,7 @@ impl From<ErrorCode> for ErrorCodeProto {
             ErrorCode::OperationalInternalServerError => {
                 ErrorCodeProto::OperationalInternalServerError
             },
+            ErrorCode::MisdirectedRequest => ErrorCodeProto::MisdirectedRequest,
         }
     }
 }
@@ -51,6 +52,7 @@ impl From<ErrorCodeProto> for ErrorCode {
             ErrorCodeProto::OperationalInternalServerError => {
                 ErrorCode::OperationalInternalServerError
             },
+            ErrorCodeProto::MisdirectedRequest => ErrorCode::MisdirectedRequest,
         }
     }
 }

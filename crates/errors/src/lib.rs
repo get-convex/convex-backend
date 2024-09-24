@@ -56,6 +56,7 @@ pub enum ErrorCode {
     OutOfRetention,
 
     OperationalInternalServerError,
+    MisdirectedRequest,
 }
 
 impl ErrorMetadata {
@@ -144,6 +145,17 @@ impl ErrorMetadata {
             code: ErrorCode::ClientDisconnect,
             short_msg: CLIENT_DISCONNECTED.into(),
             msg: CLIENT_DISCONNECTED_MSG.into(),
+        }
+    }
+
+    /// Conductor recevied a request intended for an instance it does not serve.
+    /// This error is intended to be used by Usher to retry the request and/or
+    /// update its caches, and should not directly be sent back to the user.
+    pub fn misdirected_request() -> Self {
+        Self {
+            code: ErrorCode::MisdirectedRequest,
+            short_msg: "MisdirectedRequest".into(),
+            msg: "Instance not served by this Conductor".into(),
         }
     }
 
@@ -351,7 +363,8 @@ impl ErrorMetadata {
             | ErrorCode::OCC
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
-            | ErrorCode::RejectedBeforeExecution => false,
+            | ErrorCode::RejectedBeforeExecution
+            | ErrorCode::MisdirectedRequest => false,
         }
     }
 
@@ -367,7 +380,8 @@ impl ErrorMetadata {
             | ErrorCode::TransientNotFound
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
-            | ErrorCode::Forbidden => Some((sentry::Level::Info, None)),
+            | ErrorCode::Forbidden
+            | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
             ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
             | ErrorCode::RejectedBeforeExecution
@@ -386,6 +400,7 @@ impl ErrorMetadata {
             | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect
+            | ErrorCode::MisdirectedRequest
             | ErrorCode::RateLimited => None,
             ErrorCode::TransientNotFound => Some("transient_not_found"),
             ErrorCode::OCC => Some("occ"),
@@ -415,6 +430,7 @@ impl ErrorMetadata {
             ErrorCode::Overloaded => None,
             ErrorCode::RejectedBeforeExecution => None,
             ErrorCode::OperationalInternalServerError => None,
+            ErrorCode::MisdirectedRequest => None,
         }
     }
 
@@ -428,7 +444,8 @@ impl ErrorMetadata {
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
             | ErrorCode::RateLimited
-            | ErrorCode::RejectedBeforeExecution => Some(CloseCode::Again),
+            | ErrorCode::RejectedBeforeExecution
+            | ErrorCode::MisdirectedRequest => Some(CloseCode::Again),
             ErrorCode::OperationalInternalServerError => Some(CloseCode::Error),
             // These ones are client errors - so no close code - the client
             // will handle and close the connection instead.
@@ -464,6 +481,7 @@ impl ErrorCode {
             | ErrorCode::Overloaded
             | ErrorCode::RejectedBeforeExecution => StatusCode::SERVICE_UNAVAILABLE,
             ErrorCode::ClientDisconnect => StatusCode::REQUEST_TIMEOUT,
+            ErrorCode::MisdirectedRequest => StatusCode::MISDIRECTED_REQUEST,
         }
     }
 
@@ -481,6 +499,7 @@ impl ErrorCode {
             ErrorCode::PaginationLimit => tonic::Code::InvalidArgument,
             ErrorCode::OutOfRetention => tonic::Code::OutOfRange,
             ErrorCode::OperationalInternalServerError => tonic::Code::Internal,
+            ErrorCode::MisdirectedRequest => tonic::Code::InvalidArgument,
         }
     }
 
@@ -490,6 +509,7 @@ impl ErrorCode {
             StatusCode::FORBIDDEN => Some(ErrorCode::Forbidden),
             StatusCode::NOT_FOUND => Some(ErrorCode::TransientNotFound),
             StatusCode::TOO_MANY_REQUESTS => Some(ErrorCode::RateLimited),
+            StatusCode::MISDIRECTED_REQUEST => Some(ErrorCode::MisdirectedRequest),
             // Tries to categorize in one of the above more specific 4xx codes first,
             // otherwise categorizes as a general 4xx via BadRequest
             v if v.is_client_error() => Some(ErrorCode::BadRequest),
@@ -792,6 +812,7 @@ mod proptest {
                     ErrorMetadata::operational_internal_server_error()
                 },
                 ErrorCode::ClientDisconnect => ErrorMetadata::client_disconnect(),
+                ErrorCode::MisdirectedRequest => ErrorMetadata::misdirected_request(),
             })
         }
     }
