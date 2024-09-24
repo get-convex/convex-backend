@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use async_trait::async_trait;
 use serde::{
     Deserialize,
@@ -108,7 +110,10 @@ pub enum UsageEvent {
         tables: Vec<TableDatabaseStorage>,
     },
     CurrentFileStorage {
+        // TODO(ENG-7423): Clean up this old field once no databricks tables and queries rely on
+        // it. They should use the by_component field instead.
         total_size: u64,
+        by_component: BTreeMap<Option<String>, u64>,
     },
     CurrentDocumentCounts {
         tables: Vec<TableDocumentCount>,
