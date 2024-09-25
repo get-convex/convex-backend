@@ -59,7 +59,7 @@ fn initialize_server_version() -> String {
     let version_str = SERVER_VERSION
         .as_ref()
         .map(|v| v.to_string())
-        .unwrap_or_else(|| "0.0.0".to_owned());
+        .unwrap_or_else(|| "unknown".to_owned());
     INIT_VERSION_GAUGE.call_once(|| {
         CONVEX_BINARY_VERSIONS_TOTAL
             .with_label_values(&[&SERVICE_NAME, &version_str])
