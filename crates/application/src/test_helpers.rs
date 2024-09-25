@@ -77,6 +77,7 @@ use node_executor::{
 };
 use storage::{
     LocalDirStorage,
+    Storage,
     StorageUseCase,
 };
 use value::{
@@ -158,6 +159,8 @@ pub trait ApplicationTestExt<RT: Runtime> {
         fields: IndexedFields,
     ) -> anyhow::Result<IndexedFields>;
     fn database(&self) -> &Database<RT>;
+    fn snapshot_imports_storage(&self) -> Arc<dyn Storage>;
+    fn exports_storage(&self) -> Arc<dyn Storage>;
 }
 
 #[async_trait]
@@ -279,6 +282,14 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         .await?;
 
         Ok(application)
+    }
+
+    fn snapshot_imports_storage(&self) -> Arc<dyn Storage> {
+        self.snapshot_imports_storage.clone()
+    }
+
+    fn exports_storage(&self) -> Arc<dyn Storage> {
+        self.exports_storage.clone()
     }
 
     async fn test_one_off_scheduled_job_executor_run(

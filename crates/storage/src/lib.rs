@@ -181,6 +181,10 @@ pub trait Storage: Send + Sync + Debug {
     /// Return a fully qualified key, including info on bucket name
     /// and suitable for access in multi-tenant scenario
     fn fully_qualified_key(&self, key: &ObjectKey) -> FullyQualifiedObjectKey;
+    fn test_only_decompose_fully_qualified_key(
+        &self,
+        key: FullyQualifiedObjectKey,
+    ) -> anyhow::Result<ObjectKey>;
 }
 
 pub struct ObjectAttributes {
@@ -1014,6 +1018,19 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         let key = self.path_for_key(key.clone());
         let path = self.dir.join(key);
         path.to_string_lossy().to_string().into()
+    }
+
+    fn test_only_decompose_fully_qualified_key(
+        &self,
+        key: FullyQualifiedObjectKey,
+    ) -> anyhow::Result<ObjectKey> {
+        let key: String = key.into();
+        let path = Path::new(&key);
+        let remaining = path.strip_prefix(&self.dir)?.to_string_lossy();
+        remaining
+            .strip_suffix(".blob")
+            .context("Doesn't end with .blob")?
+            .try_into()
     }
 
     fn get_small_range(

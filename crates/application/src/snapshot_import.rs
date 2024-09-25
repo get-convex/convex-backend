@@ -1331,12 +1331,12 @@ pub async fn start_cloud_import<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
     source_object_key: FullyQualifiedObjectKey,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<DeveloperDocumentId> {
     let object_key: ObjectKey = application
         .snapshot_imports_storage
         .copy_object(source_object_key)
         .await?;
-    store_uploaded_import(
+    let id = store_uploaded_import(
         application,
         identity,
         ImportFormat::Zip,
@@ -1345,7 +1345,7 @@ pub async fn start_cloud_import<RT: Runtime>(
         object_key,
     )
     .await?;
-    Ok(())
+    Ok(id)
 }
 
 pub async fn store_uploaded_import<RT: Runtime>(
