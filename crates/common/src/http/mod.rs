@@ -819,9 +819,8 @@ pub async fn stats_middleware<RM: RouteMapper>(
         .unwrap_or("unknown".to_owned());
 
     // Sampling isn't done here, and should be done upstream
-    let path = req.uri().path();
     let root = match traceparent {
-        Some(span_ctx) => Span::root(path.to_owned(), span_ctx),
+        Some(span_ctx) => Span::root(route.to_owned(), span_ctx),
         None => Span::noop(),
     };
     let resp = next.run(req).in_span(root).await;
