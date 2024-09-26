@@ -9,6 +9,7 @@ mod returns_validation;
 mod scheduled_jobs;
 mod schema;
 mod source_package;
+mod storage;
 
 const NODE_SOURCE: &str = r#"
 var nodeFunction = () => {};

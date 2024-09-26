@@ -166,6 +166,7 @@ use minitrace::{
 };
 use model::{
     auth::AuthInfoModel,
+    backend_state::BackendStateModel,
     components::{
         config::ComponentConfigModel,
         handles::FunctionHandlesModel,
@@ -2312,6 +2313,19 @@ impl<RT: Runtime> Application<RT> {
         Ok(())
     }
 
+    async fn bail_if_not_running(&self) -> anyhow::Result<()> {
+        let backend_state = BackendStateModel::new(&mut self.begin(Identity::Unknown).await?)
+            .get_backend_state()
+            .await?;
+        if backend_state.is_stopped() {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "BackendIsNotRunning",
+                "Cannot perform this operation when the backend is not running"
+            ));
+        }
+        Ok(())
+    }
+
     pub async fn store_file(
         &self,
         component: ComponentId,
@@ -2320,6 +2334,7 @@ impl<RT: Runtime> Application<RT> {
         expected_sha256: Option<Sha256Digest>,
         body: BoxStream<'_, anyhow::Result<Bytes>>,
     ) -> anyhow::Result<DeveloperDocumentId> {
+        self.bail_if_not_running().await?;
         let storage_id = self
             .file_storage
             .store_file(
@@ -2374,6 +2389,7 @@ impl<RT: Runtime> Application<RT> {
         component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<FileStream> {
+        self.bail_if_not_running().await?;
         let file_entry = self.get_file_entry(component, storage_id).await?;
         self
             .file_storage
@@ -2389,6 +2405,7 @@ impl<RT: Runtime> Application<RT> {
         storage_id: FileStorageId,
         bytes_range: (Bound<u64>, Bound<u64>),
     ) -> anyhow::Result<FileRangeStream> {
+        self.bail_if_not_running().await?;
         let mut file_storage_tx = self.begin(Identity::system()).await?;
 
         let Some(file_entry) = self
