@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.16.3
+
+- Fix some library typecheck errors introduced in 1.16.1. Workaround for
+  previous versions is to add `"skipLibCheck": true` to the tsconfig.json in the
+  convex directory.
+
+## 1.16.2
+
+- Change some language around componets beta.
+
+## 1.16.1
+
+- Release components, a feature in beta. These codepaths should not be active
+  unless a convex directory contains a file named `convex.config.ts`. Components
+  aren't documented yet and may change significantly before general release.
+
 ## 1.16.0
 
 - Added support for a new validator, `v.record`. This is a typed key-value

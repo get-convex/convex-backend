@@ -244,6 +244,9 @@ importers:
       knip:
         specifier: ~5.30.2
         version: 5.30.2(@types/node@18.19.50)(typescript@5.0.4)
+      napi-wasm:
+        specifier: 1.1.3
+        version: 1.1.3
       open:
         specifier: ^8.3.0
         version: 8.4.2
@@ -8480,6 +8483,10 @@ packages:
     resolution: {integrity: sha512-eSRppjcPIatRIMC1U6UngP8XFcz8MQWGQdt1MTBQ7NaAmvXDfvNxbvWV3x2y6CdEUciCSsDHDQZbhYaB8QEo2g==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+    dev: true
+
+  /napi-wasm@1.1.3:
+    resolution: {integrity: sha512-h/4nMGsHjZDCYmQVNODIrYACVJ+I9KItbG+0si6W/jSjdA9JbWDoU4LLeMXVcEQGHjttI2tuXqDrbGF7qkUHHg==}
     dev: true
 
   /natural-compare@1.4.0:

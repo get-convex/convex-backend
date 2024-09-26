@@ -167,9 +167,12 @@ export {
   defineApp,
   defineComponent,
   componentsGeneric,
-  currentSystemUdfInComponent,
   createFunctionHandle,
 } from "./components/index.js";
+/**
+ * @internal
+ */
+export { currentSystemUdfInComponent } from "./components/index.js";
 export type {
   ComponentDefinition,
   AnyComponents,
