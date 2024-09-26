@@ -21,12 +21,18 @@ use parking_lot::Mutex;
 ///
 /// This struct does not implement `Clone` but provides a fallible `try_clone`
 /// method which will only succeed if the stream has never been polled.
-pub struct RetriableStream<T: TryStream> {
+pub struct RetriableStream<T: TryStream + std::marker::Unpin>
+where
+    T::Error: FromAnyhowError,
+{
     shared_inner: Arc<Mutex<Option<T>>>,
     inner: Option<T>,
 }
 
-impl<T: TryStream> Clone for RetriableStream<T> {
+impl<T: TryStream + std::marker::Unpin> Clone for RetriableStream<T>
+where
+    T::Error: FromAnyhowError,
+{
     fn clone(&self) -> Self {
         Self {
             shared_inner: self.shared_inner.clone(),
@@ -35,7 +41,10 @@ impl<T: TryStream> Clone for RetriableStream<T> {
     }
 }
 
-impl<T: TryStream> RetriableStream<T> {
+impl<T: TryStream + std::marker::Unpin> RetriableStream<T>
+where
+    T::Error: FromAnyhowError,
+{
     pub fn new(body: T) -> Self {
         Self {
             shared_inner: Arc::new(Mutex::new(Some(body))),
@@ -90,5 +99,11 @@ pub trait FromAnyhowError {
 impl FromAnyhowError for axum::Error {
     fn from_anyhow_error(err: anyhow::Error) -> Self {
         Self::new(err)
+    }
+}
+
+impl FromAnyhowError for anyhow::Error {
+    fn from_anyhow_error(err: anyhow::Error) -> Self {
+        err
     }
 }
