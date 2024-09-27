@@ -176,10 +176,7 @@ impl UsageCounterState {
             },
             UsageEvent::CurrentVectorStorage { tables: _ } => todo!(),
             UsageEvent::CurrentDatabaseStorage { tables: _ } => todo!(),
-            UsageEvent::CurrentFileStorage {
-                total_size: _,
-                by_component: _,
-            } => todo!(),
+            UsageEvent::CurrentFileStorage { total_size: _ } => todo!(),
             UsageEvent::CurrentDocumentCounts { tables: _ } => todo!(),
         }
     }
