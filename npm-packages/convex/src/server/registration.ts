@@ -363,6 +363,9 @@ export type RegisteredMutation<
 
   /** @internal */
   exportReturns(): string;
+
+  /** @internal */
+  _handler: (ctx: GenericMutationCtx<any>, args: Args) => Returns;
 } & VisibilityProperties<Visibility>;
 
 /**
@@ -392,6 +395,9 @@ export type RegisteredQuery<
 
   /** @internal */
   exportReturns(): string;
+
+  /** @internal */
+  _handler: (ctx: GenericQueryCtx<any>, args: Args) => Returns;
 } & VisibilityProperties<Visibility>;
 
 /**
@@ -421,6 +427,9 @@ export type RegisteredAction<
 
   /** @internal */
   exportReturns(): string;
+
+  /** @internal */
+  _handler: (ctx: GenericActionCtx<any>, args: Args) => Returns;
 } & VisibilityProperties<Visibility>;
 
 /**
@@ -438,6 +447,8 @@ export type PublicHttpAction = {
 
   /** @internal */
   invokeHttpAction(request: Request): Promise<Response>;
+  /** @internal */
+  _handler: (ctx: GenericActionCtx<any>, request: Request) => Promise<Response>;
 };
 
 /**

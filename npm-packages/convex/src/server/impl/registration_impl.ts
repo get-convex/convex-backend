@@ -173,11 +173,13 @@ function exportReturns(functionDefinition: FunctionDefinition) {
 export const mutationGeneric: MutationBuilder<any, "public"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
-  const func = (
+  const handler = (
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredMutation<"public", any, any>;
+  const func = ((ctx: any, args: any) =>
+    handler(ctx, args)) as RegisteredMutation<"public", any, any>;
 
   // Helpful runtime check that functions are only be registered once
   if (func.isRegistered) {
@@ -190,6 +192,7 @@ export const mutationGeneric: MutationBuilder<any, "public"> = ((
   func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
+  func._handler = handler;
   return func;
 }) as MutationBuilder<any, "public">;
 
@@ -209,11 +212,13 @@ export const mutationGeneric: MutationBuilder<any, "public"> = ((
 export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
-  const func = (
+  const handler = (
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredMutation<"internal", any, any>;
+  const func = ((ctx: any, args: any) =>
+    handler(ctx, args)) as RegisteredMutation<"internal", any, any>;
 
   // Helpful runtime check that functions are only be registered once
   if (func.isRegistered) {
@@ -226,6 +231,7 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
   func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
+  func._handler = handler;
   return func;
 }) as MutationBuilder<any, "internal">;
 
@@ -263,11 +269,16 @@ async function invokeQuery<
 export const queryGeneric: QueryBuilder<any, "public"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
-  const func = (
+  const handler = (
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredQuery<"public", any, any>;
+  const func = ((ctx: any, args: any) => handler(ctx, args)) as RegisteredQuery<
+    "public",
+    any,
+    any
+  >;
 
   // Helpful runtime check that functions are only be registered once
   if (func.isRegistered) {
@@ -280,6 +291,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = ((
   func.invokeQuery = (argsStr) => invokeQuery(func, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
+  func._handler = handler;
   return func;
 }) as QueryBuilder<any, "public">;
 
@@ -299,11 +311,16 @@ export const queryGeneric: QueryBuilder<any, "public"> = ((
 export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
-  const func = (
+  const handler = (
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredQuery<"internal", any, any>;
+  const func = ((ctx: any, args: any) => handler(ctx, args)) as RegisteredQuery<
+    "internal",
+    any,
+    any
+  >;
 
   // Helpful runtime check that functions are only be registered once
   if (func.isRegistered) {
@@ -316,6 +333,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
   func.invokeQuery = (argsStr) => invokeQuery(func as any, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
+  func._handler = handler;
   return func;
 }) as QueryBuilder<any, "internal">;
 
@@ -349,11 +367,13 @@ async function invokeAction<
 export const actionGeneric: ActionBuilder<any, "public"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
-  const func = (
+  const handler = (
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredAction<"public", any, any>;
+  const func = ((ctx: any, args: any) =>
+    handler(ctx, args)) as RegisteredAction<"public", any, any>;
 
   // Helpful runtime check that functions are only be registered once
   if (func.isRegistered) {
@@ -367,6 +387,7 @@ export const actionGeneric: ActionBuilder<any, "public"> = ((
     invokeAction(func, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
+  func._handler = handler;
   return func;
 }) as ActionBuilder<any, "public">;
 
@@ -384,11 +405,13 @@ export const actionGeneric: ActionBuilder<any, "public"> = ((
 export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
   functionDefinition: FunctionDefinition,
 ) => {
-  const func = (
+  const handler = (
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredAction<"internal", any, any>;
+  const func = ((ctx: any, args: any) =>
+    handler(ctx, args)) as RegisteredAction<"internal", any, any>;
 
   // Helpful runtime check that functions are only be registered once
   if (func.isRegistered) {
@@ -402,6 +425,7 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
     invokeAction(func, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
+  func._handler = handler;
   return func;
 }) as ActionBuilder<any, "internal">;
 
@@ -437,7 +461,9 @@ export const httpActionGeneric = (
     request: Request,
   ) => Promise<Response>,
 ): PublicHttpAction => {
-  const q = func as unknown as PublicHttpAction;
+  const handler = func as unknown as PublicHttpAction;
+  const q = ((ctx: any, request: any) =>
+    handler(ctx, request)) as PublicHttpAction;
   // Helpful runtime check that functions are only be registered once
   if (q.isRegistered) {
     throw new Error("Function registered twice " + func);
@@ -446,6 +472,7 @@ export const httpActionGeneric = (
   q.isRegistered = true;
   q.isHttp = true;
   q.invokeHttpAction = (request) => invokeHttpAction(func as any, request);
+  q._handler = func;
   return q;
 };
 

@@ -623,19 +623,33 @@ fn udf_analyze<RT: Runtime>(
             },
         };
 
+        let handler_str = strings::_handler.create(scope)?;
+        let handler = match function.get(scope, handler_str.into()) {
+            Some(handler_value) if handler_value.is_function() => {
+                let handler: v8::Local<v8::Function> = handler_value.try_into()?;
+                handler
+            },
+            Some(handler_value) if handler_value.is_undefined() => function,
+            Some(_) => {
+                let message = format!("{module_path:?}:{property_name}.handler is not a function.");
+                return Ok(Err(JsError::from_message(message)));
+            },
+            None => function,
+        };
+
         // These are originally zero-indexed, so we just add 1
-        let lineno = function
+        let lineno = handler
             .get_script_line_number()
             .ok_or_else(|| anyhow!("Failed to get function line number"))?
             + 1;
-        let linecol = function
+        let linecol = handler
             .get_script_column_number()
             .ok_or_else(|| anyhow!("Failed to get function column number"))?
             + 1;
 
         // Get the appropriate source map to look in
         let (fn_source_map, fn_canon_path) = {
-            let resource_name_val = function
+            let resource_name_val = handler
                 .get_script_origin()
                 .resource_name()
                 .ok_or(anyhow!("resource_name was None"))?;
@@ -853,19 +867,33 @@ fn http_analyze<RT: Runtime>(
             return routes_error(format!("arr[{}][2] not an HttpAction", i).as_str());
         };
 
+        let handler_str = strings::_handler.create(scope)?;
+        let handler = match function.get(scope, handler_str.into()) {
+            Some(handler_value) if handler_value.is_function() => {
+                let handler: v8::Local<v8::Function> = handler_value.try_into()?;
+                handler
+            },
+            Some(handler_value) if handler_value.is_undefined() => function,
+            Some(_) => {
+                let message = format!("arr[{}][2].handler is not a function", i);
+                return Ok(Err(JsError::from_message(message)));
+            },
+            None => function,
+        };
+
         // These are originally zero-indexed, so we just add 1
-        let lineno = function
+        let lineno = handler
             .get_script_line_number()
             .ok_or_else(|| anyhow!("Failed to get function line number"))?
             + 1;
-        let linecol = function
+        let linecol = handler
             .get_script_column_number()
             .ok_or_else(|| anyhow!("Failed to get function column number"))?
             + 1;
 
         // Get the appropriate source map to look in
         let (fn_source_map, fn_canon_path) = {
-            let resource_name_val = function
+            let resource_name_val = handler
                 .get_script_origin()
                 .resource_name()
                 .ok_or(anyhow!("resource_name was None"))?;
