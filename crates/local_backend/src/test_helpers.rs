@@ -100,7 +100,7 @@ impl TestLocalBackend {
     ) -> anyhow::Result<()> {
         tracing::info!("Sending req {req:?}");
         let response = self.app.router().clone().oneshot(req).await?;
-        let error = HttpError::from_response(response).await;
+        let error = HttpError::from_response(response).await?;
         tracing::info!("Got {error:?}");
         assert_eq!(error.status_code(), expected_code);
         assert_eq!(error.error_code(), expected_short_msg);

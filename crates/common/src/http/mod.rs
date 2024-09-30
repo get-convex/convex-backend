@@ -68,6 +68,7 @@ use http::{
     StatusCode,
     Uri,
 };
+use http_body_util::BodyExt;
 use itertools::Itertools;
 use minitrace::{
     future::FutureExt as _,
@@ -478,40 +479,34 @@ impl HttpError {
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
     pub async fn error_message_from_bytes(
-        bytes: hyper::body::Bytes,
-    ) -> (Cow<'static, str>, Cow<'static, str>) {
+        bytes: &hyper::body::Bytes,
+    ) -> anyhow::Result<(Cow<'static, str>, Cow<'static, str>)> {
         let ResponseErrorMessage { code, message } =
-            serde_json::from_slice(&bytes).unwrap_or_else(|_| {
-                panic!(
-                    "Couldn't deserialize as json: {}",
-                    String::from_utf8_lossy(&bytes)
-                )
-            });
+            serde_json::from_slice(bytes).context(format!(
+                "Couldn't deserialize as json: {}",
+                String::from_utf8_lossy(bytes)
+            ))?;
 
-        (code, message)
+        Ok((code, message))
     }
 
-    // Tests might parse a response back into a message
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn from_response(response: Response) -> Self {
-        use http_body_util::BodyExt;
-
+    pub async fn from_response(response: Response) -> anyhow::Result<Self> {
         let (parts, body) = response.into_parts();
         let (code, message) = Self::error_message_from_bytes(
-            body.collect()
+            &body
+                .collect()
                 .await
                 .expect("Couldn't collect body")
                 .to_bytes(),
         )
-        .await;
+        .await?;
 
-        Self {
+        Ok(Self {
             status_code: parts.status,
             error_code: code,
             msg: message,
-        }
+        })
     }
 }
 
@@ -1202,7 +1197,7 @@ mod tests {
     use crate::http::HttpError;
 
     #[tokio::test]
-    async fn test_http_response_error_internal_server_error() {
+    async fn test_http_response_error_internal_server_error() -> anyhow::Result<()> {
         let err_text = "some random error";
         let err = anyhow::anyhow!(err_text);
         let err_clone = anyhow::anyhow!(err_text);
@@ -1222,14 +1217,15 @@ mod tests {
         // Check the Response contains the ResponseErrorMessage
         let http_response_err: HttpResponseError = err_clone.into();
         let response = http_response_err.into_response();
-        let error = HttpError::from_response(response).await;
+        let error = HttpError::from_response(response).await?;
         assert_eq!(error.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(error.error_code(), "InternalServerError");
         assert_eq!(error.msg, INTERNAL_SERVER_ERROR_MSG);
+        Ok(())
     }
 
     #[tokio::test]
-    async fn test_http_error_400() {
+    async fn test_http_error_400() -> anyhow::Result<()> {
         let status_code = StatusCode::BAD_REQUEST;
         let error_code = "ErrorCode";
         let msg = "Nice error message!";
@@ -1258,9 +1254,10 @@ mod tests {
         // Check the Response contains the ResponseErrorMessage
         let http_response_err: HttpResponseError = err_clone.into();
         let response = http_response_err.into_response();
-        let error = HttpError::from_response(response).await;
+        let error = HttpError::from_response(response).await?;
         assert_eq!(error.status_code(), status_code);
         assert_eq!(error.error_code(), error_code);
         assert_eq!(error.message(), msg);
+        Ok(())
     }
 }
