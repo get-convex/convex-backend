@@ -94,7 +94,6 @@ export default [
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
 
-      // If you add rules here, make sure to add it to subdir eslintrc files as well!
       "no-restricted-syntax": [
         "error",
         {
