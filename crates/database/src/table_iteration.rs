@@ -252,6 +252,12 @@ impl<RT: Runtime> TableIterator<RT> {
 
             let mut merged_page_docs = self.reload_revisions_at_snapshot_ts(merged_page);
             while let Some((key, ts, doc)) = merged_page_docs.try_next().await? {
+                // The caller will likely consume the documents in a CPU-intensive loop,
+                // and `merged_page_docs.try_next().await` will often be Ready
+                // immediately, so it won't yield.
+                // Make sure we yield to not starve other tokio tasks.
+                tokio::task::consume_budget().await;
+
                 yield (key, ts, doc);
             }
             if matches!(page_end, CursorPosition::End) {
