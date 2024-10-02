@@ -85,7 +85,7 @@ impl TryFrom<ErrorMetadataProto> for ErrorMetadata {
 pub trait ErrorMetadataStatusExt {
     fn from_anyhow(error: anyhow::Error) -> Self;
     fn into_anyhow(self) -> anyhow::Error;
-    fn context<C>(self, context: C) -> Self
+    fn context<C>(self, context: C) -> anyhow::Error
     where
         C: Display + Send + Sync + 'static;
 }
@@ -124,12 +124,11 @@ impl ErrorMetadataStatusExt for tonic::Status {
         error
     }
 
-    fn context<C>(self, context: C) -> Self
+    fn context<C>(self, context: C) -> anyhow::Error
     where
         C: Display + Send + Sync + 'static,
     {
-        let anyhow_err = self.into_anyhow();
-        Self::from_anyhow(anyhow_err.context(context))
+        self.into_anyhow().context(context)
     }
 }
 
@@ -183,10 +182,9 @@ mod tests {
 
     #[test]
     fn test_context_no_error_metadata() {
-        let status =
-            tonic::Status::from_anyhow(anyhow::anyhow!("My special error")).context("Test context");
+        let status = tonic::Status::from_anyhow(anyhow::anyhow!("My special error"));
 
-        let error = status.into_anyhow();
+        let error = status.context("Test context");
         // Check the error we log to sentry includes the original error and the context
         let error_string = format!("{error:#}");
         assert!(error_string.contains("My special error"));
@@ -200,10 +198,9 @@ mod tests {
     fn test_context_with_error_metadata() {
         let status = tonic::Status::from_anyhow(
             ErrorMetadata::overloaded("ShortMsg", "Test long message").into(),
-        )
-        .context("Test context");
+        );
 
-        let error = status.into_anyhow();
+        let error = status.context("Test context");
         // Check the error we log to sentry includes the original error and the context
         let error_string = format!("{error:#}");
         assert!(error_string.contains("Test long message"));
