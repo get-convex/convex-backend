@@ -906,7 +906,7 @@ pub static FUNRUN_FETCH_CLIENT_CACHE_SIZE: LazyLock<usize> =
 ///
 /// max_concurrent_queries +
 /// max_concurrent_mutations + max_concurrent_v8_actions < (number of funrun
-/// nodes - 1) * FUNRUN_CLIENT_MAX_CONCURRENT_REQUESTS_PER_UPSTREAM
+/// nodes - 1) * FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM
 pub static FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_CLIENT_MAX_REQUESTS_PER_UPSTREAM", 15));
 
