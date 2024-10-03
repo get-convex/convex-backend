@@ -334,7 +334,9 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()> {
         let request = Self::load_start_push_request(Path::new(layout))?;
-        let start_push = self.start_push(request).await?;
+        let dry_run = request.dry_run;
+        let config = request.into_project_config()?;
+        let start_push = self.start_push(&config, dry_run).await?;
         loop {
             let schema_status = self
                 .wait_for_schema(

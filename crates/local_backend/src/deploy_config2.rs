@@ -23,7 +23,10 @@ use common::{
         HttpResponseError,
     },
 };
-use errors::ErrorMetadataAnyhowExt;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use minitrace::{
     collector::EventRecord,
     prelude::{
@@ -138,7 +141,7 @@ impl TryFrom<SerializedStartPushResponse> for StartPushResponse {
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedStartPushResponse {
+pub struct SerializedStartPushResponse {
     environment_variables: BTreeMap<String, String>,
 
     // Pointers to uploaded code.
@@ -182,10 +185,15 @@ pub async fn start_push(
         req.admin_key.clone(),
     )
     .await?;
-    let resp =
-        st.application.start_push(req).await.map_err(|e| {
-            e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}"))
-        })?;
+    let dry_run = req.dry_run;
+    let config = req.into_project_config().map_err(|e| {
+        anyhow::Error::new(ErrorMetadata::bad_request("InvalidConfig", e.to_string()))
+    })?;
+    let resp = st
+        .application
+        .start_push(&config, dry_run)
+        .await
+        .map_err(|e| e.wrap_error_message(|msg| format!("Hit an error while pushing:\n{msg}")))?;
     Ok(Json(SerializedStartPushResponse::try_from(resp)?))
 }
 

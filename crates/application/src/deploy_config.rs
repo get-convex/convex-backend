@@ -117,15 +117,14 @@ use crate::Application;
 
 impl<RT: Runtime> Application<RT> {
     #[minitrace::trace]
-    pub async fn start_push(&self, request: StartPushRequest) -> anyhow::Result<StartPushResponse> {
+    pub async fn start_push(
+        &self,
+        config: &ProjectConfig,
+        dry_run: bool,
+    ) -> anyhow::Result<StartPushResponse> {
         let unix_timestamp = self.runtime.unix_timestamp();
-        let dry_run = request.dry_run;
-        let config = request
-            .into_project_config()
-            .map_err(|e| ErrorMetadata::bad_request("InvalidConfig", e.to_string()))?;
-
         let (external_deps_id, component_definition_packages) =
-            self.upload_packages(&config).await?;
+            self.upload_packages(config).await?;
 
         let app_udf_config = UdfConfig {
             server_version: config.app_definition.udf_server_version.clone(),
@@ -169,7 +168,7 @@ impl<RT: Runtime> Application<RT> {
 
         let evaluated_components = self
             .evaluate_components(
-                &config,
+                config,
                 &component_definition_packages,
                 app_analysis,
                 app_udf_config,
@@ -182,7 +181,7 @@ impl<RT: Runtime> Application<RT> {
         // waiting for schema backfills to complete.
         let initializer_evaluator = ApplicationInitializerEvaluator::new(
             self,
-            &config,
+            config,
             evaluated_components
                 .iter()
                 .map(|(k, v)| (k.clone(), v.definition.clone()))
