@@ -459,12 +459,12 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             if schema_doc
                 .creation_time()
                 .context("Missing creation time in document")?
-                > self
+                > (*self
                     .tx
                     .begin_timestamp()
                     .sub(MAX_TIME_TO_KEEP_FAILED_AND_OVERWRITTEN_SCHEMAS)
-                    .context("Should be able to subtract an hour from creation time")?
-                    .try_into()?
+                    .context("Should be able to subtract an hour from creation time")?)
+                .try_into()?
             {
                 break;
             }

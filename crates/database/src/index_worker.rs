@@ -488,7 +488,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     async fn begin_retention(
         &mut self,
         index_id: IndexId,
-    ) -> anyhow::Result<(Timestamp, TabletIndexName, IndexedFields)> {
+    ) -> anyhow::Result<(RepeatableTimestamp, TabletIndexName, IndexedFields)> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let index_table_id = tx.bootstrap_tables().index_id;
 
@@ -519,7 +519,8 @@ impl<RT: Runtime> IndexWorker<RT> {
 
                 state.retention_started = true;
                 (
-                    state.index_created_lower_bound,
+                    tx.begin_timestamp()
+                        .prior_ts(state.index_created_lower_bound)?,
                     developer_config.fields.clone(),
                 )
             },
@@ -681,7 +682,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         // have backfilled the full range of snapshots within retention.
         loop {
             let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
-            if min_snapshot_ts >= *min_backfilled_ts {
+            if min_snapshot_ts >= min_backfilled_ts {
                 break;
             }
             // NOTE: ordering Desc is important, to keep the range of valid snapshots
@@ -691,7 +692,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             min_backfilled_ts = self
                 .backfill_backwards(
                     min_backfilled_ts,
-                    min_snapshot_ts,
+                    *min_snapshot_ts,
                     index_metadata,
                     &index_selector,
                 )
@@ -870,7 +871,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             futures::pin_mut!(revision_stream);
             while let Some(revision_pair) = revision_stream.try_next().await? {
                 let ts = revision_pair.ts();
-                if ts < self.retention_validator.min_snapshot_ts().await? {
+                if ts < *self.retention_validator.min_snapshot_ts().await? {
                     // We may not have fully processed the entirety of the transaction at
                     // `min_chunk_ts` (since we paginate by `(ts, id)`), so only consider
                     // ourselves backfilled up to the subsequent timestamp.
@@ -992,16 +993,15 @@ impl<RT: Runtime> IndexWriter<RT> {
 
     async fn run_retention(
         &self,
-        backfill_begin_ts: Timestamp,
+        backfill_begin_ts: RepeatableTimestamp,
         all_indexes: BTreeMap<IndexId, (TabletIndexName, IndexedFields)>,
     ) -> anyhow::Result<()> {
         let min_snapshot_ts = self.retention_validator.min_snapshot_ts().await?;
         // TODO(lee) add checkpointing.
-        LeaderRetentionManager::delete_all_no_checkpoint(
+        LeaderRetentionManager::<RT>::delete_all_no_checkpoint(
             backfill_begin_ts,
             min_snapshot_ts,
             self.persistence.clone(),
-            &self.runtime,
             &all_indexes,
             self.retention_validator.clone(),
         )

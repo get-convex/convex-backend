@@ -294,8 +294,8 @@ pub trait RetentionValidator: Sync + Send {
     /// Call validate_document_snapshot *after* reading at the snapshot, to
     /// confirm the documents log is valid at this snapshot.
     async fn validate_document_snapshot(&self, ts: Timestamp) -> anyhow::Result<()>;
-    async fn min_snapshot_ts(&self) -> anyhow::Result<Timestamp>;
-    async fn min_document_snapshot_ts(&self) -> anyhow::Result<Timestamp>;
+    async fn min_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp>;
+    async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp>;
 
     fn fail_if_falling_behind(&self) -> anyhow::Result<()>;
 }
@@ -603,7 +603,7 @@ pub async fn new_static_repeatable_recent(
 ) -> anyhow::Result<RepeatableTimestamp> {
     let _timer = static_repeatable_ts_timer(true);
     match read_max_repeatable_ts(reader).await? {
-        None => anyhow::bail!("cannot find static repeatable timestamp"),
+        None => Ok(RepeatableTimestamp::MIN),
         Some(ts) => Ok(RepeatableTimestamp::new_validated(
             ts,
             RepeatableReason::MaxRepeatableTsPersistence,
@@ -725,12 +725,12 @@ impl RetentionValidator for NoopRetentionValidator {
         Ok(())
     }
 
-    async fn min_snapshot_ts(&self) -> anyhow::Result<Timestamp> {
-        Ok(Timestamp::MIN)
+    async fn min_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
+        Ok(RepeatableTimestamp::MIN)
     }
 
-    async fn min_document_snapshot_ts(&self) -> anyhow::Result<Timestamp> {
-        Ok(Timestamp::MIN)
+    async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
+        Ok(RepeatableTimestamp::MIN)
     }
 
     fn fail_if_falling_behind(&self) -> anyhow::Result<()> {

@@ -1,4 +1,7 @@
-use std::ops::Deref;
+use std::{
+    ops::Deref,
+    time::Duration,
+};
 
 use anyhow::Context;
 use pb::common::RepeatableTimestamp as RepeatableTimestampProto;
@@ -36,6 +39,9 @@ pub enum RepeatableReason {
 }
 
 impl RepeatableTimestamp {
+    // Zero is always a valid RepeatableTimestamp.
+    pub const MIN: RepeatableTimestamp = RepeatableTimestamp(Timestamp::MIN);
+
     /// Only call this constructor if you have validated the timestamp is
     /// repeatable. There should be very few callers of this function
     /// directly -- most should go through specialized constructors like
@@ -63,6 +69,14 @@ impl RepeatableTimestamp {
             ts,
             RepeatableReason::InductiveRepeatableTimestamp,
         ))
+    }
+
+    pub fn sub(&self, duration: Duration) -> anyhow::Result<Self> {
+        self.prior_ts((**self).sub(duration)?)
+    }
+
+    pub fn pred(&self) -> anyhow::Result<Self> {
+        self.prior_ts((**self).pred()?)
     }
 }
 
