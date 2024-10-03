@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod config;
 pub mod file_based_routing;
 pub mod handles;

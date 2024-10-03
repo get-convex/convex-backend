@@ -17,7 +17,10 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use model::{
-    components::handles::function_handle_not_found,
+    components::{
+        auth::propagate_component_auth,
+        handles::function_handle_not_found,
+    },
     file_storage::{
         types::FileStorageEntry,
         FileStorageId,
@@ -122,7 +125,11 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let value = self
             .action_callbacks
             .execute_query(
-                self.identity.clone(),
+                propagate_component_auth(
+                    &self.identity,
+                    self.component_id,
+                    function_path.component.is_root(),
+                ),
                 function_path,
                 args.into_arg_vec(),
                 self.context.clone(),
@@ -167,7 +174,11 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let value = self
             .action_callbacks
             .execute_mutation(
-                self.identity.clone(),
+                propagate_component_auth(
+                    &self.identity,
+                    self.component_id,
+                    function_path.component.is_root(),
+                ),
                 function_path,
                 args.into_arg_vec(),
                 self.context.clone(),
@@ -209,7 +220,11 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let value = self
             .action_callbacks
             .execute_action(
-                self.identity.clone(),
+                propagate_component_auth(
+                    &self.identity,
+                    self.component_id,
+                    function_path.component.is_root(),
+                ),
                 function_path,
                 args.into_arg_vec(),
                 self.context.clone(),

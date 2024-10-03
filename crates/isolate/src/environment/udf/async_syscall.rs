@@ -62,6 +62,7 @@ use itertools::Itertools;
 use keybroker::KeyBroker;
 use model::{
     components::{
+        auth::propagate_component_auth,
         handles::FunctionHandlesModel,
         ComponentsModel,
     },
@@ -528,7 +529,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .execute_udf(
                 // TODO: Remove this `client_id` once we do isolate2.
                 "component".to_string(),
-                tx.identity().clone(),
+                propagate_component_auth(
+                    tx.identity(),
+                    self.component()?,
+                    called_component_id.is_root(),
+                ),
                 udf_type,
                 path_and_args,
                 EnvironmentData {
