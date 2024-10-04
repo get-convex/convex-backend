@@ -100,6 +100,7 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
         verbose: options.dryRun,
         codegen: true,
         liveComponentSources: options.liveComponentSources,
+        typecheckComponents: false,
       },
     );
   } else {
@@ -140,6 +141,7 @@ async function startComponentsPushAndCodegen(
   configPath: string,
   options: {
     typecheck: TypeCheckMode;
+    typecheckComponents: boolean;
     adminKey: string;
     url: string;
     verbose: boolean;
@@ -331,8 +333,10 @@ async function startComponentsPushAndCodegen(
   changeSpinner(ctx, "Running TypeScript...");
   await parentSpan.enterAsync("typeCheckFunctionsInMode", async () => {
     await typeCheckFunctionsInMode(ctx, options.typecheck, rootComponent.path);
-    for (const directory of components.values()) {
-      await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
+    if (options.typecheckComponents) {
+      for (const directory of components.values()) {
+        await typeCheckFunctionsInMode(ctx, options.typecheck, directory.path);
+      }
     }
   });
 

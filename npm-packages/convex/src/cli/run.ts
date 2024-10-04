@@ -36,6 +36,11 @@ export const run = new Command("run")
       .choices(["enable", "try", "disable"] as const)
       .default("try" as const),
   )
+  .option(
+    "--typecheck-components",
+    "Check TypeScript files within component implementations with `tsc --noEmit`.",
+    false,
+  )
   .addOption(
     new Option("--codegen <mode>", "Regenerate code in `convex/_generated/`")
       .choices(["enable", "disable"] as const)
@@ -84,6 +89,7 @@ export const run = new Command("run")
           verbose: false,
           dryRun: false,
           typecheck: options.typecheck,
+          typecheckComponents: options.typecheckComponents,
           debug: false,
           codegen: options.codegen === "enable",
           url: deploymentUrl,

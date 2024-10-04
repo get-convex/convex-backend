@@ -56,6 +56,11 @@ export const deploy = new Command("deploy")
       .choices(["enable", "try", "disable"] as const)
       .default("try" as const),
   )
+  .option(
+    "--typecheck-components",
+    "Check TypeScript files within component implementations with `tsc --noEmit`.",
+    false,
+  )
   .addOption(
     new Option(
       "--codegen <mode>",
@@ -167,6 +172,7 @@ async function deployToNewPreviewDeployment(
     cmd?: string | undefined;
     verbose?: boolean | undefined;
     typecheck: "enable" | "try" | "disable";
+    typecheckComponents: boolean;
     codegen: "enable" | "disable";
 
     debug?: boolean | undefined;
@@ -228,6 +234,7 @@ async function deployToNewPreviewDeployment(
     verbose: !!options.verbose,
     dryRun: false,
     typecheck: options.typecheck,
+    typecheckComponents: options.typecheckComponents,
     debug: !!options.debug,
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",
@@ -265,6 +272,7 @@ async function deployToExistingDeployment(
     dryRun?: boolean | undefined;
     yes?: boolean | undefined;
     typecheck: "enable" | "try" | "disable";
+    typecheckComponents: boolean;
     codegen: "enable" | "disable";
     cmd?: string | undefined;
     cmdUrlEnvVarName?: string | undefined;
@@ -323,6 +331,7 @@ async function deployToExistingDeployment(
     verbose: !!options.verbose,
     dryRun: !!options.dryRun,
     typecheck: options.typecheck,
+    typecheckComponents: options.typecheckComponents,
     debug: !!options.debug,
     debugBundlePath: options.debugBundlePath,
     codegen: options.codegen === "enable",

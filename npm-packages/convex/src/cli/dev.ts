@@ -47,6 +47,11 @@ export const dev = new Command("dev")
       .choices(["enable", "try", "disable"] as const)
       .default("try" as const),
   )
+  .option(
+    "--typecheck-components",
+    "Check TypeScript files within component implementations with `tsc --noEmit`.",
+    false,
+  )
   .addOption(
     new Option("--codegen <mode>", "Regenerate code in `convex/_generated/`")
       .choices(["enable", "disable"] as const)
@@ -196,6 +201,7 @@ export const dev = new Command("dev")
           verbose: !!cmdOptions.verbose,
           dryRun: false,
           typecheck: cmdOptions.typecheck,
+          typecheckComponents: !!cmdOptions.typecheckComponents,
           debug: false,
           debugBundlePath: cmdOptions.debugBundlePath,
           codegen: cmdOptions.codegen === "enable",

@@ -18,6 +18,7 @@ export type PushOptions = {
   verbose: boolean;
   dryRun: boolean;
   typecheck: "enable" | "try" | "disable";
+  typecheckComponents: boolean;
   debug: boolean;
   debugBundlePath?: string;
   codegen: boolean;
