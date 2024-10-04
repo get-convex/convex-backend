@@ -16,7 +16,6 @@ use common::{
     document::ParsedDocument,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
     persistence::{
-        new_static_repeatable_ts,
         PersistenceReader,
         RepeatablePersistence,
         TimestampRange,
@@ -30,7 +29,10 @@ use common::{
         Mutex,
         MutexGuard,
     },
-    types::TabletIndexName,
+    types::{
+        RepeatableTimestamp,
+        TabletIndexName,
+    },
 };
 use governor::Quota;
 use itertools::Itertools;
@@ -287,6 +289,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
 
         let (developer_config, state) = T::extract_metadata(metadata)?;
         let snapshot_ts = *state.ts().context("Compacted a segment without a ts?")?;
+        let snapshot_ts = tx.begin_timestamp().prior_ts(snapshot_ts)?;
         let mut current_segments = state.segments().clone();
 
         let is_merge_required =
@@ -403,7 +406,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
     async fn commit_backfill_flush(
         &self,
         job: &IndexBuild<T>,
-        backfill_complete_ts: Timestamp,
+        backfill_complete_ts: RepeatableTimestamp,
         mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
         backfill_result: MultiSegmentBackfillResult,
@@ -441,7 +444,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             developer_config,
             if backfill_result.is_backfill_complete {
                 SearchOnDiskState::Backfilled(SearchSnapshot {
-                    ts: backfill_complete_ts,
+                    ts: *backfill_complete_ts,
                     data: SnapshotData::MultiSegment(new_and_modified_segments),
                 })
             } else {
@@ -450,7 +453,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     cursor: backfill_result
                         .new_cursor
                         .map(|cursor| cursor.internal_id()),
-                    backfill_snapshot_ts: Some(backfill_complete_ts),
+                    backfill_snapshot_ts: Some(*backfill_complete_ts),
                 })
             },
         )
@@ -463,7 +466,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
     async fn commit_snapshot_flush(
         &self,
         job: &IndexBuild<T>,
-        new_ts: Timestamp,
+        new_ts: RepeatableTimestamp,
         mut new_and_modified_segments: Vec<T::Segment>,
         new_segment_id: Option<String>,
         schema: T::Schema,
@@ -530,7 +533,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             job.metadata_id,
             job.index_name.clone(),
             developer_config,
-            current_disk_state.with_updated_snapshot(new_ts, new_and_modified_segments)?,
+            current_disk_state.with_updated_snapshot(*new_ts, new_and_modified_segments)?,
         )
         .await?;
 
@@ -549,7 +552,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         &self,
         segments_to_update: Vec<T::Segment>,
         start_ts: Timestamp,
-        current_ts: Timestamp,
+        current_ts: RepeatableTimestamp,
         index_name: TabletIndexName,
         rate_limit_pages_per_second: NonZeroU32,
         schema: T::Schema,
@@ -585,7 +588,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         reader: Arc<dyn PersistenceReader>,
         segments_to_update: Vec<T::Segment>,
         start_ts: Timestamp,
-        current_ts: Timestamp,
+        current_ts: RepeatableTimestamp,
         index_name: TabletIndexName,
         storage: Arc<dyn Storage>,
         rate_limit_pages_per_second: NonZeroU32,
@@ -604,14 +607,13 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             T::download_previous_segments(&runtime, storage.clone(), segments_to_update).await?;
         let documents = database.load_documents_in_table(
             *index_name.table(),
-            TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(current_ts)))?,
+            TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts)))?,
             Order::Asc,
             &row_rate_limiter,
         );
 
-        let ts = new_static_repeatable_ts(current_ts, reader.as_ref(), &runtime).await?;
         let repeatable_persistence =
-            RepeatablePersistence::new(reader, ts, database.retention_validator());
+            RepeatablePersistence::new(reader, current_ts, database.retention_validator());
         T::merge_deletes(
             &runtime,
             &mut previous_segments,

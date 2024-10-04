@@ -425,7 +425,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let data = SnapshotData::MultiSegment(new_and_updated_parts);
 
         Ok(IndexBuildResult {
-            snapshot_ts: *new_ts,
+            snapshot_ts: new_ts,
             data,
             total_stats,
             new_segment_stats,
@@ -615,7 +615,7 @@ pub(crate) struct IndexBuild<T: SearchIndex> {
 
 #[derive(Debug)]
 pub struct IndexBuildResult<T: SearchIndex> {
-    pub snapshot_ts: Timestamp,
+    pub snapshot_ts: RepeatableTimestamp,
     pub data: SnapshotData<T::Segment>,
     pub total_stats: T::Statistics,
     pub new_segment_stats: Option<T::Statistics>,
