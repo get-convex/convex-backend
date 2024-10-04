@@ -173,6 +173,7 @@ export {
  * @internal
  */
 export { currentSystemUdfInComponent } from "./components/index.js";
+export { getFunctionAddress } from "./components/index.js";
 export type {
   ComponentDefinition,
   AnyComponents,

@@ -4,7 +4,6 @@ import {
   FunctionReference,
   FunctionType,
 } from "../api.js";
-import { getFunctionAddress } from "../impl/actions_impl.js";
 import { performAsyncSyscall } from "../impl/syscall.js";
 import { DefaultFunctionArgs } from "../registration.js";
 import {
@@ -12,7 +11,12 @@ import {
   ComponentDefinitionAnalysis,
   ComponentDefinitionType,
 } from "./definition.js";
-import { setReferencePath, toReferencePath } from "./paths.js";
+import {
+  getFunctionAddress,
+  setReferencePath,
+  toReferencePath,
+} from "./paths.js";
+export { getFunctionAddress } from "./paths.js";
 
 /**
  * A serializable reference to a Convex function.

@@ -21,7 +21,7 @@ import {
   RegisteredMutation,
   RegisteredQuery,
 } from "../registration.js";
-import { getFunctionAddress, setupActionCalls } from "./actions_impl.js";
+import { setupActionCalls } from "./actions_impl.js";
 import { setupActionVectorSearch } from "./vector_search_impl.js";
 import { setupAuth } from "./authentication_impl.js";
 import { setupReader, setupWriter } from "./database_impl.js";
@@ -38,6 +38,7 @@ import {
 import { parseArgs } from "../../common/index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { asObjectValidator } from "../../values/validator.js";
+import { getFunctionAddress } from "../components/paths.js";
 
 async function invokeMutation<
   F extends (ctx: GenericMutationCtx<GenericDataModel>, ...args: any) => any,

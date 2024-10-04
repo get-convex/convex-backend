@@ -8,8 +8,8 @@ import {
 } from "./registration.js";
 import { Expand, UnionToIntersection } from "../type_utils.js";
 import { PaginationOptions, PaginationResult } from "./pagination.js";
-import { getFunctionAddress } from "./impl/actions_impl.js";
 import { functionName } from "./functionName.js";
+import { getFunctionAddress } from "./components/paths.js";
 
 /**
  * The type of a Convex function.

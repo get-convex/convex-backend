@@ -5,7 +5,7 @@ import { parseArgs } from "../../common/index.js";
 import { SchedulableFunctionReference, Scheduler } from "../scheduler.js";
 import { Id } from "../../values/value.js";
 import { validateArg } from "./validate.js";
-import { getFunctionAddress } from "./actions_impl.js";
+import { getFunctionAddress } from "../components/paths.js";
 
 export function setupMutationScheduler(): Scheduler {
   return {

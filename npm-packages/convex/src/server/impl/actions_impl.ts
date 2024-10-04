@@ -3,8 +3,7 @@ import { version } from "../../index.js";
 import { performAsyncSyscall } from "./syscall.js";
 import { parseArgs } from "../../common/index.js";
 import { FunctionReference } from "../../server/api.js";
-import { extractReferencePath, isFunctionHandle } from "../components/paths.js";
-import { functionName } from "../functionName.js";
+import { getFunctionAddress } from "../components/paths.js";
 
 function syscallArgs(
   requestId: string,
@@ -18,36 +17,6 @@ function syscallArgs(
     version,
     requestId,
   };
-}
-
-export function getFunctionAddress(functionReference: any) {
-  // The `run*` syscalls expect either a UDF path at "name" or a serialized
-  // reference at "reference". Dispatch on `functionReference` to coerce
-  // it to one or the other.
-  let functionAddress;
-
-  // Legacy path for passing in UDF paths directly as function references.
-  if (typeof functionReference === "string") {
-    if (isFunctionHandle(functionReference)) {
-      functionAddress = { functionHandle: functionReference };
-    } else {
-      functionAddress = { name: functionReference };
-    }
-  }
-  // Path for passing in a `FunctionReference`, either from `api` or directly
-  // created from a UDF path with `makeFunctionReference`.
-  else if (functionReference[functionName]) {
-    functionAddress = { name: functionReference[functionName] };
-  }
-  // Reference to a component's function derived from `app` or `component`.
-  else {
-    const referencePath = extractReferencePath(functionReference);
-    if (!referencePath) {
-      throw new Error(`${functionReference} is not a functionReference`);
-    }
-    functionAddress = { reference: referencePath };
-  }
-  return functionAddress;
 }
 
 export function setupActionCalls(requestId: string) {
