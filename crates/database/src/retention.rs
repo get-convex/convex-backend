@@ -148,7 +148,7 @@ pub enum RetentionType {
 pub struct SnapshotBounds {
     /// min_snapshot_ts is the earliest snapshot at which we are guaranteed
     /// to not have deleted data.
-    min_snapshot_ts: RepeatableTimestamp,
+    min_index_snapshot_ts: RepeatableTimestamp,
 
     /// min_document_snapshot_ts is the earliest snapshot at which we are
     /// guaranteed to not have deleted views of data in the write-ahead log.
@@ -157,7 +157,7 @@ pub struct SnapshotBounds {
 
 impl SnapshotBounds {
     fn advance_min_snapshot_ts(&mut self, candidate: RepeatableTimestamp) {
-        self.min_snapshot_ts = cmp::max(self.min_snapshot_ts, candidate);
+        self.min_index_snapshot_ts = cmp::max(self.min_index_snapshot_ts, candidate);
     }
 
     fn advance_min_document_snapshot_ts(&mut self, candidate: RepeatableTimestamp) {
@@ -256,7 +256,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             latest_retention_min_snapshot_ts(reader.as_ref(), RetentionType::Document).await?,
         )?;
         let bounds = SnapshotBounds {
-            min_snapshot_ts,
+            min_index_snapshot_ts: min_snapshot_ts,
             min_document_snapshot_ts,
         };
         let (bounds_reader, bounds_writer) = new_split_rw_lock(bounds);
@@ -332,7 +332,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         );
         let deletion_handle = rt.spawn(
             "retention_delete",
-            Self::go_delete(
+            Self::go_delete_indexes(
                 bounds_reader.clone(),
                 rt.clone(),
                 persistence.clone(),
@@ -426,7 +426,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 .await?;
         let min_snapshot_ts = match retention_type {
             RetentionType::Document => bounds_writer.read().min_document_snapshot_ts,
-            RetentionType::Index => bounds_writer.read().min_snapshot_ts,
+            RetentionType::Index => bounds_writer.read().min_index_snapshot_ts,
         };
         // Skip advancing the timestamp if the `max_repeatable_ts` hasn't increased
         if candidate <= min_snapshot_ts {
@@ -460,7 +460,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // even if the deletion future is stuck.
         Self::get_checkpoint(
             persistence.reader().as_ref(),
-            bounds_writer.reader(),
             snapshot_reader.clone(),
             retention_type,
         )
@@ -1033,7 +1032,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         rt.wait(delay).await;
     }
 
-    async fn go_delete(
+    async fn go_delete_indexes(
         bounds_reader: Reader<SnapshotBounds>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
@@ -1058,7 +1057,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
-                        bounds_reader.lock().min_snapshot_ts
+                        bounds_reader.lock().min_index_snapshot_ts
                     },
                     Ok(()) => *min_snapshot_rx.borrow_and_update(),
                 };
@@ -1066,13 +1065,13 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             }
 
             tracing::trace!(
-                "go_delete: running, is_working: {is_working}, current_bounds: {min_snapshot_ts}",
+                "go_delete_indexes: running, is_working: {is_working}, current_bounds: \
+                 {min_snapshot_ts}",
             );
             let r: anyhow::Result<()> = try {
                 let _timer = retention_delete_timer();
                 let cursor = Self::get_checkpoint(
                     reader.as_ref(),
-                    bounds_reader.clone(),
                     snapshot_reader.clone(),
                     RetentionType::Index,
                 )
@@ -1119,6 +1118,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         new_cursor,
                         &checkpoint_writer,
                         RetentionType::Index,
+                        bounds_reader.clone(),
+                        snapshot_reader.clone(),
                     )
                     .await?;
                 } else {
@@ -1182,7 +1183,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         // really never happen.
                         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS)
                             .await;
-                        bounds_reader.lock().min_snapshot_ts
+                        bounds_reader.lock().min_index_snapshot_ts
                     },
                     Ok(()) => *min_document_snapshot_rx.borrow_and_update(),
                 };
@@ -1203,7 +1204,6 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 let _timer = retention_delete_documents_timer();
                 let cursor = Self::get_checkpoint(
                     reader.as_ref(),
-                    bounds_reader.clone(),
                     snapshot_reader.clone(),
                     RetentionType::Document,
                 )
@@ -1224,6 +1224,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     new_cursor,
                     &checkpoint_writer,
                     RetentionType::Document,
+                    bounds_reader.clone(),
+                    snapshot_reader.clone(),
                 )
                 .await?;
 
@@ -1252,6 +1254,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         cursor: RepeatableTimestamp,
         checkpoint_writer: &Writer<Checkpoint>,
         retention_type: RetentionType,
+        bounds_reader: Reader<SnapshotBounds>,
+        snapshot_reader: Reader<SnapshotManager<RT>>,
     ) -> anyhow::Result<()> {
         let key = match retention_type {
             RetentionType::Document => {
@@ -1263,10 +1267,43 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             .write_persistence_global(key, ConvexValue::from(i64::from(*cursor)).into())
             .await?;
         checkpoint_writer.write().advance_checkpoint(cursor);
+        if *cursor > Timestamp::MIN {
+            // Only log if the checkpoint has been written once, to avoid logging time since
+            // epoch when the instance is first starting up.
+            match retention_type {
+                RetentionType::Document => {
+                    log_document_retention_cursor_age(
+                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(*cursor),
+                    );
+                    log_document_retention_cursor_lag(
+                        bounds_reader
+                            .lock()
+                            .min_document_snapshot_ts
+                            .secs_since_f64(*cursor),
+                    );
+                },
+                RetentionType::Index => {
+                    log_retention_cursor_age(
+                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(*cursor),
+                    );
+                    log_retention_cursor_lag(
+                        bounds_reader
+                            .lock()
+                            .min_index_snapshot_ts
+                            .secs_since_f64(*cursor),
+                    );
+                },
+            }
+        } else {
+            match retention_type {
+                RetentionType::Document => log_document_retention_no_cursor(),
+                RetentionType::Index => log_retention_no_cursor(),
+            }
+        }
         Ok(())
     }
 
-    pub async fn get_checkpoint_no_logging(
+    pub async fn get_checkpoint_not_repeatable(
         persistence: &dyn PersistenceReader,
         retention_type: RetentionType,
     ) -> anyhow::Result<Timestamp> {
@@ -1289,46 +1326,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Ok(checkpoint)
     }
 
-    async fn get_checkpoint(
+    pub async fn get_checkpoint(
         persistence: &dyn PersistenceReader,
-        bounds_reader: Reader<SnapshotBounds>,
         snapshot_reader: Reader<SnapshotManager<RT>>,
         retention_type: RetentionType,
     ) -> anyhow::Result<RepeatableTimestamp> {
-        let checkpoint = Self::get_checkpoint_no_logging(persistence, retention_type).await?;
-        if checkpoint > Timestamp::MIN {
-            // Only log if the checkpoint has been written once, to avoid logging time since
-            // epoch when the instance is first starting up.
-            match retention_type {
-                RetentionType::Document => {
-                    log_document_retention_cursor_age(
-                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
-                    );
-                    log_document_retention_cursor_lag(
-                        bounds_reader
-                            .lock()
-                            .min_document_snapshot_ts
-                            .secs_since_f64(checkpoint),
-                    );
-                },
-                RetentionType::Index => {
-                    log_retention_cursor_age(
-                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(checkpoint),
-                    );
-                    log_retention_cursor_lag(
-                        bounds_reader
-                            .lock()
-                            .min_snapshot_ts
-                            .secs_since_f64(checkpoint),
-                    );
-                },
-            }
-        } else {
-            match retention_type {
-                RetentionType::Document => log_document_retention_no_cursor(),
-                RetentionType::Index => log_retention_no_cursor(),
-            }
-        }
+        let checkpoint = Self::get_checkpoint_not_repeatable(persistence, retention_type).await?;
         snapshot_reader.lock().latest_ts().prior_ts(checkpoint)
     }
 
@@ -1397,7 +1400,7 @@ const ADVANCE_RETENTION_TS_FREQUENCY: Duration = Duration::from_secs(30);
 #[async_trait]
 impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
     async fn validate_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
-        let min_snapshot_ts = self.bounds_reader.lock().min_snapshot_ts;
+        let min_snapshot_ts = self.bounds_reader.lock().min_index_snapshot_ts;
         log_snapshot_verification_age(&self.rt, ts, *min_snapshot_ts, false, true);
         if ts < *min_snapshot_ts {
             anyhow::bail!(snapshot_invalid_error(
@@ -1422,7 +1425,7 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
     }
 
     fn optimistic_validate_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
-        let min_snapshot_ts = self.bounds_reader.lock().min_snapshot_ts;
+        let min_snapshot_ts = self.bounds_reader.lock().min_index_snapshot_ts;
         log_snapshot_verification_age(&self.rt, ts, *min_snapshot_ts, true, true);
         anyhow::ensure!(
             ts >= *min_snapshot_ts,
@@ -1432,7 +1435,7 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
     }
 
     async fn min_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
-        Ok(self.bounds_reader.lock().min_snapshot_ts)
+        Ok(self.bounds_reader.lock().min_index_snapshot_ts)
     }
 
     async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
@@ -1494,12 +1497,12 @@ pub struct FollowerRetentionManager<RT: Runtime> {
 impl<RT: Runtime> FollowerRetentionManager<RT> {
     pub async fn new(rt: RT, persistence: Arc<dyn PersistenceReader>) -> anyhow::Result<Self> {
         let snapshot_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
-        let min_snapshot_ts =
+        let min_index_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Index).await?;
         let min_document_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Document).await?;
         let snapshot_bounds = Arc::new(Mutex::new(SnapshotBounds {
-            min_snapshot_ts: snapshot_ts.prior_ts(min_snapshot_ts)?,
+            min_index_snapshot_ts: snapshot_ts.prior_ts(min_index_snapshot_ts)?,
             min_document_snapshot_ts: snapshot_ts.prior_ts(min_document_snapshot_ts)?,
         }));
         Ok(Self {
@@ -1538,7 +1541,7 @@ impl<RT: Runtime> RetentionValidator for FollowerRetentionManager<RT> {
     }
 
     fn optimistic_validate_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
-        let min_snapshot_ts = self.snapshot_bounds.lock().min_snapshot_ts;
+        let min_snapshot_ts = self.snapshot_bounds.lock().min_index_snapshot_ts;
         log_snapshot_verification_age(&self.rt, ts, *min_snapshot_ts, true, false);
         anyhow::ensure!(
             ts >= *min_snapshot_ts,
