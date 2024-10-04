@@ -8,13 +8,22 @@ use common::{
     components::Reference,
 };
 use errors::ErrorMetadata;
-use sync_types::CanonicalizedUdfPath;
+use sync_types::{
+    path::PathComponent,
+    CanonicalizedModulePath,
+    CanonicalizedUdfPath,
+};
 
-use super::types::EvaluatedComponentDefinition;
-use crate::modules::module_versions::Visibility;
+use crate::modules::module_versions::{
+    AnalyzedModule,
+    Visibility,
+};
 
-pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> anyhow::Result<()> {
-    for (module_path, module) in &evaluated.functions {
+pub fn file_based_exports(
+    functions: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+) -> anyhow::Result<BTreeMap<PathComponent, ComponentExport>> {
+    let mut exports = BTreeMap::new();
+    for (module_path, module) in functions {
         let mut identifiers = vec![];
         let stripped = module_path.clone().strip();
 
@@ -27,7 +36,7 @@ pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> a
             path.push(function.name.clone().into());
             let (last, prefix) = path.split_last().unwrap();
 
-            let mut current = &mut evaluated.definition.exports;
+            let mut current = &mut exports;
             for identifier in prefix {
                 let current_node = current
                     .entry(identifier.clone())
@@ -60,5 +69,5 @@ pub fn add_file_based_routing(evaluated: &mut EvaluatedComponentDefinition) -> a
             }
         }
     }
-    Ok(())
+    Ok(exports)
 }

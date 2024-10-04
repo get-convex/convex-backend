@@ -34,6 +34,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
+use file_based_routing::file_based_exports;
 use sync_types::{
     path::PathComponent,
     CanonicalizedUdfPath,
@@ -153,17 +154,32 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         Ok(result)
     }
 
+    pub async fn load_component_exports(
+        &mut self,
+        component_id: ComponentId,
+    ) -> anyhow::Result<BTreeMap<PathComponent, ComponentExport>> {
+        let mut modules = BTreeMap::new();
+        for module in ModuleModel::new(self.tx)
+            .get_all_metadata(component_id)
+            .await?
+        {
+            let module = module.into_value();
+            let Some(analyze_result) = module.analyze_result else {
+                continue;
+            };
+            modules.insert(module.path, analyze_result);
+        }
+        file_based_exports(&modules)
+    }
+
     #[async_recursion]
     pub async fn resolve_export(
         &mut self,
         component_id: ComponentId,
         attributes: &[PathComponent],
     ) -> anyhow::Result<Option<Resource>> {
-        let mut m = BootstrapComponentsModel::new(self.tx);
-        let definition_id = m.component_definition(component_id).await?;
-        let definition = m.load_definition_metadata(definition_id).await?;
-
-        let mut current = &definition.exports;
+        let exports = self.load_component_exports(component_id).await?;
+        let mut current = &exports;
         let mut attribute_iter = attributes.iter();
         while let Some(attribute) = attribute_iter.next() {
             let Some(export) = current.get(attribute) else {
@@ -344,11 +360,8 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         &mut self,
         component_id: ComponentId,
     ) -> anyhow::Result<BTreeMap<Vec<PathComponent>, Resource>> {
-        let mut m = BootstrapComponentsModel::new(self.tx);
-        let definition_id = m.component_definition(component_id).await?;
-        let definition = m.load_definition_metadata(definition_id).await?;
-
-        let mut stack = vec![(vec![], &definition.exports)];
+        let exports = self.load_component_exports(component_id).await?;
+        let mut stack = vec![(vec![], &exports)];
         let mut result = BTreeMap::new();
         while let Some((path, internal_node)) = stack.pop() {
             for (name, export) in internal_node {

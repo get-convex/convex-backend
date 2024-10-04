@@ -61,7 +61,7 @@ use model::{
             ComponentDiff,
             SchemaChange,
         },
-        file_based_routing::add_file_based_routing,
+        file_based_routing::file_based_exports,
         type_checking::{
             CheckedComponent,
             InitializerEvaluator,
@@ -166,7 +166,7 @@ impl<RT: Runtime> Application<RT> {
         )
         .await?;
 
-        let evaluated_components = self
+        let mut evaluated_components = self
             .evaluate_components(
                 config,
                 &component_definition_packages,
@@ -203,6 +203,19 @@ impl<RT: Runtime> Application<RT> {
             }
             schema_change
         };
+
+        // TODO(ENG-7533): Clean up exports from the start push response when we've
+        // updated clients to use `functions` directly.
+        for (path, definition) in evaluated_components.iter_mut() {
+            // We don't need to include exports for the root since we don't use codegen
+            // for the app's `api` object.
+            if path.is_root() {
+                continue;
+            }
+            anyhow::ensure!(definition.definition.exports.is_empty());
+            definition.definition.exports = file_based_exports(&definition.functions)?;
+        }
+
         let resp = StartPushResponse {
             environment_variables,
             external_deps_id,
@@ -351,11 +364,6 @@ impl<RT: Runtime> Application<RT> {
                 },
             );
         }
-
-        // Add in file-based routing.
-        for definition in evaluated_components.values_mut() {
-            add_file_based_routing(definition)?;
-        }
         Ok(evaluated_components)
     }
 
@@ -491,7 +499,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn finish_push(
         &self,
         identity: Identity,
-        start_push: StartPushResponse,
+        mut start_push: StartPushResponse,
     ) -> anyhow::Result<FinishPushDiff> {
         // Download all source packages. We can remove this once we don't store source
         // in the database.
@@ -504,6 +512,13 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
             downloaded_source_packages.insert(definition_path.clone(), package);
+        }
+
+        // TODO(ENG-7533): Strip out exports from the `StartPushResponse` since we don't
+        // want to actually store it in the database. Remove this path once
+        // we've stopped sending exports down to the client.
+        for definition in start_push.analysis.values_mut() {
+            definition.definition.exports = BTreeMap::new();
         }
 
         let mut tx = self.begin(identity.clone()).await?;

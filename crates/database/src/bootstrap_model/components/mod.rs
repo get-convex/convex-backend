@@ -53,6 +53,7 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
+    metrics,
     ResolvedQuery,
     Transaction,
     COMPONENT_DEFINITIONS_TABLE,
@@ -274,11 +275,15 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             ComponentDefinitionId::Child(id) => id,
         };
         let component_definition_doc_id = self.resolve_component_definition_id(internal_id)?;
-        self.tx
-            .get(component_definition_doc_id)
-            .await?
-            .map(TryInto::try_into)
-            .transpose()
+        let Some(doc) = self.tx.get(component_definition_doc_id).await? else {
+            return Ok(None);
+        };
+        let mut doc: ParsedDocument<ComponentDefinitionMetadata> = doc.try_into()?;
+        if !doc.exports.is_empty() {
+            metrics::log_nonempty_component_exports();
+            doc.exports = BTreeMap::new();
+        }
+        Ok(Some(doc))
     }
 
     pub async fn load_definition_metadata(
@@ -321,7 +326,11 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         )?;
         let mut definitions = BTreeMap::new();
         while let Some(doc) = query.next(self.tx, None).await? {
-            let definition: ParsedDocument<ComponentDefinitionMetadata> = doc.try_into()?;
+            let mut definition: ParsedDocument<ComponentDefinitionMetadata> = doc.try_into()?;
+            if !definition.exports.is_empty() {
+                metrics::log_nonempty_component_exports();
+                definition.exports = BTreeMap::new();
+            }
             anyhow::ensure!(definitions
                 .insert(definition.path.clone(), definition)
                 .is_none());

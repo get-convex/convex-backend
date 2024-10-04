@@ -1010,3 +1010,11 @@ pub mod vector {
         CancelableTimer::new(&DATABASE_VECTOR_SEARCH_WITH_RETRIES_QUERY_SECONDS)
     }
 }
+
+register_convex_counter!(
+    DATABASE_NONEMPTY_COMPONENT_EXPORTS_TOTAL,
+    "Nonempty component definition loaded from database"
+);
+pub fn log_nonempty_component_exports() {
+    log_counter(&DATABASE_NONEMPTY_COMPONENT_EXPORTS_TOTAL, 1);
+}

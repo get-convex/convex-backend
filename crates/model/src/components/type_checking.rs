@@ -31,7 +31,10 @@ use value::{
     TableNamespace,
 };
 
-use super::types::EvaluatedComponentDefinition;
+use super::{
+    file_based_routing::file_based_exports,
+    types::EvaluatedComponentDefinition,
+};
 use crate::{
     modules::HTTP_MODULE_PATH,
     virtual_system_mapping,
@@ -151,7 +154,7 @@ impl<'a> TypecheckContext<'a> {
         }
 
         // Finally, resolve our exports and build the component.
-        let component = builder.check_exports(&evaluated.definition.exports)?;
+        let component = builder.build_exports()?;
 
         Ok(component)
     }
@@ -323,11 +326,9 @@ impl<'a> CheckedComponentBuilder<'a> {
         Ok(())
     }
 
-    fn check_exports(
-        self,
-        exports: &BTreeMap<PathComponent, ComponentExport>,
-    ) -> anyhow::Result<CheckedComponent> {
-        let exports = self.resolve_exports(exports)?;
+    fn build_exports(self) -> anyhow::Result<CheckedComponent> {
+        let exports = file_based_exports(&self.evaluated.functions)?;
+        let exports = self.resolve_exports(&exports)?;
         Ok(CheckedComponent {
             definition_path: self.definition_path.clone(),
             component_path: self.component_path.clone(),
