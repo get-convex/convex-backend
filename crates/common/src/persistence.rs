@@ -10,7 +10,6 @@ use std::{
     },
     str::FromStr,
     sync::Arc,
-    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -582,9 +581,6 @@ impl RepeatablePersistence {
     }
 }
 
-const STATIC_REPEATABLE_TIMESTAMP_WAIT: Duration = Duration::from_secs(2);
-const STATIC_REPEATABLE_TIMESTAMP_MAX_TOTAL_WAIT: Duration = Duration::from_secs(5 * 60);
-
 async fn read_max_repeatable_ts(
     reader: &dyn PersistenceReader,
 ) -> anyhow::Result<Option<Timestamp>> {
@@ -609,40 +605,6 @@ pub async fn new_static_repeatable_recent(
             RepeatableReason::MaxRepeatableTsPersistence,
         )),
     }
-}
-
-/// Waits for ts to be repeatable according to max_repeatable_ts.
-/// Keep in mind max_repeatable_ts can lag behind the current time by
-/// ~seconds to ~minutes (see `MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY`). And if
-/// the committer is not running, the wait may never complete and this function
-/// will error after 5m. If you want a potentially stale timestamp and don't
-/// want to wait, use new_recent. If you want a more up-to-date timestamp
-/// without waiting as long, see if you can prove repeatability some other way.
-pub async fn new_static_repeatable_ts<RT: Runtime>(
-    ts: Timestamp,
-    reader: &dyn PersistenceReader,
-    rt: &RT,
-) -> anyhow::Result<RepeatableTimestamp> {
-    let _timer = static_repeatable_ts_timer(false);
-    wait_for_ts(ts, reader, rt).await?;
-    Ok(RepeatableTimestamp::new_validated(
-        ts,
-        RepeatableReason::MaxRepeatableTsPersistence,
-    ))
-}
-
-async fn wait_for_ts<RT: Runtime>(
-    ts: Timestamp,
-    reader: &dyn PersistenceReader,
-    rt: &RT,
-) -> anyhow::Result<()> {
-    let mut total_waited = Duration::from_secs(0);
-    while read_max_repeatable_ts(reader).await? < Some(ts) {
-        anyhow::ensure!(total_waited < STATIC_REPEATABLE_TIMESTAMP_MAX_TOTAL_WAIT);
-        rt.wait(STATIC_REPEATABLE_TIMESTAMP_WAIT).await;
-        total_waited += STATIC_REPEATABLE_TIMESTAMP_WAIT;
-    }
-    Ok(())
 }
 
 /// PersistenceSnapshot can perform reads from Persistence at a given

@@ -313,9 +313,6 @@ pub static TRANSACTION_MAX_READ_SET_INTERVALS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SET_INTERVALS", 4096));
 
 /// Write max_repeatable_ts if there have been no commits for this duration.
-/// Audit calls to `new_static_repeatable_ts` when changing this knob to make
-/// sure it is safe to wait this amount of time before the max repeatable ts is
-/// bumped.
 pub static MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config(
         "MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY",

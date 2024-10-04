@@ -331,15 +331,16 @@ impl<RT: Runtime> TableIterator<RT> {
     /// 4. we need each walk to be within retention
     ///
     /// We can satisfy these constraints by always walking at max(snapshot_ts,
-    /// new_static_repeatable_ts()).
+    /// new_static_repeatable_recent()).
     ///
     /// 1. max(snapshot_ts, anything) >= snapshot_ts
-    /// 2. snapshot_ts never changes and new_static_repeatable_ts is weakly
+    /// 2. snapshot_ts never changes and new_static_repeatable_recent is weakly
     ///    monotonically increasing
-    /// 3. snapshot_ts and new_static_repeatable_ts are both Repeatable, and the
+    /// 3. snapshot_ts and new_static_repeatable_recent are both Repeatable, and
+    ///    the
     /// max of Repeatable timestamps is repeatable.
-    /// 4. new_static_repeatable_ts is within retention, so max(anything,
-    /// new_static_repeatable_ts()) is within retention.
+    /// 4. new_static_repeatable_recent is within retention, so max(anything,
+    /// new_static_repeatable_recent()) is within retention.
     async fn new_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
         Ok(cmp::max(
             self.snapshot_ts,

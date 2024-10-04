@@ -45,11 +45,11 @@ impl RepeatableTimestamp {
     /// Only call this constructor if you have validated the timestamp is
     /// repeatable. There should be very few callers of this function
     /// directly -- most should go through specialized constructors like
-    /// new_static_repeatable_ts, unchecked_repeatable_ts, etc.
+    /// new_static_repeatable_recent, unchecked_repeatable_ts, etc.
     ///
     /// Example of correct call-site:
-    /// new_static_repeatable_ts reads the max_repeatable_ts persistence global,
-    /// so the timestamp is guaranteed repeatable.
+    /// new_static_repeatable_recent reads the max_repeatable_ts persistence
+    /// global, so the timestamp is guaranteed repeatable.
     ///
     /// Example of incorrect call-site:
     /// A timestamp is read from a cursor on IndexMetadata backfill state.
