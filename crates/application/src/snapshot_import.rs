@@ -47,6 +47,7 @@ use common::{
     errors::report_error,
     execution_context::ExecutionId,
     knobs::{
+        MAX_IMPORT_AGE,
         TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
@@ -193,10 +194,6 @@ static IMPORT_SIZE_LIMIT: LazyLock<String> =
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
-// If an import is taking longer than a day, it's a problem (and our fault).
-// But the customer is probably no longer waiting so we should fail the import.
-// If an import takes more than a week, the file may be deleted from S3.
-pub const MAX_IMPORT_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub struct SnapshotImportWorker<RT: Runtime> {
     runtime: RT,
@@ -295,6 +292,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 anyhow::bail!("unexpected state {snapshot_import:?}");
             },
         }
+        self.fail_if_too_old(&snapshot_import)?;
         match self.info_message_for_import(snapshot_import).await {
             Ok((info_message, require_manual_confirmation, new_checkpoints)) => {
                 self.database
@@ -673,29 +671,36 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         Ok(())
     }
 
-    async fn attempt_perform_import(
-        &mut self,
-        snapshot_import: ParsedDocument<SnapshotImport>,
-    ) -> anyhow::Result<(Timestamp, u64)> {
+    fn fail_if_too_old(
+        &self,
+        snapshot_import: &ParsedDocument<SnapshotImport>,
+    ) -> anyhow::Result<()> {
         if let Some(creation_time) = snapshot_import.creation_time() {
             let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
             let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
             log_snapshot_import_age(age);
-            if age > MAX_IMPORT_AGE / 2 {
+            if age > *MAX_IMPORT_AGE / 2 {
                 tracing::warn!(
                     "SnapshotImport {} running too long ({:?})",
                     snapshot_import.id(),
                     age
                 );
             }
-            if age > MAX_IMPORT_AGE {
+            if age > *MAX_IMPORT_AGE {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "ImportFailed",
                     "Import took too long. Try again or contact Convex."
                 ));
             }
         }
+        Ok(())
+    }
 
+    async fn attempt_perform_import(
+        &mut self,
+        snapshot_import: ParsedDocument<SnapshotImport>,
+    ) -> anyhow::Result<(Timestamp, u64)> {
+        self.fail_if_too_old(&snapshot_import)?;
         let (initial_schemas, objects) = self.parse_import(snapshot_import.id()).await?;
 
         let usage = FunctionUsageTracker::new();

@@ -1148,3 +1148,9 @@ pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
 /// Fraction that represents the percentage of HTTP actions to execute in FunRun
 pub static EXECUTE_HTTP_ACTIONS_IN_FUNRUN: LazyLock<f64> =
     LazyLock::new(|| env_config("EXECUTE_HTTP_ACTIONS_IN_FUNRUN", 0.0));
+
+/// If an import is taking longer than a day, it's a problem (and our fault).
+/// But the customer is probably no longer waiting so we should fail the import.
+/// If an import takes more than a week, the file may be deleted from S3.
+pub static MAX_IMPORT_AGE: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("MAX_IMPORT_AGE_SECONDS", 7 * 24 * 60 * 60)));
