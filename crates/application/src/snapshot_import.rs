@@ -898,6 +898,27 @@ fn map_zip_error(e: ZipError) -> anyhow::Error {
     }
 }
 
+fn map_csv_error(e: csv_async::Error) -> anyhow::Error {
+    let pos_line =
+        |pos: &Option<csv_async::Position>| pos.as_ref().map_or(0, |pos| pos.line() as usize);
+    match e.kind() {
+        csv_async::ErrorKind::Utf8 { pos, .. } => {
+            ImportError::CsvInvalidRow(pos_line(pos), e).into()
+        },
+        csv_async::ErrorKind::UnequalLengths { pos, .. } => {
+            ImportError::CsvRowMissingFields(pos_line(pos)).into()
+        },
+        // IO and Seek are errors from the underlying stream.
+        csv_async::ErrorKind::Io(_)
+        | csv_async::ErrorKind::Seek
+        // We're not using serde for CSV parsing, so these errors are unexpected
+        | csv_async::ErrorKind::Serialize(_)
+        | csv_async::ErrorKind::Deserialize { .. }
+        => e.into(),
+        _ => e.into(),
+    }
+}
+
 /// Parse and stream units from the imported file, starting with a NewTable
 /// for each table and then Objects for each object to import into the table.
 /// stream_body returns the file as streamed bytes. stream_body() can be called
@@ -930,7 +951,7 @@ async fn parse_objects<'a, Fut>(
                 anyhow::bail!(ImportError::CsvMissingHeaders);
             }
             let field_names = {
-                let headers = reader.headers().await?;
+                let headers = reader.headers().await.map_err(map_csv_error)?;
                 headers
                     .iter()
                     .map(|s| {
@@ -945,7 +966,7 @@ async fn parse_objects<'a, Fut>(
             while let Some((i, row_r)) = enumerate_rows.next().await {
                 let lineno = i + 1;
                 let parsed_row = row_r
-                    .map_err(|e| ImportError::CsvInvalidRow(lineno, e))?
+                    .map_err(map_csv_error)?
                     .iter()
                     .map(parse_csv_cell)
                     .collect::<Vec<JsonValue>>();
