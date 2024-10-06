@@ -404,7 +404,10 @@ export class AuthenticationManager {
   private decodeToken(token: string) {
     try {
       return jwtDecode(token);
-    } catch {
+    } catch (e) {
+      this._logVerbose(
+        `Error decoding token: ${e instanceof Error ? e.message : "Unknown error"}`,
+      );
       return null;
     }
   }
