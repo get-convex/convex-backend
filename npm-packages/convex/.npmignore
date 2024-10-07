@@ -16,7 +16,8 @@ dist/internal-types/test
 dist/types/test
 test_fixtures
 src/test
-custom-vitest-environment
+custom-vitest-environment.ts
+vitest.config.js
 
 .eslintrc.*
 .prettierignore
@@ -30,9 +31,10 @@ build.py
 build.cjs
 tmpPackage*
 tmpDist*
-api-extractor-configs/temp/
+api-extractor-configs/
 *.log
 .knip.json
+.github
 
 # rush output
 *.chunks.jsonl

@@ -16,91 +16,139 @@
   "exports": {
     ".": {
       "require": {
-        "types": "./dist/internal-cjs-types/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/index.d.ts"
+        },
+        "types": "./dist/cjs-types/index.d.ts",
         "require": "./dist/cjs/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/index.d.ts"
+        },
+        "types": "./dist/esm-types/index.d.ts",
         "import": "./dist/esm/index.js"
       }
     },
     "./server": {
       "require": {
-        "types": "./dist/internal-cjs-types/server/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/server/index.d.ts"
+        },
+        "types": "./dist/cjs-types/server/index.d.ts",
         "require": "./dist/cjs/server/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/server/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/server/index.d.ts"
+        },
+        "types": "./dist/esm-types/server/index.d.ts",
         "import": "./dist/esm/server/index.js"
       }
     },
     "./react": {
       "require": {
-        "types": "./dist/internal-cjs-types/react/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/react/index.d.ts"
+        },
+        "types": "./dist/cjs-types/react/index.d.ts",
         "require": "./dist/cjs/react/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/react/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/react/index.d.ts"
+        },
+        "types": "./dist/esm-types/react/index.d.ts",
         "import": "./dist/esm/react/index.js"
       }
     },
     "./react-auth0": {
       "require": {
-        "types": "./dist/internal-cjs-types/react-auth0/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/react-auth0/index.d.ts"
+        },
+        "types": "./dist/cjs-types/react-auth0/index.d.ts",
         "require": "./dist/cjs/react-auth0/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/react-auth0/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/react-auth0/index.d.ts"
+        },
+        "types": "./dist/esm-types/react-auth0/index.d.ts",
         "import": "./dist/esm/react-auth0/index.js"
       }
     },
     "./react-clerk": {
       "require": {
-        "types": "./dist/internal-cjs-types/react-clerk/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/react-clerk/index.d.ts"
+        },
+        "types": "./dist/cjs-types/react-clerk/index.d.ts",
         "require": "./dist/cjs/react-clerk/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/react-clerk/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/react-clerk/index.d.ts"
+        },
+        "types": "./dist/esm-types/react-clerk/index.d.ts",
         "import": "./dist/esm/react-clerk/index.js"
       }
     },
     "./nextjs": {
       "require": {
-        "types": "./dist/internal-cjs-types/nextjs/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/nextjs/index.d.ts"
+        },
+        "types": "./dist/cjs-types/nextjs/index.d.ts",
         "require": "./dist/cjs/nextjs/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/nextjs/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/nextjs/index.d.ts"
+        },
+        "types": "./dist/esm-types/nextjs/index.d.ts",
         "import": "./dist/esm/nextjs/index.js"
       }
     },
     "./browser": {
       "require": {
-        "types": "./dist/internal-cjs-types/browser/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/browser/index.d.ts"
+        },
+        "types": "./dist/cjs-types/browser/index.d.ts",
         "node": "./dist/cjs/browser/index-node.js",
         "require": "./dist/cjs/browser/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/browser/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/browser/index.d.ts"
+        },
+        "types": "./dist/esm-types/browser/index.d.ts",
         "node": "./dist/esm/browser/index-node.js",
         "import": "./dist/esm/browser/index.js"
       }
     },
     "./values": {
       "require": {
-        "types": "./dist/internal-cjs-types/values/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-cjs-types/values/index.d.ts"
+        },
+        "types": "./dist/cjs-types/values/index.d.ts",
         "require": "./dist/cjs/values/index.js"
       },
       "import": {
-        "types": "./dist/internal-esm-types/values/index.d.ts",
+        "convex-internal-types": {
+          "types": "./dist/internal-esm-types/values/index.d.ts"
+        },
+        "types": "./dist/esm-types/values/index.d.ts",
         "import": "./dist/esm/values/index.js"
       }
     },
     "./package.json": "./package.json"
   },
   "@comment typesVersions": [
-    "This type field in exports is only supported with moduleResolution",
-    "set to node16 or nodenext, which are not yet widely used. "
+    "Thi types field in exports is only supported with moduleResolution",
+    "set to node16 or nodenext so typesVersions is still useful."
   ],
   "typesVersions": {
     "*": {

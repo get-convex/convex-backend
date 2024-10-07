@@ -64,8 +64,13 @@
      * - auto-accessors
      * - decorators
      * - const type parameters
+     *
+     * Compatibility with the oldest version of TypeScript we advertise supporting
+     * is typically our priority, but sometimes we're trying to test
+     * against the latest TypeScript, the one our users are most likely
+     * to be using.
      */
-    "typescript": ["5.0.4"],
+    "typescript": ["5.0.4", "~5.6.2"],
     /**
      * These are for private-demos/tanstack-start to closely match 
      * https://github.com/TanStack/router

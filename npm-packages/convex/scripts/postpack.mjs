@@ -25,7 +25,7 @@ console.log("modifying package.json");
 let packageJson = JSON.parse(
   fs.readFileSync(path.join(tmpPackage, "package.json")),
 );
-pointToPublic(packageJson.exports);
+removeInternal(packageJson.exports);
 pointToPublic(packageJson.typesVersions);
 
 console.log("removing dev-only ts-node CLI script");
@@ -56,8 +56,6 @@ fs.rmSync(path.join(tmpPackage, "dist", "internal-esm-types"), {
   recursive: true,
 });
 
-// Remove a few more @internal types
-console.log("modifying types to remove remaining @internal types");
 auditInternal(tmpPackage);
 
 run("tar", "czvf", tarball, "-C", tmpDir, "package");
@@ -73,6 +71,18 @@ function getOnlyTarball(dirname) {
     );
   }
   return path.join(dirname, tarballs[0]);
+}
+
+function removeInternal(obj) {
+  for (const key of Object.keys(obj)) {
+    let value = obj[key];
+    if (key === "convex-internal-types") {
+      delete obj[key];
+    }
+    if (typeof value === "object") {
+      removeInternal(value);
+    }
+  }
 }
 
 function pointToPublic(obj) {

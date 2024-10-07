@@ -8,10 +8,12 @@
     "forceConsistentCasingInFileNames": true,
     "esModuleInterop": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "node16",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "outDir": "./dist",
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    /* allow use of internal Convex APIS */
+    "customConditions": ["convex-internal-types"]
   }
 }
