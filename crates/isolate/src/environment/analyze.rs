@@ -1029,14 +1029,14 @@ fn cron_analyze<RT: Runtime>(
     let mut cron_specs = BTreeMap::new();
 
     for (k, v) in export_json {
-        let Ok(identifier) = k.parse() else {
-            return Ok(Err(JsError::from_message(format!(
-                "{} is not a valid Cron Identifier. Use only ASCII numbers, letters, spaces, \
-                 underscores, dashes and apostrophes",
-                k
-            ))));
+        let (identifier, cronspec) = match (k.parse(), CronSpec::try_from(v)) {
+            (Ok(k), Ok(v)) => (k, v),
+            (Err(e), _) | (_, Err(e)) => {
+                let msg = e.to_string();
+                anyhow::bail!(e.context(ErrorMetadata::bad_request("InvalidCron", msg)))
+            },
         };
-        cron_specs.insert(identifier, CronSpec::try_from(v)?);
+        cron_specs.insert(identifier, cronspec);
     }
 
     Ok(Ok(cron_specs))

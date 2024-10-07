@@ -104,9 +104,9 @@ codegen_convex_serialization!(CronJob, SerializedCronJob);
 pub fn check_valid_cron_identifier(s: &str) -> anyhow::Result<()> {
     for c in s.chars() {
         if !c.is_ascii() || c.is_ascii_control() {
-            bail!(
+            anyhow::bail!(
                 "CronIdentifier {s} has invalid character '{c}': CronIdentifiers can only contain \
-                 ASCII characters that are not control characters"
+                 ASCII letters, numbers, spaces, underscores, dashes and apostrophes"
             );
         }
     }
