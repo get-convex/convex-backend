@@ -771,12 +771,16 @@ impl<RT: Runtime> Database<RT> {
         // Load data into a DatabaseReader, including indexes and shapes.
         let reader = persistence.reader();
 
-        let follower_retention_manager =
-            FollowerRetentionManager::new(runtime.clone(), persistence.reader()).await?;
-
         // Get the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
         let original_max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
+
+        let follower_retention_manager = FollowerRetentionManager::new_with_repeatable_ts(
+            runtime.clone(),
+            persistence.reader(),
+            snapshot_ts,
+        )
+        .await?;
 
         let db_snapshot = DatabaseSnapshot::load(
             &runtime,

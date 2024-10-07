@@ -1496,14 +1496,22 @@ pub struct FollowerRetentionManager<RT: Runtime> {
 
 impl<RT: Runtime> FollowerRetentionManager<RT> {
     pub async fn new(rt: RT, persistence: Arc<dyn PersistenceReader>) -> anyhow::Result<Self> {
-        let snapshot_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
+        let repeatable_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
+        Self::new_with_repeatable_ts(rt, persistence, repeatable_ts).await
+    }
+
+    pub async fn new_with_repeatable_ts(
+        rt: RT,
+        persistence: Arc<dyn PersistenceReader>,
+        repeatable_ts: RepeatableTimestamp,
+    ) -> anyhow::Result<Self> {
         let min_index_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Index).await?;
         let min_document_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Document).await?;
         let snapshot_bounds = Arc::new(Mutex::new(SnapshotBounds {
-            min_index_snapshot_ts: snapshot_ts.prior_ts(min_index_snapshot_ts)?,
-            min_document_snapshot_ts: snapshot_ts.prior_ts(min_document_snapshot_ts)?,
+            min_index_snapshot_ts: repeatable_ts.prior_ts(min_index_snapshot_ts)?,
+            min_document_snapshot_ts: repeatable_ts.prior_ts(min_document_snapshot_ts)?,
         }));
         Ok(Self {
             rt,

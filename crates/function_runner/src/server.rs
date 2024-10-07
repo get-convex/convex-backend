@@ -427,9 +427,14 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             // in at end in `validate_function_runner_result`.
             UdfType::Query | UdfType::Mutation => Arc::new(NoopRetentionValidator {}),
             // For actions, we have to do it inline since they have side effects.
-            UdfType::Action | UdfType::HttpAction => {
-                Arc::new(FollowerRetentionManager::new(self.rt.clone(), reader.clone()).await?)
-            },
+            UdfType::Action | UdfType::HttpAction => Arc::new(
+                FollowerRetentionManager::new_with_repeatable_ts(
+                    self.rt.clone(),
+                    reader.clone(),
+                    ts,
+                )
+                .await?,
+            ),
         };
         let mut transaction = self
             .index_cache
