@@ -1,8 +1,15 @@
 use std::{
-    fmt,
-    fmt::Display,
+    fmt::{
+        self,
+        Display,
+    },
+    time::{
+        SystemTime,
+        UNIX_EPOCH,
+    },
 };
 
+use anyhow::Context;
 use common::{
     components::ComponentId,
     types::ObjectKey,
@@ -14,7 +21,7 @@ use serde::{
 use sync_types::Timestamp;
 use value::codegen_convex_serialization;
 
-const EXPORT_RETENTION: u64 = 14 * 24 * 60 * 60 * 1000000000; // 14 days
+use super::DEFAULT_EXPORT_RETENTION;
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -23,6 +30,8 @@ pub enum Export {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        /// Expiration timestamp in nanos
+        expiration_ts: u64,
     },
     InProgress {
         /// Timestamp when the first attempt
@@ -31,13 +40,15 @@ pub enum Export {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        /// Expiration timestamp in nanos
+        expiration_ts: u64,
     },
     Completed {
         /// Timestamp for the successful (final) attempt at Export.
         start_ts: Timestamp,
         /// Timestamp when the Export completed
         complete_ts: Timestamp,
-        /// Expiration timestamp
+        /// Expiration timestamp in nanos
         expiration_ts: u64,
         /// Object keys in S3
         zip_object_key: ObjectKey,
@@ -65,12 +76,14 @@ enum SerializedExport {
         format: SerializedExportFormat,
         component: Option<String>,
         requestor: String,
+        expiration_ts: Option<i64>, // TODO - remove Option once migration runs
     },
     InProgress {
         start_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
         requestor: String,
+        expiration_ts: Option<i64>, // TODO - remove Option once migration runs
     },
     Completed {
         start_ts: u64,
@@ -99,21 +112,25 @@ impl TryFrom<Export> for SerializedExport {
                 format,
                 component,
                 requestor,
+                expiration_ts,
             } => SerializedExport::Requested {
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
+                expiration_ts: Some(expiration_ts as i64),
             },
             Export::InProgress {
                 start_ts,
                 format,
                 component,
+                expiration_ts,
                 requestor,
             } => SerializedExport::InProgress {
                 start_ts: start_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
+                expiration_ts: Some(expiration_ts as i64),
             },
             Export::Completed {
                 start_ts,
@@ -158,21 +175,37 @@ impl TryFrom<SerializedExport> for Export {
                 format,
                 component,
                 requestor,
+                expiration_ts,
             } => Export::Requested {
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
+                expiration_ts: expiration_ts.map(|t| t as u64).unwrap_or(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .context("Time can't go backwards")?
+                        .as_nanos() as u64
+                        + DEFAULT_EXPORT_RETENTION,
+                ),
             },
             SerializedExport::InProgress {
                 start_ts,
                 format,
                 component,
+                expiration_ts,
                 requestor,
             } => Export::InProgress {
                 start_ts: start_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
+                expiration_ts: expiration_ts.map(|t| t as u64).unwrap_or(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .context("Time can't go backwards")?
+                        .as_nanos() as u64
+                        + DEFAULT_EXPORT_RETENTION,
+                ),
             },
             SerializedExport::Completed {
                 start_ts,
@@ -276,11 +309,13 @@ impl Export {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        expiration_ts: u64,
     ) -> Self {
         Self::Requested {
             format,
             component,
             requestor,
+            expiration_ts,
         }
     }
 
@@ -290,11 +325,13 @@ impl Export {
                 format,
                 component,
                 requestor,
+                expiration_ts,
             } => Ok(Self::InProgress {
                 start_ts: ts,
                 format,
                 component,
                 requestor,
+                expiration_ts,
             }),
             Self::Completed { .. } | Self::InProgress { .. } | Self::Failed { .. } => Err(
                 anyhow::anyhow!("Can only begin an export that is requested"),
@@ -308,13 +345,13 @@ impl Export {
         complete_ts: Timestamp,
         zip_object_key: ObjectKey,
     ) -> anyhow::Result<Export> {
-        let expiration_ts = Into::<u64>::into(complete_ts) + EXPORT_RETENTION;
         match self {
             Self::InProgress {
                 format,
                 component,
                 requestor,
-                ..
+                expiration_ts,
+                start_ts: _, // replace start_ts with the actual database TS
             } => {
                 anyhow::ensure!(snapshot_ts <= complete_ts);
                 Ok(Self::Completed {
@@ -331,6 +368,7 @@ impl Export {
                 format: _,
                 component: _,
                 requestor: _,
+                expiration_ts: _,
             }
             | Self::Completed {
                 start_ts: _,
@@ -374,6 +412,7 @@ impl Export {
                 format: _,
                 component: _,
                 requestor: _,
+                expiration_ts: _,
             }
             | Self::Completed {
                 start_ts: _,
@@ -400,33 +439,10 @@ impl Export {
 impl Display for Export {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Self::Requested {
-                format: _,
-                component: _,
-                requestor: _,
-            } => write!(f, "requested"),
-            Self::InProgress {
-                start_ts: _,
-                format: _,
-                component: _,
-                requestor: _,
-            } => write!(f, "in_progress"),
-            Self::Completed {
-                start_ts: _,
-                complete_ts: _,
-                expiration_ts: _,
-                zip_object_key: _,
-                format: _,
-                component: _,
-                requestor: _,
-            } => write!(f, "completed"),
-            Self::Failed {
-                start_ts: _,
-                failed_ts: _,
-                format: _,
-                component: _,
-                requestor: _,
-            } => write!(f, "failed"),
+            Self::Requested { .. } => write!(f, "requested"),
+            Self::InProgress { .. } => write!(f, "in_progress"),
+            Self::Completed { .. } => write!(f, "completed"),
+            Self::Failed { .. } => write!(f, "failed"),
         }
     }
 }

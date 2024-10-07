@@ -4,6 +4,7 @@
 #![feature(let_chains)]
 #![feature(coroutines)]
 #![feature(round_char_boundary)]
+#![feature(duration_constructors)]
 
 use std::{
     collections::{
@@ -12,7 +13,11 @@ use std::{
     },
     ops::Bound,
     sync::Arc,
-    time::SystemTime,
+    time::{
+        Duration,
+        SystemTime,
+        UNIX_EPOCH,
+    },
 };
 
 use anyhow::Context;
@@ -1284,19 +1289,45 @@ impl<RT: Runtime> Application<RT> {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        expiration_ts_ns: Option<u64>,
     ) -> anyhow::Result<DeveloperDocumentId> {
         anyhow::ensure!(
             identity.is_admin() || identity.is_system(),
             unauthorized_error("request_export")
         );
+        if let Some(expiration_ts_ns) = expiration_ts_ns {
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .context("Time went backward")?;
+            anyhow::ensure!(
+                expiration_ts_ns >= now.as_nanos() as u64,
+                ErrorMetadata::bad_request(
+                    "SnapshotExpirationInPast",
+                    "Snapshot expiration in past."
+                )
+            );
+            let how_far = Duration::from_nanos(expiration_ts_ns) - now;
+            anyhow::ensure!(
+                how_far <= Duration::from_days(60),
+                ErrorMetadata::bad_request(
+                    "SnapshotExpirationTooLarge",
+                    format!(
+                        "Snapshot expiration is {} days in the future. Must be <= 60",
+                        how_far.as_secs() / (60 * 60 * 24)
+                    ),
+                )
+            );
+        }
+
         let mut tx = self.begin(identity).await?;
         let mut exports_model = ExportsModel::new(&mut tx);
         let export_requested = exports_model.latest_requested().await?;
         let export_in_progress = exports_model.latest_in_progress().await?;
+
         let snapshot_id = match (export_requested, export_in_progress) {
             (None, None) => {
                 exports_model
-                    .insert_requested(format, component, requestor)
+                    .insert_requested(format, component, requestor, expiration_ts_ns)
                     .await
             },
             _ => Err(

@@ -69,6 +69,7 @@ pub async fn request_zip_export(
             ExportFormat::Zip { include_storage },
             component,
             ExportRequestor::SnapshotExport,
+            None,
         )
         .await?;
     Ok(StatusCode::OK)

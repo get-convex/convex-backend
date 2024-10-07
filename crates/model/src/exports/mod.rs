@@ -62,6 +62,8 @@ pub static EXPORTS_TS_FIELD: LazyLock<FieldPath> =
 static EXPORTS_REQUESTOR_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "requestor".parse().expect("Invalid built-in field"));
 
+const DEFAULT_EXPORT_RETENTION: u64 = 14 * 24 * 60 * 60 * 1000000000; // 14 days
+
 pub struct ExportsTable;
 impl SystemTable for ExportsTable {
     fn table_name(&self) -> &'static TableName {
@@ -107,11 +109,16 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        expiration_ts_ns: Option<u64>,
     ) -> anyhow::Result<ResolvedDocumentId> {
+        let default_expiration_ts =
+            u64::from(*self.tx.begin_timestamp()) + DEFAULT_EXPORT_RETENTION;
+        let expiration_ts_ns = expiration_ts_ns.unwrap_or(default_expiration_ts);
+
         SystemMetadataModel::new_global(self.tx)
             .insert(
                 &EXPORTS_TABLE,
-                Export::requested(format, component, requestor).try_into()?,
+                Export::requested(format, component, requestor, expiration_ts_ns).try_into()?,
             )
             .await
     }
@@ -227,6 +234,7 @@ mod tests {
             },
             ComponentId::test_user(),
             ExportRequestor::SnapshotExport,
+            4321,
         );
         let object: ConvexObject = requested_export.clone().try_into()?;
         let deserialized_export = object.try_into()?;
@@ -264,10 +272,17 @@ mod tests {
             format in any::<ExportFormat>(),
             component in any::<ComponentId>(),
             requestor in any::<ExportRequestor>(),
+            expiration_ts in any::<u64>(),
         ) {
             let td = TestDriver::new();
             let rt = td.rt();
-            td.run_until(test_export_model(rt, format, component, requestor)).unwrap();
+            td.run_until(test_export_model(
+                rt,
+                format,
+                component,
+                requestor,
+                expiration_ts,
+            )).unwrap();
         }
     }
 
@@ -276,12 +291,13 @@ mod tests {
         format: ExportFormat,
         component: ComponentId,
         requestor: ExportRequestor,
+        expiration_ts: u64,
     ) -> anyhow::Result<()> {
         let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let mut tx = db.begin_system().await?;
         let mut exports_model = ExportsModel::new(&mut tx);
         let snapshot_id = exports_model
-            .insert_requested(format, component, requestor)
+            .insert_requested(format, component, requestor, Some(expiration_ts))
             .await?;
         let items: Vec<_> = exports_model
             .list()
@@ -293,6 +309,7 @@ mod tests {
             format,
             component,
             requestor,
+            expiration_ts,
         };
         assert_eq!(items, vec![expected.clone()]);
         assert_eq!(
