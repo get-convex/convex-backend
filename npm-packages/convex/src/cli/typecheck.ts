@@ -26,10 +26,17 @@ export const typecheck = new Command("typecheck")
     await typeCheckFunctions(
       ctx,
       functionsDir(configPath, localConfig.projectConfig),
-      async (typecheckResult, logSpecificError) => {
+      async (typecheckResult, logSpecificError, runOnError) => {
         logSpecificError?.();
         if (typecheckResult === "typecheckFailed") {
           logMessage(ctx, chalk.gray("Typecheck failed"));
+          try {
+            await runOnError?.();
+            // If runOnError doesn't throw then it worked the second time.
+            // No errors to report, but it's still a failure.
+          } catch {
+            // As expected, `runOnError` threw
+          }
           return await ctx.crash({
             exitCode: 1,
             errorType: "invalid filesystem data",
