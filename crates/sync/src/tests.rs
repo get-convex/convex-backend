@@ -46,6 +46,7 @@ use keybroker::{
     testing::TestUserIdentity,
     Identity,
     KeyBroker,
+    DEV_SECRET,
 };
 use model::{
     config::{
@@ -590,8 +591,10 @@ async fn test_admin_auth(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
+    let bogus_admin_key =
+        KeyBroker::new("bozo-fish-123", DEV_SECRET.try_into()?)?.issue_admin_key(MemberId(1));
     sync_worker.send(ClientMessage::Authenticate {
-        token: AuthenticationToken::Admin("bozo".to_string(), None),
+        token: AuthenticationToken::Admin(bogus_admin_key.as_string(), None),
         base_version: 0,
     })?;
     let err = sync_worker.receive().await.unwrap_err();
@@ -610,8 +613,13 @@ async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_acting_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
+    let bogus_admin_key =
+        KeyBroker::new("bozo-fish-123", DEV_SECRET.try_into()?)?.issue_admin_key(MemberId(1));
     sync_worker.send(ClientMessage::Authenticate {
-        token: AuthenticationToken::Admin("bozo".to_string(), Some(UserIdentityAttributes::test())),
+        token: AuthenticationToken::Admin(
+            bogus_admin_key.as_string(),
+            Some(UserIdentityAttributes::test()),
+        ),
         base_version: 0,
     })?;
     let err = sync_worker.receive().await.unwrap_err();

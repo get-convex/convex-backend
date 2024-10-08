@@ -2471,11 +2471,7 @@ impl<RT: Runtime> Application<RT> {
                 let admin_identity = self
                     .app_auth()
                     .check_key(token.to_string(), self.instance_name())
-                    .await
-                    .context(ErrorMetadata::unauthenticated(
-                        "BadAdminKey",
-                        "The provided admin key was invalid for this instance",
-                    ))?;
+                    .await?;
 
                 match acting_as {
                     Some(acting_user) => {
