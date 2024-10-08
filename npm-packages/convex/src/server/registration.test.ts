@@ -279,6 +279,94 @@ describe("argument inference", () => {
   });
 });
 
+describe("argument inference 2: args and validators", () => {
+  // Test with mutation, but all the wrappers work the same way.
+  const mutation: MutationBuilder<any, "public"> = (() => {
+    // Intentional noop. We're only testing the type
+  }) as any;
+
+  const module = {
+    argsSubtypeOfArgsValidator: mutation({
+      args: { foo: v.string() },
+      handler: (_, { foo }: { foo: string | number }) => 1,
+    }),
+    argsSupertypeOfArgsValidator: mutation({
+      args: { foo: v.union(v.string(), v.number()) },
+      handler: (_, { foo }: { foo: string }) => 1,
+    }),
+    argsPartiallyIntersectArgsValidator: mutation({
+      args: { foo: v.union(v.string(), v.number()) },
+      // @ts-expect-error when neither type is a subtype of the other, error
+      handler: (_, { foo }: { foo: string | Array<number> }) => 1,
+    }),
+    argsDontIntersectArgsValidator: mutation({
+      args: { foo: v.string() },
+      // @ts-expect-error when neither type is a subtype of the other, error
+      handler: (_, { foo }: { foo: number }) => 1,
+    }),
+  };
+
+  type API = ApiFromModules<{ module: typeof module }>;
+
+  // If the validator is more specific, that's the type that will be used.
+  // That seems right.
+  test("Handler args are a subtype of args validator", () => {
+    type Args = API["module"]["argsSubtypeOfArgsValidator"]["_args"];
+    assert<Equals<Args, { foo: string }>>();
+  });
+  // If the argument type is more specific, that's the type used.
+  // It would be nice to change this. If the validator type
+  // could entirely determine the inferred type on the client
+  // then you could skip the function for inference!
+  test("Handler args are a supertype of args validator", () => {
+    type Args = API["module"]["argsSupertypeOfArgsValidator"]["_args"];
+    assert<Equals<Args, { foo: string }>>();
+  });
+});
+
+describe("argument inference 3: outputs and validators", () => {
+  // Test with mutation, but all the wrappers work the same way.
+  const mutation: MutationBuilder<any, "public"> = (() => {
+    // Intentional noop. We're only testing the type
+  }) as any;
+
+  const module = {
+    returnSubtypeOfReturnsValidator: mutation({
+      returns: v.string(),
+      handler: (_) => "a" as const,
+    }),
+    returnSupertypeOfReturnsValidator: mutation({
+      returns: v.literal("a"),
+      // @ts-expect-error when return value is not a subtype of validator, error
+      handler: (_) => "b" as "b" | "a",
+    }),
+    returnPartiallyIntersectReturnsValidator: mutation({
+      returns: v.union(v.literal("a"), v.literal("b")),
+      // @ts-expect-error when return value is not a subtype of validator, error
+      handler: (_) => "b" as "b" | "c",
+    }),
+    returnDoesntIntersectReturnsValidator: mutation({
+      returns: v.literal("a"),
+      // @ts-expect-error when neither type is a subtype of the other, error
+      handler: (_) => "b" as const,
+    }),
+  };
+
+  type API = ApiFromModules<{ module: typeof module }>;
+
+  // Output validators seem to work about right.
+  test("Handler return value is a subtype of returns validator", () => {
+    type ReturnType =
+      API["module"]["returnSubtypeOfReturnsValidator"]["_returnType"];
+    assert<Equals<ReturnType, "a">>();
+  });
+  test("Handler return value is a supertype of returns validator", () => {
+    type ReturnType =
+      API["module"]["returnSupertypeOfReturnsValidator"]["_returnType"];
+    assert<Equals<ReturnType, any>>();
+  });
+});
+
 describe("argument and return value validators can be objects or validators", () => {
   // Test with mutation, we aim for all the wrappers work the same way.
   const mutation: MutationBuilder<any, "public"> = mutationGeneric;
