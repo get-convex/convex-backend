@@ -43,6 +43,7 @@ imbl = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
+mime = { workspace = true }
 minitrace = { workspace = true }
 openidconnect = { workspace = true }
 packed_value = { path = "../packed_value" }
