@@ -42,6 +42,7 @@ use model::{
         module_versions::FullModuleSource,
         ModuleModel,
     },
+    source_packages::SourcePackageModel,
     udf_config::UdfConfigModel,
 };
 use rand::SeedableRng;
@@ -224,35 +225,48 @@ impl<RT: Runtime> UdfPhase<RT> {
         let UdfPreloaded::Ready { component, .. } = &self.preloaded else {
             anyhow::bail!("Phase not initialized");
         };
+        let component = *component;
         let path = CanonicalizedComponentModulePath {
-            component: *component,
+            component,
             module_path: module_path.clone().canonicalize(),
         };
-        let module = with_release_permit(
-            timeout,
-            permit_slot,
-            ModuleModel::new(self.tx_mut()?).get_metadata(path.clone()),
-        )
-        .await?;
-
-        let module_loader = self.module_loader.clone();
-        let module_version = with_release_permit(
-            timeout,
-            permit_slot,
-            module_loader.get_module(self.tx_mut()?, path),
-        )
-        .await?;
-
-        if let Some(module) = module.as_ref() {
-            anyhow::ensure!(
-                module.environment == ModuleEnvironment::Isolate,
-                "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
-                module_path,
-                module.environment
-            );
+        let Some((module_metadata, source_package)) =
+            with_release_permit(timeout, permit_slot, async {
+                match ModuleModel::new(self.tx_mut()?)
+                    .get_metadata(path.clone())
+                    .await?
+                {
+                    None => anyhow::Ok(None),
+                    Some(module_metadata) => {
+                        let source_package =
+                            SourcePackageModel::new(self.tx_mut()?, component.into())
+                                .get(module_metadata.source_package_id)
+                                .await?;
+                        anyhow::Ok(Some((module_metadata, source_package)))
+                    },
+                }
+            })
+            .await?
+        else {
+            return Ok(None);
         };
 
-        Ok(module_version.map(|m| (*m).clone()))
+        anyhow::ensure!(
+            module_metadata.environment == ModuleEnvironment::Isolate,
+            "Trying to execute {:?} in isolate, but it is bundled for {:?}.",
+            module_path,
+            module_metadata.environment
+        );
+
+        let module_loader = self.module_loader.clone();
+        let module_source = with_release_permit(
+            timeout,
+            permit_slot,
+            module_loader.get_module_with_metadata(module_metadata, source_package),
+        )
+        .await?;
+
+        Ok(Some((*module_source).clone()))
     }
 
     pub fn tx(&mut self) -> anyhow::Result<&mut Transaction<RT>> {
