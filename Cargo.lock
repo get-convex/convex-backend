@@ -185,6 +185,7 @@ dependencies = [
  "function_runner",
  "futures",
  "futures-async-stream",
+ "governor",
  "headers",
  "http 1.1.0",
  "http_client",

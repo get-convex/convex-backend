@@ -278,6 +278,7 @@ use sync_types::{
     ModulePath,
     SerializedQueryJournal,
 };
+use system_table_cleanup::SystemTableCleanupWorker;
 use table_summary_worker::{
     TableSummaryClient,
     TableSummaryWorker,
@@ -336,6 +337,7 @@ pub mod redaction;
 pub mod scheduled_jobs;
 mod schema_worker;
 pub mod snapshot_import;
+mod system_table_cleanup;
 mod table_summary_worker;
 pub mod valid_identifier;
 
@@ -482,6 +484,7 @@ pub struct Application<RT: Runtime> {
     schema_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     snapshot_import_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     export_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     log_sender: Arc<dyn LogSender>,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
@@ -515,6 +518,7 @@ impl<RT: Runtime> Clone for Application<RT> {
             schema_worker: self.schema_worker.clone(),
             snapshot_import_worker: self.snapshot_import_worker.clone(),
             export_worker: self.export_worker.clone(),
+            system_table_cleanup_worker: self.system_table_cleanup_worker.clone(),
             log_sender: self.log_sender.clone(),
             log_visibility: self.log_visibility.clone(),
             module_cache: self.module_cache.clone(),
@@ -590,6 +594,12 @@ impl<RT: Runtime> Application<RT> {
             "schema_worker",
             SchemaWorker::start(runtime.clone(), database.clone()),
         )));
+
+        let system_table_cleanup_worker =
+            SystemTableCleanupWorker::new(runtime.clone(), database.clone());
+        let system_table_cleanup_worker = Arc::new(Mutex::new(
+            runtime.spawn("system_table_cleanup_worker", system_table_cleanup_worker),
+        ));
 
         let function_log = FunctionExecutionLog::new(
             runtime.clone(),
@@ -678,6 +688,7 @@ impl<RT: Runtime> Application<RT> {
             schema_worker,
             export_worker,
             snapshot_import_worker,
+            system_table_cleanup_worker,
             log_sender,
             log_visibility,
             module_cache,
