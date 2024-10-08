@@ -12,6 +12,8 @@ use sync_types::{
     path::PathComponent,
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
+    FunctionName,
+    ModulePath,
 };
 
 use crate::modules::module_versions::{
@@ -70,4 +72,22 @@ pub fn file_based_exports(
         }
     }
     Ok(exports)
+}
+
+pub fn export_to_udf_path(attributes: &[PathComponent]) -> anyhow::Result<CanonicalizedUdfPath> {
+    let Some((last, prefix)) = attributes.split_last() else {
+        anyhow::bail!("Expected at least one path component");
+    };
+    let mut module_path = String::new();
+    let mut first = true;
+    for attribute in prefix {
+        if !first {
+            module_path.push('/');
+        }
+        module_path.push_str(&attribute[..]);
+        first = false;
+    }
+    let module_path: ModulePath = module_path.parse()?;
+    let name: FunctionName = last.parse()?;
+    Ok(CanonicalizedUdfPath::new(module_path.canonicalize(), name))
 }

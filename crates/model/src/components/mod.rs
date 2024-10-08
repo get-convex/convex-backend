@@ -17,6 +17,7 @@ use common::{
     },
     components::{
         CanonicalizedComponentFunctionPath,
+        CanonicalizedComponentModulePath,
         ComponentDefinitionId,
         ComponentId,
         ComponentName,
@@ -34,14 +35,20 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use file_based_routing::file_based_exports;
+use file_based_routing::{
+    export_to_udf_path,
+    file_based_exports,
+};
 use sync_types::{
     path::PathComponent,
     CanonicalizedUdfPath,
     UdfPath,
 };
 
-use crate::modules::ModuleModel;
+use crate::modules::{
+    module_versions::Visibility,
+    ModuleModel,
+};
 
 pub struct ComponentsModel<'a, RT: Runtime> {
     pub tx: &'a mut Transaction<RT>,
@@ -178,57 +185,30 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         component_id: ComponentId,
         attributes: &[PathComponent],
     ) -> anyhow::Result<Option<Resource>> {
-        let exports = self.load_component_exports(component_id).await?;
-        let mut current = &exports;
-        let mut attribute_iter = attributes.iter();
-        while let Some(attribute) = attribute_iter.next() {
-            let Some(export) = current.get(attribute) else {
-                return Ok(None);
-            };
-            match export {
-                ComponentExport::Branch(ref next) => {
-                    current = next;
-                    continue;
-                },
-                ComponentExport::Leaf(ref reference) => {
-                    if let Reference::ChildComponent {
-                        component: child_name,
-                        attributes: export_attributes,
-                    } = reference
-                    {
-                        let mut all_attributes = export_attributes.clone();
-                        all_attributes.extend(attribute_iter.cloned());
-
-                        let mut m = BootstrapComponentsModel::new(self.tx);
-                        let internal_id = match component_id {
-                            ComponentId::Root => {
-                                let root_component =
-                                    m.root_component()?.context("Missing root component")?;
-                                root_component.id().into()
-                            },
-                            ComponentId::Child(id) => id,
-                        };
-                        let parent = (internal_id, child_name.clone());
-                        let child_component =
-                            m.component_in_parent(Some(parent))?.ok_or_else(|| {
-                                ErrorMetadata::bad_request(
-                                    "InvalidReference",
-                                    format!("Child component {child_name:?} not found"),
-                                )
-                            })?;
-                        let child_id = ComponentId::Child(child_component.id().into());
-                        return self.resolve_export(child_id, &all_attributes).await;
-                    } else {
-                        if !attribute_iter.as_slice().is_empty() {
-                            return Ok(None);
-                        }
-                        let resource = self.resolve(component_id, None, reference).await?;
-                        return Ok(Some(resource));
-                    }
-                },
+        let udf_path = export_to_udf_path(attributes)?;
+        let module_path = CanonicalizedComponentModulePath {
+            component: component_id,
+            module_path: udf_path.module().clone(),
+        };
+        let Some(module) = ModuleModel::new(self.tx).get_metadata(module_path).await? else {
+            return Ok(None);
+        };
+        let Some(ref analyze_result) = module.analyze_result else {
+            return Ok(None);
+        };
+        for function in &analyze_result.functions {
+            if function.visibility != Some(Visibility::Public) {
+                continue;
             }
+            if &function.name != udf_path.function_name() {
+                continue;
+            }
+            let resource = self
+                .resolve(component_id, None, &Reference::Function(udf_path))
+                .await?;
+            return Ok(Some(resource));
         }
-        anyhow::bail!("Intermediate export references unsupported");
+        Ok(None)
     }
 
     pub async fn resolve_public_export_path(
