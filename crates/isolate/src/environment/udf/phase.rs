@@ -118,6 +118,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         }
     }
 
+    #[minitrace::trace]
     pub async fn initialize(
         &mut self,
         timeout: &mut Timeout<RT>,
@@ -210,6 +211,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(component_args)
     }
 
+    #[minitrace::trace]
     pub async fn get_module(
         &mut self,
         module_path: &ModulePath,
