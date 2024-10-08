@@ -130,6 +130,7 @@ use search::{
 use short_future::ShortBoxFuture;
 use storage::Storage;
 use sync_types::backoff::Backoff;
+use tokio::task;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -1472,6 +1473,8 @@ impl<RT: Runtime> Database<RT> {
         repeatable_ts: RepeatableTimestamp,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<Transaction<RT>> {
+        task::consume_budget().await;
+
         let latest_ts = self.now_ts_for_reads();
         if repeatable_ts > latest_ts {
             anyhow::bail!(
@@ -1545,6 +1548,7 @@ impl<RT: Runtime> Database<RT> {
         transaction: Transaction<RT>,
         write_source: impl Into<WriteSource>,
     ) -> anyhow::Result<Timestamp> {
+        task::consume_budget().await;
         let readonly = transaction.is_readonly();
         let result = self
             .committer

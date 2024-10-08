@@ -37,7 +37,6 @@ use common::{
     },
 };
 use futures::{
-    channel::oneshot,
     StreamExt,
     TryStreamExt,
 };
@@ -47,6 +46,10 @@ use search::metrics::SearchType;
 use storage::Storage;
 use sync_types::Timestamp;
 use tempfile::TempDir;
+use tokio::{
+    sync::oneshot,
+    task,
+};
 use value::{
     DeveloperDocumentId,
     ResolvedDocumentId,
@@ -187,6 +190,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         }
 
         for job in to_build {
+            task::consume_budget().await;
+
             let index_name = job.index_name.clone();
             let num_documents_indexed = self.build_one(job, self.build_args.clone()).await?;
             metrics.insert(index_name, num_documents_indexed);
@@ -397,7 +402,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             .await?;
 
         let new_segment = if let Some(new_segment) = new_segment {
-            Some(T::upload_new_segment(&self.runtime, self.storage.clone(), new_segment).await?)
+            Some(self.upload_new_segment(new_segment).await?)
         } else {
             None
         };
@@ -601,6 +606,17 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             updated_previous_segments,
             backfill_result: index_backfill_result,
         })
+    }
+
+    async fn upload_new_segment(&self, new_segment: T::NewSegment) -> anyhow::Result<T::Segment> {
+        let (tx, rx) = oneshot::channel();
+        let rt = self.runtime.clone();
+        let storage = self.storage.clone();
+        self.runtime.spawn_thread(move || async move {
+            let result = T::upload_new_segment(&rt, storage, new_segment).await;
+            let _ = tx.send(result);
+        });
+        rx.await?
     }
 }
 

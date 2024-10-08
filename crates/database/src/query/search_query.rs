@@ -26,6 +26,7 @@ use search::{
     CandidateRevision,
     MAX_CANDIDATE_REVISIONS,
 };
+use tokio::task;
 use value::{
     DeveloperDocumentId,
     TableNamespace,
@@ -227,6 +228,7 @@ impl SearchResultIterator {
         tx: &mut Transaction<RT>,
     ) -> anyhow::Result<Option<(DeveloperDocument, IndexKeyBytes, WriteTimestamp)>> {
         let timer = metrics::search::iterator_next_timer();
+        task::consume_budget().await;
 
         if self.next_index == MAX_CANDIDATE_REVISIONS {
             anyhow::bail!(ErrorMetadata::bad_request(

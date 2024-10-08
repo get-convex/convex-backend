@@ -27,6 +27,7 @@ use common::{
     },
     version::Version,
 };
+use tokio::task;
 use value::TableNamespace;
 
 use super::{
@@ -312,6 +313,7 @@ impl QueryStream for IndexRange {
         tx: &mut Transaction<RT>,
         prefetch_hint: Option<usize>,
     ) -> anyhow::Result<QueryStreamNext> {
+        task::consume_budget().await;
         self.start_next(tx, prefetch_hint)
     }
 

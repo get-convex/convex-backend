@@ -66,6 +66,7 @@ use search::{
     TextIndexManager,
 };
 use storage::Storage;
+use tokio::task;
 use value::{
     DeveloperDocumentId,
     FieldPath,
@@ -173,6 +174,7 @@ impl TransactionIndex {
                 let mut pending_next = pending_it.next();
                 let mut range_results = vec![];
                 loop {
+                    task::consume_budget().await;
                     match (snapshot_next, pending_next) {
                         (
                             Some((snapshot_key, snapshot_ts, snapshot_doc)),

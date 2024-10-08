@@ -92,6 +92,7 @@ use sync_types::{
     AuthenticationToken,
     Timestamp,
 };
+use tokio::task;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     TableNamespace,
@@ -519,6 +520,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<Option<(ResolvedDocument, WriteTimestamp)>> {
+        task::consume_budget().await;
         let table_name = match self.table_mapping().tablet_name(id.tablet_id) {
             Ok(t) => t,
             Err(_) => return Ok(None),
@@ -535,6 +537,8 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         value: PatchValue,
     ) -> anyhow::Result<ResolvedDocument> {
+        task::consume_budget().await;
+
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
         let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
 
@@ -575,6 +579,8 @@ impl<RT: Runtime> Transaction<RT> {
         id: ResolvedDocumentId,
         value: ConvexObject,
     ) -> anyhow::Result<ResolvedDocument> {
+        task::consume_budget().await;
+
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
         let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
         let (old_document, _) =
@@ -605,6 +611,8 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
     ) -> anyhow::Result<ResolvedDocument> {
+        task::consume_budget().await;
+
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
         let (document, _) =
             self.get_inner(id, table_name)

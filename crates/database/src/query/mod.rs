@@ -605,11 +605,6 @@ pub async fn query_batch_next_<RT: Runtime>(
                     batch_to_feed.insert(batch_key, (query, prefetch_hint));
                 },
                 Ok(QueryStreamNext::Ready(result)) => {
-                    // We have a result already, which means `query_batch_next_`
-                    // might not be yielding to Tokio. Yield here to make sure
-                    // we don't peg the task in case `query_batch_next_` is
-                    // called in a CPU-intensive loop.
-                    tokio::task::consume_budget().await;
                     Event::add_to_local_parent("query_batch_next_ready", || {
                         let table_name = query.root.printable_index_name().table();
                         let table_name = if table_name.is_system() {

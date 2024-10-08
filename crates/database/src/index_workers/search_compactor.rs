@@ -22,6 +22,7 @@ use search::{
     Searcher,
 };
 use storage::Storage;
+use tokio::task;
 use value::ResolvedDocumentId;
 
 use crate::{
@@ -88,6 +89,8 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
         }
 
         for job in to_build {
+            task::consume_budget().await;
+
             let index_name = job.index_name.clone();
             let total_segments_compacted = self.build_one(job).await?;
             metrics.insert(index_name, total_segments_compacted);
