@@ -129,6 +129,7 @@ use keybroker::{
     KeyBroker,
 };
 use model::{
+    backend_state::BackendStateModel,
     components::handles::FunctionHandlesModel,
     config::{
         module_loader::ModuleLoader,
@@ -1830,6 +1831,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
         Ok(())
     }
+
+    async fn bail_if_backend_not_running(&self, tx: &mut Transaction<RT>) -> anyhow::Result<()> {
+        let backend_state = BackendStateModel::new(tx).get_backend_state().await?;
+        if backend_state.is_stopped() {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "BackendIsNotRunning",
+                "Cannot perform this operation when the backend is not running"
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -1922,6 +1934,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<String>> {
         let mut tx = self.database.begin(identity).await?;
+        self.bail_if_backend_not_running(&mut tx).await?;
         self.file_storage
             .get_url(&mut tx, component, storage_id)
             .await
@@ -1934,6 +1947,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         storage_id: FileStorageId,
     ) -> anyhow::Result<Option<FileStorageEntry>> {
         let mut tx = self.database.begin(identity).await?;
+        self.bail_if_backend_not_running(&mut tx).await?;
         self.file_storage
             .get_file_entry(&mut tx, component.into(), storage_id)
             .await
@@ -1945,6 +1959,8 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         component: ComponentId,
         entry: FileStorageEntry,
     ) -> anyhow::Result<DeveloperDocumentId> {
+        let mut tx = self.database.begin(identity.clone()).await?;
+        self.bail_if_backend_not_running(&mut tx).await?;
         let (_ts, id, _stats) = self
             .database
             .execute_with_occ_retries(
@@ -1973,6 +1989,8 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         component: ComponentId,
         storage_id: FileStorageId,
     ) -> anyhow::Result<()> {
+        let mut tx = self.database.begin(identity.clone()).await?;
+        self.bail_if_backend_not_running(&mut tx).await?;
         self.database
             .execute_with_occ_retries(
                 identity,
