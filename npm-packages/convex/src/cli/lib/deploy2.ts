@@ -3,6 +3,7 @@ import {
   Context,
   logError,
   logFailure,
+  logMessage,
 } from "../../bundler/context.js";
 import {
   deploymentFetch,
@@ -26,6 +27,33 @@ import { getTargetDeploymentName } from "./deployment.js";
 import { deploymentDashboardUrlPage } from "../dashboard.js";
 import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
+import { promisify } from "node:util";
+import zlib from "node:zlib";
+
+const brotli = promisify(zlib.brotliCompress);
+
+async function brotliCompress(
+  ctx: Context,
+  data: string,
+  opts?: { verbose?: boolean },
+): Promise<Buffer> {
+  const start = performance.now();
+  const result = await brotli(data, {
+    params: {
+      [zlib.constants.BROTLI_PARAM_MODE]: zlib.constants.BROTLI_MODE_TEXT,
+      [zlib.constants.BROTLI_PARAM_QUALITY]: 4,
+    },
+  });
+  const end = performance.now();
+  if (opts?.verbose) {
+    const duration = end - start;
+    logMessage(
+      ctx,
+      `Compressed ${(data.length / 1024).toFixed(2)}KiB to ${(result.length / 1024).toFixed(2)}KiB (${((result.length / data.length) * 100).toFixed(2)}%) in ${duration.toFixed(2)}ms`,
+    );
+  }
+  return result;
+}
 
 /** Push configuration2 to the given remote origin. */
 export async function startPush(
@@ -54,9 +82,11 @@ export async function startPush(
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
-      body: JSON.stringify(request),
+      body: await brotliCompress(ctx, JSON.stringify(request), options),
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
+        "Content-Encoding": "br",
         traceparent: span.encodeW3CTraceparent(),
       },
     });
@@ -206,19 +236,23 @@ export async function finishPush(
     adminKey: string;
     url: string;
     dryRun: boolean;
+    verbose?: boolean;
   },
 ): Promise<FinishPushDiff> {
   changeSpinner(ctx, "Finalizing push...");
   const fetch = deploymentFetch(options.url, options.adminKey);
+  const request = {
+    adminKey: options.adminKey,
+    startPush,
+    dryRun: options.dryRun,
+  };
   try {
     const response = await fetch("/api/deploy2/finish_push", {
-      body: JSON.stringify({
-        adminKey: options.adminKey,
-        startPush,
-        dryRun: options.dryRun,
-      }),
+      body: await brotliCompress(ctx, JSON.stringify(request), options),
       method: "POST",
       headers: {
+        "Content-Type": "application/json",
+        "Content-Encoding": "br",
         traceparent: span.encodeW3CTraceparent(),
       },
     });

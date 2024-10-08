@@ -164,14 +164,6 @@ pub fn router(st: LocalAppState) -> Router {
         .route("/prepare_schema", post(prepare_schema))
         .route("/deploy2/start_push", post(deploy_config2::start_push))
         .route("/run_test_function", post(run_test_function))
-        .layer(
-            ServiceBuilder::new()
-                .layer(HandleErrorLayer::new(|_: Infallible| async {
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }))
-                .layer(RequestDecompressionLayer::new())
-                .layer(DefaultBodyLimit::max(*MAX_PUSH_BYTES)),
-        )
         .route(
             "/deploy2/wait_for_schema",
             post(deploy_config2::wait_for_schema),
@@ -180,6 +172,14 @@ pub fn router(st: LocalAppState) -> Router {
         .route(
             "/deploy2/report_push_completed",
             post(deploy_config2::report_push_completed_handler),
+        )
+        .layer(
+            ServiceBuilder::new()
+                .layer(HandleErrorLayer::new(|_: Infallible| async {
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }))
+                .layer(RequestDecompressionLayer::new())
+                .layer(DefaultBodyLimit::max(*MAX_PUSH_BYTES)),
         )
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))
