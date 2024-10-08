@@ -10,6 +10,7 @@ use common::{
     },
     runtime::Runtime,
     types::{
+        IndexName,
         StableIndexName,
         TabletIndexName,
         WriteTimestamp,
@@ -181,6 +182,10 @@ impl QueryStream for SearchQuery {
 
     fn tablet_index_name(&self) -> Option<&TabletIndexName> {
         self.stable_index_name.tablet_index_name()
+    }
+
+    fn printable_index_name(&self) -> &IndexName {
+        &self.query.index_name
     }
 }
 

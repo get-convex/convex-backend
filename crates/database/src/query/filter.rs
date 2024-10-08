@@ -5,7 +5,10 @@ use common::{
         Expression,
     },
     runtime::Runtime,
-    types::TabletIndexName,
+    types::{
+        IndexName,
+        TabletIndexName,
+    },
 };
 
 use super::{
@@ -74,5 +77,9 @@ impl QueryStream for Filter {
 
     fn tablet_index_name(&self) -> Option<&TabletIndexName> {
         self.inner.tablet_index_name()
+    }
+
+    fn printable_index_name(&self) -> &IndexName {
+        self.inner.printable_index_name()
     }
 }

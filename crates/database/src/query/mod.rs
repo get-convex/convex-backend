@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     marker::PhantomData,
     ops::Deref,
@@ -40,6 +41,7 @@ use futures::{
 };
 use indexing::backend_in_memory_indexes::BatchKey;
 use maplit::btreemap;
+use minitrace::Event;
 use value::TableNamespace;
 
 use self::{
@@ -117,6 +119,9 @@ trait QueryStream: Send {
     /// All queries walk an index of some kind, as long as the table exists.
     /// This is that index name, tied to a tablet.
     fn tablet_index_name(&self) -> Option<&TabletIndexName>;
+
+    /// For logging. All queries have an index name.
+    fn printable_index_name(&self) -> &IndexName;
 }
 
 pub struct DeveloperIndexRangeResponse {
@@ -523,6 +528,10 @@ impl<RT: Runtime> DeveloperQuery<RT> {
             .remove(&0)
             .context("batch_key missing")?
     }
+
+    pub fn printable_index_name(&self) -> &IndexName {
+        self.root.printable_index_name()
+    }
 }
 
 impl<RT: Runtime> ResolvedQuery<RT> {
@@ -596,11 +605,25 @@ pub async fn query_batch_next_<RT: Runtime>(
                     batch_to_feed.insert(batch_key, (query, prefetch_hint));
                 },
                 Ok(QueryStreamNext::Ready(result)) => {
+                    Event::add_to_local_parent("query_batch_next_ready", || {
+                        let table_name = query.root.printable_index_name().table();
+                        let table_name = if table_name.is_system() {
+                            table_name.to_string()
+                        } else {
+                            format!("user_table")
+                        };
+                        [(Cow::Borrowed("query.table"), Cow::Owned(table_name))]
+                    });
+
                     results.insert(batch_key, Ok(result));
                 },
             }
         }
-        let mut responses = index_range_batch(tx, requests).await;
+        let mut responses = if requests.is_empty() {
+            BTreeMap::new()
+        } else {
+            index_range_batch(tx, requests).await
+        };
         let mut next_batch = BTreeMap::new();
         for (batch_key, (query, prefetch_hint)) in batch_to_feed {
             let result: anyhow::Result<_> = try {
@@ -734,6 +757,15 @@ impl QueryStream for QueryNode {
             QueryNode::Search(r) => r.tablet_index_name(),
             QueryNode::Filter(r) => r.tablet_index_name(),
             QueryNode::Limit(r) => r.tablet_index_name(),
+        }
+    }
+
+    fn printable_index_name(&self) -> &IndexName {
+        match self {
+            QueryNode::IndexRange(r) => r.printable_index_name(),
+            QueryNode::Search(r) => r.printable_index_name(),
+            QueryNode::Filter(r) => r.printable_index_name(),
+            QueryNode::Limit(r) => r.printable_index_name(),
         }
     }
 }

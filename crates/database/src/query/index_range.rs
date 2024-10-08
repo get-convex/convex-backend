@@ -322,6 +322,10 @@ impl QueryStream for IndexRange {
     fn tablet_index_name(&self) -> Option<&TabletIndexName> {
         self.stable_index_name.tablet_index_name()
     }
+
+    fn printable_index_name(&self) -> &IndexName {
+        &self.printable_index_name
+    }
 }
 
 impl Drop for IndexRange {

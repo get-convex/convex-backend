@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp,
     collections::{
         BTreeMap,
@@ -49,6 +50,7 @@ use errors::ErrorMetadata;
 use futures::TryStreamExt;
 use imbl::OrdMap;
 use itertools::Itertools;
+use minitrace::Event;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -413,6 +415,7 @@ impl DatabaseIndexSnapshot {
             )
             .await?
         {
+            Self::log_start_range_fetch(range_request.printable_index_name.table(), 1, 0);
             return Ok(Ok((range, CursorPosition::End)));
         }
 
@@ -420,7 +423,39 @@ impl DatabaseIndexSnapshot {
         let cache_results =
             self.cache
                 .get(index.id(), &range_request.interval, range_request.order);
+        let cache_miss_count = cache_results
+            .iter()
+            .filter(|r| matches!(r, DatabaseIndexSnapshotCacheResult::CacheMiss(_)))
+            .count();
+        Self::log_start_range_fetch(
+            range_request.printable_index_name.table(),
+            cache_results.len() - cache_miss_count,
+            cache_miss_count,
+        );
         Ok(Err((index.id(), range_request, cache_results)))
+    }
+
+    fn log_start_range_fetch(table_name: &TableName, cached_ranges: usize, cache_misses: usize) {
+        Event::add_to_local_parent("start_range_fetch", || {
+            let table_name = if table_name.is_system() {
+                table_name.to_string()
+            } else {
+                format!("user_table")
+            };
+            let cached_ranges = cached_ranges.to_string();
+            let cache_misses = cache_misses.to_string();
+            [
+                (Cow::Borrowed("query.table"), Cow::Owned(table_name)),
+                (
+                    Cow::Borrowed("query.cached_ranges"),
+                    Cow::Owned(cached_ranges),
+                ),
+                (
+                    Cow::Borrowed("query.cache_miss_ranges"),
+                    Cow::Owned(cache_misses),
+                ),
+            ]
+        });
     }
 
     /// Query the given index at the snapshot.
