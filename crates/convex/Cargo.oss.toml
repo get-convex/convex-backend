@@ -2,7 +2,7 @@
 name = "convex"
 description = "Client library for Convex (convex.dev)"
 authors = [ "Convex, Inc. <no-reply@convex.dev>" ]
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 rust-version = "1.65.0"
 resolver = "2"
@@ -15,7 +15,7 @@ anyhow = { version = "1" }
 async-trait = { version = "0.1" }
 base64 = { version = "0.13" }
 bytes = { version = "1.1.0" }
-convex_sync_types = { path = "./sync_types", version = "=0.8.0" }
+convex_sync_types = { path = "./sync_types", version = "=0.8.1" }
 futures = { version = "0.3" }
 imbl = { version = "3.0.0" }
 parking_lot = { optional = true, version = "0.12", features = [ "hardware-lock-elision" ] }
@@ -26,14 +26,14 @@ serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1"
 thiserror = { version = "1" }
 tokio = { features = [ "full" ], version = "1" }
 tokio-stream = { features = [ "io-util", "sync" ], version = "0.1" }
-tokio-tungstenite = { version = "0.21.0", features = [ "native-tls-vendored" ] }
+tokio-tungstenite = { features = [], version = "0.21.0" }
 tracing = { version = "0.1" }
 url = { version = "2.5.2" }
 uuid = { features = [ "serde", "v4" ], version = "1.6" }
 
 [dev-dependencies]
 colored = { version = "2" }
-convex_sync_types = { path = "./sync_types", version = "=0.8.0", features = [ "testing" ] }
+convex_sync_types = { path = "./sync_types", version = "=0.8.1", features = [ "testing" ] }
 dotenvy = { version = "0.15.7" }
 maplit = { version = "1" }
 parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }

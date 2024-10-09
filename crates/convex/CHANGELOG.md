@@ -1,5 +1,10 @@
 # Upcoming
 
+# 0.8.1
+
+Remove native-tls-vendored dependency for tokio-tungstenite. Rely on requested
+features instead.
+
 # 0.8.0
 
 - Support for passing through a client_id to ConvexClient
