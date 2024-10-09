@@ -55,7 +55,7 @@ pub static RUNTIME_WORKER_THREADS: LazyLock<usize> =
 /// help with tail latencies until they improve its implementation.
 /// See https://docs.rs/tokio/latest/tokio/runtime/struct.Builder.html#method.disable_lifo_slot.
 pub static RUNTIME_DISABLE_LIFO_SLOT: LazyLock<bool> =
-    LazyLock::new(|| env_config("RUNTIME_DISABLE_LIFO_SLOT", false));
+    LazyLock::new(|| env_config("RUNTIME_DISABLE_LIFO_SLOT", true));
 
 /// Maximum size of the UDF cache. Default 100MiB.
 pub static UDF_CACHE_MAX_SIZE: LazyLock<usize> =
