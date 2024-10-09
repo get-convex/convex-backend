@@ -368,10 +368,6 @@ pub static DOCUMENT_RETENTION_DELAY: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("DOCUMENT_RETENTION_DELAY", 60 * 60 * 24 * 90))
 });
 
-/// Resets DocumentRetentionConfirmedDeletedTimestamp to Timestamp::MIN
-pub static RESET_DOCUMENT_RETENTION: LazyLock<bool> =
-    LazyLock::new(|| env_config("RESET_DOCUMENT_RETENTION", false));
-
 /// The time backend should wait before it acquires the lease. This wait allows
 /// for the backend to be added to service discovery, before it renders the
 /// previous backends unusable.
