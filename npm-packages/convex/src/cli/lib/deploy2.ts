@@ -3,7 +3,7 @@ import {
   Context,
   logError,
   logFailure,
-  logMessage,
+  logVerbose,
 } from "../../bundler/context.js";
 import {
   deploymentFetch,
@@ -32,11 +32,7 @@ import zlib from "node:zlib";
 
 const brotli = promisify(zlib.brotliCompress);
 
-async function brotliCompress(
-  ctx: Context,
-  data: string,
-  opts?: { verbose?: boolean },
-): Promise<Buffer> {
+async function brotliCompress(ctx: Context, data: string): Promise<Buffer> {
   const start = performance.now();
   const result = await brotli(data, {
     params: {
@@ -45,13 +41,11 @@ async function brotliCompress(
     },
   });
   const end = performance.now();
-  if (opts?.verbose) {
-    const duration = end - start;
-    logMessage(
-      ctx,
-      `Compressed ${(data.length / 1024).toFixed(2)}KiB to ${(result.length / 1024).toFixed(2)}KiB (${((result.length / data.length) * 100).toFixed(2)}%) in ${duration.toFixed(2)}ms`,
-    );
-  }
+  const duration = end - start;
+  logVerbose(
+    ctx,
+    `Compressed ${(data.length / 1024).toFixed(2)}KiB to ${(result.length / 1024).toFixed(2)}KiB (${((result.length / data.length) * 100).toFixed(2)}%) in ${duration.toFixed(2)}ms`,
+  );
   return result;
 }
 
@@ -62,14 +56,11 @@ export async function startPush(
   request: StartPushRequest,
   options: {
     url: string;
-    verbose?: boolean;
   },
 ): Promise<StartPushResponse> {
-  if (options.verbose) {
-    const custom = (_k: string | number, s: any) =>
-      typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
-    console.log(JSON.stringify(request, custom, 2));
-  }
+  const custom = (_k: string | number, s: any) =>
+    typeof s === "string" ? s.slice(0, 40) + (s.length > 40 ? "..." : "") : s;
+  logVerbose(ctx, JSON.stringify(request, custom, 2));
   const onError = (err: any) => {
     if (err.toString() === "TypeError: fetch failed") {
       changeSpinner(
@@ -82,7 +73,7 @@ export async function startPush(
   changeSpinner(ctx, "Analyzing and deploying source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
-      body: await brotliCompress(ctx, JSON.stringify(request), options),
+      body: await brotliCompress(ctx, JSON.stringify(request)),
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -248,7 +239,7 @@ export async function finishPush(
   };
   try {
     const response = await fetch("/api/deploy2/finish_push", {
-      body: await brotliCompress(ctx, JSON.stringify(request), options),
+      body: await brotliCompress(ctx, JSON.stringify(request)),
       method: "POST",
       headers: {
         "Content-Type": "application/json",

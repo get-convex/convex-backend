@@ -77,7 +77,7 @@ export async function componentApiDTS(
     rootComponent,
     componentDirectory,
   );
-  const absModulePaths = await entryPoints(ctx, componentDirectory.path, false);
+  const absModulePaths = await entryPoints(ctx, componentDirectory.path);
   const modulePaths = absModulePaths.map((p) =>
     path.relative(componentDirectory.path, p),
   );

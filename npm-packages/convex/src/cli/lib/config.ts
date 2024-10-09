@@ -328,7 +328,7 @@ export async function configFromProjectConfig(
   const baseDir = functionsDir(configPath, projectConfig);
   // We bundle functions entry points separately since they execute on different
   // platforms.
-  const entryPoints = await entryPointsByEnvironment(ctx, baseDir, verbose);
+  const entryPoints = await entryPointsByEnvironment(ctx, baseDir);
   // es-build prints errors to console which would clobber
   // our spinner.
   if (verbose) {

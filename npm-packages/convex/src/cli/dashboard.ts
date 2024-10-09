@@ -1,7 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
-import { logMessage, oneoffContext } from "../bundler/context.js";
+import { logMessage, logOutput, oneoffContext } from "../bundler/context.js";
 import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsProvisionProd,
@@ -48,7 +48,7 @@ export const dashboard = new Command("dashboard")
       );
       await open(loginUrl);
     } else {
-      console.log(loginUrl);
+      logOutput(ctx, loginUrl);
     }
   });
 

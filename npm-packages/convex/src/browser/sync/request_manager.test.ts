@@ -2,11 +2,14 @@ import { test, expect, beforeEach } from "vitest";
 import { RequestManager } from "./request_manager.js";
 import { Long } from "../long.js";
 import { ActionRequest, MutationRequest } from "./protocol.js";
+import { instantiateDefaultLogger } from "../logging.js";
 
 let requestManager: RequestManager;
 
 beforeEach(() => {
-  requestManager = new RequestManager();
+  requestManager = new RequestManager(
+    instantiateDefaultLogger({ verbose: false }),
+  );
 });
 
 test("hasIncompleteRequests", () => {

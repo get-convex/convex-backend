@@ -42,6 +42,7 @@ export async function withInMemoryWebSocket(
       socket = ws;
       ws.on("message", function message(data: string) {
         received(data);
+        // eslint-disable-next-line no-console
         if (debug) console.debug(`client --${JSON.parse(data).type}--> `);
         messages.push(
           new Promise((r) => {
@@ -62,6 +63,7 @@ export async function withInMemoryWebSocket(
     return JSON.parse(await msgP);
   }
   function send(message: ServerMessage) {
+    // eslint-disable-next-line no-console
     if (debug) console.debug(`      <--${message.type}-- server`);
     socket!.send(encodeServerMessage(message));
   }
@@ -76,6 +78,7 @@ export async function withInMemoryWebSocket(
       receive,
       send,
       close: () => {
+        // eslint-disable-next-line no-console
         if (debug) console.debug(`           -->8-CLOSE- server`);
         socket!.close();
         setUpSocket();

@@ -43,6 +43,9 @@ export async function runNonComponentsPush(
   const timeRunPushStarts = performance.now();
   const origin = options.url;
   const verbose = options.verbose || options.dryRun;
+  if (verbose) {
+    process.env["CONVEX_VERBOSE"] = "1";
+  }
   await ensureHasConvexDependency(ctx, "push");
 
   if (!options.codegen) {

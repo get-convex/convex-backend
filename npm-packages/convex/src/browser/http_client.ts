@@ -12,7 +12,7 @@ import {
   convexToJson,
   jsonToConvex,
 } from "../values/index.js";
-import { logToConsole } from "./logging.js";
+import { instantiateDefaultLogger, logForFunction, Logger } from "./logging.js";
 import { FunctionArgs, UserIdentityAttributes } from "../server/index.js";
 
 export const STATUS_CODE_OK = 200;
@@ -46,20 +46,34 @@ export class ConvexHttpClient {
   private encodedTsPromise?: Promise<string>;
   private debug: boolean;
   private fetchOptions?: FetchOptions;
-
+  private logger: Logger;
   /**
    * Create a new {@link ConvexHttpClient}.
    *
    * @param address - The url of your Convex deployment, often provided
    * by an environment variable. E.g. `https://small-mouse-123.convex.cloud`.
-   * @param skipConvexDeploymentUrlCheck - Skip validating that the Convex deployment URL looks like
+   * @param options - An object of options.
+   * - `skipConvexDeploymentUrlCheck` - Skip validating that the Convex deployment URL looks like
    * `https://happy-animal-123.convex.cloud` or localhost. This can be useful if running a self-hosted
    * Convex backend that uses a different URL.
+   * - `logger` - A logger. If not provided, logs to the console.
+   * You can construct your own logger to customize logging to log elsewhere
+   * or not log at all.
    */
-  constructor(address: string, skipConvexDeploymentUrlCheck?: boolean) {
-    if (skipConvexDeploymentUrlCheck !== true) {
+  constructor(
+    address: string,
+    options?: { skipConvexDeploymentUrlCheck?: boolean; logger?: Logger },
+  ) {
+    if (typeof options === "boolean") {
+      throw new Error(
+        "skipConvexDeploymentUrlCheck as the second argument is no longer supported. Please pass an options object, `{ skipConvexDeploymentUrlCheck: true }`.",
+      );
+    }
+    const opts = options ?? {};
+    if (opts.skipConvexDeploymentUrlCheck !== true) {
       validateDeploymentUrl(address);
     }
+    this.logger = opts.logger ?? instantiateDefaultLogger({ verbose: false });
     this.address = address;
     this.debug = true;
   }
@@ -255,7 +269,7 @@ export class ConvexHttpClient {
 
     if (this.debug) {
       for (const line of respJSON.logLines ?? []) {
-        logToConsole("info", "query", name, line);
+        logForFunction(this.logger, "info", "query", name, line);
       }
     }
     switch (respJSON.status) {
@@ -316,7 +330,7 @@ export class ConvexHttpClient {
     const respJSON = await response.json();
     if (this.debug) {
       for (const line of respJSON.logLines ?? []) {
-        logToConsole("info", "mutation", name, line);
+        logForFunction(this.logger, "info", "mutation", name, line);
       }
     }
     switch (respJSON.status) {
@@ -377,7 +391,7 @@ export class ConvexHttpClient {
     const respJSON = await response.json();
     if (this.debug) {
       for (const line of respJSON.logLines ?? []) {
-        logToConsole("info", "action", name, line);
+        logForFunction(this.logger, "info", "action", name, line);
       }
     }
     switch (respJSON.status) {
@@ -447,7 +461,7 @@ export class ConvexHttpClient {
     const respJSON = await response.json();
     if (this.debug) {
       for (const line of respJSON.logLines ?? []) {
-        logToConsole("info", "any", name, line);
+        logForFunction(this.logger, "info", "any", name, line);
       }
     }
     switch (respJSON.status) {

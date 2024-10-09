@@ -22,6 +22,7 @@ import {
   makeFunctionReference,
 } from "../server/api.js";
 import { EmptyObject } from "../server/registration.js";
+import { instantiateDefaultLogger, Logger } from "../browser/logging.js";
 
 if (typeof React === "undefined") {
   throw new Error("Required dependency 'react' not found");
@@ -228,6 +229,7 @@ export class ConvexReactClient {
   private listeners: Map<QueryToken, Set<() => void>>;
   private options: ConvexReactClientOptions;
   private closed = false;
+  private _logger: Logger;
 
   private adminAuth?: string;
   private fakeUserIdentity?: UserIdentityAttributes;
@@ -257,7 +259,10 @@ export class ConvexReactClient {
     }
     this.address = address;
     this.listeners = new Map();
-    this.options = { ...options };
+    this._logger =
+      options?.logger ??
+      instantiateDefaultLogger({ verbose: options?.verbose ?? false });
+    this.options = { ...options, logger: this._logger };
   }
 
   /**
@@ -485,6 +490,15 @@ export class ConvexReactClient {
    */
   connectionState(): ConnectionState {
     return this.sync.connectionState();
+  }
+
+  /**
+   * Get the logger for this client.
+   *
+   * @returns The {@link Logger} for this client.
+   */
+  get logger(): Logger {
+    return this._logger;
   }
 
   /**

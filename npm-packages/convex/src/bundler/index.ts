@@ -5,7 +5,7 @@ import { parse as parseAST } from "@babel/parser";
 import { Identifier, ImportSpecifier } from "@babel/types";
 import * as Sentry from "@sentry/node";
 import { Filesystem } from "./fs.js";
-import { Context, logWarning } from "./context.js";
+import { Context, logVerbose, logWarning } from "./context.js";
 import { wasmPlugin } from "./wasm.js";
 import {
   ExternalPackage,
@@ -315,15 +315,8 @@ export async function doesImportConvexHttpRouter(source: string) {
 export async function entryPoints(
   ctx: Context,
   dir: string,
-  verbose: boolean,
 ): Promise<string[]> {
   const entryPoints = [];
-
-  const log = (line: string) => {
-    if (verbose) {
-      console.log(line);
-    }
-  };
 
   for (const { isDir, path: fpath, depth } of walkDir(ctx.fs, dir)) {
     if (isDir) {
@@ -358,33 +351,39 @@ export async function entryPoints(
     }
 
     if (relPath.startsWith("_generated" + path.sep)) {
-      log(chalk.yellow(`Skipping ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (base.startsWith(".")) {
-      log(chalk.yellow(`Skipping dotfile ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping dotfile ${fpath}`));
     } else if (base.startsWith("#")) {
-      log(chalk.yellow(`Skipping likely emacs tempfile ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping likely emacs tempfile ${fpath}`));
     } else if (base === "README.md") {
-      log(chalk.yellow(`Skipping ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (base === "_generated.ts") {
-      log(chalk.yellow(`Skipping ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (base === "schema.ts" || base === "schema.js") {
-      log(chalk.yellow(`Skipping ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if ((base.match(/\./g) || []).length > 1) {
-      log(chalk.yellow(`Skipping ${fpath} that contains multiple dots`));
+      logVerbose(
+        ctx,
+        chalk.yellow(`Skipping ${fpath} that contains multiple dots`),
+      );
     } else if (base === "tsconfig.json") {
-      log(chalk.yellow(`Skipping ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (relPath.endsWith(".config.js")) {
-      log(chalk.yellow(`Skipping ${fpath}`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (relPath.includes(" ")) {
-      log(chalk.yellow(`Skipping ${relPath} because it contains a space`));
+      logVerbose(
+        ctx,
+        chalk.yellow(`Skipping ${relPath} because it contains a space`),
+      );
     } else if (base.endsWith(".d.ts")) {
-      log(chalk.yellow(`Skipping ${fpath} declaration file`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} declaration file`));
     } else if (base.endsWith(".json")) {
-      log(chalk.yellow(`Skipping ${fpath} json file`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} json file`));
     } else if (base.endsWith(".jsonl")) {
-      log(chalk.yellow(`Skipping ${fpath} jsonl file`));
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} jsonl file`));
     } else {
-      log(chalk.green(`Preparing ${fpath}`));
+      logVerbose(ctx, chalk.green(`Preparing ${fpath}`));
       entryPoints.push(fpath);
     }
   }
@@ -400,7 +399,8 @@ export async function entryPoints(
     if (/^\s{0,100}(import|export)/m.test(contents)) {
       return true;
     }
-    log(
+    logVerbose(
+      ctx,
       chalk.yellow(
         `Skipping ${fpath} because it has no export or import to make it a valid TypeScript module`,
       ),
@@ -413,14 +413,10 @@ export async function entryPoints(
 // A fallback regex in case we fail to parse the AST.
 export const useNodeDirectiveRegex = /^\s*("|')use node("|');?\s*$/;
 
-function hasUseNodeDirective(
-  fs: Filesystem,
-  fpath: string,
-  verbose: boolean,
-): boolean {
+function hasUseNodeDirective(ctx: Context, fpath: string): boolean {
   // Do a quick check for the exact string. If it doesn't exist, don't
   // bother parsing.
-  const source = fs.readUtf8File(fpath);
+  const source = ctx.fs.readUtf8File(fpath);
   if (source.indexOf("use node") === -1) {
     return false;
   }
@@ -451,12 +447,11 @@ function hasUseNodeDirective(
       }
     }
 
-    if (verbose) {
-      // Log that we failed to parse in verbose node if we need this for debugging.
-      console.warn(
-        `Failed to parse ${fpath}. Use node is set to ${lineMatches} based on regex. Parse error: ${error.toString()}.`,
-      );
-    }
+    // Log that we failed to parse in verbose node if we need this for debugging.
+    logVerbose(
+      ctx,
+      `Failed to parse ${fpath}. Use node is set to ${lineMatches} based on regex. Parse error: ${error.toString()}.`,
+    );
 
     return lineMatches;
   }
@@ -473,11 +468,10 @@ async function determineEnvironment(
   ctx: Context,
   dir: string,
   fpath: string,
-  verbose: boolean,
 ): Promise<ModuleEnvironment> {
   const relPath = path.relative(dir, fpath);
 
-  const useNodeDirectiveFound = hasUseNodeDirective(ctx.fs, fpath, verbose);
+  const useNodeDirectiveFound = hasUseNodeDirective(ctx, fpath);
   if (useNodeDirectiveFound) {
     if (mustBeIsolate(relPath)) {
       return await ctx.crash({
@@ -501,20 +495,11 @@ async function determineEnvironment(
   return "isolate";
 }
 
-export async function entryPointsByEnvironment(
-  ctx: Context,
-  dir: string,
-  verbose: boolean,
-) {
+export async function entryPointsByEnvironment(ctx: Context, dir: string) {
   const isolate = [];
   const node = [];
-  for (const entryPoint of await entryPoints(ctx, dir, verbose)) {
-    const environment = await determineEnvironment(
-      ctx,
-      dir,
-      entryPoint,
-      verbose,
-    );
+  for (const entryPoint of await entryPoints(ctx, dir)) {
+    const environment = await determineEnvironment(ctx, dir, entryPoint);
     if (environment === "node") {
       node.push(entryPoint);
     } else {

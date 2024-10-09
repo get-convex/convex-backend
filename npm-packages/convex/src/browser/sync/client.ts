@@ -3,7 +3,9 @@ import { convexToJson, Value } from "../../values/index.js";
 import {
   createHybridErrorStacktrace,
   forwardData,
+  instantiateDefaultLogger,
   logFatalError,
+  Logger,
 } from "../logging.js";
 import { LocalSyncState } from "./local_state.js";
 import { RequestManager } from "./request_manager.js";
@@ -67,6 +69,13 @@ export interface BaseConvexClientOptions {
    * The default value is `false`.
    */
   verbose?: boolean;
+  /**
+   * A logger. If not provided, logs to the console.
+   *
+   * You can construct your own logger to customize logging to log elsewhere
+   * or not log at all.
+   */
+  logger?: Logger;
   /**
    * Sends additional metrics to Convex for debugging purposes.
    *
@@ -153,8 +162,8 @@ export class BaseConvexClient {
   private _nextRequestId: RequestId;
   private readonly _sessionId: string;
   private firstMessageReceived = false;
-  private readonly verbose: boolean;
   private readonly debug: boolean;
+  private readonly logger: Logger;
   private maxObservedTimestamp: TS | undefined;
 
   /**
@@ -185,10 +194,11 @@ export class BaseConvexClient {
       );
     }
     webSocketConstructor = webSocketConstructor || WebSocket;
-    this.verbose = options.verbose ?? false;
     this.debug = options.reportDebugInfoToConvex ?? false;
     this.address = address;
-
+    this.logger =
+      options.logger ??
+      instantiateDefaultLogger({ verbose: options.verbose ?? false });
     // Substitute http(s) with ws(s)
     const i = address.search("://");
     if (i === -1) {
@@ -207,10 +217,11 @@ export class BaseConvexClient {
     const wsUri = `${wsProtocol}://${origin}/api/${version}/sync`;
 
     this.state = new LocalSyncState();
-    this.remoteQuerySet = new RemoteQuerySet((queryId) =>
-      this.state.queryPath(queryId),
+    this.remoteQuerySet = new RemoteQuerySet(
+      (queryId) => this.state.queryPath(queryId),
+      this.logger,
     );
-    this.requestManager = new RequestManager();
+    this.requestManager = new RequestManager(this.logger);
     this.authenticationManager = new AuthenticationManager(this.state, {
       authenticate: (token) => {
         const message = this.state.setAuth(token);
@@ -226,7 +237,7 @@ export class BaseConvexClient {
       clearAuth: () => {
         this.clearAuth();
       },
-      verbose: this.verbose,
+      logger: this.logger,
     });
     this.optimisticQueryResults = new OptimisticQueryResults();
     this.onTransition = onTransition;
@@ -279,8 +290,9 @@ export class BaseConvexClient {
           const oldRemoteQueryResults = new Set(
             this.remoteQuerySet.remoteQueryResults().keys(),
           );
-          this.remoteQuerySet = new RemoteQuerySet((queryId) =>
-            this.state.queryPath(queryId),
+          this.remoteQuerySet = new RemoteQuerySet(
+            (queryId) => this.state.queryPath(queryId),
+            this.logger,
           );
           const [querySetModification, authModification] = this.state.restart(
             oldRemoteQueryResults,
@@ -345,7 +357,7 @@ export class BaseConvexClient {
               break;
             }
             case "FatalError": {
-              const error = logFatalError(serverMessage.error);
+              const error = logFatalError(this.logger, serverMessage.error);
               void this.webSocketManager.terminate();
               throw error;
             }
@@ -362,7 +374,7 @@ export class BaseConvexClient {
         },
       },
       webSocketConstructor,
-      this.verbose,
+      this.logger,
     );
     this.mark("convexClientConstructed");
   }
@@ -781,14 +793,14 @@ export class BaseConvexClient {
     })
       .then((response) => {
         if (!response.ok) {
-          console.warn(
+          this.logger.warn(
             "Analytics request failed with response:",
             response.body,
           );
         }
       })
       .catch((error) => {
-        console.warn("Analytics response failed with error:", error);
+        this.logger.warn("Analytics response failed with error:", error);
       });
   }
 }

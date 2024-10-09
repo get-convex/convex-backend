@@ -4,6 +4,7 @@ import path from "path";
 import { performance } from "perf_hooks";
 import {
   OneoffCtx,
+  logError,
   logFinishedStep,
   logMessage,
   logVerbose,
@@ -278,6 +279,8 @@ export async function watchAndPush(
       }
 
       // Fall through if we had a filesystem-based error.
+      // TODO(sarah): Replace this with `logError`.
+      // eslint-disable-next-line no-console
       console.assert(
         e.errorType === "invalid filesystem data" ||
           e.errorType === "invalid filesystem or env vars" ||
@@ -526,8 +529,13 @@ function getFileSystemWatch(
             }
           }
         } else {
-          console.assert(result === "timeout");
           // Let the check above `break` from the loop if we're past our deadlne.
+          if (result !== "timeout") {
+            logError(
+              ctx,
+              "Assertion failed: Unexpected result from watcher: " + result,
+            );
+          }
         }
       }
     },

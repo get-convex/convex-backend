@@ -19,6 +19,7 @@ import {
   logFailure,
   logFinishedStep,
   logMessage,
+  logOutput,
   showSpinner,
 } from "../../bundler/context.js";
 import { Issuer } from "openid-client";
@@ -369,7 +370,7 @@ export async function performLogin(
   }
 
   if (dumpAccessToken) {
-    console.log(`${accessToken}`);
+    logOutput(ctx, `${accessToken}`);
     return await ctx.crash({
       exitCode: 0,
       errorType: "fatal",

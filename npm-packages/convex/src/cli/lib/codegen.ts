@@ -488,7 +488,7 @@ async function doApiCodegen(
   generateCommonJSApi: boolean,
   opts?: { dryRun?: boolean; debug?: boolean },
 ) {
-  const absModulePaths = await entryPoints(ctx, functionsDir, false);
+  const absModulePaths = await entryPoints(ctx, functionsDir);
   const modulePaths = absModulePaths.map((p) => path.relative(functionsDir, p));
 
   const apiContent = apiCodegen(modulePaths);

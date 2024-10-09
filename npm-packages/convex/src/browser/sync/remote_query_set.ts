@@ -1,6 +1,6 @@
 import { jsonToConvex } from "../../values/index.js";
 import { Long } from "../long.js";
-import { logToConsole } from "../logging.js";
+import { logForFunction, Logger } from "../logging.js";
 import { QueryId, StateVersion, Transition } from "./protocol.js";
 import { FunctionResult } from "./function_result.js";
 
@@ -12,11 +12,13 @@ export class RemoteQuerySet {
   private version: StateVersion;
   private readonly remoteQuerySet: Map<QueryId, FunctionResult>;
   private readonly queryPath: (queryId: QueryId) => string | null;
+  private readonly logger: Logger;
 
-  constructor(queryPath: (queryId: QueryId) => string | null) {
+  constructor(queryPath: (queryId: QueryId) => string | null, logger: Logger) {
     this.version = { querySet: 0, ts: Long.fromNumber(0), identity: 0 };
     this.remoteQuerySet = new Map();
     this.queryPath = queryPath;
+    this.logger = logger;
   }
 
   transition(transition: Transition): void {
@@ -36,7 +38,7 @@ export class RemoteQuerySet {
           const queryPath = this.queryPath(modification.queryId);
           if (queryPath) {
             for (const line of modification.logLines) {
-              logToConsole("info", "query", queryPath, line);
+              logForFunction(this.logger, "info", "query", queryPath, line);
             }
           }
           const value = jsonToConvex(modification.value ?? null);
@@ -51,7 +53,7 @@ export class RemoteQuerySet {
           const queryPath = this.queryPath(modification.queryId);
           if (queryPath) {
             for (const line of modification.logLines) {
-              logToConsole("info", "query", queryPath, line);
+              logForFunction(this.logger, "info", "query", queryPath, line);
             }
           }
           const { errorData } = modification;

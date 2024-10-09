@@ -1,3 +1,4 @@
+/* eslint-disable no-console */ // This is the one file where we can `console.log` for the default logger implementation.
 import { ConvexError, Value } from "../values/index.js";
 import { FunctionFailure } from "./sync/function_result.js";
 
@@ -20,7 +21,97 @@ function prefix_for_source(source: UdfType) {
   }
 }
 
-export function logToConsole(
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+/**
+ * A logger that can be used to log messages. By default, this is a wrapper
+ * around `console`, but can be configured to not log at all or to log somewhere
+ * else.
+ */
+export class Logger {
+  private _onLogLineFuncs: Record<
+    string,
+    (level: LogLevel, ...args: any[]) => void
+  >;
+  private _verbose: boolean;
+
+  constructor(options: { verbose: boolean }) {
+    this._onLogLineFuncs = {};
+    this._verbose = options.verbose;
+  }
+
+  addLogLineListener(
+    func: (level: LogLevel, ...args: any[]) => void,
+  ): () => void {
+    let id = Math.random().toString(36).substring(2, 15);
+    for (let i = 0; i < 10; i++) {
+      if (this._onLogLineFuncs[id] === undefined) {
+        break;
+      }
+      id = Math.random().toString(36).substring(2, 15);
+    }
+    this._onLogLineFuncs[id] = func;
+    return () => {
+      delete this._onLogLineFuncs[id];
+    };
+  }
+
+  logVerbose(...args: any[]) {
+    if (this._verbose) {
+      for (const func of Object.values(this._onLogLineFuncs)) {
+        func("debug", `${new Date().toISOString()}`, ...args);
+      }
+    }
+  }
+
+  log(...args: any[]) {
+    for (const func of Object.values(this._onLogLineFuncs)) {
+      func("info", ...args);
+    }
+  }
+
+  warn(...args: any[]) {
+    for (const func of Object.values(this._onLogLineFuncs)) {
+      func("warn", ...args);
+    }
+  }
+
+  error(...args: any[]) {
+    for (const func of Object.values(this._onLogLineFuncs)) {
+      func("error", ...args);
+    }
+  }
+}
+
+export function instantiateDefaultLogger(options: {
+  verbose: boolean;
+}): Logger {
+  const logger = new Logger(options);
+  logger.addLogLineListener((level, ...args) => {
+    switch (level) {
+      case "debug":
+        console.debug(...args);
+        break;
+      case "info":
+        console.log(...args);
+        break;
+      case "warn":
+        console.warn(...args);
+        break;
+      case "error":
+        console.error(...args);
+        break;
+      default: {
+        const _typecheck: never = level;
+        console.log(...args);
+      }
+    }
+  });
+  return logger;
+}
+
+export function logForFunction(
+  logger: Logger,
   type: "info" | "error",
   source: UdfType,
   udfPath: string,
@@ -34,7 +125,7 @@ export function logToConsole(
   if (type === "info") {
     const match = message.match(/^\[.*?\] /);
     if (match === null) {
-      console.error(
+      logger.error(
         `[CONVEX ${prefix}(${udfPath})] Could not parse console.log`,
       );
       return;
@@ -42,19 +133,15 @@ export function logToConsole(
     const level = message.slice(1, match[0].length - 2);
     const args = message.slice(match[0].length);
 
-    console.log(
-      `%c[CONVEX ${prefix}(${udfPath})] [${level}]`,
-      INFO_COLOR,
-      args,
-    );
+    logger.log(`%c[CONVEX ${prefix}(${udfPath})] [${level}]`, INFO_COLOR, args);
   } else {
-    console.error(`[CONVEX ${prefix}(${udfPath})] ${message}`);
+    logger.error(`[CONVEX ${prefix}(${udfPath})] ${message}`);
   }
 }
 
-export function logFatalError(message: string): Error {
+export function logFatalError(logger: Logger, message: string): Error {
   const errorMessage = `[CONVEX FATAL ERROR] ${message}`;
-  console.error(errorMessage);
+  logger.error(errorMessage);
   return new Error(errorMessage);
 }
 

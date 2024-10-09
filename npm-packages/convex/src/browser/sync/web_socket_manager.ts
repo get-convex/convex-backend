@@ -1,3 +1,4 @@
+import { Logger } from "../logging.js";
 import {
   ClientMessage,
   encodeClientMessage,
@@ -124,7 +125,7 @@ export class WebSocketManager {
   private readonly onResume: () => void;
   private readonly onMessage: (message: ServerMessage) => OnMessageResponse;
   private readonly webSocketConstructor: typeof WebSocket;
-  private readonly verbose: boolean;
+  private readonly logger: Logger;
 
   constructor(
     uri: string,
@@ -134,7 +135,7 @@ export class WebSocketManager {
       onMessage: (message: ServerMessage) => OnMessageResponse;
     },
     webSocketConstructor: typeof WebSocket,
-    verbose: boolean,
+    logger: Logger,
   ) {
     this.webSocketConstructor = webSocketConstructor;
     this.socket = { state: "disconnected" };
@@ -152,7 +153,7 @@ export class WebSocketManager {
     this.onOpen = callbacks.onOpen;
     this.onResume = callbacks.onResume;
     this.onMessage = callbacks.onMessage;
-    this.verbose = verbose;
+    this.logger = logger;
 
     this.connect();
   }
@@ -185,7 +186,7 @@ export class WebSocketManager {
     this.resetServerInactivityTimeout();
 
     ws.onopen = () => {
-      this._logVerbose("begin ws.onopen");
+      this.logger.logVerbose("begin ws.onopen");
       if (this.socket.state !== "connecting") {
         throw new Error("onopen called with socket not in connecting state");
       }
@@ -203,7 +204,7 @@ export class WebSocketManager {
       }
 
       if (this.lastCloseReason !== "InitialConnect") {
-        console.log("WebSocket reconnected");
+        this.logger.log("WebSocket reconnected");
       }
 
       this.connectionCount += 1;
@@ -212,7 +213,7 @@ export class WebSocketManager {
     // NB: The WebSocket API calls `onclose` even if connection fails, so we can route all error paths through `onclose`.
     ws.onerror = (error) => {
       const message = (error as ErrorEvent).message;
-      console.log(`WebSocket error: ${message}`);
+      this.logger.log(`WebSocket error: ${message}`);
     };
     ws.onmessage = (message) => {
       this.resetServerInactivityTimeout();
@@ -239,7 +240,7 @@ export class WebSocketManager {
         if (event.reason) {
           msg += `: ${event.reason}`;
         }
-        console.log(msg);
+        this.logger.log(msg);
       }
       this.scheduleReconnect();
       return;
@@ -266,7 +267,7 @@ export class WebSocketManager {
       try {
         this.socket.ws.send(request);
       } catch (error: any) {
-        console.log(
+        this.logger.log(
           `Failed to send message on WebSocket, reconnecting: ${error}`,
         );
         this.closeAndReconnect("FailedToSendMessage");
@@ -294,7 +295,7 @@ export class WebSocketManager {
   private scheduleReconnect() {
     this.socket = { state: "disconnected" };
     const backoff = this.nextBackoff();
-    console.log(`Attempting reconnect in ${backoff}ms`);
+    this.logger.log(`Attempting reconnect in ${backoff}ms`);
     setTimeout(() => this.connect(), backoff);
   }
 
@@ -498,9 +499,7 @@ export class WebSocketManager {
   }
 
   private _logVerbose(message: string) {
-    if (this.verbose) {
-      console.debug(`${new Date().toISOString()} ${message}`);
-    }
+    this.logger.logVerbose(message);
   }
 
   private nextBackoff(): number {

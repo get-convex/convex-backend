@@ -33,11 +33,14 @@ let warned = false;
 function warnCrossFilesystem(dstPath: string) {
   const dstDir = path.dirname(dstPath);
   if (!warned) {
+    // It's hard for these to use `logMessage` without creating a circular dependency, so just log directly.
+    // eslint-disable-next-line no-console
     console.warn(
       chalk.yellow(
         `Temporary directory '${tmpDirRoot}' and project directory '${dstDir}' are on different filesystems.`,
       ),
     );
+    // eslint-disable-next-line no-console
     console.warn(
       chalk.gray(
         `  If you're running into errors with other tools watching the project directory, override the temporary directory location with the ${chalk.bold(
@@ -45,6 +48,7 @@ function warnCrossFilesystem(dstPath: string) {
         )} environment variable.`,
       ),
     );
+    // eslint-disable-next-line no-console
     console.warn(
       chalk.gray(
         `  Be sure to pick a temporary directory that's on the same filesystem as your project.`,
@@ -246,6 +250,7 @@ export class RecordingFs implements Filesystem {
     if (existingNames) {
       if (!setsEqual(observedNames, existingNames)) {
         if (this.traceEvents) {
+          // eslint-disable-next-line no-console
           console.log(
             "Invalidating due to directory children mismatch",
             observedNames,
@@ -409,6 +414,7 @@ export class RecordingFs implements Filesystem {
       const stMatch = stMatches(observed, existing);
       if (!stMatch.matches) {
         if (this.traceEvents) {
+          // eslint-disable-next-line no-console
           console.log(
             "Invalidating due to st mismatch",
             absPath,

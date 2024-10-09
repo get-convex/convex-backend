@@ -2,7 +2,12 @@ import { Command } from "@commander-js/extra-typings";
 import { readProjectConfig } from "./lib/config.js";
 import chalk from "chalk";
 import { bigBrainAPI } from "./lib/utils/utils.js";
-import { logError, logMessage, oneoffContext } from "../bundler/context.js";
+import {
+  logError,
+  logMessage,
+  logOutput,
+  oneoffContext,
+} from "../bundler/context.js";
 
 type Deployment = {
   id: number;
@@ -25,7 +30,7 @@ export const deployments = new Command("deployments")
       method: "GET",
       url,
     })) as Deployment[];
-    console.log(deployments);
+    logOutput(ctx, deployments);
     if (deployments.length === 0) {
       logError(ctx, chalk.yellow(`No deployments exist for project`));
     }

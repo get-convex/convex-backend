@@ -15,6 +15,7 @@ import {
   getFunctionName,
 } from "../server/api.js";
 import { BetterOmit, Expand } from "../type_utils.js";
+import { useConvex } from "./client.js";
 
 /**
  * A {@link server.FunctionReference} that is usable with {@link usePaginatedQuery}.
@@ -227,6 +228,8 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
     currState = createInitialState();
     setState(currState);
   }
+  const convexClient = useConvex();
+  const logger = convexClient.logger;
 
   const resultsObject = useQueries(currState.queries);
 
@@ -252,7 +255,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
 
           // In all cases, we want to restart pagination to throw away all our
           // existing cursors.
-          console.warn(
+          logger.warn(
             "usePaginatedQuery hit error, resetting pagination state: " +
               currResult.message,
           );
@@ -302,6 +305,7 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
     currState.ongoingSplits,
     options.initialNumItems,
     createInitialState,
+    logger,
   ]);
 
   const statusObject = useMemo(() => {

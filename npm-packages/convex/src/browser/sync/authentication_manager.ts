@@ -1,3 +1,4 @@
+import { Logger } from "../logging.js";
 import { LocalSyncState } from "./local_state.js";
 import { AuthError, Transition } from "./protocol.js";
 import { jwtDecode } from "jwt-decode";
@@ -89,7 +90,7 @@ export class AuthenticationManager {
   private readonly resumeSocket: () => void;
   // Passed down by BaseClient, sends a message to the server
   private readonly clearAuth: () => void;
-  private readonly verbose: boolean;
+  private readonly logger: Logger;
 
   constructor(
     syncState: LocalSyncState,
@@ -100,7 +101,7 @@ export class AuthenticationManager {
       pauseSocket,
       resumeSocket,
       clearAuth,
-      verbose,
+      logger,
     }: {
       authenticate: (token: string) => void;
       stopSocket: () => Promise<void>;
@@ -108,7 +109,7 @@ export class AuthenticationManager {
       pauseSocket: () => void;
       resumeSocket: () => void;
       clearAuth: () => void;
-      verbose: boolean;
+      logger: Logger;
     },
   ) {
     this.syncState = syncState;
@@ -118,7 +119,7 @@ export class AuthenticationManager {
     this.pauseSocket = pauseSocket;
     this.resumeSocket = resumeSocket;
     this.clearAuth = clearAuth;
-    this.verbose = verbose;
+    this.logger = logger;
   }
 
   async setConfig(
@@ -216,7 +217,7 @@ export class AuthenticationManager {
       // We failed on a fresh token, trying another one won't help
       this.authState.state === "waitingForServerConfirmationOfFreshToken"
     ) {
-      console.error(
+      this.logger.error(
         `Failed to authenticate: "${serverMessage.error}", check your server auth config`,
       );
       if (this.syncState.hasAuth()) {
@@ -316,14 +317,16 @@ export class AuthenticationManager {
       // This is no longer really possible, because
       // we wait on server response before scheduling token refetch,
       // and the server currently requires JWT tokens.
-      console.error("Auth token is not a valid JWT, cannot refetch the token");
+      this.logger.error(
+        "Auth token is not a valid JWT, cannot refetch the token",
+      );
       return;
     }
     // iat: issued at time, UTC seconds timestamp at which the JWT was issued
     // exp: expiration time, UTC seconds timestamp at which the JWT will expire
     const { iat, exp } = decodedToken as { iat?: number; exp?: number };
     if (!iat || !exp) {
-      console.error(
+      this.logger.error(
         "Auth token does not have required fields, cannot refetch the token",
       );
       return;
@@ -338,7 +341,7 @@ export class AuthenticationManager {
       (exp - iat - leewaySeconds) * 1000,
     );
     if (delay <= 0) {
-      console.error(
+      this.logger.error(
         "Auth token does not live long enough, cannot refetch the token",
       );
       return;
@@ -413,10 +416,6 @@ export class AuthenticationManager {
   }
 
   private _logVerbose(message: string) {
-    if (this.verbose) {
-      console.debug(
-        `${new Date().toISOString()} ${message} [v${this.configVersion}]`,
-      );
-    }
+    this.logger.logVerbose(`${message} [v${this.configVersion}]`);
   }
 }

@@ -1,7 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
-import { oneoffContext } from "../bundler/context.js";
+import { Context, logMessage, oneoffContext } from "../bundler/context.js";
 import { getTargetDeploymentName } from "./lib/deployment.js";
 import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils/utils.js";
 
@@ -19,21 +19,21 @@ export const docs = new Command("docs")
       const res = await fetch(getCookieUrl);
       deprecationCheckWarning(ctx, res);
       const { cookie } = await res.json();
-      await openDocs(options.open, cookie);
+      await openDocs(ctx, options.open, cookie);
     } catch {
-      await openDocs(options.open);
+      await openDocs(ctx, options.open);
     }
   });
 
-async function openDocs(toOpen: boolean, cookie?: string) {
+async function openDocs(ctx: Context, toOpen: boolean, cookie?: string) {
   let docsUrl = "https://docs.convex.dev";
   if (cookie !== undefined) {
     docsUrl += "/?t=" + cookie;
   }
   if (toOpen) {
     await open(docsUrl);
-    console.log(chalk.green("Docs have launched! Check your browser."));
+    logMessage(ctx, chalk.green("Docs have launched! Check your browser."));
   } else {
-    console.log(chalk.green(`Find Convex docs here: ${docsUrl}`));
+    logMessage(ctx, chalk.green(`Find Convex docs here: ${docsUrl}`));
   }
 }

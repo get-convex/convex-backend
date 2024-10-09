@@ -134,6 +134,8 @@ async function main() {
   } catch (e) {
     Sentry.captureException(e);
     process.exitCode = 1;
+    // This is too early to use `logError`, so just log directly.
+    // eslint-disable-next-line no-console
     console.error(chalk.red("Unexpected Error: " + e));
   } finally {
     await Sentry.close();

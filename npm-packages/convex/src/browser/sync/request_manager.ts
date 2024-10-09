@@ -1,5 +1,5 @@
 import { jsonToConvex } from "../../values/index.js";
-import { logToConsole } from "../logging.js";
+import { logForFunction, Logger } from "../logging.js";
 import { Long } from "../long.js";
 import { FunctionResult } from "./function_result.js";
 import {
@@ -32,7 +32,7 @@ export class RequestManager {
     }
   >;
   private requestsOlderThanRestart: Set<RequestId>;
-  constructor() {
+  constructor(private readonly logger: Logger) {
     this.inflightRequests = new Map();
     this.requestsOlderThanRestart = new Set();
   }
@@ -92,7 +92,7 @@ export class RequestManager {
     const udfPath = requestInfo.message.udfPath;
 
     for (const line of response.logLines) {
-      logToConsole("info", udfType, udfPath, line);
+      logForFunction(this.logger, "info", udfType, udfPath, line);
     }
 
     const status = requestInfo.status;
@@ -107,7 +107,7 @@ export class RequestManager {
     } else {
       const errorMessage = response.result as string;
       const { errorData } = response;
-      logToConsole("error", udfType, udfPath, errorMessage);
+      logForFunction(this.logger, "error", udfType, udfPath, errorMessage);
       onResolve = () =>
         status.onResult({
           success: false,

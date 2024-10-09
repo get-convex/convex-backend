@@ -246,6 +246,7 @@ export async function componentGraph(
     });
   }
   for (const warning of result.warnings) {
+    // eslint-disable-next-line no-console
     console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
   }
   return await findComponentDependencies(ctx, result.metafile);
@@ -380,6 +381,7 @@ export async function bundleDefinitions(
     });
   }
   for (const warning of result.warnings) {
+    // eslint-disable-next-line no-console
     console.log(chalk.yellow(`esbuild warning: ${warning.text}`));
   }
 
@@ -506,11 +508,7 @@ export async function bundleImplementations(
       schema = null;
     }
 
-    const entryPoints = await entryPointsByEnvironment(
-      ctx,
-      resolvedPath,
-      verbose,
-    );
+    const entryPoints = await entryPointsByEnvironment(ctx, resolvedPath);
     const convexResult: {
       modules: Bundle[];
       externalDependencies: Map<string, string>;

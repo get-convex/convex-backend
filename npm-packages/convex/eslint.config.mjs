@@ -126,6 +126,9 @@ export default [
           fixable: false,
         },
       ],
+
+      // Use `logMessage` and friends (CLI specific) or `logger.log` instead.
+      "no-console": "error",
     },
   },
   {
