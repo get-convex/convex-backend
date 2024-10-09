@@ -54,7 +54,6 @@ use model::modules::{
     ModuleModel,
     HTTP_MODULE_PATH,
 };
-use rand::Rng;
 use sync_types::{
     CanonicalizedUdfPath,
     FunctionName,
@@ -119,7 +118,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // completion, but still stream the response as it comes in, so we
         // create another channel here.
         let (isolate_response_sender, mut isolate_response_receiver) = mpsc::unbounded();
-        let outcome_future = if self.runtime.rng().gen_bool(*EXECUTE_HTTP_ACTIONS_IN_FUNRUN) {
+        let outcome_future = if *EXECUTE_HTTP_ACTIONS_IN_FUNRUN {
             self.isolate_functions
                 .execute_http_action(
                     tx,
