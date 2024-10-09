@@ -1,10 +1,7 @@
 use std::sync::Arc;
 
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     future::{
         self,
         BoxFuture,
@@ -17,6 +14,7 @@ use futures::{
     StreamExt,
 };
 use parking_lot::Mutex;
+use tokio::sync::oneshot;
 
 use crate::{
     codel_queue::{

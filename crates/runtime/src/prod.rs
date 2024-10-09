@@ -27,7 +27,6 @@ use common::{
     },
 };
 use futures::{
-    channel::oneshot,
     future::{
         BoxFuture,
         FusedFuture,
@@ -42,6 +41,7 @@ use tokio::{
         Handle as TokioRuntimeHandle,
         Runtime as TokioRuntime,
     },
+    sync::oneshot,
     time::{
         sleep,
         Duration,
@@ -116,7 +116,7 @@ impl ThreadHandle {
         Fut: Future<Output = ()>,
         F: FnOnce() -> Fut + Send + 'static,
     {
-        let (cancel_tx, mut cancel_rx) = oneshot::channel();
+        let (cancel_tx, cancel_rx) = oneshot::channel();
         let (done_tx, done_rx) = oneshot::channel();
         let thread_handle = thread::Builder::new()
             .stack_size(*RUNTIME_STACK_SIZE)
@@ -124,9 +124,17 @@ impl ThreadHandle {
                 let _guard = tokio_handle.enter();
                 let thread_body = async move {
                     let future = f();
-                    let was_canceled = futures::select! {
-                        _ = cancel_rx => true,
-                        _ = future.fuse() => false,
+                    tokio::pin!(future);
+                    let was_canceled = tokio::select! {
+                        r = cancel_rx => {
+                            if r.is_ok() {
+                                true
+                            } else {
+                                future.await;
+                                false
+                            }
+                        },
+                        _ = &mut future => false,
                     };
                     let _ = done_tx.send(was_canceled);
                 };

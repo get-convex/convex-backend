@@ -22,12 +22,12 @@ use database::{
     TableSummaryWriter,
 };
 use futures::{
-    channel::oneshot,
     pin_mut,
     select_biased,
     FutureExt,
 };
 use parking_lot::Mutex;
+use tokio::sync::oneshot;
 
 use crate::metrics::log_worker_starting;
 

@@ -52,7 +52,6 @@ use common::{
     },
 };
 use float_next_after::NextAfter;
-use futures::channel::oneshot;
 use http::{
     Method,
     StatusCode,
@@ -74,6 +73,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use tokio::sync::oneshot;
 use url::Url;
 use usage_tracking::{
     AggregatedFunctionUsageStats,

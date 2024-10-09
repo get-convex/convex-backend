@@ -20,7 +20,6 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use futures::{
-    channel::oneshot,
     future::{
         BoxFuture,
         FusedFuture,
@@ -52,6 +51,7 @@ use proptest::prelude::*;
 use rand::RngCore;
 use serde::Serialize;
 use thiserror::Error;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
 
@@ -203,6 +203,7 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     /// Spawn a future on a reserved OS thread. This is only really necessary
     /// for libraries like `V8` that care about being called from a
     /// particular thread.
+    #[must_use = "Threads are canceled when their `SpawnHandle` is dropped."]
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
         f: F,

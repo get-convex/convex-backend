@@ -11,13 +11,13 @@ use common::{
     types::UdfType,
 };
 use deno_core::ModuleSpecifier;
-use futures::channel::{
-    mpsc,
-    oneshot,
-};
+use futures::channel::mpsc;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
-use tokio::sync::Semaphore;
+use tokio::sync::{
+    oneshot,
+    Semaphore,
+};
 use value::{
     ConvexArray,
     ConvexValue,
@@ -169,7 +169,7 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
     pub async fn send<T>(
         &mut self,
         request: IsolateThreadRequest,
-        mut rx: oneshot::Receiver<anyhow::Result<T>>,
+        rx: oneshot::Receiver<anyhow::Result<T>>,
     ) -> anyhow::Result<T> {
         if self.user_time_remaining.is_zero() {
             anyhow::bail!("User time exhausted");
@@ -181,17 +181,17 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
 
         // Start the user timer after we acquire the permit.
         let user_start = Instant::now();
-        let mut user_timeout = self.rt.wait(self.user_time_remaining);
+        let user_timeout = self.rt.wait(self.user_time_remaining);
         self.sender
             .try_send(request)
             .map_err(|e| e.into_send_error())?;
-        let result = futures::select_biased! {
+        let result = tokio::select! {
+            result = rx => result,
             _ = user_timeout => {
                 // XXX: We need to terminate the isolate handle here in
                 // case user code is in an infinite loop.
                 anyhow::bail!("User time exhausted");
             },
-            result = rx => result,
         };
 
         // Deduct the time spent in the isolate thread from our remaining user time.

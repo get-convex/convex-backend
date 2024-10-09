@@ -29,6 +29,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    sync::oneshot_receiver_closed,
     types::{
         PersistenceVersion,
         UdfType,
@@ -42,11 +43,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
-    FutureExt,
+    channel::mpsc,
     StreamExt,
 };
 use keybroker::KeyBroker;
@@ -69,7 +66,10 @@ use parking_lot::Mutex;
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
-use tokio::sync::Semaphore;
+use tokio::sync::{
+    oneshot,
+    Semaphore,
+};
 use value::{
     ConvexArray,
     ConvexObject,
@@ -1009,12 +1009,12 @@ async fn tokio_thread<RT: Runtime>(
         query_journal,
     );
 
-    let r = futures::select_biased! {
-        r = request.fuse() => r,
+    let r = tokio::select! {
+        r = request => r,
 
         // Eventually we'll attempt to cleanup the isolate thread in these conditions.
         _ = rt.wait(total_timeout) => Err(anyhow::anyhow!("Total timeout exceeded")),
-        _ = sender.cancellation().fuse() => Err(anyhow::anyhow!("Cancelled")),
+        _ = oneshot_receiver_closed(&mut sender) => Err(anyhow::anyhow!("Cancelled")),
     };
     let _ = sender.send(r.map(|r| (tx, r)));
     drop(client);

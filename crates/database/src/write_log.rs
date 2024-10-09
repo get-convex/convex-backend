@@ -28,11 +28,9 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use futures::{
-    channel::oneshot,
-    Future,
-};
+use futures::Future;
 use parking_lot::RwLock;
+use tokio::sync::oneshot;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,
@@ -156,7 +154,7 @@ impl WriteLog {
         // Notify waiters
         let mut i = 0;
         while i < self.waiters.len() {
-            if ts > self.waiters[i].0 || self.waiters[i].1.is_canceled() {
+            if ts > self.waiters[i].0 || self.waiters[i].1.is_closed() {
                 // Remove from the waiters.
                 let w = self.waiters.swap_remove_back(i).expect("checked above");
                 // Notify. Ignore if receiver has dropped.

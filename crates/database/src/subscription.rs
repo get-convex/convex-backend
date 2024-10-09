@@ -33,10 +33,7 @@ use common::{
     },
 };
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     select_biased,
     FutureExt,
     StreamExt,
@@ -47,6 +44,7 @@ use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
 use slab::Slab;
+use tokio::sync::oneshot;
 
 use crate::{
     metrics,

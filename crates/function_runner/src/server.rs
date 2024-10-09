@@ -55,10 +55,7 @@ use database::{
     TransactionTextSnapshot,
 };
 use file_storage::TransactionalFileStorage;
-use futures::channel::{
-    mpsc,
-    oneshot,
-};
+use futures::channel::mpsc;
 use isolate::{
     client::{
         initialize_v8,
@@ -104,6 +101,7 @@ use storage::{
     StorageUseCase,
 };
 use sync_types::Timestamp;
+use tokio::sync::oneshot;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -754,7 +752,6 @@ mod tests {
     use common::pause::PauseController;
     use database::test_helpers::DbFixtures;
     use errors::ErrorMetadataAnyhowExt;
-    use futures::channel::oneshot;
     use isolate::{
         client::{
             initialize_v8,
@@ -766,6 +763,7 @@ mod tests {
     use model::test_helpers::DbFixturesWithModel;
     use runtime::testing::TestRuntime;
     use storage::LocalDirStorage;
+    use tokio::sync::oneshot;
 
     use crate::server::{
         FunctionRunnerCore,

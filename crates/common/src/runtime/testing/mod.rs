@@ -18,7 +18,6 @@ use std::{
 };
 
 use futures::{
-    channel::oneshot,
     future::{
         self,
         BoxFuture,
@@ -34,10 +33,13 @@ use rand::{
     SeedableRng,
 };
 use rand_chacha::ChaCha12Rng;
-use tokio::runtime::{
-    Builder,
-    RngSeed,
-    UnhandledPanic,
+use tokio::{
+    runtime::{
+        Builder,
+        RngSeed,
+        UnhandledPanic,
+    },
+    sync::oneshot,
 };
 
 use super::{

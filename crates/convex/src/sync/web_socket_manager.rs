@@ -16,10 +16,7 @@ use convex_sync_types::{
     Timestamp,
 };
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     select_biased,
     FutureExt,
     SinkExt,
@@ -27,6 +24,7 @@ use futures::{
 };
 use tokio::{
     net::TcpStream,
+    sync::oneshot,
     task::JoinHandle,
     time::{
         Instant,

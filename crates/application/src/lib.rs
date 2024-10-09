@@ -135,10 +135,7 @@ use function_log::{
     FunctionExecutionPart,
 };
 use function_runner::FunctionRunner;
-use futures::{
-    channel::oneshot,
-    stream::BoxStream,
-};
+use futures::stream::BoxStream;
 use headers::{
     ContentLength,
     ContentType,
@@ -283,6 +280,7 @@ use table_summary_worker::{
     TableSummaryClient,
     TableSummaryWorker,
 };
+use tokio::sync::oneshot;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,

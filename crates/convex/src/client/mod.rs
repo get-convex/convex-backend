@@ -12,15 +12,15 @@ use convex_sync_types::{
 #[cfg(doc)]
 use futures::Stream;
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     SinkExt,
     StreamExt,
 };
 use tokio::{
-    sync::broadcast,
+    sync::{
+        broadcast,
+        oneshot,
+    },
     task::JoinHandle,
 };
 use tokio_stream::wrappers::BroadcastStream;

@@ -405,6 +405,7 @@ mod tests {
         SinkExt,
         StreamExt,
     };
+    use tokio::sync::oneshot;
     use tokio_tungstenite::connect_async;
     use tungstenite::error::Error as TungsteniteError;
 
@@ -448,7 +449,7 @@ mod tests {
         );
         let port = portpicker::pick_unused_port().expect("No ports free");
         let addr = format!("127.0.0.1:{port}").parse()?;
-        let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let proxy_server = tokio::spawn(app.serve(addr, async move {
             shutdown_rx.await.unwrap();
         }));

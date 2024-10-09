@@ -17,7 +17,6 @@ byteorder = { workspace = true }
 bytes = { workspace = true }
 derive_more = { workspace = true }
 errors = { path = "../errors" }
-futures = { workspace = true }
 hex = { workspace = true }
 humansize = { workspace = true }
 imbl = { workspace = true }
@@ -30,6 +29,7 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 uuid = { workspace = true }
 
 [target.'cfg(not(target_os="windows"))'.dependencies]
@@ -46,7 +46,9 @@ errors = { path = "../errors", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
-sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = ["testing"] }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
+    "testing",
+] }
 
 [features]
 testing = [

@@ -21,13 +21,13 @@ use convex::{
     Value,
 };
 use futures::{
-    channel::oneshot,
     pin_mut,
     select_biased,
     FutureExt,
     StreamExt,
 };
 use maplit::btreemap;
+use tokio::sync::oneshot;
 
 const SETUP_MSG: &str = r"
 Please run this Convex Chat client from an initialized Convex project.

@@ -8614,7 +8614,6 @@ dependencies = [
  "criterion",
  "derive_more",
  "errors",
- "futures",
  "hex",
  "humansize",
  "imbl",
@@ -8626,6 +8625,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror",
+ "tokio",
  "uuid",
 ]
 

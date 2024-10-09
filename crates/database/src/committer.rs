@@ -71,7 +71,6 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::{
-    channel::oneshot,
     future::{
         BoxFuture,
         Either,
@@ -86,6 +85,7 @@ use indexing::index_registry::IndexRegistry;
 use minitrace::prelude::*;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
+use tokio::sync::oneshot;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::WithHeapSize,

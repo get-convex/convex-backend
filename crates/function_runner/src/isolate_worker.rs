@@ -7,6 +7,7 @@ use common::pause::PauseClient;
 use common::{
     errors::report_error,
     runtime::Runtime,
+    sync::oneshot_receiver_closed,
     types::UdfType,
 };
 use futures::FutureExt;
@@ -108,7 +109,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                         client_id,
                         isolate,
                         isolate_clean,
-                        response.cancellation().boxed(),
+                        oneshot_receiver_closed(&mut response).boxed(),
                     )
                     .await;
                 let status = match &r {
@@ -158,7 +159,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                         isolate,
                         isolate_clean,
                         request.params.clone(),
-                        response.cancellation().boxed(),
+                        oneshot_receiver_closed(&mut response).boxed(),
                     )
                     .await;
 
@@ -211,7 +212,7 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                         request.http_module_path,
                         request.routed_path,
                         request.http_request,
-                        response.cancellation().boxed(),
+                        oneshot_receiver_closed(&mut response).boxed(),
                     )
                     .await;
                 let status = match &r {

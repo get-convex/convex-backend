@@ -65,6 +65,7 @@ use common::{
     },
     schemas::DatabaseSchema,
     static_span,
+    sync::oneshot_receiver_closed,
     types::{
         ModuleEnvironment,
         UdfType,
@@ -85,10 +86,7 @@ use errors::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     future,
     pin_mut,
     select,
@@ -139,6 +137,7 @@ use sync_types::{
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
 };
+use tokio::sync::oneshot;
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -1747,7 +1746,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                         client_id,
                         isolate,
                         isolate_clean,
-                        response.cancellation().boxed(),
+                        oneshot_receiver_closed(&mut response).boxed(),
                     )
                     .await;
                 let status = match &r {
@@ -1799,7 +1798,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                         request.http_module_path,
                         request.routed_path,
                         request.http_request,
-                        response.cancellation().boxed(),
+                        oneshot_receiver_closed(&mut response).boxed(),
                     )
                     .await;
                 let status = match &r {
@@ -1845,7 +1844,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                         isolate,
                         isolate_clean,
                         request.params.clone(),
-                        response.cancellation().boxed(),
+                        oneshot_receiver_closed(&mut response).boxed(),
                     )
                     .await;
                 let status = match &r {

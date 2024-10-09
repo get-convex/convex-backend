@@ -10,15 +10,15 @@ use convex_sync_types::{
     UdfPath,
 };
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     select_biased,
     FutureExt,
     StreamExt,
 };
-use tokio::sync::broadcast;
+use tokio::sync::{
+    broadcast,
+    oneshot,
+};
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{

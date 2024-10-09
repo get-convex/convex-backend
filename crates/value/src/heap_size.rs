@@ -24,7 +24,6 @@ use std::{
     ptr::NonNull,
 };
 
-use futures::channel::oneshot;
 #[cfg(any(test, feature = "testing"))]
 use proptest::{
     prelude::Arbitrary,
@@ -46,6 +45,7 @@ use sync_types::{
     Timestamp,
     UserIdentityAttributes,
 };
+use tokio::sync::oneshot;
 
 pub trait HeapSize {
     fn heap_size(&self) -> usize;

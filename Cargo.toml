@@ -193,3 +193,11 @@ codegen-units = 16
 [profile.dev.package.num-bigint-dig]
 opt-level = 3
 codegen-units = 16
+
+[profile.dev.package.tokio]
+opt-level = 3
+codegen-units = 16
+
+[profile.dev.package.tokio-stream]
+opt-level = 3
+codegen-units = 16

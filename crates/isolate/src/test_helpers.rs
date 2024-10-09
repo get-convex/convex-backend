@@ -72,10 +72,7 @@ use database::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
-    channel::{
-        mpsc,
-        oneshot,
-    },
+    channel::mpsc,
     select,
     Future,
     FutureExt,
@@ -127,6 +124,7 @@ use storage::{
     Storage,
 };
 use sync_types::UdfPath;
+use tokio::sync::oneshot;
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
