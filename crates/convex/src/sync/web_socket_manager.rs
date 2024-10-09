@@ -54,7 +54,6 @@ use crate::sync::{
     SyncProtocol,
 };
 
-const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
 const INITIAL_BACKOFF: Duration = Duration::from_millis(100);
 const MAX_BACKOFF: Duration = Duration::from_secs(15);
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -93,10 +92,15 @@ impl SyncProtocol for WebSocketManager {
     async fn open(
         ws_url: Url,
         on_response: mpsc::Sender<ProtocolResponse>,
+        client_id: &str,
     ) -> anyhow::Result<Self> {
         let (internal_sender, internal_receiver) = mpsc::unbounded();
-        let worker_handle =
-            tokio::spawn(WebSocketWorker::run(ws_url, on_response, internal_receiver));
+        let worker_handle = tokio::spawn(WebSocketWorker::run(
+            ws_url,
+            on_response,
+            internal_receiver,
+            client_id.to_string(),
+        ));
 
         Ok(WebSocketManager {
             internal_sender,
@@ -131,6 +135,7 @@ impl WebSocketWorker {
         ws_url: Url,
         on_response: mpsc::Sender<ProtocolResponse>,
         internal_receiver: mpsc::UnboundedReceiver<WebSocketRequest>,
+        client_id: String,
     ) -> Infallible {
         let ping_ticker = tokio::time::interval(Self::HEARTBEAT_INTERVAL);
         let backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
@@ -147,7 +152,10 @@ impl WebSocketWorker {
         let mut last_close_reason = "InitialConnect".to_string();
         let mut max_observed_timestamp = None;
         loop {
-            let e = match worker.work(last_close_reason, max_observed_timestamp).await {
+            let e = match worker
+                .work(last_close_reason, max_observed_timestamp, &client_id)
+                .await
+            {
                 Ok(reconnect) => {
                     // WS worker exited cleanly because it got a request to reconnect
                     tracing::debug!("Reconnecting websocket due to {}", reconnect.reason);
@@ -193,6 +201,7 @@ impl WebSocketWorker {
         &mut self,
         last_close_reason: String,
         max_seen_transition: Option<Timestamp>,
+        client_id: &str,
     ) -> anyhow::Result<ReconnectRequest> {
         let verb = if self.connection_count == 0 {
             "connect"
@@ -205,6 +214,7 @@ impl WebSocketWorker {
             self.connection_count,
             last_close_reason,
             max_seen_transition,
+            client_id,
         )
         .await?;
         tracing::debug!("completed websocket {verb} to {}", self.ws_url);
@@ -279,14 +289,12 @@ impl WebSocketInternal {
         connection_count: u32,
         last_close_reason: String,
         max_observed_timestamp: Option<Timestamp>,
+        client_id: &str,
     ) -> anyhow::Result<WebSocketInternal> {
         let mut request = (&ws_url).into_client_request().context("Bad WS Url")?;
-        let version = VERSION.unwrap_or("unknown");
         request.headers_mut().insert(
             "Convex-Client",
-            format!("rust-{version}")
-                .try_into()
-                .context("Bad version")?,
+            client_id.try_into().context("Bad client id")?,
         );
         let (ws_stream, response) = connect_async(request).await.map_err(|e| {
             if let tungstenite::Error::Http(ref response) = e {

@@ -1,5 +1,10 @@
 # Upcoming
 
+# 0.8.0
+
+- Support for passing through a client_id to ConvexClient
+- Dependency upgrades
+
 # 0.7.0
 
 - Several dependency upgrades

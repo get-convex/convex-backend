@@ -58,6 +58,8 @@ use crate::{
 pub mod subscription;
 mod worker;
 
+const VERSION: Option<&str> = option_env!("CARGO_PKG_VERSION");
+
 /// An asynchronous client to interact with a specific project to perform
 /// mutations and manage query subscriptions using [`tokio`].
 ///
@@ -130,6 +132,12 @@ impl ConvexClient {
     /// # }
     /// ```
     pub async fn new(deployment_url: &str) -> anyhow::Result<Self> {
+        let client_id = format!("rust-{}", VERSION.unwrap_or("unknown"));
+        Self::new_with_client_id(deployment_url, &client_id).await
+    }
+
+    #[doc(hidden)]
+    pub async fn new_with_client_id(deployment_url: &str, client_id: &str) -> anyhow::Result<Self> {
         let ws_url = deployment_to_ws_url(deployment_url.try_into()?)?;
 
         // Channels for the `listen` background thread
@@ -141,7 +149,7 @@ impl ConvexClient {
 
         let base_client = BaseConvexClient::new();
 
-        let protocol = WebSocketManager::open(ws_url, response_sender).await?;
+        let protocol = WebSocketManager::open(ws_url, response_sender, client_id).await?;
 
         let listen_handle = tokio::spawn(worker(
             response_receiver,
@@ -447,7 +455,8 @@ pub mod tests {
             let (watch_sender, watch_receiver) = broadcast::channel(1);
 
             let test_protocol =
-                TestProtocolManager::open("ws://test.com".parse()?, response_sender).await?;
+                TestProtocolManager::open("ws://test.com".parse()?, response_sender, "rust-0.0.1")
+                    .await?;
             let base_client = BaseConvexClient::new();
 
             let listen_handle = tokio::spawn(worker(

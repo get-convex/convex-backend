@@ -63,6 +63,7 @@ impl SyncProtocol for TestProtocolManager {
     async fn open(
         _ws_url: Url,
         response_sender: mpsc::Sender<ProtocolResponse>,
+        _client_id: &str,
     ) -> anyhow::Result<Self> {
         let mut test_protocol = TestProtocolManager {
             inner: Arc::new(Mutex::new(TestProtocolInner {
