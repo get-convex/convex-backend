@@ -108,11 +108,11 @@ fn strip_pii(err: &mut anyhow::Error) {
 /// Other parts of codebase should not use the `sentry_anyhow` crate directly!
 pub fn report_error(err: &mut anyhow::Error) {
     strip_pii(err);
-    if let Some(e) = err.downcast_ref::<ErrorMetadata>() {
-        if let Some(label) = e.metric_server_error_label() {
-            log_errors_reported_total(label);
-        }
+    if let Some(label) = err.metric_server_error_label() {
+        log_errors_reported_total(label);
+    }
 
+    if let Some(e) = err.downcast_ref::<ErrorMetadata>() {
         if let Some(counter) = e.custom_metric() {
             log_counter(counter, 1);
         }
