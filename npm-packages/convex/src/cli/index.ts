@@ -29,6 +29,7 @@ import inquirer from "inquirer";
 import inquirerSearchList from "inquirer-search-list";
 import { format } from "util";
 import { functionSpec } from "./functionSpec.js";
+import dns from "node:dns";
 
 const MINIMUM_MAJOR_VERSION = 16;
 const MINIMUM_MINOR_VERSION = 15;
@@ -42,6 +43,9 @@ async function main() {
   // If you want to use `@sentry/tracing` in your project directly, use a named import instead:
   // import * as SentryTracing from "@sentry/tracing"
   // Unused named imports are not guaranteed to patch the global hub.
+
+  // Use ipv4 first for 127.0.0.1 in tests
+  dns.setDefaultResultOrder("ipv4first");
 
   if (!process.env.CI && provisionHost === productionProvisionHost) {
     Sentry.init({
