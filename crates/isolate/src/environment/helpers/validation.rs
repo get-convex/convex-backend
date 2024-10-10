@@ -374,7 +374,7 @@ impl ValidatedPathAndArgs {
         let returns_validator = if path.udf_path.is_system() {
             ReturnsValidator::Unvalidated
         } else {
-            analyzed_function.returns.clone()
+            analyzed_function.returns()?
         };
 
         match ValidatedPathAndArgs::new_inner(
@@ -443,10 +443,11 @@ impl ValidatedPathAndArgs {
         let table_mapping = &tx.table_mapping().namespace(path.component.into());
 
         // If the UDF has an args validator, check that these args match.
-        let args_validation_error =
-            analyzed_function
-                .args
-                .check_args(&args, table_mapping, &virtual_system_mapping())?;
+        let args_validation_error = analyzed_function.args()?.check_args(
+            &args,
+            table_mapping,
+            &virtual_system_mapping(),
+        )?;
 
         if let Some(error) = args_validation_error {
             return Ok(Err(JsError::from_message(format!(

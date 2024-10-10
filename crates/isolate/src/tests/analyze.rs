@@ -263,11 +263,11 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(
         &Vec::from(analyzed_module.functions.clone()),
         &[
-            AnalyzedFunction {
-                name: "throwsError".parse()?,
+            AnalyzedFunction::new(
+                "throwsError".parse()?,
                 // Don't check line numbers since those change on every `convex/server`
                 // change.
-                pos: Some(AnalyzedSourcePosition {
+                Some(AnalyzedSourcePosition {
                     path: "sourceMaps.js".parse()?,
                     start_lineno: analyzed_module.functions[0]
                         .pos
@@ -276,14 +276,14 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
                         .start_lineno,
                     start_col: analyzed_module.functions[0].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "throwsErrorInDep".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+                UdfType::Query,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "throwsErrorInDep".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "sourceMaps.js".parse()?,
                     start_lineno: analyzed_module.functions[1]
                         .pos
@@ -292,41 +292,41 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
                         .start_lineno,
                     start_col: analyzed_module.functions[1].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
+                UdfType::Query,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
         ],
     );
     let source_mapped = analyzed_module.source_mapped.unwrap();
     assert_eq!(
         &Vec::from(source_mapped.functions),
         &[
-            AnalyzedFunction {
-                name: "throwsError".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+            AnalyzedFunction::new(
+                "throwsError".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "sourceMaps.js".parse()?,
                     start_lineno: 21,
                     start_col: analyzed_module.functions[0].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "throwsErrorInDep".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+                UdfType::Query,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "throwsErrorInDep".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "sourceMaps.js".parse()?,
                     start_lineno: 27,
                     start_col: analyzed_module.functions[1].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
+                UdfType::Query,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
         ],
     );
     Ok(())
@@ -353,100 +353,100 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(
         &Vec::from(analyzed_module.functions.clone()),
         &[
-            AnalyzedFunction {
-                name: "myInternalQuery".parse()?,
+            AnalyzedFunction::new(
+                "myInternalQuery".parse()?,
                 // Don't check line numbers since those change on every `convex/server`
                 // change.
-                pos: analyzed_module.functions[0].pos.clone(),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "publicQuery".parse()?,
+                analyzed_module.functions[0].pos.clone(),
+                UdfType::Query,
+                Some(Visibility::Internal),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "publicQuery".parse()?,
                 // Don't check line numbers since those change on every `convex/server`
                 // change.
-                pos: analyzed_module.functions[1].pos.clone(),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "myInternalMutation".parse()?,
+                analyzed_module.functions[1].pos.clone(),
+                UdfType::Query,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "myInternalMutation".parse()?,
                 // Don't check line numbers since those change on every `convex/server`
                 // change.
-                pos: analyzed_module.functions[2].pos.clone(),
-                udf_type: UdfType::Mutation,
-                visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "publicMutation".parse()?,
+                analyzed_module.functions[2].pos.clone(),
+                UdfType::Mutation,
+                Some(Visibility::Internal),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "publicMutation".parse()?,
                 // Don't check line numbers since those change on every `convex/server`
                 // change.
-                pos: analyzed_module.functions[3].pos.clone(),
-                udf_type: UdfType::Mutation,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
+                analyzed_module.functions[3].pos.clone(),
+                UdfType::Mutation,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
         ],
     );
     let source_mapped = analyzed_module.source_mapped.unwrap();
     assert_eq!(
         &Vec::from(source_mapped.functions.clone()),
         &[
-            AnalyzedFunction {
-                name: "myInternalQuery".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+            AnalyzedFunction::new(
+                "myInternalQuery".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 16,
                     start_col: analyzed_module.functions[0].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "publicQuery".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+                UdfType::Query,
+                Some(Visibility::Internal),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "publicQuery".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 19,
                     start_col: analyzed_module.functions[1].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Query,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "myInternalMutation".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+                UdfType::Query,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "myInternalMutation".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 23,
                     start_col: analyzed_module.functions[2].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Mutation,
-                visibility: Some(Visibility::Internal),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
-            AnalyzedFunction {
-                name: "publicMutation".parse()?,
-                pos: Some(AnalyzedSourcePosition {
+                UdfType::Mutation,
+                Some(Visibility::Internal),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
+            AnalyzedFunction::new(
+                "publicMutation".parse()?,
+                Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 26,
                     start_col: analyzed_module.functions[3].pos.as_ref().unwrap().start_col,
                 }),
-                udf_type: UdfType::Mutation,
-                visibility: Some(Visibility::Public),
-                args: ArgsValidator::Unvalidated,
-                returns: ReturnsValidator::Unvalidated,
-            },
+                UdfType::Mutation,
+                Some(Visibility::Public),
+                ArgsValidator::Unvalidated,
+                ReturnsValidator::Unvalidated,
+            )?,
         ],
     );
     Ok(())

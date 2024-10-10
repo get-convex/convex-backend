@@ -456,14 +456,14 @@ impl Actions {
                     .name
                     .parse()
                     .map_err(|e| invalid_function_name_error(&e))?;
-                functions.push(AnalyzedFunction {
-                    name: function_name,
+                functions.push(AnalyzedFunction::new(
+                    function_name,
                     pos,
                     udf_type,
                     visibility,
                     args,
                     returns,
-                });
+                )?);
             }
 
             // Sort by line number where source position of None compares least

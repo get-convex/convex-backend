@@ -671,28 +671,28 @@ fn udf_analyze<RT: Runtime>(
             && fn_canon_path.as_str() == module_path.as_str()
         {
             // Source map is valid; proceed with mapping in original source map
-            functions.push(AnalyzedFunction {
-                name: canonicalized_name.clone(),
-                pos: Some(AnalyzedSourcePosition {
+            functions.push(AnalyzedFunction::new(
+                canonicalized_name.clone(),
+                Some(AnalyzedSourcePosition {
                     path: fn_canon_path,
                     start_lineno: token.get_src_line(),
                     start_col: token.get_src_col(),
                 }),
                 udf_type,
-                visibility: visibility.clone(),
-                args: args.clone(),
-                returns: returns.clone(),
-            });
+                visibility.clone(),
+                args.clone(),
+                returns.clone(),
+            )?);
         } else {
             // If there is no valid source map, push a function without a position
-            functions.push(AnalyzedFunction {
-                name: canonicalized_name.clone(),
-                pos: None,
+            functions.push(AnalyzedFunction::new(
+                canonicalized_name.clone(),
+                None,
                 udf_type,
-                visibility: visibility.clone(),
-                args: args.clone(),
-                returns: returns.clone(),
-            });
+                visibility.clone(),
+                args.clone(),
+                returns.clone(),
+            )?);
 
             // Log reason for fallback
             if fn_canon_path.as_str() != module_path.as_str() {

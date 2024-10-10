@@ -247,8 +247,56 @@ pub struct AnalyzedFunction {
     pub pos: Option<AnalyzedSourcePosition>,
     pub udf_type: UdfType,
     pub visibility: Option<Visibility>,
-    pub args: ArgsValidator,
-    pub returns: ReturnsValidator,
+
+    // Leave args and returns unparsed to avoid performance overhead in common
+    // case of reading ModuleMetadata without needing to validate the function.
+
+    // JSON-serialized ArgsValidator
+    pub args_str: Option<String>,
+    // JSON-serialized ReturnsValidator
+    pub returns_str: Option<String>,
+}
+
+impl AnalyzedFunction {
+    pub fn new(
+        name: FunctionName,
+        pos: Option<AnalyzedSourcePosition>,
+        udf_type: UdfType,
+        visibility: Option<Visibility>,
+        args: ArgsValidator,
+        returns: ReturnsValidator,
+    ) -> anyhow::Result<Self> {
+        let args_json = JsonValue::try_from(args)?;
+        let returns_json = JsonValue::try_from(returns)?;
+        Ok(Self {
+            name,
+            pos,
+            udf_type,
+            visibility,
+            args_str: Some(serde_json::to_string(&args_json)?),
+            returns_str: Some(serde_json::to_string(&returns_json)?),
+        })
+    }
+
+    pub fn args(&self) -> anyhow::Result<ArgsValidator> {
+        match &self.args_str {
+            Some(args) => {
+                let deserialized_value: JsonValue = serde_json::from_str(args)?;
+                ArgsValidator::try_from(deserialized_value)
+            },
+            None => Ok(ArgsValidator::Unvalidated),
+        }
+    }
+
+    pub fn returns(&self) -> anyhow::Result<ReturnsValidator> {
+        match &self.returns_str {
+            Some(returns) => {
+                let deserialized_value: JsonValue = serde_json::from_str(returns)?;
+                ReturnsValidator::try_from(deserialized_value)
+            },
+            None => Ok(ReturnsValidator::Unvalidated),
+        }
+    }
 }
 
 impl HeapSize for AnalyzedFunction {
@@ -276,15 +324,13 @@ impl TryFrom<AnalyzedFunction> for SerializedAnalyzedFunction {
     type Error = anyhow::Error;
 
     fn try_from(f: AnalyzedFunction) -> anyhow::Result<Self> {
-        let args_json = JsonValue::try_from(f.args)?;
-        let returns_json = JsonValue::try_from(f.returns)?;
         Ok(Self {
             name: f.name.to_string(),
             pos: f.pos.map(TryFrom::try_from).transpose()?,
             udf_type: f.udf_type.to_string(),
             visibility: f.visibility,
-            args: Some(serde_json::to_string(&args_json)?),
-            returns: Some(serde_json::to_string(&returns_json)?),
+            args: f.args_str,
+            returns: f.returns_str,
         })
     }
 }
@@ -298,20 +344,8 @@ impl TryFrom<SerializedAnalyzedFunction> for AnalyzedFunction {
             pos: f.pos.map(AnalyzedSourcePosition::try_from).transpose()?,
             udf_type: f.udf_type.parse()?,
             visibility: f.visibility,
-            args: match f.args {
-                Some(args) => {
-                    let deserialized_value: JsonValue = serde_json::from_str(&args)?;
-                    ArgsValidator::try_from(deserialized_value)?
-                },
-                None => ArgsValidator::Unvalidated,
-            },
-            returns: match f.returns {
-                Some(returns) => {
-                    let deserialized_value: JsonValue = serde_json::from_str(&returns)?;
-                    ReturnsValidator::try_from(deserialized_value)?
-                },
-                None => ReturnsValidator::Unvalidated,
-            },
+            args_str: f.args,
+            returns_str: f.returns,
         })
     }
 }
@@ -600,7 +634,7 @@ mod tests {
 
         // Should parse as `visibility: None`, and `args: Unvalidated`.
         assert_eq!(function.visibility, None);
-        assert_eq!(function.args, ArgsValidator::Unvalidated);
+        assert_eq!(function.args()?, ArgsValidator::Unvalidated);
         Ok(())
     }
 }

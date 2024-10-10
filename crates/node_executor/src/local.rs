@@ -883,30 +883,30 @@ export { hello, internalHello };
         assert_eq!(
             Vec::from(modules[&path].functions.clone()),
             &[
-                AnalyzedFunction {
-                    name: "hello".parse()?,
-                    pos: Some(AnalyzedSourcePosition {
+                AnalyzedFunction::new(
+                    "hello".parse()?,
+                    Some(AnalyzedSourcePosition {
                         path: "static_node_source.js".parse()?,
                         start_lineno: 28,
                         start_col: modules[&path].functions[0].pos.as_ref().unwrap().start_col,
                     }),
-                    udf_type: UdfType::Action,
-                    visibility: Some(Visibility::Public),
-                    args: ArgsValidator::Unvalidated,
-                    returns: ReturnsValidator::Unvalidated,
-                },
-                AnalyzedFunction {
-                    name: "internalHello".parse()?,
-                    pos: Some(AnalyzedSourcePosition {
+                    UdfType::Action,
+                    Some(Visibility::Public),
+                    ArgsValidator::Unvalidated,
+                    ReturnsValidator::Unvalidated,
+                )?,
+                AnalyzedFunction::new(
+                    "internalHello".parse()?,
+                    Some(AnalyzedSourcePosition {
                         path: "static_node_source.js".parse()?,
                         start_lineno: 31,
                         start_col: modules[&path].functions[1].pos.as_ref().unwrap().start_col,
                     }),
-                    udf_type: UdfType::Action,
-                    visibility: Some(Visibility::Internal),
-                    args: ArgsValidator::Unvalidated,
-                    returns: ReturnsValidator::Unvalidated,
-                },
+                    UdfType::Action,
+                    Some(Visibility::Internal),
+                    ArgsValidator::Unvalidated,
+                    ReturnsValidator::Unvalidated,
+                )?,
             ]
         );
         Ok(())
