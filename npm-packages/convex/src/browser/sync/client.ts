@@ -92,6 +92,12 @@ export interface BaseConvexClientOptions {
    * The default value is `false`
    */
   skipConvexDeploymentUrlCheck?: boolean;
+  /**
+   * If using auth, the number of seconds before a token expires that we should refresh it.
+   *
+   * The default value is `2`.
+   */
+  authRefreshTokenLeewaySeconds?: number;
 }
 
 /**
@@ -187,6 +193,8 @@ export class BaseConvexClient {
       validateDeploymentUrl(address);
     }
     options = { ...options };
+    const authRefreshTokenLeewaySeconds =
+      options.authRefreshTokenLeewaySeconds ?? 2;
     let webSocketConstructor = options.webSocketConstructor;
     if (!webSocketConstructor && typeof WebSocket === "undefined") {
       throw new Error(
@@ -222,23 +230,29 @@ export class BaseConvexClient {
       this.logger,
     );
     this.requestManager = new RequestManager(this.logger);
-    this.authenticationManager = new AuthenticationManager(this.state, {
-      authenticate: (token) => {
-        const message = this.state.setAuth(token);
-        this.webSocketManager.sendMessage(message);
+    this.authenticationManager = new AuthenticationManager(
+      this.state,
+      {
+        authenticate: (token) => {
+          const message = this.state.setAuth(token);
+          this.webSocketManager.sendMessage(message);
+        },
+        stopSocket: () => this.webSocketManager.stop(),
+        restartSocket: () => this.webSocketManager.restart(),
+        pauseSocket: () => {
+          this.webSocketManager.pause();
+          this.state.pause();
+        },
+        resumeSocket: () => this.webSocketManager.resume(),
+        clearAuth: () => {
+          this.clearAuth();
+        },
       },
-      stopSocket: () => this.webSocketManager.stop(),
-      restartSocket: () => this.webSocketManager.restart(),
-      pauseSocket: () => {
-        this.webSocketManager.pause();
-        this.state.pause();
+      {
+        logger: this.logger,
+        refreshTokenLeewaySeconds: authRefreshTokenLeewaySeconds,
       },
-      resumeSocket: () => this.webSocketManager.resume(),
-      clearAuth: () => {
-        this.clearAuth();
-      },
-      logger: this.logger,
-    });
+    );
     this.optimisticQueryResults = new OptimisticQueryResults();
     this.onTransition = onTransition;
     this._nextRequestId = 0;

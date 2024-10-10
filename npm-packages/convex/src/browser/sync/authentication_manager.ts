@@ -91,35 +91,31 @@ export class AuthenticationManager {
   // Passed down by BaseClient, sends a message to the server
   private readonly clearAuth: () => void;
   private readonly logger: Logger;
-
+  private readonly refreshTokenLeewaySeconds: number;
   constructor(
     syncState: LocalSyncState,
-    {
-      authenticate,
-      stopSocket,
-      restartSocket,
-      pauseSocket,
-      resumeSocket,
-      clearAuth,
-      logger,
-    }: {
+    callbacks: {
       authenticate: (token: string) => void;
       stopSocket: () => Promise<void>;
       restartSocket: () => void;
       pauseSocket: () => void;
       resumeSocket: () => void;
       clearAuth: () => void;
+    },
+    config: {
+      refreshTokenLeewaySeconds: number;
       logger: Logger;
     },
   ) {
     this.syncState = syncState;
-    this.authenticate = authenticate;
-    this.stopSocket = stopSocket;
-    this.restartSocket = restartSocket;
-    this.pauseSocket = pauseSocket;
-    this.resumeSocket = resumeSocket;
-    this.clearAuth = clearAuth;
-    this.logger = logger;
+    this.authenticate = callbacks.authenticate;
+    this.stopSocket = callbacks.stopSocket;
+    this.restartSocket = callbacks.restartSocket;
+    this.pauseSocket = callbacks.pauseSocket;
+    this.resumeSocket = callbacks.resumeSocket;
+    this.clearAuth = callbacks.clearAuth;
+    this.logger = config.logger;
+    this.refreshTokenLeewaySeconds = config.refreshTokenLeewaySeconds;
   }
 
   async setConfig(
@@ -331,20 +327,30 @@ export class AuthenticationManager {
       );
       return;
     }
-    const leewaySeconds = 2;
     // Because the client and server clocks may be out of sync,
     // we only know that the token will expire after `exp - iat`,
     // and since we just fetched a fresh one we know when that
     // will happen.
-    const delay = Math.min(
-      MAXIMUM_REFRESH_DELAY,
-      (exp - iat - leewaySeconds) * 1000,
-    );
-    if (delay <= 0) {
+    const tokenValiditySeconds = exp - iat;
+    if (tokenValiditySeconds <= 2) {
       this.logger.error(
         "Auth token does not live long enough, cannot refetch the token",
       );
       return;
+    }
+    // Attempt to refresh the token `refreshTokenLeewaySeconds` before it expires,
+    // or immediately if the token is already expiring soon.
+    let delay = Math.min(
+      MAXIMUM_REFRESH_DELAY,
+      (tokenValiditySeconds - this.refreshTokenLeewaySeconds) * 1000,
+    );
+    if (delay <= 0) {
+      // Refetch immediately, but this might be due to configuring a `refreshTokenLeewaySeconds`
+      // that is too large compared to the token's actual lifetime.
+      this.logger.warn(
+        `Refetching auth token immediately, configured leeway ${this.refreshTokenLeewaySeconds}s is larger than the token's lifetime ${tokenValiditySeconds}s`,
+      );
+      delay = 0;
     }
     const refetchTokenTimeoutId = setTimeout(() => {
       void this.refetchToken();
