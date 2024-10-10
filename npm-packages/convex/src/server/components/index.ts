@@ -1,4 +1,5 @@
 import { PropertyValidators, convexToJson } from "../../values/index.js";
+import { version } from "../../index.js";
 import {
   AnyFunctionReference,
   FunctionReference,
@@ -63,7 +64,10 @@ export async function createFunctionHandle<
   >,
 ): Promise<FunctionHandle<Type, Args, ReturnType>> {
   const address = getFunctionAddress(functionReference);
-  return await performAsyncSyscall("1.0/createFunctionHandle", { ...address });
+  return await performAsyncSyscall("1.0/createFunctionHandle", {
+    ...address,
+    version,
+  });
 }
 
 interface ComponentExports {

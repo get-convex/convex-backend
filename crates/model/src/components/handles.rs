@@ -147,6 +147,21 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         Ok(handles)
     }
 
+    pub async fn get_with_component_path(
+        &mut self,
+        path: CanonicalizedComponentFunctionPath,
+    ) -> anyhow::Result<FunctionHandle> {
+        let Some((_, component_id)) =
+            BootstrapComponentsModel::new(self.tx).component_path_to_ids(&path.component)?
+        else {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "ComponentNotFound",
+                "Component not found"
+            ));
+        };
+        self.get(component_id, path.udf_path).await
+    }
+
     pub async fn get(
         &mut self,
         component: ComponentId,

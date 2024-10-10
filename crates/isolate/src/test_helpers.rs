@@ -1388,6 +1388,17 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         let mut tx = self.database.begin(identity).await?;
         FunctionHandlesModel::new(&mut tx).lookup(handle).await
     }
+
+    async fn create_function_handle(
+        &self,
+        identity: Identity,
+        path: CanonicalizedComponentFunctionPath,
+    ) -> anyhow::Result<FunctionHandle> {
+        let mut tx = self.database.begin(identity).await?;
+        FunctionHandlesModel::new(&mut tx)
+            .get_with_component_path(path)
+            .await
+    }
 }
 
 /// Create a bogus UDF request for testing. Should only be used for tests

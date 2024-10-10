@@ -442,6 +442,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.resolve_function(&reference)?
             },
         };
+        // TODO(lee) remove preloaded function handles and call action callback instead,
+        // after the callback is deployed to backend & usher.
         let handle = {
             let function_handles = self.function_handles.lock();
             function_handles.get(&function_path).cloned()

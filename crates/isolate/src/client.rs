@@ -374,6 +374,11 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         handle: FunctionHandle,
     ) -> anyhow::Result<CanonicalizedComponentFunctionPath>;
+    async fn create_function_handle(
+        &self,
+        identity: Identity,
+        path: CanonicalizedComponentFunctionPath,
+    ) -> anyhow::Result<FunctionHandle>;
 }
 
 pub struct UdfRequest<RT: Runtime> {

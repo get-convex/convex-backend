@@ -2817,7 +2817,12 @@ impl<RT: Runtime> Application<RT> {
         component_id: ComponentId,
         path: Option<String>,
         reference: Option<String>,
+        function_handle: Option<String>,
     ) -> anyhow::Result<CanonicalizedComponentFunctionPath> {
+        if let Some(function_handle) = function_handle {
+            let handle = function_handle.parse()?;
+            return self.lookup_function_handle(identity, handle).await;
+        }
         let reference = match (path, reference) {
             (None, None) => anyhow::bail!(ErrorMetadata::bad_request(
                 "MissingUdfPathOrFunctionReference",

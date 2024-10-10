@@ -596,10 +596,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         path: CanonicalizedComponentFunctionPath,
     ) -> anyhow::Result<FunctionHandle> {
         let tx = self.phase.tx()?;
-        let (_, component) =
-            BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;
         FunctionHandlesModel::new(tx)
-            .get(component, path.udf_path)
+            .get_with_component_path(path)
             .await
     }
 

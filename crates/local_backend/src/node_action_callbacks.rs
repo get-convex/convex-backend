@@ -88,6 +88,7 @@ use crate::{
 pub struct NodeCallbackUdfPostRequest {
     pub path: Option<String>,
     pub reference: Option<String>,
+    pub function_handle: Option<String>,
     pub args: UdfArgsJson,
 
     pub format: Option<String>,
@@ -111,7 +112,13 @@ pub async fn internal_query_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let path = st
         .application
-        .canonicalized_function_path(identity.clone(), component_id, req.path, req.reference)
+        .canonicalized_function_path(
+            identity.clone(),
+            component_id,
+            req.path,
+            req.reference,
+            req.function_handle,
+        )
         .await?;
     let udf_return = st
         .application
@@ -159,7 +166,13 @@ pub async fn internal_mutation_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let path = st
         .application
-        .canonicalized_function_path(identity.clone(), component_id, req.path, req.reference)
+        .canonicalized_function_path(
+            identity.clone(),
+            component_id,
+            req.path,
+            req.reference,
+            req.function_handle,
+        )
         .await?;
     let udf_result = st
         .application
@@ -212,7 +225,13 @@ pub async fn internal_action_post(
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let path = st
         .application
-        .canonicalized_function_path(identity.clone(), component_id, req.path, req.reference)
+        .canonicalized_function_path(
+            identity.clone(),
+            component_id,
+            req.path,
+            req.reference,
+            req.function_handle,
+        )
         .await?;
     let udf_result = st
         .application
@@ -249,6 +268,7 @@ pub async fn internal_action_post(
 #[serde(rename_all = "camelCase")]
 pub struct ScheduleJobRequest {
     reference: Option<String>,
+    function_handle: Option<String>,
     udf_path: Option<String>,
     udf_args: UdfArgsJson,
     scheduled_ts: f64,
@@ -274,7 +294,13 @@ pub async fn schedule_job(
     // User might have entered an invalid path, so this is a developer error.
     let path = st
         .application
-        .canonicalized_function_path(identity.clone(), component_id, req.udf_path, req.reference)
+        .canonicalized_function_path(
+            identity.clone(),
+            component_id,
+            req.udf_path,
+            req.reference,
+            req.function_handle,
+        )
         .await
         .map_err(|e| {
             anyhow::anyhow!(ErrorMetadata::bad_request("InvalidUdfPath", e.to_string()))
@@ -321,6 +347,51 @@ pub async fn cancel_developer_job(
         .cancel_job(identity, virtual_doc_id)
         .await?;
     Ok(Json(json!(null)))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateFunctionHandleRequest {
+    udf_path: Option<String>,
+    reference: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateFunctionHandleResponse {
+    handle: String,
+}
+
+#[debug_handler]
+pub async fn create_function_handle(
+    State(st): State<LocalAppState>,
+    ExtractActionIdentity {
+        identity,
+        component_id,
+    }: ExtractActionIdentity,
+    Json(req): Json<CreateFunctionHandleRequest>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let path = st
+        .application
+        .canonicalized_function_path(
+            identity.clone(),
+            component_id,
+            req.udf_path,
+            req.reference,
+            None,
+        )
+        .await
+        .map_err(|e| {
+            anyhow::anyhow!(ErrorMetadata::bad_request("InvalidUdfPath", e.to_string()))
+        })?;
+    let handle = st
+        .application
+        .runner()
+        .create_function_handle(identity, path)
+        .await?;
+    Ok(Json(CreateFunctionHandleResponse {
+        handle: String::from(handle),
+    }))
 }
 
 #[debug_handler]

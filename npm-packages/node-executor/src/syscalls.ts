@@ -16,6 +16,7 @@ const STATUS_CODE_UDF_FAILED = 560;
 const runFunctionArgs = z.object({
   name: z.optional(z.string()),
   reference: z.optional(z.string()),
+  functionHandle: z.optional(z.string()),
   args: z.any(),
   version: z.string(),
 });
@@ -35,6 +36,7 @@ const runFunctionReturn = z.union([
 const scheduleSchema = z.object({
   name: z.optional(z.string()),
   reference: z.optional(z.string()),
+  functionHandle: z.optional(z.string()),
   ts: z.number(),
   args: z.any(),
   version: z.string(),
@@ -174,10 +176,13 @@ export class SyscallsImpl {
     jsonArgs: string,
     argValidator: ArgValidator,
     operationName: string,
+    requireRequestId: boolean = true,
   ): z.infer<ArgValidator> {
     const args = JSON.parse(jsonArgs);
-    // TODO(CX-5733): Rename requestId to lambdaExecuteId in callers and here.
-    this.validateLambdaExecuteId(args.requestId);
+    if (requireRequestId) {
+      // TODO(CX-5733): Rename requestId to lambdaExecuteId in callers and here.
+      this.validateLambdaExecuteId(args.requestId);
+    }
     delete args.requestId;
     try {
       const parsedArgs = argValidator.parse(args);
@@ -308,6 +313,10 @@ export class SyscallsImpl {
           return JSON.stringify(await this.syscallStorageGetMetadata(jsonArgs));
         case "1.0/storageDelete":
           return JSON.stringify(await this.syscallStorageDelete(jsonArgs));
+        case "1.0/createFunctionHandle":
+          return JSON.stringify(
+            await this.syscallCreateFunctionHandle(jsonArgs),
+          );
         default:
           throw new Error(`Unknown operation ${op}`);
       }
@@ -361,6 +370,7 @@ export class SyscallsImpl {
       body: {
         path: queryArgs.name,
         reference: queryArgs.reference,
+        functionHandle: queryArgs.functionHandle,
         args: queryArgs.args,
       },
       path: "/api/actions/query",
@@ -402,6 +412,7 @@ export class SyscallsImpl {
       body: {
         path: mutationArgs.name,
         reference: mutationArgs.reference,
+        functionHandle: mutationArgs.functionHandle,
         args: mutationArgs.args,
       },
       path: "/api/actions/mutation",
@@ -443,6 +454,7 @@ export class SyscallsImpl {
       body: {
         path: actionArgs.name,
         reference: actionArgs.reference,
+        functionHandle: actionArgs.functionHandle,
         args: actionArgs.args,
       },
       path: "/api/actions/action",
@@ -503,6 +515,7 @@ export class SyscallsImpl {
       version: scheduleArgs.version,
       body: {
         reference: scheduleArgs.reference,
+        functionHandle: scheduleArgs.functionHandle,
         udfPath: scheduleArgs.name,
         udfArgs: scheduleArgs.args,
         scheduledTs: scheduleArgs.ts,
@@ -680,6 +693,32 @@ export class SyscallsImpl {
     }
     const getResult = await fetch(getUrl);
     return await getResult.blob();
+  }
+
+  async syscallCreateFunctionHandle(rawArgs: string): Promise<JSONValue> {
+    const createFunctionHandleArgs = z.object({
+      name: z.optional(z.string()),
+      reference: z.optional(z.string()),
+      version: z.string(),
+    });
+    const operationName = "create function handle";
+    const args = this.validateArgs(
+      rawArgs,
+      createFunctionHandleArgs,
+      operationName,
+      false,
+    );
+    const { handle } = await this.actionCallback({
+      version: args.version,
+      body: {
+        udfPath: args.name,
+        reference: args.reference,
+      },
+      path: "/api/actions/create_function_handle",
+      operationName,
+      responseValidator: z.any(),
+    });
+    return handle;
   }
 }
 

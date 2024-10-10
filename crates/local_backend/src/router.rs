@@ -79,6 +79,7 @@ use crate::{
     node_action_callbacks::{
         action_callbacks_middleware,
         cancel_developer_job,
+        create_function_handle,
         internal_action_post,
         internal_mutation_post,
         internal_query_post,
@@ -271,6 +272,7 @@ where
         .route("/schedule_job", post(schedule_job))
         .route("/vector_search", post(vector_search))
         .route("/cancel_job", post(cancel_developer_job))
+        .route("/create_function_handle", post(create_function_handle))
         // file storage endpoints
         .route("/storage_generate_upload_url", post(storage_generate_upload_url))
         .route("/storage_get_url", post(storage_get_url))
