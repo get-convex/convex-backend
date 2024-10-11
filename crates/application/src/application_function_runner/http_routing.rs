@@ -33,8 +33,7 @@ use database::{
 use errors::ErrorMetadataAnyhowExt;
 use function_runner::server::HttpActionMetadata;
 use futures::{
-    channel::mpsc,
-    select_biased,
+    stream::FusedStream,
     FutureExt,
     StreamExt,
 };
@@ -58,7 +57,8 @@ use sync_types::{
     CanonicalizedUdfPath,
     FunctionName,
 };
-use tokio::sync::mpsc as tokio_mpsc;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use usage_tracking::FunctionUsageTracker;
 
 use super::ApplicationFunctionRunner;
@@ -114,20 +114,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let request_head = http_request.head.clone();
         let route = http_request.head.route_for_failure();
-        let (log_line_sender, log_line_receiver) = tokio_mpsc::unbounded_channel();
+        let (log_line_sender, log_line_receiver) = mpsc::unbounded_channel();
         // We want to intercept the response head so we can log it on function
         // completion, but still stream the response as it comes in, so we
         // create another channel here.
-        let (isolate_response_sender, mut isolate_response_receiver) = mpsc::unbounded();
+        let (isolate_response_sender, isolate_response_receiver) = mpsc::unbounded_channel();
+        let http_response_streamer = HttpActionResponseStreamer::new(isolate_response_sender);
+
         let outcome_future = if *EXECUTE_HTTP_ACTIONS_IN_FUNRUN {
             self.isolate_functions
                 .execute_http_action(
                     tx,
                     log_line_sender,
                     HttpActionMetadata {
-                        http_response_streamer: HttpActionResponseStreamer::new(
-                            isolate_response_sender,
-                        ),
+                        http_response_streamer,
                         http_module_path: validated_path,
                         routed_path,
                         http_request,
@@ -145,7 +145,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     action_callbacks,
                     self.fetch_client.clone(),
                     log_line_sender,
-                    HttpActionResponseStreamer::new(isolate_response_sender),
+                    http_response_streamer,
                     tx,
                     context.clone(),
                 )
@@ -168,9 +168,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         );
 
         let mut result_for_logging = None;
+        let mut response_stream = UnboundedReceiverStream::new(isolate_response_receiver).fuse();
+
         let (outcome_result, mut log_lines): (anyhow::Result<HttpActionOutcome>, LogLines) = loop {
-            select_biased! {
-                result = isolate_response_receiver.select_next_some() => {
+            tokio::select! {
+                Some(result) = response_stream.next(), if !response_stream.is_terminated() => {
                     match result {
                         HttpActionResponsePart::Head(h) => {
                             result_for_logging = Some(Ok(HttpActionStatusCode(h.status)));
@@ -181,13 +183,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         }
                     }
                 },
-                outcome_and_log_lines = outcome_and_log_lines_fut => {
+                outcome_and_log_lines = &mut outcome_and_log_lines_fut => {
                     break outcome_and_log_lines
                 }
             }
         };
 
-        while let Some(part) = isolate_response_receiver.next().await {
+        while let Some(part) = response_stream.next().await {
             match part {
                 HttpActionResponsePart::Head(h) => {
                     result_for_logging = Some(Ok(HttpActionStatusCode(h.status)));

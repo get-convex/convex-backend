@@ -47,15 +47,9 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    sync::{
-        mpsc::{
-            self,
-            error::TrySendError,
-        },
-        split_rw_lock::{
-            Reader,
-            Writer,
-        },
+    sync::split_rw_lock::{
+        Reader,
+        Writer,
     },
     types::{
         DatabaseIndexUpdate,
@@ -85,7 +79,13 @@ use indexing::index_registry::IndexRegistry;
 use minitrace::prelude::*;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
-use tokio::sync::oneshot;
+use tokio::sync::{
+    mpsc::{
+        self,
+        error::TrySendError,
+    },
+    oneshot,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::WithHeapSize,

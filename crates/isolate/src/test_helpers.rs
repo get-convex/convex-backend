@@ -73,7 +73,6 @@ use futures::{
     select,
     Future,
     FutureExt,
-    StreamExt,
 };
 use keybroker::{
     Identity,
@@ -904,14 +903,14 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         http_request: HttpActionRequest,
         identity: Identity,
     ) -> anyhow::Result<(Result<HttpActionResponse, JsError>, LogLines)> {
-        let (response_sender, mut response_receiver) = mpsc::unbounded();
+        let (response_sender, mut response_receiver) = tokio_mpsc::unbounded_channel();
         let http_response_streamer = HttpActionResponseStreamer::new(response_sender);
         let (outcome, log_lines) = self
             .raw_http_action(udf_path, http_request, identity, http_response_streamer)
             .await?;
         let mut response_head = None;
         let mut body = vec![];
-        while let Some(part) = response_receiver.next().await {
+        while let Some(part) = response_receiver.recv().await {
             match part {
                 HttpActionResponsePart::BodyChunk(bytes) => body.extend(bytes),
                 HttpActionResponsePart::Head(head) => response_head = Some(head),

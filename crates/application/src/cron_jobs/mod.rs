@@ -34,7 +34,6 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    sync::mpsc,
     types::{
         FunctionCaller,
         UdfType,
@@ -77,6 +76,7 @@ use model::{
     modules::ModuleModel,
 };
 use sync_types::Timestamp;
+use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     ResolvedDocumentId,

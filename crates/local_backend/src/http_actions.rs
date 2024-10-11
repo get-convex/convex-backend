@@ -36,8 +36,10 @@ use common::{
     RequestId,
 };
 use futures::{
-    channel::mpsc,
-    stream::BoxStream,
+    stream::{
+        BoxStream,
+        FusedStream,
+    },
     FutureExt,
     StreamExt,
     TryStreamExt,
@@ -56,6 +58,8 @@ use isolate::{
     HttpActionResponseStreamer,
 };
 use keybroker::Identity;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use url::Url;
 
 use crate::{
@@ -195,9 +199,10 @@ async fn stream_http_response(
     // Try to extract the identity based on the Convex auth, but allow the request
     // to go through if the header does not seem to specify Convex auth.
     let identity = identity_result.unwrap_or(Identity::Unknown);
-    let (http_response_sender, mut http_response_receiver) = mpsc::unbounded();
-    let mut run_action_fut = Box::pin(
-        application
+    let (http_response_sender, http_response_receiver) = mpsc::unbounded_channel();
+
+    tokio::pin! {
+        let run_action_fut = application
             .execute_http_action(
                 &host,
                 request_id,
@@ -206,15 +211,16 @@ async fn stream_http_response(
                 FunctionCaller::HttpEndpoint,
                 HttpActionResponseStreamer::new(http_response_sender),
             )
-            .fuse(),
-    );
+            .fuse();
+    }
+    let mut response_stream = UnboundedReceiverStream::new(http_response_receiver).fuse();
     loop {
         let next_part = async {
-            let v: Option<HttpActionResponsePart> = futures::select! {
-                result = http_response_receiver.select_next_some() => {
+            let v: Option<HttpActionResponsePart> = tokio::select! {
+                Some(result) = response_stream.next(), if !response_stream.is_terminated() => {
                     Some(result)
                 },
-                func_result = run_action_fut => {
+                func_result = &mut run_action_fut => {
                     match func_result {
                         Ok(_) => None,
                         Err(e) => return Err(e)
@@ -228,7 +234,7 @@ async fn stream_http_response(
             None => break,
         }
     }
-    while let Some(part) = http_response_receiver.next().await {
+    while let Some(part) = response_stream.next().await {
         yield part
     }
 }

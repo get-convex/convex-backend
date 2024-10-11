@@ -8,10 +8,7 @@ use common::{
         RoutableMethod,
     },
 };
-use futures::{
-    channel::mpsc,
-    stream::BoxStream,
-};
+use futures::stream::BoxStream;
 use headers::{
     HeaderMap,
     HeaderValue,
@@ -23,6 +20,7 @@ use http::{
 };
 use pb::common::HttpHeader;
 use serde_json::Value as JsonValue;
+use tokio::sync::mpsc;
 use url::Url;
 use value::sha256::{
     Sha256,
@@ -283,8 +281,7 @@ impl HttpActionResponseStreamer {
             anyhow::bail!("Sending HTTP response head after other response parts");
         };
         self.head = Some(head.clone());
-        self.sender
-            .unbounded_send(HttpActionResponsePart::Head(head))?;
+        self.sender.send(HttpActionResponsePart::Head(head))?;
         Ok(())
     }
 
@@ -295,8 +292,7 @@ impl HttpActionResponseStreamer {
         );
         self.total_bytes_sent += bytes.len();
         self.sha256.update(&bytes);
-        self.sender
-            .unbounded_send(HttpActionResponsePart::BodyChunk(bytes))?;
+        self.sender.send(HttpActionResponsePart::BodyChunk(bytes))?;
         Ok(())
     }
 

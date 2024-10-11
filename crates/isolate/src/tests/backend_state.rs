@@ -4,7 +4,6 @@ use common::{
 };
 use database::Database;
 use errors::ErrorMetadata;
-use futures::channel::mpsc;
 use keybroker::Identity;
 use model::backend_state::{
     types::BackendState,
@@ -14,6 +13,7 @@ use model::backend_state::{
     SUSPENDED_ERROR_MESSAGE,
 };
 use runtime::testing::TestRuntime;
+use tokio::sync::mpsc;
 use value::assert_obj;
 
 use crate::{
@@ -131,7 +131,7 @@ async fn test_http_action_helper(
 ) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
     toggle_backend_state(&t.database, backend_state.clone()).await?;
-    let (http_response_sender, _http_response_receiver) = mpsc::unbounded();
+    let (http_response_sender, _http_response_receiver) = mpsc::unbounded_channel();
     let error = t
         .raw_http_action(
             "http_action",

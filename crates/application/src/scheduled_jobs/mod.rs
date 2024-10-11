@@ -43,7 +43,6 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    sync::mpsc,
     tokio::task::yield_now,
     types::{
         FunctionCaller,
@@ -88,6 +87,7 @@ use model::{
 };
 use parking_lot::Mutex;
 use sync_types::Timestamp;
+use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
 use value::ResolvedDocumentId;
 

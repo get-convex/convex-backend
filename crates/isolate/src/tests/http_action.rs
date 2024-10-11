@@ -14,7 +14,6 @@ use common::{
     version::Version,
 };
 use futures::{
-    channel::mpsc,
     stream,
     StreamExt,
 };
@@ -38,6 +37,7 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use tokio::sync::mpsc;
 use url::Url;
 use value::ConvexValue;
 
@@ -200,7 +200,7 @@ async fn test_http_echo(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_http_scheduler(rt: TestRuntime) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
 
-    let (http_response_sender, _http_response_receiver) = mpsc::unbounded();
+    let (http_response_sender, _http_response_receiver) = mpsc::unbounded_channel();
     let (outcome, _log_lines) = t
         .raw_http_action(
             "http_action",
