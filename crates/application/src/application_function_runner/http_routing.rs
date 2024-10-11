@@ -58,6 +58,7 @@ use sync_types::{
     CanonicalizedUdfPath,
     FunctionName,
 };
+use tokio::sync::mpsc as tokio_mpsc;
 use usage_tracking::FunctionUsageTracker;
 
 use super::ApplicationFunctionRunner;
@@ -113,7 +114,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let request_head = http_request.head.clone();
         let route = http_request.head.route_for_failure();
-        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, log_line_receiver) = tokio_mpsc::unbounded_channel();
         // We want to intercept the response head so we can log it on function
         // completion, but still stream the response as it comes in, so we
         // create another channel here.

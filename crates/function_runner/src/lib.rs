@@ -27,7 +27,6 @@ use database::{
     TransactionReadSize,
     Writes,
 };
-use futures::channel::mpsc;
 use imbl::OrdMap;
 use isolate::{
     ActionCallbacks,
@@ -45,6 +44,7 @@ use server::{
     HttpActionMetadata,
 };
 use sync_types::Timestamp;
+use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageStats;
 use value::{
     ResolvedDocumentId,

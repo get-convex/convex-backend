@@ -55,7 +55,6 @@ use database::{
     TransactionTextSnapshot,
 };
 use file_storage::TransactionalFileStorage;
-use futures::channel::mpsc;
 use isolate::{
     client::{
         initialize_v8,
@@ -101,7 +100,10 @@ use storage::{
     StorageUseCase,
 };
 use sync_types::Timestamp;
-use tokio::sync::oneshot;
+use tokio::sync::{
+    mpsc,
+    oneshot,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,

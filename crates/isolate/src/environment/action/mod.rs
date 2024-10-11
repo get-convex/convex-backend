@@ -83,6 +83,7 @@ use sync_types::{
     CanonicalizedUdfPath,
     ModulePath,
 };
+use tokio::sync::mpsc as tokio_mpsc;
 use value::{
     heap_size::HeapSize,
     ConvexArray,
@@ -217,7 +218,7 @@ impl<'a, T: Send> CollectResult<'a, T> {
 pub struct ActionEnvironment<RT: Runtime> {
     identity: Identity,
     total_log_lines: usize,
-    log_line_sender: mpsc::UnboundedSender<LogLine>,
+    log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
     http_response_streamer: Option<HttpActionResponseStreamer>,
 
     rt: RT,
@@ -250,7 +251,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: mpsc::UnboundedSender<LogLine>,
+        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
         http_response_streamer: Option<HttpActionResponseStreamer>,
         heap_stats: SharedIsolateHeapStats,
         context: ExecutionContext,
@@ -1260,13 +1261,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     }
 
     fn trace_system(&mut self, warning: SystemWarning) -> anyhow::Result<()> {
-        self.log_line_sender
-            .unbounded_send(LogLine::new_system_log_line(
-                warning.level,
-                warning.messages,
-                self.rt.unix_timestamp(),
-                warning.system_log_metadata,
-            ))?;
+        self.log_line_sender.send(LogLine::new_system_log_line(
+            warning.level,
+            warning.messages,
+            self.rt.unix_timestamp(),
+            warning.system_log_metadata,
+        ))?;
         Ok(())
     }
 }
@@ -1277,24 +1277,22 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
 
         match self.total_log_lines.cmp(&(MAX_LOG_LINES - 1)) {
             Ordering::Less => {
-                self.log_line_sender
-                    .unbounded_send(LogLine::new_developer_log_line(
-                        level,
-                        messages,
-                        self.rt.unix_timestamp(),
-                    ))?;
+                self.log_line_sender.send(LogLine::new_developer_log_line(
+                    level,
+                    messages,
+                    self.rt.unix_timestamp(),
+                ))?;
                 self.total_log_lines += 1;
             },
             Ordering::Equal => {
                 // Add a message about omitting log lines once
-                self.log_line_sender
-                    .unbounded_send(LogLine::new_developer_log_line(
-                        LogLevel::Error,
-                        vec![format!(
-                            "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
-                        )],
-                        self.rt.unix_timestamp(),
-                    ))?;
+                self.log_line_sender.send(LogLine::new_developer_log_line(
+                    LogLevel::Error,
+                    vec![format!(
+                        "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
+                    )],
+                    self.rt.unix_timestamp(),
+                ))?;
                 self.total_log_lines += 1;
             },
             Ordering::Greater => (),

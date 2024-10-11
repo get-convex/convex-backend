@@ -25,7 +25,6 @@ use common::{
         UdfType,
     },
 };
-use futures::channel::mpsc;
 use http::Uri;
 use isolate::{
     deserialize_udf_custom_error,
@@ -73,6 +72,7 @@ use sync_types::{
     FunctionName,
     UserIdentityAttributes,
 };
+use tokio::sync::mpsc;
 use value::{
     base64,
     heap_size::WithHeapSize,
@@ -288,7 +288,7 @@ impl Actions {
         request: BuildDepsRequest,
     ) -> anyhow::Result<Result<(Sha256Digest, PackageSize), JsError>> {
         let timer = node_executor("build_deps");
-        let (log_line_sender, _log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, _log_line_receiver) = mpsc::unbounded_channel();
         let request = ExecutorRequest::BuildDeps(request);
         let InvokeResponse {
             response,
@@ -348,7 +348,7 @@ impl Actions {
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let timer = node_executor("analyze");
 
-        let (log_line_sender, _log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, _log_line_receiver) = mpsc::unbounded_channel();
         let request = ExecutorRequest::Analyze(request);
         let InvokeResponse {
             response,

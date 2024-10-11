@@ -95,7 +95,6 @@ use function_runner::{
     FunctionWrites,
 };
 use futures::{
-    channel::mpsc,
     select_biased,
     try_join,
     FutureExt,
@@ -182,6 +181,7 @@ use node_executor::{
 use serde_json::Value as JsonValue;
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
+use tokio::sync::mpsc;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -1246,7 +1246,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .get_metadata_for_function_by_id(&path)
             .await?
             .context("Missing a valid module")?;
-        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, log_line_receiver) = mpsc::unbounded_channel();
 
         let inert_identity = tx.inert_identity();
         let timer = function_total_timer(module.environment, UdfType::Action);

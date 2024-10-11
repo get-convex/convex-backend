@@ -5,15 +5,7 @@ use std::{
     str::FromStr,
 };
 
-use futures::{
-    channel::mpsc,
-    future::{
-        BoxFuture,
-        FutureExt,
-    },
-    select_biased,
-    StreamExt,
-};
+use futures::future::BoxFuture;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde::{
@@ -26,6 +18,7 @@ pub use sync_types::{
     SessionRequestSeqNumber,
     Timestamp,
 };
+use tokio::sync::mpsc;
 use value::{
     heap_size::{
         HeapSize,
@@ -473,25 +466,15 @@ pub async fn run_function_and_collect_log_lines<Outcome>(
     mut log_line_receiver: mpsc::UnboundedReceiver<LogLine>,
     on_log_line: impl Fn(LogLine),
 ) -> (Outcome, LogLines) {
-    let mut full_log_lines = vec![];
-    let mut fused_get_outcome = get_outcome.fuse();
-    let outcome = loop {
-        select_biased! {
-            outcome = fused_get_outcome => {
-                break outcome;
-            },
-            log_line = log_line_receiver.select_next_some() =>  {
-                on_log_line(log_line.clone());
-                full_log_lines.push(log_line);
-            }
+    let log_line_consumer = async move {
+        let mut full_log_lines = vec![];
+        while let Some(log_line) = log_line_receiver.recv().await {
+            on_log_line(log_line.clone());
+            full_log_lines.push(log_line)
         }
+        LogLines::from(full_log_lines)
     };
-    let remaining_log_lines: Vec<LogLine> = log_line_receiver.collect().await;
-    for log_line in remaining_log_lines {
-        on_log_line(log_line.clone());
-        full_log_lines.push(log_line);
-    }
-    (outcome, full_log_lines.into())
+    tokio::join!(get_outcome, log_line_consumer)
 }
 
 #[cfg(test)]

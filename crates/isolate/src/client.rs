@@ -137,7 +137,10 @@ use sync_types::{
     CanonicalizedModulePath,
     CanonicalizedUdfPath,
 };
-use tokio::sync::oneshot;
+use tokio::sync::{
+    mpsc as tokio_mpsc,
+    oneshot,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -456,7 +459,7 @@ pub enum RequestType<RT: Runtime> {
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: mpsc::UnboundedSender<LogLine>,
+        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
     },
     HttpAction {
         request: HttpActionRequest<RT>,
@@ -465,7 +468,7 @@ pub enum RequestType<RT: Runtime> {
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: mpsc::UnboundedSender<LogLine>,
+        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
         http_response_streamer: HttpActionResponseStreamer,
     },
     Analyze {
@@ -791,7 +794,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         identity: Identity,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: mpsc::UnboundedSender<LogLine>,
+        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
         http_response_streamer: HttpActionResponseStreamer,
         transaction: Transaction<RT>,
         context: ExecutionContext,
@@ -850,7 +853,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: mpsc::UnboundedSender<LogLine>,
+        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionOutcome> {
         // In production, we have two isolate clients, one for DB UDFs (queries,

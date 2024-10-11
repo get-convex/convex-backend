@@ -32,10 +32,7 @@ use common::{
         fetch::ProxiedFetchClient,
         RoutedHttpPath,
     },
-    log_lines::{
-        LogLine,
-        LogLines,
-    },
+    log_lines::LogLines,
     minitrace_helpers::EncodedSpan,
     pause::{
         PauseClient,
@@ -124,7 +121,10 @@ use storage::{
     Storage,
 };
 use sync_types::UdfPath;
-use tokio::sync::oneshot;
+use tokio::sync::{
+    mpsc as tokio_mpsc,
+    oneshot,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -943,7 +943,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let path: UdfPath = udf_path.parse()?;
 
         let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
-        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, mut log_line_receiver) = tokio_mpsc::unbounded_channel();
         let outcome = self
             .isolate
             .execute_http_action(
@@ -959,7 +959,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 ExecutionContext::new_for_test(),
             )
             .await?;
-        let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
+        let mut log_lines = vec![];
+        while let Some(log_line) = log_line_receiver.recv().await {
+            log_lines.push(log_line);
+        }
         Ok((outcome, log_lines.into()))
     }
 
@@ -1077,7 +1080,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             Ok(path_and_args) => path_and_args,
         };
         let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
-        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, mut log_line_receiver) = tokio_mpsc::unbounded_channel();
 
         // TODO(presley): Make this also be able to use local executor.
         let outcome = self
@@ -1091,7 +1094,10 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 ExecutionContext::new_for_test(),
             )
             .await?;
-        let log_lines: Vec<LogLine> = log_line_receiver.collect().await;
+        let mut log_lines = vec![];
+        while let Some(log_line) = log_line_receiver.recv().await {
+            log_lines.push(log_line);
+        }
         Ok((outcome, log_lines.into()))
     }
 }

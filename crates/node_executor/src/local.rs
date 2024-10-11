@@ -8,7 +8,6 @@ use anyhow::Context;
 use async_trait::async_trait;
 use common::log_lines::LogLine;
 use futures::{
-    channel::mpsc,
     select_biased,
     FutureExt,
     StreamExt,
@@ -16,7 +15,10 @@ use futures::{
 use isolate::bundled_js::node_executor_file;
 use serde_json::Value as JsonValue;
 use tempfile::TempDir;
-use tokio::process::Command as TokioCommand;
+use tokio::{
+    process::Command as TokioCommand,
+    sync::mpsc,
+};
 use tokio_process_stream::{
     Item,
     ProcessLineStream,
@@ -136,7 +138,7 @@ impl NodeExecutor for LocalNodeExecutor {
                             for part in parts {
                                 match part {
                                     ResponsePart::LogLine(log_line) => {
-                                        log_line_sender.unbounded_send(log_line)?;
+                                        log_line_sender.send(log_line)?;
                                     },
                                     ResponsePart::Result(result) => result_values.push(result)
                                 }
@@ -200,10 +202,7 @@ mod tests {
         version::Version,
     };
     use errors::ErrorMetadataAnyhowExt;
-    use futures::{
-        channel::mpsc,
-        FutureExt,
-    };
+    use futures::FutureExt;
     use isolate::{
         test_helpers::TEST_SOURCE,
         ValidatedPathAndArgs,
@@ -238,6 +237,7 @@ mod tests {
         CanonicalizedModulePath,
         ModulePath,
     };
+    use tokio::sync::mpsc;
     use value::{
         array,
         id_v6::DeveloperDocumentId,
@@ -310,7 +310,7 @@ mod tests {
         execute_request: ExecuteRequest,
         source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
     ) -> anyhow::Result<(NodeActionOutcome, LogLines)> {
-        let (log_line_sender, log_line_receiver) = mpsc::unbounded();
+        let (log_line_sender, log_line_receiver) = mpsc::unbounded_channel();
         let execute_future = Box::pin(
             actions
                 .execute(execute_request, source_maps, log_line_sender)

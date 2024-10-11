@@ -6,18 +6,18 @@ mod test_pause {
         sync::Arc,
     };
 
-    use futures::{
-        channel::mpsc,
-        SinkExt,
-        StreamExt,
-    };
     use parking_lot::Mutex;
 
     use super::Fault;
+    use crate::sync::{
+        rendezvous,
+        RendezvousReceiver,
+        RendezvousSender,
+    };
 
     #[derive(Default, Clone)]
     pub struct PauseClient {
-        channels: Arc<Mutex<BTreeMap<&'static str, mpsc::Receiver<Fault>>>>,
+        channels: Arc<Mutex<BTreeMap<&'static str, RendezvousReceiver<Fault>>>>,
     }
 
     impl PauseClient {
@@ -41,13 +41,13 @@ mod test_pause {
             };
             tracing::info!("Waiting on {label}");
             // Start waiting on the channel to signal to the controller that we're paused.
-            if rendezvous.next().await.is_none() {
+            if rendezvous.recv().await.is_none() {
                 tracing::info!("Rendezvous disconnected for {label:?}, continuing...");
                 return Fault::Noop;
             }
             tracing::info!("PauseController successfully paused {label}");
             // Wait for the controller to give us another value.
-            let Some(fault) = rendezvous.next().await else {
+            let Some(fault) = rendezvous.recv().await else {
                 tracing::info!("Rendezvous disconnected after pause for {label:?}, continuing...");
                 return Fault::Noop;
             };
@@ -57,14 +57,14 @@ mod test_pause {
         }
 
         pub fn close(&self, label: &'static str) {
-            if let Some(mut rendezvous) = self.channels.lock().remove(&label) {
+            if let Some(rendezvous) = self.channels.lock().remove(&label) {
                 rendezvous.close();
             }
         }
     }
 
     pub struct PauseController {
-        channels: BTreeMap<&'static str, mpsc::Sender<Fault>>,
+        channels: BTreeMap<&'static str, RendezvousSender<Fault>>,
     }
 
     pub struct PauseGuard<'a> {
@@ -126,7 +126,7 @@ mod test_pause {
                 // to the channel until the tested code is ready to receive the
                 // breakpoint. Then, the controller will regain execution until
                 // it hands it back to the test by unpausing it.
-                let (tx, rx) = mpsc::channel(0);
+                let (tx, rx) = rendezvous();
                 controller.channels.insert(label, tx);
                 client.channels.lock().insert(label, rx);
             }
