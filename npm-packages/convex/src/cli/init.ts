@@ -9,6 +9,7 @@ const cwd = path.basename(process.cwd());
 // `npx convex dev --once --configure=new` replaces it.
 export const init = new Command("init")
   .description("Initialize a new Convex project in the current directory")
+  .allowExcessArguments(false)
   .addOption(
     new Option(
       "--project <name>",

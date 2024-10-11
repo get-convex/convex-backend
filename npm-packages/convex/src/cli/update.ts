@@ -5,6 +5,7 @@ import { loadPackageJson } from "./lib/utils/utils.js";
 
 export const update = new Command("update")
   .description("Print instructions for updating the convex package")
+  .allowExcessArguments(false)
   .action(async () => {
     const ctx = oneoffContext();
     let updateInstructions = "npm install convex@latest\n";

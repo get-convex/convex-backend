@@ -11,6 +11,7 @@ import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 
 export const run = new Command("run")
   .description("Run a function (query, mutation, or action) on your deployment")
+  .allowExcessArguments(false)
   .argument(
     "functionName",
     "identifier of the function to run, like `listMessages` or `dir/file:myFunction`",

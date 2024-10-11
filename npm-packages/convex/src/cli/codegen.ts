@@ -7,6 +7,7 @@ export const codegen = new Command("codegen")
   .description(
     "Generate types in `convex/_generated/` based on the current contents of `convex/`.",
   )
+  .allowExcessArguments(false)
   .option(
     "--dry-run",
     "Print out the generated configuration to stdout instead of writing to convex directory",

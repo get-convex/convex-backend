@@ -14,6 +14,7 @@ export const functionSpec = new Command("function-spec")
     "List argument and return values to your Convex functions.\n\n" +
       "By default, this inspects your dev deployment.",
   )
+  .allowExcessArguments(false)
   .addOption(new Option("--file", "Output as JSON to a file."))
   .addDeploymentSelectionOptions(
     actionDescription("Read function metadata from"),

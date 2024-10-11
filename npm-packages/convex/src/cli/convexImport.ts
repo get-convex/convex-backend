@@ -43,6 +43,7 @@ export const convexImport = new Command("import")
       "  For a single table: `npx convex import --table tableName file.json`\n\n" +
       "By default, this imports into your dev deployment.",
   )
+  .allowExcessArguments(false)
   .addOption(
     new Option(
       "--table <table>",

@@ -7,6 +7,7 @@ import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils/utils.js";
 
 export const docs = new Command("docs")
   .description("Open the docs in the browser")
+  .allowExcessArguments(false)
   .option("--no-open", "Print docs URL instead of opening it in your browser")
   .action(async (options) => {
     const ctx = oneoffContext();

@@ -14,6 +14,7 @@ export const logs = new Command("logs")
   .description(
     "Stream function logs from your Convex deployment.\nBy default, this streams from your project's dev deployment.",
   )
+  .allowExcessArguments(false)
   .option(
     "--history [n]",
     "Show `n` most recent logs. Defaults to showing all available logs.",

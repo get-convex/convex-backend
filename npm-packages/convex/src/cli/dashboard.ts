@@ -14,6 +14,7 @@ const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
 
 export const dashboard = new Command("dashboard")
   .description("Open the dashboard in the browser")
+  .allowExcessArguments(false)
   .option(
     "--no-open",
     "Don't automatically open the dashboard in the default browser",

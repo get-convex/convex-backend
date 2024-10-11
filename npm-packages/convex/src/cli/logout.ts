@@ -5,6 +5,7 @@ import { recursivelyDelete } from "./lib/fsUtils.js";
 
 export const logout = new Command("logout")
   .description("Log out of Convex on this machine")
+  .allowExcessArguments(false)
   .action(async () => {
     const ctx = oneoffContext();
 

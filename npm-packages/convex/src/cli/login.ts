@@ -4,6 +4,7 @@ import { checkAuthorization, performLogin } from "./lib/login.js";
 
 export const login = new Command("login")
   .description("Login to Convex")
+  .allowExcessArguments(false)
   .option(
     "--device-name <name>",
     "Provide a name for the device being authorized",

@@ -26,6 +26,7 @@ export const data = new Command("data")
       "  List documents in a table: `npx convex data tableName`\n\n" +
       "By default, this inspects your dev deployment.",
   )
+  .allowExcessArguments(false)
   .argument("[table]", "If specified, list documents in this table.")
   .addOption(
     new Option(

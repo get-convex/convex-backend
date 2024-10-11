@@ -18,6 +18,7 @@ type Deployment = {
 
 export const deployments = new Command("deployments")
   .description("List deployments associated with a project")
+  .allowExcessArguments(false)
   .action(async () => {
     const ctx = oneoffContext();
     const { projectConfig: config } = await readProjectConfig(ctx);

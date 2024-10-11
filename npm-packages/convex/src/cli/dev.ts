@@ -39,6 +39,7 @@ export const dev = new Command("dev")
       "  3. Runs the provided function (if `--run` is used)\n" +
       "  4. Watches for file changes, and repeats step 2\n",
   )
+  .allowExcessArguments(false)
   .option("-v, --verbose", "Show full listing of changes")
   .addOption(
     new Option(

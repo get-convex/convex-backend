@@ -28,6 +28,7 @@ const ipFamilyNames = { 4: "ipv4", 6: "ipv6", 0: "auto" } as const;
 
 export const networkTest = new Command("network-test")
   .description("Run a network test to Convex's servers")
+  .allowExcessArguments(false)
   .addOption(
     new Option(
       "--timeout <timeout>",

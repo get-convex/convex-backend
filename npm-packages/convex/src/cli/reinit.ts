@@ -8,6 +8,7 @@ export const reinit = new Command("reinit")
   .description(
     "Reinitialize a Convex project in the local directory if you've lost your convex.json file",
   )
+  .allowExcessArguments(false)
   .addOption(
     new Option(
       "--team <team_slug>",

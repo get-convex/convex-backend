@@ -42,6 +42,7 @@ export const deploy = new Command("deploy")
     "Deploy to your deployment. By default, this deploys to your prod deployment.\n\n" +
       "Deploys to a preview deployment if the `CONVEX_DEPLOY_KEY` environment variable is set to a Preview Deploy Key.",
   )
+  .allowExcessArguments(false)
   .option("-v, --verbose", "Show full listing of changes")
   .option(
     "--dry-run",

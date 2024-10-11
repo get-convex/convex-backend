@@ -33,6 +33,7 @@ export const convexExport = new Command("export")
     "Export data, and optionally file storage, from your Convex deployment to a ZIP file.\n" +
       "By default, this exports from your dev deployment.",
   )
+  .allowExcessArguments(false)
   .requiredOption(
     "--path <zipFilePath>",
     "Exports data into a ZIP file at this path, which may be a directory or unoccupied .zip path",
