@@ -134,7 +134,7 @@ mod metrics {
     register_convex_histogram!(
         HTTP_HANDLE_DURATION_SECONDS,
         "Time to handle an HTTP request",
-        &["endpoint", "method", "status", "client_version"]
+        &["endpoint", "method", "status", "client_version", "is_test"]
     );
 
     pub fn log_http_request(
@@ -143,6 +143,7 @@ mod metrics {
         method: &str,
         status: &str,
         duration: Duration,
+        is_test: bool,
     ) {
         // There are a lot of labels in here and some (e.g., client_version) are
         // pretty high cardinality. If this gets too expensive we can split out
@@ -152,6 +153,7 @@ mod metrics {
             MetricLabel::new("method", method),
             MetricLabel::new("status", status),
             MetricLabel::new("client_version", client_version),
+            MetricLabel::new("is_test", is_test.to_string()),
         ];
         log_distribution_with_labels(
             &HTTP_HANDLE_DURATION_SECONDS,
@@ -801,6 +803,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     matched_path: Option<axum::extract::MatchedPath>,
     ExtractRequestId(request_id): ExtractRequestId,
     ExtractClientVersion(client_version): ExtractClientVersion,
+    ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
     ExtractTraceparent(traceparent): ExtractTraceparent,
     req: http::request::Request<Body>,
     next: axum::middleware::Next,
@@ -823,6 +826,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
     let client_version_s = client_version.to_string();
 
     let route = route_metric_mapper.map_route(route);
+    let is_test = resolved_host.instance_name.starts_with("test-");
 
     // Add the request_id to sentry
     sentry::configure_scope(|scope| scope.set_tag("request_id", request_id.clone()));
@@ -833,6 +837,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
         method.as_str(),
         resp.status().as_str(),
         start.elapsed(),
+        is_test,
     );
 
     Ok::<_, _>(resp)
