@@ -1297,11 +1297,13 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         identity: Identity,
         component: ComponentId,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<FileStorageEntry>> {
+    ) -> anyhow::Result<Option<(ComponentPath, FileStorageEntry)>> {
         let mut tx = self.database.begin(identity).await?;
-        self.file_storage
+        let entry = self
+            .file_storage
             .get_file_entry(&mut tx, component.into(), storage_id)
-            .await
+            .await?;
+        Ok(entry.map(|e| (ComponentPath::root(), e)))
     }
 
     async fn storage_store_file_entry(
@@ -1309,14 +1311,14 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
         identity: Identity,
         component: ComponentId,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DeveloperDocumentId> {
+    ) -> anyhow::Result<(ComponentPath, DeveloperDocumentId)> {
         let mut tx = self.database.begin(identity).await?;
         let id = self
             .file_storage
             .store_file_entry(&mut tx, component.into(), entry)
             .await?;
         self.database.commit(tx).await?;
-        Ok(id)
+        Ok((ComponentPath::root(), id))
     }
 
     async fn storage_delete(

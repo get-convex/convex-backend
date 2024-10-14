@@ -2,7 +2,6 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use common::{
-    components::ComponentPath,
     runtime::Runtime,
     sha256::{
         DigestHeader,
@@ -80,12 +79,11 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let storage_id = entry.storage_id.clone();
         let size = entry.size;
         let sha256 = entry.sha256.clone();
-        let storage_doc_id = self
+        let (component_path, storage_doc_id) = self
             .action_callbacks
             .storage_store_file_entry(self.identity.clone(), self.component_id(), entry)
             .await?;
 
-        let component_path = ComponentPath::TODO();
         self.usage_tracker
             .track_storage_call(
                 component_path.clone(),
@@ -147,14 +145,13 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .action_callbacks
             .storage_get_file_entry(self.identity.clone(), self.component_id(), storage_id)
             .await?;
-        let file_entry = match file_entry {
+        let (component_path, file_entry) = match file_entry {
             None => return Ok(None),
             Some(f) => f,
         };
-
         let file_stream = self
             .file_storage
-            .get_file_stream(file_entry, self.usage_tracker.clone())
+            .get_file_stream(component_path, file_entry, self.usage_tracker.clone())
             .await?;
 
         let stream = file_stream.stream.map_err(|e| e.into()).boxed();

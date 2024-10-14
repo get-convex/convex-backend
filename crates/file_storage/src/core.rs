@@ -185,6 +185,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
 
     pub async fn get_file_stream(
         &self,
+        component_path: ComponentPath,
         file: FileStorageEntry,
         usage_tracker: impl StorageUsageTracker + Clone + 'static,
     ) -> anyhow::Result<FileStream> {
@@ -192,6 +193,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
 
         let result = self
             .file_stream(
+                component_path,
                 file,
                 (Bound::Included(0), Bound::Unbounded),
                 usage_tracker,
@@ -209,16 +211,24 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
 
     pub async fn get_file_range_stream(
         &self,
+        component_path: ComponentPath,
         file: FileStorageEntry,
         bytes_range: (Bound<u64>, Bound<u64>),
         usage_tracker: impl StorageUsageTracker + Clone + 'static,
     ) -> anyhow::Result<FileRangeStream> {
-        self.file_stream(file, bytes_range, usage_tracker, GetFileType::Range)
-            .await
+        self.file_stream(
+            component_path,
+            file,
+            bytes_range,
+            usage_tracker,
+            GetFileType::Range,
+        )
+        .await
     }
 
     async fn file_stream(
         &self,
+        component_path: ComponentPath,
         file: FileStorageEntry,
         bytes_range: (Bound<u64>, Bound<u64>),
         usage_tracker: impl StorageUsageTracker + Clone + 'static,
@@ -243,7 +253,6 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         let stream = storage_get_stream.stream;
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 
-        let component_path = ComponentPath::TODO();
         let call_tracker = usage_tracker.track_storage_call(
             component_path.clone(),
             "get range",

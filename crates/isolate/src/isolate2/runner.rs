@@ -515,7 +515,7 @@ async fn run_request<RT: Runtime>(
         while let Some(module_path) = stack.pop() {
             let module_specifier = module_specifier_from_path(&module_path)?;
             let path = CanonicalizedComponentModulePath {
-                component: ComponentId::TODO(),
+                component: ComponentId::Root,
                 module_path: module_path.clone(),
             };
             let Some(module_metadata) = module_loader.get_module(tx, path).await? else {
@@ -736,7 +736,7 @@ impl<RT: Runtime> UdfShared<RT> {
         let inner = self.inner.lock();
         Ok(inner
             .table_mapping
-            .namespace(TableNamespace::by_component_TODO())
+            .namespace(TableNamespace::root_component())
             .id_and_number_if_exists(name))
     }
 
@@ -853,8 +853,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
     }
 
     fn component(&self) -> anyhow::Result<ComponentId> {
-        // TODO(lee) fix when we finish isolate2.
-        Ok(ComponentId::TODO())
+        Ok(ComponentId::Root)
     }
 
     fn key_broker(&self) -> &KeyBroker {
@@ -962,7 +961,7 @@ impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, R
             Reference::ComponentArgument { .. } => todo!(),
             Reference::Function(udf_path) => {
                 Resource::Function(CanonicalizedComponentFunctionPath {
-                    component: ComponentPath::TODO(),
+                    component: ComponentPath::root(),
                     udf_path,
                 })
             },

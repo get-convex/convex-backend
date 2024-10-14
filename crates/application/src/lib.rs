@@ -2470,12 +2470,32 @@ impl<RT: Runtime> Application<RT> {
         storage_id: FileStorageId,
     ) -> anyhow::Result<FileStream> {
         self.bail_if_not_running().await?;
-        let file_entry = self.get_file_entry(component, storage_id).await?;
+        let mut file_storage_tx = self.begin(Identity::system()).await?;
+        let Some(file_entry) = self
+            .file_storage
+            .transactional_file_storage
+            // The transaction is not part of UDF so use the global usage counters.
+            .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
+            .await?
+        else {
+            return Err(ErrorMetadata::transient_not_found(
+                "FileNotFound",
+                format!("File {storage_id} not found"),
+            )
+            .into());
+        };
+        let Some(component_path) = file_storage_tx.get_component_path(component) else {
+            return Err(ErrorMetadata::transient_not_found(
+                "FileNotFound",
+                format!("Component {component:?} not found"),
+            )
+            .into());
+        };
         self
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
-            .get_file_stream(file_entry, self.usage_tracking.clone())
+            .get_file_stream(component_path, file_entry, self.usage_tracking.clone())
             .await
     }
 
@@ -2501,12 +2521,24 @@ impl<RT: Runtime> Application<RT> {
             )
             .into());
         };
+        let Some(component_path) = file_storage_tx.get_component_path(component) else {
+            return Err(ErrorMetadata::transient_not_found(
+                "FileNotFound",
+                format!("Component {component:?} not found"),
+            )
+            .into());
+        };
 
         self
             .file_storage
             .transactional_file_storage
             // The transaction is not part of UDF so use the global usage counters.
-            .get_file_range_stream(file_entry, bytes_range, self.usage_tracking.clone())
+            .get_file_range_stream(
+                component_path,
+                file_entry,
+                bytes_range,
+                self.usage_tracking.clone(),
+            )
             .await
     }
 

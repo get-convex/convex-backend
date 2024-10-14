@@ -51,7 +51,6 @@ use isolate::{
 };
 use keybroker::Identity;
 use minitrace::future::FutureExt;
-use model::file_storage::types::FileStorageEntry;
 use serde::{
     Deserialize,
     Serialize,
@@ -512,23 +511,16 @@ pub async fn storage_get_metadata(
         .runner()
         .storage_get_file_entry(identity, component_id, storage_id)
         .await?
-        .map(
-            |FileStorageEntry {
-                 storage_id,
-                 storage_key: _, // internal field that we shouldn't return in syscalls
-                 sha256,
-                 size,
-                 content_type,
-             }| {
-                FileMetadataJson {
-                    storage_id: storage_id.to_string(),
-                    // TODO(CX-5533) use base64 for consistency.
-                    sha256: sha256.as_hex(),
-                    size,
-                    content_type,
-                }
-            },
-        );
+        .map(|(_, entry)| {
+            // NB: `storage_key` is an internal field that we shouldn't to Node.
+            FileMetadataJson {
+                storage_id: entry.storage_id.to_string(),
+                // TODO(CX-5533) use base64 for consistency.
+                sha256: entry.sha256.as_hex(),
+                size: entry.size,
+                content_type: entry.content_type,
+            }
+        });
     Ok(Json(file_metadata))
 }
 
@@ -798,7 +790,7 @@ mod tests {
         // Cancel the scheduled job
         let body = Body::from(serde_json::to_vec(&CancelJobRequest {
             id: job_id.clone(),
-            component_id: ComponentId::TODO().serialize_to_string(),
+            component_id: ComponentId::Root.serialize_to_string(),
         })?);
         let req = Request::builder()
             .uri("/api/actions/cancel_job")

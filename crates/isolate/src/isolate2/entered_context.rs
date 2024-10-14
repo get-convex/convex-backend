@@ -323,9 +323,9 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
 
         let path = ResolvedComponentFunctionPath {
-            component: ComponentId::TODO(),
+            component: ComponentId::Root,
             udf_path: udf_path.clone(),
-            component_path: Some(ComponentPath::TODO()),
+            component_path: Some(ComponentPath::root()),
         };
         let evaluate_result = self.check_promise_result(&path, &promise)?;
         Ok((v8::Global::new(self.scope, promise), evaluate_result))
@@ -431,9 +431,9 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
 
         let promise = v8::Local::new(self.scope, &pending_function.promise);
         let path = ResolvedComponentFunctionPath {
-            component: ComponentId::TODO(),
+            component: ComponentId::Root,
             udf_path: pending_function.udf_path.clone(),
-            component_path: Some(ComponentPath::TODO()),
+            component_path: Some(ComponentPath::root()),
         };
         self.check_promise_result(&path, &promise)
     }

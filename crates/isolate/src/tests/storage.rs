@@ -40,7 +40,7 @@ async fn check_storage_url(
     must_let!(let ConvexValue::String(id_str) = id);
     must_let!(let Some(internal_id) = url_str.strip_prefix("http://127.0.0.1:8000/api/storage/"));
     must_let!(
-        let Some(storage_entry) = t.storage_get_file_entry(
+        let Some((_, storage_entry)) = t.storage_get_file_entry(
             Identity::system(), ComponentId::test_user(), FileStorageId::DocumentId(id_str.parse()?)
         ).await?
     );

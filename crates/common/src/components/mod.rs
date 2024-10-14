@@ -46,13 +46,6 @@ impl ComponentId {
         matches!(self, ComponentId::Root)
     }
 
-    /// This component should be passed in somehow -- it's not always going to
-    /// be Root.
-    #[allow(non_snake_case)]
-    pub const fn TODO() -> Self {
-        ComponentId::Root
-    }
-
     /// Component for tests where we need a user component.
     /// Ideally we could switch this to some other component with no test
     /// breakage.

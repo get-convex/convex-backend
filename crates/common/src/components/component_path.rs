@@ -89,13 +89,6 @@ impl ComponentPath {
         self.path.is_empty()
     }
 
-    /// Use ComponentPath::TODO() when the path should be passed down from a
-    /// higher layer.
-    #[allow(non_snake_case)]
-    pub fn TODO() -> Self {
-        Self::root()
-    }
-
     /// Component path to use in tests, representing a user-space component.
     /// Ideally this could be changed to an arbitrary path and the tests would
     /// still pass.

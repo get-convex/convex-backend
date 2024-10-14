@@ -27,6 +27,7 @@ use common::{
         ComponentDefinitionPath,
         ComponentId,
         ComponentName,
+        ComponentPath,
         PublicFunctionPath,
         Resource,
     },
@@ -1952,12 +1953,17 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         component: ComponentId,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<FileStorageEntry>> {
+    ) -> anyhow::Result<Option<(ComponentPath, FileStorageEntry)>> {
         let mut tx = self.database.begin(identity).await?;
         self.bail_if_backend_not_running(&mut tx).await?;
-        self.file_storage
+        let Some(component_path) = tx.get_component_path(component) else {
+            return Ok(None);
+        };
+        let entry = self
+            .file_storage
             .get_file_entry(&mut tx, component.into(), storage_id)
-            .await
+            .await?;
+        Ok(entry.map(|e| (component_path, e)))
     }
 
     async fn storage_store_file_entry(
@@ -1965,10 +1971,10 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         identity: Identity,
         component: ComponentId,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DeveloperDocumentId> {
+    ) -> anyhow::Result<(ComponentPath, DeveloperDocumentId)> {
         let mut tx = self.database.begin(identity.clone()).await?;
         self.bail_if_backend_not_running(&mut tx).await?;
-        let (_ts, id, _stats) = self
+        let (_ts, r, _stats) = self
             .database
             .execute_with_occ_retries(
                 identity,
@@ -1977,17 +1983,20 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 "app_funrun_storage_store_file_entry",
                 |tx| {
                     async {
+                        let component_path = tx
+                            .get_component_path(component)
+                            .context(format!("Component {component:?} not found"))?;
                         let id = self
                             .file_storage
                             .store_file_entry(tx, component.into(), entry.clone())
                             .await?;
-                        Ok(id)
+                        Ok((component_path, id))
                     }
                     .into()
                 },
             )
             .await?;
-        Ok(id)
+        Ok(r)
     }
 
     async fn storage_delete(

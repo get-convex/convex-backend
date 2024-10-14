@@ -30,6 +30,7 @@ use common::{
         ComponentDefinitionPath,
         ComponentId,
         ComponentName,
+        ComponentPath,
         Resource,
     },
     errors::{
@@ -336,7 +337,7 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         component: ComponentId,
         storage_id: FileStorageId,
-    ) -> anyhow::Result<Option<FileStorageEntry>>;
+    ) -> anyhow::Result<Option<(ComponentPath, FileStorageEntry)>>;
 
     // Used to store an already uploaded file from an action running in v8.
     async fn storage_store_file_entry(
@@ -344,7 +345,7 @@ pub trait ActionCallbacks: Send + Sync {
         identity: Identity,
         component: ComponentId,
         entry: FileStorageEntry,
-    ) -> anyhow::Result<DeveloperDocumentId>;
+    ) -> anyhow::Result<(ComponentPath, DeveloperDocumentId)>;
 
     // Scheduler
     async fn schedule_job(
@@ -1831,10 +1832,10 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
             } => {
                 drop(queue_timer);
                 let timer = metrics::service_request_timer(&UdfType::Action);
-                let component_path = request.params.path_and_args.path().component;
+                let component_id = request.params.path_and_args.path().component;
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
-                    component_path,
+                    component_id,
                     environment_data,
                     request.identity,
                     request.transaction,

@@ -21,10 +21,7 @@ use model::{
         auth::propagate_component_auth,
         handles::function_handle_not_found,
     },
-    file_storage::{
-        types::FileStorageEntry,
-        FileStorageId,
-    },
+    file_storage::FileStorageId,
 };
 use serde::{
     Deserialize,
@@ -397,23 +394,16 @@ impl<RT: Runtime> TaskExecutor<RT> {
             .action_callbacks
             .storage_get_file_entry(self.identity.clone(), self.component_id(), storage_id)
             .await?
-            .map(
-                |FileStorageEntry {
-                     storage_id,
-                     storage_key: _, // internal field that we shouldn't return in syscalls
-                     sha256,
-                     size,
-                     content_type,
-                 }| {
-                    FileMetadataJson {
-                        storage_id: storage_id.to_string(),
-                        // TODO(CX-5533) use base64 for consistency.
-                        sha256: sha256.as_hex(),
-                        size,
-                        content_type,
-                    }
-                },
-            );
+            .map(|(_, entry)| {
+                // NB: `storage_key is an internal field that we shouldn't return in syscalls.
+                FileMetadataJson {
+                    storage_id: entry.storage_id.to_string(),
+                    // TODO(CX-5533) use base64 for consistency.
+                    sha256: entry.sha256.as_hex(),
+                    size: entry.size,
+                    content_type: entry.content_type,
+                }
+            });
         Ok(serde_json::to_value(file_metadata)?)
     }
 

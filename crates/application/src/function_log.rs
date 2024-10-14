@@ -171,7 +171,8 @@ impl FunctionExecution {
         };
         let component_path = match &self.params {
             UdfParams::Function { identifier, .. } => identifier.component.clone(),
-            UdfParams::Http { .. } => ComponentPath::TODO(),
+            // TODO(ENG-7612): Support HTTP actions in components.
+            UdfParams::Http { .. } => ComponentPath::root(),
         };
 
         FunctionEventSource {
@@ -977,7 +978,8 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         module_environment: ModuleEnvironment,
     ) {
         let event_source = FunctionEventSource {
-            component_path: ComponentPath::TODO(),
+            // TODO(ENG-7612): Support HTTP actions in components.
+            component_path: ComponentPath::root(),
             udf_path: identifier.to_string(),
             udf_type: UdfType::HttpAction,
             module_environment,
