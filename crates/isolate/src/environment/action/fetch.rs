@@ -41,9 +41,8 @@ impl<RT: Runtime> TaskExecutor<RT> {
             Err(e) => {
                 // All fetch errors are treated as developer errors since we have little
                 // control of what they request.
-                _ = self
-                    .task_retval_sender
-                    .unbounded_send(TaskResponse::TaskDone {
+                _ =
+                    self.task_retval_sender.send(TaskResponse::TaskDone {
                         task_id,
                         variant: Err(
                             ErrorMetadata::bad_request("FetchFailed", format!("{e:#}")).into()
@@ -53,12 +52,10 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 return;
             },
         };
-        _ = self
-            .task_retval_sender
-            .unbounded_send(TaskResponse::TaskDone {
-                task_id,
-                variant: Ok(TaskResponseEnum::Fetch(response)),
-            });
+        _ = self.task_retval_sender.send(TaskResponse::TaskDone {
+            task_id,
+            variant: Ok(TaskResponseEnum::Fetch(response)),
+        });
         // After sending status and headers, send the body one chunk at a time.
         let stream_result = self.send_stream(stream_id, body).await;
         Self::log_fetch_request(t, origin, stream_result, initial_response_time);

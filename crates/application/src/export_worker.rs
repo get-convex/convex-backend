@@ -54,7 +54,6 @@ use database::{
     COMPONENTS_TABLE,
 };
 use futures::{
-    channel::mpsc,
     pin_mut,
     stream::BoxStream,
     try_join,
@@ -102,6 +101,8 @@ use storage::{
     Upload,
     UploadExt,
 };
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use usage_tracking::{
     CallType,
     FunctionUsageTracker,
@@ -330,7 +331,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                 // Start upload.
                 let mut upload = storage.start_upload().await?;
                 let (sender, receiver) = mpsc::channel::<Bytes>(1);
-                let uploader = upload.try_write_parallel_and_hash(receiver.map(Ok));
+                let uploader =
+                    upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
                 let writer = ChannelWriter::new(sender, 5 * (1 << 20));
                 let usage = FunctionUsageTracker::new();
 

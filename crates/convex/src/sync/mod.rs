@@ -3,7 +3,7 @@ use convex_sync_types::{
     ClientMessage,
     Timestamp,
 };
-use futures::channel::mpsc;
+use tokio::sync::mpsc;
 use url::Url;
 
 use crate::value::Value;

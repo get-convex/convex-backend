@@ -1,14 +1,14 @@
 use std::str::FromStr;
 
-use common::http::{
-    HttpRequestStream,
-    HttpResponse,
-    HttpResponseStream,
+use common::{
+    http::{
+        HttpRequestStream,
+        HttpResponse,
+        HttpResponseStream,
+    },
+    sync::spsc,
 };
-use futures::{
-    channel::mpsc,
-    stream::BoxStream,
-};
+use futures::stream::BoxStream;
 use headers::{
     HeaderMap,
     HeaderName,
@@ -47,16 +47,16 @@ impl HttpRequestV8 {
         for (name, value) in &self.header_pairs {
             header_map.append(HeaderName::from_str(name.as_str())?, value.parse()?);
         }
-        let (body_sender, body_receiver) = mpsc::unbounded();
+        let (body_sender, body_receiver) = spsc::unbounded_channel();
         match self.stream_id {
             Some(stream_id) => {
                 provider.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?;
             },
-            None => body_sender.close_channel(),
+            None => drop(body_sender),
         };
 
         Ok(HttpRequestStream {
-            body: Box::pin(body_receiver),
+            body: Box::pin(body_receiver.into_stream()),
             headers: header_map,
             url: Url::parse(&self.url)?,
             method: Method::from_str(&self.method)?,

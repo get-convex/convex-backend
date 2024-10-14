@@ -45,6 +45,7 @@ strum = { workspace = true }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
 value = { path = "../value" }
 

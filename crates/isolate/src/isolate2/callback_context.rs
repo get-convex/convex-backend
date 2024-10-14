@@ -408,17 +408,17 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
                             // the callback context, which then needs to propagate it.
                             resolve_promise(self.scope, resolver, result)?;
                         },
-                        StreamListener::RustStream(stream) => match update {
-                            Ok(None) => stream.close_channel(),
+                        StreamListener::RustStream(mut stream) => match update {
+                            Ok(None) => drop(stream),
                             Ok(Some(bytes)) => {
-                                let _ = stream.unbounded_send(Ok(bytes));
+                                let _ = stream.send(Ok(bytes));
                                 self.context_state()?
                                     .stream_listeners
                                     .insert(stream_id, StreamListener::RustStream(stream));
                             },
                             Err(e) => {
-                                let _ = stream.unbounded_send(Err(e));
-                                stream.close_channel();
+                                let _ = stream.send(Err(e));
+                                drop(stream);
                             },
                         },
                     }

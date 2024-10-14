@@ -1,10 +1,10 @@
+use common::sync::spsc;
 use deno_core::{
     serde_v8,
     v8::{
         self,
     },
 };
-use futures::channel::mpsc;
 
 use super::OpProvider;
 use crate::{
@@ -18,12 +18,12 @@ pub fn async_op_storage_store<'b, P: OpProvider<'b>>(
     resolver: v8::Global<v8::PromiseResolver>,
 ) -> anyhow::Result<()> {
     let stream_id = serde_v8::from_v8(provider.scope(), args.get(1))?;
-    let (body_sender, body_receiver) = mpsc::unbounded();
+    let (body_sender, body_receiver) = spsc::unbounded_channel();
     match stream_id {
         Some(stream_id) => {
             provider.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?;
         },
-        None => body_sender.close_channel(),
+        None => drop(body_sender),
     };
     let content_type: Option<String> = serde_v8::from_v8(provider.scope(), args.get(2))?;
     let content_type = content_type.filter(|ct| !ct.is_empty());

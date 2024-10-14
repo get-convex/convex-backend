@@ -86,7 +86,6 @@ use errors::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
-    channel::mpsc,
     future,
     pin_mut,
     select,
@@ -138,7 +137,7 @@ use sync_types::{
     CanonicalizedUdfPath,
 };
 use tokio::sync::{
-    mpsc as tokio_mpsc,
+    mpsc,
     oneshot,
 };
 use usage_tracking::FunctionUsageStats;
@@ -459,7 +458,7 @@ pub enum RequestType<RT: Runtime> {
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
     },
     HttpAction {
         request: HttpActionRequest<RT>,
@@ -468,7 +467,7 @@ pub enum RequestType<RT: Runtime> {
         queue_timer: Timer<VMHistogram>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
         http_response_streamer: HttpActionResponseStreamer,
     },
     Analyze {
@@ -794,7 +793,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         identity: Identity,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
         http_response_streamer: HttpActionResponseStreamer,
         transaction: Transaction<RT>,
         context: ExecutionContext,
@@ -853,7 +852,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
         context: ExecutionContext,
     ) -> anyhow::Result<ActionOutcome> {
         // In production, we have two isolate clients, one for DB UDFs (queries,
@@ -1619,7 +1618,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     metrics::log_recreate_isolate("idle_timeout");
                     continue;
                 },
-                req = reqs.next() => {
+                req = reqs.recv().fuse() => {
                     let Some((req, done, done_token)) = req else {
                         return;
                     };

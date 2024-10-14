@@ -41,6 +41,7 @@ use common::{
         SpawnHandle,
         UnixTimestamp,
     },
+    sync::spsc,
     types::{
         HttpActionRoute,
         UdfType,
@@ -50,7 +51,6 @@ use common::{
 use database::Transaction;
 use deno_core::v8;
 use futures::{
-    channel::mpsc,
     future::BoxFuture,
     select_biased,
     stream::BoxStream,
@@ -83,7 +83,7 @@ use sync_types::{
     CanonicalizedUdfPath,
     ModulePath,
 };
-use tokio::sync::mpsc as tokio_mpsc;
+use tokio::sync::mpsc;
 use value::{
     heap_size::HeapSize,
     ConvexArray,
@@ -218,13 +218,13 @@ impl<'a, T: Send> CollectResult<'a, T> {
 pub struct ActionEnvironment<RT: Runtime> {
     identity: Identity,
     total_log_lines: usize,
-    log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
+    log_line_sender: mpsc::UnboundedSender<LogLine>,
     http_response_streamer: Option<HttpActionResponseStreamer>,
 
     rt: RT,
 
     next_task_id: TaskId,
-    pending_task_sender: mpsc::UnboundedSender<TaskRequest>,
+    pending_task_sender: spsc::UnboundedSender<TaskRequest>,
 
     running_tasks: Option<Box<dyn SpawnHandle>>,
 
@@ -251,13 +251,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         transaction: Transaction<RT>,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,
-        log_line_sender: tokio_mpsc::UnboundedSender<LogLine>,
+        log_line_sender: mpsc::UnboundedSender<LogLine>,
         http_response_streamer: Option<HttpActionResponseStreamer>,
         heap_stats: SharedIsolateHeapStats,
         context: ExecutionContext,
     ) -> Self {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
-        let (task_retval_sender, task_responses) = mpsc::unbounded();
+        let (task_retval_sender, task_responses) = mpsc::unbounded_channel();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let function_handles = Arc::new(Mutex::new(BTreeMap::new()));
         let task_executor = TaskExecutor {
@@ -277,7 +277,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             component_id: component,
             function_handles: function_handles.clone(),
         };
-        let (pending_task_sender, pending_task_receiver) = mpsc::unbounded();
+        let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));
         Self {
             identity,
@@ -532,12 +532,12 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let json_value: JsonValue = serde_json::from_str(&result_str)?;
         let v8_response: HttpResponseV8 = serde_json::from_value(json_value)?;
         let (raw_response, stream_id) = v8_response.into_response()?;
-        let (body_sender, body_receiver) = mpsc::unbounded();
+        let (body_sender, body_receiver) = spsc::unbounded_channel();
         match stream_id {
             Some(stream_id) => {
                 scope.new_stream_listener(stream_id, StreamListener::RustStream(body_sender))?
             },
-            None => body_sender.close_channel(),
+            None => drop(body_sender),
         };
         let head = futures::stream::once(async move {
             Ok(Ok(HttpActionResponsePart::Head(HttpActionResponseHead {
@@ -546,7 +546,11 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             })))
         });
 
-        Ok(head.chain(body_receiver.map_ok(|b| Ok(HttpActionResponsePart::BodyChunk(b)))))
+        Ok(head.chain(
+            body_receiver
+                .into_stream()
+                .map_ok(|b| Ok(HttpActionResponsePart::BodyChunk(b))),
+        ))
     }
 
     fn handle_http_streamed_part(
@@ -600,7 +604,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ) {
         let task_id = self.next_task_id.increment();
         self.pending_task_sender
-            .unbounded_send(TaskRequest {
+            .send(TaskRequest {
                 task_id,
                 variant: TaskRequestEnum::AsyncOp(AsyncOpRequest::SendStream { stream, stream_id }),
                 parent_trace: EncodedSpan::from_parent(),
@@ -1081,7 +1085,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 // However, actions can call queries, mutations, and other actions
                 // as syscalls, so these should still count towards the user-code
                 // timeout.
-                task_response = environment.task_responses.next() => {
+                task_response = environment.task_responses.recv().fuse() => {
                     let Some(task_response) = task_response else {
                         anyhow::bail!("Task executor went away?");
                     };
@@ -1131,7 +1135,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // Drain all remaining async syscalls that are not sleeps in case the
         // developer forgot to await them.
         let environment = &mut scope.state_mut()?.environment;
-        environment.pending_task_sender.close_channel();
+        environment.pending_task_sender.close();
         if let Some(mut running_tasks) = environment.running_tasks.take() {
             running_tasks.shutdown();
         }
@@ -1251,7 +1255,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         self.task_promise_resolvers
             .insert(task_id, (resolver, request.to_type()));
         self.pending_task_sender
-            .unbounded_send(TaskRequest {
+            .send(TaskRequest {
                 task_id,
                 variant: request,
                 parent_trace: EncodedSpan::from_parent(),

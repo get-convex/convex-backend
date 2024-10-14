@@ -1,4 +1,5 @@
 pub mod split_rw_lock;
+pub mod spsc;
 pub mod state_channel;
 
 use std::sync::Arc;

@@ -4,11 +4,11 @@ use std::{
 };
 
 use futures::{
-    channel::mpsc::UnboundedSender,
     task,
     Stream,
     StreamExt,
 };
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::{
     errors::BroadcastStreamRecvError,
     BroadcastStream,
@@ -42,7 +42,7 @@ use crate::{
 /// [`ConvexClient::watch_all()`] instead.
 pub struct QuerySubscription {
     pub(super) subscriber_id: SubscriberId,
-    pub(super) request_sender: UnboundedSender<ClientRequest>,
+    pub(super) request_sender: mpsc::UnboundedSender<ClientRequest>,
     pub(super) watch: BroadcastStream<QueryResults>,
     pub(super) initial: Option<FunctionResult>,
 }
@@ -72,7 +72,7 @@ impl Drop for QuerySubscription {
     fn drop(&mut self) {
         let _ = self
             .request_sender
-            .unbounded_send(ClientRequest::Unsubscribe(UnsubscribeRequest {
+            .send(ClientRequest::Unsubscribe(UnsubscribeRequest {
                 subscriber_id: self.subscriber_id,
             }));
     }

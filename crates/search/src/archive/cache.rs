@@ -26,16 +26,10 @@ use common::{
     types::ObjectKey,
 };
 use futures::{
-    channel::mpsc::{
-        unbounded,
-        UnboundedReceiver,
-        UnboundedSender,
-    },
     io::AllowStdIo,
     pin_mut,
     select_biased,
     FutureExt,
-    StreamExt,
     TryStreamExt,
 };
 use itertools::Itertools;
@@ -44,9 +38,12 @@ use storage::{
     StorageCacheKey,
     StorageExt,
 };
-use tokio::io::{
-    AsyncWriteExt,
-    BufReader,
+use tokio::{
+    io::{
+        AsyncWriteExt,
+        BufReader,
+    },
+    sync::mpsc,
 };
 use uuid::Uuid;
 use vector::qdrant_segments::restore_segment_from_tar;
@@ -429,7 +426,7 @@ fn set_readonly_blocking(path: &PathBuf, readonly: bool) -> anyhow::Result<()> {
 }
 
 struct CacheCleaner {
-    cleanup_tx: UnboundedSender<PathBuf>,
+    cleanup_tx: mpsc::UnboundedSender<PathBuf>,
     cleanup_handle: Arc<Box<dyn SpawnHandle>>,
 }
 
@@ -444,7 +441,7 @@ impl Clone for CacheCleaner {
 
 impl CacheCleaner {
     fn new<RT: Runtime>(rt: RT) -> Self {
-        let (cleanup_tx, cleanup_rx) = unbounded();
+        let (cleanup_tx, cleanup_rx) = mpsc::unbounded_channel();
         let cleanup_handle = Arc::new(rt.spawn_thread(|| cleanup_thread(cleanup_rx)));
         Self {
             cleanup_tx,
@@ -453,7 +450,7 @@ impl CacheCleaner {
     }
 
     fn attempt_cleanup(&self, path: PathBuf) -> anyhow::Result<()> {
-        Ok(self.cleanup_tx.unbounded_send(path)?)
+        Ok(self.cleanup_tx.send(path)?)
     }
 }
 
@@ -463,8 +460,8 @@ impl CacheCleaner {
 /// recursive deletion doesn't need to be in the critical path and may block the
 /// for a meaningful amount of time as opposed to our other filesystem ops which
 /// should be quite fast.
-async fn cleanup_thread(mut rx: UnboundedReceiver<PathBuf>) {
-    while let Some(path) = rx.next().await {
+async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<PathBuf>) {
+    while let Some(path) = rx.recv().await {
         // Yes, we'll panic and restart here. If we actually see panics in
         // production here, we should investigate further but for now, it's simpler
         // to disallow inconsistent filesystem state.

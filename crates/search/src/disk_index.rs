@@ -31,7 +31,6 @@ use common::{
     types::ObjectKey,
 };
 use futures::{
-    channel::mpsc,
     io::AllowStdIo,
     pin_mut,
     AsyncRead,
@@ -51,10 +50,14 @@ use tantivy::{
 };
 #[cfg(any(test, feature = "testing"))]
 use tokio::io::BufReader;
-use tokio::io::{
-    AsyncWrite,
-    AsyncWriteExt,
+use tokio::{
+    io::{
+        AsyncWrite,
+        AsyncWriteExt,
+    },
+    sync::mpsc,
 };
+use tokio_stream::wrappers::ReceiverStream;
 use vector::qdrant_segments::{
     VectorDiskSegmentPaths,
     VectorDiskSegmentValues,
@@ -279,7 +282,7 @@ pub async fn upload_single_file(
     let timer = metrics::upload_archive_timer(upload_type);
     let (sender, receiver) = mpsc::channel::<Bytes>(1);
     let mut upload = storage.start_upload().await?;
-    let uploader = upload.write_parallel(receiver);
+    let uploader = upload.write_parallel(ReceiverStream::new(receiver));
     let writer = ChannelWriter::new(sender, 5 * (1 << 20));
     // FragmentedVectorSegment files are tarballs already. Compression provides a
     // relatively small improvement in file size. Extracting a zip and then a
@@ -318,7 +321,6 @@ async fn write_single_file(
         writer.close().await?;
     } else {
         raw_single_file(reader, &mut out).await?;
-        out.shutdown().await?;
     }
     out.shutdown().await?;
     Ok(())
@@ -332,7 +334,7 @@ pub async fn upload_index_archive_from_path<P: AsRef<Path>>(
     let timer = metrics::upload_archive_timer(upload_type);
     let (sender, receiver) = mpsc::channel::<Bytes>(1);
     let mut upload = storage.start_upload().await?;
-    let uploader = upload.write_parallel(receiver);
+    let uploader = upload.write_parallel(ReceiverStream::new(receiver));
     let writer = ChannelWriter::new(sender, 5 * (1 << 20));
     let archiver = write_index_archive(directory, writer);
     let ((), ()) = futures::try_join!(archiver, uploader)?;

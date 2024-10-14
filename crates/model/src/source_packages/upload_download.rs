@@ -24,7 +24,6 @@ use common::{
     },
 };
 use futures::{
-    channel::mpsc,
     StreamExt,
     TryStreamExt,
 };
@@ -40,10 +39,14 @@ use storage::{
     UploadExt,
 };
 use sync_types::CanonicalizedModulePath;
-use tokio::io::{
-    AsyncWrite,
-    AsyncWriteExt,
+use tokio::{
+    io::{
+        AsyncWrite,
+        AsyncWriteExt,
+    },
+    sync::mpsc,
 };
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{
     config::types::{
@@ -142,7 +145,7 @@ pub async fn upload_package(
 ) -> anyhow::Result<(ObjectKey, Sha256Digest, PackageSize)> {
     let (sender, receiver) = mpsc::channel::<Bytes>(1);
     let mut upload = storage.start_upload().await?;
-    let uploader = upload.try_write_parallel_and_hash(receiver.map(Ok));
+    let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
     let writer = ChannelWriter::new(sender, 5 * (1 << 20));
     let packager = write_package(package, writer, external_deps_storage_key);
     let ((unzipped_size_bytes, _packaged_files), (zipped_size_bytes, sha256)) =

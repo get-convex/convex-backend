@@ -11,14 +11,11 @@ use convex_sync_types::{
 };
 #[cfg(doc)]
 use futures::Stream;
-use futures::{
-    channel::mpsc,
-    SinkExt,
-    StreamExt,
-};
+use futures::StreamExt;
 use tokio::{
     sync::{
         broadcast,
+        mpsc,
         oneshot,
     },
     task::JoinHandle,
@@ -142,7 +139,7 @@ impl ConvexClient {
 
         // Channels for the `listen` background thread
         let (response_sender, response_receiver) = mpsc::channel(1);
-        let (request_sender, request_receiver) = mpsc::unbounded();
+        let (request_sender, request_receiver) = mpsc::unbounded_channel();
 
         // Listener for when each transaction completes
         let (watch_sender, watch_receiver) = broadcast::channel(1);
@@ -196,13 +193,11 @@ impl ConvexClient {
         let udf_path = name.parse()?;
         let request = SubscribeRequest { udf_path, args };
 
-        self.request_sender
-            .send(ClientRequest::Subscribe(
-                request,
-                tx,
-                self.request_sender.clone(),
-            ))
-            .await?;
+        self.request_sender.send(ClientRequest::Subscribe(
+            request,
+            tx,
+            self.request_sender.clone(),
+        ))?;
 
         let res = rx.await?;
         Ok(res)
@@ -267,8 +262,7 @@ impl ConvexClient {
         let request = MutationRequest { udf_path, args };
 
         self.request_sender
-            .send(ClientRequest::Mutation(request, tx))
-            .await?;
+            .send(ClientRequest::Mutation(request, tx))?;
 
         let res = rx.await?;
         Ok(res.await?)
@@ -301,8 +295,7 @@ impl ConvexClient {
         let request = ActionRequest { udf_path, args };
 
         self.request_sender
-            .send(ClientRequest::Action(request, tx))
-            .await?;
+            .send(ClientRequest::Action(request, tx))?;
 
         let res = rx.await?;
         Ok(res.await?)
@@ -356,7 +349,6 @@ impl ConvexClient {
         };
         self.request_sender
             .send(ClientRequest::Authenticate(req))
-            .await
             .expect("INTERNAL BUG: Worker has gone away");
     }
 
@@ -377,7 +369,6 @@ impl ConvexClient {
         };
         self.request_sender
             .send(ClientRequest::Authenticate(req))
-            .await
             .expect("INTERNAL BUG: Worker has gone away");
     }
 }
@@ -416,14 +407,14 @@ pub mod tests {
         UdfPath,
         UserIdentityAttributes,
     };
-    use futures::{
-        channel::mpsc,
-        StreamExt,
-    };
+    use futures::StreamExt;
     use maplit::btreemap;
     use pretty_assertions::assert_eq;
     use serde_json::json;
-    use tokio::sync::broadcast;
+    use tokio::sync::{
+        broadcast,
+        mpsc,
+    };
 
     use super::ConvexClient;
     use crate::{
@@ -449,7 +440,7 @@ pub mod tests {
 
             // Channels for the `listen` background thread
             let (response_sender, response_receiver) = mpsc::channel(1);
-            let (request_sender, request_receiver) = mpsc::unbounded();
+            let (request_sender, request_receiver) = mpsc::unbounded_channel();
 
             // Listener for when each transaction completes
             let (watch_sender, watch_receiver) = broadcast::channel(1);

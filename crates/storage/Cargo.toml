@@ -29,6 +29,7 @@ runtime = { path = "../runtime", optional = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 tracing = { workspace = true }
 value = { path = "../value" }
 

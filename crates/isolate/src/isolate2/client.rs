@@ -11,10 +11,13 @@ use common::{
     types::UdfType,
 };
 use deno_core::ModuleSpecifier;
-use futures::channel::mpsc;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
 use tokio::sync::{
+    mpsc::{
+        self,
+        error::TrySendError,
+    },
     oneshot,
     Semaphore,
 };
@@ -182,9 +185,12 @@ impl<RT: Runtime> IsolateThreadClient<RT> {
         // Start the user timer after we acquire the permit.
         let user_start = Instant::now();
         let user_timeout = self.rt.wait(self.user_time_remaining);
-        self.sender
-            .try_send(request)
-            .map_err(|e| e.into_send_error())?;
+        if let Err(e) = self.sender.try_send(request) {
+            match e {
+                TrySendError::Full(_) => anyhow::bail!("Isolate thread queue is full"),
+                TrySendError::Closed(_) => anyhow::bail!("Isolate thread was dropped"),
+            }
+        }
         let result = tokio::select! {
             result = rx => result,
             _ = user_timeout => {

@@ -29,37 +29,29 @@ impl<RT: Runtime> TaskExecutor<RT> {
             while let Some(chunk) = stream.next().await {
                 match chunk {
                     Err(e) => {
-                        _ = self
-                            .task_retval_sender
-                            .unbounded_send(TaskResponse::StreamExtend {
-                                stream_id,
-                                chunk: Err(ErrorMetadata::bad_request(
-                                    "StreamFailed",
-                                    e.to_string(),
-                                )
-                                .into()),
-                            });
+                        _ = self.task_retval_sender.send(TaskResponse::StreamExtend {
+                            stream_id,
+                            chunk: Err(
+                                ErrorMetadata::bad_request("StreamFailed", e.to_string()).into()
+                            ),
+                        });
                         return Err(());
                     },
                     Ok(chunk) => {
                         size += chunk.len();
-                        _ = self
-                            .task_retval_sender
-                            .unbounded_send(TaskResponse::StreamExtend {
-                                stream_id,
-                                chunk: Ok(Some(chunk)),
-                            });
+                        _ = self.task_retval_sender.send(TaskResponse::StreamExtend {
+                            stream_id,
+                            chunk: Ok(Some(chunk)),
+                        });
                     },
                 }
             }
         }
         // Successfully sent all chunks.
-        _ = self
-            .task_retval_sender
-            .unbounded_send(TaskResponse::StreamExtend {
-                stream_id,
-                chunk: Ok(None),
-            });
+        _ = self.task_retval_sender.send(TaskResponse::StreamExtend {
+            stream_id,
+            chunk: Ok(None),
+        });
         Ok(size)
     }
 

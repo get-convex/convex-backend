@@ -10,16 +10,19 @@ use convex_sync_types::{
     UdfPath,
 };
 use futures::{
-    channel::mpsc,
-    select_biased,
-    FutureExt,
+    stream::FusedStream,
     StreamExt,
 };
 use tokio::sync::{
     broadcast,
+    mpsc,
     oneshot,
 };
-use tokio_stream::wrappers::BroadcastStream;
+use tokio_stream::wrappers::{
+    BroadcastStream,
+    ReceiverStream,
+    UnboundedReceiverStream,
+};
 
 use crate::{
     base_client::{
@@ -46,11 +49,11 @@ const MAX_BACKOFF: Duration = Duration::from_secs(15);
 pub enum ClientRequest {
     Mutation(
         MutationRequest,
-        oneshot::Sender<tokio::sync::oneshot::Receiver<FunctionResult>>,
+        oneshot::Sender<oneshot::Receiver<FunctionResult>>,
     ),
     Action(
         ActionRequest,
-        oneshot::Sender<tokio::sync::oneshot::Receiver<FunctionResult>>,
+        oneshot::Sender<oneshot::Receiver<FunctionResult>>,
     ),
     Subscribe(
         SubscribeRequest,
@@ -86,19 +89,20 @@ pub struct UnsubscribeRequest {
 }
 
 pub async fn worker<T: SyncProtocol>(
-    mut protocol_response_receiver: mpsc::Receiver<ProtocolResponse>,
-
-    mut client_request_receiver: mpsc::UnboundedReceiver<ClientRequest>,
+    protocol_response_receiver: mpsc::Receiver<ProtocolResponse>,
+    client_request_receiver: mpsc::UnboundedReceiver<ClientRequest>,
     mut watch_sender: broadcast::Sender<QueryResults>,
     mut base_client: BaseConvexClient,
     mut protocol_manager: T,
 ) -> Infallible {
     let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+    let mut protocol_response_stream = ReceiverStream::new(protocol_response_receiver).fuse();
+    let mut client_request_stream = UnboundedReceiverStream::new(client_request_receiver).fuse();
     loop {
         let e = loop {
             match _worker_once(
-                &mut protocol_response_receiver,
-                &mut client_request_receiver,
+                &mut protocol_response_stream,
+                &mut client_request_stream,
                 &mut watch_sender,
                 &mut base_client,
                 &mut protocol_manager,
@@ -130,29 +134,31 @@ pub async fn worker<T: SyncProtocol>(
 }
 
 async fn _worker_once<T: SyncProtocol>(
-    protocol_response_receiver: &mut mpsc::Receiver<ProtocolResponse>,
-
-    client_request_receiver: &mut mpsc::UnboundedReceiver<ClientRequest>,
+    protocol_response_stream: impl FusedStream<Item = ProtocolResponse>,
+    client_request_stream: impl FusedStream<Item = ClientRequest>,
     watch_sender: &mut broadcast::Sender<QueryResults>,
     base_client: &mut BaseConvexClient,
     protocol_manager: &mut T,
 ) -> Result<(), ReconnectProtocolReason> {
-    select_biased! {
-        protocol_response = protocol_response_receiver.next().fuse() => {
+    tokio::pin!(protocol_response_stream);
+    tokio::pin!(client_request_stream);
+    tokio::select! {
+        Some(protocol_response) = protocol_response_stream.next(),
+        if !protocol_response_stream.is_terminated() => {
             match protocol_response {
-                Some(ProtocolResponse::ServerMessage(msg)) => {
+                ProtocolResponse::ServerMessage(msg) => {
                     if let Some(subscriber_id_to_latest_value) = base_client.receive_message(msg)? {
                         // Notify watchers of the new consistent query results at new timestamp
                         let _ = watch_sender.send(subscriber_id_to_latest_value);
                     }
                 },
-                Some(ProtocolResponse::Failure) => {
+                ProtocolResponse::Failure => {
                     return Err("ProtocolFailure".into());
                 },
-                None => {},
             }
         }
-        client_request = client_request_receiver.select_next_some() => {
+        Some(client_request) = client_request_stream.next(),
+        if !client_request_stream.is_terminated() => {
             match client_request {
                 ClientRequest::Subscribe(query, tx, request_sender) => {
                     let watch = watch_sender.subscribe();
@@ -202,7 +208,8 @@ async fn _worker_once<T: SyncProtocol>(
                     flush_messages(base_client, protocol_manager).await;
                 },
             }
-        }
+        },
+        else => (),
     }
     Ok(())
 }

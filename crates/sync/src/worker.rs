@@ -50,12 +50,6 @@ use common::{
 };
 use errors::ErrorMetadata;
 use futures::{
-    channel::mpsc::{
-        self,
-        TrySendError,
-        UnboundedReceiver,
-        UnboundedSender,
-    },
     future::{
         self,
         BoxFuture,
@@ -86,6 +80,14 @@ use sync_types::{
     Timestamp,
     UdfPath,
 };
+use tokio::sync::{
+    mpsc,
+    mpsc::error::{
+        SendError,
+        TrySendError,
+    },
+};
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::{
     metrics::{
@@ -127,7 +129,7 @@ pub fn measurable_unbounded_channel() -> (SingleFlightSender, SingleFlightReceiv
     let buffer_size_bytes = Arc::new(AtomicUsize::new(0));
     // The channel is used to send/receive "size reduced" notifications.
     let (size_reduced_tx, size_reduced_rx) = mpsc::channel(1);
-    let (tx, rx) = mpsc::unbounded();
+    let (tx, rx) = mpsc::unbounded_channel();
     (
         SingleFlightSender {
             inner: tx,
@@ -146,21 +148,21 @@ pub fn measurable_unbounded_channel() -> (SingleFlightSender, SingleFlightReceiv
 /// allowing single-flighting, i.e. skipping transitions if the client is
 /// backlogged on receiving them.
 pub struct SingleFlightSender {
-    inner: UnboundedSender<(ServerMessage, tokio::time::Instant)>,
+    inner: mpsc::UnboundedSender<(ServerMessage, tokio::time::Instant)>,
 
     transition_count: Arc<AtomicUsize>,
     count_reduced_rx: mpsc::Receiver<()>,
 }
 
 impl SingleFlightSender {
-    pub fn unbounded_send(
+    pub fn send(
         &mut self,
         msg: (ServerMessage, tokio::time::Instant),
-    ) -> Result<(), TrySendError<(ServerMessage, tokio::time::Instant)>> {
+    ) -> Result<(), SendError<(ServerMessage, tokio::time::Instant)>> {
         if matches!(&msg.0, ServerMessage::Transition { .. }) {
             self.transition_count.fetch_add(1, Ordering::SeqCst);
         }
-        self.inner.unbounded_send(msg)
+        self.inner.send(msg)
     }
 
     pub fn transition_count(&self) -> usize {
@@ -171,12 +173,12 @@ impl SingleFlightSender {
     // buffer have been reduced. Note that if multiple messages are received
     // between calls, this will fire only once.
     pub async fn message_consumed(&mut self) {
-        self.count_reduced_rx.next().await;
+        self.count_reduced_rx.recv().await;
     }
 }
 
 pub struct SingleFlightReceiver {
-    inner: UnboundedReceiver<(ServerMessage, tokio::time::Instant)>,
+    inner: mpsc::UnboundedReceiver<(ServerMessage, tokio::time::Instant)>,
 
     transition_count: Arc<AtomicUsize>,
     size_reduced_tx: mpsc::Sender<()>,
@@ -184,7 +186,7 @@ pub struct SingleFlightReceiver {
 
 impl SingleFlightReceiver {
     pub async fn next(&mut self) -> Option<(ServerMessage, tokio::time::Instant)> {
-        let result = self.inner.next().await;
+        let result = self.inner.recv().await;
         if let Some(msg) = &result {
             if matches!(msg.0, ServerMessage::Transition { .. }) {
                 self.transition_count.fetch_sub(1, Ordering::SeqCst);
@@ -205,12 +207,12 @@ pub struct SyncWorker<RT: Runtime> {
     state: SyncState,
     host: ResolvedHostname,
 
-    rx: UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
+    rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
     tx: SingleFlightSender,
 
     // Queue of pending functions or mutations. For time being, we only execute
     // a single one since this is less error prone model for the developer.
-    mutation_futures: Buffered<mpsc::Receiver<BoxFuture<'static, anyhow::Result<ServerMessage>>>>,
+    mutation_futures: Buffered<ReceiverStream<BoxFuture<'static, anyhow::Result<ServerMessage>>>>,
     mutation_sender: mpsc::Sender<BoxFuture<'static, anyhow::Result<ServerMessage>>>,
 
     action_futures: FuturesUnordered<BoxFuture<'static, anyhow::Result<ServerMessage>>>,
@@ -246,11 +248,11 @@ impl<RT: Runtime> SyncWorker<RT> {
         rt: RT,
         host: ResolvedHostname,
         config: SyncWorkerConfig,
-        rx: UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
+        rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
         tx: SingleFlightSender,
     ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
-        let mutation_futures = receiver.buffered(1); // Execute at most one operation at a time.
+        let mutation_futures = ReceiverStream::new(receiver).buffered(1); // Execute at most one operation at a time.
         SyncWorker {
             api,
             config,
@@ -290,7 +292,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             let rt = self.rt.clone();
             self.state.validate()?;
             let maybe_response = select_biased! {
-                message = self.rx.next() => {
+                message = self.rx.recv().fuse() => {
                     let (message, received_time) = match message {
                         Some(m) => m,
                         None => break 'top,
@@ -342,11 +344,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 );
                 // Break and exit cleanly if the websocket is dead.
                 ping_timeout = self.rt.wait(HEARTBEAT_INTERVAL);
-                if self
-                    .tx
-                    .unbounded_send((response, self.rt.monotonic_now()))
-                    .is_err()
-                {
+                if self.tx.send((response, self.rt.monotonic_now())).is_err() {
                     break 'top;
                 }
             }
@@ -539,7 +537,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 }
                 .boxed();
                 self.mutation_sender.try_send(future).map_err(|err| {
-                    if err.is_full() {
+                    if matches!(err, TrySendError::Full(..)) {
                         anyhow::anyhow!(ErrorMetadata::rate_limited(
                             "TooManyConcurrentMutations",
                             format!(

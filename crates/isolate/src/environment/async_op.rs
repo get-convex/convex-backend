@@ -3,11 +3,9 @@ use std::fmt;
 use common::{
     http::HttpRequestStream,
     runtime::UnixTimestamp,
+    sync::spsc,
 };
-use futures::{
-    channel::mpsc::UnboundedReceiver,
-    stream::BoxStream,
-};
+use futures::stream::BoxStream;
 
 pub enum AsyncOpRequest {
     Fetch {
@@ -23,7 +21,7 @@ pub enum AsyncOpRequest {
         until: UnixTimestamp,
     },
     StorageStore {
-        body_stream: UnboundedReceiver<anyhow::Result<bytes::Bytes>>,
+        body_stream: spsc::UnboundedReceiver<anyhow::Result<bytes::Bytes>>,
         content_type: Option<String>,
         content_length: Option<String>,
         digest: Option<String>,

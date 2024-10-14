@@ -32,19 +32,17 @@ use common::{
         Timestamp,
     },
 };
-use futures::{
-    channel::mpsc,
-    select_biased,
-    FutureExt,
-    StreamExt,
-};
 use indexing::interval::IntervalMap;
 use minitrace::future::FutureExt as MinitraceFutureExt;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
 use slab::Slab;
-use tokio::sync::oneshot;
+use tokio::sync::{
+    mpsc,
+    mpsc::error::TrySendError,
+    oneshot,
+};
 
 use crate::{
     metrics,
@@ -91,12 +89,9 @@ impl SubscriptionsClient {
         };
         let (tx, rx) = oneshot::channel();
         let request = SubscriptionRequest::Subscribe { token, result: tx };
-        self.sender.clone().try_send(request).map_err(|e| {
-            if e.is_full() {
-                metrics::subscriptions_worker_full_error().into()
-            } else {
-                metrics::shutdown_error()
-            }
+        self.sender.clone().try_send(request).map_err(|e| match e {
+            TrySendError::Full(..) => metrics::subscriptions_worker_full_error().into(),
+            TrySendError::Closed(..) => metrics::shutdown_error(),
         })?;
         // The only reason we might fail here if the subscriptions worker is shutting
         // down.
@@ -147,8 +142,8 @@ impl SubscriptionsWorker {
     async fn go(mut self, mut rx: mpsc::Receiver<SubscriptionRequest>) {
         tracing::info!("Starting subscriptions worker");
         loop {
-            select_biased! {
-                request = rx.next() => {
+            tokio::select! {
+                request = rx.recv() => {
                     match request {
                         Some(SubscriptionRequest::Subscribe { token, result }) => {
                             match self.subscriptions.subscribe(token) {
@@ -167,7 +162,7 @@ impl SubscriptionsWorker {
                         },
                     }
                 },
-                next_ts = self.subscriptions.wait_for_next_ts().fuse() => {
+                next_ts = self.subscriptions.wait_for_next_ts() => {
                     if let Err(mut e) = self.subscriptions.advance_log(next_ts) {
                         report_error(&mut e);
                     }

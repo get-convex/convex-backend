@@ -9,11 +9,8 @@ use convex_sync_types::{
     ClientMessage,
     SessionId,
 };
-use futures::{
-    channel::mpsc,
-    SinkExt,
-};
 use parking_lot::Mutex;
+use tokio::sync::mpsc;
 use url::Url;
 use uuid::Uuid;
 

@@ -74,12 +74,10 @@ use common::{
     },
 };
 use futures::{
-    channel::mpsc,
     future,
     pin_mut,
     stream::FusedStream,
     Future,
-    SinkExt,
     Stream,
     StreamExt,
     TryStreamExt,
@@ -88,6 +86,8 @@ use governor::Quota;
 use indexing::index_registry::IndexRegistry;
 use keybroker::Identity;
 use maplit::btreeset;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tracing::log;
 use value::{
     DeveloperDocumentId,
@@ -646,7 +646,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         // Backfill in two steps: first create index entries for all latest documents,
         // then create index entries for all documents in the retention range.
 
-        let (tx, rx) = mpsc::unbounded();
+        let (tx, mut rx) = mpsc::unbounded_channel();
         let handles: Vec<_> = index_selector
             .iterate_tables()
             .map(|table_id| {
@@ -656,7 +656,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                 let tx = tx.clone();
                 self.runtime
                     .spawn("index_backfill_table_snapshot", async move {
-                        tx.unbounded_send(
+                        tx.send(
                             self_
                                 .backfill_exact_snapshot_of_table(
                                     snapshot_ts,
@@ -673,8 +673,10 @@ impl<RT: Runtime> IndexWriter<RT> {
         for mut handle in handles {
             handle.join().await?;
         }
-        tx.close_channel();
-        let _: Vec<_> = rx.try_collect().await?;
+        rx.close();
+        while let Some(result) = rx.recv().await {
+            result?;
+        }
 
         let mut min_backfilled_ts = snapshot_ts;
 
@@ -799,7 +801,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             end_ts,
             self.retention_validator.clone(),
         );
-        let (mut tx, rx) = mpsc::channel(32);
+        let (tx, rx) = mpsc::channel(32);
         let producer = async {
             let revision_stream = self.stream_revision_pairs(
                 &repeatable_persistence,
@@ -818,7 +820,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             drop(tx);
             Ok(())
         };
-        let consumer = self.write_index_entries(rx, index_selector);
+        let consumer = self.write_index_entries(ReceiverStream::new(rx).fuse(), index_selector);
 
         // Consider ourselves successful if both the producer and consumer exit
         // successfully.
@@ -855,7 +857,7 @@ impl<RT: Runtime> IndexWriter<RT> {
         index_selector: &IndexSelector,
     ) -> anyhow::Result<RepeatableTimestamp> {
         anyhow::ensure!(*start_ts > end_ts);
-        let (mut tx, rx) = mpsc::channel(32);
+        let (tx, rx) = mpsc::channel(32);
         let repeatable_persistence = RepeatablePersistence::new(
             self.reader.clone(),
             start_ts,
@@ -918,7 +920,7 @@ impl<RT: Runtime> IndexWriter<RT> {
             Ok(end_ts)
         };
 
-        let consumer = self.write_index_entries(rx, index_selector);
+        let consumer = self.write_index_entries(ReceiverStream::new(rx).fuse(), index_selector);
 
         // Consider ourselves successful if both the reader and writer exit
         // successfully.

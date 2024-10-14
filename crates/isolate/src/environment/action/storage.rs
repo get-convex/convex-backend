@@ -8,10 +8,10 @@ use common::{
         DigestHeader,
         Sha256Digest,
     },
+    sync::spsc,
 };
 use errors::ErrorMetadata;
 use futures::{
-    channel::mpsc::UnboundedReceiver,
     stream::BoxStream,
     StreamExt,
     TryStreamExt,
@@ -42,7 +42,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     #[convex_macro::instrument_future]
     pub async fn run_storage_store(
         &self,
-        body_stream: UnboundedReceiver<anyhow::Result<bytes::Bytes>>,
+        body_stream: spsc::UnboundedReceiver<anyhow::Result<bytes::Bytes>>,
         content_type: Option<String>,
         content_length: Option<String>,
         digest: Option<String>,
@@ -70,7 +70,12 @@ impl<RT: Runtime> TaskExecutor<RT> {
 
         let entry = self
             .file_storage
-            .upload_file(content_length, content_type.clone(), body_stream, digest)
+            .upload_file(
+                content_length,
+                content_type.clone(),
+                body_stream.into_stream(),
+                digest,
+            )
             .await?;
         let storage_id = entry.storage_id.clone();
         let size = entry.size;
@@ -103,28 +108,22 @@ impl<RT: Runtime> TaskExecutor<RT> {
     ) {
         match self.run_storage_get_inner(storage_id, stream_id).await {
             Err(e) => {
-                let _ = self
-                    .task_retval_sender
-                    .unbounded_send(TaskResponse::TaskDone {
-                        task_id,
-                        variant: Err(e),
-                    });
+                let _ = self.task_retval_sender.send(TaskResponse::TaskDone {
+                    task_id,
+                    variant: Err(e),
+                });
             },
             Ok(None) => {
-                let _ = self
-                    .task_retval_sender
-                    .unbounded_send(TaskResponse::TaskDone {
-                        task_id,
-                        variant: Ok(TaskResponseEnum::StorageGet(None)),
-                    });
+                let _ = self.task_retval_sender.send(TaskResponse::TaskDone {
+                    task_id,
+                    variant: Ok(TaskResponseEnum::StorageGet(None)),
+                });
             },
             Ok(Some((stream, result))) => {
-                let _ = self
-                    .task_retval_sender
-                    .unbounded_send(TaskResponse::TaskDone {
-                        task_id,
-                        variant: Ok(TaskResponseEnum::StorageGet(Some(result))),
-                    });
+                let _ = self.task_retval_sender.send(TaskResponse::TaskDone {
+                    task_id,
+                    variant: Ok(TaskResponseEnum::StorageGet(Some(result))),
+                });
                 let _ = self.send_stream(stream_id, Some(stream)).await;
             },
         }

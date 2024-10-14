@@ -29,7 +29,10 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
-    sync::oneshot_receiver_closed,
+    sync::{
+        oneshot_receiver_closed,
+        spsc,
+    },
     types::{
         PersistenceVersion,
         UdfType,
@@ -42,10 +45,6 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use futures::{
-    channel::mpsc,
-    StreamExt,
-};
 use keybroker::KeyBroker;
 use model::{
     config::module_loader::ModuleLoader,
@@ -67,6 +66,10 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
 use tokio::sync::{
+    mpsc::{
+        self,
+        error::TrySendError,
+    },
     oneshot,
     Semaphore,
 };
@@ -194,7 +197,7 @@ async fn v8_thread(
     let mut session = Session::new(&mut thread);
     let mut context = Context::new(&mut session, environment)?;
 
-    while let Some(request) = receiver.next().await {
+    while let Some(request) = receiver.recv().await {
         handle_request(&mut session, &mut context, request)?;
     }
 
@@ -228,7 +231,7 @@ struct UdfEnvironment<RT: Runtime> {
     rt: RT,
     is_system: bool,
 
-    log_line_sender: mpsc::Sender<LogLine>,
+    log_line_sender: spsc::Sender<LogLine>,
     lines_logged: usize,
 
     import_time_seed: SeedData,
@@ -250,7 +253,7 @@ impl<RT: Runtime> UdfEnvironment<RT> {
         execution_time_seed: SeedData,
         shared: UdfShared<RT>,
         env_vars: PreloadedEnvironmentVariables,
-        log_line_sender: mpsc::Sender<LogLine>,
+        log_line_sender: spsc::Sender<LogLine>,
     ) -> Self {
         let rng = ChaCha12Rng::from_seed(import_time_seed.rng_seed);
         Self {
@@ -285,17 +288,16 @@ impl<RT: Runtime> UdfEnvironment<RT> {
         anyhow::ensure!(self.lines_logged < MAX_LOG_LINES);
         self.lines_logged += 1;
         if let Err(e) = self.log_line_sender.try_send(line) {
-            // In this case it's not much use to continue executing JS since the Tokio
-            // thread has gone away.
-            if e.is_disconnected() {
-                anyhow::bail!("Log line receiver disconnected");
+            match e {
+                // In this case it's not much use to continue executing JS since the Tokio
+                // thread has gone away.
+                TrySendError::Closed(..) => anyhow::bail!("Log line receiver disconnected"),
+                // If the Tokio thread is processing messages slower than we're streaming them
+                // out, fail with a system error to shed load.
+                TrySendError::Full(_) => {
+                    anyhow::bail!("Log lines produced faster than Tokio thread can consume them")
+                },
             }
-            // If the Tokio thread is processing messages slower than we're streaming them
-            // out, fail with a system error to shed load.
-            if e.is_full() {
-                anyhow::bail!("Log lines produced faster than Tokio thread can consume them");
-            }
-            anyhow::bail!(e.into_send_error());
         }
         Ok(())
     }
@@ -457,7 +459,7 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
             },
         };
         self.phase = UdfPhase::Finalized;
-        self.log_line_sender.close_channel();
+        self.log_line_sender.close();
         Ok(EnvironmentOutcome {
             observed_rng,
             observed_time,
@@ -484,7 +486,7 @@ async fn run_request<RT: Runtime>(
     udf_type: UdfType,
     path_and_args: ValidatedPathAndArgs,
     shared: UdfShared<RT>,
-    mut log_line_receiver: mpsc::Receiver<LogLine>,
+    mut log_line_receiver: spsc::Receiver<LogLine>,
     key_broker: KeyBroker,
     execution_context: ExecutionContext,
     query_journal: QueryJournal,
@@ -500,7 +502,7 @@ async fn run_request<RT: Runtime>(
     let (log_line_tx, log_line_rx) = oneshot::channel();
     let mut log_line_processor = rt.spawn("log_line_processor", async move {
         let mut log_lines: Vec<LogLine> = vec![];
-        while let Some(line) = log_line_receiver.next().await {
+        while let Some(line) = log_line_receiver.recv().await {
             log_lines.push(line);
         }
         let _ = log_line_tx.send(log_lines);
@@ -989,7 +991,7 @@ async fn tokio_thread<RT: Runtime>(
     udf_type: UdfType,
     path_and_args: ValidatedPathAndArgs,
     shared: UdfShared<RT>,
-    log_line_receiver: mpsc::Receiver<LogLine>,
+    log_line_receiver: spsc::Receiver<LogLine>,
     key_broker: KeyBroker,
     execution_context: ExecutionContext,
     query_journal: QueryJournal,
@@ -1060,7 +1062,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
 
     // TODO: This unconditionally takes a table mapping dep.
     let shared = UdfShared::new(tx.table_mapping().clone());
-    let (log_line_sender, log_line_receiver) = mpsc::channel(32);
+    let (log_line_sender, log_line_receiver) = spsc::channel(32);
     let environment = UdfEnvironment::new(
         rt.clone(),
         path_and_args.path().udf_path.is_system(),

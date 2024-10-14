@@ -69,7 +69,6 @@ use database::{
 };
 use file_storage::TransactionalFileStorage;
 use futures::{
-    channel::mpsc,
     select,
     Future,
     FutureExt,
@@ -121,7 +120,7 @@ use storage::{
 };
 use sync_types::UdfPath;
 use tokio::sync::{
-    mpsc as tokio_mpsc,
+    mpsc,
     oneshot,
 };
 use usage_tracking::FunctionUsageStats;
@@ -903,7 +902,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         http_request: HttpActionRequest,
         identity: Identity,
     ) -> anyhow::Result<(Result<HttpActionResponse, JsError>, LogLines)> {
-        let (response_sender, mut response_receiver) = tokio_mpsc::unbounded_channel();
+        let (response_sender, mut response_receiver) = mpsc::unbounded_channel();
         let http_response_streamer = HttpActionResponseStreamer::new(response_sender);
         let (outcome, log_lines) = self
             .raw_http_action(udf_path, http_request, identity, http_response_streamer)
@@ -942,7 +941,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let path: UdfPath = udf_path.parse()?;
 
         let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
-        let (log_line_sender, mut log_line_receiver) = tokio_mpsc::unbounded_channel();
+        let (log_line_sender, mut log_line_receiver) = mpsc::unbounded_channel();
         let outcome = self
             .isolate
             .execute_http_action(
@@ -1079,7 +1078,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             Ok(path_and_args) => path_and_args,
         };
         let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
-        let (log_line_sender, mut log_line_receiver) = tokio_mpsc::unbounded_channel();
+        let (log_line_sender, mut log_line_receiver) = mpsc::unbounded_channel();
 
         // TODO(presley): Make this also be able to use local executor.
         let outcome = self
@@ -1472,7 +1471,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
     initialize_v8();
     let mut wait_for_blocked = pause.wait_for_blocked(PAUSE_RECREATE_CLIENT).boxed();
     let heap_stats = SharedIsolateHeapStats::new();
-    let (mut work_sender, work_receiver) = mpsc::channel(1);
+    let (work_sender, work_receiver) = mpsc::channel(1);
     let _handle = rt
         .spawn_thread(move || worker.service_requests::<Option<usize>>(work_receiver, heap_stats));
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
@@ -1523,7 +1522,7 @@ pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: Isolate
     initialize_v8();
     let mut wait_for_blocked = pause.wait_for_blocked(PAUSE_RECREATE_CLIENT).boxed();
     let heap_stats = SharedIsolateHeapStats::new();
-    let (mut work_sender, work_receiver) = mpsc::channel(1);
+    let (work_sender, work_receiver) = mpsc::channel(1);
     let _handle = rt
         .spawn_thread(move || worker.service_requests::<Option<usize>>(work_receiver, heap_stats));
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;

@@ -20,26 +20,25 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    sync::spsc,
 };
 use errors::ErrorMetadata;
 use file_storage::TransactionalFileStorage;
 use futures::{
-    channel::mpsc::{
-        self,
-        UnboundedSender,
-    },
     select_biased,
     stream::FuturesUnordered,
+    FutureExt,
     StreamExt,
 };
 use keybroker::{
     Identity,
     KeyBroker,
 };
-use minitrace::future::FutureExt;
+use minitrace::future::FutureExt as MinitraceFutureExt;
 use model::config::module_loader::ModuleLoader;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
+use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
 
 use crate::{
@@ -74,7 +73,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub _module_loader: Arc<dyn ModuleLoader<RT>>,
     pub key_broker: KeyBroker,
     pub task_order: TaskOrder,
-    pub task_retval_sender: UnboundedSender<TaskResponse>,
+    pub task_retval_sender: mpsc::UnboundedSender<TaskResponse>,
     pub usage_tracker: FunctionUsageTracker,
     pub context: ExecutionContext,
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
@@ -83,7 +82,7 @@ pub struct TaskExecutor<RT: Runtime> {
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {
-    pub async fn go(self, mut pending_tasks: mpsc::UnboundedReceiver<TaskRequest>) {
+    pub async fn go(self, mut pending_tasks: spsc::UnboundedReceiver<TaskRequest>) {
         let mut running_tasks = FuturesUnordered::new();
         let mut requests_closed = false;
         loop {
@@ -106,7 +105,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 task_id = running_tasks.select_next_some() => {
                     self.task_order.pop_running_task(task_id);
                 },
-                task_request = pending_tasks.next() => {
+                task_request = pending_tasks.recv().fuse() => {
                     if let Some(task_request) = task_request {
                         let root = initialize_root_from_parent("TaskExecutor::execute_task", task_request.parent_trace.clone());
                         self.task_order.push_running_task(&task_request);
@@ -167,7 +166,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         };
         let _ = self
             .task_retval_sender
-            .unbounded_send(TaskResponse::TaskDone { task_id, variant });
+            .send(TaskResponse::TaskDone { task_id, variant });
         task_id
     }
 

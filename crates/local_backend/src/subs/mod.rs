@@ -39,7 +39,6 @@ use common::{
     ws::is_connection_closed_error,
 };
 use futures::{
-    channel::mpsc,
     select_biased,
     try_join,
     FutureExt,
@@ -57,6 +56,7 @@ use sync::{
     SyncWorkerConfig,
 };
 use sync_types::IdentityVersion;
+use tokio::sync::mpsc;
 
 mod metrics;
 
@@ -143,7 +143,7 @@ async fn run_sync_socket(
     let last_received = Mutex::new(Instant::now());
     let last_ping_sent = Mutex::new(Instant::now());
 
-    let (client_tx, client_rx) = mpsc::unbounded();
+    let (client_tx, client_rx) = mpsc::unbounded_channel();
     let receive_messages = async {
         let _receive_message_drop_token = DebugSyncSocketDropToken::new("receive_message");
         while let Some(message_r) = rx.next().await {
@@ -169,10 +169,7 @@ async fn run_sync_socket(
                             ))
                         })?;
                     log_websocket_message_in();
-                    if client_tx
-                        .unbounded_send((body, st.runtime.monotonic_now()))
-                        .is_err()
-                    {
+                    if client_tx.send((body, st.runtime.monotonic_now())).is_err() {
                         break;
                     }
                 },
@@ -401,11 +398,10 @@ mod tests {
         Router,
     };
     use common::http::ConvexHttpService;
-    use futures::{
-        SinkExt,
-        StreamExt,
+    use tokio::sync::{
+        mpsc,
+        oneshot,
     };
-    use tokio::sync::oneshot;
     use tokio_tungstenite::connect_async;
     use tungstenite::error::Error as TungsteniteError;
 
@@ -415,14 +411,14 @@ mod tests {
     /// backend in `is_connection_closed_error` to work around axum sloppiness.
     #[tokio::test]
     async fn test_ws_tungstenite_version_match() -> anyhow::Result<()> {
-        let (ws_shutdown_tx, mut ws_shutdown_rx) = futures::channel::mpsc::channel(1);
+        let (ws_shutdown_tx, mut ws_shutdown_rx) = mpsc::channel(1);
 
         async fn ws_handler(
             ws: WebSocketUpgrade,
-            st: State<futures::channel::mpsc::Sender<bool>>,
+            st: State<mpsc::Sender<bool>>,
         ) -> axum::response::Response {
             ws.on_upgrade(move |mut ws: WebSocket| async move {
-                let mut ws_shutdown_tx = st.0;
+                let ws_shutdown_tx = st.0;
                 assert_eq!(ws.recv().await.unwrap().unwrap(), Message::Close(None));
                 let e = ws
                     .send(Message::Text("Hello".to_string()))
@@ -467,7 +463,7 @@ mod tests {
 
         // close websocket - make sure server handles it ok
         websocket.close(None).await?;
-        let closed = ws_shutdown_rx.next().await.unwrap();
+        let closed = ws_shutdown_rx.recv().await.unwrap();
         assert!(closed);
 
         // server shutdown

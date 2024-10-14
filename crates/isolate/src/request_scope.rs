@@ -7,9 +7,12 @@ use std::{
 };
 
 use anyhow::anyhow;
-use common::runtime::{
-    Runtime,
-    UnixTimestamp,
+use common::{
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
+    sync::spsc,
 };
 use deno_core::{
     serde_v8,
@@ -21,7 +24,6 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use futures::channel::mpsc;
 use value::heap_size::{
     HeapSize,
     WithHeapSize,
@@ -118,16 +120,13 @@ impl HeapSize for ReadableStream {
 
 pub enum StreamListener {
     JsPromise(v8::Global<v8::PromiseResolver>),
-    RustStream(mpsc::UnboundedSender<anyhow::Result<bytes::Bytes>>),
+    RustStream(spsc::UnboundedSender<anyhow::Result<bytes::Bytes>>),
 }
 
 impl HeapSize for StreamListener {
     fn heap_size(&self) -> usize {
-        match self {
-            StreamListener::JsPromise(_) => 0,
-            // TODO(presley): Implement HeapSize for mpsc::UnboundedSender.
-            StreamListener::RustStream(_) => 0,
-        }
+        // TODO: Implement HeapSize for `spsc::UnboundedSender` and fill this out.
+        0
     }
 }
 

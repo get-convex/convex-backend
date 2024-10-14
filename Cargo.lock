@@ -1240,6 +1240,7 @@ dependencies = [
  "strum 0.26.2",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-health",
  "tower",
@@ -1886,6 +1887,7 @@ dependencies = [
  "storage",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tracing",
  "usage_tracking",
  "value",
@@ -3700,6 +3702,7 @@ dependencies = [
  "storage",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
  "url",
  "usage_tracking",
@@ -4401,6 +4404,7 @@ dependencies = [
  "strum 0.26.2",
  "thiserror",
  "tokio",
+ "tokio-stream",
  "tracing",
  "value",
 ]
@@ -6406,6 +6410,7 @@ dependencies = [
  "tempfile",
  "text_search",
  "tokio",
+ "tokio-stream",
  "tracing",
  "uuid",
  "value",
@@ -7407,6 +7412,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
+ "tokio-stream",
  "tracing",
  "value",
 ]
@@ -7541,6 +7547,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tokio-stream",
  "tracing",
 ]
 

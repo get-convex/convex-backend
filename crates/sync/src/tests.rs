@@ -40,7 +40,6 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadataAnyhowExt;
-use futures::channel::mpsc;
 use isolate::test_helpers::TEST_SOURCE_ISOLATE_ONLY;
 use keybroker::{
     testing::TestUserIdentity,
@@ -67,6 +66,7 @@ use sync_types::{
     StateModification,
     UserIdentityAttributes,
 };
+use tokio::sync::mpsc;
 
 use crate::{
     worker::{
@@ -137,7 +137,7 @@ impl SyncTest {
         max_observed_timestamp: Option<Timestamp>,
     ) -> anyhow::Result<TestSyncWorker> {
         let worker_failed = Arc::new(Mutex::new(None));
-        let (client_tx, client_rx) = mpsc::unbounded();
+        let (client_tx, client_rx) = mpsc::unbounded_channel();
         let (server_tx, server_rx) = measurable_unbounded_channel();
 
         let worker_failed_ = worker_failed.clone();
@@ -165,7 +165,7 @@ impl SyncTest {
         };
         let worker_handle = self.rt.spawn("sync_test", future);
 
-        client_tx.unbounded_send((
+        client_tx.send((
             ClientMessage::Connect {
                 session_id: SessionId::nil(),
                 connection_count: 0,
@@ -197,7 +197,7 @@ struct TestSyncWorker {
 
 impl TestSyncWorker {
     fn send(&self, message: ClientMessage) -> anyhow::Result<()> {
-        self.tx.unbounded_send((message, self.rt.monotonic_now()))?;
+        self.tx.send((message, self.rt.monotonic_now()))?;
         Ok(())
     }
 

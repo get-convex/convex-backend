@@ -16,21 +16,25 @@ use convex_sync_types::{
     Timestamp,
 };
 use futures::{
-    channel::mpsc,
     select_biased,
+    stream::Fuse,
     FutureExt,
     SinkExt,
     StreamExt,
 };
 use tokio::{
     net::TcpStream,
-    sync::oneshot,
+    sync::{
+        mpsc,
+        oneshot,
+    },
     task::JoinHandle,
     time::{
         Instant,
         Interval,
     },
 };
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_tungstenite::{
     connect_async,
     tungstenite::{
@@ -69,7 +73,7 @@ struct WebSocketInternal {
 struct WebSocketWorker {
     ws_url: Url,
     on_response: mpsc::Sender<ProtocolResponse>,
-    internal_receiver: mpsc::UnboundedReceiver<WebSocketRequest>,
+    internal_receiver: Fuse<UnboundedReceiverStream<WebSocketRequest>>,
     ping_ticker: Interval,
     connection_count: u32,
     backoff: Backoff,
@@ -92,7 +96,7 @@ impl SyncProtocol for WebSocketManager {
         on_response: mpsc::Sender<ProtocolResponse>,
         client_id: &str,
     ) -> anyhow::Result<Self> {
-        let (internal_sender, internal_receiver) = mpsc::unbounded();
+        let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
         let worker_handle = tokio::spawn(WebSocketWorker::run(
             ws_url,
             on_response,
@@ -109,8 +113,7 @@ impl SyncProtocol for WebSocketManager {
     async fn send(&mut self, message: ClientMessage) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
         self.internal_sender
-            .send(WebSocketRequest::SendMessage(message, tx))
-            .await?;
+            .send(WebSocketRequest::SendMessage(message, tx))?;
         rx.await?;
         Ok(())
     }
@@ -118,8 +121,7 @@ impl SyncProtocol for WebSocketManager {
     async fn reconnect(&mut self, request: ReconnectRequest) {
         let _ = self
             .internal_sender
-            .send(WebSocketRequest::Reconnect(request))
-            .await;
+            .send(WebSocketRequest::Reconnect(request));
     }
 }
 
@@ -141,7 +143,7 @@ impl WebSocketWorker {
         let mut worker = Self {
             ws_url,
             on_response,
-            internal_receiver,
+            internal_receiver: UnboundedReceiverStream::new(internal_receiver).fuse(),
             ping_ticker,
             connection_count: 0,
             backoff,

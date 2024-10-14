@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::Context;
+use common::sync::spsc;
 use deno_core::{
     serde_v8,
     v8::{
@@ -8,7 +9,6 @@ use deno_core::{
     },
 };
 use errors::ErrorMetadata;
-use futures::channel::mpsc;
 use headers::HeaderName;
 use serde::{
     Deserialize,
@@ -59,7 +59,7 @@ pub fn async_op_parse_multi_part<'b, P: OpProvider<'b>>(
 ) -> anyhow::Result<()> {
     let content_type: String = serde_v8::from_v8(provider.scope(), args.get(1))?;
     let request_stream_id: uuid::Uuid = serde_v8::from_v8(provider.scope(), args.get(2))?;
-    let (request_sender, request_receiver) = mpsc::unbounded();
+    let (request_sender, request_receiver) = spsc::unbounded_channel();
     provider.new_stream_listener(
         request_stream_id,
         StreamListener::RustStream(request_sender),
@@ -68,7 +68,7 @@ pub fn async_op_parse_multi_part<'b, P: OpProvider<'b>>(
     provider.start_async_op(
         AsyncOpRequest::ParseMultiPart {
             content_type,
-            request_stream: Box::pin(request_receiver),
+            request_stream: Box::pin(request_receiver.into_stream()),
         },
         resolver,
     )
