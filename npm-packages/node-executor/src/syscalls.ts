@@ -4,8 +4,15 @@ import { UserIdentity } from "convex/server";
 import { ExecutionContext, SyscallStats } from "./executor";
 import { ConvexError, JSONValue } from "convex/values";
 import { UdfPath } from "./convex";
+import dns from "node:dns";
 
 const MAX_PENDING_SYSCALLS = 1000;
+
+/**
+ * Node defaults to ipv6, and since usher runs locally with ipv4 addresses,
+ * set the default result order to ipv4
+ */
+dns.setDefaultResultOrder("ipv4first");
 
 const STATUS_CODE_BAD_REQUEST = 400;
 // Special custom 5xx HTTP status code to mean that the UDF returned an error.
