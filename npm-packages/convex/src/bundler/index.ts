@@ -1,6 +1,6 @@
 import path from "path";
 import chalk from "chalk";
-import esbuild from "esbuild";
+import esbuild, { BuildFailure } from "esbuild";
 import { parse as parseAST } from "@babel/parser";
 import { Identifier, ImportSpecifier } from "@babel/types";
 import * as Sentry from "@sentry/node";
@@ -128,7 +128,18 @@ async function doEsbuild(
       externalModuleNames: external.externalModuleNames,
       bundledModuleNames: external.bundledModuleNames,
     };
-  } catch {
+  } catch (e: unknown) {
+    // esbuild sometimes throws a build error instead of returning a result
+    // containing an array of errors. Syntax errors are one of these cases.
+    if (isEsbuildBuildError(e)) {
+      for (const error of e.errors) {
+        if (error.location) {
+          const absPath = path.resolve(error.location.file);
+          const st = ctx.fs.stat(absPath);
+          ctx.fs.registerPath(absPath, st);
+        }
+      }
+    }
     return await ctx.crash({
       exitCode: 1,
       errorType: "invalid filesystem data",
@@ -137,6 +148,15 @@ async function doEsbuild(
       printedMessage: null,
     });
   }
+}
+
+function isEsbuildBuildError(e: any): e is BuildFailure {
+  return (
+    "errors" in e &&
+    "warnings" in e &&
+    Array.isArray(e.errors) &&
+    Array.isArray(e.warnings)
+  );
 }
 
 export async function bundle(
