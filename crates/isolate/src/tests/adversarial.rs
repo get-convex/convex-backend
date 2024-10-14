@@ -70,6 +70,28 @@ async fn test_time_out(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[convex_macro::prod_rt_test]
+async fn test_wasm_simple_loop(rt: ProdRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), MAX_ISOLATE_WORKERS, rt.clone())
+        .await?;
+    let e = t
+        .query_js_error("adversarialWasm:simpleLoop", assert_obj!())
+        .await?;
+    assert_contains(&e, "Function execution timed out");
+    Ok(())
+}
+
+#[convex_macro::prod_rt_test]
+async fn test_wasm_allocating_loop(rt: ProdRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default_with_config(TIMEOUT_CONFIG.clone(), MAX_ISOLATE_WORKERS, rt.clone())
+        .await?;
+    let e = t
+        .query_js_error("adversarialWasm:allocatingLoop", assert_obj!())
+        .await?;
+    assert_contains(&e, "Function execution timed out");
+    Ok(())
+}
+
 // We don't allow setTimeout in queries, so it's not possible to get
 // a query to execute for a precise amount of time. This makes this
 // test flaky:

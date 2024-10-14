@@ -17,6 +17,7 @@ import type {
 } from "convex/server";
 import type * as action from "../action.js";
 import type * as adversarial from "../adversarial.js";
+import type * as adversarialWasm from "../adversarialWasm.js";
 import type * as analyze from "../analyze.js";
 import type * as args_validation from "../args_validation.js";
 import type * as asyncTests from "../asyncTests.js";
@@ -78,6 +79,7 @@ import type * as unicode from "../unicode.js";
 import type * as userError from "../userError.js";
 import type * as values from "../values.js";
 import type * as vector_search from "../vector_search.js";
+import type * as wasmTests from "../wasmTests.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -90,6 +92,7 @@ import type * as vector_search from "../vector_search.js";
 declare const fullApi: ApiFromModules<{
   action: typeof action;
   adversarial: typeof adversarial;
+  adversarialWasm: typeof adversarialWasm;
   analyze: typeof analyze;
   args_validation: typeof args_validation;
   asyncTests: typeof asyncTests;
@@ -151,6 +154,7 @@ declare const fullApi: ApiFromModules<{
   userError: typeof userError;
   values: typeof values;
   vector_search: typeof vector_search;
+  wasmTests: typeof wasmTests;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,
