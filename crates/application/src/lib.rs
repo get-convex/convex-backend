@@ -62,6 +62,7 @@ use common::{
     },
     http::fetch::FetchClient,
     knobs::{
+        APPLICATION_MAX_CONCURRENT_UPLOADS,
         MAX_JOBS_CANCEL_BATCH,
         SNAPSHOT_LIST_LIMIT,
     },
@@ -280,7 +281,13 @@ use table_summary_worker::{
     TableSummaryClient,
     TableSummaryWorker,
 };
-use tokio::sync::oneshot;
+use tokio::{
+    sync::{
+        oneshot,
+        Semaphore,
+    },
+    task::JoinSet,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -1844,38 +1851,71 @@ impl<RT: Runtime> Application<RT> {
         Option<ExternalDepsPackageId>,
         BTreeMap<ComponentDefinitionPath, SourcePackage>,
     )> {
-        let external_deps_id_and_pkg = if !config.node_dependencies.is_empty() {
-            let deps = self
-                .build_external_node_deps(config.node_dependencies.clone())
+        let upload_limit = Arc::new(Semaphore::new(*APPLICATION_MAX_CONCURRENT_UPLOADS));
+
+        let root_future = async {
+            let permit = upload_limit.acquire().await?;
+            let external_deps_id_and_pkg = if !config.node_dependencies.is_empty() {
+                let deps = self
+                    .build_external_node_deps(config.node_dependencies.clone())
+                    .await?;
+                Some(deps)
+            } else {
+                None
+            };
+            let app_modules = config.app_definition.modules().cloned().collect();
+            let app_pkg = self
+                .upload_package(&app_modules, external_deps_id_and_pkg.clone())
                 .await?;
-            Some(deps)
-        } else {
-            None
+            drop(permit);
+            Ok((external_deps_id_and_pkg, app_pkg))
         };
 
-        let mut total_size = external_deps_id_and_pkg
-            .as_ref()
-            .map(|(_, pkg)| pkg.package_size)
-            .unwrap_or(PackageSize::default());
-        let mut component_definition_packages = BTreeMap::new();
-
-        let app_modules = config.app_definition.modules().cloned().collect();
-        let app_pkg = self
-            .upload_package(&app_modules, external_deps_id_and_pkg.clone())
-            .await?;
-        total_size += app_pkg.package_size;
-        component_definition_packages.insert(ComponentDefinitionPath::root(), app_pkg);
-
+        let mut component_pkg_futures = JoinSet::new();
         for component_def in &config.component_definitions {
+            let app = self.clone();
+            let definition_path = component_def.definition_path.clone();
             let component_modules = component_def.modules().cloned().collect();
-            let component_pkg = self.upload_package(&component_modules, None).await?;
-            total_size += component_pkg.package_size;
-            anyhow::ensure!(component_definition_packages
-                .insert(component_def.definition_path.clone(), component_pkg)
-                .is_none());
+            let upload_limit = upload_limit.clone();
+            let component_pkg_future = async move {
+                let permit = upload_limit.acquire().await?;
+                let component_pkg = app.upload_package(&component_modules, None).await?;
+                drop(permit);
+                anyhow::Ok((definition_path, component_pkg))
+            };
+            component_pkg_futures.spawn(component_pkg_future);
+        }
+        // `JoinSet::join_all` was added in tokio 1.40.0.
+        let component_pkg_future = async {
+            let mut result = Vec::with_capacity(config.component_definitions.len());
+            while let Some(component_pkg) = component_pkg_futures.join_next().await {
+                result.push(component_pkg??);
+            }
+            anyhow::Ok(result)
+        };
+
+        let ((external_deps, app_pkg), component_pkgs) =
+            tokio::try_join!(root_future, component_pkg_future)?;
+
+        let mut total_size = PackageSize::default();
+        if let Some((_, ref pkg)) = external_deps {
+            total_size += pkg.package_size;
+        }
+        total_size += app_pkg.package_size;
+        for (_, pkg) in &component_pkgs {
+            total_size += pkg.package_size;
         }
         total_size.verify_size()?;
-        let external_deps_id = external_deps_id_and_pkg.map(|(id, _)| id);
+
+        let mut component_definition_packages = BTreeMap::new();
+        component_definition_packages.insert(ComponentDefinitionPath::root(), app_pkg);
+        for (definition_path, component_pkg) in component_pkgs {
+            anyhow::ensure!(component_definition_packages
+                .insert(definition_path, component_pkg)
+                .is_none());
+        }
+
+        let external_deps_id = external_deps.map(|(id, _)| id);
         Ok((external_deps_id, component_definition_packages))
     }
 

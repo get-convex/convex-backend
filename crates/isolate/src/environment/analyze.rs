@@ -231,6 +231,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
 }
 
 impl AnalyzeEnvironment {
+    #[minitrace::trace]
     pub async fn analyze<RT: Runtime>(
         client_id: String,
         isolate: &mut Isolate<RT>,

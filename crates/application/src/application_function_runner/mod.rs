@@ -96,7 +96,6 @@ use function_runner::{
 };
 use futures::{
     select_biased,
-    try_join,
     FutureExt,
 };
 use isolate::{
@@ -1340,7 +1339,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         .signed_url(pkg.storage_key.clone(), Duration::from_secs(60));
 
                     let (source_uri, external_deps_uri) =
-                        try_join!(source_uri_future, external_uri_future)?;
+                        tokio::try_join!(source_uri_future, external_uri_future)?;
                     (
                         source_uri,
                         Some(node_executor::Package {
@@ -1541,16 +1540,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .partition(|(_, config)| config.environment == ModuleEnvironment::Node);
 
         let mut result = BTreeMap::new();
-        match self
-            .analyze_isolate
-            .analyze(udf_config, isolate_modules, environment_variables.clone())
-            .await?
-        {
-            Ok(modules) => result.extend(modules),
-            Err(e) => return Ok(Err(e)),
-        }
 
-        if !node_modules.is_empty() {
+        let isolate_future = self.analyze_isolate.analyze(
+            udf_config,
+            isolate_modules,
+            environment_variables.clone(),
+        );
+
+        let node_future = async {
+            if node_modules.is_empty() {
+                return Ok(Ok(BTreeMap::new()));
+            }
             for path_str in ["schema.js", "crons.js", "http.js"] {
                 let path = path_str
                     .parse()
@@ -1567,7 +1567,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     source_maps.insert(path.clone(), source_map);
                 }
             }
-
             // Fetch source and external_deps presigned URI first
             let source_uri_future = self
                 .modules_storage
@@ -1584,7 +1583,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         .signed_url(pkg.storage_key.clone(), Duration::from_secs(60));
 
                     let (source_uri, external_deps_uri) =
-                        try_join!(source_uri_future, external_uri_future)?;
+                        tokio::try_join!(source_uri_future, external_uri_future)?;
                     (
                         source_uri,
                         Some(node_executor::Package {
@@ -1608,24 +1607,32 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 },
                 environment_variables,
             };
-            match self.node_actions.analyze(request, &source_maps).await? {
-                Ok(modules) => {
-                    for (path, analyzed_module) in modules {
-                        let exists = result.insert(path, analyzed_module).is_some();
-                        // Note that although we send all modules to actions.analyze, it
-                        // currently ignores isolate modules.
-                        anyhow::ensure!(!exists, "actions.analyze returned isolate modules");
-                    }
-                },
-                Err(e) => return Ok(Err(e)),
-            }
+            self.node_actions.analyze(request, &source_maps).await
+        };
+
+        let (isolate_result, node_result) = tokio::try_join!(isolate_future, node_future)?;
+        match isolate_result {
+            Ok(modules) => result.extend(modules),
+            Err(e) => return Ok(Err(e)),
         }
-        self.validate_cron_jobs(&result).await??;
+        match node_result {
+            Ok(modules) => {
+                for (path, analyzed_module) in modules {
+                    let exists = result.insert(path, analyzed_module).is_some();
+                    // Note that although we send all modules to actions.analyze, it
+                    // currently ignores isolate modules.
+                    anyhow::ensure!(!exists, "actions.analyze returned isolate modules");
+                }
+            },
+            Err(e) => return Ok(Err(e)),
+        }
+
+        self.validate_cron_jobs(&result)??;
         Ok(Ok(result))
     }
 
     #[minitrace::trace]
-    async fn validate_cron_jobs(
+    fn validate_cron_jobs(
         &self,
         modules: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
     ) -> anyhow::Result<Result<(), JsError>> {

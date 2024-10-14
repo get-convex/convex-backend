@@ -744,6 +744,11 @@ pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::
     )
 });
 
+/// The maximum number of concurrent package uploads during
+/// `/api/deploy2/start_push`.
+pub static APPLICATION_MAX_CONCURRENT_UPLOADS: LazyLock<usize> =
+    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_UPLOADS", 4));
+
 /// Set a 64MB limit on the heap size.
 pub static ISOLATE_MAX_USER_HEAP_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("ISOLATE_MAX_USER_HEAP_SIZE", 1 << 26));

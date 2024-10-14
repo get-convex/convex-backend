@@ -141,7 +141,6 @@ impl<RT: Runtime> Application<RT> {
             tx.into_token()?;
             vars
         };
-        // TODO(ENG-6500): Fold in our reads here into the hash.
         let (auth_module, app_analysis) = self
             .analyze_modules_with_auth_config(
                 app_udf_config.clone(),
