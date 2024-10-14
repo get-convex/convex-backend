@@ -9,6 +9,7 @@ use common::{
     },
     maybe_val,
     query::{
+        Expression,
         IndexRange,
         IndexRangeExpression,
         Order,
@@ -29,6 +30,7 @@ use types::{
     ExportRequestor,
 };
 use value::{
+    ConvexValue,
     DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
@@ -58,6 +60,9 @@ pub static EXPORTS_STATE_FIELD: LazyLock<FieldPath> =
 
 pub static EXPORTS_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "start_ts".parse().expect("Invalid built-in field"));
+
+pub static EXPORTS_EXPIRATION_TS_FIELD: LazyLock<FieldPath> =
+    LazyLock::new(|| "expiration_ts".parse().expect("Invalid built-in field"));
 
 static EXPORTS_REQUESTOR_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "requestor".parse().expect("Invalid built-in field"));
@@ -123,9 +128,46 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
             .await
     }
 
+    #[cfg(test)]
+    pub async fn insert_export(&mut self, export: Export) -> anyhow::Result<ResolvedDocumentId> {
+        SystemMetadataModel::new_global(self.tx)
+            .insert(&EXPORTS_TABLE, export.try_into()?)
+            .await
+    }
+
     pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<Export>>> {
         let value_query = Query::full_table_scan(EXPORTS_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
+        let mut result = vec![];
+        while let Some(doc) = query_stream.next(self.tx, None).await? {
+            let row: ParsedDocument<Export> = doc.try_into()?;
+            result.push(row);
+        }
+        Ok(result)
+    }
+
+    pub async fn list_unexpired_cloud_backups(
+        &mut self,
+    ) -> anyhow::Result<Vec<ParsedDocument<Export>>> {
+        let index_range = IndexRange {
+            index_name: EXPORTS_BY_REQUESTOR.clone(),
+            range: vec![IndexRangeExpression::Eq(
+                EXPORTS_REQUESTOR_FIELD.clone(),
+                ConvexValue::try_from(ExportRequestor::CloudBackup.to_string())?.into(),
+            )],
+            order: Order::Asc,
+        };
+        let completed_filter = Expression::Eq(
+            Expression::Field(EXPORTS_STATE_FIELD.clone()).into(),
+            Expression::Literal(maybe_val!("completed")).into(),
+        );
+        let expired_filter = Expression::Gt(
+            Expression::Field(EXPORTS_EXPIRATION_TS_FIELD.clone()).into(),
+            Expression::Literal(maybe_val!(i64::from(*self.tx.begin_timestamp()))).into(),
+        );
+        let query = Query::index_range(index_range)
+            .filter(Expression::And(vec![completed_filter, expired_filter]));
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut result = vec![];
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             let row: ParsedDocument<Export> = doc.try_into()?;
@@ -329,6 +371,76 @@ mod tests {
                 .into_value(),
             expected
         );
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_list_unexpired_cloud_snapshots(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let mut tx = db.begin_system().await?;
+        let ts = *tx.begin_timestamp();
+        let ts_u64: u64 = ts.into();
+        let mut exports_model = ExportsModel::new(&mut tx);
+
+        // Insert an incomplete cloud backup
+        exports_model
+            .insert_export(Export::requested(
+                ExportFormat::Zip {
+                    include_storage: false,
+                },
+                ComponentId::test_user(),
+                ExportRequestor::CloudBackup,
+                ts_u64 + 1000,
+            ))
+            .await?;
+        let backups = exports_model.list_unexpired_cloud_backups().await?;
+        assert!(backups.is_empty());
+
+        // Insert a completed snapshot export
+        let export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::SnapshotExport,
+            ts_u64 + 1000,
+        )
+        .in_progress(ts)?
+        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        exports_model.insert_export(export).await?;
+        let backups = exports_model.list_unexpired_cloud_backups().await?;
+        assert!(backups.is_empty());
+
+        // Insert a completed but expired cloud backup
+        let export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::CloudBackup,
+            ts_u64 - 1000,
+        )
+        .in_progress(ts)?
+        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        exports_model.insert_export(export).await?;
+        let backups = exports_model.list_unexpired_cloud_backups().await?;
+        assert!(backups.is_empty());
+
+        // Insert a completed cloud backup
+        let export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::CloudBackup,
+            ts_u64 + 1000,
+        )
+        .in_progress(ts)?
+        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        exports_model.insert_export(export).await?;
+        let backups = exports_model.list_unexpired_cloud_backups().await?;
+        assert_eq!(backups.len(), 1);
+
         Ok(())
     }
 }

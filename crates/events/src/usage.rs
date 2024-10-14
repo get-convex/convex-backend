@@ -108,6 +108,7 @@ pub enum UsageEvent {
         tables: Vec<TableDatabaseStorage>,
     },
     CurrentFileStorage {
+        tag: String,
         total_size: u64,
     },
     CurrentDocumentCounts {
