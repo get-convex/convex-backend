@@ -366,15 +366,25 @@ pub fn snapshot_segment(
     })
 }
 
-pub fn restore_segment_from_tar(archive_path: &Path) -> anyhow::Result<PathBuf> {
+pub async fn restore_segment_from_tar(archive_path: &Path) -> anyhow::Result<PathBuf> {
     // This is taken directly from Qdrant's tests...
-    let segment_id = archive_path.file_stem().and_then(|f| f.to_str()).unwrap();
-    Segment::restore_snapshot(archive_path, segment_id)?;
+    let segment_id = archive_path
+        .file_stem()
+        .and_then(|f| f.to_str())
+        .unwrap()
+        .to_owned();
+
     // As is this...
-    Ok(archive_path
+    let out_path = archive_path
         .parent()
         .expect("Failed to obtain parent for archive")
-        .join(segment_id))
+        .join(&segment_id);
+
+    let archive_path = archive_path.to_owned();
+    tokio::task::spawn_blocking(move || Segment::restore_snapshot(&archive_path, &segment_id))
+        .await??;
+
+    Ok(out_path)
 }
 
 fn open_db<T: AsRef<str>>(
@@ -408,8 +418,8 @@ fn open_db<T: AsRef<str>>(
 /// used exactly once per Segment open, use FragmentedSegmentLoader instead of
 /// this method.
 #[cfg(any(test, feature = "testing"))]
-pub fn unsafe_load_disk_segment(paths: &VectorDiskSegmentPaths) -> anyhow::Result<Segment> {
-    let path = restore_segment_from_tar(&paths.segment)?;
+pub async fn unsafe_load_disk_segment(paths: &VectorDiskSegmentPaths) -> anyhow::Result<Segment> {
+    let path = restore_segment_from_tar(&paths.segment).await?;
     let paths = UntarredVectorDiskSegmentPaths::from(path, paths.clone());
     load_disk_segment(paths)
 }
@@ -739,12 +749,12 @@ mod tests {
         }
     }
 
-    fn create_and_load_disk_segment(
+    async fn create_and_load_disk_segment(
         test_dir: &TempDir,
         memory_segment: &Segment,
     ) -> anyhow::Result<Segment> {
         let paths = create_disk_segment(test_dir, memory_segment)?;
-        unsafe_load_disk_segment(&paths)
+        unsafe_load_disk_segment(&paths).await
     }
 
     fn create_disk_segment(
@@ -801,8 +811,8 @@ mod tests {
             .collect())
     }
 
-    #[test]
-    fn disk_segment_with_all_none_filter() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn disk_segment_with_all_none_filter() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors_with_test_payload(num_vectors).collect();
@@ -813,7 +823,7 @@ mod tests {
         )?;
         create_test_payload_index(&mut memory_segment)?;
 
-        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment)?;
+        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment).await?;
 
         let with_payload = include_test_payload();
         let filter = Filter {
@@ -832,8 +842,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn disk_segment_with_empty_filter() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn disk_segment_with_empty_filter() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors_with_test_payload(num_vectors).collect();
@@ -844,7 +854,7 @@ mod tests {
         )?;
         create_test_payload_index(&mut memory_segment)?;
 
-        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment)?;
+        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment).await?;
 
         let with_payload = WithPayload {
             enable: false,
@@ -900,8 +910,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn disk_segment_with_filter() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn disk_segment_with_filter() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors_with_test_payload(num_vectors).collect();
@@ -912,7 +922,7 @@ mod tests {
         )?;
         create_test_payload_index(&mut memory_segment)?;
 
-        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment)?;
+        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment).await?;
         let with_payload = include_test_payload();
 
         for (point_id, vector, _) in vectors {
@@ -976,8 +986,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn disk_segment_with_payload() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn disk_segment_with_payload() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors_with_test_payload(num_vectors).collect();
@@ -988,7 +998,7 @@ mod tests {
         )?;
         create_test_payload_index(&mut memory_segment)?;
 
-        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment)?;
+        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment).await?;
 
         let with_payload = include_test_payload();
 
@@ -1000,8 +1010,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn disk_segment_can_be_opened_and_queried_with_different_id_trackers_and_bitsets(
+    #[tokio::test]
+    async fn disk_segment_can_be_opened_and_queried_with_different_id_trackers_and_bitsets(
     ) -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
@@ -1039,8 +1049,8 @@ mod tests {
             ..paths_with_deletes
         };
 
-        let segment_without_deletes = unsafe_load_disk_segment(&paths_without_deletes)?;
-        let segment_with_deletes = unsafe_load_disk_segment(&paths_with_deletes)?;
+        let segment_without_deletes = unsafe_load_disk_segment(&paths_without_deletes).await?;
+        let segment_with_deletes = unsafe_load_disk_segment(&paths_with_deletes).await?;
 
         let with_payload = include_test_payload();
 
@@ -1078,8 +1088,8 @@ mod tests {
         create_test_payload_index(&mut memory_segment)?;
 
         let paths = create_disk_segment(&test_dir, &memory_segment)?;
-        let disk_segment1 = unsafe_load_disk_segment(&paths)?;
-        let disk_segment2 = unsafe_load_disk_segment(&paths)?;
+        let disk_segment1 = unsafe_load_disk_segment(&paths).await?;
+        let disk_segment2 = unsafe_load_disk_segment(&paths).await?;
 
         let with_payload = include_test_payload();
 
@@ -1136,8 +1146,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn can_load_plain_segment_from_snapshot() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn can_load_plain_segment_from_snapshot() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors(num_vectors).collect();
@@ -1151,7 +1161,7 @@ mod tests {
 
         let paths = snapshot_segment(&id_tracker, &memory_segment, &indexing_path, &disk_path)?;
 
-        let segment = unsafe_load_disk_segment(&paths)?;
+        let segment = unsafe_load_disk_segment(&paths).await?;
 
         for vector in vectors {
             let results = search(&segment, vector.1)?;
@@ -1160,8 +1170,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn plain_segment_with_deleted_points_can_be_written_then_queried() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn plain_segment_with_deleted_points_can_be_written_then_queried() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors(num_vectors).collect();
@@ -1179,7 +1189,7 @@ mod tests {
         fs::create_dir_all(&disk_path)?;
         let paths = snapshot_segment(&id_tracker, &memory_segment, &indexing_path, &disk_path)?;
 
-        let segment = unsafe_load_disk_segment(&paths)?;
+        let segment = unsafe_load_disk_segment(&paths).await?;
 
         for id_and_vector in vectors {
             let expect_delete = to_delete.contains(&id_and_vector);
@@ -1195,9 +1205,9 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn plain_segment_with_deleted_points_can_be_written_to_hnsw_and_queried() -> anyhow::Result<()>
-    {
+    #[tokio::test]
+    async fn plain_segment_with_deleted_points_can_be_written_to_hnsw_and_queried(
+    ) -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors(num_vectors).collect();
@@ -1209,7 +1219,7 @@ mod tests {
             assert!(memory_segment.delete_point(OP_NUM, *point_id)?);
         }
 
-        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment)?;
+        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment).await?;
 
         for id_and_vector in vectors {
             let expect_delete = to_delete.contains(&id_and_vector);
@@ -1225,8 +1235,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn plain_segment_with_deleted_points_via_id_tracker_can_be_written_to_hnsw_and_queried(
+    #[tokio::test]
+    async fn plain_segment_with_deleted_points_via_id_tracker_can_be_written_to_hnsw_and_queried(
     ) -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
@@ -1239,7 +1249,7 @@ mod tests {
             id_tracker.borrow_mut().drop(*point_id)?;
         }
 
-        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment)?;
+        let disk_segment = create_and_load_disk_segment(&test_dir, &memory_segment).await?;
 
         for id_and_vector in vectors {
             let expect_delete = to_delete.contains(&id_and_vector);
@@ -1255,8 +1265,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn qdrant_2_with_deleted_bitset_ignores_deleted_ids() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn qdrant_2_with_deleted_bitset_ignores_deleted_ids() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
 
@@ -1291,7 +1301,7 @@ mod tests {
         // Now as if we're on searchlight, load the id tracker with the updated bitset.
         // And Load the segment from disk, ensuring that it ignores the vector we just
         // marked as deleted.
-        let disk_segment = unsafe_load_disk_segment(&disk_segment_paths)?;
+        let disk_segment = unsafe_load_disk_segment(&disk_segment_paths).await?;
         let results = search(&disk_segment, to_delete.1)?;
         assert!(!results.iter().any(|value| *value == to_delete.0));
 
@@ -1314,18 +1324,18 @@ mod tests {
     // non-deleted state in multiple segments in the same index. Easy to do in
     // tests, but it should never happen in prod. If a document is inserted or
     // updated all old versions should have been marked deleted.
-    #[test]
-    fn merge_segments_with_same_vector_fails() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn merge_segments_with_same_vector_fails() -> anyhow::Result<()> {
         let vector: Vec<_> = stream_vectors(1).collect();
 
         let initial_dir = tempfile::tempdir()?;
         let initial_paths =
             create_test_disk_segment(DIMENSIONS, &initial_dir, vector.clone().into_iter())?;
-        let initial_segment = unsafe_load_disk_segment(&initial_paths)?;
+        let initial_segment = unsafe_load_disk_segment(&initial_paths).await?;
 
         let new_dir = tempfile::tempdir()?;
         let new_paths = create_test_disk_segment(DIMENSIONS, &new_dir, vector.into_iter())?;
-        let new_segment = unsafe_load_disk_segment(&new_paths)?;
+        let new_segment = unsafe_load_disk_segment(&new_paths).await?;
 
         let config = segment_config(DIMENSIONS, false, 4);
         let merged_dir = tempfile::tempdir()?;
@@ -1339,25 +1349,25 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn merge_segments_includes_payload_index() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn merge_segments_includes_payload_index() -> anyhow::Result<()> {
         let vectors: Vec<_> = stream_vectors(10).collect();
 
         let initial_dir = tempfile::tempdir()?;
         let initial_paths =
             create_test_disk_segment(DIMENSIONS, &initial_dir, vectors.into_iter())?;
-        let initial_segment = unsafe_load_disk_segment(&initial_paths)?;
+        let initial_segment = unsafe_load_disk_segment(&initial_paths).await?;
 
         let vectors: Vec<_> = stream_vectors(10).collect();
         let new_dir = tempfile::tempdir()?;
         let new_paths = create_test_disk_segment(DIMENSIONS, &new_dir, vectors.into_iter())?;
-        let new_segment = unsafe_load_disk_segment(&new_paths)?;
+        let new_segment = unsafe_load_disk_segment(&new_paths).await?;
 
         let config = segment_config(DIMENSIONS, false, 4);
         let merged_dir = tempfile::tempdir()?;
         let VectorDiskSegmentValues { paths, .. } =
             merge_disk_segments_tmpdir(vec![&initial_segment, &new_segment], &merged_dir, config)?;
-        let merged_segment = unsafe_load_disk_segment(&paths)?;
+        let merged_segment = unsafe_load_disk_segment(&paths).await?;
         assert_eq!(
             merged_segment.get_indexed_fields(),
             initial_segment.get_indexed_fields()
@@ -1366,8 +1376,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn merge_segments_with_same_vector_where_one_copy_is_deleted_includes_the_vector(
+    #[tokio::test]
+    async fn merge_segments_with_same_vector_where_one_copy_is_deleted_includes_the_vector(
     ) -> anyhow::Result<()> {
         let vector: Vec<_> = stream_vectors(1).collect();
 
@@ -1386,11 +1396,11 @@ mod tests {
             .expect("Missing internal id");
         deleted_bitset.delete(internal_id_to_delete)?;
         deleted_bitset.write_to_path(initial_paths.deleted_bitset.clone())?;
-        let initial_segment = unsafe_load_disk_segment(&initial_paths)?;
+        let initial_segment = unsafe_load_disk_segment(&initial_paths).await?;
 
         let new_dir = tempfile::tempdir()?;
         let new_paths = create_test_disk_segment(DIMENSIONS, &new_dir, vector.clone().into_iter())?;
-        let new_segment = unsafe_load_disk_segment(&new_paths)?;
+        let new_segment = unsafe_load_disk_segment(&new_paths).await?;
 
         let config = segment_config(DIMENSIONS, false, 4);
         let merged_dir = tempfile::tempdir()?;
@@ -1399,7 +1409,7 @@ mod tests {
             num_vectors,
             ..
         } = merge_disk_segments_tmpdir(vec![&initial_segment, &new_segment], &merged_dir, config)?;
-        let merged = unsafe_load_disk_segment(&merged_paths)?;
+        let merged = unsafe_load_disk_segment(&merged_paths).await?;
 
         let (point_id, vector) = vector.into_iter().next().unwrap();
         let with_payload = include_test_payload();
@@ -1411,21 +1421,21 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn merge_segments_without_deletes_contains_all_vectors() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn merge_segments_without_deletes_contains_all_vectors() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let num_segments = 3;
 
-        let segments_dirs_vecs: Vec<_> = (0..num_segments)
-            .map(|_| try {
-                let tmp_dir = tempfile::tempdir()?;
-                let vectors: Vec<_> = stream_vectors(num_vectors).collect();
-                let paths =
-                    create_test_disk_segment(DIMENSIONS, &tmp_dir, vectors.clone().into_iter())?;
-                let segment = unsafe_load_disk_segment(&paths)?;
-                (segment, tmp_dir, vectors)
-            })
-            .collect::<anyhow::Result<_>>()?;
+        let mut segments_dirs_vecs = vec![];
+        for _ in 0..num_segments {
+            let tmp_dir = tempfile::tempdir()?;
+            let vectors: Vec<_> = stream_vectors(num_vectors).collect();
+            let paths =
+                create_test_disk_segment(DIMENSIONS, &tmp_dir, vectors.clone().into_iter())?;
+            let segment = unsafe_load_disk_segment(&paths).await?;
+            segments_dirs_vecs.push((segment, tmp_dir, vectors));
+        }
+
         let segments: Vec<&Segment> = segments_dirs_vecs
             .iter()
             .map(|(segment, ..)| segment)
@@ -1438,7 +1448,7 @@ mod tests {
             num_vectors: merged_num_vectors,
             ..
         } = merge_disk_segments_tmpdir(segments, &merged_dir, config)?;
-        let merged = unsafe_load_disk_segment(&merged_paths)?;
+        let merged = unsafe_load_disk_segment(&merged_paths).await?;
 
         let vectors: Vec<_> = segments_dirs_vecs
             .iter()
@@ -1455,8 +1465,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn merge_segments_with_deletes_drops_deleted_vectors() -> anyhow::Result<()> {
+    #[tokio::test]
+    async fn merge_segments_with_deletes_drops_deleted_vectors() -> anyhow::Result<()> {
         let num_vectors: usize = 10;
         let test_dir = tempfile::tempdir()?;
         let vectors: Vec<_> = stream_vectors(num_vectors).collect();
@@ -1472,7 +1482,7 @@ mod tests {
         let other_vectors: Vec<_> = stream_vectors(num_vectors).collect();
         let other_paths =
             create_test_disk_segment(DIMENSIONS, &other_dir, other_vectors.clone().into_iter())?;
-        let other_segment = unsafe_load_disk_segment(&other_paths)?;
+        let other_segment = unsafe_load_disk_segment(&other_paths).await?;
 
         let config = segment_config(DIMENSIONS, false, 4);
         let merged_dir = tempfile::tempdir()?;
@@ -1485,7 +1495,7 @@ mod tests {
             &merged_dir,
             config,
         )?;
-        let merged = unsafe_load_disk_segment(&merged_paths)?;
+        let merged = unsafe_load_disk_segment(&merged_paths).await?;
 
         let with_payload = include_test_payload();
         for id_and_vec in vectors.into_iter().chain(other_vectors) {

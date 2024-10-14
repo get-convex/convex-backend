@@ -396,6 +396,7 @@ impl VectorFixtures {
             uuids: id_tracker_path,
             deleted_bitset: bitset_path,
         })
+        .await
     }
 }
 

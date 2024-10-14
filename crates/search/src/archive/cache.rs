@@ -13,10 +13,7 @@ use async_lru::async_lru::{
 };
 use bytesize::ByteSize;
 use common::{
-    async_compat::{
-        FuturesAsyncReadCompatExt,
-        FuturesAsyncWriteCompatExt,
-    },
+    async_compat::FuturesAsyncReadCompatExt,
     bounded_thread_pool::BoundedThreadPool,
     knobs::ARCHIVE_FETCH_TIMEOUT_SECONDS,
     runtime::{
@@ -26,19 +23,18 @@ use common::{
     types::ObjectKey,
 };
 use futures::{
-    io::AllowStdIo,
     pin_mut,
     select_biased,
     FutureExt,
     TryStreamExt,
 };
-use itertools::Itertools;
 use storage::{
     Storage,
     StorageCacheKey,
     StorageExt,
 };
 use tokio::{
+    fs,
     io::{
         AsyncWriteExt,
         BufReader,
@@ -162,7 +158,7 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         match extract_archive_result {
             Ok((bytes_used, path)) => {
                 if is_immutable(search_file_type) {
-                    set_readonly_blocking(&path, true)?;
+                    set_readonly(&path, true).await?;
                 }
                 metrics::finish_archive_fetch(timer, bytes_used, search_file_type);
                 Ok(IndexMeta {
@@ -198,28 +194,29 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
         output_directory: &PathBuf,
         archive: impl tokio::io::AsyncRead + Send + 'static + Unpin,
     ) -> anyhow::Result<(u64, PathBuf)> {
-        std::fs::create_dir(output_directory)?;
+        fs::create_dir(output_directory).await?;
         let output_file = output_directory.join("segment.tar");
-        let std_file = std::fs::File::create(&output_file)?;
-        let mut file = AllowStdIo::new(std_file).compat_write();
-
-        let mut reader = BufReader::with_capacity(2 << 16, archive);
-        let bytes_copied = tokio::io::copy_buf(&mut reader, &mut file).await?;
-        file.shutdown().await?;
+        let bytes_copied = {
+            let mut reader = BufReader::with_capacity(2 << 16, archive);
+            let mut file = fs::File::create(&output_file).await?;
+            let bytes_copied = tokio::io::copy_buf(&mut reader, &mut file).await?;
+            file.flush().await?;
+            bytes_copied
+        };
 
         // We're expecting that the uncompressed tar and its contents are roughly the
         // same size. There is some file moving / copying going on in
         // this method, but hopefully it's small enough to be a rounding
         // error relative to the overall segment size.
-        let path = Self::unpack_fragmented_segment_tar(output_file)?;
+        let path = Self::unpack_fragmented_segment_tar(output_file).await?;
 
         Ok((bytes_copied, path))
     }
 
-    fn unpack_fragmented_segment_tar(tar_path: PathBuf) -> anyhow::Result<PathBuf> {
+    async fn unpack_fragmented_segment_tar(tar_path: PathBuf) -> anyhow::Result<PathBuf> {
         let timer = archive_untar_timer();
-        let restored_path = restore_segment_from_tar(&tar_path)?;
-        std::fs::remove_file(tar_path)?;
+        let restored_path = restore_segment_from_tar(&tar_path).await?;
+        fs::remove_file(tar_path).await?;
         timer.finish();
         Ok(restored_path)
     }
@@ -339,23 +336,17 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         // The archive cache always dumps things into directories, but we want a
         // specific file path.
         let parent_dir: PathBuf = self.get(search_storage, storage_path, file_type).await?;
-        // tokio's async read_dir method punts to a thread pool too, but by using our
-        // own, we can be runtime agnostic.
-        let path = self
-            .blocking_thread_pool
-            .execute(move || try {
-                let paths: Vec<_> = std::fs::read_dir(parent_dir)?
-                    .map_ok(|value| value.path())
-                    .try_collect()?;
-                anyhow::ensure!(
-                    paths.len() == 1,
-                    "Expected one file but found multiple paths: {:?}",
-                    paths,
-                );
-                paths.first().unwrap().to_owned()
-            })
-            .await??;
-        Ok(path)
+        let mut read_dir = fs::read_dir(parent_dir).await?;
+        let mut paths = Vec::with_capacity(1);
+        while let Some(entry) = read_dir.next_entry().await? {
+            paths.push(entry.path());
+        }
+        anyhow::ensure!(
+            paths.len() == 1,
+            "Expected one file but found multiple paths: {:?}",
+            paths,
+        );
+        Ok(paths[0].to_owned())
     }
 
     async fn get_logged(
@@ -417,11 +408,11 @@ fn is_immutable(search_file_type: SearchFileType) -> bool {
     }
 }
 
-fn set_readonly_blocking(path: &PathBuf, readonly: bool) -> anyhow::Result<()> {
-    let metadata = std::fs::metadata(path)?;
+async fn set_readonly(path: &PathBuf, readonly: bool) -> anyhow::Result<()> {
+    let metadata = fs::metadata(path).await?;
     let mut permissions = metadata.permissions();
     permissions.set_readonly(readonly);
-    std::fs::set_permissions(path, permissions)?;
+    fs::set_permissions(path, permissions).await?;
     Ok(())
 }
 
@@ -467,8 +458,8 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<PathBuf>) {
         // to disallow inconsistent filesystem state.
         tracing::debug!("Removing path {} from disk", path.display());
         let result: anyhow::Result<()> = try {
-            set_readonly_blocking(&path, false)?;
-            std::fs::remove_dir_all(path)?;
+            set_readonly(&path, false).await?;
+            fs::remove_dir_all(path).await?;
         };
         result.expect("ArchiveCacheManager failed to clean up archive directory");
     }

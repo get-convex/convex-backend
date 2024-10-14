@@ -32,6 +32,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 storage = { path = "../storage" }
 tempfile = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
 value = { path = "../value" }

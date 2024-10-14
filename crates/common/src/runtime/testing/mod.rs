@@ -69,9 +69,6 @@ impl TestDriver {
             .start_paused(true)
             .unhandled_panic(UnhandledPanic::ShutdownRuntime)
             .rng_seed(tokio_seed)
-            .on_thread_start(|| {
-                panic!("TestDriver should not start any threads");
-            })
             .build()
             .expect("Failed to create Tokio runtime");
         let rng = ChaCha12Rng::seed_from_u64(seed);

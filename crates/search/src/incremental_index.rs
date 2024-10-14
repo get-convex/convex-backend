@@ -47,6 +47,7 @@ use text_search::tracker::{
     SearchMemoryIdTracker,
     SegmentTermMetadata,
 };
+use tokio::fs;
 use value::InternalId;
 
 use crate::{
@@ -343,7 +344,7 @@ pub async fn build_new_segment<RT: Runtime>(
     document_log_lower_bound: Option<Timestamp>,
 ) -> anyhow::Result<Option<NewTextSegment>> {
     let index_path = dir.join("index_path");
-    std::fs::create_dir(&index_path)?;
+    fs::create_dir(&index_path).await?;
     let index = IndexBuilder::new()
         .schema(tantivy_schema.schema.clone())
         .create_in_dir(&index_path)?;
@@ -450,10 +451,10 @@ pub async fn build_new_segment<RT: Runtime>(
     new_deletion_tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
     let id_tracker_path = dir.join(ID_TRACKER_PATH);
     new_id_tracker.write(&id_tracker_path)?;
-    let total_size_bytes = get_size(&index_path)?
-        + get_size(&id_tracker_path)?
-        + get_size(&alive_bit_set_path)?
-        + get_size(&deleted_terms_path)?;
+    let total_size_bytes = get_size(&index_path).await?
+        + get_size(&id_tracker_path).await?
+        + get_size(&alive_bit_set_path).await?
+        + get_size(&deleted_terms_path).await?;
     let paths = TextSegmentPaths {
         index_path,
         id_tracker_path,
@@ -467,11 +468,23 @@ pub async fn build_new_segment<RT: Runtime>(
     }))
 }
 
-fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
-    if path.is_file() {
-        return Ok(path.metadata()?.len());
+async fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
+    let mut stack = vec![path.clone()];
+    let mut total = 0;
+    while let Some(path) = stack.pop() {
+        let metadata = fs::metadata(&path).await?;
+        if metadata.is_file() {
+            total += metadata.len();
+            continue;
+        }
+        if metadata.is_dir() {
+            let mut read_dir = fs::read_dir(&path).await?;
+            while let Some(entry) = read_dir.next_entry().await? {
+                stack.push(entry.path());
+            }
+        }
     }
-    std::fs::read_dir(path)?.try_fold(0, |acc, curr| Ok(acc + get_size(&curr?.path())?))
+    Ok(total)
 }
 
 pub async fn fetch_term_ordinals_and_remap_deletes<RT: Runtime>(
@@ -677,7 +690,7 @@ pub async fn merge_segments(
         .fold(0, |acc, e| acc + e.alive_bitset.num_alive_docs());
 
     let index_dir = dir.join("index_dir");
-    std::fs::create_dir(&index_dir)?;
+    fs::create_dir(&index_dir).await?;
     let mmap_directory = MmapDirectory::open(&index_dir)?;
     let (_merged_segment, id_mapping) =
         tantivy::merge_filtered_segments(&segments, settings, alive_bitsets, mmap_directory)?;
@@ -710,7 +723,7 @@ pub async fn merge_segments(
     let alive_bit_set_path = dir.to_path_buf().join(ALIVE_BITSET_PATH);
     let deleted_terms_path = dir.to_path_buf().join(DELETED_TERMS_PATH);
     tracker.write_to_path(&alive_bit_set_path, &deleted_terms_path)?;
-    let size_bytes_total = get_size(&index_dir)?;
+    let size_bytes_total = get_size(&index_dir).await?;
     log_compacted_segment_size_bytes(size_bytes_total, SearchType::Text);
     Ok(NewTextSegment {
         num_indexed_documents,

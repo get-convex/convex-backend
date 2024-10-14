@@ -18,11 +18,7 @@ use async_zip::{
 use bytes::Bytes;
 use cmd_util::env::env_config;
 use common::{
-    async_compat::{
-        FuturesAsyncReadCompatExt,
-        FuturesAsyncWriteCompatExt,
-        TokioAsyncWriteCompatExt,
-    },
+    async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::index::{
         text_index::FragmentedTextSegment,
         vector_index::FragmentedVectorSegment,
@@ -31,9 +27,7 @@ use common::{
     types::ObjectKey,
 };
 use futures::{
-    io::AllowStdIo,
     pin_mut,
-    AsyncRead,
     TryStreamExt,
 };
 use storage::{
@@ -48,12 +42,14 @@ use tantivy::{
     IndexReader,
     IndexWriter,
 };
-#[cfg(any(test, feature = "testing"))]
-use tokio::io::BufReader;
 use tokio::{
+    fs,
     io::{
+        AsyncBufRead,
         AsyncWrite,
         AsyncWriteExt,
+        BufReader,
+        BufWriter,
     },
     sync::mpsc,
 };
@@ -80,9 +76,12 @@ static SEARCH_INDEXING_MEMORY_ARENA_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEXING_MEMORY_ARENA_BYTES", 50_000_000));
 
 #[minitrace::trace]
-pub fn index_reader_for_directory<P: AsRef<Path>>(directory: P) -> anyhow::Result<IndexReader> {
+pub async fn index_reader_for_directory<P: AsRef<Path>>(
+    directory: P,
+) -> anyhow::Result<IndexReader> {
     let timer = metrics::index_reader_for_directory_timer();
-    let index = tantivy::Index::open_in_dir(directory)?;
+    let directory = directory.as_ref().to_path_buf();
+    let index = tokio::task::spawn_blocking(move || Index::open_in_dir(directory)).await??;
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
@@ -91,11 +90,14 @@ pub fn index_reader_for_directory<P: AsRef<Path>>(directory: P) -> anyhow::Resul
     Ok(reader)
 }
 
-pub fn index_writer_for_directory<P: AsRef<Path>>(
+pub async fn index_writer_for_directory<P: AsRef<Path>>(
     directory: P,
     tantivy_schema: &TantivySearchIndexSchema,
 ) -> anyhow::Result<IndexWriter> {
-    let index = Index::create_in_dir(directory, tantivy_schema.schema.clone())?;
+    let directory = directory.as_ref().to_path_buf();
+    let schema = tantivy_schema.schema.clone();
+    let index =
+        tokio::task::spawn_blocking(move || Index::create_in_dir(&directory, schema)).await??;
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
@@ -115,11 +117,10 @@ pub async fn download_single_file_original<P: AsRef<Path>>(
         .stream
         .into_async_read()
         .compat();
-    let std_file = std::fs::File::create(path)?;
-    let mut file = AllowStdIo::new(std_file).compat_write();
+    let mut file = fs::File::create(path).await?;
     let mut reader = BufReader::with_capacity(2 << 16, stream);
     tokio::io::copy_buf(&mut reader, &mut file).await?;
-    file.shutdown().await?;
+    file.flush().await?;
     Ok(())
 }
 
@@ -139,8 +140,8 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
     pin_mut!(stream);
 
     // Open the target file
-    let std_file = std::fs::File::create(path)?;
-    let mut file = AllowStdIo::new(std_file).compat_write();
+    let file = fs::File::create(path).await?;
+    let mut file = BufWriter::new(file);
 
     // Require the stream to be a zip containing a single file, extract the data for
     // that single file and write it to our target path.
@@ -168,6 +169,7 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
             // multiple files)
         }
     }
+    file.flush().await?;
     Ok(())
 }
 
@@ -267,14 +269,13 @@ pub async fn upload_single_file_from_path<P: AsRef<Path>>(
         .with_context(|| format!("invalid path: {:?}", path.as_ref()))?
         .to_string();
 
-    let std_file = std::fs::File::open(path)?;
-    let mut file = AllowStdIo::new(std_file);
-
+    let file = fs::File::open(path).await?;
+    let mut file = BufReader::new(file);
     upload_single_file(&mut file, filename, storage, upload_type).await
 }
 
-pub async fn upload_single_file(
-    reader: &mut (impl AsyncRead + Sync + Send + Unpin),
+pub async fn upload_single_file<R: AsyncBufRead + Unpin>(
+    reader: &mut R,
     filename: String,
     storage: Arc<dyn Storage>,
     upload_type: SearchFileType,
@@ -294,7 +295,7 @@ pub async fn upload_single_file(
         SingleFileFormat::ZIP
     };
     let archiver = write_single_file(reader, filename, writer, file_type);
-    let ((), ()) = futures::try_join!(archiver, uploader)?;
+    tokio::try_join!(archiver, uploader)?;
     let key = upload.complete().await?;
     timer.finish();
     Ok(key)
@@ -309,10 +310,10 @@ enum SingleFileFormat {
     ORIGINAL,
 }
 
-async fn write_single_file(
-    reader: &mut (impl AsyncRead + Sync + Send + Unpin),
+async fn write_single_file<R: AsyncBufRead + Unpin, W: AsyncWrite + Unpin>(
+    reader: &mut R,
     filename: String,
-    mut out: impl AsyncWrite + Sync + Send + Unpin,
+    mut out: W,
     format: SingleFileFormat,
 ) -> anyhow::Result<()> {
     if format == SingleFileFormat::ZIP {
@@ -360,9 +361,8 @@ async fn write_index_archive<P: AsRef<Path>>(
             .to_str()
             .map(|s| s.to_owned())
             .context("Invalid path inside directory")?;
-        let std_file = std::fs::File::open(entry.path())?;
-        let mut file = AllowStdIo::new(std_file);
-
+        let file = fs::File::open(entry.path()).await?;
+        let mut file = BufReader::new(file);
         zip_single_file(&mut file, filename, &mut writer).await?;
     }
     writer.close().await?;
@@ -370,19 +370,19 @@ async fn write_index_archive<P: AsRef<Path>>(
     Ok(())
 }
 
-async fn raw_single_file(
-    reader: &mut (impl AsyncRead + Sync + Send + Unpin),
-    writer: &mut (impl AsyncWrite + Sync + Send + Unpin),
+async fn raw_single_file<R: AsyncBufRead + Unpin, W: AsyncWrite + Unpin>(
+    reader: &mut R,
+    writer: &mut W,
 ) -> anyhow::Result<()> {
-    let results = futures::io::copy(reader, &mut writer.compat_write()).await?;
-    tracing::trace!("Copied {} bytes", results);
+    let bytes_written = tokio::io::copy_buf(reader, writer).await?;
+    tracing::trace!("Copied {bytes_written} bytes");
     Ok(())
 }
 
-async fn zip_single_file(
-    reader: &mut (impl AsyncRead + Sync + Send + Unpin),
+async fn zip_single_file<R: AsyncBufRead + Unpin, W: AsyncWrite + Unpin>(
+    reader: &mut R,
     filename: String,
-    writer: &mut ZipFileWriter<&mut (impl AsyncWrite + Sync + Send + Unpin)>,
+    writer: &mut ZipFileWriter<W>,
 ) -> anyhow::Result<()> {
     let entry = ZipEntryBuilder::new(filename, Compression::Zstd)
         .unix_permissions(0o644)
@@ -390,9 +390,8 @@ async fn zip_single_file(
         // one when traversing the test directory multiple times.
         .last_modification_date(SystemTime::UNIX_EPOCH.into())
         .build();
-    let mut stream = writer.write_entry_stream(entry).await?.compat_write();
-    futures::io::copy(reader, &mut stream).await?;
-    let stream = stream.into_inner();
+    let mut stream = writer.write_entry_stream(entry).await?;
+    tokio::io::copy_buf(reader, &mut stream).await?;
     stream.close().await?;
     Ok(())
 }
@@ -406,10 +405,7 @@ mod tests {
         Ok,
     };
     use async_zip::read::mem::ZipFileReader;
-    use common::{
-        async_compat::TokioAsyncReadCompatExt,
-        runtime::testing::TestDriver,
-    };
+    use common::runtime::testing::TestDriver;
     use futures::TryStreamExt;
     use runtime::prod::ProdRuntime;
     use storage::{
@@ -422,6 +418,7 @@ mod tests {
         io::{
             AsyncReadExt,
             AsyncWriteExt,
+            BufReader,
         },
     };
 
@@ -500,9 +497,10 @@ mod tests {
         file.sync_all().await?;
 
         let mut buffer: Vec<u8> = Vec::new();
-        let mut file_read = fs::File::open(file_path).await?.compat();
+        let file = fs::File::open(file_path).await?;
+        let mut file = BufReader::new(file);
         write_single_file(
-            &mut file_read,
+            &mut file,
             "test".to_string(),
             &mut buffer,
             SingleFileFormat::ZIP,

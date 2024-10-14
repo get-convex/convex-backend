@@ -131,8 +131,8 @@ impl<RT: Runtime> TextSegmentGenerator<RT> {
             id_tracker_path,
         }: TextDiskSegmentPaths,
     ) -> anyhow::Result<TextSegment> {
-        let load_text_segment = move || -> anyhow::Result<TextSegment> {
-            let reader = index_reader_for_directory(index_path)?;
+        let load_text_segment = move || async move {
+            let reader = index_reader_for_directory(index_path).await?;
             let searcher = reader.searcher();
             if searcher.segment_readers().is_empty() {
                 return Ok(TextSegment::Empty);
@@ -148,9 +148,9 @@ impl<RT: Runtime> TextSegmentGenerator<RT> {
                 id_tracker,
                 segment_ord: 0,
             };
-            Ok(text_segment_reader)
+            anyhow::Ok(text_segment_reader)
         };
-        self.thread_pool.execute(load_text_segment).await?
+        self.thread_pool.execute_async(load_text_segment).await?
     }
 }
 

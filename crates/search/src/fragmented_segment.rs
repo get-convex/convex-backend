@@ -32,6 +32,7 @@ use qdrant_segment::{
 };
 use storage::Storage;
 use tempfile::TempDir;
+use tokio::fs;
 use value::InternalId;
 use vector::{
     id_tracker::VectorStaticIdTracker,
@@ -187,13 +188,13 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
         let tmp_dir = TempDir::new()?;
         let scratch_dir = tmp_dir.path().join("scratch");
         let target_path = tmp_dir.path().join("segment");
+
+        fs::create_dir(&scratch_dir).await?;
+        fs::create_dir(&target_path).await?;
         let new_segment = self
             .blocking_thread_pool
             .execute(move || {
                 let timer = vector_compact_construct_segment_seconds_timer();
-                std::fs::create_dir(&scratch_dir)?;
-                std::fs::create_dir(&target_path)?;
-
                 let result = merge_disk_segments_hnsw(
                     segments.iter().collect_vec(),
                     dimension,

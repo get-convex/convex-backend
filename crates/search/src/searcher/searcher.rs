@@ -521,7 +521,7 @@ impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
             .archive_cache
             .get(search_storage, &segment, SearchFileType::Text)
             .await?;
-        let reader = index_reader_for_directory(segment_path)?;
+        let reader = index_reader_for_directory(segment_path).await?;
         let searcher = reader.searcher();
 
         // Multisegment indexes only write to one segment.
@@ -1581,7 +1581,7 @@ mod tests {
         assert!(previous_segments.0.is_empty());
         println!("Indexed {dataset_path} in {:?}", start.elapsed());
 
-        let index_reader = index_reader_for_directory(new_segment.paths.index_path)?;
+        let index_reader = index_reader_for_directory(new_segment.paths.index_path).await?;
         let searcher = index_reader.searcher();
 
         let mut token_stream = schema.analyzer.token_stream(&query);
@@ -1831,7 +1831,7 @@ mod tests {
             return Ok(vec![]);
         };
 
-        let index_reader = index_reader_for_directory(&segment_paths.index_path)?;
+        let index_reader = index_reader_for_directory(&segment_paths.index_path).await?;
         let searcher = index_reader.searcher();
 
         let schema = test_schema();
