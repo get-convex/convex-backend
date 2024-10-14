@@ -461,6 +461,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .await
     }
 
+    #[minitrace::trace]
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
