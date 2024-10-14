@@ -47,7 +47,10 @@ use errors::ErrorMetadata;
 use isolate::EvaluateAppDefinitionsResult;
 use keybroker::Identity;
 use maplit::btreeset;
-use minitrace::future::FutureExt;
+use minitrace::{
+    future::FutureExt as MinitraceFutureExt,
+    Span,
+};
 use model::{
     auth::{
         types::AuthDiff,
@@ -520,56 +523,64 @@ impl<RT: Runtime> Application<RT> {
             definition.definition.exports = BTreeMap::new();
         }
 
-        let mut tx = self.begin(identity.clone()).await?;
+        let diff = self
+            .execute_with_audit_log_events_and_occ_retries(identity.clone(), "finish_push", |tx| {
+                let start_push = &start_push;
+                let downloaded_source_packages = &downloaded_source_packages;
+                async move {
+                    // Validate that environment variables haven't changed since `start_push`.
+                    let environment_variables =
+                        EnvironmentVariablesModel::new(tx).get_all().await?;
+                    if environment_variables != start_push.environment_variables {
+                        anyhow::bail!(ErrorMetadata::bad_request(
+                            "RaceDetected",
+                            "Environment variables have changed during push"
+                        ));
+                    }
 
-        // Validate that environment variables haven't changed since `start_push`.
-        let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
-        if environment_variables != start_push.environment_variables {
-            anyhow::bail!(ErrorMetadata::bad_request(
-                "RaceDetected",
-                "Environment variables have changed during push"
-            ));
-        }
+                    // Update app state: auth info and UDF server version.
+                    let auth_diff = AuthInfoModel::new(tx)
+                        .put(start_push.app_auth.clone())
+                        .await?;
 
-        // Update app state: auth info and UDF server version.
-        let auth_diff = AuthInfoModel::new(&mut tx).put(start_push.app_auth).await?;
+                    // Diff the component definitions.
+                    let (definition_diffs, modules_by_definition, udf_config_by_definition) =
+                        ComponentDefinitionConfigModel::new(tx)
+                            .apply_component_definitions_diff(
+                                &start_push.analysis,
+                                &start_push.component_definition_packages,
+                                downloaded_source_packages,
+                            )
+                            .await?;
 
-        // Diff the component definitions.
-        let (definition_diffs, modules_by_definition, udf_config_by_definition) =
-            ComponentDefinitionConfigModel::new(&mut tx)
-                .apply_component_definitions_diff(
-                    &start_push.analysis,
-                    &start_push.component_definition_packages,
-                    &downloaded_source_packages,
-                )
-                .await?;
+                    // Diff component tree.
+                    let component_diffs = ComponentConfigModel::new(tx)
+                        .apply_component_tree_diff(
+                            &start_push.app,
+                            udf_config_by_definition,
+                            &start_push.schema_change,
+                            modules_by_definition,
+                        )
+                        .await?;
 
-        // Diff component tree.
-        let component_diffs = ComponentConfigModel::new(&mut tx)
-            .apply_component_tree_diff(
-                &start_push.app,
-                udf_config_by_definition,
-                &start_push.schema_change,
-                modules_by_definition,
-            )
+                    let diffs = PushComponentDiffs {
+                        auth_diff: auth_diff.clone(),
+                        component_diffs: component_diffs.clone(),
+                    };
+                    let audit_log_events =
+                        vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }];
+                    let diff = FinishPushDiff {
+                        auth_diff,
+                        definition_diffs,
+                        component_diffs,
+                    };
+                    Ok((diff, audit_log_events))
+                }
+                .in_span(Span::enter_with_local_parent("finish_push_tx"))
+                .into()
+            })
             .await?;
 
-        let diffs = PushComponentDiffs {
-            auth_diff: auth_diff.clone(),
-            component_diffs: component_diffs.clone(),
-        };
-        self.commit_with_audit_log_events(
-            tx,
-            vec![DeploymentAuditLogEvent::PushConfigWithComponents { diffs }],
-            WriteSource::new("finish_push"),
-        )
-        .await?;
-
-        let diff = FinishPushDiff {
-            auth_diff,
-            definition_diffs,
-            component_diffs,
-        };
         Ok(diff)
     }
 }
