@@ -81,7 +81,7 @@ pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static st
     for (proto_path, rust_path) in external_paths {
         builder = builder.extern_path(proto_path, rust_path);
     }
-    builder.compile(&paths, &includes)?;
+    builder.compile_protos(&paths, &includes)?;
 
     // We sort the package names just so we're generating the lib.rs
     // deterministically to avoid NOOP commits.

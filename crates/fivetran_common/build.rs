@@ -65,7 +65,7 @@ fn main() -> Result<()> {
     }
     tonic_build::configure()
         .btree_map(["."])
-        .compile(&proto_files, &[protos_dir])?;
+        .compile_protos(&proto_files, &[protos_dir])?;
 
     Ok(())
 }
