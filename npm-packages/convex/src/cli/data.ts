@@ -49,7 +49,6 @@ export const data = new Command("data")
       "--component <path>",
       "Path to the component in the component tree defined in convex.config.ts.\n" +
         "  By default, inspects data in the root component",
-      // TODO(ENG-6967): Remove hideHelp before launching components
     ).hideHelp(),
   )
   .addDeploymentSelectionOptions(actionDescription("Inspect the database in"))

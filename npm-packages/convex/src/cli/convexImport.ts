@@ -80,8 +80,7 @@ export const convexImport = new Command("import")
     new Option(
       "--component <path>",
       "Path to the component in the component tree defined in convex.config.ts",
-      // TODO(ENG-6967): Remove hideHelp before launching components
-    ).hideHelp(),
+    ),
   )
   .addDeploymentSelectionOptions(actionDescription("Import data into"))
   .argument("<path>", "Path to the input file")

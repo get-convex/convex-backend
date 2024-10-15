@@ -85,6 +85,11 @@ export const dev = new Command("dev")
     "The identifier of the function to run in step 3, " +
       "like `init` or `dir/file:myFunction`",
   )
+  .option(
+    "--run-component <functionName>",
+    "If --run is used and the function is in a component, the path the component tree defined in convex.config.ts. " +
+      "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
+  )
   .addOption(
     new Option(
       "--prod",
@@ -127,6 +132,15 @@ export const dev = new Command("dev")
       logVerbose(ctx, "Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
     });
+
+    if (cmdOptions.runComponent && !cmdOptions.run) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "Can't specify `--run-component` option without `--run`",
+      });
+    }
 
     if (cmdOptions.debugBundlePath !== undefined && !cmdOptions.once) {
       return await ctx.crash({
@@ -221,6 +235,7 @@ export async function watchAndPush(
   options: PushOptions,
   cmdOptions: {
     run?: string;
+    runComponent?: string;
     once: boolean;
     untilSuccess: boolean;
     traceEvents: boolean;
@@ -250,7 +265,12 @@ export async function watchAndPush(
         )})`,
       );
       if (cmdOptions.run !== undefined && !ran) {
-        await runFunctionInDev(ctx, options, cmdOptions.run);
+        await runFunctionInDev(
+          ctx,
+          options,
+          cmdOptions.run,
+          cmdOptions.runComponent,
+        );
         ran = true;
       }
       pushed = true;
@@ -339,6 +359,7 @@ async function runFunctionInDev(
     adminKey: string;
   },
   functionName: string,
+  componentPath: string | undefined,
 ) {
   await runFunctionAndLog(
     ctx,
@@ -346,7 +367,7 @@ async function runFunctionInDev(
     credentials.adminKey,
     functionName,
     {},
-    undefined,
+    componentPath,
     {
       onSuccess: () => {
         logFinishedStep(ctx, `Finished running function "${functionName}"`);
