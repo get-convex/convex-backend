@@ -770,6 +770,18 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             tracing::warn!("Unmounting component: {:?}", &*component);
             self.unmount_component(&component).await?;
         }
+        let existing_definitions = BootstrapComponentsModel::new(self.tx)
+            .load_all_definitions()
+            .await?;
+        for (definition_path, definition) in existing_definitions {
+            if definition_path.is_root() {
+                continue;
+            }
+            ComponentDefinitionConfigModel::new(self.tx)
+                .delete_component_definition(&definition)
+                .await?;
+        }
+
         Ok(())
     }
 }
