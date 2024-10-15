@@ -185,6 +185,8 @@ pub enum ClientType {
     // For HTTP requests from the dashboard. Requests from the dashboard via a
     // Convex client will have an `NPM` version
     Dashboard,
+    Swift,
+    Kotlin,
     // We convert to lower case when we parse, so lets just generate lowercase strings.
     #[cfg_attr(
         any(test, feature = "testing"),
@@ -200,6 +202,7 @@ impl FromStr for ClientType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let client_type = match &*s.to_ascii_lowercase() {
             "python-convex" => Self::Python,
+            "python" => Self::Python,
             "npm-cli" => Self::CLI,
             "npm" => Self::NPM,
             "actions" => Self::Actions,
@@ -209,6 +212,8 @@ impl FromStr for ClientType {
             "fivetran-import" => Self::FivetranImport,
             "fivetran-export" => Self::FivetranExport,
             "dashboard" => Self::Dashboard,
+            "swift" => Self::Swift,
+            "kotlin" => Self::Kotlin,
             unrecognized => Self::Unrecognized(unrecognized.to_string()),
         };
         Ok(client_type)
@@ -218,7 +223,7 @@ impl FromStr for ClientType {
 impl Display for ClientType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Python => write!(f, "python-convex"),
+            Self::Python => write!(f, "python"),
             Self::CLI => write!(f, "npm-cli"),
             Self::NPM => write!(f, "npm"),
             Self::Actions => write!(f, "actions"),
@@ -228,6 +233,8 @@ impl Display for ClientType {
             Self::FivetranImport => write!(f, "fivetran-import"),
             Self::FivetranExport => write!(f, "fivetran-export"),
             Self::Dashboard => write!(f, "dashboard"),
+            Self::Swift => write!(f, "swift"),
+            Self::Kotlin => write!(f, "kotlin"),
             Self::Unrecognized(other_client) => write!(f, "{other_client}"),
         }
     }
@@ -245,6 +252,8 @@ impl ClientType {
             | Self::FivetranImport
             | Self::FivetranExport
             | Self::Dashboard
+            | Self::Swift
+            | Self::Kotlin
             | Self::Unrecognized(_) => None,
         }
     }
@@ -260,6 +269,8 @@ impl ClientType {
             | Self::FivetranImport
             | Self::FivetranExport
             | Self::Dashboard
+            | Self::Swift
+            | Self::Kotlin
             | Self::Unrecognized(_) => None,
         }
     }
@@ -281,6 +292,8 @@ impl ClientType {
             | Self::FivetranImport
             | Self::FivetranExport
             | Self::Dashboard
+            | Self::Swift
+            | Self::Kotlin
             | Self::Unrecognized(_) => "",
         }
     }
@@ -397,6 +410,8 @@ impl ClientVersion {
             | ClientType::FivetranImport
             | ClientType::FivetranExport
             | ClientType::Dashboard
+            | ClientType::Swift
+            | ClientType::Kotlin
             | ClientType::Unrecognized(_) => true,
         };
 
@@ -484,9 +499,7 @@ mod tests {
 
         // Versions higher than what we know about are also considered latest.
         assert_eq!(
-            "python-convex-1000.0.0"
-                .parse::<ClientVersion>()?
-                .current_state(),
+            "python-1000.0.0".parse::<ClientVersion>()?.current_state(),
             ClientVersionState::Supported
         );
         assert_eq!(
@@ -554,9 +567,9 @@ mod tests {
             "npm-2.0.0",
             "actions-1.4.1",
             "npm-cli-1.4.1",
-            "python-convex-0.5.0",
-            "python-convex-0.6.0",
-            "python-convex-1.6.0",
+            "python-0.5.0",
+            "python-0.6.0",
+            "python-1.6.0",
             "asdf-0.0.0", // unknown
         ];
         for r in require {
@@ -571,8 +584,8 @@ mod tests {
             "npm-0.19.0",
             "actions-1.3.0",
             "npm-cli-1.3.0",
-            "python-convex-0.4.0",
-            "python-convex-0.3.0",
+            "python-0.4.0",
+            "python-0.3.0",
         ];
         for r in not_require {
             assert_eq!(

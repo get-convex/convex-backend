@@ -32,10 +32,7 @@ use common::{
         ResolvedHostname,
     },
     runtime::Runtime,
-    version::{
-        ClientType,
-        ClientVersion,
-    },
+    version::ClientVersion,
     ws::is_connection_closed_error,
 };
 use futures::{
@@ -329,21 +326,7 @@ async fn run_sync_socket(
 }
 
 fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncWorkerConfig> {
-    match client_version.client() {
-        ClientType::NPM => Ok(SyncWorkerConfig { client_version }),
-        ClientType::Rust | ClientType::Unrecognized(_) => Ok(SyncWorkerConfig::default()),
-        ClientType::CLI
-        | ClientType::Python
-        | ClientType::StreamingImport
-        | ClientType::AirbyteExport
-        | ClientType::FivetranImport
-        | ClientType::FivetranExport
-        | ClientType::Dashboard
-        | ClientType::Actions => Err(anyhow::anyhow!(
-            "No websocket support for client: {}",
-            client_version.client()
-        )),
-    }
+    Ok(SyncWorkerConfig { client_version })
 }
 
 pub async fn sync_client_version_url(

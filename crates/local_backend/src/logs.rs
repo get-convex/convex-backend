@@ -163,6 +163,8 @@ pub async fn stream_function_logs(
         | ClientType::AirbyteExport
         | ClientType::FivetranImport
         | ClientType::FivetranExport
+        | ClientType::Swift
+        | ClientType::Kotlin
         | ClientType::Unrecognized(_) => false,
     };
     futures::select_biased! {
