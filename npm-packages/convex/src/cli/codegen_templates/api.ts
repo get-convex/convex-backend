@@ -15,7 +15,7 @@ export function moduleIdentifier(modulePath: string) {
     .replace(/\//g, "_")
     .replace(/-/g, "_");
   // Escape existing variable names in this file
-  if (["fullApi", "api", "internal"].includes(safeModulePath)) {
+  if (["fullApi", "api", "internal", "components"].includes(safeModulePath)) {
     safeModulePath = `${safeModulePath}_`;
   }
   return safeModulePath;
