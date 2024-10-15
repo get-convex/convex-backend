@@ -755,6 +755,23 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 
         Ok(())
     }
+
+    pub async fn disable_components(&mut self) -> anyhow::Result<()> {
+        let components = BootstrapComponentsModel::new(self.tx)
+            .load_all_components()
+            .await?;
+        for component in components {
+            if component.component_type.is_root() {
+                continue;
+            }
+            if component.state == ComponentState::Unmounted {
+                continue;
+            }
+            tracing::warn!("Unmounting component: {:?}", &*component);
+            self.unmount_component(&component).await?;
+        }
+        Ok(())
+    }
 }
 
 fn tree_diff_children<'a>(

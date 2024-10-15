@@ -1798,6 +1798,8 @@ impl<RT: Runtime> Application<RT> {
             )
             .await?;
 
+        ComponentConfigModel::new(tx).disable_components().await?;
+
         Ok((
             ConfigMetadataAndSchema {
                 config_metadata,
