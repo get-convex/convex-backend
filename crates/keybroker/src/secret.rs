@@ -3,7 +3,7 @@ use std::fmt;
 use anyhow::Context;
 use rand::Rng;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct Secret {
     key: [u8; 32],
 }
