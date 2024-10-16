@@ -23,6 +23,7 @@
 #![feature(never_type)]
 #![feature(error_generic_member_access)]
 #![feature(str_split_remainder)]
+#![feature(duration_constructors)]
 
 pub mod async_compat;
 pub mod auth;

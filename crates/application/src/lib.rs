@@ -600,8 +600,11 @@ impl<RT: Runtime> Application<RT> {
             SchemaWorker::start(runtime.clone(), database.clone()),
         )));
 
-        let system_table_cleanup_worker =
-            SystemTableCleanupWorker::new(runtime.clone(), database.clone());
+        let system_table_cleanup_worker = SystemTableCleanupWorker::new(
+            runtime.clone(),
+            database.clone(),
+            exports_storage.clone(),
+        );
         let system_table_cleanup_worker = Arc::new(Mutex::new(
             runtime.spawn("system_table_cleanup_worker", system_table_cleanup_worker),
         ));

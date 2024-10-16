@@ -1,4 +1,7 @@
-use std::sync::LazyLock;
+use std::{
+    sync::LazyLock,
+    time::Duration,
+};
 
 use common::{
     components::ComponentId,
@@ -16,7 +19,10 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::IndexName,
+    types::{
+        IndexName,
+        ObjectKey,
+    },
 };
 use database::{
     defaults::system_index,
@@ -67,7 +73,7 @@ pub static EXPORTS_EXPIRATION_TS_FIELD: LazyLock<FieldPath> =
 static EXPORTS_REQUESTOR_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "requestor".parse().expect("Invalid built-in field"));
 
-const DEFAULT_EXPORT_RETENTION: u64 = 14 * 24 * 60 * 60 * 1000000000; // 14 days
+const DEFAULT_EXPORT_RETENTION: u64 = Duration::from_days(14).as_nanos() as u64;
 
 pub struct ExportsTable;
 impl SystemTable for ExportsTable {
@@ -237,10 +243,42 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
             .map(|doc| doc.try_into())
             .transpose()
     }
+
+    pub async fn cleanup_expired(
+        &mut self,
+        retention_duration: Duration,
+    ) -> anyhow::Result<Vec<ObjectKey>> {
+        let delete_before_ts = (*self.tx.begin_timestamp()).sub(retention_duration)?;
+        let mut to_delete = vec![];
+        for export in self.list().await? {
+            let (id, export) = export.into_id_and_value();
+            match export {
+                Export::Requested { .. } | Export::InProgress { .. } => continue,
+                Export::Completed {
+                    expiration_ts,
+                    zip_object_key,
+                    ..
+                } => {
+                    if expiration_ts < delete_before_ts.into() {
+                        to_delete.push(zip_object_key);
+                        SystemMetadataModel::new_global(self.tx).delete(id).await?;
+                    }
+                },
+                Export::Failed { failed_ts, .. } => {
+                    if failed_ts < delete_before_ts {
+                        SystemMetadataModel::new_global(self.tx).delete(id).await?;
+                    }
+                },
+            }
+        }
+        Ok(to_delete)
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use cmd_util::env::env_config;
     use common::{
         components::ComponentId,
@@ -441,6 +479,54 @@ mod tests {
         let backups = exports_model.list_unexpired_cloud_backups().await?;
         assert_eq!(backups.len(), 1);
 
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_cleanup_expired(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let mut tx = db.begin_system().await?;
+        let ts = *tx.begin_timestamp();
+        let ts_u64: u64 = ts.into();
+        let mut exports_model = ExportsModel::new(&mut tx);
+
+        // Insert an complete cloud backup
+        let export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::CloudBackup,
+            ts_u64,
+        )
+        .in_progress(ts)?
+        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        exports_model.insert_export(export).await?;
+        assert_eq!(exports_model.list().await?.len(), 1);
+        let toremove = exports_model
+            .cleanup_expired(Duration::from_days(30))
+            .await?;
+        assert_eq!(toremove.len(), 0);
+        assert_eq!(exports_model.list().await?.len(), 1);
+        rt.advance_time(Duration::from_days(31)).await;
+        db.commit(tx).await?;
+
+        let mut tx = db.begin_system().await?;
+        let mut exports_model = ExportsModel::new(&mut tx);
+
+        // Cleanup 60 days do nothing
+        let toremove = exports_model
+            .cleanup_expired(Duration::from_days(60))
+            .await?;
+        assert_eq!(toremove, vec![]);
+        assert_eq!(exports_model.list().await?.len(), 1);
+
+        // Cleanup 30 days will clean it up
+        let toremove = exports_model
+            .cleanup_expired(Duration::from_days(30))
+            .await?;
+        assert_eq!(toremove, vec![ObjectKey::try_from("asdf")?]);
+        assert_eq!(exports_model.list().await?.len(), 0);
         Ok(())
     }
 }

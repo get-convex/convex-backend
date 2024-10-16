@@ -1,4 +1,7 @@
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::Context;
 use common::{
@@ -15,6 +18,7 @@ use common::{
     },
     errors::report_error,
     knobs::{
+        MAX_EXPIRED_SNAPSHOT_AGE,
         MAX_IMPORT_AGE,
         MAX_SESSION_CLEANUP_DURATION,
         SYSTEM_TABLE_CLEANUP_CHUNK_SIZE,
@@ -48,12 +52,16 @@ use futures::Future;
 use governor::Quota;
 use keybroker::Identity;
 use metrics::{
+    log_exports_s3_cleanup,
     log_system_table_cleanup_rows,
     system_table_cleanup_timer,
 };
-use model::session_requests::SESSION_REQUESTS_TABLE;
+use model::{
+    exports::ExportsModel,
+    session_requests::SESSION_REQUESTS_TABLE,
+};
 use rand::Rng;
-use tracing::log;
+use storage::Storage;
 use value::{
     TableNamespace,
     TabletId,
@@ -61,20 +69,29 @@ use value::{
 
 mod metrics;
 
-static MAX_ORPHANED_TABLE_NAMESPACE_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 2);
+static MAX_ORPHANED_TABLE_NAMESPACE_AGE: Duration = Duration::from_days(2);
 
 pub struct SystemTableCleanupWorker<RT: Runtime> {
     database: Database<RT>,
     runtime: RT,
+    exports_storage: Arc<dyn Storage>,
 }
 
 impl<RT: Runtime> SystemTableCleanupWorker<RT> {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(runtime: RT, database: Database<RT>) -> impl Future<Output = ()> + Send {
-        let mut worker = SystemTableCleanupWorker { database, runtime };
+    pub fn new(
+        runtime: RT,
+        database: Database<RT>,
+        exports_storage: Arc<dyn Storage>,
+    ) -> impl Future<Output = ()> + Send {
+        let mut worker = SystemTableCleanupWorker {
+            database,
+            runtime,
+            exports_storage,
+        };
         async move {
             if MAX_SESSION_CLEANUP_DURATION.is_none() {
-                log::error!(
+                tracing::error!(
                     "Forcibly disabling system table cleanup, exiting SystemTableCleanupWorker..."
                 );
                 return;
@@ -88,7 +105,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
     }
 
     async fn run(&mut self) -> anyhow::Result<()> {
-        log::info!("Starting SystemTableCleanupWorker");
+        tracing::info!("Starting SystemTableCleanupWorker");
         let rate_limiter = new_rate_limiter(
             self.runtime.clone(),
             Quota::per_second(*SYSTEM_TABLE_ROWS_PER_SECOND),
@@ -100,6 +117,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
 
             self.cleanup_hidden_tables().await?;
             self.cleanup_orphaned_table_namespaces().await?;
+            self.cleanup_expired_exports().await?;
 
             // _session_requests are used to make mutations idempotent.
             // We can delete them after they are old enough that the client that
@@ -319,6 +337,25 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         tracing::info!("deleted {deleted_count} documents from {table}");
         log_system_table_cleanup_rows(table, deleted_count);
         Ok(deleted_count)
+    }
+
+    async fn cleanup_expired_exports(&self) -> anyhow::Result<()> {
+        let mut tx = self.database.begin(Identity::system()).await?;
+        let object_keys_to_del = ExportsModel::new(&mut tx)
+            .cleanup_expired(*MAX_EXPIRED_SNAPSHOT_AGE)
+            .await?;
+        let num_deleted = object_keys_to_del.len();
+        for object_key in object_keys_to_del {
+            self.exports_storage.delete_object(&object_key).await?;
+            log_exports_s3_cleanup();
+        }
+        self.database
+            .commit_with_write_source(tx, "system_table_cleanup")
+            .await?;
+        if num_deleted > 0 {
+            tracing::info!("Deleted {num_deleted} expired snapshots");
+        }
+        Ok(())
     }
 }
 

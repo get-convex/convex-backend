@@ -555,6 +555,13 @@ pub static MAX_SESSION_CLEANUP_DURATION: LazyLock<Option<Duration>> = LazyLock::
     }
 });
 
+/// Snapshots that expired more than this number of days ago are purged
+/// from storage.
+pub static MAX_EXPIRED_SNAPSHOT_AGE: LazyLock<Duration> = LazyLock::new(|| {
+    let days = env_config("MAX_EXPIRED_SNAPSHOT_AGE_DAYS", 30);
+    Duration::from_days(days)
+});
+
 /// Number of chunks processed per second when calculating table summaries.
 pub static TABLE_SUMMARY_CHUNKS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(

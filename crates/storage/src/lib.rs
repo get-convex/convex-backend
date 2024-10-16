@@ -185,6 +185,8 @@ pub trait Storage: Send + Sync + Debug {
         &self,
         key: FullyQualifiedObjectKey,
     ) -> anyhow::Result<ObjectKey>;
+    /// Delete the given object.
+    async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()>;
 }
 
 pub struct ObjectAttributes {
@@ -1096,6 +1098,13 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
             )),
         }
     }
+
+    async fn delete_object(&self, key: &ObjectKey) -> anyhow::Result<()> {
+        let key = self.path_for_key(key.clone());
+        let path = self.dir.join(key);
+        fs::remove_file(path)?;
+        Ok(())
+    }
 }
 
 pub struct LocalDirUpload {
@@ -1329,6 +1338,17 @@ mod local_storage_tests {
             results,
             vec![Bytes::from(vec![1, 2, 3]), Bytes::from(vec![4, 5, 6, 7])]
         );
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_storage_delete(rt: TestRuntime) -> anyhow::Result<()> {
+        let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
+        let test_upload = storage.start_upload().await?;
+        let object_key = test_upload.complete().await?;
+        assert!(storage.get(&object_key).await?.is_some());
+        storage.delete_object(&object_key).await?;
+        assert!(storage.get(&object_key).await?.is_none());
         Ok(())
     }
 }
