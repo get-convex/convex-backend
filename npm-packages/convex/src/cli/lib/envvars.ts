@@ -14,6 +14,7 @@ const _FRAMEWORKS = [
   "Remix",
   "SvelteKit",
   "Expo",
+  "TanStackStart",
 ] as const;
 type Framework = (typeof _FRAMEWORKS)[number];
 
@@ -140,6 +141,16 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   if (isVite) {
     return {
       detectedFramework: "Vite",
+      envVar: "VITE_CONVEX_URL",
+    };
+  }
+
+  // TanStackStart currently supports VITE_FOO for browser-side envvars.
+  const isTanStackStart = "@tanstack/start" in packages;
+
+  if (isTanStackStart) {
+    return {
+      detectedFramework: "TanStackStart",
       envVar: "VITE_CONVEX_URL",
     };
   }
