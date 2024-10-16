@@ -81,7 +81,7 @@ interface ComponentExports {
  * This is a feature of components, which are in beta.
  * This API is unstable and may change in subsequent releases.
  */
-export type ComponentDefinition<_Exports extends ComponentExports = any> = {
+export type ComponentDefinition<Exports extends ComponentExports = any> = {
   /**
    * Install a component with the given definition in this component definition.
    *
@@ -96,10 +96,17 @@ export type ComponentDefinition<_Exports extends ComponentExports = any> = {
       name?: string;
     },
   ): InstalledComponent<Definition>;
+
+  /**
+   * Internal type-only property tracking exports provided.
+   *
+   * @deprecated This is a type-only property, don't use it.
+   */
+  __exports: Exports;
 };
 
-type ComponentDefinitionExports<T> =
-  T extends ComponentDefinition<infer Exports> ? Exports : never;
+type ComponentDefinitionExports<T extends ComponentDefinition<any>> =
+  T["__exports"];
 
 /**
  * An object of this type should be the default export of a
@@ -326,7 +333,7 @@ function exportComponentForAnalysis(
 }
 
 // This is what is actually contained in a ComponentDefinition.
-type RuntimeComponentDefinition = ComponentDefinition<any> &
+type RuntimeComponentDefinition = Omit<ComponentDefinition<any>, "__exports"> &
   ComponentDefinitionData & {
     export: () => ComponentDefinitionAnalysis;
   };
@@ -364,7 +371,7 @@ export function defineComponent<Exports extends ComponentExports = any>(
     use,
 
     // pretend to conform to ComponentDefinition, which temporarily expects __args
-    ...({} as { __args: any }),
+    ...({} as { __args: any; __exports: any }),
   };
   return ret as any as ComponentDefinition<Exports>;
 }
