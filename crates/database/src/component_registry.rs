@@ -228,6 +228,36 @@ impl ComponentRegistry {
         self.component_in_parent(None, reads)
     }
 
+    pub fn component_children(
+        &self,
+        parent_id: DeveloperDocumentId,
+        reads: &mut TransactionReadSet,
+    ) -> anyhow::Result<Vec<ParsedDocument<ComponentMetadata>>> {
+        let interval =
+            Interval::prefix(values_to_bytes(&[Some(val!(parent_id.to_string()))]).into());
+        reads.record_indexed_derived(
+            TabletIndexName::new(
+                self.components_tablet,
+                COMPONENTS_BY_PARENT_INDEX.descriptor().clone(),
+            )?,
+            vec![PARENT_FIELD.clone(), NAME_FIELD.clone()].try_into()?,
+            interval,
+        );
+        let child_ids = self
+            .components
+            .iter()
+            .filter_map(|(_, doc)| {
+                let (component_parent_id, _) = doc.parent_and_name()?;
+                if component_parent_id == parent_id {
+                    Some(doc.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        Ok(child_ids)
+    }
+
     pub fn component_in_parent(
         &self,
         parent_and_name: Option<(DeveloperDocumentId, ComponentName)>,

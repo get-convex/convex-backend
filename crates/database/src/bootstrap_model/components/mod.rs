@@ -110,6 +110,15 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .component_in_parent(parent_and_name, &mut self.tx.reads)
     }
 
+    pub fn component_children(
+        &mut self,
+        parent_id: DeveloperDocumentId,
+    ) -> anyhow::Result<Vec<ParsedDocument<ComponentMetadata>>> {
+        self.tx
+            .component_registry
+            .component_children(parent_id, &mut self.tx.reads)
+    }
+
     pub fn root_component(&mut self) -> anyhow::Result<Option<ParsedDocument<ComponentMetadata>>> {
         self.component_in_parent(None)
     }

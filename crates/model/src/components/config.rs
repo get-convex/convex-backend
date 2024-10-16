@@ -706,51 +706,57 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 
     #[minitrace::trace]
     pub async fn delete_component(&mut self, component_id: ComponentId) -> anyhow::Result<()> {
-        let ComponentId::Child(id) = component_id else {
+        if component_id.is_root() {
             anyhow::bail!("Cannot delete root component");
-        };
+        }
 
+        // First, walk the component tree and validate that it's okay to delete each
+        // component.
         let component = BootstrapComponentsModel::new(self.tx)
             .load_component(component_id)
             .await?;
-
-        match component {
-            Some(component) => {
-                if component.state != ComponentState::Unmounted {
-                    anyhow::bail!(ErrorMetadata::bad_request(
-                        "ComponentMustBeUnmounted",
-                        "Component must be unmounted before deletion"
-                    ));
-                }
-            },
-            None => {
-                anyhow::bail!(ErrorMetadata::transient_not_found(
-                    "ComponentNotFound",
-                    format!("Component with ID {:?} not found", component_id)
+        let Some(component) = component else {
+            anyhow::bail!(ErrorMetadata::transient_not_found(
+                "ComponentNotFound",
+                format!("Component with ID {:?} not found", component_id)
+            ));
+        };
+        let mut stack = vec![component];
+        let mut all_ids = vec![];
+        while let Some(component) = stack.pop() {
+            if component.state != ComponentState::Unmounted {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "ComponentMustBeUnmounted",
+                    "Component must be unmounted before deletion"
                 ));
-            },
+            }
+            let children =
+                BootstrapComponentsModel::new(self.tx).component_children(component.id().into())?;
+            stack.extend(children);
+            all_ids.push(component.id());
         }
 
-        let resolved_document_id =
-            BootstrapComponentsModel::new(self.tx).resolve_component_id(id)?;
-        SystemMetadataModel::new_global(self.tx)
-            .delete(resolved_document_id)
-            .await?;
-
-        let namespace = TableNamespace::from(component_id);
-        // delete the schema table first
-        // tables defined in the schema cannot be deleted, so we delete the _schemas
-        // table first to remove that restriction
-        TableModel::new(self.tx)
-            .delete_table(namespace, SCHEMAS_TABLE.clone())
-            .await?;
-
-        // then delete all tables, including system tables
-        let namespaced_table_mapping = self.tx.table_mapping().namespace(namespace);
-        for (tablet_id, ..) in namespaced_table_mapping.iter() {
-            TableModel::new(self.tx)
-                .delete_table_by_id(tablet_id)
+        // Delete the components we found.
+        for component_id in all_ids {
+            SystemMetadataModel::new_global(self.tx)
+                .delete(component_id)
                 .await?;
+
+            let namespace = TableNamespace::from(ComponentId::Child(component_id.into()));
+            // delete the schema table first
+            // tables defined in the schema cannot be deleted, so we delete the _schemas
+            // table first to remove that restriction
+            TableModel::new(self.tx)
+                .delete_table(namespace, SCHEMAS_TABLE.clone())
+                .await?;
+
+            // then delete all tables, including system tables
+            let namespaced_table_mapping = self.tx.table_mapping().namespace(namespace);
+            for (tablet_id, ..) in namespaced_table_mapping.iter() {
+                TableModel::new(self.tx)
+                    .delete_table_by_id(tablet_id)
+                    .await?;
+            }
         }
 
         Ok(())
