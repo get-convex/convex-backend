@@ -5,6 +5,7 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
+    errors::JsError,
     query::{
         Order,
         Query,
@@ -108,24 +109,29 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
         Ok(backend_state)
     }
 
-    pub async fn fail_while_not_running(&mut self) -> anyhow::Result<()> {
+    /// Fails with an error if the backend is not running. We have to return a
+    /// result of a result of () and a JSError because we use them to
+    /// differentiate between system and user errors.
+    pub async fn fail_while_not_running(&mut self) -> anyhow::Result<Result<(), JsError>> {
         let backend_state = self.get_backend_state().await?;
         match backend_state {
             BackendState::Running => {},
-            BackendState::Paused => anyhow::bail!(ErrorMetadata::bad_request(
-                "NoRunWhilePaused",
-                PAUSED_ERROR_MESSAGE,
-            )),
-            BackendState::Disabled => anyhow::bail!(ErrorMetadata::bad_request(
-                "NoRunWhileDisabled",
-                DISABLED_ERROR_MESSAGE,
-            )),
-            BackendState::Suspended => anyhow::bail!(ErrorMetadata::bad_request(
-                "NoRunWhileSuspended",
-                SUSPENDED_ERROR_MESSAGE,
-            )),
-        };
-        Ok(())
+            BackendState::Paused => {
+                return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
+            },
+            BackendState::Disabled => {
+                return Ok(Err(JsError::from_message(
+                    DISABLED_ERROR_MESSAGE.to_string(),
+                )));
+            },
+            BackendState::Suspended => {
+                return Ok(Err(JsError::from_message(
+                    SUSPENDED_ERROR_MESSAGE.to_string(),
+                )));
+            },
+        }
+
+        Ok(Ok(()))
     }
 
     pub async fn toggle_backend_state(&mut self, new_state: BackendState) -> anyhow::Result<()> {

@@ -173,7 +173,6 @@ use crate::{
     validate_schedule_args,
     ActionCallbacks,
     BackendIsolateWorker,
-    HttpActionOutcome,
     HttpActionResponse,
     HttpActionResult,
     IsolateClient,
@@ -915,7 +914,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 HttpActionResponsePart::Head(head) => response_head = Some(head),
             }
         }
-        let response = match outcome.result {
+        let response = match outcome {
             HttpActionResult::Error(e) => Err(e),
             HttpActionResult::Streamed => {
                 let response_head = response_head.unwrap();
@@ -935,17 +934,22 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         http_request: HttpActionRequest,
         identity: Identity,
         http_response_streamer: HttpActionResponseStreamer,
-    ) -> anyhow::Result<(HttpActionOutcome, LogLines)> {
+    ) -> anyhow::Result<(HttpActionResult, LogLines)> {
         let app = Arc::new(self.clone());
         let mut tx = self.database.begin(identity.clone()).await?;
         let path: UdfPath = udf_path.parse()?;
+        let validated_path =
+            match ValidatedHttpPath::new_for_tests(&mut tx, path.canonicalize(), None).await? {
+                Ok(validated_path) => validated_path,
+                Err(e) => return Ok((HttpActionResult::Error(e), vec![].into())),
+            };
 
         let fetch_client = Arc::new(ProxiedFetchClient::new(None, DEV_INSTANCE_NAME.to_owned()));
         let (log_line_sender, mut log_line_receiver) = mpsc::unbounded_channel();
         let outcome = self
             .isolate
             .execute_http_action(
-                ValidatedHttpPath::new_for_tests(&mut tx, path.canonicalize(), None).await?,
+                validated_path,
                 RoutedHttpPath(http_request.head.url.path().to_string()),
                 http_request,
                 identity,
@@ -961,7 +965,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         while let Some(log_line) = log_line_receiver.recv().await {
             log_lines.push(log_line);
         }
-        Ok((outcome, log_lines.into()))
+        Ok((outcome.result, log_lines.into()))
     }
 
     pub async fn action(&self, udf_path: &str, args: ConvexObject) -> anyhow::Result<ConvexValue> {

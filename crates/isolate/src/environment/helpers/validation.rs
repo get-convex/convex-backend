@@ -32,13 +32,7 @@ use database::{
 use errors::ErrorMetadata;
 use keybroker::Identity;
 use model::{
-    backend_state::{
-        types::BackendState,
-        BackendStateModel,
-        DISABLED_ERROR_MESSAGE,
-        PAUSED_ERROR_MESSAGE,
-        SUSPENDED_ERROR_MESSAGE,
-    },
+    backend_state::BackendStateModel,
     components::ComponentsModel,
     modules::{
         function_validators::ReturnsValidator,
@@ -310,23 +304,13 @@ impl ValidatedPathAndArgs {
             };
             return Ok(result);
         }
-        let mut backend_state_model = BackendStateModel::new(tx);
-        let backend_state = backend_state_model.get_backend_state().await?;
-        match backend_state {
-            BackendState::Running => {},
-            BackendState::Paused => {
-                return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
+
+        match BackendStateModel::new(tx).fail_while_not_running().await {
+            Ok(Ok(())) => {},
+            Ok(Err(e)) => {
+                return Ok(Err(e));
             },
-            BackendState::Disabled => {
-                return Ok(Err(JsError::from_message(
-                    DISABLED_ERROR_MESSAGE.to_string(),
-                )));
-            },
-            BackendState::Suspended => {
-                return Ok(Err(JsError::from_message(
-                    SUSPENDED_ERROR_MESSAGE.to_string(),
-                )));
-            },
+            Err(e) => return Err(e),
         }
 
         let path = match public_path.clone() {
@@ -565,8 +549,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
 ///
 /// This should only be constructed via `ValidatedHttpRoute::try_from` to use
 /// the type system to enforce that validation is never skipped.
-#[derive(Clone, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(Debug))]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct ValidatedHttpPath {
     path: ResolvedComponentFunctionPath,
     npm_version: Option<Version>,
@@ -600,18 +583,24 @@ impl ValidatedHttpPath {
         tx: &mut Transaction<RT>,
         udf_path: sync_types::CanonicalizedUdfPath,
         npm_version: Option<Version>,
-    ) -> anyhow::Result<Self> {
+    ) -> anyhow::Result<Result<Self, JsError>> {
         if !udf_path.is_system() {
-            BackendStateModel::new(tx).fail_while_not_running().await?;
+            match BackendStateModel::new(tx).fail_while_not_running().await {
+                Ok(Ok(())) => {},
+                Ok(Err(e)) => {
+                    return Ok(Err(e));
+                },
+                Err(e) => return Err(e),
+            }
         }
-        Ok(Self {
+        Ok(Ok(Self {
             path: ResolvedComponentFunctionPath {
                 component: ComponentId::test_user(),
                 udf_path,
                 component_path: Some(ComponentPath::test_user()),
             },
             npm_version,
-        })
+        }))
     }
 
     pub async fn new<RT: Runtime>(
@@ -625,7 +614,13 @@ impl ValidatedHttpPath {
             path.udf_path,
         );
         if !path.udf_path.is_system() {
-            BackendStateModel::new(tx).fail_while_not_running().await?;
+            match BackendStateModel::new(tx).fail_while_not_running().await {
+                Ok(Ok(())) => {},
+                Ok(Err(e)) => {
+                    return Ok(Err(e));
+                },
+                Err(e) => return Err(e),
+            }
         }
         let (_, component) =
             BootstrapComponentsModel::new(tx).must_component_path_to_ids(&path.component)?;

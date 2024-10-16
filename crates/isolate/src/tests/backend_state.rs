@@ -3,7 +3,6 @@ use common::{
     testing::assert_contains,
 };
 use database::Database;
-use errors::ErrorMetadata;
 use keybroker::Identity;
 use model::backend_state::{
     types::BackendState,
@@ -23,6 +22,7 @@ use crate::{
         http_post_request,
     },
     HttpActionResponseStreamer,
+    HttpActionResult,
 };
 
 #[convex_macro::test_runtime]
@@ -42,7 +42,7 @@ async fn test_action_while_paused(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_http_action_while_paused(rt: TestRuntime) -> anyhow::Result<()> {
-    test_http_action_helper(rt, BackendState::Paused).await
+    test_http_action_helper(rt, BackendState::Paused, PAUSED_ERROR_MESSAGE).await
 }
 
 #[convex_macro::test_runtime]
@@ -62,7 +62,7 @@ async fn test_action_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_http_action_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
-    test_http_action_helper(rt, BackendState::Disabled).await
+    test_http_action_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE).await
 }
 
 #[convex_macro::test_runtime]
@@ -82,7 +82,7 @@ async fn test_action_while_suspended(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_http_action_while_suspended(rt: TestRuntime) -> anyhow::Result<()> {
-    test_http_action_helper(rt, BackendState::Suspended).await
+    test_http_action_helper(rt, BackendState::Suspended, SUSPENDED_ERROR_MESSAGE).await
 }
 
 async fn test_query_helper(
@@ -128,32 +128,25 @@ async fn test_action_helper(
 async fn test_http_action_helper(
     rt: TestRuntime,
     backend_state: BackendState,
+    error_message: &str,
 ) -> anyhow::Result<()> {
     let t = http_action_udf_test(rt).await?;
     toggle_backend_state(&t.database, backend_state.clone()).await?;
     let (http_response_sender, _http_response_receiver) = mpsc::unbounded_channel();
-    let error = t
+    let result = t
         .raw_http_action(
             "http_action",
             http_post_request("basic", "hi".as_bytes().to_vec()),
             Identity::system(),
             HttpActionResponseStreamer::new(http_response_sender),
         )
-        .await
-        .unwrap_err();
-    assert_error(error, backend_state);
-    Ok(())
-}
-
-fn assert_error(error: anyhow::Error, backend_state: BackendState) {
-    let error_message = match backend_state {
-        BackendState::Paused => "NoRunWhilePaused",
-        BackendState::Disabled => "NoRunWhileDisabled",
-        BackendState::Suspended => "NoRunWhileSuspended",
-        BackendState::Running => return,
+        .await?;
+    let (HttpActionResult::Error(e), _) = result else {
+        anyhow::bail!("Expected error, got {:?}", result);
     };
-    let error_metadata = error.downcast_ref::<ErrorMetadata>().unwrap();
-    assert_eq!(error_metadata.short_msg, error_message);
+    assert_contains(&e.message, error_message);
+
+    Ok(())
 }
 
 async fn toggle_backend_state<RT: Runtime>(

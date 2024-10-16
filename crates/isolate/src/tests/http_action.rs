@@ -198,10 +198,10 @@ async fn test_http_echo(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_http_scheduler(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = http_action_udf_test(rt).await?;
+    let t = http_action_udf_test(rt.clone()).await?;
 
     let (http_response_sender, _http_response_receiver) = mpsc::unbounded_channel();
-    let (outcome, _log_lines) = t
+    let (result, _) = t
         .raw_http_action(
             "http_action",
             http_request("schedule"),
@@ -209,8 +209,9 @@ async fn test_http_scheduler(rt: TestRuntime) -> anyhow::Result<()> {
             HttpActionResponseStreamer::new(http_response_sender),
         )
         .await?;
+    let http_finish_ts = rt.clone().unix_timestamp();
 
-    assert_matches!(outcome.result, HttpActionResult::Streamed);
+    assert_matches!(result, HttpActionResult::Streamed);
 
     let result = t.query("scheduler:getScheduledJobs", assert_obj!()).await?;
     must_let!(let ConvexValue::Array(scheduled_jobs) = result);
@@ -222,7 +223,7 @@ async fn test_http_scheduler(rt: TestRuntime) -> anyhow::Result<()> {
 
     // End time of the HTTP action + 2 seconds, which should be a little after when
     // the job was scheduled for
-    let expected_ts = (outcome.unix_timestamp + Duration::from_secs(2)).as_secs_f64() * 1000.0;
+    let expected_ts = (http_finish_ts + Duration::from_secs(2)).as_secs_f64() * 1000.0;
     assert!((job.scheduled_time - expected_ts).abs() < 500.0);
     Ok(())
 }
