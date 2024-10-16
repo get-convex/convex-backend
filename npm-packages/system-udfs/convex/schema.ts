@@ -192,6 +192,7 @@ export const datadogConfig = v.object({
   ),
   ddApiKey: v.string(),
   ddTags: v.array(v.string()),
+  service: v.optional(v.string()),
   version: v.optional(v.union(v.literal("1"), v.literal("2"))),
 });
 
