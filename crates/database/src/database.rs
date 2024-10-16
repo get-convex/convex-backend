@@ -1699,7 +1699,12 @@ impl<RT: Runtime> Database<RT> {
             ) {
                 let table_number = table_mapping.tablet_number(id.table())?;
                 let table_name = table_mapping.tablet_name(id.table())?;
-                let component_id = table_mapping.tablet_namespace(id.table())?.into();
+                let component_id = ComponentId::from(table_mapping.tablet_namespace(id.table())?);
+
+                // TODO(ENG-6383): Reenable streaming export for non-root components.
+                if !component_id.is_root() {
+                    continue;
+                }
                 let component_path = component_paths
                     .get(&component_id)
                     .cloned()

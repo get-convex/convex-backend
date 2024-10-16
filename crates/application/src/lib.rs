@@ -777,6 +777,14 @@ impl<RT: Runtime> Application<RT> {
         rows_read_limit: usize,
         rows_returned_limit: usize,
     ) -> anyhow::Result<DocumentDeltas> {
+        if let Some(ref component_filter) = component_filter {
+            if !component_filter.is_root() {
+                anyhow::bail!(
+                    "Components are currently unsupported in streaming export: {}",
+                    String::from(component_filter.clone())
+                );
+            }
+        }
         self.database
             .document_deltas(
                 identity,
