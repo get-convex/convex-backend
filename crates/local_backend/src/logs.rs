@@ -19,6 +19,7 @@ use common::{
         ExtractClientVersion,
         HttpResponseError,
     },
+    log_lines::log_lines_to_jsons,
     version::ClientType,
     RequestId,
 };
@@ -197,10 +198,11 @@ pub async fn stream_function_logs(
                                 component_path: c.event_source.component_path.serialize(),
                                 identifier: c.event_source.udf_path,
                                 timestamp: c.function_start_timestamp.as_secs_f64(),
-                                log_lines: c.log_lines
-                                    .into_iter()
-                                    .map(|l| l.to_json(supports_structured_log_lines, false))
-                                    .try_collect()?,
+                                log_lines: log_lines_to_jsons(
+                                    c.log_lines,
+                                    supports_structured_log_lines,
+                                    false,
+                                )?,
                                 request_id: c.event_source.context.request_id.to_string(),
                                 execution_id: c.event_source.context.execution_id.to_string()
                             }
@@ -242,11 +244,11 @@ fn execution_to_json(
                 udf_type: execution.udf_type.to_string(),
                 component_path,
                 identifier,
-                log_lines: execution
-                    .log_lines
-                    .into_iter()
-                    .map(|l| l.to_json(supports_structured_log_lines, false))
-                    .try_collect()?,
+                log_lines: log_lines_to_jsons(
+                    execution.log_lines,
+                    supports_structured_log_lines,
+                    false,
+                )?,
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,
@@ -266,11 +268,11 @@ fn execution_to_json(
                 udf_type: execution.udf_type.to_string(),
                 component_path: None,
                 identifier,
-                log_lines: execution
-                    .log_lines
-                    .into_iter()
-                    .map(|l| l.to_json(supports_structured_log_lines, false))
-                    .try_collect()?,
+                log_lines: log_lines_to_jsons(
+                    execution.log_lines,
+                    supports_structured_log_lines,
+                    false,
+                )?,
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,

@@ -43,7 +43,7 @@ async fn test_partial_escape_sequence_console_log(rt: TestRuntime) -> anyhow::Re
         assert_eq!(
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec(),
             vec!["[LOG] '�...'".to_string()]
         );

@@ -15,7 +15,10 @@ use common::{
         JsError,
     },
     execution_context::ExecutionContext,
-    log_lines::LogLine,
+    log_lines::{
+        LogLine,
+        LogLineStructured,
+    },
     sha256::Sha256Digest,
     types::{
         ActionCallbackToken,
@@ -868,7 +871,9 @@ pub fn parse_streamed_response(s: &str) -> anyhow::Result<Vec<ResponsePart>> {
             if let JsonValue::Object(mut o) = json_val {
                 if o.get("kind") == Some(&JsonValue::String("LogLine".to_string())) {
                     if let Some(value) = o.remove("data") {
-                        return Ok(ResponsePart::LogLine(LogLine::try_from(value)?));
+                        return Ok(ResponsePart::LogLine(LogLine::Structured(
+                            LogLineStructured::try_from(value)?,
+                        )));
                     };
                 } else {
                     return Ok(ResponsePart::Result(JsonValue::Object(o)));

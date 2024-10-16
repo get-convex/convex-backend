@@ -72,7 +72,7 @@ async fn test_console_log(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     assert_eq!(
         v.into_iter()
-            .map(|l| l.to_pretty_string())
+            .map(|l| l.to_pretty_string_test_only())
             .collect::<Vec<_>>(),
         vec!["[LOG] [process.env]"]
     );

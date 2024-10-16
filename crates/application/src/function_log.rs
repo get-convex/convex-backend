@@ -162,22 +162,31 @@ impl FunctionExecution {
         }
     }
 
-    fn event_source(&self) -> FunctionEventSource {
-        let udf_id = self.params.identifier_str();
+    fn event_source(
+        &self,
+        sub_function_path: Option<&CanonicalizedComponentFunctionPath>,
+    ) -> FunctionEventSource {
         let cached = if self.udf_type == UdfType::Query {
             Some(self.cached_result)
         } else {
             None
         };
-        let component_path = match &self.params {
-            UdfParams::Function { identifier, .. } => identifier.component.clone(),
-            // TODO(ENG-7612): Support HTTP actions in components.
-            UdfParams::Http { .. } => ComponentPath::root(),
+        let (component_path, udf_path) = match sub_function_path {
+            Some(path) => (path.component.clone(), path.udf_path.to_string()),
+            None => {
+                let udf_id = self.params.identifier_str();
+                let component_path = match &self.params {
+                    UdfParams::Function { identifier, .. } => identifier.component.clone(),
+                    // TODO(ENG-7612): Support HTTP actions in components.
+                    UdfParams::Http { .. } => ComponentPath::root(),
+                };
+                (component_path, udf_id)
+            },
         };
 
         FunctionEventSource {
             component_path,
-            udf_path: udf_id,
+            udf_path,
             udf_type: self.udf_type,
             module_environment: self.environment,
             cached,
@@ -185,21 +194,32 @@ impl FunctionExecution {
         }
     }
 
+    fn console_log_events_for_log_line(
+        &self,
+        log_line: &LogLine,
+        sub_function_path: Option<&CanonicalizedComponentFunctionPath>,
+    ) -> Vec<LogEvent> {
+        match log_line {
+            LogLine::Structured(log_line) => {
+                vec![LogEvent {
+                    timestamp: log_line.timestamp,
+                    event: StructuredLogEvent::Console {
+                        source: self.event_source(sub_function_path),
+                        log_line: log_line.clone(),
+                    },
+                }]
+            },
+            LogLine::SubFunction { path, log_lines } => log_lines
+                .into_iter()
+                .flat_map(|log_line| self.console_log_events_for_log_line(log_line, Some(path)))
+                .collect(),
+        }
+    }
+
     fn console_log_events(&self) -> Vec<LogEvent> {
         self.log_lines
             .iter()
-            .map(|line| {
-                let timestamp = match &line {
-                    LogLine::Structured { timestamp, .. } => *timestamp,
-                };
-                LogEvent {
-                    timestamp,
-                    event: StructuredLogEvent::Console {
-                        source: self.event_source(),
-                        log_line: line.clone(),
-                    },
-                }
-            })
+            .flat_map(|line| self.console_log_events_for_log_line(line, None))
             .collect()
     }
 
@@ -209,7 +229,7 @@ impl FunctionExecution {
         let mut events = vec![LogEvent {
             timestamp: self.unix_timestamp,
             event: StructuredLogEvent::FunctionExecution {
-                source: self.event_source(),
+                source: self.event_source(None),
                 error: self.params.err().cloned(),
                 execution_time,
                 usage_stats: log_streaming::AggregatedFunctionUsageStats {
@@ -230,7 +250,7 @@ impl FunctionExecution {
                 event: StructuredLogEvent::Exception {
                     error: err.clone(),
                     user_identifier: self.identity.user_identifier().cloned(),
-                    source: self.event_source(),
+                    source: self.event_source(None),
                     udf_server_version: self.udf_server_version.clone(),
                 },
             });
@@ -256,21 +276,37 @@ impl HeapSize for FunctionExecutionProgress {
 }
 
 impl FunctionExecutionProgress {
+    fn console_log_events_for_log_line(
+        &self,
+        log_line: &LogLine,
+        sub_function_path: Option<&CanonicalizedComponentFunctionPath>,
+    ) -> Vec<LogEvent> {
+        match log_line {
+            LogLine::Structured(log_line) => {
+                let mut event_source = self.event_source.clone();
+                if let Some(sub_function_path) = sub_function_path {
+                    event_source.component_path = sub_function_path.component.clone();
+                    event_source.udf_path = sub_function_path.udf_path.to_string();
+                };
+                vec![LogEvent {
+                    timestamp: log_line.timestamp,
+                    event: StructuredLogEvent::Console {
+                        source: event_source,
+                        log_line: log_line.clone(),
+                    },
+                }]
+            },
+            LogLine::SubFunction { path, log_lines } => log_lines
+                .into_iter()
+                .flat_map(|log_line| self.console_log_events_for_log_line(log_line, Some(path)))
+                .collect(),
+        }
+    }
+
     fn console_log_events(self) -> Vec<LogEvent> {
         self.log_lines
-            .into_iter()
-            .map(|line: LogLine| {
-                let timestamp = match &line {
-                    LogLine::Structured { timestamp, .. } => *timestamp,
-                };
-                LogEvent {
-                    timestamp,
-                    event: StructuredLogEvent::Console {
-                        source: self.event_source.clone(),
-                        log_line: line,
-                    },
-                }
-            })
+            .iter()
+            .flat_map(|line| self.console_log_events_for_log_line(line, None))
             .collect()
     }
 }

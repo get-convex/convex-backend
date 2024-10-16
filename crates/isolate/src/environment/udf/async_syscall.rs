@@ -489,7 +489,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let path_and_args_result = ValidatedPathAndArgs::new_with_returns_validator(
             AllowedVisibility::All,
             tx,
-            PublicFunctionPath::ResolvedComponent(path),
+            PublicFunctionPath::ResolvedComponent(path.clone()),
             ConvexArray::try_from(vec![args.into()])?,
             udf_type,
         )
@@ -571,6 +571,8 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         // TODO(CX-6401): Namespace UDF logging. We'll want to collate all
         // of the overflow and system log lines into a single group at the
         // end of the log lines.
+        // self.emit_sub_function_log_lines(path.for_logging(),
+        // outcome.log_lines.clone());
         for log_line in &outcome.log_lines {
             self.emit_log_line(log_line.clone());
         }

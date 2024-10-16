@@ -793,6 +793,15 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }
     }
 
+    pub fn emit_sub_function_log_lines(
+        &mut self,
+        path: CanonicalizedComponentFunctionPath,
+        log_lines: LogLines,
+    ) {
+        self.log_lines
+            .push(LogLine::SubFunction { path, log_lines });
+    }
+
     // Called when a function finishes
     pub fn add_warnings_to_log_lines(
         path: &CanonicalizedComponentFunctionPath,

@@ -26,7 +26,7 @@ async fn test_log_string(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] 'myString'"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -44,7 +44,7 @@ async fn test_log_number(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] 42"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -62,7 +62,7 @@ async fn test_log_undefined(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] undefined"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -78,7 +78,7 @@ async fn test_log_null(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] null"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -96,7 +96,7 @@ async fn test_log_function(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] [Function: myFunction]"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -114,7 +114,7 @@ async fn test_log_instance(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] MyClass {}"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -132,7 +132,7 @@ async fn test_log_object(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] {\n  property: 'value',\n  nested_object: {}\n}"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -148,7 +148,7 @@ async fn test_log_array(rt: TestRuntime) -> anyhow::Result<()> {
             vec!["[LOG] [ 'string', 42 ]"],
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect_vec()
         );
         Ok(())
@@ -162,7 +162,7 @@ async fn test_log_document(rt: TestRuntime) -> anyhow::Result<()> {
         let log_lines = t
             .mutation_log_lines("logging:logDocument", assert_obj!())
             .await?;
-        let line = log_lines.first().unwrap().clone().to_pretty_string();
+        let line = log_lines.first().unwrap().clone().to_pretty_string_test_only();
         let pattern = Regex::new(
             r#"\[LOG\] \{\n  _creationTime: \d+,\n  _id: '[0-9A-Za-z-_]+',\n  property: 'value'\n\}"#,
         )?;
@@ -183,7 +183,11 @@ async fn test_console_trace(rt: TestRuntime) -> anyhow::Result<()> {
             .query_log_lines("logging:consoleTrace", assert_obj!())
             .await?;
 
-        let line = log_lines.first().unwrap().clone().to_pretty_string();
+        let line = log_lines
+            .first()
+            .unwrap()
+            .clone()
+            .to_pretty_string_test_only();
         assert!(line.starts_with("[LOG] 'myString' \n"));
         // Has the original function somewhere in the stack trace
         assert_contains(&line, "convex/logging.ts:");
@@ -208,21 +212,41 @@ async fn test_console_time(rt: TestRuntime) -> anyhow::Result<()> {
             .query_log_lines("logging:consoleTime", assert_obj!())
             .await?;
         assert_eq!(log_lines.len(), 5);
-        let line = log_lines.first().unwrap().clone().to_pretty_string();
+        let line = log_lines
+            .first()
+            .unwrap()
+            .clone()
+            .to_pretty_string_test_only();
         let regex = Regex::new(r"^\[INFO\] default: (\d+)ms$").unwrap();
         assert!(regex.is_match(&line));
 
-        let line = log_lines.get(1).unwrap().clone().to_pretty_string();
+        let line = log_lines
+            .get(1)
+            .unwrap()
+            .clone()
+            .to_pretty_string_test_only();
         assert!(regex.is_match(&line));
 
-        let line = log_lines.get(2).unwrap().clone().to_pretty_string();
+        let line = log_lines
+            .get(2)
+            .unwrap()
+            .clone()
+            .to_pretty_string_test_only();
         assert_eq!(&line, "[WARN] Timer 'foo' already exists");
 
-        let line = log_lines.get(3).unwrap().clone().to_pretty_string();
+        let line = log_lines
+            .get(3)
+            .unwrap()
+            .clone()
+            .to_pretty_string_test_only();
         let regex = Regex::new(r"^\[INFO\] foo: (\d+)ms 'bar' 'baz'$").unwrap();
         assert!(regex.is_match(&line));
 
-        let line = log_lines.get(4).unwrap().clone().to_pretty_string();
+        let line = log_lines
+            .get(4)
+            .unwrap()
+            .clone()
+            .to_pretty_string_test_only();
         let regex = Regex::new(r"^\[INFO\] foo: (\d+)ms$").unwrap();
         assert!(regex.is_match(&line));
         Ok(())

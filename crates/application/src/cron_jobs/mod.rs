@@ -388,8 +388,10 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut new_log_lines = Vec::new();
         let mut is_truncated = false;
         let mut size = 0;
-        for rich_log in log_lines.into_iter() {
-            let log = rich_log.to_pretty_string();
+        for log in log_lines
+            .into_iter()
+            .flat_map(|log| log.to_pretty_strings())
+        {
             let line_len = log.len();
             if size + line_len <= CRON_LOG_MAX_LOG_LINE_LENGTH {
                 new_log_lines.push(log);

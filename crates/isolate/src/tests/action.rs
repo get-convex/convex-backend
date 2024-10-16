@@ -78,7 +78,7 @@ async fn test_action_almost_time_out(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     let last_line = log_lines.pop().unwrap();
     assert_contains(
-        &last_line.to_pretty_string(),
+        &last_line.to_pretty_string_test_only(),
         "[WARN] Function execution took a long time",
     );
     Ok(())

@@ -232,7 +232,7 @@ async fn test_schedule_many(rt: TestRuntime) -> anyhow::Result<()> {
                 assert_obj!("limit" => 950, "obj" => {}),
             )
             .await?;
-        let last_line = log_lines.pop().unwrap().to_pretty_string();
+        let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
         assert_contains(
             &last_line,
             "[WARN] Many functions scheduled by this mutation (actual: 950, limit: 1000)",
@@ -303,7 +303,7 @@ async fn test_schedule_arguments_large(rt: TestRuntime) -> anyhow::Result<()> {
                 }),
             )
             .await?;
-        let last_line = log_lines.pop().unwrap().to_pretty_string();
+        let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
         assert_contains(
             &last_line,
             "[WARN] Large total size of the arguments of scheduled functions from this mutation",

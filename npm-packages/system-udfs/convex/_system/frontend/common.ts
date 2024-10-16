@@ -24,6 +24,8 @@ export type StructuredLogLine = {
   level: LogLevel;
   timestamp: number;
   isTruncated: boolean;
+  componentPath?: string;
+  udfPath?: string;
 };
 export type LogLine = string | StructuredLogLine;
 

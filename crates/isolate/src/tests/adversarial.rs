@@ -102,7 +102,7 @@ async fn test_almost_time_out(rt: ProdRuntime) -> anyhow::Result<()> {
         .await?;
     let mut log_lines = t.query_log_lines("adversarial:slow", assert_obj!()).await?;
     assert_contains(
-        &log_lines.pop().unwrap().to_pretty_string(),
+        &log_lines.pop().unwrap().to_pretty_string_test_only(),
         "[WARN] Function execution took a long time",
     );
     Ok(())
@@ -137,7 +137,7 @@ async fn test_read_many_documents(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .query_log_lines("adversarial:queryATon", assert_obj!())
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Many documents read in a single function execution",
@@ -176,7 +176,7 @@ async fn test_reads_many(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .query_log_lines("adversarial:queryManyTimes", assert_obj!())
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Many reads in a single function execution",
@@ -192,7 +192,10 @@ async fn test_console_loop(rt: TestRuntime) -> anyhow::Result<()> {
         .query_log_lines("adversarial:consoleLoop", assert_obj!())
         .await?;
     assert_eq!(log_lines.len(), MAX_LOG_LINES);
-    assert_contains(&log_lines.pop().unwrap().to_pretty_string(), "Log overflow");
+    assert_contains(
+        &log_lines.pop().unwrap().to_pretty_string_test_only(),
+        "Log overflow",
+    );
     Ok(())
 }
 
@@ -203,22 +206,22 @@ async fn test_console_line_too_long(rt: TestRuntime) -> anyhow::Result<()> {
         .query_log_lines("adversarial:consoleLongLine", assert_obj!())
         .await?;
     assert_contains(
-        &log_lines[0].clone().to_pretty_string(),
+        &log_lines[0].clone().to_pretty_string_test_only(),
         TRUNCATED_LINE_SUFFIX,
     );
     // The limit is 32768 MAX_LOG_LINE_LENGTH, but we don't count the [INFO]
     // prefix or the truncated line suffix, so just check that we're close
-    assert!(log_lines[0].clone().to_pretty_string().len() > 32700);
-    assert!(log_lines[0].clone().to_pretty_string().len() < 32900);
+    assert!(log_lines[0].clone().to_pretty_string_test_only().len() > 32700);
+    assert!(log_lines[0].clone().to_pretty_string_test_only().len() < 32900);
 
     assert_contains(
-        &log_lines[1].clone().to_pretty_string(),
+        &log_lines[1].clone().to_pretty_string_test_only(),
         TRUNCATED_LINE_SUFFIX,
     );
     // The limit is 32768 MAX_LOG_LINE_LENGTH, but we don't count the [INFO]
     // prefix or the truncated line suffix, so just check that we're close
-    assert!(log_lines[1].clone().to_pretty_string().len() > 32700);
-    assert!(log_lines[1].clone().to_pretty_string().len() < 32900);
+    assert!(log_lines[1].clone().to_pretty_string_test_only().len() > 32700);
+    assert!(log_lines[1].clone().to_pretty_string_test_only().len() < 32900);
     Ok(())
 }
 
@@ -231,19 +234,19 @@ async fn test_console_line_too_long_char_boundary(rt: TestRuntime) -> anyhow::Re
     assert_eq!(log_lines.len(), 4);
 
     assert_contains(
-        &log_lines[0].clone().to_pretty_string(),
+        &log_lines[0].clone().to_pretty_string_test_only(),
         TRUNCATED_LINE_SUFFIX,
     );
     assert_contains(
-        &log_lines[1].clone().to_pretty_string(),
+        &log_lines[1].clone().to_pretty_string_test_only(),
         TRUNCATED_LINE_SUFFIX,
     );
     assert_contains(
-        &log_lines[2].clone().to_pretty_string(),
+        &log_lines[2].clone().to_pretty_string_test_only(),
         TRUNCATED_LINE_SUFFIX,
     );
     assert_contains(
-        &log_lines[3].clone().to_pretty_string(),
+        &log_lines[3].clone().to_pretty_string_test_only(),
         TRUNCATED_LINE_SUFFIX,
     );
     Ok(())
@@ -353,7 +356,7 @@ async fn test_reads_large(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .query_log_lines("adversarial:bigRead", assert_obj!("ids" => ids.clone()))
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Many bytes read in a single function execution",
@@ -381,7 +384,7 @@ async fn test_writes_big(rt: TestRuntime) -> anyhow::Result<()> {
         .mutation_log_lines("adversarial:bigWrite", assert_obj!("count" => count))
         .await?;
 
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Many bytes written in a single function execution",
@@ -395,7 +398,12 @@ async fn test_writes_big_document(rt: TestRuntime) -> anyhow::Result<()> {
     let (id, outcome) = t
         .mutation_outcome("adversarial:bigDocument", assert_obj!(), Identity::system())
         .await?;
-    let last_line = outcome.log_lines.last().unwrap().clone().to_pretty_string();
+    let last_line = outcome
+        .log_lines
+        .last()
+        .unwrap()
+        .clone()
+        .to_pretty_string_test_only();
     assert_contains(
         &last_line,
         &format!("[WARN] Large document written with ID {id}"),
@@ -413,7 +421,12 @@ async fn test_writes_nested_document(rt: TestRuntime) -> anyhow::Result<()> {
             Identity::system(),
         )
         .await?;
-    let last_line = outcome.log_lines.last().unwrap().clone().to_pretty_string();
+    let last_line = outcome
+        .log_lines
+        .last()
+        .unwrap()
+        .clone()
+        .to_pretty_string_test_only();
     assert_contains(
         &last_line,
         &format!("[WARN] Deeply nested document written with ID {id}"),
@@ -445,7 +458,7 @@ async fn test_writes_many(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .mutation_log_lines("adversarial:manyWrites", assert_obj!())
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Many writes in a single function execution",
@@ -502,7 +515,7 @@ async fn test_query_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .query_log_lines("basic:readTime", assert_obj!("data" => data))
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large size of the function arguments (actual: 8000011 bytes, limit: 8388608 \
@@ -518,7 +531,7 @@ async fn test_mutation_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .mutation_log_lines("basic:simpleMutation", assert_obj!("data" => data))
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large size of the function arguments (actual: 8000011 bytes, limit: 8388608 \
@@ -534,7 +547,7 @@ async fn test_action_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .action_log_lines("basic:simpleAction", assert_obj!("data" => data))
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large size of the action arguments (actual: 8000011 bytes, limit: 8388608 bytes).",
@@ -602,7 +615,7 @@ async fn test_query_result_big(rt: TestRuntime) -> anyhow::Result<()> {
             assert_obj!("size" => 8_000_000.0),
         )
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large size of the function return value (actual: 8000002 bytes, limit: 8388608 \
@@ -620,7 +633,7 @@ async fn test_mutation_result_big(rt: TestRuntime) -> anyhow::Result<()> {
             assert_obj!("size" => 8_000_000.0),
         )
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large size of the function return value (actual: 8000002 bytes, limit: 8388608 \
@@ -638,7 +651,7 @@ async fn test_action_result_big(rt: TestRuntime) -> anyhow::Result<()> {
             assert_obj!("size" => 8_000_000.0),
         )
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large size of the action return value (actual: 8000002 bytes, limit: 8388608 \

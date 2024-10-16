@@ -381,7 +381,7 @@ mod tests {
         assert_eq!(
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect::<Vec<_>>(),
             vec!["[INFO] 'Hello'".to_owned(), "[ERROR] 'World!'".to_owned()]
         );
@@ -542,7 +542,7 @@ mod tests {
         assert_eq!(
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect::<Vec<_>>(),
             vec!["[LOG] 'About to do something...'".to_owned()]
         );
@@ -584,7 +584,7 @@ mod tests {
         assert_eq!(
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect::<Vec<_>>(),
             vec![
                 "[WARN] 'You have an outstanding mutation call. Operations should \
@@ -696,7 +696,7 @@ mod tests {
         assert_eq!(
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect::<Vec<_>>(),
             vec!["[LOG] 'I am very sleepy. I am going to take a nap.'".to_owned()]
         );
@@ -760,7 +760,7 @@ mod tests {
         assert_eq!(
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .map(|l| l.to_pretty_string_test_only())
                 .collect::<Vec<_>>(),
             vec!["[LOG] 'I am going to work really hard for 1 hour'".to_owned()]
         );

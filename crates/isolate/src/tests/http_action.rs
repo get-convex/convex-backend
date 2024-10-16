@@ -159,7 +159,7 @@ async fn test_http_dangling_response_stream(rt: ProdRuntime) -> anyhow::Result<(
 
     let last_line = log_lines.pop().unwrap();
     assert_contains(
-        &last_line.to_pretty_string(),
+        &last_line.to_pretty_string_test_only(),
         "Function execution timed out",
     );
     Ok(())
@@ -174,7 +174,7 @@ async fn test_http_slow(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
 
     let mut log_lines = log_lines;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(&last_line, "[WARN] Function execution took a long time");
     Ok(())
 }
@@ -341,7 +341,7 @@ async fn test_http_action_response_size_too_large(rt: TestRuntime) -> anyhow::Re
             Identity::system(),
         )
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[ERROR] HttpResponseTooLarge: HTTP actions support responses up to 20 MiB",
@@ -361,7 +361,7 @@ async fn test_http_action_response_size_large(rt: TestRuntime) -> anyhow::Result
             Identity::system(),
         )
         .await?;
-    let last_line = log_lines.pop().unwrap().to_pretty_string();
+    let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
         "[WARN] Large response returned from an HTTP action ",
@@ -423,6 +423,9 @@ async fn test_http_streaming(rt: TestRuntime) -> anyhow::Result<()> {
     let expected: String = (1..4).map(|v| format!("Streaming message {v}")).join("");
     assert_eq!(String::from_utf8(value)?, expected);
     let last_line = log_lines.pop().unwrap();
-    assert_contains(&last_line.to_pretty_string(), "Hit error while streaming");
+    assert_contains(
+        &last_line.to_pretty_string_test_only(),
+        "Hit error while streaming",
+    );
     Ok(())
 }

@@ -45,7 +45,7 @@ impl RedactedLogLines {
         } else {
             log_lines
                 .into_iter()
-                .map(|l| l.to_pretty_string())
+                .flat_map(|l| l.to_pretty_strings())
                 .collect()
         })
     }

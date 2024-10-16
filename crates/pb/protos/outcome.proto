@@ -74,7 +74,16 @@ message StructuredLogLine {
   repeated string messages = 6;
 }
 
+message SubFunctionLogLines {
+  string component_path = 1;
+  string udf_path = 2;
+  repeated LogLine log_lines = 3;
+}
+
 message LogLine {
   reserved 1;
-  StructuredLogLine line = 2;
+  oneof log_type {
+    StructuredLogLine line = 2;
+    SubFunctionLogLines sub_function = 3;
+  }
 }

@@ -16,7 +16,7 @@ use crate::{
     components::ComponentPath,
     errors::JsError,
     execution_context::ExecutionContext,
-    log_lines::LogLine,
+    log_lines::LogLineStructured,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -75,7 +75,7 @@ pub enum StructuredLogEvent {
     Verification,
     Console {
         source: FunctionEventSource,
-        log_line: LogLine,
+        log_line: LogLineStructured,
     },
     FunctionExecution {
         source: FunctionEventSource,
@@ -263,27 +263,23 @@ impl LogEvent {
                 },
                 StructuredLogEvent::Console { source, log_line } => {
                     let function_source = source.to_json_map();
-                    match log_line {
-                        LogLine::Structured {
-                            messages,
-                            level,
-                            timestamp,
-                            is_truncated,
-                            system_metadata,
-                        } => {
-                            let timestamp_ms = timestamp.as_ms_since_epoch()?;
-                            json!({
-                                "timestamp": timestamp_ms,
-                                "topic": "console",
-                                "function": function_source,
-                                "log_level": level.to_string(),
-                                "message": messages.join(" "),
-                                "is_truncated": is_truncated,
-                                "system_code": system_metadata.map(|s| s.code)
-
-                            })
-                        },
-                    }
+                    let LogLineStructured {
+                        messages,
+                        level,
+                        timestamp,
+                        is_truncated,
+                        system_metadata,
+                    } = log_line;
+                    let timestamp_ms = timestamp.as_ms_since_epoch()?;
+                    json!({
+                        "timestamp": timestamp_ms,
+                        "topic": "console",
+                        "function": function_source,
+                        "log_level": level.to_string(),
+                        "message": messages.join(" "),
+                        "is_truncated": is_truncated,
+                        "system_code": system_metadata.map(|s| s.code)
+                    })
                 },
                 StructuredLogEvent::FunctionExecution {
                     source,
@@ -476,7 +472,7 @@ mod tests {
         execution_context::ExecutionContext,
         log_lines::{
             LogLevel,
-            LogLine,
+            LogLineStructured,
         },
         log_streaming::{
             FunctionEventSource,
@@ -507,7 +503,7 @@ mod tests {
                     module_environment: ModuleEnvironment::Isolate,
                     cached: Some(true),
                 },
-                log_line: LogLine::new_developer_log_line(
+                log_line: LogLineStructured::new_developer_log_line(
                     LogLevel::Log,
                     vec!["my test log".to_string()],
                     timestamp,

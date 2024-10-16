@@ -296,7 +296,7 @@ async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
         .action_log_lines("fetch:danglingFetch", assert_obj!())
         .await?;
     assert_eq!(
-        log_lines.into_iter().map(|l| l.to_pretty_string()).collect_vec(),
+        log_lines.into_iter().map(|l| l.to_pretty_string_test_only()).collect_vec(),
         vec![
             "[WARN] 1 unawaited operation: [fetch]. Async operations should be awaited or they might not run. See https://docs.convex.dev/functions/actions#dangling-promises for more information."
                 .to_string()
