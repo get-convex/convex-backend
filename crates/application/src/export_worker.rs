@@ -487,6 +487,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     )
                     .track_storage_egress_size(
                         component_path.clone(),
+                        "snapshot_export".to_string(),
                         file_stream.content_length as u64,
                     );
                 zip_snapshot_upload

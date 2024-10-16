@@ -302,8 +302,11 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                     if let Ok(ref bytes) = bytes {
                         let bytes_size = bytes.len() as u64;
                         log_get_file_chunk_size(bytes_size, get_file_type);
-                        storage_call_tracker
-                            .track_storage_egress_size(component_path.clone(), bytes_size);
+                        storage_call_tracker.track_storage_egress_size(
+                            component_path.clone(),
+                            "get_range".to_string(),
+                            bytes_size,
+                        );
                     }
                     bytes
                 }),
@@ -448,7 +451,7 @@ impl<RT: Runtime> FileStorage<RT> {
                 content_type,
                 sha256,
             )
-            .track_storage_ingress_size(component_path, size as u64);
+            .track_storage_ingress_size(component_path, "store".to_string(), size as u64);
         Ok(virtual_id)
     }
 }

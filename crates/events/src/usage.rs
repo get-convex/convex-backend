@@ -78,6 +78,7 @@ pub enum UsageEvent {
     StorageBandwidth {
         id: String,
         component_path: Option<String>,
+        tag: String,
         ingress: u64,
         egress: u64,
     },

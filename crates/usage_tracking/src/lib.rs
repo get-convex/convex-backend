@@ -269,8 +269,18 @@ pub trait StorageUsageTracker: Send + Sync {
 }
 
 pub trait StorageCallTracker: Send + Sync {
-    fn track_storage_ingress_size(&self, component_path: ComponentPath, ingress_size: u64);
-    fn track_storage_egress_size(&self, component_path: ComponentPath, egress_size: u64);
+    fn track_storage_ingress_size(
+        &self,
+        component_path: ComponentPath,
+        tag: String,
+        ingress_size: u64,
+    );
+    fn track_storage_egress_size(
+        &self,
+        component_path: ComponentPath,
+        tag: String,
+        egress_size: u64,
+    );
 }
 
 struct IndependentStorageCallTracker {
@@ -288,21 +298,33 @@ impl IndependentStorageCallTracker {
 }
 
 impl StorageCallTracker for IndependentStorageCallTracker {
-    fn track_storage_ingress_size(&self, component_path: ComponentPath, ingress_size: u64) {
+    fn track_storage_ingress_size(
+        &self,
+        component_path: ComponentPath,
+        tag: String,
+        ingress_size: u64,
+    ) {
         metrics::storage::log_storage_ingress_size(ingress_size);
         self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
             id: self.execution_id.to_string(),
             component_path: component_path.serialize(),
+            tag,
             ingress: ingress_size,
             egress: 0,
         }]);
     }
 
-    fn track_storage_egress_size(&self, component_path: ComponentPath, egress_size: u64) {
+    fn track_storage_egress_size(
+        &self,
+        component_path: ComponentPath,
+        tag: String,
+        egress_size: u64,
+    ) {
         metrics::storage::log_storage_egress_size(egress_size);
         self.usage_logger.record(vec![UsageEvent::StorageBandwidth {
             id: self.execution_id.to_string(),
             component_path: component_path.serialize(),
+            tag,
             ingress: 0,
             egress: egress_size,
         }]);
@@ -492,8 +514,17 @@ impl FunctionUsageTracker {
 // For UDFs, we track storage at the per UDF level, no finer. So we can just
 // aggregate over the entire UDF and not worry about sending usage events or
 // creating unique execution ids.
+// Note: If we want finer-grained breakdown of file bandwidth, we can thread the
+// tag through FunctionUsageStats. For now we're just interested in the
+// breakdown of file bandwidth from functions vs external sources like snapshot
+// export/cloud backups.
 impl StorageCallTracker for FunctionUsageTracker {
-    fn track_storage_ingress_size(&self, component_path: ComponentPath, ingress_size: u64) {
+    fn track_storage_ingress_size(
+        &self,
+        component_path: ComponentPath,
+        _tag: String,
+        ingress_size: u64,
+    ) {
         let mut state = self.state.lock();
         metrics::storage::log_storage_ingress_size(ingress_size);
         state
@@ -501,7 +532,12 @@ impl StorageCallTracker for FunctionUsageTracker {
             .mutate_entry_or_default(component_path, |count| *count += ingress_size);
     }
 
-    fn track_storage_egress_size(&self, component_path: ComponentPath, egress_size: u64) {
+    fn track_storage_egress_size(
+        &self,
+        component_path: ComponentPath,
+        _tag: String,
+        egress_size: u64,
+    ) {
         let mut state = self.state.lock();
         metrics::storage::log_storage_egress_size(egress_size);
         state

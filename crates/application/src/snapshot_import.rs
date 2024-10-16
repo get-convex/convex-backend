@@ -2154,7 +2154,11 @@ async fn import_storage_table<RT: Runtime>(
                 content_type,
                 entry.sha256,
             )
-            .track_storage_ingress_size(component_path.clone(), file_size);
+            .track_storage_ingress_size(
+                component_path.clone(),
+                "snapshot_import".to_string(),
+                file_size,
+            );
         num_files += 1;
         if let Some(import_id) = import_id {
             best_effort_update_progress_message(
