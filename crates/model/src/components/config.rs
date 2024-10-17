@@ -4,7 +4,10 @@ use anyhow::Context;
 use common::{
     bootstrap_model::{
         components::{
-            definition::ComponentDefinitionMetadata,
+            definition::{
+                ComponentDefinitionMetadata,
+                ComponentDefinitionType,
+            },
             ComponentMetadata,
             ComponentState,
             ComponentType,
@@ -781,6 +784,18 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .await?;
         for (definition_path, definition) in existing_definitions {
             if definition_path.is_root() {
+                ComponentDefinitionConfigModel::new(self.tx)
+                    .modify_component_definition(
+                        &definition,
+                        ComponentDefinitionMetadata {
+                            path: definition_path,
+                            definition_type: ComponentDefinitionType::App,
+                            child_components: Vec::new(),
+                            http_mounts: BTreeMap::new(),
+                            exports: BTreeMap::new(),
+                        },
+                    )
+                    .await?;
                 continue;
             }
             ComponentDefinitionConfigModel::new(self.tx)
