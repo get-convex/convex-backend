@@ -326,9 +326,12 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
         if let Some(component) = component {
             for instantiation in definition.child_components {
                 let parent = (component.id().into(), instantiation.name.clone());
-                let child_component = m
-                    .component_in_parent(Some(parent))?
-                    .context("Missing child component")?;
+                let Some(child_component) = m.component_in_parent(Some(parent.clone()))? else {
+                    // This shouldn't happen, but it is possible because of a bug where we
+                    // weren't deleting child_components when we unmounted the child component.
+                    tracing::error!("Missing child component: {:?}", parent);
+                    continue;
+                };
                 result.insert(instantiation.name, child_component);
             }
         }
