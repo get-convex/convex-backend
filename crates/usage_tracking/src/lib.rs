@@ -47,6 +47,34 @@ impl UsageCounter {
     pub fn new(usage_logger: Arc<dyn UsageEventLogger>) -> Self {
         Self { usage_logger }
     }
+
+    // Used for tracking storage ingress outside of a user function (e.g. snapshot
+    // import/export).
+    pub fn track_independent_storage_ingress_size(
+        &self,
+        component_path: ComponentPath,
+        tag: String,
+        ingress_size: u64,
+    ) {
+        let independent_tracker =
+            IndependentStorageCallTracker::new(ExecutionId::new(), self.usage_logger.clone());
+
+        independent_tracker.track_storage_ingress_size(component_path, tag, ingress_size);
+    }
+
+    // Used for tracking storage egress outside of a user function (e.g. snapshot
+    // import/export).
+    pub fn track_independent_storage_egress_size(
+        &self,
+        component_path: ComponentPath,
+        tag: String,
+        egress_size: u64,
+    ) {
+        let independent_tracker =
+            IndependentStorageCallTracker::new(ExecutionId::new(), self.usage_logger.clone());
+
+        independent_tracker.track_storage_egress_size(component_path, tag, egress_size);
+    }
 }
 
 pub enum CallType {

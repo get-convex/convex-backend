@@ -70,6 +70,7 @@ use model::{
         types::{
             Export,
             ExportFormat,
+            ExportRequestor,
         },
         ExportsModel,
     },
@@ -288,6 +289,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         &mut self,
         format: ExportFormat,
         component: ComponentId,
+        requestor: ExportRequestor,
     ) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
@@ -346,6 +348,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     system_tables,
                     include_storage,
                     usage.clone(),
+                    requestor,
                 );
                 let (_, ()) = try_join!(uploader, zipper)?;
                 let zip_object_key = upload.complete().await?;
@@ -367,6 +370,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         system_tables: &BTreeMap<(TableNamespace, TableName), TabletId>,
         include_storage: bool,
         usage: FunctionUsageTracker,
+        requestor: ExportRequestor,
     ) -> anyhow::Result<()> {
         let namespace: TableNamespace = component_tree.id.into();
         let component_path = component_ids_to_paths
@@ -477,19 +481,18 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .as_ref()
                     .map(|ct| ct.parse())
                     .transpose()?;
-                usage
-                    .track_storage_call(
-                        component_path.clone(),
-                        "snapshot_export",
-                        file_storage_entry.storage_id.clone(),
-                        content_type,
-                        file_storage_entry.sha256.clone(),
-                    )
-                    .track_storage_egress_size(
-                        component_path.clone(),
-                        "snapshot_export".to_string(),
-                        file_stream.content_length as u64,
-                    );
+                usage.track_storage_call(
+                    component_path.clone(),
+                    "snapshot_export",
+                    file_storage_entry.storage_id.clone(),
+                    content_type,
+                    file_storage_entry.sha256.clone(),
+                );
+                self.usage_tracking.track_independent_storage_egress_size(
+                    component_path.clone(),
+                    requestor.usage_tag(),
+                    file_stream.content_length as u64,
+                );
                 zip_snapshot_upload
                     .stream_full_file(path, file_stream.stream)
                     .await?;
@@ -552,6 +555,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 system_tables,
                 include_storage,
                 usage.clone(),
+                requestor,
             )
             .await?;
         }
@@ -570,6 +574,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         system_tables: BTreeMap<(TableNamespace, TableName), TabletId>,
         include_storage: bool,
         usage: FunctionUsageTracker,
+        requestor: ExportRequestor,
     ) -> anyhow::Result<()> {
         let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
 
@@ -584,6 +589,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             &system_tables,
             include_storage,
             usage,
+            requestor,
         )
         .await?;
 
@@ -597,21 +603,34 @@ impl<RT: Runtime> ExportWorker<RT> {
         &mut self,
         export: ParsedDocument<Export>,
     ) -> anyhow::Result<()> {
-        let (ts, object_keys, usage) = self
-            .export_inner(export.format(), export.component())
+        let (ts, object_key, usage) = self
+            .export_inner(export.format(), export.component(), export.requestor())
             .await?;
 
         let mut tx = self.database.begin(Identity::system()).await?;
         let completed_export =
             (*export)
                 .clone()
-                .completed(ts, *tx.begin_timestamp(), object_keys)?;
+                .completed(ts, *tx.begin_timestamp(), object_key.clone())?;
         SystemMetadataModel::new_global(&mut tx)
             .replace(export.id(), completed_export.try_into()?)
             .await?;
         self.database
             .commit_with_write_source(tx, "export_worker_mark_complete")
             .await?;
+        let object_attributes = self
+            .storage
+            .get_object_attributes(&object_key)
+            .await?
+            .context("error getting export object attributes from S3")?;
+
+        // Charge file bandwidth for the upload of the snapshot to exports storage
+        self.usage_tracking.track_independent_storage_ingress_size(
+            ComponentPath::root(),
+            export.requestor().usage_tag(),
+            object_attributes.size,
+        );
+        // Charge database bandwidth accumulated during the export
         self.usage_tracking.track_call(
             UdfIdentifier::Cli("export".to_string()),
             ExecutionId::new(),
@@ -809,7 +828,10 @@ mod tests {
     use headers::ContentType;
     use keybroker::Identity;
     use model::{
-        exports::types::ExportFormat,
+        exports::types::{
+            ExportFormat,
+            ExportRequestor,
+        },
         file_storage::types::FileStorageEntry,
         test_helpers::DbFixturesWithModel,
     };
@@ -932,6 +954,7 @@ mod tests {
                     include_storage: true,
                 },
                 ComponentId::Root,
+                ExportRequestor::SnapshotExport,
             )
             .await?;
 
@@ -1046,6 +1069,7 @@ mod tests {
                     include_storage: false,
                 },
                 ComponentId::Root,
+                ExportRequestor::SnapshotExport,
             )
             .await?;
 
@@ -1106,6 +1130,7 @@ mod tests {
                     include_storage: false,
                 },
                 child_component,
+                ExportRequestor::SnapshotExport,
             )
             .await?;
 
@@ -1199,6 +1224,7 @@ mod tests {
                     include_storage: true,
                 },
                 ComponentId::Root,
+                ExportRequestor::SnapshotExport,
             )
             .await?;
 
@@ -1224,13 +1250,6 @@ mod tests {
 
         let usage = usage.gather_user_stats();
         assert!(usage.database_egress_size.is_empty());
-        assert_eq!(
-            *usage
-                .storage_egress_size
-                .get(&ComponentPath::test_user())
-                .unwrap(),
-            3
-        );
 
         Ok(())
     }
@@ -1268,6 +1287,7 @@ mod tests {
                     include_storage: false,
                 },
                 ComponentId::test_user(),
+                ExportRequestor::SnapshotExport,
             )
             .await?;
         Ok(())

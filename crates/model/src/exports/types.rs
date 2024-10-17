@@ -240,6 +240,15 @@ impl Export {
             | Export::Failed { component, .. } => *component,
         }
     }
+
+    pub fn requestor(&self) -> ExportRequestor {
+        match self {
+            Export::Requested { requestor, .. }
+            | Export::InProgress { requestor, .. }
+            | Export::Completed { requestor, .. }
+            | Export::Failed { requestor, .. } => *requestor,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -281,6 +290,15 @@ pub enum ExportRequestor {
     SnapshotExport,
     /// The team-level cloud backup feature
     CloudBackup,
+}
+
+impl ExportRequestor {
+    pub fn usage_tag(&self) -> String {
+        match self {
+            Self::SnapshotExport => "snapshot_export".to_string(),
+            Self::CloudBackup => "cloud_backup".to_string(),
+        }
+    }
 }
 
 impl Export {
