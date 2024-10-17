@@ -1,15 +1,8 @@
-use std::{
-    fmt::{
-        self,
-        Display,
-    },
-    time::{
-        SystemTime,
-        UNIX_EPOCH,
-    },
+use std::fmt::{
+    self,
+    Display,
 };
 
-use anyhow::Context;
 use common::{
     components::ComponentId,
     types::ObjectKey,
@@ -20,8 +13,6 @@ use serde::{
 };
 use sync_types::Timestamp;
 use value::codegen_convex_serialization;
-
-use super::DEFAULT_EXPORT_RETENTION;
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -76,14 +67,14 @@ enum SerializedExport {
         format: SerializedExportFormat,
         component: Option<String>,
         requestor: String,
-        expiration_ts: Option<i64>, // TODO - remove Option once migration runs
+        expiration_ts: i64,
     },
     InProgress {
         start_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
         requestor: String,
-        expiration_ts: Option<i64>, // TODO - remove Option once migration runs
+        expiration_ts: i64,
     },
     Completed {
         start_ts: u64,
@@ -117,7 +108,7 @@ impl TryFrom<Export> for SerializedExport {
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
-                expiration_ts: Some(expiration_ts as i64),
+                expiration_ts: expiration_ts as i64,
             },
             Export::InProgress {
                 start_ts,
@@ -130,7 +121,7 @@ impl TryFrom<Export> for SerializedExport {
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
-                expiration_ts: Some(expiration_ts as i64),
+                expiration_ts: expiration_ts as i64,
             },
             Export::Completed {
                 start_ts,
@@ -180,13 +171,7 @@ impl TryFrom<SerializedExport> for Export {
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
-                expiration_ts: expiration_ts.map(|t| t as u64).unwrap_or(
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .context("Time can't go backwards")?
-                        .as_nanos() as u64
-                        + DEFAULT_EXPORT_RETENTION,
-                ),
+                expiration_ts: expiration_ts as u64,
             },
             SerializedExport::InProgress {
                 start_ts,
@@ -199,13 +184,7 @@ impl TryFrom<SerializedExport> for Export {
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
-                expiration_ts: expiration_ts.map(|t| t as u64).unwrap_or(
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .context("Time can't go backwards")?
-                        .as_nanos() as u64
-                        + DEFAULT_EXPORT_RETENTION,
-                ),
+                expiration_ts: expiration_ts as u64,
             },
             SerializedExport::Completed {
                 start_ts,
