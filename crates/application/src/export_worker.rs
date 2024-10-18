@@ -483,14 +483,14 @@ impl<RT: Runtime> ExportWorker<RT> {
                     .transpose()?;
                 usage.track_storage_call(
                     component_path.clone(),
-                    "snapshot_export",
+                    requestor.usage_tag(),
                     file_storage_entry.storage_id.clone(),
                     content_type,
                     file_storage_entry.sha256.clone(),
                 );
                 self.usage_tracking.track_independent_storage_egress_size(
                     component_path.clone(),
-                    requestor.usage_tag(),
+                    requestor.usage_tag().to_string(),
                     file_stream.content_length as u64,
                 );
                 zip_snapshot_upload
@@ -624,17 +624,22 @@ impl<RT: Runtime> ExportWorker<RT> {
             .await?
             .context("error getting export object attributes from S3")?;
 
+        let tag = export.requestor().usage_tag().to_string();
+        let call_type = match export.requestor() {
+            ExportRequestor::SnapshotExport => CallType::Export,
+            ExportRequestor::CloudBackup => CallType::CloudBackup,
+        };
         // Charge file bandwidth for the upload of the snapshot to exports storage
         self.usage_tracking.track_independent_storage_ingress_size(
             ComponentPath::root(),
-            export.requestor().usage_tag(),
+            tag.clone(),
             object_attributes.size,
         );
         // Charge database bandwidth accumulated during the export
         self.usage_tracking.track_call(
-            UdfIdentifier::Cli("export".to_string()),
+            UdfIdentifier::Cli(tag),
             ExecutionId::new(),
-            CallType::Export,
+            call_type,
             usage.gather_user_stats(),
         );
         Ok(())

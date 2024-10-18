@@ -95,6 +95,7 @@ pub enum CallType {
     UncachedQuery,
     Mutation,
     Import,
+    CloudBackup,
 }
 
 impl CallType {
@@ -107,6 +108,7 @@ impl CallType {
             Self::Mutation => "mutation",
             Self::HttpAction { .. } => "http_action",
             Self::Import => "import",
+            Self::CloudBackup => "cloud_backup",
         }
     }
 

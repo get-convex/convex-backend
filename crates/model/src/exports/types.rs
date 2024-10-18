@@ -293,10 +293,10 @@ pub enum ExportRequestor {
 }
 
 impl ExportRequestor {
-    pub fn usage_tag(&self) -> String {
+    pub fn usage_tag(&self) -> &'static str {
         match self {
-            Self::SnapshotExport => "snapshot_export".to_string(),
-            Self::CloudBackup => "cloud_backup".to_string(),
+            Self::SnapshotExport => "snapshot_export",
+            Self::CloudBackup => "cloud_backup",
         }
     }
 }
