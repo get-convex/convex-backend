@@ -327,9 +327,17 @@ export const bigMemoryUsage = query(async () => {
 
 export const useNotImplementedBuiltin = query(async () => {
   try {
-    const url = new URL("https://baz.qat:8000/qux/quux?foo=bar&baz=12#qat");
     // This should throw an uncatchable "Not implemented" error
-    url.password;
+    await window.crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 4096,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256",
+      },
+      true,
+      ["encrypt", "decrypt"],
+    );
   } catch (e) {
     return "Caught an error!";
   }
