@@ -19,7 +19,6 @@ use common::{
         ExtractClientVersion,
         HttpResponseError,
     },
-    log_lines::log_lines_to_jsons,
     version::ClientType,
     RequestId,
 };
@@ -198,8 +197,7 @@ pub async fn stream_function_logs(
                                 component_path: c.event_source.component_path.serialize(),
                                 identifier: c.event_source.udf_path,
                                 timestamp: c.function_start_timestamp.as_secs_f64(),
-                                log_lines: log_lines_to_jsons(
-                                    c.log_lines,
+                                log_lines: c.log_lines.to_jsons(
                                     supports_structured_log_lines,
                                     false,
                                 )?,
@@ -244,11 +242,9 @@ fn execution_to_json(
                 udf_type: execution.udf_type.to_string(),
                 component_path,
                 identifier,
-                log_lines: log_lines_to_jsons(
-                    execution.log_lines,
-                    supports_structured_log_lines,
-                    false,
-                )?,
+                log_lines: execution
+                    .log_lines
+                    .to_jsons(supports_structured_log_lines, false)?,
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,
@@ -268,11 +264,9 @@ fn execution_to_json(
                 udf_type: execution.udf_type.to_string(),
                 component_path: None,
                 identifier,
-                log_lines: log_lines_to_jsons(
-                    execution.log_lines,
-                    supports_structured_log_lines,
-                    false,
-                )?,
+                log_lines: execution
+                    .log_lines
+                    .to_jsons(supports_structured_log_lines, false)?,
                 timestamp: execution.unix_timestamp.as_secs_f64(),
                 cached_result: execution.cached_result,
                 execution_time: execution.execution_time,

@@ -1,3 +1,4 @@
+import { api } from "./_generated/api";
 import { query, mutation } from "./_generated/server";
 import { assert } from "chai";
 
@@ -43,6 +44,11 @@ export const logDocument = mutation(async ({ db }) => {
   const id = await db.insert("table", { property: "value" });
   const document = await db.get(id);
   console.log(document);
+});
+
+export const logFromSubfunction = query(async (ctx) => {
+  console.log("from parent");
+  await ctx.runQuery(api.logging.logString, {});
 });
 
 export const consoleTrace = query(() => {

@@ -48,6 +48,7 @@ use crate::{
         UdfTest,
         UdfTestConfig,
     },
+    tests::logging::nested_function_udf_test,
     IsolateConfig,
     ValidatedPathAndArgs,
 };
@@ -195,6 +196,35 @@ async fn test_console_loop(rt: TestRuntime) -> anyhow::Result<()> {
     assert_contains(
         &log_lines.pop().unwrap().to_pretty_string_test_only(),
         "Log overflow",
+    );
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_console_loop_from_subfunction(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = nested_function_udf_test(rt).await?;
+    let log_lines = t
+        .query_log_lines("adversarial:consoleLoopFromSubfunction", assert_obj!())
+        .await?;
+    let log_lines_flat: Vec<_> = log_lines
+        .into_iter()
+        .flat_map(|log_line| log_line.to_pretty_strings())
+        .collect();
+    assert_eq!(log_lines_flat.len(), 256);
+    let mut expected_log_lines = vec![];
+    // From child.
+    expected_log_lines.extend(["[LOG] 'are we there yet'"].repeat(200).into_iter());
+    // From parent.
+    expected_log_lines.push("[LOG] 'we get there when we get there'");
+    // From child, truncated.
+    expected_log_lines.extend(["[LOG] 'are we there yet'"].repeat(54).into_iter());
+    expected_log_lines.push("[ERROR] Log overflow (maximum 256). Remaining log lines omitted.");
+    assert_eq!(
+        log_lines_flat,
+        expected_log_lines
+            .into_iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
     );
     Ok(())
 }

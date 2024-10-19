@@ -568,14 +568,9 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             _ => anyhow::bail!("Unexpected outcome for {udf_type:?}"),
         };
 
-        // TODO(CX-6401): Namespace UDF logging. We'll want to collate all
-        // of the overflow and system log lines into a single group at the
-        // end of the log lines.
-        // self.emit_sub_function_log_lines(path.for_logging(),
-        // outcome.log_lines.clone());
-        for log_line in &outcome.log_lines {
-            self.emit_log_line(log_line.clone());
-        }
+        // TODO(ENG-7663): restrict log lines within subfunctions instead of
+        // limiting them only when they are returned to the parent.
+        self.emit_sub_function_log_lines(path.for_logging(), outcome.log_lines.clone());
 
         let result = match outcome.result {
             Ok(r) => r.unpack(),

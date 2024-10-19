@@ -1,5 +1,6 @@
 // This file is doing all kinds of wonky things so just turn off eslint
 /* eslint-disable */
+import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 
@@ -32,6 +33,19 @@ export const consoleLoop = query(() => {
   for (let i = 0; i < 258; i++) {
     console.log("hello there");
   }
+});
+
+export const consoleLoopTimes = query((_ctx, { times }: { times: number }) => {
+  for (let i = 0; i < times; i++) {
+    console.log("are we there yet");
+  }
+});
+
+export const consoleLoopFromSubfunction = query(async (ctx) => {
+  await ctx.runQuery(api.adversarial.consoleLoopTimes, { times: 200 });
+  console.log("we get there when we get there");
+  await ctx.runQuery(api.adversarial.consoleLoopTimes, { times: 100 });
+  console.log("we get there when we get there");
 });
 
 export const consoleLongLine = query(() => {

@@ -2,6 +2,10 @@
 use std::{
     collections::BTreeMap,
     fmt::Display,
+    ops::{
+        Deref,
+        DerefMut,
+    },
     str::FromStr,
 };
 
@@ -45,7 +49,9 @@ use crate::{
 pub const TRUNCATED_LINE_SUFFIX: &str = " (truncated due to length)";
 pub const MAX_LOG_LINE_LENGTH: usize = 32768;
 /// List of log lines from a Convex function execution.
-pub type LogLines = WithHeapSize<Vec<LogLine>>;
+#[derive(Default, Clone, Debug, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct LogLines(WithHeapSize<Vec<LogLine>>);
 pub type RawLogLines = WithHeapSize<Vec<String>>;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -220,6 +226,94 @@ impl LogLineStructured {
             timestamp,
             system_metadata: None,
         }
+    }
+}
+
+impl Deref for LogLines {
+    type Target = WithHeapSize<Vec<LogLine>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for LogLines {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Vec<LogLine>> for LogLines {
+    fn from(value: Vec<LogLine>) -> Self {
+        Self(value.into())
+    }
+}
+
+impl IntoIterator for LogLines {
+    type IntoIter = <Vec<LogLine> as IntoIterator>::IntoIter;
+    type Item = LogLine;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl FromIterator<LogLine> for LogLines {
+    fn from_iter<T: IntoIterator<Item = LogLine>>(iter: T) -> Self {
+        Self(iter.into_iter().collect::<Vec<_>>().into())
+    }
+}
+
+impl LogLines {
+    pub fn to_jsons(
+        self,
+        allow_structured: bool,
+        include_system_metadata: bool,
+    ) -> anyhow::Result<Vec<JsonValue>> {
+        self.into_iter()
+            .map(|log_line| log_line.to_jsons(None, allow_structured, include_system_metadata))
+            .flatten_ok()
+            .collect()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0
+            .iter()
+            .map(|log_line| match log_line {
+                LogLine::Structured(_) => 1,
+                LogLine::SubFunction { log_lines, .. } => log_lines.len(),
+            })
+            .sum()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn truncated(self, mut len: usize) -> Self {
+        let mut log_lines = Self::default();
+        for log_line in self {
+            if len == 0 {
+                break;
+            }
+            match log_line {
+                LogLine::Structured(line) => {
+                    log_lines.push(LogLine::Structured(line));
+                    len -= 1;
+                },
+                LogLine::SubFunction {
+                    path,
+                    log_lines: sub_log_lines,
+                } => {
+                    let sub_log_lines = sub_log_lines.truncated(len);
+                    len -= sub_log_lines.len();
+                    log_lines.push(LogLine::SubFunction {
+                        path,
+                        log_lines: sub_log_lines,
+                    });
+                },
+            }
+        }
+        log_lines
     }
 }
 
@@ -551,18 +645,6 @@ impl TryFrom<LogLineStructured> for JsonValue {
     fn try_from(value: LogLineStructured) -> Result<Self, Self::Error> {
         value.to_json(None, true, true)
     }
-}
-
-pub fn log_lines_to_jsons(
-    log_lines: LogLines,
-    allow_structured: bool,
-    include_system_metadata: bool,
-) -> anyhow::Result<Vec<JsonValue>> {
-    log_lines
-        .into_iter()
-        .map(|log_line| log_line.to_jsons(None, allow_structured, include_system_metadata))
-        .flatten_ok()
-        .collect()
 }
 
 impl From<LogLine> for pb::outcome::LogLine {

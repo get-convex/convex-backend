@@ -210,7 +210,7 @@ impl FunctionExecution {
                 }]
             },
             LogLine::SubFunction { path, log_lines } => log_lines
-                .into_iter()
+                .iter()
                 .flat_map(|log_line| self.console_log_events_for_log_line(log_line, Some(path)))
                 .collect(),
         }
@@ -297,7 +297,7 @@ impl FunctionExecutionProgress {
                 }]
             },
             LogLine::SubFunction { path, log_lines } => log_lines
-                .into_iter()
+                .iter()
                 .flat_map(|log_line| self.console_log_events_for_log_line(log_line, Some(path)))
                 .collect(),
         }

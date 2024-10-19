@@ -1,14 +1,25 @@
 use common::{
     assert_obj,
-    testing::assert_contains,
+    log_lines::LogLine,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
 };
 use itertools::Itertools;
+use must_let::must_let;
 use regex::Regex;
 use runtime::testing::TestRuntime;
+use semver::Version;
 
-use crate::test_helpers::{
-    UdfTest,
-    UdfTestType,
+use crate::{
+    test_helpers::{
+        UdfTest,
+        UdfTestConfig,
+        UdfTestType,
+    },
+    ConcurrencyLimiter,
+    IsolateConfig,
 };
 
 /// Tests to ensure that our logging is reasonable for basic JS types.
@@ -174,6 +185,51 @@ async fn test_log_document(rt: TestRuntime) -> anyhow::Result<()> {
         );
         Ok(())
     }).await
+}
+
+pub(crate) async fn nested_function_udf_test(
+    rt: TestRuntime,
+) -> anyhow::Result<UdfTest<TestRuntime, TestPersistence>> {
+    UdfTest::default_with_config(
+        UdfTestConfig {
+            isolate_config: IsolateConfig::new(
+                "nested_function_test",
+                ConcurrencyLimiter::unlimited(),
+            ),
+            udf_server_version: Version::parse("1000.0.0")?,
+        },
+        // we need at least 2 threads since functions will request and block
+        // on the execution of other UDFs
+        2,
+        rt,
+    )
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_log_from_subfunction(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = nested_function_udf_test(rt).await?;
+    let log_lines = t
+        .query_log_lines("logging:logFromSubfunction", assert_obj!())
+        .await?;
+    let mut log_lines_iter = log_lines.into_iter();
+    must_let!(let Some(first_log_line) = log_lines_iter.next());
+    assert_eq!(
+        "[LOG] 'from parent'",
+        first_log_line.to_pretty_string_test_only()
+    );
+    must_let!(let Some(second_log_line) = log_lines_iter.next());
+    must_let!(let LogLine::SubFunction { path, log_lines } = second_log_line);
+    assert_eq!(&*path.component.to_string(), "");
+    assert_eq!(&*path.udf_path.to_string(), "logging.js:logString");
+    assert_eq!(
+        vec!["[LOG] 'myString'"],
+        log_lines
+            .into_iter()
+            .map(|l| l.to_pretty_string_test_only())
+            .collect_vec()
+    );
+    Ok(())
 }
 
 #[convex_macro::test_runtime]

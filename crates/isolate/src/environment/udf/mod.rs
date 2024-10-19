@@ -798,8 +798,32 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         path: CanonicalizedComponentFunctionPath,
         log_lines: LogLines,
     ) {
-        self.log_lines
-            .push(LogLine::SubFunction { path, log_lines });
+        // -1 to reserve for the [ERROR] log line
+        if self.log_lines.len() > MAX_LOG_LINES - 1 {
+            // We have previously exceeded the logging limit, so skip these logs.
+            return;
+        }
+        if self.log_lines.len() + log_lines.len() > MAX_LOG_LINES - 1 {
+            // We are about to exceed the logging limit, so truncate the logs.
+            let allowed_length = MAX_LOG_LINES - 1 - self.log_lines.len();
+            self.log_lines.push(LogLine::SubFunction {
+                path,
+                log_lines: log_lines.truncated(allowed_length),
+            });
+            let log_line = LogLine::new_developer_log_line(
+                LogLevel::Error,
+                vec![format!(
+                    "Log overflow (maximum {MAX_LOG_LINES}). Remaining log lines omitted."
+                )],
+                // Note: accessing the current time here is still deterministic since
+                // we don't externalize the time to the function.
+                self.rt.unix_timestamp(),
+            );
+            self.log_lines.push(log_line);
+        } else {
+            self.log_lines
+                .push(LogLine::SubFunction { path, log_lines });
+        }
     }
 
     // Called when a function finishes
