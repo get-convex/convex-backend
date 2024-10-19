@@ -370,6 +370,9 @@ export async function entryPoints(
       );
     }
 
+    // Instead of choosing only .ts, .js, etc. we ignore files specifically
+    // so we can add support for them in the future.
+    // This should match isEntryPoint in the convex eslint plugin.
     if (relPath.startsWith("_generated" + path.sep)) {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (base.startsWith(".")) {
@@ -387,8 +390,6 @@ export async function entryPoints(
         ctx,
         chalk.yellow(`Skipping ${fpath} that contains multiple dots`),
       );
-    } else if (base === "tsconfig.json") {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (relPath.endsWith(".config.js")) {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (relPath.includes(" ")) {
@@ -398,6 +399,8 @@ export async function entryPoints(
       );
     } else if (base.endsWith(".d.ts")) {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath} declaration file`));
+    } else if (base.endsWith(".tsbuildinfo")) {
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} tsbuildinfo file`));
     } else if (base.endsWith(".json")) {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath} json file`));
     } else if (base.endsWith(".jsonl")) {
