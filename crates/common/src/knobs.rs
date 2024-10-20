@@ -627,6 +627,10 @@ pub static DATABASE_UDF_USER_TIMEOUT: LazyLock<Duration> =
 pub static DATABASE_UDF_SYSTEM_TIMEOUT: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("DATABASE_UDF_SYSTEM_TIMEOUT_SECONDS", 15)));
 
+/// Timeout on the time it takes to analyze code during a push.
+pub static ISOLATE_ANALYZE_USER_TIMEOUT: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("ISOLATE_ANALYZE_USER_TIMEOUT_SECONDS", 2)));
+
 /// Increasing the size of the queue helps us deal with bursty requests. This is
 /// a CoDel queue [https://queue.acm.org/detail.cfm?id=2209336], which will
 /// switch from FIFO to LIFO queue when overloaded, in order to process as much

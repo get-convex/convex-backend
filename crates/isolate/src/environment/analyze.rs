@@ -16,7 +16,7 @@ use common::{
     errors::JsError,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
-        DATABASE_UDF_USER_TIMEOUT,
+        ISOLATE_ANALYZE_USER_TIMEOUT,
     },
     log_lines::LogLevel,
     runtime::{
@@ -222,10 +222,12 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
     }
 
     fn user_timeout(&self) -> std::time::Duration {
-        *DATABASE_UDF_USER_TIMEOUT
+        *ISOLATE_ANALYZE_USER_TIMEOUT
     }
 
     fn system_timeout(&self) -> std::time::Duration {
+        // NB: System timeout isn't relevant for analyze, since we don't support
+        // any async syscalls and don't pause the isolate's timeout.
         *DATABASE_UDF_SYSTEM_TIMEOUT
     }
 }
