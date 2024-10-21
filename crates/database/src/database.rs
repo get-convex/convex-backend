@@ -484,10 +484,24 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         runtime: &RT,
         tablet_id: TabletId,
     ) -> anyhow::Result<LatestDocumentStream<'a>> {
-        let table_by_id = self.index_registry().must_get_by_id(tablet_id)?.id();
         let table_iterator = self.table_iterator(runtime.clone());
-        let stream = table_iterator.stream_documents_in_table(tablet_id, table_by_id, None);
-        Ok(stream.map_ok(|(document, ts)| (ts, document)).boxed())
+        let by_creation_time = self
+            .index_registry()
+            .get_enabled(&TabletIndexName::by_creation_time(tablet_id));
+        let stream = if let Some(by_creation_time) = by_creation_time {
+            let stream = table_iterator.stream_documents_in_table_by_index(
+                tablet_id,
+                by_creation_time.id(),
+                IndexedFields::creation_time(),
+                None,
+            );
+            stream.map_ok(|(_, ts, document)| (ts, document)).boxed()
+        } else {
+            let table_by_id = self.index_registry().must_get_by_id(tablet_id)?.id();
+            let stream = table_iterator.stream_documents_in_table(tablet_id, table_by_id, None);
+            stream.map_ok(|(document, ts)| (ts, document)).boxed()
+        };
+        Ok(stream)
     }
 
     /// Fetch _tables.by_id and _index.by_id for bootstrapping.
