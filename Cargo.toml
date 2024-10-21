@@ -107,7 +107,7 @@ reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-t
 reqwest-middleware = "0.3.2"
 ring = "0.17.8"
 rsa = "0.9.6"
-rusqlite = { version = "0.31", features = [ "bundled" ] }
+rusqlite = { version = "0.32", features = [ "bundled" ] }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 schemars = { version = "0.8" }
 semver = { version = "1", features = [ "serde" ] }
@@ -120,7 +120,7 @@ short_future = { version = "0.1.1" }
 slab = "0.4.9"
 sodiumoxide = "^0.2"
 sourcemap = "8"
-sqlx = { version = "0.8.0", default-features = false, features = [ "chrono", "uuid", "runtime-tokio-native-tls", "postgres", "mysql", "macros", "migrate" ] }
+sqlx = { version = "0.8.2", default-features = false, features = [ "chrono", "uuid", "runtime-tokio-native-tls", "postgres", "mysql", "macros", "migrate" ] }
 strum = { version = "0.26", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
