@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context;
 use common::{
     components::ComponentId,
     document::{
@@ -244,6 +245,29 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
             .transpose()
     }
 
+    pub async fn set_expiration(
+        &mut self,
+        snapshot_id: DeveloperDocumentId,
+        expiration_ts_ns: u64,
+    ) -> anyhow::Result<()> {
+        let (id, mut export) = self
+            .get(snapshot_id)
+            .await?
+            .context("Snapshot not found")?
+            .into_id_and_value();
+        let Export::Completed { expiration_ts, .. } = &mut export else {
+            anyhow::bail!("Can only set expiration on completed exports");
+        };
+        if *expiration_ts < (*self.tx.begin_timestamp()).into() {
+            anyhow::bail!("Cannot set expiration if it's already in the past");
+        }
+        *expiration_ts = expiration_ts_ns;
+        SystemMetadataModel::new_global(self.tx)
+            .replace(id, export.try_into()?)
+            .await?;
+        Ok(())
+    }
+
     pub async fn cleanup_expired(
         &mut self,
         retention_duration: Duration,
@@ -279,6 +303,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
 mod tests {
     use std::time::Duration;
 
+    use anyhow::Context;
     use cmd_util::env::env_config;
     use common::{
         components::ComponentId,
@@ -479,6 +504,43 @@ mod tests {
         let backups = exports_model.list_unexpired_cloud_backups().await?;
         assert_eq!(backups.len(), 1);
 
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_set_expiration(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let mut tx = db.begin_system().await?;
+        let ts = *tx.begin_timestamp();
+        let ts_u64: u64 = ts.into();
+        let mut exports_model = ExportsModel::new(&mut tx);
+
+        // Insert a completed snapshot export
+        let export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::SnapshotExport,
+            ts_u64 + 1000,
+        )
+        .in_progress(ts)?
+        .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
+        let id = exports_model.insert_export(export).await?;
+
+        let new_expiration = ts_u64 + 2000;
+        exports_model
+            .set_expiration(id.developer_id, new_expiration)
+            .await?;
+        let export = exports_model
+            .get(id.developer_id)
+            .await?
+            .context("Not found")?
+            .into_value();
+        let Export::Completed { expiration_ts, .. } = export else {
+            anyhow::bail!("Export must be in completed state");
+        };
+        assert_eq!(expiration_ts, new_expiration);
         Ok(())
     }
 
