@@ -415,7 +415,12 @@ impl DatabaseIndexSnapshot {
             )
             .await?
         {
-            Self::log_start_range_fetch(range_request.printable_index_name.table(), 1, 0);
+            Self::log_start_range_fetch(
+                range_request.printable_index_name.table(),
+                1,
+                0,
+                range_request.max_size,
+            );
             return Ok(Ok((range, CursorPosition::End)));
         }
 
@@ -431,19 +436,26 @@ impl DatabaseIndexSnapshot {
             range_request.printable_index_name.table(),
             cache_results.len() - cache_miss_count,
             cache_miss_count,
+            range_request.max_size,
         );
         Ok(Err((index.id(), range_request, cache_results)))
     }
 
-    fn log_start_range_fetch(table_name: &TableName, cached_ranges: usize, cache_misses: usize) {
+    fn log_start_range_fetch(
+        table_name: &TableName,
+        num_cached_ranges: usize,
+        num_cache_misses: usize,
+        prefetch_size: usize,
+    ) {
         Event::add_to_local_parent("start_range_fetch", || {
             let table_name = if table_name.is_system() {
                 table_name.to_string()
             } else {
                 format!("user_table")
             };
-            let cached_ranges = cached_ranges.to_string();
-            let cache_misses = cache_misses.to_string();
+            let cached_ranges = num_cached_ranges.to_string();
+            let cache_misses = num_cache_misses.to_string();
+            let prefetch_size = prefetch_size.to_string();
             [
                 (Cow::Borrowed("query.table"), Cow::Owned(table_name)),
                 (
@@ -453,6 +465,10 @@ impl DatabaseIndexSnapshot {
                 (
                     Cow::Borrowed("query.cache_miss_ranges"),
                     Cow::Owned(cache_misses),
+                ),
+                (
+                    Cow::Borrowed("query.prefetch_size"),
+                    Cow::Owned(prefetch_size),
                 ),
             ]
         });
