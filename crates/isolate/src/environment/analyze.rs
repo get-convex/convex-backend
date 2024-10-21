@@ -442,6 +442,130 @@ fn make_str_val<'s>(
     Ok(v8_str_val)
 }
 
+#[minitrace::trace]
+fn parse_args_validator<'s, RT: Runtime>(
+    scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
+    function: v8::Local<v8::Function>,
+    function_identifier_for_error: String,
+) -> anyhow::Result<Result<ArgsValidator, JsError>> {
+    // Call `exportArgs` to get the args validator.
+    let export_args = strings::exportArgs.create(scope)?;
+
+    let args = match function.get(scope, export_args.into()) {
+        Some(export_args_value) if export_args_value.is_function() => {
+            let export_args_function: v8::Local<v8::Function> = export_args_value.try_into()?;
+            let result_v8 = scope
+                .with_try_catch(|s| export_args_function.call(s, function.into(), &[]))??
+                .context("Missing return value from successful function call")?;
+            let result_v8_str = match v8::Local::<v8::String>::try_from(result_v8) {
+                Ok(s) => s,
+                Err(_) => {
+                    let message = format!(
+                        "Invalid exportArgs return value: \
+                         {function_identifier_for_error}.exportArgs() didn't return a string."
+                    );
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            };
+            let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
+            let args_json = match serde_json::from_str::<JsonValue>(&result_str) {
+                Ok(args_json) => args_json,
+                Err(json_error) => {
+                    let message = format!(
+                        "Invalid JSON returned from {function_identifier_for_error}.exportArgs(): \
+                         {json_error}"
+                    );
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            };
+            match ArgsValidator::try_from(args_json) {
+                Ok(validator) => validator,
+                Err(parse_error) => {
+                    let message = format!(
+                        "Invalid JSON returned from {function_identifier_for_error}.exportArgs(): \
+                         {parse_error}"
+                    );
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            }
+        },
+        // `exportArgs` will be undefined if this is before npm
+        // package v0.13.0. Default to `Unvalidated`.
+        Some(export_args_value) if export_args_value.is_undefined() => ArgsValidator::Unvalidated,
+        Some(_) => {
+            let message = format!(
+                "{function_identifier_for_error}.exportArgs is not a function or `undefined`."
+            );
+            return Ok(Err(JsError::from_message(message)));
+        },
+        None => ArgsValidator::Unvalidated,
+    };
+    Ok(Ok(args))
+}
+
+#[minitrace::trace]
+fn parse_returns_validator<'s, RT: Runtime>(
+    scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
+    function: v8::Local<v8::Function>,
+    function_identifier_for_error: String,
+) -> anyhow::Result<Result<ReturnsValidator, JsError>> {
+    // TODO(CX-6287) unify argument and returns validators
+    // Call `exportReturns` to get the returns validator.
+    let export_returns = strings::exportReturns.create(scope)?;
+    let returns = match function.get(scope, export_returns.into()) {
+        Some(export_returns_value) if export_returns_value.is_function() => {
+            let export_returns_function: v8::Local<v8::Function> =
+                export_returns_value.try_into()?;
+            let result_v8 = scope
+                .with_try_catch(|s| export_returns_function.call(s, function.into(), &[]))??
+                .context("Missing return value from successful function call")?;
+
+            let result_v8_str = match v8::Local::<v8::String>::try_from(result_v8) {
+                Ok(s) => s,
+                Err(_) => {
+                    let message = format!(
+                        "Invalid exportReturns return value: \
+                         {function_identifier_for_error}.exportReturns() didn't return a string."
+                    );
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            };
+            let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
+            let output_json = match serde_json::from_str::<JsonValue>(&result_str) {
+                Ok(validator) => validator,
+                Err(parse_error) => {
+                    let message = format!(
+                        "Invalid JSON returned from \
+                         {function_identifier_for_error}.exportReturns(): {parse_error}"
+                    );
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            };
+            match ReturnsValidator::try_from(output_json) {
+                Ok(validator) => validator,
+                Err(parse_error) => {
+                    let message = format!(
+                        "Invalid JSON returned from \
+                         {function_identifier_for_error}.exportReturns(): {parse_error}"
+                    );
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            }
+        },
+        Some(export_output_value) if export_output_value.is_undefined() => {
+            ReturnsValidator::Unvalidated
+        },
+        Some(_) => {
+            let message = format!(
+                "{function_identifier_for_error}.exportReturns is not a function or `undefined`."
+            );
+            return Ok(Err(JsError::from_message(message)));
+        },
+        None => ReturnsValidator::Unvalidated,
+    };
+    Ok(Ok(returns))
+}
+#[minitrace::trace]
 fn udf_analyze<RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
     module: &v8::Local<v8::Module>,
@@ -501,117 +625,11 @@ fn udf_analyze<RT: Runtime>(
         let is_internal_property = strings::isInternal.create(scope)?.into();
         let is_internal = function.has(scope, is_internal_property).unwrap_or(false);
 
-        // Call `exportArgs` to get the args validator.
-        let export_args = strings::exportArgs.create(scope)?;
+        let args =
+            parse_args_validator(scope, function, format!("{module_path:?}:{property_name}"))??;
 
-        let args = match function.get(scope, export_args.into()) {
-            Some(export_args_value) if export_args_value.is_function() => {
-                let export_args_function: v8::Local<v8::Function> = export_args_value.try_into()?;
-                let result_v8 = scope
-                    .with_try_catch(|s| export_args_function.call(s, function.into(), &[]))??
-                    .context("Missing return value from successful function call")?;
-                let result_v8_str = match v8::Local::<v8::String>::try_from(result_v8) {
-                    Ok(s) => s,
-                    Err(_) => {
-                        let message = format!(
-                            "Invalid exportArgs return value: \
-                             {module_path:?}:{property_name}.exportArgs() didn't return a string."
-                        );
-                        return Ok(Err(JsError::from_message(message)));
-                    },
-                };
-                let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
-                let args_json = match serde_json::from_str::<JsonValue>(&result_str) {
-                    Ok(args_json) => args_json,
-                    Err(json_error) => {
-                        let message = format!(
-                            "Invalid JSON returned from \
-                             {module_path:?}:{property_name}.exportArgs(): {json_error}"
-                        );
-                        return Ok(Err(JsError::from_message(message)));
-                    },
-                };
-                match ArgsValidator::try_from(args_json) {
-                    Ok(validator) => validator,
-                    Err(parse_error) => {
-                        let message = format!(
-                            "Invalid JSON returned from \
-                             {module_path:?}:{property_name}.exportArgs(): {parse_error}"
-                        );
-                        return Ok(Err(JsError::from_message(message)));
-                    },
-                }
-            },
-            // `exportArgs` will be undefined if this is before npm
-            // package v0.13.0. Default to `Unvalidated`.
-            Some(export_args_value) if export_args_value.is_undefined() => {
-                ArgsValidator::Unvalidated
-            },
-            Some(_) => {
-                let message = format!(
-                    "{module_path:?}:{property_name}.exportArgs is not a function or `undefined`."
-                );
-                return Ok(Err(JsError::from_message(message)));
-            },
-            None => ArgsValidator::Unvalidated,
-        };
-
-        // TODO(CX-6287) unify argument and returns validators
-        // Call `exportReturns` to get the returns validator.
-        let export_output = strings::exportReturns.create(scope)?;
-        let returns = match function.get(scope, export_output.into()) {
-            Some(export_output_value) if export_output_value.is_function() => {
-                let export_output_function: v8::Local<v8::Function> =
-                    export_output_value.try_into()?;
-                let result_v8 = scope
-                    .with_try_catch(|s| export_output_function.call(s, function.into(), &[]))??
-                    .context("Missing return value from successful function call")?;
-
-                let result_v8_str = match v8::Local::<v8::String>::try_from(result_v8) {
-                    Ok(s) => s,
-                    Err(_) => {
-                        let message = format!(
-                            "Invalid exportReturns return value: \
-                             {module_path:?}:{property_name}.exportReturns() didn't return a \
-                             string."
-                        );
-                        return Ok(Err(JsError::from_message(message)));
-                    },
-                };
-                let result_str = helpers::to_rust_string(scope, &result_v8_str)?;
-                let output_json = match serde_json::from_str::<JsonValue>(&result_str) {
-                    Ok(validator) => validator,
-                    Err(parse_error) => {
-                        let message = format!(
-                            "Invalid JSON returned from \
-                             {module_path:?}:{property_name}.exportReturns(): {parse_error}"
-                        );
-                        return Ok(Err(JsError::from_message(message)));
-                    },
-                };
-                match ReturnsValidator::try_from(output_json) {
-                    Ok(validator) => validator,
-                    Err(parse_error) => {
-                        let message = format!(
-                            "Invalid JSON returned from \
-                             {module_path:?}:{property_name}.exportReturns(): {parse_error}"
-                        );
-                        return Ok(Err(JsError::from_message(message)));
-                    },
-                }
-            },
-            Some(export_output_value) if export_output_value.is_undefined() => {
-                ReturnsValidator::Unvalidated
-            },
-            Some(_) => {
-                let message = format!(
-                    "{module_path:?}:{property_name}.exportReturns is not a function or \
-                     `undefined`."
-                );
-                return Ok(Err(JsError::from_message(message)));
-            },
-            None => ReturnsValidator::Unvalidated,
-        };
+        let returns =
+            parse_returns_validator(scope, function, format!("{module_path:?}:{property_name}"))??;
 
         let visibility = match (is_public, is_internal) {
             (true, false) => Some(Visibility::Public),
