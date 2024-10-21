@@ -18,13 +18,11 @@
 
 ## 1.16.5
 
-packageing changes logging changes
-
-- restore --run flag of `convex import`, `convex data`,
+- restore `--run` flag of `convex import`
 
 ## 1.16.4
 
-- Don't typecheck dependent components by default, add --typecheckComponents
+- Don't typecheck dependent components by default, add `--typecheckComponents`
   flag to typecheck.
 
 ## 1.16.3
