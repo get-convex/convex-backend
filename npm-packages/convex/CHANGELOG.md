@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.17.0
+
+- Disallow extra arguments to CLI commands.
+- `--component` flags for `convex import` and `convex data`.
+- `--run-component` flag for `convex dev --run`
+- Remove prettier-ignore-start directives from generated code.
+- Fix file watcher bug where a syntax error could cause a file to stop being
+  watched.
+- Downgrade jwt-decode dependency back to ^3.1.2.
+- Change refresh token renewal timing
+
+## 1.16.6
+
+- Detect TanStack Start projects and use environment variable name
+  `VITE_CONVEX_URL`.
+
+## 1.16.5
+
+packageing changes logging changes
+
+- restore --run flag of `convex import`, `convex data`,
+
+## 1.16.4
+
+- Don't typecheck dependent components by default, add --typecheckComponents
+  flag to typecheck.
+
 ## 1.16.3
 
 - Fix some library typecheck errors introduced in 1.16.1. Workaround for
@@ -8,7 +35,7 @@
 
 ## 1.16.2
 
-- Change some language around componets beta.
+- Change some language around components beta.
 
 ## 1.16.1
 
