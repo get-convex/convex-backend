@@ -70,6 +70,7 @@ const MAX_TRANSACTION_WINDOW: Duration = Duration::from_secs(10);
 /// determined by `MAX_TRANSACTION_WINDOW`, allowing the `Database` layer to
 /// begin a transaction in any timestamp within that range.
 pub struct SnapshotManager<RT: Runtime> {
+    persisted_max_repeatable_ts: Timestamp,
     versions: VecDeque<(Timestamp, Snapshot<RT>)>,
 }
 
@@ -365,7 +366,10 @@ impl<RT: Runtime> SnapshotManager<RT> {
     pub fn new(initial_ts: Timestamp, initial_snapshot: Snapshot<RT>) -> Self {
         let mut versions = VecDeque::new();
         versions.push_back((initial_ts, initial_snapshot));
-        Self { versions }
+        Self {
+            versions,
+            persisted_max_repeatable_ts: initial_ts,
+        }
     }
 
     pub fn latest(&self) -> (RepeatableTimestamp, Snapshot<RT>) {
@@ -392,6 +396,9 @@ impl<RT: Runtime> SnapshotManager<RT> {
             .expect("snapshot versions empty")
     }
 
+    /// latest_ts has been committed to persistence and no earlier
+    /// timestamps may be used for future commits, so it is safe to read from
+    /// this snapshot.
     pub fn latest_ts(&self) -> RepeatableTimestamp {
         let ts = self
             .versions
@@ -399,6 +406,30 @@ impl<RT: Runtime> SnapshotManager<RT> {
             .map(|(ts, ..)| *ts)
             .expect("snapshot versions empty");
         RepeatableTimestamp::new_validated(ts, RepeatableReason::SnapshotManagerLatest)
+    }
+
+    /// While latest_ts has been part of some commit and the backend process is
+    /// aware that it is repeatable, other processes like db-verifier
+    /// may not know yet that it is safe to read from that snapshot.
+    ///
+    /// In contrast, persisted_max_repeatable_ts has been written as
+    /// max_repeatable_ts to persistence, so every process knows it is safe
+    /// to read from.
+    ///
+    /// Retention guarantees that min_snapshot_ts <=
+    /// persisted_max_repeatable_ts.
+    ///
+    /// If Retention only ensured that min_snapshot_ts <= latest_ts, then
+    /// we might persist some min_snapshot_ts > persisted_max_repeatable_ts.
+    /// Then other processes (that don't have access to latest_ts) would not
+    /// be able to read from any snapshot safely.
+    pub fn persisted_max_repeatable_ts(&self) -> RepeatableTimestamp {
+        self.latest_ts()
+            .prior_ts(self.persisted_max_repeatable_ts)
+            .expect(
+                "persisted_max_repeatable_ts is always bumped after latest_ts and both are \
+                 monotonic",
+            )
     }
 
     // Note that timestamp must be within MAX_TRANSACTION_WINDOW from the last
@@ -474,5 +505,16 @@ impl<RT: Runtime> SnapshotManager<RT> {
             self.versions.pop_front();
         }
         self.versions.push_back((ts, snapshot));
+    }
+
+    pub fn bump_persisted_max_repeatable_ts(&mut self, ts: Timestamp) -> bool {
+        let (latest_ts, snapshot) = self.latest();
+        if ts > *latest_ts {
+            self.push(ts, snapshot);
+            self.persisted_max_repeatable_ts = ts;
+            true
+        } else {
+            false
+        }
     }
 }

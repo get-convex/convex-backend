@@ -481,9 +481,7 @@ impl<RT: Runtime> Committer<RT> {
         // Bump the latest snapshot in snapshot_manager so reads on this leader
         // can know this timestamp is repeatable.
         let mut snapshot_manager = self.snapshot_manager.write();
-        let (latest_ts, new_snapshot) = snapshot_manager.latest();
-        if new_max_repeatable > *latest_ts {
-            snapshot_manager.push(new_max_repeatable, new_snapshot);
+        if snapshot_manager.bump_persisted_max_repeatable_ts(new_max_repeatable) {
             self.log.append(
                 new_max_repeatable,
                 WithHeapSize::default(),

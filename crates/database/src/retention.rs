@@ -238,7 +238,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         follower_retention_manager: FollowerRetentionManager<RT>,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
         let reader = persistence.reader();
-        let snapshot_ts = snapshot_reader.lock().latest_ts();
+        let snapshot_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
         let min_snapshot_ts = snapshot_ts.prior_ts(
             latest_retention_min_snapshot_ts(reader.as_ref(), RetentionType::Index).await?,
         )?;
@@ -292,7 +292,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let index_table_id =
             index_table_id.ok_or_else(|| anyhow::anyhow!("there must be at least one index"))?;
         let mut index_cursor = min_snapshot_ts;
-        let latest_ts = snapshot_reader.lock().latest_ts();
+        let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
         // Also update the set of indexes up to the current timestamp before document
         // retention starts moving.
         Self::accumulate_indexes(
@@ -384,7 +384,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         };
         let mut candidate = snapshot_reader
             .lock()
-            .latest_ts()
+            .persisted_max_repeatable_ts()
             .sub(delay)
             .context("Cannot calculate retention timestamp")?;
 
@@ -1067,7 +1067,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete: loaded checkpoint: {cursor:?}");
-                let latest_ts = snapshot_reader.lock().latest_ts();
+                let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
                     &mut all_indexes,
@@ -1088,7 +1088,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 )
                 .await?;
                 tracing::trace!("go_delete: finished running delete");
-                let latest_ts = snapshot_reader.lock().latest_ts();
+                let latest_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
                 Self::accumulate_indexes(
                     persistence.as_ref(),
                     &mut all_indexes,
@@ -1263,7 +1263,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             match retention_type {
                 RetentionType::Document => {
                     log_document_retention_cursor_age(
-                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(*cursor),
+                        (*snapshot_reader.lock().persisted_max_repeatable_ts())
+                            .secs_since_f64(*cursor),
                     );
                     log_document_retention_cursor_lag(
                         bounds_reader
@@ -1274,7 +1275,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 },
                 RetentionType::Index => {
                     log_retention_cursor_age(
-                        (*snapshot_reader.lock().latest_ts()).secs_since_f64(*cursor),
+                        (*snapshot_reader.lock().persisted_max_repeatable_ts())
+                            .secs_since_f64(*cursor),
                     );
                     log_retention_cursor_lag(
                         bounds_reader
@@ -1322,7 +1324,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         retention_type: RetentionType,
     ) -> anyhow::Result<RepeatableTimestamp> {
         let checkpoint = Self::get_checkpoint_not_repeatable(persistence, retention_type).await?;
-        snapshot_reader.lock().latest_ts().prior_ts(checkpoint)
+        snapshot_reader
+            .lock()
+            .persisted_max_repeatable_ts()
+            .prior_ts(checkpoint)
     }
 
     fn accumulate_index_document(
