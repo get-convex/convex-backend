@@ -1394,7 +1394,7 @@ impl<RT: Runtime> Application<RT> {
                 .completed_export_at_ts(snapshot_ts)
                 .await?;
             let export: ParsedDocument<Export> = export_doc
-                .context(ErrorMetadata::transient_not_found(
+                .context(ErrorMetadata::not_found(
                     "ExportNotFound",
                     format!("The requested export {snapshot_ts} was not found"),
                 ))?
@@ -1409,12 +1409,14 @@ impl<RT: Runtime> Application<RT> {
                 },
             }
         };
-        let storage_get_stream = self.exports_storage.get(&object_key).await?.context(
-            ErrorMetadata::transient_not_found(
-                "ExportNotFound",
-                format!("The requested export {snapshot_ts}/{object_key:?} was not found"),
-            ),
-        )?;
+        let storage_get_stream =
+            self.exports_storage
+                .get(&object_key)
+                .await?
+                .context(ErrorMetadata::not_found(
+                    "ExportNotFound",
+                    format!("The requested export {snapshot_ts}/{object_key:?} was not found"),
+                ))?;
         Ok(storage_get_stream)
     }
 
@@ -2468,7 +2470,7 @@ impl<RT: Runtime> Application<RT> {
             .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
             .await?
         else {
-            return Err(ErrorMetadata::transient_not_found(
+            return Err(ErrorMetadata::not_found(
                 "FileNotFound",
                 format!("File {storage_id} not found"),
             )
@@ -2491,14 +2493,14 @@ impl<RT: Runtime> Application<RT> {
             .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
             .await?
         else {
-            return Err(ErrorMetadata::transient_not_found(
+            return Err(ErrorMetadata::not_found(
                 "FileNotFound",
                 format!("File {storage_id} not found"),
             )
             .into());
         };
         let Some(component_path) = file_storage_tx.get_component_path(component) else {
-            return Err(ErrorMetadata::transient_not_found(
+            return Err(ErrorMetadata::not_found(
                 "FileNotFound",
                 format!("Component {component:?} not found"),
             )
@@ -2528,14 +2530,14 @@ impl<RT: Runtime> Application<RT> {
             .get_file_entry(&mut file_storage_tx, component.into(), storage_id.clone())
             .await?
         else {
-            return Err(ErrorMetadata::transient_not_found(
+            return Err(ErrorMetadata::not_found(
                 "FileNotFound",
                 format!("File {storage_id} not found"),
             )
             .into());
         };
         let Some(component_path) = file_storage_tx.get_component_path(component) else {
-            return Err(ErrorMetadata::transient_not_found(
+            return Err(ErrorMetadata::not_found(
                 "FileNotFound",
                 format!("Component {component:?} not found"),
             )

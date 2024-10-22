@@ -205,6 +205,18 @@ impl ProdRuntime {
         let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
         self.rt.block_on(monitor.instrument(f))
     }
+
+    /// Transitional function while we move away from using our own special
+    /// `spawn`. Just wraps `tokio::spawn` with our tokio metrics
+    /// integration.
+    pub fn tokio_spawn<F>(name: &'static str, f: F) -> tokio::task::JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
+        tokio::spawn(monitor.instrument(f))
+    }
 }
 
 #[async_trait]

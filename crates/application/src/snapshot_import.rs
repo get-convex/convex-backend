@@ -1501,7 +1501,7 @@ async fn wait_for_import_worker<RT: Runtime>(
             import_model
                 .get(import_id)
                 .await?
-                .context(ErrorMetadata::transient_not_found(
+                .context(ErrorMetadata::not_found(
                     "ImportNotFound",
                     format!("import {import_id} not found"),
                 ))?;

@@ -719,7 +719,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .load_component(component_id)
             .await?;
         let Some(component) = component else {
-            anyhow::bail!(ErrorMetadata::transient_not_found(
+            anyhow::bail!(ErrorMetadata::not_found(
                 "ComponentNotFound",
                 format!("Component with ID {:?} not found", component_id)
             ));

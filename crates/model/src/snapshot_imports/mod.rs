@@ -120,7 +120,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         let state = self
             .get(id)
             .await?
-            .context(ErrorMetadata::transient_not_found(
+            .context(ErrorMetadata::not_found(
                 "ImportNotFound",
                 format!("import {id} not found"),
             ))?
@@ -162,13 +162,10 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         id: ResolvedDocumentId,
         update_checkpoints: impl FnOnce(&mut Vec<ImportTableCheckpoint>),
     ) -> anyhow::Result<()> {
-        let mut import = self
-            .get(id)
-            .await?
-            .context(ErrorMetadata::transient_not_found(
-                "ImportNotFound",
-                format!("import {id} not found"),
-            ))?;
+        let mut import = self.get(id).await?.context(ErrorMetadata::not_found(
+            "ImportNotFound",
+            format!("import {id} not found"),
+        ))?;
         let mut checkpoints = import.checkpoints.clone().unwrap_or_default();
         update_checkpoints(&mut checkpoints);
         import.checkpoints = Some(checkpoints);
