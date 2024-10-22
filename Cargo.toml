@@ -120,7 +120,6 @@ short_future = { version = "0.1.1" }
 slab = "0.4.9"
 sodiumoxide = "^0.2"
 sourcemap = "8"
-sqlx = { version = "0.8.2", default-features = false, features = [ "chrono", "uuid", "runtime-tokio-native-tls", "postgres", "mysql", "macros", "migrate" ] }
 strum = { version = "0.26", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
 syn = { version = "2.0", features = [ "full" ] }
