@@ -26,6 +26,7 @@ pub struct SnapshotImport {
     pub object_key: ObjectKey,
     pub member_id: Option<MemberId>,
     pub checkpoints: Option<Vec<ImportTableCheckpoint>>,
+    pub requestor: ImportRequestor,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
@@ -37,24 +38,23 @@ struct SerializedSnapshotImport {
     object_key: String,
     member_id: Option<i64>,
     checkpoints: Option<Vec<SerializedImportTableCheckpoint>>,
+    requestor: Option<SerializedImportRequestor>,
 }
 
-impl TryFrom<SnapshotImport> for SerializedSnapshotImport {
-    type Error = anyhow::Error;
-
-    fn try_from(import: SnapshotImport) -> anyhow::Result<SerializedSnapshotImport> {
-        Ok(SerializedSnapshotImport {
-            state: import.state.try_into()?,
-            format: import.format.try_into()?,
+impl From<SnapshotImport> for SerializedSnapshotImport {
+    fn from(import: SnapshotImport) -> SerializedSnapshotImport {
+        SerializedSnapshotImport {
+            state: import.state.into(),
+            format: import.format.into(),
             mode: import.mode.to_string(),
             component_path: import.component_path.serialize(),
             object_key: import.object_key.to_string(),
             member_id: import.member_id.map(|member_id| member_id.0 as i64),
             checkpoints: import
                 .checkpoints
-                .map(|checkpoints| checkpoints.into_iter().map(TryInto::try_into).try_collect())
-                .transpose()?,
-        })
+                .map(|checkpoints| checkpoints.into_iter().map(Into::into).collect()),
+            requestor: Some(import.requestor.into()),
+        }
     }
 }
 
@@ -73,6 +73,10 @@ impl TryFrom<SerializedSnapshotImport> for SnapshotImport {
                 .checkpoints
                 .map(|checkpoints| checkpoints.into_iter().map(TryInto::try_into).try_collect())
                 .transpose()?,
+            requestor: import
+                .requestor
+                .unwrap_or(SerializedImportRequestor::SnapshotImport)
+                .into(),
         })
     }
 }
@@ -101,21 +105,19 @@ pub enum SerializedImportFormat {
     Zip,
 }
 
-impl TryFrom<ImportFormat> for SerializedImportFormat {
-    type Error = anyhow::Error;
-
-    fn try_from(format: ImportFormat) -> anyhow::Result<SerializedImportFormat> {
+impl From<ImportFormat> for SerializedImportFormat {
+    fn from(format: ImportFormat) -> SerializedImportFormat {
         match format {
-            ImportFormat::Csv(table) => Ok(SerializedImportFormat::Csv {
+            ImportFormat::Csv(table) => SerializedImportFormat::Csv {
                 table: table.to_string(),
-            }),
-            ImportFormat::JsonLines(table) => Ok(SerializedImportFormat::JsonLines {
+            },
+            ImportFormat::JsonLines(table) => SerializedImportFormat::JsonLines {
                 table: table.to_string(),
-            }),
-            ImportFormat::JsonArray(table) => Ok(SerializedImportFormat::JsonArray {
+            },
+            ImportFormat::JsonArray(table) => SerializedImportFormat::JsonArray {
                 table: table.to_string(),
-            }),
-            ImportFormat::Zip => Ok(SerializedImportFormat::Zip),
+            },
+            ImportFormat::Zip => SerializedImportFormat::Zip,
         }
     }
 }
@@ -216,36 +218,34 @@ enum SerializedImportState {
     },
 }
 
-impl TryFrom<ImportState> for SerializedImportState {
-    type Error = anyhow::Error;
-
-    fn try_from(state: ImportState) -> anyhow::Result<SerializedImportState> {
+impl From<ImportState> for SerializedImportState {
+    fn from(state: ImportState) -> SerializedImportState {
         match state {
-            ImportState::Uploaded => Ok(SerializedImportState::Uploaded),
+            ImportState::Uploaded => SerializedImportState::Uploaded,
             ImportState::WaitingForConfirmation {
                 info_message,
                 require_manual_confirmation,
-            } => Ok(SerializedImportState::WaitingForConfirmation {
+            } => SerializedImportState::WaitingForConfirmation {
                 message_to_confirm: Some(info_message),
                 require_manual_confirmation: Some(require_manual_confirmation),
-            }),
+            },
             ImportState::InProgress {
                 progress_message,
                 checkpoint_messages,
-            } => Ok(SerializedImportState::InProgress {
+            } => SerializedImportState::InProgress {
                 progress_message: Some(progress_message),
                 checkpoint_messages,
-            }),
+            },
             ImportState::Completed {
                 ts,
                 num_rows_written,
-            } => Ok(SerializedImportState::Completed {
+            } => SerializedImportState::Completed {
                 timestamp: i64::from(ts),
                 num_rows_written,
-            }),
-            ImportState::Failed(message) => Ok(SerializedImportState::Failed {
+            },
+            ImportState::Failed(message) => SerializedImportState::Failed {
                 error_message: message,
-            }),
+            },
         }
     }
 }
@@ -330,11 +330,9 @@ pub struct SerializedImportTableCheckpoint {
     pub is_missing_id_field: bool,
 }
 
-impl TryFrom<ImportTableCheckpoint> for SerializedImportTableCheckpoint {
-    type Error = anyhow::Error;
-
-    fn try_from(checkpoint: ImportTableCheckpoint) -> anyhow::Result<Self> {
-        Ok(SerializedImportTableCheckpoint {
+impl From<ImportTableCheckpoint> for SerializedImportTableCheckpoint {
+    fn from(checkpoint: ImportTableCheckpoint) -> Self {
+        SerializedImportTableCheckpoint {
             component_path: checkpoint.component_path.serialize(),
             display_table_name: checkpoint.display_table_name.to_string(),
             tablet_id: checkpoint.tablet_id.map(|table| table.to_string()),
@@ -343,7 +341,7 @@ impl TryFrom<ImportTableCheckpoint> for SerializedImportTableCheckpoint {
             existing_rows_in_table: checkpoint.existing_rows_in_table,
             existing_rows_to_delete: checkpoint.existing_rows_to_delete,
             is_missing_id_field: checkpoint.is_missing_id_field,
-        })
+        }
     }
 }
 
@@ -378,3 +376,46 @@ pub enum ImportMode {
     #[default]
     RequireEmpty,
 }
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ImportRequestor {
+    SnapshotImport,
+    CloudRestore { source_cloud_backup_id: u64 },
+}
+
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+#[serde(tag = "type", rename_all = "camelCase")]
+enum SerializedImportRequestor {
+    #[serde(rename_all = "camelCase")]
+    SnapshotImport,
+    #[serde(rename_all = "camelCase")]
+    CloudRestore { source_cloud_backup_id: i64 },
+}
+
+impl From<ImportRequestor> for SerializedImportRequestor {
+    fn from(value: ImportRequestor) -> Self {
+        match value {
+            ImportRequestor::SnapshotImport => SerializedImportRequestor::SnapshotImport,
+            ImportRequestor::CloudRestore {
+                source_cloud_backup_id,
+            } => SerializedImportRequestor::CloudRestore {
+                source_cloud_backup_id: source_cloud_backup_id as i64,
+            },
+        }
+    }
+}
+impl From<SerializedImportRequestor> for ImportRequestor {
+    fn from(value: SerializedImportRequestor) -> Self {
+        match value {
+            SerializedImportRequestor::SnapshotImport => ImportRequestor::SnapshotImport,
+            SerializedImportRequestor::CloudRestore {
+                source_cloud_backup_id,
+            } => ImportRequestor::CloudRestore {
+                source_cloud_backup_id: source_cloud_backup_id as u64,
+            },
+        }
+    }
+}
+
+codegen_convex_serialization!(ImportRequestor, SerializedImportRequestor);

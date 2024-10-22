@@ -23,6 +23,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use sync_types::Timestamp;
+use types::ImportRequestor;
 use value::{
     ConvexObject,
     ConvexValue,
@@ -97,6 +98,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         mode: ImportMode,
         component_path: ComponentPath,
         object_key: ObjectKey,
+        requestor: ImportRequestor,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let snapshot_import = SnapshotImport {
             state: ImportState::Uploaded,
@@ -106,6 +108,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             object_key,
             member_id: self.tx.identity().member_id(),
             checkpoints: None,
+            requestor,
         };
         let id = SystemMetadataModel::new_global(self.tx)
             .insert(

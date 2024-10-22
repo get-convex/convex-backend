@@ -226,6 +226,7 @@ use model::{
     snapshot_imports::types::{
         ImportFormat,
         ImportMode,
+        ImportRequestor,
     },
     source_packages::{
         types::{
@@ -257,7 +258,7 @@ use serde_json::Value as JsonValue;
 use short_future::ShortBoxFuture;
 use snapshot_import::{
     clear_tables,
-    store_uploaded_import,
+    start_stored_import,
 };
 use storage::{
     BufferedUpload,
@@ -2040,7 +2041,16 @@ impl<RT: Runtime> Application<RT> {
             .snapshot_imports_storage
             .finish_client_driven_upload(upload_token, part_tokens)
             .await?;
-        store_uploaded_import(self, identity, format, mode, component_path, object_key).await
+        start_stored_import(
+            self,
+            identity,
+            format,
+            mode,
+            component_path,
+            object_key,
+            ImportRequestor::SnapshotImport,
+        )
+        .await
     }
 
     pub async fn upload_snapshot_import(

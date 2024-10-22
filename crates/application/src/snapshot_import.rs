@@ -56,7 +56,6 @@ use common::{
     schemas::DatabaseSchema,
     types::{
         FieldName,
-        FullyQualifiedObjectKey,
         MemberId,
         ObjectKey,
         StorageUuid,
@@ -124,6 +123,7 @@ use model::{
         types::{
             ImportFormat,
             ImportMode,
+            ImportRequestor,
             ImportState,
             ImportTableCheckpoint,
             SnapshotImport,
@@ -1342,45 +1342,26 @@ pub async fn upload_import_file<RT: Runtime>(
         anyhow::bail!(ImportError::Unauthorized);
     }
     let object_key = application.upload_snapshot_import(body_stream).await?;
-    store_uploaded_import(
+    start_stored_import(
         application,
         identity,
         format,
         mode,
         component_path,
         object_key,
+        ImportRequestor::SnapshotImport,
     )
     .await
 }
 
-pub async fn start_cloud_import<RT: Runtime>(
-    application: &Application<RT>,
-    identity: Identity,
-    source_object_key: FullyQualifiedObjectKey,
-) -> anyhow::Result<DeveloperDocumentId> {
-    let object_key: ObjectKey = application
-        .snapshot_imports_storage
-        .copy_object(source_object_key)
-        .await?;
-    let id = store_uploaded_import(
-        application,
-        identity,
-        ImportFormat::Zip,
-        ImportMode::Replace,
-        ComponentPath::root(),
-        object_key,
-    )
-    .await?;
-    Ok(id)
-}
-
-pub async fn store_uploaded_import<RT: Runtime>(
+pub async fn start_stored_import<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
     format: ImportFormat,
     mode: ImportMode,
     component_path: ComponentPath,
     object_key: ObjectKey,
+    requestor: ImportRequestor,
 ) -> anyhow::Result<DeveloperDocumentId> {
     let (_, id, _) = application
         .database
@@ -1398,6 +1379,7 @@ pub async fn store_uploaded_import<RT: Runtime>(
                             mode,
                             component_path.clone(),
                             object_key.clone(),
+                            requestor.clone(),
                         )
                         .await
                 }
