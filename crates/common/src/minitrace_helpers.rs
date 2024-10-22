@@ -17,6 +17,7 @@ use minitrace::{
 use parking_lot::Mutex;
 use rand::Rng;
 use regex::Regex;
+use serde::Deserialize;
 
 use crate::knobs::REQUEST_TRACE_SAMPLE_CONFIG;
 
@@ -139,10 +140,82 @@ impl SamplingConfig {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RouteOverride {
+    route_regexp: String,
+    fraction: f64,
+}
+
+// These are in priority order -- instance overrides take precedence over route
+// overrides, which take precedence over the default fraction.
+//
+// When in doubt, write out a test case to verify the behavior.
+// Technically the default fraction is redundant with `routeOverrides: [{
+// "routeRegexp": ".*", "fraction": ... }]`, but it's pulled out for clarity.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SamplingConfigJson {
+    instance_overrides: Option<BTreeMap<String, Vec<RouteOverride>>>,
+    route_overrides: Option<Vec<RouteOverride>>,
+    default_fraction: f64,
+}
+
+fn validate_fraction(value: f64, context: &str) -> anyhow::Result<f64> {
+    if !(0.0..=1.0).contains(&value) {
+        anyhow::bail!(
+            "Invalid fraction {} in {}: clamping to [0.0, 1.0]",
+            value,
+            context
+        );
+    }
+    Ok(value)
+}
+
+impl TryFrom<SamplingConfigJson> for SamplingConfig {
+    type Error = anyhow::Error;
+
+    fn try_from(json: SamplingConfigJson) -> anyhow::Result<Self> {
+        let mut by_regex = Vec::new();
+        if let Some(instance_overrides) = json.instance_overrides {
+            for (instance_name, route_overrides) in instance_overrides.iter() {
+                for route_override in route_overrides {
+                    by_regex.push((
+                        Some(instance_name.to_owned()),
+                        Regex::new(&route_override.route_regexp).context("Invalid route regexp")?,
+                        validate_fraction(route_override.fraction, instance_name)?,
+                    ));
+                }
+            }
+        }
+        if let Some(route_overrides) = json.route_overrides {
+            for route_override in route_overrides {
+                by_regex.push((
+                    None,
+                    Regex::new(&route_override.route_regexp).context("Invalid route regexp")?,
+                    validate_fraction(route_override.fraction, &route_override.route_regexp)?,
+                ));
+            }
+        }
+        by_regex.push((
+            None,
+            Regex::new(".*").expect(".* is not a valid regex"),
+            validate_fraction(json.default_fraction, "default")?,
+        ));
+        Ok(SamplingConfig { by_regex })
+    }
+}
+
 impl FromStr for SamplingConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> anyhow::Result<Self> {
+        if s.starts_with('{') {
+            let json: SamplingConfigJson =
+                serde_json::from_str(s).context("Failed to parse sampling config as JSON")?;
+            return SamplingConfig::try_from(json);
+        }
+
         let mut by_regex = Vec::new();
         for token in s.split(',') {
             let parts: Vec<_> = token.split(':').map(|s| s.trim()).collect();
@@ -231,6 +304,93 @@ mod tests {
 
         let err = "a:a=a=1.0".parse::<SamplingConfig>().unwrap_err();
         assert!(format!("{}", err).contains("Too many parts"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse_sampling_config_json() -> anyhow::Result<()> {
+        let config: SamplingConfig = r#"{ "defaultFraction": 1.0 }"#.parse()?;
+        assert_eq!(config.by_regex.len(), 1);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 1.0);
+
+        let config: SamplingConfig = r#"{ 
+            "routeOverrides": [ 
+                { "routeRegexp": "a", "fraction": 0.5 }, 
+                { "routeRegexp": "b", "fraction": 0.15 } 
+            ],
+            "defaultFraction": 0.0
+        }"#
+        .parse()?;
+        assert_eq!(config.by_regex.len(), 3);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.0);
+
+        let config: SamplingConfig = r#"{ 
+            "routeOverrides": [ 
+                { "routeRegexp": "a", "fraction": 0.5 }, 
+                { "routeRegexp": "b", "fraction": 0.15 } 
+            ],
+            "defaultFraction": 0.01
+        }"#
+        .parse()?;
+        assert_eq!(config.by_regex.len(), 3);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
+
+        let config: SamplingConfig = r#"{ 
+            "routeOverrides": [ 
+                { "routeRegexp": "/f/.*", "fraction": 0.5 } 
+            ],
+            "defaultFraction": 0.0
+        }"#
+        .parse()?;
+        assert_eq!(config.by_regex.len(), 2);
+        assert_eq!(config.sample_ratio("carnitas", "/f/a"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "/f/b"), 0.5);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.0);
+
+        // Instance overrides.
+        let config: SamplingConfig = r#"{
+            "instanceOverrides": {
+                "alpastor": [ { "routeRegexp": "a", "fraction": 0.5 } ],
+                "carnitas": [ { "routeRegexp": ".*", "fraction": 0.01 } ]
+            },
+            "routeOverrides": [
+                { "routeRegexp": "b", "fraction": 0.15 }
+            ],
+            "defaultFraction": 1.0
+        }"#
+        .parse()?;
+        assert_eq!(config.by_regex.len(), 4);
+        assert_eq!(config.sample_ratio("carnitas", "a"), 0.01);
+        assert_eq!(config.sample_ratio("carnitas", "b"), 0.01);
+        assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
+        assert_eq!(config.sample_ratio("alpastor", "a"), 0.5);
+        assert_eq!(config.sample_ratio("alpastor", "b"), 0.15);
+        assert_eq!(config.sample_ratio("alpastor", "c"), 1.0);
+        assert_eq!(config.sample_ratio("chorizo", "a"), 1.0);
+        assert_eq!(config.sample_ratio("chorizo", "b"), 0.15);
+        assert_eq!(config.sample_ratio("chorizo", "c"), 1.0);
+
+        // Invalid configs.
+        let err = "{ defaultFraction: 1.0 }"
+            .parse::<SamplingConfig>()
+            .unwrap_err();
+        assert!(format!("{}", err).contains("Failed to parse sampling config as JSON"));
+
+        let err = r#"{ "defaultFraction": 4.0 }"#.parse::<SamplingConfig>().unwrap_err();
+        assert!(format!("{}", err).contains("Invalid fraction 4 in default"));
+
+        let err = r#"{ 
+            "defaultFraction": 1.0, 
+            "routeOverrides": [{ "routeRegexp": "(", "fraction": 0.5 }] 
+        }"#
+        .parse::<SamplingConfig>()
+        .unwrap_err();
+        assert!(format!("{}", err).contains("Invalid route regexp"));
 
         Ok(())
     }
