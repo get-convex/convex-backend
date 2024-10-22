@@ -384,6 +384,15 @@ pub enum ImportRequestor {
     CloudRestore { source_cloud_backup_id: u64 },
 }
 
+impl ImportRequestor {
+    pub fn usage_tag(&self) -> &'static str {
+        match self {
+            ImportRequestor::SnapshotImport => "snapshot_import",
+            ImportRequestor::CloudRestore { .. } => "cloud_restore",
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
 enum SerializedImportRequestor {

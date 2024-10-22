@@ -713,6 +713,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             objects,
             usage.clone(),
             Some(snapshot_import.id()),
+            snapshot_import.requestor.clone(),
         )
         .await?;
 
@@ -746,6 +747,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 import_mode: snapshot_import.mode,
                 import_format: snapshot_import.format.clone(),
             },
+            snapshot_import.requestor.clone(),
         )
         .await?;
 
@@ -1579,6 +1581,7 @@ pub async fn clear_tables<RT: Runtime>(
         objects,
         usage.clone(),
         None,
+        ImportRequestor::SnapshotImport,
     )
     .await?;
 
@@ -1591,6 +1594,7 @@ pub async fn clear_tables<RT: Runtime>(
         table_mapping_for_import,
         usage,
         DeploymentAuditLogEvent::ClearTables,
+        ImportRequestor::SnapshotImport,
     )
     .await?;
     Ok(documents_deleted)
@@ -1667,6 +1671,7 @@ async fn import_objects<RT: Runtime>(
     objects: Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
+    requestor: ImportRequestor,
 ) -> anyhow::Result<(TableMapping, u64)> {
     pin_mut!(objects);
     let mut generated_schemas = BTreeMap::new();
@@ -1684,6 +1689,7 @@ async fn import_objects<RT: Runtime>(
         &mut table_mapping_for_import,
         usage.clone(),
         import_id,
+        requestor.clone(),
     )
     .await?
     {
@@ -1818,6 +1824,7 @@ async fn finalize_import<RT: Runtime>(
     table_mapping_for_import: TableMapping,
     usage: FunctionUsageTracker,
     audit_log_event: DeploymentAuditLogEvent,
+    requestor: ImportRequestor,
 ) -> anyhow::Result<(Timestamp, u64)> {
     let tables_in_import = table_mapping_for_import
         .iter()
@@ -1861,10 +1868,15 @@ async fn finalize_import<RT: Runtime>(
         )
         .await?;
 
+    let tag = requestor.usage_tag().to_string();
+    let call_type = match requestor {
+        ImportRequestor::SnapshotImport => CallType::Import,
+        ImportRequestor::CloudRestore { .. } => CallType::CloudRestore,
+    };
     usage_tracking.track_call(
-        UdfIdentifier::Cli("import".to_string()),
+        UdfIdentifier::Cli(tag),
         ExecutionId::new(),
-        CallType::Import,
+        call_type,
         usage.gather_user_stats(),
     );
 
@@ -1988,6 +2000,7 @@ async fn import_storage_table<RT: Runtime>(
     usage: &dyn StorageUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     num_to_skip: u64,
+    requestor: ImportRequestor,
 ) -> anyhow::Result<()> {
     let snapshot = database.latest_snapshot()?;
     let namespace = snapshot
@@ -2131,14 +2144,14 @@ async fn import_storage_table<RT: Runtime>(
         usage
             .track_storage_call(
                 component_path.clone(),
-                "snapshot_import",
+                requestor.usage_tag(),
                 entry.storage_id,
                 content_type,
                 entry.sha256,
             )
             .track_storage_ingress_size(
                 component_path.clone(),
-                "snapshot_import".to_string(),
+                requestor.usage_tag().to_string(),
                 file_size,
             );
         num_files += 1;
@@ -2244,6 +2257,7 @@ async fn import_single_table<RT: Runtime>(
     table_mapping_for_import: &mut TableMapping,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
+    requestor: ImportRequestor,
 ) -> anyhow::Result<Option<u64>> {
     while let Some(ImportUnit::GeneratedSchema(component_path, table_name, generated_schema)) =
         objects
@@ -2360,6 +2374,7 @@ async fn import_single_table<RT: Runtime>(
             &usage,
             import_id,
             num_to_skip,
+            requestor,
         )
         .await?;
         return Ok(Some(0));
@@ -2826,7 +2841,10 @@ mod tests {
         Identity,
     };
     use maplit::btreemap;
-    use model::snapshot_imports::types::ImportState;
+    use model::snapshot_imports::types::{
+        ImportRequestor,
+        ImportState,
+    };
     use must_let::must_let;
     use runtime::testing::TestRuntime;
     use serde_json::{
@@ -3558,6 +3576,7 @@ a
             objects,
             usage.clone(),
             None,
+            ImportRequestor::SnapshotImport,
         )
         .await?;
 

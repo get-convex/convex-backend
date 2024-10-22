@@ -96,6 +96,7 @@ pub enum CallType {
     Mutation,
     Import,
     CloudBackup,
+    CloudRestore,
 }
 
 impl CallType {
@@ -109,6 +110,7 @@ impl CallType {
             Self::HttpAction { .. } => "http_action",
             Self::Import => "import",
             Self::CloudBackup => "cloud_backup",
+            Self::CloudRestore => "cloud_restore",
         }
     }
 
