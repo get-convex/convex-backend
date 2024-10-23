@@ -714,6 +714,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             usage.clone(),
             Some(snapshot_import.id()),
             snapshot_import.requestor.clone(),
+            &self.usage_tracking,
         )
         .await?;
 
@@ -750,6 +751,18 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             snapshot_import.requestor.clone(),
         )
         .await?;
+        let object_attributes = self
+            .snapshot_imports_storage
+            .get_object_attributes(&snapshot_import.object_key)
+            .await?
+            .context("error getting export object attributes from S3")?;
+
+        // Charge file bandwidth for the download of the snapshot from imports storage
+        self.usage_tracking.track_independent_storage_egress_size(
+            ComponentPath::root(),
+            snapshot_import.requestor.usage_tag().to_string(),
+            object_attributes.size,
+        );
 
         Ok((ts, total_documents_imported))
     }
@@ -1582,6 +1595,7 @@ pub async fn clear_tables<RT: Runtime>(
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
+        &application.usage_tracking,
     )
     .await?;
 
@@ -1672,6 +1686,7 @@ async fn import_objects<RT: Runtime>(
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
+    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<(TableMapping, u64)> {
     pin_mut!(objects);
     let mut generated_schemas = BTreeMap::new();
@@ -1690,6 +1705,7 @@ async fn import_objects<RT: Runtime>(
         usage.clone(),
         import_id,
         requestor.clone(),
+        usage_tracking,
     )
     .await?
     {
@@ -1873,6 +1889,7 @@ async fn finalize_import<RT: Runtime>(
         ImportRequestor::SnapshotImport => CallType::Import,
         ImportRequestor::CloudRestore { .. } => CallType::CloudRestore,
     };
+    // Charge database bandwidth accumulated during the import
     usage_tracking.track_call(
         UdfIdentifier::Cli(tag),
         ExecutionId::new(),
@@ -2001,6 +2018,7 @@ async fn import_storage_table<RT: Runtime>(
     import_id: Option<ResolvedDocumentId>,
     num_to_skip: u64,
     requestor: ImportRequestor,
+    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<()> {
     let snapshot = database.latest_snapshot()?;
     let namespace = snapshot
@@ -2141,19 +2159,18 @@ async fn import_storage_table<RT: Runtime>(
             .as_ref()
             .map(|ct| ct.parse())
             .transpose()?;
-        usage
-            .track_storage_call(
-                component_path.clone(),
-                requestor.usage_tag(),
-                entry.storage_id,
-                content_type,
-                entry.sha256,
-            )
-            .track_storage_ingress_size(
-                component_path.clone(),
-                requestor.usage_tag().to_string(),
-                file_size,
-            );
+        usage.track_storage_call(
+            component_path.clone(),
+            requestor.usage_tag(),
+            entry.storage_id,
+            content_type,
+            entry.sha256,
+        );
+        usage_tracking.track_independent_storage_ingress_size(
+            component_path.clone(),
+            requestor.usage_tag().to_string(),
+            file_size,
+        );
         num_files += 1;
         if let Some(import_id) = import_id {
             best_effort_update_progress_message(
@@ -2258,6 +2275,7 @@ async fn import_single_table<RT: Runtime>(
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
+    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<Option<u64>> {
     while let Some(ImportUnit::GeneratedSchema(component_path, table_name, generated_schema)) =
         objects
@@ -2375,6 +2393,7 @@ async fn import_single_table<RT: Runtime>(
             import_id,
             num_to_skip,
             requestor,
+            usage_tracking,
         )
         .await?;
         return Ok(Some(0));
@@ -3577,15 +3596,12 @@ a
             usage.clone(),
             None,
             ImportRequestor::SnapshotImport,
+            &app.usage_tracking,
         )
         .await?;
 
         let stats = usage.gather_user_stats();
         assert!(stats.database_ingress_size[&(component_path.clone(), table_name.to_string())] > 0);
-        assert_eq!(
-            *stats.storage_ingress_size.get(&component_path).unwrap(),
-            9u64
-        );
 
         Ok(())
     }
