@@ -50,7 +50,6 @@ pub const TRUNCATED_LINE_SUFFIX: &str = " (truncated due to length)";
 pub const MAX_LOG_LINE_LENGTH: usize = 32768;
 /// List of log lines from a Convex function execution.
 #[derive(Default, Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct LogLines(WithHeapSize<Vec<LogLine>>);
 pub type RawLogLines = WithHeapSize<Vec<String>>;
 
@@ -317,6 +316,17 @@ impl LogLines {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+impl Arbitrary for LogLines {
+    type Parameters = ();
+
+    type Strategy = impl proptest::strategy::Strategy<Value = LogLines>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        prop::collection::vec(any::<LogLine>(), 0..6).prop_map(LogLines::from)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum LogLine {
     Structured(LogLineStructured),
@@ -362,7 +372,7 @@ impl Arbitrary for LogLine {
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         let leaf = any::<LogLineStructured>().prop_map(LogLine::Structured);
-        leaf.prop_recursive(3, 16, 2, |inner| {
+        leaf.prop_recursive(3, 8, 2, |inner| {
             prop_oneof![
                 (
                     any::<CanonicalizedComponentFunctionPath>(),
