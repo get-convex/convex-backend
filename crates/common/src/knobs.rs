@@ -346,7 +346,7 @@ pub static INDEX_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
 /// How many parallel threads to use for deleting document log entries that have
 /// expired.
 pub static DOCUMENT_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_PARALLEL", 1));
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_PARALLEL", 2));
 
 /// INDEX_RETENTION_DELAY determines the size of the index retention window.
 ///
@@ -417,7 +417,7 @@ pub static INDEX_RETENTION_DELETE_CHUNK: LazyLock<usize> =
 
 /// Chunk size of documents for deleting from Persistence.
 pub static DOCUMENT_RETENTION_DELETE_CHUNK: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_CHUNK", 128));
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_CHUNK", 256));
 
 /// Batch size of index entries to delete between checkpoints.
 pub static RETENTION_DELETE_BATCH: LazyLock<usize> =
@@ -449,10 +449,7 @@ pub static RETENTION_FAIL_ALL_MULTIPLIER: LazyLock<usize> =
 /// also used to jitter document retention on startup to avoid a thundering
 /// herd.
 pub static DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config(
-        "DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS",
-        2 * 60,
-    ))
+    Duration::from_secs(env_config("DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS", 60))
 });
 
 /// Maximum scanned documents within a single run for document retention unless
