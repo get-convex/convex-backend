@@ -16,6 +16,7 @@ mod stream;
 mod text;
 mod time;
 mod validate_args;
+mod validate_returns;
 
 use std::{
     collections::BTreeMap,
@@ -43,6 +44,7 @@ use deno_core::{
 use rand_chacha::ChaCha12Rng;
 use sourcemap::SourceMap;
 use uuid::Uuid;
+use validate_returns::op_validate_returns;
 use value::{
     heap_size::WithHeapSize,
     NamespacedTableMapping,
@@ -385,6 +387,7 @@ pub fn run_op<'b, P: OpProvider<'b>>(
             op_get_table_mapping_without_system_tables(provider, args, rv)?
         },
         "validateArgs" => op_validate_args(provider, args, rv)?,
+        "validateReturns" => op_validate_returns(provider, args, rv)?,
 
         "crypto/randomUUID" => op_crypto_random_uuid(provider, args, rv)?,
         "crypto/getRandomValues" => op_crypto_get_random_values(provider, args, rv)?,

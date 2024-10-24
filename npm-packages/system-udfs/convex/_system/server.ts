@@ -38,13 +38,16 @@ import { performOp } from "udf-syscall-ffi";
 
 type FunctionDefinition = {
   args: Record<string, GenericValidator>;
+  returns?: GenericValidator;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
 };
 
 type WrappedFunctionDefinition = {
   args: Record<string, GenericValidator>;
+  returns?: GenericValidator;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
   exportArgs(): string;
+  exportReturns(): string;
 };
 
 type Wrapper = (def: FunctionDefinition) => WrappedFunctionDefinition;
@@ -57,21 +60,33 @@ function withArgsValidated<T>(wrapper: T): T {
     const wrap: Wrapper = wrapper as Wrapper;
     const func = wrap({
       args: functionDefinition.args,
+      returns: functionDefinition.returns,
       handler: () => {},
     });
     const argsValidatorJson = func.exportArgs();
+    const returnsValidatorJson = func.exportReturns();
     return wrap({
       args: functionDefinition.args,
+      returns: functionDefinition.returns,
       handler: async (ctx: any, args: any) => {
-        const result = await performOp(
+        const validateArgsResult = await performOp(
           "validateArgs",
           argsValidatorJson,
           convexToJson(args),
         );
-        if (!result.valid) {
-          throw new Error(result.message);
+        if (!validateArgsResult.valid) {
+          throw new Error(validateArgsResult.message);
         }
-        return functionDefinition.handler(ctx, args);
+        const functionResult = await functionDefinition.handler(ctx, args);
+        const validateReturnsResult = await performOp(
+          "validateReturns",
+          returnsValidatorJson,
+          convexToJson(functionResult === undefined ? null : functionResult),
+        );
+        if (!validateReturnsResult.valid) {
+          throw new Error(validateReturnsResult.message);
+        }
+        return functionResult;
       },
     });
   }) as T;
@@ -91,6 +106,7 @@ export const internalActionGeneric = withArgsValidated(
 export const mutationGeneric = ((functionDefinition: FunctionDefinition) => {
   return mutationGenericWithoutComponent({
     args: functionDefinition.args,
+    returns: functionDefinition.returns,
     handler: async (ctx: any, args: any) => {
       if (
         "componentId" in args &&

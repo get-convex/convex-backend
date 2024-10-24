@@ -94,12 +94,14 @@ function maskPublicSystem<T extends GenericDataModel>(
 
 type FunctionDefinition = {
   args: Record<string, GenericValidator>;
+  returns: GenericValidator;
   handler: (ctx: any, args: DefaultFunctionArgs) => any;
 };
 
 const queryWithComponent = ((functionDefinition: FunctionDefinition) => {
   return baseQuery({
     args: functionDefinition.args,
+    returns: functionDefinition.returns,
     handler: async (ctx: any, args: any) => {
       if (
         "componentId" in args &&
@@ -125,6 +127,7 @@ export const queryPrivateSystem = ((functionDefinition: FunctionDefinition) => {
   }
   return queryWithComponent({
     args: functionDefinition.args,
+    returns: functionDefinition.returns,
     handler: (ctx: any, args: any) => {
       return functionDefinition.handler(
         { ...ctx, db: maskPrivateSystem(ctx.db) },
@@ -137,6 +140,7 @@ export const queryPrivateSystem = ((functionDefinition: FunctionDefinition) => {
 const queryGenericWithComponent = ((functionDefinition: FunctionDefinition) => {
   return baseQueryGeneric({
     args: functionDefinition.args,
+    returns: functionDefinition.returns,
     handler: async (ctx: any, args: any) => {
       if (
         "componentId" in args &&
@@ -160,6 +164,7 @@ export const queryGeneric = ((functionDefinition: FunctionDefinition) => {
   }
   return queryGenericWithComponent({
     args: functionDefinition.args,
+    returns: functionDefinition.returns,
     handler: (ctx: any, args: any) => {
       return functionDefinition.handler(
         {
