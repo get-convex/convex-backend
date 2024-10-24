@@ -149,6 +149,8 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
         Pathname { value: String },
         Search { value: Option<String> },
         SearchParams { value: Vec<(String, String)> },
+        Username { value: Option<String> },
+        Password { value: Option<String> },
     }
 
     let update: Update = serde_json::from_value(update)?;
@@ -194,6 +196,16 @@ pub fn op_url_update_url_info<'b, P: OpProvider<'b>>(
         },
         Update::Pathname { value } => parsed_url.set_path(&value),
         Update::Search { value } => parsed_url.set_query(value.as_deref()),
+        Update::Username { value } => parsed_url
+            .set_username(
+                value
+                    .as_deref()
+                    .ok_or_else(|| anyhow::anyhow!("No username provided"))?,
+            )
+            .map_err(|_e| anyhow::anyhow!("Failed to set username"))?,
+        Update::Password { value } => parsed_url
+            .set_password(value.as_deref())
+            .map_err(|_e| anyhow::anyhow!("Failed to set password"))?,
     }
 
     let url_info: UrlInfo = parsed_url.try_into()?;
@@ -243,16 +255,14 @@ struct UrlInfo {
     port: String,
     protocol: String,
     search: String,
+    username: String,
+    password: String,
 }
 
 impl TryFrom<Url> for UrlInfo {
     type Error = anyhow::Error;
 
     fn try_from(value: Url) -> Result<Self, Self::Error> {
-        if value.username() != "" || value.password().is_some() {
-            anyhow::bail!("Unsupported URL with username and password")
-        }
-
         if value.scheme() != "http" && value.scheme() != "https" {
             anyhow::bail!(
                 "Unsupported URL scheme -- http and https are supported (scheme was {})",
@@ -270,6 +280,8 @@ impl TryFrom<Url> for UrlInfo {
             port: value[Position::BeforePort..Position::AfterPort].to_string(),
             protocol: value[..Position::AfterScheme].to_string(),
             search: value[Position::BeforeQuery..Position::AfterQuery].to_string(),
+            username: value[Position::BeforeUsername..Position::AfterUsername].to_string(),
+            password: value[Position::BeforePassword..Position::AfterPassword].to_string(),
         };
         Ok(url_info)
     }

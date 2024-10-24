@@ -13,7 +13,6 @@ import { wrapInTests } from "./testHelpers";
  * https://github.com/denoland/deno/blob/10e4b2e14046b74469f7310c599579a6611513fe/cli/tests/unit/url_test.ts
  *
  * Known limitations:
- *  - URLs with  password / username are unsupported (CX-3088)
  *  - URLs with scheme other than `http` and `https` are unsupported (CX-3087)
  *  - setting the host is unsupported (CX-3090)
  */
@@ -59,17 +58,18 @@ function urlProtocolParsing() {
   assert.throws(() => new URL("*://foo"), TypeError, "Invalid URL: '*://foo'");
 }
 
-// function urlAuthenticationParsing() {
-//   const specialUrl = new URL("http://foo:bar@baz");
-//   assert.strictEqual(specialUrl.username, "foo");
-//   assert.strictEqual(specialUrl.password, "bar");
-//   assert.strictEqual(specialUrl.hostname, "baz");
-//   assert.throws(() => new URL("file://foo:bar@baz"), TypeError, "Invalid URL");
-//   const nonSpecialUrl = new URL("abcd://foo:bar@baz");
-//   assert.strictEqual(nonSpecialUrl.username, "foo");
-//   assert.strictEqual(nonSpecialUrl.password, "bar");
-//   assert.strictEqual(nonSpecialUrl.hostname, "baz");
-// }
+function urlAuthenticationParsing() {
+  const specialUrl = new URL("http://foo:bar@baz");
+  assert.strictEqual(specialUrl.username, "foo");
+  assert.strictEqual(specialUrl.password, "bar");
+  assert.strictEqual(specialUrl.hostname, "baz");
+  assert.throws(() => new URL("file://foo:bar@baz"), TypeError, "Invalid URL");
+  // non http/https protocols not supported yet
+  // const nonSpecialUrl = new URL("abcd://foo:bar@baz");
+  // assert.strictEqual(nonSpecialUrl.username, "foo");
+  // assert.strictEqual(nonSpecialUrl.password, "bar");
+  // assert.strictEqual(nonSpecialUrl.hostname, "baz");
+}
 
 function urlHostnameParsing() {
   // IPv6.
@@ -538,7 +538,7 @@ export default query(async () => {
     // unsupported scheme
     // protocolNotHttpOrFile,
 
-    // urlAuthenticationParsing,
+    urlAuthenticationParsing,
     urlHostnameParsing,
     urlPortParsing,
     urlModifications,
