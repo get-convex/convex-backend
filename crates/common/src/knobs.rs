@@ -346,7 +346,7 @@ pub static INDEX_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
 /// How many parallel threads to use for deleting document log entries that have
 /// expired.
 pub static DOCUMENT_RETENTION_DELETE_PARALLEL: LazyLock<usize> =
-    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_PARALLEL", 2));
+    LazyLock::new(|| env_config("DOCUMENT_RETENTION_DELETE_PARALLEL", 1));
 
 /// INDEX_RETENTION_DELAY determines the size of the index retention window.
 ///
