@@ -213,13 +213,14 @@ impl From<Reference> for String {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
 
     use super::Reference;
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

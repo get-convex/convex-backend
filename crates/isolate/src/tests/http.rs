@@ -28,7 +28,7 @@ use crate::{
 
 proptest! {
     #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER"), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
     #[test]

@@ -482,6 +482,7 @@ mod tests {
         time::Duration,
     };
 
+    use cmd_util::env::env_config;
     use common::{
         document::{
             CreationTime,
@@ -805,6 +806,8 @@ mod tests {
     }
 
     proptest! {
+        #![proptest_config(ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
+
         #[test]
         fn search_subscriptions_are_notified(tokens in search_tokens(0..10)) {
             let mut id_generator = TestIdGenerator::new();

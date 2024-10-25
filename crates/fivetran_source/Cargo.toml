@@ -37,6 +37,7 @@ tokio = { workspace = true }
 tonic-build = { workspace = true }
 
 [dev-dependencies]
+cmd_util = { path = "../cmd_util" }
 convex = { path = "../convex", features = ["testing"] }
 convex_fivetran_common = { path = "../fivetran_common", features = ["testing"] }
 proptest = { workspace = true }

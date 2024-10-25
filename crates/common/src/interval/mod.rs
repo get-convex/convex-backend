@@ -174,6 +174,7 @@ impl RangeBounds<[u8]> for &Interval {
 mod tests {
     use std::collections::BTreeSet;
 
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
 
     use super::{
@@ -226,7 +227,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

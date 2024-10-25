@@ -633,6 +633,7 @@ impl TryFrom<JsonValue> for ExportContext {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use maplit::{
         btreemap,
         btreeset,
@@ -945,7 +946,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            failure_persistence: None, ..ProptestConfig::default()
+            failure_persistence: None, cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), ..ProptestConfig::default()
         })]
         #[test]
         fn export_context_json_roundtrip(export_context in any::<ExportContext>()) {
@@ -1093,6 +1094,7 @@ impl<T: ShapeConfig> GeneratedSchema<T> {
 mod test_generated_schema {
     use std::collections::BTreeMap;
 
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
     use value::{
         assert_val,
@@ -1109,7 +1111,7 @@ mod test_generated_schema {
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            failure_persistence: None, ..ProptestConfig::default()
+            failure_persistence: None, cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), ..ProptestConfig::default()
         })]
         #[test]
         fn generated_schema_object_roundtrip(

@@ -1995,6 +1995,7 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use common::pause::PauseController;
     use pb::common::FunctionResult as FunctionResultProto;
     use proptest::prelude::*;
@@ -2014,7 +2015,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

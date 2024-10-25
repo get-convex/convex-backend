@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use cmd_util::env::env_config;
 use proptest::prelude::*;
 use serde_json::{
     json,
@@ -83,7 +84,7 @@ fn test_parse_query() -> anyhow::Result<()> {
 
 proptest! {
     #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
     #[test]

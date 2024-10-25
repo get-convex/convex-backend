@@ -349,6 +349,7 @@ fn roundtrip_converted_value(
 mod tests {
     use std::str::FromStr;
 
+    use cmd_util::env::env_config;
     use common::{
         assert_obj,
         value::{
@@ -687,6 +688,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
+            cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),
             failure_persistence: None, ..ProptestConfig::default()
         })]
         #[test]

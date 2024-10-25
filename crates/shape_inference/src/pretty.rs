@@ -264,6 +264,7 @@ pub(crate) mod test_from_str_structural {
 
     use std::str::FromStr;
 
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
 
     use crate::{
@@ -282,7 +283,7 @@ pub(crate) mod test_from_str_structural {
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            failure_persistence: None, ..ProptestConfig::default()
+            failure_persistence: None, cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),  ..ProptestConfig::default()
         })]
         #[test]
         fn shape_to_string_roundtrips_structural(

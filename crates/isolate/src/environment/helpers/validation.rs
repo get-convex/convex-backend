@@ -691,15 +691,17 @@ impl TryFrom<ValidatedHttpPath> for pb::common::ValidatedHttpPath {
 #[cfg(test)]
 mod test {
 
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
 
     use crate::{
         ValidatedHttpPath,
         ValidatedPathAndArgs,
     };
+
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

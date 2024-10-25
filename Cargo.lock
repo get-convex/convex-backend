@@ -1381,6 +1381,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "clap",
+ "cmd_util",
  "convex",
  "convex_fivetran_common",
  "derive_more",
@@ -2229,6 +2230,7 @@ name = "errors"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cmd_util",
  "http 1.1.0",
  "metrics",
  "prometheus",
@@ -4910,6 +4912,7 @@ dependencies = [
  "anyhow",
  "base64 0.13.1",
  "bytes",
+ "cmd_util",
  "criterion",
  "flexbuffers",
  "maplit",
@@ -4962,6 +4965,7 @@ name = "pb"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cmd_util",
  "convex_sync_types",
  "errors",
  "http 1.1.0",
@@ -6790,6 +6794,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.13.1",
+ "cmd_util",
  "convex_sync_types",
  "itertools 0.13.0",
  "maplit",
@@ -7484,6 +7489,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "byteorder",
+ "cmd_util",
  "common",
  "maplit",
  "metrics",
@@ -8167,6 +8173,7 @@ name = "usage_tracking"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "cmd_util",
  "common",
  "events",
  "headers",
@@ -8315,6 +8322,7 @@ dependencies = [
  "async-trait",
  "atomic_refcell",
  "bitvec",
+ "cmd_util",
  "common",
  "criterion",
  "errors",

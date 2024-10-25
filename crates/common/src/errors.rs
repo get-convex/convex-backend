@@ -653,6 +653,7 @@ pub const TIMEOUT_ERROR_MESSAGE: &str = "Your request timed out.";
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use errors::{
         ErrorMetadata,
         ErrorMetadataAnyhowExt,
@@ -800,7 +801,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
         #[test]
         fn js_error_proto_roundtrips(js_error in any::<JsError>()) {

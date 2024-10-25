@@ -354,13 +354,14 @@ mod tests {
     mod test_min_index_descriptor {
         use std::str::FromStr;
 
+        use cmd_util::env::env_config;
         use proptest::prelude::*;
 
         use super::super::IndexDescriptor;
 
         proptest! {
             #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
             #[test]

@@ -206,6 +206,7 @@ impl TryFrom<RedactedJsErrorProto> for RedactedJsError {
 
 #[cfg(test)]
 pub mod tests {
+    use cmd_util::env::env_config;
     use common::{
         errors::JsError,
         RequestId,
@@ -227,7 +228,7 @@ pub mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
         #[test]
         fn format_when_redacted_includes_request_id_but_no_error(

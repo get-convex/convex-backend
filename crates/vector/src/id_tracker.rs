@@ -325,6 +325,7 @@ impl IdTracker for VectorStaticIdTracker {
 #[cfg(test)]
 mod tests {
     use bitvec::vec::BitVec;
+    use cmd_util::env::env_config;
     use common::deleted_bitset::DeletedBitset;
     use must_let::must_let;
     use proptest::prelude::*;
@@ -455,7 +456,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

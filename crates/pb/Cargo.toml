@@ -18,6 +18,7 @@ tonic = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
+cmd_util = { path = "../cmd_util" }
 convex_sync_types = { path = "../convex/sync_types", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
 proptest = { workspace = true }

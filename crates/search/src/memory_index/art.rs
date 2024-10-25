@@ -1059,6 +1059,7 @@ impl<K: AsRef<[u8]>, V: Clone> ART<K, V> {
 mod tests {
     use std::collections::BTreeMap;
 
+    use cmd_util::env::env_config;
     use itertools::Itertools;
     use levenshtein_automata::LevenshteinAutomatonBuilder;
     use proptest::{
@@ -1275,8 +1276,11 @@ mod tests {
     proptest! {
         // If you make a change to ART, run proptests with higher case count using PROPTEST_CASES=100000
         #![proptest_config(
-            ProptestConfig { failure_persistence: None,
-                ..ProptestConfig { cases: 512, ..ProptestConfig::default() } }
+            ProptestConfig {
+                failure_persistence: None,
+                cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),
+                ..ProptestConfig::default()
+            }
         )]
 
         #[test]

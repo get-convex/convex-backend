@@ -38,6 +38,7 @@ uuid = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
+cmd_util = { path = "../cmd_util" }
 common = { path = "../common", features = ["testing"] }
 criterion = { workspace = true }
 errors = { path = "../errors", features = ["testing"] }

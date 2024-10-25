@@ -10,6 +10,7 @@ use std::{
 };
 
 use ::usage_tracking::FunctionUsageTracker;
+use cmd_util::env::env_config;
 use common::{
     assert_obj,
     bootstrap_model::index::{
@@ -872,7 +873,7 @@ async fn test_query_index_range_half_bounded(rt: TestRuntime) -> anyhow::Result<
 
 proptest! {
     #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
     #[test]

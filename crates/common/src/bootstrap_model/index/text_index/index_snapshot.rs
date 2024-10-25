@@ -334,8 +334,9 @@ impl TryFrom<SerializedTextIndexSnapshot> for TextIndexSnapshot {
 
 #[cfg(test)]
 pub mod test {
+    use cmd_util::env::env_config;
     use proptest::{
-        prelude::any,
+        prelude::*,
         proptest,
     };
     use value::testing::assert_roundtrips;
@@ -346,6 +347,7 @@ pub mod test {
     };
 
     proptest! {
+        #![proptest_config(ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
 
         #[test]
         fn test_parse_index_snapshot(left in any::<TextIndexSnapshot>()) {

@@ -107,6 +107,7 @@ impl proptest::arbitrary::Arbitrary for MaybeValue {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
     use sync_types::testing::assert_roundtrips;
@@ -114,6 +115,8 @@ mod tests {
     use super::MaybeValue;
 
     proptest! {
+        #![proptest_config(ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
+
         #[test]
         fn test_maybe_value_roundtrips(value in any::<MaybeValue>()) {
             assert_roundtrips::<MaybeValue, JsonValue>(value);

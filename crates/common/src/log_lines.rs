@@ -750,6 +750,7 @@ pub async fn run_function_and_collect_log_lines<Outcome>(
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
     use value::{
@@ -764,7 +765,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
         #[test]
         fn test_structured_round_trips(log_line in any::<LogLine>()) {

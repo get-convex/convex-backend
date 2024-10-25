@@ -259,6 +259,7 @@ mod tests {
         str::FromStr,
     };
 
+    use cmd_util::env::env_config;
     use convex_fivetran_common::fivetran_sdk::{
         value_type::Inner as FivetranValue,
         Compression as FivetranFileCompression,
@@ -889,6 +890,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
+            cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),
             failure_persistence: None, ..ProptestConfig::default()
         })]
         #[test]

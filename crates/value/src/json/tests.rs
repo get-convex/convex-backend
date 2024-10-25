@@ -31,6 +31,7 @@ fn test_unrecognized_system_key() {
 }
 
 mod json_serialize_roundtrip {
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
 
@@ -54,7 +55,7 @@ mod json_serialize_roundtrip {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

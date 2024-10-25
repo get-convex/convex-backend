@@ -1026,6 +1026,7 @@ impl TryFrom<ConvexObject> for CronJobLogLines {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
     use value::{
@@ -1044,38 +1045,23 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
         #[test]
         fn test_cron_job_log_roundtrips(v in any::<CronJobLog>()) {
             assert_roundtrips::<CronJobLog, ConvexObject>(v);
         }
-    }
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
         #[test]
         fn test_cron_job_status_roundtrips(v in any::<CronJobStatus>()) {
             assert_roundtrips::<CronJobStatus, ConvexObject>(v);
         }
-    }
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
         #[test]
         fn test_cron_job_result_roundtrips(v in any::<CronJobResult>()) {
             assert_roundtrips::<CronJobResult, ConvexObject>(v);
         }
-    }
 
-    proptest! {
-        #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
-        )]
         #[test]
         fn test_cron_job_log_lines_roundtrips(v in any::<CronJobLogLines>()) {
             assert_roundtrips::<CronJobLogLines, ConvexObject>(v);

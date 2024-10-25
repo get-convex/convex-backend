@@ -352,6 +352,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use pb::storage::FileStorageId as FileStorageIdProto;
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
@@ -359,7 +360,7 @@ mod tests {
     use super::FileStorageId;
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

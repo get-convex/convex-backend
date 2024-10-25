@@ -546,6 +546,7 @@ mod tests {
         BTreeSet,
     };
 
+    use cmd_util::env::env_config;
     use common::{
         bootstrap_model::index::{
             database_index::IndexedFields,
@@ -854,7 +855,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
 

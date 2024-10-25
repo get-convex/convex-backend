@@ -134,6 +134,7 @@ impl ErrorMetadataStatusExt for tonic::Status {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use errors::{
         ErrorMetadataAnyhowExt,
         INTERNAL_SERVER_ERROR_MSG,
@@ -149,7 +150,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

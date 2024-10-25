@@ -113,6 +113,7 @@ impl TryFrom<ExternalDepsPackage> for ConvexObject {
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use common::testing::assert_roundtrips;
     use proptest::prelude::*;
     use value::ConvexObject;
@@ -121,7 +122,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
         #[test]
         fn test_external_package_roundtrip(v in any::<ExternalDepsPackage>()) {

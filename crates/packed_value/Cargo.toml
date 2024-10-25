@@ -19,6 +19,7 @@ serde_json = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
+cmd_util = { path = "../cmd_util" }
 criterion = { workspace = true }
 maplit = { workspace = true }
 proptest = { workspace = true }

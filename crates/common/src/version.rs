@@ -439,6 +439,7 @@ impl fmt::Debug for ClientVersion {
 mod tests {
     use std::assert_matches::assert_matches;
 
+    use cmd_util::env::env_config;
     use proptest::prelude::*;
     use semver::{
         BuildMetadata,
@@ -598,7 +599,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

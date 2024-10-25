@@ -22,6 +22,7 @@ tantivy-common = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
+cmd_util = { path = "../cmd_util" }
 common = { path = "../common", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 proptest = { workspace = true }

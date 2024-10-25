@@ -508,6 +508,7 @@ fn hash_log_lines(hasher: &mut Sha256, log_lines: &RedactedLogLines) {
 #[cfg(test)]
 mod tests {
     use application::redaction::RedactedLogLines;
+    use cmd_util::env::env_config;
     use common::{
         log_lines::{
             LogLevel,
@@ -523,7 +524,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]

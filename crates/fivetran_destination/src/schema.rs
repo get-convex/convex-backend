@@ -896,6 +896,7 @@ mod tests {
         str::FromStr,
     };
 
+    use cmd_util::env::env_config;
     use common::{
         bootstrap_model::index::database_index::IndexedFields,
         document::CREATION_TIME_FIELD_PATH,
@@ -1892,6 +1893,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
+            cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),
             failure_persistence: None, ..ProptestConfig::default()
         })]
         #[test]

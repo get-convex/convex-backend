@@ -104,6 +104,7 @@ pub fn to_fivetran_row(
 
 #[cfg(test)]
 mod tests {
+    use cmd_util::env::env_config;
     use maplit::btreemap;
     use proptest::prelude::*;
     use serde_json::json;
@@ -112,6 +113,7 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
+            cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1),
             failure_persistence: None, ..ProptestConfig::default()
         })]
         #[test]

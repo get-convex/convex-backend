@@ -523,6 +523,7 @@ mod tests {
         BTreeSet,
     };
 
+    use cmd_util::env::env_config;
     #[allow(unused)]
     use itertools::Itertools;
     use proptest::prelude::*;
@@ -721,7 +722,7 @@ mod tests {
         // It's useful during development to run many more tests in release builds:
         // PROPTEST_CASES=102400 RUSTFLAGS="-C target-cpu=native -C debug-assertions=yes" cargo test --release --lib term_list
         #![proptest_config(
-            ProptestConfig { failure_persistence: None, ..ProptestConfig::default() }
+            ProptestConfig { cases: 256 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, ..ProptestConfig::default() }
         )]
 
         #[test]
