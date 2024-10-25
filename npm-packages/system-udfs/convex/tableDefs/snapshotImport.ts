@@ -66,4 +66,18 @@ export const snapshotImportsTable = defineTable({
       ),
     ),
   ),
+
+  // This is optional for the moment because historical data hasn’t been
+  // backfilled yet.
+  requestor: v.optional(
+    v.union(
+      v.object({
+        type: v.literal("snapshotImport"),
+      }),
+      v.object({
+        type: v.literal("cloudRestore"),
+        sourceCloudBackupId: v.int64(),
+      }),
+    ),
+  ),
 });
