@@ -258,9 +258,6 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         let Export::Completed { expiration_ts, .. } = &mut export else {
             anyhow::bail!("Can only set expiration on completed exports");
         };
-        if *expiration_ts < (*self.tx.begin_timestamp()).into() {
-            anyhow::bail!("Cannot set expiration if it's already in the past");
-        }
         *expiration_ts = expiration_ts_ns;
         SystemMetadataModel::new_global(self.tx)
             .replace(id, export.try_into()?)
