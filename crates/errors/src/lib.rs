@@ -347,6 +347,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::Forbidden
     }
 
+    pub fn is_misdirected_request(&self) -> bool {
+        self.code == ErrorCode::MisdirectedRequest
+    }
+
     /// Return true if this error is deterministically caused by user. If so,
     /// we can propagate it into JS out of a syscall, and cache it if it is the
     /// full UDF result.
@@ -499,7 +503,7 @@ impl ErrorCode {
             ErrorCode::PaginationLimit => tonic::Code::InvalidArgument,
             ErrorCode::OutOfRetention => tonic::Code::OutOfRange,
             ErrorCode::OperationalInternalServerError => tonic::Code::Internal,
-            ErrorCode::MisdirectedRequest => tonic::Code::InvalidArgument,
+            ErrorCode::MisdirectedRequest => tonic::Code::FailedPrecondition,
         }
     }
 
@@ -531,6 +535,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_forbidden(&self) -> bool;
     fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)>;
     fn is_deterministic_user_error(&self) -> bool;
+    fn is_misdirected_request(&self) -> bool;
     fn user_facing_message(&self) -> String;
     fn short_msg(&self) -> &str;
     fn msg(&self) -> &str;
@@ -614,6 +619,13 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_forbidden(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_forbidden();
+        }
+        false
+    }
+
+    fn is_misdirected_request(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_misdirected_request();
         }
         false
     }

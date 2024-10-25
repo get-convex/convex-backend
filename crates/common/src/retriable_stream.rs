@@ -64,6 +64,10 @@ where
         }
         anyhow::bail!("Attempted to clone RetriableStream after it has been polled")
     }
+
+    pub fn is_fresh(&self) -> bool {
+        self.shared_inner.lock().is_some()
+    }
 }
 
 impl<T: TryStream + std::marker::Unpin> Stream for RetriableStream<T>
