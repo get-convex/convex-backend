@@ -110,6 +110,9 @@ fn cron_log_query<RT: Runtime>(
 pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
+    // udf-tests include crons, so we let them execute so that we can then add
+    // a new cron without hitting an OCC.
+    rt.wait(Duration::from_secs(100)).await;
 
     let mut tx = application.begin(Identity::system()).await?;
 
@@ -146,6 +149,9 @@ pub(crate) async fn test_cron_jobs_success(rt: TestRuntime) -> anyhow::Result<()
 pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
+    // udf-tests include crons, so we let them execute so that we can then add
+    // a new cron without hitting an OCC.
+    rt.wait(Duration::from_secs(100)).await;
 
     let mut tx = application.begin(Identity::system()).await?;
     let (original_jobs, mut model) = create_cron_job(&mut tx).await?;
