@@ -27,9 +27,12 @@ pub struct ScheduledJob {
     pub path: CanonicalizedComponentFunctionPath,
     #[cfg_attr(
         any(test, feature = "testing"),
-        proptest(strategy = "proptest::arbitrary::any_with::<ConvexArray>((0..4).into())")
+        proptest(
+            strategy = "proptest::arbitrary::any_with::<ConvexArray>((0..4).into()).\
+                        prop_map(args_to_bytes).prop_filter_map(\"invalid json\", |b| b.ok())"
+        )
     )]
-    pub udf_args: ConvexArray,
+    pub udf_args_bytes: ByteBuf,
 
     pub state: ScheduledJobState,
 
@@ -47,11 +50,47 @@ pub struct ScheduledJob {
     pub attempts: ScheduledJobAttempts,
 }
 
+fn args_to_bytes(args: ConvexArray) -> anyhow::Result<ByteBuf> {
+    let args_json = JsonValue::from(args);
+    let args_bytes = serde_json::to_vec(&args_json)?;
+    Ok(ByteBuf::from(args_bytes))
+}
+
+impl ScheduledJob {
+    pub fn new(
+        path: CanonicalizedComponentFunctionPath,
+        udf_args: ConvexArray,
+        state: ScheduledJobState,
+        next_ts: Option<Timestamp>,
+        completed_ts: Option<Timestamp>,
+        original_scheduled_ts: Timestamp,
+        attempts: ScheduledJobAttempts,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            path,
+            udf_args_bytes: args_to_bytes(udf_args)?,
+            state,
+            next_ts,
+            completed_ts,
+            original_scheduled_ts,
+            attempts,
+        })
+    }
+
+    pub fn udf_args(&self) -> anyhow::Result<ConvexArray> {
+        let args_json: JsonValue = serde_json::from_slice(&self.udf_args_bytes)?;
+        let args = args_json.try_into()?;
+        Ok(args)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedScheduledJob {
     component: Option<String>,
     udf_path: String,
+    // Serialize the udf arguments as binary since we restrict what
+    // field names can be used in a `Document`'s top-level object.
     udf_args: ByteBuf,
     state: SerializedScheduledJobState,
     next_ts: Option<i64>,
@@ -64,14 +103,10 @@ impl TryFrom<ScheduledJob> for SerializedScheduledJob {
     type Error = anyhow::Error;
 
     fn try_from(job: ScheduledJob) -> anyhow::Result<Self> {
-        // Serialize the udf arguments as binary since we restrict what
-        // field names can be used in a `Document`'s top-level object.
-        let udf_args_json = JsonValue::from(job.udf_args);
-        let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
         Ok(SerializedScheduledJob {
             component: Some(String::from(job.path.component)),
             udf_path: String::from(job.path.udf_path),
-            udf_args: ByteBuf::from(udf_args_bytes),
+            udf_args: job.udf_args_bytes,
             state: job.state.try_into()?,
             next_ts: job.next_ts.map(|ts| ts.into()),
             completed_ts: job.completed_ts.map(|ts| ts.into()),
@@ -91,8 +126,7 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJob {
             .transpose()?
             .unwrap_or_else(ComponentPath::root);
         let udf_path = value.udf_path.parse()?;
-        let udf_args_json: JsonValue = serde_json::from_slice(&value.udf_args)?;
-        let udf_args = udf_args_json.try_into()?;
+        let udf_args_bytes = value.udf_args;
         let state = value.state.try_into()?;
         let next_ts = value.next_ts.map(|ts| ts.try_into()).transpose()?;
         let completed_ts = value.completed_ts.map(|ts| ts.try_into()).transpose()?;
@@ -114,7 +148,7 @@ impl TryFrom<SerializedScheduledJob> for ScheduledJob {
                 component,
                 udf_path,
             },
-            udf_args,
+            udf_args_bytes,
             state,
             next_ts,
             completed_ts,

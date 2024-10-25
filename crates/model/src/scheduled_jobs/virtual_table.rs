@@ -60,10 +60,11 @@ impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
 
         let job: ParsedDocument<ScheduledJob> = doc.clone().try_into()?;
         let job: ScheduledJob = job.into_value();
+        let udf_args = job.udf_args()?;
         let public_job = PublicScheduledJob {
             // TODO(ENG-6920) include component (job.path.component) in virtual table.
             name: job.path.udf_path,
-            args: job.udf_args,
+            args: udf_args,
             state: job.state,
             scheduled_time: timestamp_to_ms(job.original_scheduled_ts)?,
             completed_time: match job.completed_ts {

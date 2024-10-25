@@ -219,18 +219,18 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
 
         let now: Timestamp = self.tx.runtime().generate_timestamp()?;
         let original_scheduled_ts: Timestamp = ts.as_system_time().try_into()?;
-        let scheduled_job = ScheduledJob {
-            path: path.clone(),
-            udf_args: args.clone(),
-            state: ScheduledJobState::Pending,
+        let scheduled_job = ScheduledJob::new(
+            path.clone(),
+            args.clone(),
+            ScheduledJobState::Pending,
             // Don't set next_ts in the past to avoid scheduler incorrectly logging
             // it is falling behind. We should keep `original_scheduled_ts` intact
             // since this is exposed to the developer via the virtual table.
-            next_ts: Some(original_scheduled_ts.max(now)),
-            completed_ts: None,
+            Some(original_scheduled_ts.max(now)),
+            None,
             original_scheduled_ts,
-            attempts: ScheduledJobAttempts::default(),
-        };
+            ScheduledJobAttempts::default(),
+        )?;
         let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
             let table_mapping = self.tx.table_mapping();
             let parent_scheduled_job = parent_scheduled_job
@@ -245,15 +245,15 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
                     | ScheduledJobState::Success => scheduled_job,
                     ScheduledJobState::Canceled => {
                         let scheduled_ts = self.tx.begin_timestamp();
-                        ScheduledJob {
+                        ScheduledJob::new(
                             path,
-                            udf_args: args,
-                            state: ScheduledJobState::Canceled,
-                            next_ts: None,
-                            completed_ts: Some(*scheduled_ts),
-                            original_scheduled_ts: *scheduled_ts,
-                            attempts: ScheduledJobAttempts::default(),
-                        }
+                            args,
+                            ScheduledJobState::Canceled,
+                            None,
+                            Some(*scheduled_ts),
+                            *scheduled_ts,
+                            ScheduledJobAttempts::default(),
+                        )?
                     },
                 }
             } else {

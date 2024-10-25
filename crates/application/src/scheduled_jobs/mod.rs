@@ -536,7 +536,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.function_log.log_mutation_system_error(
                     &error,
                     path,
-                    job.udf_args,
+                    job.udf_args()?,
                     identity,
                     self.rt.monotonic_now(),
                     caller,
@@ -585,7 +585,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                             )
                             .into(),
                             path,
-                            job.udf_args,
+                            job.udf_args()?,
                             identity,
                             self.rt.monotonic_now(),
                             caller,
@@ -603,7 +603,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                             )
                             .into(),
                             path,
-                            job.udf_args,
+                            job.udf_args()?,
                             identity,
                             self.rt.monotonic_now(),
                             caller,
@@ -636,12 +636,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         let path = job.path.clone();
 
+        let udf_args = job.udf_args()?;
         let result = self
             .runner
             .run_mutation_no_udf_log(
                 tx,
                 PublicFunctionPath::Component(path.clone()),
-                job.udf_args.clone(),
+                udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
             )
@@ -650,13 +651,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             Ok(r) => r,
             Err(e) => {
                 self.function_log.log_mutation_system_error(
-                    &e,
-                    path,
-                    job.udf_args.clone(),
-                    identity,
-                    start,
-                    caller,
-                    context,
+                    &e, path, udf_args, identity, start, caller, context,
                 )?;
                 return Err(e);
             },
@@ -751,7 +746,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     .runner
                     .run_action_no_udf_log(
                         PublicFunctionPath::Component(path),
-                        job.udf_args,
+                        job.udf_args()?,
                         identity,
                         caller,
                         usage_tracker.clone(),
@@ -800,7 +795,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 self.function_log.log_action_system_error(
                     &JsError::from_message(message).into(),
                     path,
-                    job.udf_args.clone(),
+                    job.udf_args()?,
                     identity.into(),
                     self.rt.monotonic_now(),
                     caller,
