@@ -11,6 +11,7 @@ use common::{
     query::{
         Expression,
         Order,
+        Query,
     },
     runtime::Runtime,
     types::ObjectKey,
@@ -90,6 +91,17 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             None => Ok(None),
             Some(doc) => Ok(Some(doc.try_into()?)),
         }
+    }
+
+    pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<SnapshotImport>>> {
+        let value_query = Query::full_table_scan(SNAPSHOT_IMPORTS_TABLE.clone(), Order::Asc);
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
+        let mut result = vec![];
+        while let Some(doc) = query_stream.next(self.tx, None).await? {
+            let row: ParsedDocument<SnapshotImport> = doc.try_into()?;
+            result.push(row);
+        }
+        Ok(result)
     }
 
     pub async fn start_import(
@@ -399,5 +411,45 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             .await?
             .map(|doc| doc.try_into())
             .transpose()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::Context;
+    use common::components::ComponentPath;
+    use database::test_helpers::DbFixtures;
+    use runtime::testing::TestRuntime;
+
+    use super::types::ImportRequestor;
+    use crate::{
+        snapshot_imports::{
+            types::{
+                ImportFormat,
+                ImportMode,
+            },
+            SnapshotImportModel,
+        },
+        test_helpers::DbFixturesWithModel,
+    };
+
+    #[convex_macro::test_runtime]
+    async fn test_start_get_list(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let mut tx = db.begin_system().await?;
+        let mut imports_model = SnapshotImportModel::new(&mut tx);
+
+        let id = imports_model
+            .start_import(
+                ImportFormat::Zip,
+                ImportMode::Replace,
+                ComponentPath::root(),
+                "objectkey".try_into()?,
+                ImportRequestor::SnapshotImport,
+            )
+            .await?;
+        let doc = imports_model.get(id).await?.context("Doc missing?")?;
+        assert_eq!(imports_model.list().await?, vec![doc]);
+        Ok(())
     }
 }
