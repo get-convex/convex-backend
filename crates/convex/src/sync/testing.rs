@@ -14,7 +14,10 @@ use tokio::sync::mpsc;
 use url::Url;
 use uuid::Uuid;
 
-use super::ReconnectRequest;
+use super::{
+    ReconnectRequest,
+    WebSocketState,
+};
 use crate::sync::{
     ProtocolResponse,
     ServerMessage,
@@ -60,6 +63,7 @@ impl SyncProtocol for TestProtocolManager {
     async fn open(
         _ws_url: Url,
         response_sender: mpsc::Sender<ProtocolResponse>,
+        _on_state_change: Option<mpsc::Sender<WebSocketState>>,
         _client_id: &str,
     ) -> anyhow::Result<Self> {
         let mut test_protocol = TestProtocolManager {

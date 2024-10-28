@@ -49,6 +49,7 @@ use tokio_tungstenite::{
 use url::Url;
 use uuid::Uuid;
 
+use super::WebSocketState;
 use crate::sync::{
     ProtocolResponse,
     ReconnectRequest,
@@ -73,6 +74,7 @@ struct WebSocketInternal {
 struct WebSocketWorker {
     ws_url: Url,
     on_response: mpsc::Sender<ProtocolResponse>,
+    on_state_change: Option<mpsc::Sender<WebSocketState>>,
     internal_receiver: Fuse<UnboundedReceiverStream<WebSocketRequest>>,
     ping_ticker: Interval,
     connection_count: u32,
@@ -94,12 +96,14 @@ impl SyncProtocol for WebSocketManager {
     async fn open(
         ws_url: Url,
         on_response: mpsc::Sender<ProtocolResponse>,
+        on_state_change: Option<mpsc::Sender<WebSocketState>>,
         client_id: &str,
     ) -> anyhow::Result<Self> {
         let (internal_sender, internal_receiver) = mpsc::unbounded_channel();
         let worker_handle = tokio::spawn(WebSocketWorker::run(
             ws_url,
             on_response,
+            on_state_change,
             internal_receiver,
             client_id.to_string(),
         ));
@@ -134,6 +138,7 @@ impl WebSocketWorker {
     async fn run(
         ws_url: Url,
         on_response: mpsc::Sender<ProtocolResponse>,
+        on_state_change: Option<mpsc::Sender<WebSocketState>>,
         internal_receiver: mpsc::UnboundedReceiver<WebSocketRequest>,
         client_id: String,
     ) -> Infallible {
@@ -143,6 +148,7 @@ impl WebSocketWorker {
         let mut worker = Self {
             ws_url,
             on_response,
+            on_state_change,
             internal_receiver: UnboundedReceiverStream::new(internal_receiver).fuse(),
             ping_ticker,
             connection_count: 0,
@@ -151,11 +157,19 @@ impl WebSocketWorker {
 
         let mut last_close_reason = "InitialConnect".to_string();
         let mut max_observed_timestamp = None;
+        if let Some(state_change_sender) = &worker.on_state_change {
+            let _ = state_change_sender.try_send(WebSocketState::Connecting);
+        }
         loop {
-            let e = match worker
+            let exit_result = worker
                 .work(last_close_reason, max_observed_timestamp, &client_id)
-                .await
-            {
+                .await;
+
+            if let Some(state_change_sender) = &worker.on_state_change {
+                let _ = state_change_sender.try_send(WebSocketState::Connecting);
+            }
+
+            let e = match exit_result {
                 Ok(reconnect) => {
                     // WS worker exited cleanly because it got a request to reconnect
                     tracing::debug!("Reconnecting websocket due to {}", reconnect.reason);
@@ -218,6 +232,9 @@ impl WebSocketWorker {
         )
         .await?;
         tracing::debug!("completed websocket {verb} to {}", self.ws_url);
+        if let Some(state_change_sender) = &self.on_state_change {
+            let _ = state_change_sender.try_send(WebSocketState::Connected);
+        }
 
         loop {
             select_biased! {

@@ -47,6 +47,7 @@ use crate::{
     sync::{
         web_socket_manager::WebSocketManager,
         SyncProtocol,
+        WebSocketState,
     },
     value::Value,
     FunctionResult,
@@ -129,13 +130,15 @@ impl ConvexClient {
     /// # }
     /// ```
     pub async fn new(deployment_url: &str) -> anyhow::Result<Self> {
-        let client_id = format!("rust-{}", VERSION.unwrap_or("unknown"));
-        Self::new_with_client_id(deployment_url, &client_id).await
+        ConvexClient::new_from_builder(ConvexClientBuilder::new(deployment_url)).await
     }
 
     #[doc(hidden)]
-    pub async fn new_with_client_id(deployment_url: &str, client_id: &str) -> anyhow::Result<Self> {
-        let ws_url = deployment_to_ws_url(deployment_url.try_into()?)?;
+    pub async fn new_from_builder(builder: ConvexClientBuilder) -> anyhow::Result<Self> {
+        let client_id = builder
+            .client_id
+            .unwrap_or_else(|| format!("rust-{}", VERSION.unwrap_or("unknown")));
+        let ws_url = deployment_to_ws_url(builder.deployment_url.as_str().try_into()?)?;
 
         // Channels for the `listen` background thread
         let (response_sender, response_receiver) = mpsc::channel(1);
@@ -146,7 +149,13 @@ impl ConvexClient {
 
         let base_client = BaseConvexClient::new();
 
-        let protocol = WebSocketManager::open(ws_url, response_sender, client_id).await?;
+        let protocol = WebSocketManager::open(
+            ws_url,
+            response_sender,
+            builder.on_state_change,
+            client_id.as_str(),
+        )
+        .await?;
 
         let listen_handle = tokio::spawn(worker(
             response_receiver,
@@ -386,6 +395,51 @@ fn deployment_to_ws_url(mut deployment_url: Url) -> anyhow::Result<Url> {
     Ok(deployment_url)
 }
 
+/// A builder for creating a [`ConvexClient`] with custom configuration.
+pub struct ConvexClientBuilder {
+    deployment_url: String,
+    client_id: Option<String>,
+    on_state_change: Option<mpsc::Sender<WebSocketState>>,
+}
+
+impl ConvexClientBuilder {
+    /// Create a new [`ConvexClientBuilder`] with the given deployment URL.
+    pub fn new(deployment_url: &str) -> Self {
+        Self {
+            deployment_url: deployment_url.to_string(),
+            client_id: None,
+            on_state_change: None,
+        }
+    }
+
+    /// Set a custom client ID for this client.
+    pub fn with_client_id(mut self, client_id: &str) -> Self {
+        self.client_id = Some(client_id.to_string());
+        self
+    }
+
+    /// Set a channel to be notified of changes to the WebSocket connection
+    /// state.
+    pub fn with_on_state_change(mut self, on_state_change: mpsc::Sender<WebSocketState>) -> Self {
+        self.on_state_change = Some(on_state_change);
+        self
+    }
+
+    /// Build the [`ConvexClient`] with the configured options.
+    ///
+    /// ```no_run
+    /// # use convex::ConvexClientBuilder;
+    /// # #[tokio::main]
+    /// # async fn main() -> anyhow::Result<()> {
+    /// let client = ConvexClientBuilder::new("https://cool-music-123.convex.cloud").build().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn build(self) -> anyhow::Result<ConvexClient> {
+        ConvexClient::new_from_builder(self).await
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use std::{
@@ -445,9 +499,13 @@ pub mod tests {
             // Listener for when each transaction completes
             let (watch_sender, watch_receiver) = broadcast::channel(1);
 
-            let test_protocol =
-                TestProtocolManager::open("ws://test.com".parse()?, response_sender, "rust-0.0.1")
-                    .await?;
+            let test_protocol = TestProtocolManager::open(
+                "ws://test.com".parse()?,
+                response_sender,
+                None,
+                "rust-0.0.1",
+            )
+            .await?;
             let base_client = BaseConvexClient::new();
 
             let listen_handle = tokio::spawn(worker(

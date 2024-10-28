@@ -30,11 +30,21 @@ pub enum ProtocolResponse {
     Failure,
 }
 
+#[derive(Debug)]
+/// The state of the Convex WebSocket connection
+pub enum WebSocketState {
+    /// The WebSocket is open and connected
+    Connected,
+    /// The WebSocket is closed and connecting/reconnecting
+    Connecting,
+}
+
 #[async_trait]
 pub trait SyncProtocol: Send + Sized {
     async fn open(
         ws_url: Url,
         on_response: mpsc::Sender<ProtocolResponse>,
+        on_state_change: Option<mpsc::Sender<WebSocketState>>,
         client_id: &str,
     ) -> anyhow::Result<Self>;
     async fn send(&mut self, message: ClientMessage) -> anyhow::Result<()>;

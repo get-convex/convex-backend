@@ -56,7 +56,9 @@ pub use client::{
         QuerySubscription,
     },
     ConvexClient,
+    ConvexClientBuilder,
 };
+pub use sync::WebSocketState;
 
 pub mod base_client;
 #[doc(inline)]
