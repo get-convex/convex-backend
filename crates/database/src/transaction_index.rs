@@ -34,7 +34,6 @@ use common::{
         Order,
         SearchVersion,
     },
-    runtime::Runtime,
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
@@ -699,18 +698,18 @@ pub trait TransactionTextSnapshot: Send + Sync + 'static {
 }
 
 #[derive(Clone)]
-pub struct TextIndexManagerSnapshot<RT: Runtime> {
+pub struct TextIndexManagerSnapshot {
     index_registry: IndexRegistry,
-    text_indexes: TextIndexManager<RT>,
+    text_indexes: TextIndexManager,
 
     searcher: Arc<dyn Searcher>,
     search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
 }
 
-impl<RT: Runtime> TextIndexManagerSnapshot<RT> {
+impl TextIndexManagerSnapshot {
     pub fn new(
         index_registry: IndexRegistry,
-        text_indexes: TextIndexManager<RT>,
+        text_indexes: TextIndexManager,
         searcher: Arc<dyn Searcher>,
         search_storage: Arc<OnceLock<Arc<dyn Storage>>>,
     ) -> Self {
@@ -726,7 +725,7 @@ impl<RT: Runtime> TextIndexManagerSnapshot<RT> {
     fn snapshot_with_updates(
         &self,
         pending_updates: &Vec<DocumentUpdate>,
-    ) -> anyhow::Result<TextIndexManager<RT>> {
+    ) -> anyhow::Result<TextIndexManager> {
         let mut text_indexes = self.text_indexes.clone();
         for DocumentUpdate {
             id: _,
@@ -773,7 +772,7 @@ impl<RT: Runtime> TextIndexManagerSnapshot<RT> {
 }
 
 #[async_trait]
-impl<RT: Runtime> TransactionTextSnapshot for TextIndexManagerSnapshot<RT> {
+impl TransactionTextSnapshot for TextIndexManagerSnapshot {
     async fn search(
         &self,
         index: &Index,
@@ -828,7 +827,6 @@ mod tests {
             CursorPosition,
             Order,
         },
-        runtime::Runtime,
         testing::{
             TestIdGenerator,
             TestPersistence,
@@ -887,15 +885,14 @@ mod tests {
         ResolvedDocument::new(index_id, CreationTime::ONE, metadata.try_into()?)
     }
 
-    async fn bootstrap_index<RT: Runtime>(
-        runtime: RT,
+    async fn bootstrap_index(
         id_generator: &mut TestIdGenerator,
         mut indexes: Vec<TabletIndexMetadata>,
         persistence: RepeatablePersistence,
     ) -> anyhow::Result<(
         IndexRegistry,
         BackendInMemoryIndexes,
-        TextIndexManager<RT>,
+        TextIndexManager,
         BTreeMap<TabletIndexName, ResolvedDocumentId>,
     )> {
         let mut index_id_by_name = BTreeMap::new();
@@ -921,11 +918,8 @@ mod tests {
         )?;
         let index = BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, ts)?;
 
-        let search = TextIndexManager::new(
-            runtime,
-            TextIndexManagerState::Bootstrapping,
-            persistence.version(),
-        );
+        let search =
+            TextIndexManager::new(TextIndexManagerState::Bootstrapping, persistence.version());
 
         Ok((index_registry, index, search, index_id_by_name))
     }
@@ -951,7 +945,6 @@ mod tests {
         let messages_by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
         let printable_messages_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
         let (index_registry, inner, search, _) = bootstrap_index(
-            rt.clone(),
             &mut id_generator,
             vec![IndexMetadata::new_enabled(
                 TabletIndexName::by_id(table_id),
@@ -1065,7 +1058,7 @@ mod tests {
         let ps = rp.read_snapshot(unchecked_repeatable_ts(Timestamp::must(1000)))?;
 
         let (index_registry, inner, search, _) =
-            bootstrap_index(rt.clone(), &mut id_generator, vec![], rp).await?;
+            bootstrap_index(&mut id_generator, vec![], rp).await?;
 
         let mut reads = TransactionReadSet::new();
         let searcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
@@ -1212,7 +1205,6 @@ mod tests {
         let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
         let printable_by_name = IndexName::new(table.clone(), "by_name".parse()?)?;
         let (mut index_registry, mut index, search, index_ids) = bootstrap_index(
-            rt.clone(),
             &mut id_generator,
             vec![
                 IndexMetadata::new_enabled(by_id.clone(), by_id_fields.clone().try_into()?),

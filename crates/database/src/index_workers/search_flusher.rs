@@ -563,12 +563,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             },
         };
 
-        let mut mutable_previous_segments = T::download_previous_segments(
-            &params.runtime,
-            params.storage.clone(),
-            previous_segments,
-        )
-        .await?;
+        let mut mutable_previous_segments =
+            T::download_previous_segments(params.storage.clone(), previous_segments).await?;
 
         let persistence = RepeatablePersistence::new(
             params.reader,
@@ -576,7 +572,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             params.database.retention_validator(),
         );
         let new_segment = T::build_disk_index(
-            &params.runtime,
             &qdrant_schema,
             &index_path,
             documents,
@@ -589,8 +584,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         .await?;
 
         let updated_previous_segments =
-            T::upload_previous_segments(&params.runtime, params.storage, mutable_previous_segments)
-                .await?;
+            T::upload_previous_segments(params.storage, mutable_previous_segments).await?;
 
         let index_backfill_result =
             if let MultipartBuildType::IncrementalComplete { .. } = build_type {

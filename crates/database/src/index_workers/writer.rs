@@ -604,7 +604,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
             ),
         );
         let mut previous_segments =
-            T::download_previous_segments(&runtime, storage.clone(), segments_to_update).await?;
+            T::download_previous_segments(storage.clone(), segments_to_update).await?;
         let documents = database.load_documents_in_table(
             *index_name.table(),
             TimestampRange::new((Bound::Excluded(start_ts), Bound::Included(*current_ts)))?,
@@ -615,7 +615,6 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         let repeatable_persistence =
             RepeatablePersistence::new(reader, current_ts, database.retention_validator());
         T::merge_deletes(
-            &runtime,
             &mut previous_segments,
             documents,
             &repeatable_persistence,
@@ -625,6 +624,6 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
         )
         .await?;
 
-        T::upload_previous_segments(&runtime, storage, previous_segments).await
+        T::upload_previous_segments(storage, previous_segments).await
     }
 }

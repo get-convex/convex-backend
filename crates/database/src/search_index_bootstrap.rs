@@ -92,7 +92,7 @@ pub struct SearchIndexBootstrapWorker<RT: Runtime> {
     index_registry: IndexRegistry,
     persistence: RepeatablePersistence,
     table_mapping: NamespacedTableMapping,
-    committer_client: CommitterClient<RT>,
+    committer_client: CommitterClient,
     backoff: Backoff,
     pause_client: PauseClient,
 }
@@ -108,8 +108,8 @@ struct IndexesToBootstrap {
     oldest_index_ts: Timestamp,
 }
 
-pub struct BootstrappedSearchIndexes<RT: Runtime> {
-    pub text_index_manager: TextIndexManager<RT>,
+pub struct BootstrappedSearchIndexes {
+    pub text_index_manager: TextIndexManager,
     pub vector_index_manager: VectorIndexManager,
     pub tables_with_indexes: BTreeSet<TabletId>,
 }
@@ -242,11 +242,10 @@ impl IndexesToBootstrap {
             .collect()
     }
 
-    async fn bootstrap<RT: Runtime>(
+    async fn bootstrap(
         mut self,
-        runtime: RT,
         persistence: &RepeatablePersistence,
-    ) -> anyhow::Result<BootstrappedSearchIndexes<RT>> {
+    ) -> anyhow::Result<BootstrappedSearchIndexes> {
         let _status = log_worker_starting("SearchAndVectorBootstrap");
         let timer = crate::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
@@ -289,17 +288,12 @@ impl IndexesToBootstrap {
         );
         crate::metrics::finish_bootstrap(num_revisions, total_size, timer);
 
-        Ok(self.finish(runtime, persistence.version()))
+        Ok(self.finish(persistence.version()))
     }
 
-    fn finish<RT: Runtime>(
-        self,
-        runtime: RT,
-        persistence_version: PersistenceVersion,
-    ) -> BootstrappedSearchIndexes<RT> {
+    fn finish(self, persistence_version: PersistenceVersion) -> BootstrappedSearchIndexes {
         let tables_with_indexes = self.tables_with_indexes();
         let text_index_manager = TextIndexManager::new(
-            runtime,
             TextIndexManagerState::Ready(
                 self.table_to_text_indexes
                     .into_iter()
@@ -460,7 +454,7 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
         index_registry: IndexRegistry,
         persistence: RepeatablePersistence,
         table_mapping: NamespacedTableMapping,
-        committer_client: CommitterClient<RT>,
+        committer_client: CommitterClient,
         pause_client: PauseClient,
     ) -> Self {
         Self {
@@ -516,7 +510,7 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
             .await
     }
 
-    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchIndexes<RT>> {
+    async fn bootstrap(&self) -> anyhow::Result<BootstrappedSearchIndexes> {
         // Load all of the fast forward timestamps first to ensure that we stay within
         // the comparatively short valid time for the persistence snapshot
         let snapshot = self
@@ -544,14 +538,12 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
                 }
             });
         let indexes_with_fast_forward_ts =
-            try_join_buffer_unordered(&self.runtime, "get_index_futs", get_index_futs).await?;
+            try_join_buffer_unordered("get_index_futs", get_index_futs).await?;
         let indexes_to_bootstrap = IndexesToBootstrap::create(
             self.persistence.upper_bound(),
             indexes_with_fast_forward_ts,
         )?;
-        indexes_to_bootstrap
-            .bootstrap(self.runtime.clone(), &self.persistence)
-            .await
+        indexes_to_bootstrap.bootstrap(&self.persistence).await
     }
 }
 

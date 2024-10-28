@@ -1,7 +1,6 @@
 //! Production implementation of the Runtime trait.
 
 use std::{
-    collections::HashMap,
     future::Future,
     pin::Pin,
     sync::LazyLock,
@@ -12,7 +11,6 @@ use std::{
     },
 };
 
-use ::metrics::CONVEX_METRICS_REGISTRY;
 use async_trait::async_trait;
 use common::{
     knobs::{
@@ -24,6 +22,7 @@ use common::{
         JoinError,
         Runtime,
         SpawnHandle,
+        GLOBAL_TASK_MANAGER,
     },
 };
 use futures::{
@@ -33,7 +32,6 @@ use futures::{
     },
     FutureExt,
 };
-use parking_lot::Mutex;
 use rand::RngCore;
 use tokio::{
     runtime::{
@@ -205,18 +203,6 @@ impl ProdRuntime {
         let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
         self.rt.block_on(monitor.instrument(f))
     }
-
-    /// Transitional function while we move away from using our own special
-    /// `spawn`. Just wraps `tokio::spawn` with our tokio metrics
-    /// integration.
-    pub fn tokio_spawn<F>(name: &'static str, f: F) -> tokio::task::JoinHandle<F::Output>
-    where
-        F: Future + Send + 'static,
-        F::Output: Send + 'static,
-    {
-        let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
-        tokio::spawn(monitor.instrument(f))
-    }
 }
 
 #[async_trait]
@@ -260,35 +246,5 @@ impl Runtime for ProdRuntime {
         // platform, to be > statistically strong and unpredictable (meaning a
         // cryptographically secure PRNG). (Source: https://docs.rs/rand/latest/rand/rngs/struct.StdRng.html)
         Box::new(rand::thread_rng())
-    }
-}
-
-static GLOBAL_TASK_MANAGER: LazyLock<Mutex<TaskManager>> = LazyLock::new(|| {
-    let task_collector = tokio_metrics_collector::default_task_collector();
-    CONVEX_METRICS_REGISTRY
-        .register(Box::new(task_collector))
-        .unwrap();
-
-    let manager = TaskManager {
-        monitors: HashMap::new(),
-    };
-    Mutex::new(manager)
-});
-
-struct TaskManager {
-    monitors: HashMap<&'static str, TaskMonitor>,
-}
-
-impl TaskManager {
-    fn get(&mut self, name: &'static str) -> TaskMonitor {
-        if let Some(monitor) = self.monitors.get(name) {
-            return monitor.clone();
-        }
-        let monitor = TaskMonitor::new();
-        self.monitors.insert(name, monitor.clone());
-        tokio_metrics_collector::default_task_collector()
-            .add(name, monitor.clone())
-            .expect("Duplicate task label?");
-        monitor
     }
 }

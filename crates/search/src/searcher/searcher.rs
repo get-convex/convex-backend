@@ -1567,7 +1567,6 @@ mod tests {
         let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
 
         let new_segment = build_new_segment(
-            &rt,
             revision_stream,
             schema.clone(),
             test_dir.path(),
@@ -1768,7 +1767,6 @@ mod tests {
         let segment_term_metadata_fetcher = Arc::new(InProcessSearcher::new(rt.clone()).await?);
         let mut previous_segments = PreviousTextSegments::default();
         let new_segment = build_new_segment(
-            &rt,
             revision_stream,
             schema.clone(),
             index_dir,

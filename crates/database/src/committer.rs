@@ -150,7 +150,7 @@ pub struct Committer<RT: Runtime> {
     // External log of writes for subscriptions.
     log: LogWriter,
 
-    snapshot_manager: Writer<SnapshotManager<RT>>,
+    snapshot_manager: Writer<SnapshotManager>,
     persistence: Arc<dyn Persistence>,
     runtime: RT,
 
@@ -167,12 +167,12 @@ pub struct Committer<RT: Runtime> {
 impl<RT: Runtime> Committer<RT> {
     pub(crate) fn start(
         log: LogWriter,
-        snapshot_manager: Writer<SnapshotManager<RT>>,
+        snapshot_manager: Writer<SnapshotManager>,
         persistence: Arc<dyn Persistence>,
         runtime: RT,
         retention_validator: Arc<dyn RetentionValidator>,
         shutdown: ShutdownSignal,
-    ) -> CommitterClient<RT> {
+    ) -> CommitterClient {
         let persistence_reader = persistence.reader();
         let conflict_checker = PendingWrites::new(persistence_reader.version());
         let (tx, rx) = mpsc::channel(*COMMITTER_QUEUE_SIZE);
@@ -198,7 +198,7 @@ impl<RT: Runtime> Committer<RT> {
         }
     }
 
-    async fn go(mut self, mut rx: mpsc::Receiver<CommitterMessage<RT>>) {
+    async fn go(mut self, mut rx: mpsc::Receiver<CommitterMessage>) {
         let mut last_bumped_repeatable_ts = self.runtime.monotonic_now();
         // Assume there were commits just before the backend restarted, so first do a
         // quick bump.
@@ -316,7 +316,7 @@ impl<RT: Runtime> Committer<RT> {
             text_index_manager,
             vector_index_manager,
             tables_with_indexes,
-        }: &mut BootstrappedSearchIndexes<RT>,
+        }: &mut BootstrappedSearchIndexes,
         bootstrap_ts: Timestamp,
         persistence: RepeatablePersistence,
         registry: &IndexRegistry,
@@ -360,7 +360,7 @@ impl<RT: Runtime> Committer<RT> {
 
     async fn finish_search_and_vector_bootstrap(
         &mut self,
-        mut bootstrapped_indexes: BootstrappedSearchIndexes<RT>,
+        mut bootstrapped_indexes: BootstrappedSearchIndexes,
         bootstrap_ts: RepeatableTimestamp,
         result: oneshot::Sender<anyhow::Result<()>>,
     ) {
@@ -851,15 +851,15 @@ struct ValidatedDocumentWrite {
     doc_in_vector_index: DocInVectorIndex,
 }
 
-pub struct CommitterClient<RT: Runtime> {
+pub struct CommitterClient {
     handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
-    sender: mpsc::Sender<CommitterMessage<RT>>,
+    sender: mpsc::Sender<CommitterMessage>,
     persistence_reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
-    snapshot_reader: Reader<SnapshotManager<RT>>,
+    snapshot_reader: Reader<SnapshotManager>,
 }
 
-impl<RT: Runtime> Clone for CommitterClient<RT> {
+impl Clone for CommitterClient {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
@@ -871,10 +871,10 @@ impl<RT: Runtime> Clone for CommitterClient<RT> {
     }
 }
 
-impl<RT: Runtime> CommitterClient<RT> {
+impl CommitterClient {
     pub async fn finish_search_and_vector_bootstrap(
         &self,
-        bootstrapped_indexes: BootstrappedSearchIndexes<RT>,
+        bootstrapped_indexes: BootstrappedSearchIndexes,
         bootstrap_ts: RepeatableTimestamp,
     ) -> anyhow::Result<()> {
         let (tx, rx) = oneshot::channel();
@@ -906,7 +906,7 @@ impl<RT: Runtime> CommitterClient<RT> {
         rx.await.map_err(|_| metrics::shutdown_error())?
     }
 
-    pub fn commit(
+    pub fn commit<RT: Runtime>(
         &self,
         transaction: Transaction<RT>,
         write_source: WriteSource,
@@ -915,7 +915,7 @@ impl<RT: Runtime> CommitterClient<RT> {
     }
 
     #[minitrace::trace]
-    async fn _commit(
+    async fn _commit<RT: Runtime>(
         &self,
         transaction: Transaction<RT>,
         write_source: WriteSource,
@@ -968,7 +968,10 @@ impl<RT: Runtime> CommitterClient<RT> {
         Ok(rx.await?)
     }
 
-    async fn check_generated_ids(&self, transaction: &Transaction<RT>) -> anyhow::Result<()> {
+    async fn check_generated_ids<RT: Runtime>(
+        &self,
+        transaction: &Transaction<RT>,
+    ) -> anyhow::Result<()> {
         // Check that none of the DocumentIds generated in this transaction
         // are already in use.
         // We can check at the begin_timestamp+1 because generated_ids are also
@@ -1020,7 +1023,7 @@ impl<RT: Runtime> CommitterClient<RT> {
     }
 }
 
-enum CommitterMessage<RT: Runtime> {
+enum CommitterMessage {
     Commit {
         queue_timer: Timer<VMHistogram>,
         transaction: FinalTransaction,
@@ -1035,7 +1038,7 @@ enum CommitterMessage<RT: Runtime> {
         result: oneshot::Sender<anyhow::Result<()>>,
     },
     FinishTextAndVectorBootstrap {
-        bootstrapped_indexes: BootstrappedSearchIndexes<RT>,
+        bootstrapped_indexes: BootstrappedSearchIndexes,
         bootstrap_ts: RepeatableTimestamp,
         result: oneshot::Sender<anyhow::Result<()>>,
     },

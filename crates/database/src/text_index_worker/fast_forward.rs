@@ -55,10 +55,7 @@ impl<RT: Runtime> IndexFastForward<RT, TextSnapshotVersion> for TextFastForward 
         model.get_or_create_text_search(id).await
     }
 
-    fn num_transactions(
-        snapshot: Snapshot<RT>,
-        index_id: IndexId,
-    ) -> anyhow::Result<Option<usize>> {
+    fn num_transactions(snapshot: Snapshot, index_id: IndexId) -> anyhow::Result<Option<usize>> {
         snapshot.text_indexes.num_transactions(index_id)
     }
 }

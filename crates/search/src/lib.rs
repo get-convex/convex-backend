@@ -52,10 +52,7 @@ use common::{
         InternalSearchFilterExpression,
         SearchVersion,
     },
-    runtime::{
-        try_join_buffer_unordered,
-        Runtime,
-    },
+    runtime::try_join_buffer_unordered,
     types::{
         IndexName,
         Timestamp,
@@ -432,9 +429,8 @@ impl TantivySearchIndexSchema {
     }
 
     #[minitrace::trace]
-    pub async fn search<RT: Runtime>(
+    pub async fn search(
         &self,
-        runtime: &RT,
         compiled_query: CompiledQuery,
         memory_index: &MemoryTextIndex,
         search_storage: Arc<dyn Storage>,
@@ -488,7 +484,7 @@ impl TantivySearchIndexSchema {
             }
         });
         let token_matches_by_segment: Vec<_> =
-            try_join_buffer_unordered(runtime, "query_tokens", token_match_futs).await?;
+            try_join_buffer_unordered("query_tokens", token_match_futs).await?;
         for segment_token_matches in token_matches_by_segment {
             anyhow::ensure!(segment_token_matches.is_sorted());
             for m in segment_token_matches {
@@ -549,7 +545,7 @@ impl TantivySearchIndexSchema {
             }
         });
         let bm25_stats_per_segment: Vec<_> =
-            try_join_buffer_unordered(runtime, "query_bm25_stats", bm25_stats_futs).await?;
+            try_join_buffer_unordered("query_bm25_stats", bm25_stats_futs).await?;
 
         let mut bm25_stats =
             bm25_stats_per_segment
@@ -634,7 +630,7 @@ impl TantivySearchIndexSchema {
             }
         });
         let posting_list_results_per_segment: Vec<_> =
-            try_join_buffer_unordered(runtime, "query_posting_lists", posting_list_futs).await?;
+            try_join_buffer_unordered("query_posting_lists", posting_list_futs).await?;
         for segment_matches in posting_list_results_per_segment {
             for m in segment_matches {
                 if !match_aggregator.insert(m) {

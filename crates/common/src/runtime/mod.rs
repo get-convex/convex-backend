@@ -2,6 +2,7 @@
 //! implementations for test, dev, prod, etc.
 
 use std::{
+    collections::HashMap,
     future::Future,
     hash::Hash,
     num::TryFromIntError,
@@ -10,6 +11,7 @@ use std::{
         Sub,
     },
     pin::Pin,
+    sync::LazyLock,
     time::{
         Duration,
         SystemTime,
@@ -40,18 +42,21 @@ use governor::{
     },
     Quota,
 };
+use metrics::CONVEX_METRICS_REGISTRY;
 use minitrace::{
     collector::SpanContext,
     full_name,
     future::FutureExt as MinitraceFutureExt,
     Span,
 };
+use parking_lot::Mutex;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use rand::RngCore;
 use serde::Serialize;
 use thiserror::Error;
 use tokio::sync::oneshot;
+use tokio_metrics_collector::TaskMonitor;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
 
@@ -110,7 +115,6 @@ pub async fn try_join_buffered<
     T: Send + 'static,
     C: Default + Send + 'static + Extend<T>,
 >(
-    rt: &RT,
     name: &'static str,
     tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
         + Send
@@ -121,7 +125,7 @@ pub async fn try_join_buffered<
             let span = SpanContext::current_local_parent()
                 .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
                 .unwrap_or(Span::noop());
-            assert_send(try_join(rt, name, assert_send(task), span))
+            assert_send(try_join(name, assert_send(task), span))
         }))
         .buffered(JOIN_BUFFER_SIZE)
         .try_collect(),
@@ -139,11 +143,9 @@ fn assert_send<'a, T>(
 }
 
 pub async fn try_join_buffer_unordered<
-    RT: Runtime,
     T: Send + 'static,
     C: Default + Send + 'static + Extend<T>,
 >(
-    rt: &RT,
     name: &'static str,
     tasks: impl Iterator<Item = impl Future<Output = anyhow::Result<T>> + Send + 'static>
         + Send
@@ -154,7 +156,7 @@ pub async fn try_join_buffer_unordered<
             let span = SpanContext::current_local_parent()
                 .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
                 .unwrap_or(Span::noop());
-            try_join(rt, name, task, span)
+            try_join(name, task, span)
         }))
         .buffer_unordered(JOIN_BUFFER_SIZE)
         .try_collect(),
@@ -162,14 +164,13 @@ pub async fn try_join_buffer_unordered<
     .await
 }
 
-pub async fn try_join<RT: Runtime, T: Send + 'static>(
-    rt: &RT,
+pub async fn try_join<T: Send + 'static>(
     name: &'static str,
     fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
     span: Span,
 ) -> anyhow::Result<T> {
     let (tx, rx) = oneshot::channel();
-    let mut handle = rt.spawn(
+    let handle = tokio_spawn(
         name,
         async {
             let result = fut.await;
@@ -177,7 +178,7 @@ pub async fn try_join<RT: Runtime, T: Send + 'static>(
         }
         .in_span(span),
     );
-    handle.join().await?;
+    handle.await?;
     rx.await?
 }
 
@@ -460,4 +461,46 @@ impl<RT: Runtime> WithTimeout for RT {
 pub struct TimeoutError {
     description: &'static str,
     duration: Duration,
+}
+
+/// Transitional function while we move away from using our own special
+/// `spawn`. Just wraps `tokio::spawn` with our tokio metrics
+/// integration.
+pub fn tokio_spawn<F>(name: &'static str, f: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: Future + Send + 'static,
+    F::Output: Send + 'static,
+{
+    let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
+    tokio::spawn(monitor.instrument(f))
+}
+
+pub static GLOBAL_TASK_MANAGER: LazyLock<Mutex<TaskManager>> = LazyLock::new(|| {
+    let task_collector = tokio_metrics_collector::default_task_collector();
+    CONVEX_METRICS_REGISTRY
+        .register(Box::new(task_collector))
+        .unwrap();
+
+    let manager = TaskManager {
+        monitors: HashMap::new(),
+    };
+    Mutex::new(manager)
+});
+
+pub struct TaskManager {
+    monitors: HashMap<&'static str, TaskMonitor>,
+}
+
+impl TaskManager {
+    pub fn get(&mut self, name: &'static str) -> TaskMonitor {
+        if let Some(monitor) = self.monitors.get(name) {
+            return monitor.clone();
+        }
+        let monitor = TaskMonitor::new();
+        self.monitors.insert(name, monitor.clone());
+        tokio_metrics_collector::default_task_collector()
+            .add(name, monitor.clone())
+            .expect("Duplicate task label?");
+        monitor
+    }
 }

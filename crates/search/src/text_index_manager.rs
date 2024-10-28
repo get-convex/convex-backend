@@ -22,7 +22,6 @@ use common::{
         InternalSearchFilterExpression,
         SearchVersion,
     },
-    runtime::Runtime,
     types::{
         IndexId,
         IndexName,
@@ -116,8 +115,7 @@ impl TextIndex {
 }
 
 #[derive(Clone)]
-pub struct TextIndexManager<RT: Runtime> {
-    runtime: RT,
+pub struct TextIndexManager {
     indexes: TextIndexManagerState,
     persistence_version: PersistenceVersion,
 }
@@ -128,18 +126,13 @@ pub enum TextIndexManagerState {
     Ready(OrdMap<IndexId, TextIndex>),
 }
 
-impl<RT: Runtime> TextIndexManager<RT> {
+impl TextIndexManager {
     pub fn is_bootstrapping(&self) -> bool {
         matches!(self.indexes, TextIndexManagerState::Bootstrapping)
     }
 
-    pub fn new(
-        runtime: RT,
-        indexes: TextIndexManagerState,
-        persistence_version: PersistenceVersion,
-    ) -> Self {
+    pub fn new(indexes: TextIndexManagerState, persistence_version: PersistenceVersion) -> Self {
         Self {
-            runtime,
             indexes,
             persistence_version,
         }
@@ -213,7 +206,6 @@ impl<RT: Runtime> TextIndexManager<RT> {
 
         let revisions_with_keys = self
             .run_compiled_query(
-                &self.runtime,
                 index,
                 &search.printable_index_name()?,
                 tantivy_schema,
@@ -246,7 +238,6 @@ impl<RT: Runtime> TextIndexManager<RT> {
 
         let revisions_with_keys = self
             .run_compiled_query(
-                &self.runtime,
                 index,
                 printable_index_name,
                 tantivy_schema,
@@ -261,7 +252,6 @@ impl<RT: Runtime> TextIndexManager<RT> {
 
     async fn run_compiled_query(
         &self,
-        runtime: &RT,
         index: &Index,
         printable_index_name: &IndexName,
         tantivy_schema: TantivySearchIndexSchema,
@@ -277,7 +267,6 @@ impl<RT: Runtime> TextIndexManager<RT> {
         } = self.get_snapshot_info(index, printable_index_name)?;
         tantivy_schema
             .search(
-                runtime,
                 compiled_query,
                 memory_index,
                 search_storage,

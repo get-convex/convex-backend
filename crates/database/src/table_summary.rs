@@ -332,7 +332,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         // table_iterator, table_mapping, and by_id_indexes should all be
         // computed at the same snapshot.
         snapshot_ts: Timestamp,
-        table_iterator: impl Fn() -> TableIterator<RT>,
+        table_iterator: impl Fn() -> TableIterator,
         table_mapping: &TableMapping,
         by_id_indexes: &BTreeMap<TabletId, IndexId>,
     ) -> anyhow::Result<TableSummarySnapshot> {
@@ -378,8 +378,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
     async fn compute(&self, from_scratch: bool) -> anyhow::Result<TableSummarySnapshot> {
         let reader = self.persistence.reader();
         let upper_bound = self.database.now_ts_for_reads();
-        let (new_snapshot, _) = bootstrap(
-            &self.database.runtime,
+        let (new_snapshot, _) = bootstrap::<RT>(
             reader,
             self.retention_validator.clone(),
             upper_bound,
@@ -411,7 +410,6 @@ pub async fn write_snapshot(
 /// * The new table summary snapshot
 /// * The number of log entries processed
 pub async fn bootstrap<RT: Runtime>(
-    rt: &RT,
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     target_ts: RepeatableTimestamp,
@@ -424,25 +422,19 @@ pub async fn bootstrap<RT: Runtime>(
         TableSummarySnapshot::load(persistence.as_ref()).await?
     };
     let recent_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
-    let (table_mapping, _, index_registry, ..) =
-        DatabaseSnapshot::<RT>::load_table_and_index_metadata(
-            &RepeatablePersistence::new(
-                persistence.clone(),
-                recent_ts,
-                retention_validator.clone(),
-            )
+    let (table_mapping, _, index_registry, ..) = DatabaseSnapshot::load_table_and_index_metadata(
+        &RepeatablePersistence::new(persistence.clone(), recent_ts, retention_validator.clone())
             .read_snapshot(recent_ts)?,
-        )
-        .await?;
+    )
+    .await?;
     let (base_snapshot, base_snapshot_ts) = match stored_snapshot {
         Some(base) => base,
         None => {
             let by_id_indexes = index_registry.by_id_indexes();
-            let base_snapshot = TableSummaryWriter::collect_snapshot(
+            let base_snapshot = TableSummaryWriter::<RT>::collect_snapshot(
                 *recent_ts,
                 || {
                     TableIterator::new(
-                        rt.clone(),
                         recent_ts,
                         persistence.clone(),
                         retention_validator.clone(),
@@ -652,7 +644,8 @@ mod tests {
 
         // Bootstrap at ts2 by walking by_id, and write the snapshot that later
         // test cases will use.
-        let (snapshot, _) = bootstrap(&rt, persistence.reader(), rv.clone(), ts2, false).await?;
+        let (snapshot, _) =
+            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts2, false).await?;
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
             Some(&expected_ts2)
@@ -662,7 +655,7 @@ mod tests {
 
         // Bootstrap at ts2 by reading the snapshot and returning it.
         let (snapshot, walked) =
-            bootstrap(&rt, persistence.reader(), rv.clone(), ts2, false).await?;
+            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts2, false).await?;
         assert_eq!(walked, 0);
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
@@ -672,7 +665,7 @@ mod tests {
 
         // Bootstrap at ts3 by reading the snapshot and walking forwards.
         let (snapshot, walked) =
-            bootstrap(&rt, persistence.reader(), rv.clone(), ts3, false).await?;
+            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts3, false).await?;
         assert_eq!(walked, 1);
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
@@ -682,7 +675,7 @@ mod tests {
 
         // Bootstrap at ts1 by reading the snapshot and walking backwards.
         let (snapshot, walked) =
-            bootstrap(&rt, persistence.reader(), rv.clone(), ts1, false).await?;
+            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts1, false).await?;
         assert_eq!(walked, 1);
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
@@ -691,7 +684,8 @@ mod tests {
         assert_eq!(snapshot.ts, *ts1);
 
         // Bootstrap from scratch at ts3 by walking by_id.
-        let (snapshot, _) = bootstrap(&rt, persistence.reader(), rv.clone(), ts3, true).await?;
+        let (snapshot, _) =
+            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts3, true).await?;
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
             Some(&expected_ts3)

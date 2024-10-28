@@ -155,9 +155,7 @@ impl SearchIndex for VectorSearchIndex {
         })
     }
 
-    fn get_index_sizes<RT: Runtime>(
-        snapshot: Snapshot<RT>,
-    ) -> anyhow::Result<BTreeMap<IndexId, usize>> {
+    fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
             .vector_indexes
             .backfilled_and_enabled_index_sizes()?
@@ -172,13 +170,11 @@ impl SearchIndex for VectorSearchIndex {
         QdrantSchema::new(config)
     }
 
-    async fn download_previous_segments<RT: Runtime>(
-        rt: &RT,
+    async fn download_previous_segments(
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
         let segments = try_join_buffer_unordered(
-            rt,
             "upload_vector_metadata",
             segments.into_iter().map(move |segment| {
                 MutableFragmentedSegmentMetadata::download(segment, storage.clone())
@@ -188,13 +184,11 @@ impl SearchIndex for VectorSearchIndex {
         Ok(PreviousVectorSegments(segments))
     }
 
-    async fn upload_previous_segments<RT: Runtime>(
-        rt: &RT,
+    async fn upload_previous_segments(
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>> {
         try_join_buffer_unordered(
-            rt,
             "upload_vector_metadata",
             segments
                 .0
@@ -208,8 +202,7 @@ impl SearchIndex for VectorSearchIndex {
         schema.estimate_vector_size() as u64
     }
 
-    async fn build_disk_index<RT: Runtime>(
-        _rt: &RT,
+    async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
@@ -285,8 +278,7 @@ impl SearchIndex for VectorSearchIndex {
             .await
     }
 
-    async fn merge_deletes<RT: Runtime>(
-        _runtime: &RT,
+    async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
         mut documents: DocumentStream<'_>,
         _repeatable_persistence: &RepeatablePersistence,

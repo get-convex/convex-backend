@@ -153,9 +153,7 @@ impl SearchIndex for TextSearchIndex {
         Order::Desc
     }
 
-    fn get_index_sizes<RT: Runtime>(
-        snapshot: Snapshot<RT>,
-    ) -> anyhow::Result<BTreeMap<IndexId, usize>> {
+    fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>> {
         Ok(snapshot
             .text_indexes
             .backfilled_and_enabled_index_sizes()?
@@ -172,13 +170,11 @@ impl SearchIndex for TextSearchIndex {
         TantivySearchIndexSchema::new(config)
     }
 
-    async fn download_previous_segments<RT: Runtime>(
-        rt: &RT,
+    async fn download_previous_segments(
         storage: Arc<dyn Storage>,
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments> {
         let segments: Vec<_> = try_join_buffer_unordered(
-            rt,
             "download_text_meta",
             segments
                 .into_iter()
@@ -192,13 +188,11 @@ impl SearchIndex for TextSearchIndex {
         Ok(PreviousTextSegments(segments))
     }
 
-    async fn upload_previous_segments<RT: Runtime>(
-        rt: &RT,
+    async fn upload_previous_segments(
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>> {
         try_join_buffer_unordered(
-            rt,
             "upload_text_metadata",
             segments
                 .0
@@ -212,8 +206,7 @@ impl SearchIndex for TextSearchIndex {
         schema.estimate_size(doc)
     }
 
-    async fn build_disk_index<RT: Runtime>(
-        rt: &RT,
+    async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
@@ -247,7 +240,6 @@ impl SearchIndex for TextSearchIndex {
         };
 
         build_new_segment(
-            rt,
             revision_stream,
             schema.clone(),
             index_path,
@@ -314,8 +306,7 @@ impl SearchIndex for TextSearchIndex {
             .await
     }
 
-    async fn merge_deletes<RT: Runtime>(
-        runtime: &RT,
+    async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
         documents: DocumentStream<'_>,
         repeatable_persistence: &RepeatablePersistence,
@@ -395,7 +386,6 @@ impl SearchIndex for TextSearchIndex {
         );
 
         let segments_term_metadata = fetch_term_ordinals_and_remap_deletes(
-            runtime,
             build_index_args.search_storage.clone(),
             build_index_args.segment_term_metadata_fetcher.clone(),
             segment_statistics_updates.term_deletes_by_segment,

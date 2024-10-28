@@ -333,8 +333,7 @@ impl SegmentStatisticsUpdates {
 /// Note the descending order requirement can be relaxed if the caller can
 /// guarantee that no deletes will be present in the stream. A caller can do so
 /// when providing this function with a stream from table iterator for example.
-pub async fn build_new_segment<RT: Runtime>(
-    rt: &RT,
+pub async fn build_new_segment(
     revision_stream: DocumentRevisionStream<'_>,
     tantivy_schema: TantivySearchIndexSchema,
     dir: &Path,
@@ -432,7 +431,6 @@ pub async fn build_new_segment<RT: Runtime>(
     );
 
     let segments_term_metadata = fetch_term_ordinals_and_remap_deletes(
-        rt,
         search_storage,
         segment_term_metadata_fetcher,
         segment_statistics_updates.term_deletes_by_segment,
@@ -487,8 +485,7 @@ async fn get_size(path: &PathBuf) -> anyhow::Result<u64> {
     Ok(total)
 }
 
-pub async fn fetch_term_ordinals_and_remap_deletes<RT: Runtime>(
-    rt: &RT,
+pub async fn fetch_term_ordinals_and_remap_deletes(
     storage: Arc<dyn Storage>,
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     term_deletes_by_segment: BTreeMap<ObjectKey, TermDeletionsByField>,
@@ -505,7 +502,7 @@ pub async fn fetch_term_ordinals_and_remap_deletes<RT: Runtime>(
     );
 
     let segments_term_metadata: Vec<_> =
-        try_join_buffer_unordered(rt, "text_term_metadata", fetch_segment_metadata_futs).await?;
+        try_join_buffer_unordered("text_term_metadata", fetch_segment_metadata_futs).await?;
     Ok(segments_term_metadata)
 }
 
@@ -641,7 +638,6 @@ pub async fn fetch_compact_and_upload_text_segment<RT: Runtime>(
 ) -> anyhow::Result<FragmentedTextSegment> {
     let _storage = storage.clone();
     let opened_segments = try_join_buffer_unordered(
-        rt,
         "text_segment_merge",
         segments.into_iter().map(move |segment| {
             let pool = blocking_thread_pool.clone();

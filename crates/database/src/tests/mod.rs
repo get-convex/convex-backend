@@ -1907,8 +1907,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
         retention_validator.clone(),
         rt.clone(),
     );
-    let database_snapshot = DatabaseSnapshot::load(
-        &rt,
+    let database_snapshot = DatabaseSnapshot::load::<TestRuntime>(
         tp.reader(),
         unchecked_repeatable_ts(ts),
         retention_validator,

@@ -249,10 +249,10 @@ const MAX_VECTOR_ATTEMPTS: u32 = 5;
 /// See the diagram in `database/README.md` for more details.
 #[derive(Clone)]
 pub struct Database<RT: Runtime> {
-    committer: CommitterClient<RT>,
+    committer: CommitterClient,
     subscriptions: SubscriptionsClient,
     log: LogReader,
-    snapshot_manager: Reader<SnapshotManager<RT>>,
+    snapshot_manager: Reader<SnapshotManager>,
     pub(crate) runtime: RT,
     reader: Arc<dyn PersistenceReader>,
     write_commits_since_load: Arc<AtomicUsize>,
@@ -286,10 +286,10 @@ struct ListSnapshotTableIteratorCacheEntry {
 }
 
 #[derive(Clone)]
-pub struct DatabaseSnapshot<RT: Runtime> {
+pub struct DatabaseSnapshot {
     ts: RepeatableTimestamp,
     pub bootstrap_metadata: BootstrapMetadata,
-    pub snapshot: Snapshot<RT>,
+    pub snapshot: Snapshot,
     pub persistence_snapshot: PersistenceSnapshot,
 
     summaries_num_rows: usize,
@@ -341,7 +341,7 @@ pub struct BootstrapMetadata {
     pub index_tablet_id: TabletId,
 }
 
-impl<RT: Runtime> DatabaseSnapshot<RT> {
+impl DatabaseSnapshot {
     pub async fn max_ts(reader: &dyn PersistenceReader) -> anyhow::Result<Timestamp> {
         reader
             .max_ts()
@@ -468,9 +468,8 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         Ok(table_registry)
     }
 
-    pub fn table_iterator(&self, runtime: RT) -> TableIterator<RT> {
+    pub fn table_iterator(&self) -> TableIterator {
         TableIterator::new(
-            runtime,
             self.timestamp(),
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
@@ -479,12 +478,11 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         )
     }
 
-    pub async fn full_table_scan<'a>(
-        &'a self,
-        runtime: &RT,
+    pub async fn full_table_scan(
+        &self,
         tablet_id: TabletId,
-    ) -> anyhow::Result<LatestDocumentStream<'a>> {
-        let table_iterator = self.table_iterator(runtime.clone());
+    ) -> anyhow::Result<LatestDocumentStream<'_>> {
+        let table_iterator = self.table_iterator();
         let by_creation_time = self
             .index_registry()
             .get_enabled(&TabletIndexName::by_creation_time(tablet_id));
@@ -544,8 +542,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         })
     }
 
-    pub async fn load(
-        rt: &RT,
+    pub async fn load<RT: Runtime>(
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
@@ -580,18 +577,14 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         };
         drop(load_indexes_into_memory_timer);
 
-        let search = TextIndexManager::new(
-            rt.clone(),
-            TextIndexManagerState::Bootstrapping,
-            persistence.version(),
-        );
+        let search =
+            TextIndexManager::new(TextIndexManagerState::Bootstrapping, persistence.version());
         let vector = VectorIndexManager::bootstrap_index_metadata(&index_registry)?;
 
         // Step 3: Stream document changes since the last table summary snapshot so they
         // are up to date.
         tracing::info!("Bootstrapping table summaries...");
-        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap(
-            rt,
+        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap::<RT>(
             persistence.clone(),
             retention_validator.clone(),
             snapshot,
@@ -788,7 +781,7 @@ impl<RT: Runtime> Database<RT> {
 
         // Get the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
-        let original_max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
+        let original_max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
 
         let follower_retention_manager = FollowerRetentionManager::new_with_repeatable_ts(
             runtime.clone(),
@@ -797,14 +790,13 @@ impl<RT: Runtime> Database<RT> {
         )
         .await?;
 
-        let db_snapshot = DatabaseSnapshot::load(
-            &runtime,
+        let db_snapshot = DatabaseSnapshot::load::<RT>(
             reader.clone(),
             snapshot_ts,
             Arc::new(follower_retention_manager.clone()),
         )
         .await?;
-        let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
+        let max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
         anyhow::ensure!(
             original_max_ts == max_ts,
             "race while loading DatabaseSnapshot: max ts {original_max_ts} at start, {max_ts} at \
@@ -981,12 +973,10 @@ impl<RT: Runtime> Database<RT> {
         snapshot_ts: RepeatableTimestamp,
         page_size: usize,
         pause_client: Option<PauseClient>,
-    ) -> TableIterator<RT> {
-        let runtime = self.runtime.clone();
+    ) -> TableIterator {
         let retention_validator = self.retention_validator();
         let persistence = self.reader.clone();
         TableIterator::new(
-            runtime,
             snapshot_ts,
             persistence,
             retention_validator,
@@ -1541,11 +1531,11 @@ impl<RT: Runtime> Database<RT> {
         Ok(tx)
     }
 
-    pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot<RT>> {
+    pub fn snapshot(&self, ts: RepeatableTimestamp) -> anyhow::Result<Snapshot> {
         self.snapshot_manager.lock().snapshot(*ts)
     }
 
-    pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot<RT>> {
+    pub fn latest_snapshot(&self) -> anyhow::Result<Snapshot> {
         let snapshot = self.snapshot_manager.lock().latest_snapshot();
         Ok(snapshot)
     }

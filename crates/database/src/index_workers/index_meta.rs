@@ -94,8 +94,7 @@ pub trait SearchIndex: Clone + Debug {
 
     fn estimate_document_size(schema: &Self::Schema, doc: &ResolvedDocument) -> u64;
 
-    async fn build_disk_index<RT: Runtime>(
-        rt: &RT,
+    async fn build_disk_index(
         schema: &Self::Schema,
         index_path: &PathBuf,
         documents: DocumentStream<'_>,
@@ -108,22 +107,18 @@ pub trait SearchIndex: Clone + Debug {
 
     fn new_schema(config: &Self::DeveloperConfig) -> Self::Schema;
 
-    fn get_index_sizes<RT: Runtime>(
-        snapshot: Snapshot<RT>,
-    ) -> anyhow::Result<BTreeMap<IndexId, usize>>;
+    fn get_index_sizes(snapshot: Snapshot) -> anyhow::Result<BTreeMap<IndexId, usize>>;
 
     fn is_version_current(data: &SearchSnapshot<Self>) -> bool
     where
         Self: Sized;
 
-    async fn download_previous_segments<RT: Runtime>(
-        rt: &RT,
+    async fn download_previous_segments(
         storage: Arc<dyn Storage>,
         segment: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::PreviousSegments>;
 
-    async fn upload_previous_segments<RT: Runtime>(
-        rt: &RT,
+    async fn upload_previous_segments(
         storage: Arc<dyn Storage>,
         segments: Self::PreviousSegments,
     ) -> anyhow::Result<Vec<Self::Segment>>;
@@ -135,8 +130,7 @@ pub trait SearchIndex: Clone + Debug {
         segments: Vec<Self::Segment>,
     ) -> anyhow::Result<Self::Segment>;
 
-    async fn merge_deletes<RT: Runtime>(
-        runtime: &RT,
+    async fn merge_deletes(
         previous_segments: &mut Self::PreviousSegments,
         document_stream: DocumentStream<'_>,
         repeatable_persistence: &RepeatablePersistence,

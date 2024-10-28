@@ -30,7 +30,6 @@ use common::{
         CursorPosition,
         Order,
     },
-    runtime::Runtime,
     try_chunks::TryChunksExt,
     types::{
         IndexId,
@@ -89,8 +88,7 @@ fn cursor_has_walked(cursor: Option<&CursorPosition>, key: &IndexKeyBytes) -> bo
     }
 }
 
-pub struct TableIterator<RT: Runtime> {
-    _runtime: RT,
+pub struct TableIterator {
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     page_size: usize,
@@ -98,9 +96,8 @@ pub struct TableIterator<RT: Runtime> {
     snapshot_ts: RepeatableTimestamp,
 }
 
-impl<RT: Runtime> TableIterator<RT> {
+impl TableIterator {
     pub fn new(
-        runtime: RT,
         snapshot_ts: RepeatableTimestamp,
         persistence: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
@@ -109,7 +106,6 @@ impl<RT: Runtime> TableIterator<RT> {
     ) -> Self {
         let pause_client = pause_client.unwrap_or_default();
         Self {
-            _runtime: runtime,
             persistence,
             retention_validator,
             page_size,
