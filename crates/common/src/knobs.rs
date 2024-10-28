@@ -191,6 +191,12 @@ pub static TRANSACTION_MAX_USER_WRITE_SIZE_BYTES: LazyLock<usize> = LazyLock::ne
     env_config("TRANSACTION_MAX_USER_WRITE_SIZE_BYTES", 1 << 23) // 8 MiB
 });
 
+/// SnapshotManager maintains a bounded time range of versions,
+/// determined by `MAX_TRANSACTION_WINDOW`, allowing the `Database` layer to
+/// begin a transaction in any timestamp within that range.
+pub static MAX_TRANSACTION_WINDOW: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("MAX_TRANSACTION_WINDOW_SECONDS", 10)));
+
 /// Maximum size in bytes of arguments to a function.
 pub static FUNCTION_MAX_ARGS_SIZE: LazyLock<usize> = LazyLock::new(|| {
     env_config("FUNCTION_MAX_ARGS_SIZE", 1 << 23) // 8 MiB

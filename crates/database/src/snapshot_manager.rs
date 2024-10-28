@@ -1,9 +1,6 @@
-use std::{
-    collections::{
-        BTreeMap,
-        VecDeque,
-    },
-    time::Duration,
+use std::collections::{
+    BTreeMap,
+    VecDeque,
 };
 
 use anyhow::Context;
@@ -18,6 +15,7 @@ use common::{
         DocumentUpdate,
         ResolvedDocument,
     },
+    knobs::MAX_TRANSACTION_WINDOW,
     types::{
         DatabaseIndexUpdate,
         RepeatableReason,
@@ -58,8 +56,6 @@ use crate::{
     TableSummary,
     TransactionReadSet,
 };
-
-const MAX_TRANSACTION_WINDOW: Duration = Duration::from_secs(10);
 
 /// The [SnapshotManager] maintains multiple versions of the [Snapshot]s at
 /// different timestamps. The snapshots internally use immutable data structures
@@ -500,7 +496,7 @@ impl SnapshotManager {
 
     pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot) {
         assert!(*self.latest_ts() < ts);
-        while self.versions.len() > 1 && (ts - self.earliest_ts()) > MAX_TRANSACTION_WINDOW {
+        while self.versions.len() > 1 && (ts - self.earliest_ts()) > *MAX_TRANSACTION_WINDOW {
             self.versions.pop_front();
         }
         self.versions.push_back((ts, snapshot));
