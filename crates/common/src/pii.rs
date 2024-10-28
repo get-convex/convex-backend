@@ -3,6 +3,7 @@ use std::fmt;
 /// PII is a light wrapper struct that implements Debug by omitting the contents
 /// when printing in prod.
 #[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct PII<T>(pub T);
 
 impl<T> std::ops::Deref for PII<T> {
