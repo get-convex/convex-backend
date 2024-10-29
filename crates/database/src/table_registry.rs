@@ -47,6 +47,7 @@ impl TableRegistry {
     /// Fill out all of our table metadata from the latest version of each
     /// document in the `_tables` table. In particular, we expect to find
     /// exactly one record for the `_tables` table.
+    #[minitrace::trace]
     pub fn bootstrap(
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,

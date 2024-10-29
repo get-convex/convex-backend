@@ -54,6 +54,7 @@ pub struct ComponentRegistry {
 }
 
 impl ComponentRegistry {
+    #[minitrace::trace]
     pub fn bootstrap(
         table_mapping: &TableMapping,
         component_docs: Vec<ParsedDocument<ComponentMetadata>>,

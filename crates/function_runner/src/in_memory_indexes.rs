@@ -196,6 +196,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     /// Get the index from the cache or load it from persistence and put it in
     /// the cache. If the index is not in the last_modified map, it is not an
     /// in-memory index and should not be cached.
+    #[minitrace::trace]
     async fn get_or_load(
         &self,
         instance_name: String,
@@ -232,6 +233,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         cache_value_result
     }
 
+    #[minitrace::trace(properties = { "table_name": "{table_name:?}" })]
     pub async fn must_get_or_load_unpacked(
         &self,
         instance_name: String,
@@ -255,6 +257,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         Ok(index_map.0.into_iter().map(|(_k, (_ts, v))| v.unpack()))
     }
 
+    #[minitrace::trace]
     async fn load_registries(
         &self,
         persistence_snapshot: PersistenceSnapshot,
