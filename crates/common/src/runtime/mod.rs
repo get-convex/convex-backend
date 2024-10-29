@@ -55,7 +55,6 @@ use proptest::prelude::*;
 use rand::RngCore;
 use serde::Serialize;
 use thiserror::Error;
-use tokio::sync::oneshot;
 use tokio_metrics_collector::TaskMonitor;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
@@ -169,17 +168,8 @@ pub async fn try_join<T: Send + 'static>(
     fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
     span: Span,
 ) -> anyhow::Result<T> {
-    let (tx, rx) = oneshot::channel();
-    let handle = tokio_spawn(
-        name,
-        async {
-            let result = fut.await;
-            let _ = tx.send(result);
-        }
-        .in_span(span),
-    );
-    handle.await?;
-    rx.await?
+    let handle = tokio_spawn(name, fut.in_span(span));
+    handle.await?
 }
 
 /// A Runtime can be considered somewhat like an operating system abstraction
