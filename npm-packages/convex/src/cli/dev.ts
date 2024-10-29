@@ -125,6 +125,7 @@ export const dev = new Command("dev")
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
   .addOption(new Option("--live-component-sources").hideHelp())
+  .addOption(new Option("--partition-id <id>").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext();
@@ -194,12 +195,20 @@ export const dev = new Command("dev")
       }
     }
 
+    const partitionId = cmdOptions.partitionId
+      ? parseInt(cmdOptions.partitionId)
+      : undefined;
     const configure =
       cmdOptions.configure === true ? "ask" : cmdOptions.configure ?? null;
-    const credentials = await deploymentCredentialsOrConfigure(ctx, configure, {
-      ...cmdOptions,
-      localOptions,
-    });
+    const credentials = await deploymentCredentialsOrConfigure(
+      ctx,
+      configure,
+      {
+        ...cmdOptions,
+        localOptions,
+      },
+      partitionId,
+    );
 
     await usageStateWarning(ctx);
 

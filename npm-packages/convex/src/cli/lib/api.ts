@@ -36,7 +36,8 @@ export async function createProject(
   {
     teamSlug: selectedTeamSlug,
     projectName,
-  }: { teamSlug: string; projectName: string },
+    partitionId,
+  }: { teamSlug: string; projectName: string; partitionId?: number },
 ): Promise<{
   projectSlug: string;
   teamSlug: string;
@@ -49,6 +50,7 @@ export async function createProject(
     // to provisioning prod on creation.
     deploymentType: "dev",
     backendVersionOverride: process.env.CONVEX_BACKEND_VERSION_OVERRIDE,
+    partitionId,
   };
   const data = await bigBrainAPI({
     ctx,

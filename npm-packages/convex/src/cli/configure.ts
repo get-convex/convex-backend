@@ -75,6 +75,7 @@ export async function deploymentCredentialsOrConfigure(
     url?: string | undefined;
     adminKey?: string | undefined;
   },
+  partitionId?: number | undefined,
 ): Promise<
   DeploymentCredentials & {
     deploymentName?: DeploymentName;
@@ -90,7 +91,11 @@ export async function deploymentCredentialsOrConfigure(
   const { projectSlug, teamSlug } = await selectProject(
     ctx,
     chosenConfiguration,
-    { team: cmdOptions.team, project: cmdOptions.project },
+    {
+      team: cmdOptions.team,
+      project: cmdOptions.project,
+      partitionId,
+    },
   );
   const deploymentOptions: DeploymentOptions = cmdOptions.prod
     ? { kind: "prod" }
@@ -149,6 +154,7 @@ async function selectProject(
   cmdOptions: {
     team?: string | undefined;
     project?: string | undefined;
+    partitionId?: number;
   },
 ): Promise<{ teamSlug: string; projectSlug: string }> {
   let result:
@@ -280,6 +286,7 @@ async function selectNewProject(
   config: {
     team?: string | undefined;
     project?: string | undefined;
+    partitionId?: number | undefined;
   },
 ) {
   const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
@@ -299,6 +306,7 @@ async function selectNewProject(
     ({ projectSlug, teamSlug, projectsRemaining } = await createProject(ctx, {
       teamSlug: selectedTeam,
       projectName,
+      partitionId: config.partitionId,
     }));
   } catch (err) {
     logFailure(ctx, "Unable to create project.");
