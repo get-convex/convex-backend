@@ -2291,7 +2291,7 @@ async fn import_single_table<RT: Runtime>(
         // No more tables to import.
         None => return Ok(None),
     };
-    let mut table_number_from_docs = table_number_for_import(objects.as_mut()).await;
+    let table_number_from_docs = table_number_for_import(objects.as_mut()).await;
     if let Some(import_id) = import_id {
         best_effort_update_progress_message(
             database,
@@ -2312,8 +2312,6 @@ async fn import_single_table<RT: Runtime>(
     let table_name = &mut component_and_table.1;
     if *table_name == *FILE_STORAGE_VIRTUAL_TABLE {
         *table_name = FILE_STORAGE_TABLE.clone();
-        // Infer table number from existing table.
-        table_number_from_docs = None;
     }
     let (component_path, table_name) = &component_and_table;
 
