@@ -109,8 +109,13 @@ pub enum UsageEvent {
         tables: Vec<TableDatabaseStorage>,
     },
     CurrentFileStorage {
+        // TODO(Rebecca): tag and total_size can be cleaned up after we start using the other
+        // fields
         tag: String,
         total_size: u64,
+        total_user_file_size: u64,
+        total_cloud_backup_size: u64,
+        total_snapshot_export_size: u64,
     },
     CurrentDocumentCounts {
         tables: Vec<TableDocumentCount>,

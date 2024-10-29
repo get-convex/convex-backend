@@ -179,6 +179,9 @@ impl UsageCounterState {
             UsageEvent::CurrentFileStorage {
                 tag: _,
                 total_size: _,
+                total_user_file_size: _,
+                total_cloud_backup_size: _,
+                total_snapshot_export_size: _,
             } => todo!(),
             UsageEvent::CurrentDocumentCounts { tables: _ } => todo!(),
         }
