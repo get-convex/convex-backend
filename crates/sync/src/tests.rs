@@ -56,7 +56,10 @@ use model::{
 };
 use must_let::must_let;
 use parking_lot::Mutex;
-use runtime::testing::TestRuntime;
+use runtime::{
+    prod::ProdRuntime,
+    testing::TestRuntime,
+};
 use sync_types::{
     AuthenticationToken,
     ClientMessage,
@@ -78,14 +81,14 @@ use crate::{
     SyncWorkerConfig,
 };
 
-struct SyncTest {
-    pub rt: TestRuntime,
+struct SyncTest<RT: Runtime> {
+    pub rt: RT,
     pub kb: KeyBroker,
-    application: Application<TestRuntime>,
+    application: Application<RT>,
 }
 
-impl SyncTest {
-    async fn new(rt: TestRuntime) -> anyhow::Result<Self> {
+impl<RT: Runtime> SyncTest<RT> {
+    async fn new(rt: RT) -> anyhow::Result<Self> {
         let application = Application::new_for_tests(&rt).await?;
         let kb = application.key_broker().clone();
         let application_ = application.clone();
@@ -126,7 +129,7 @@ impl SyncTest {
         })
     }
 
-    fn new_worker(&self) -> anyhow::Result<TestSyncWorker> {
+    fn new_worker(&self) -> anyhow::Result<TestSyncWorker<RT>> {
         let config = SyncWorkerConfig::default();
         self.new_worker_with_config(config, None)
     }
@@ -135,7 +138,7 @@ impl SyncTest {
         &self,
         config: SyncWorkerConfig,
         max_observed_timestamp: Option<Timestamp>,
-    ) -> anyhow::Result<TestSyncWorker> {
+    ) -> anyhow::Result<TestSyncWorker<RT>> {
         let worker_failed = Arc::new(Mutex::new(None));
         let (client_tx, client_rx) = mpsc::unbounded_channel();
         let (server_tx, server_rx) = measurable_unbounded_channel();
@@ -185,8 +188,8 @@ impl SyncTest {
     }
 }
 
-struct TestSyncWorker {
-    rt: TestRuntime,
+struct TestSyncWorker<RT: Runtime> {
+    rt: RT,
 
     tx: mpsc::UnboundedSender<(ClientMessage, tokio::time::Instant)>,
     rx: SingleFlightReceiver,
@@ -195,7 +198,7 @@ struct TestSyncWorker {
     worker_failed: Arc<Mutex<Option<anyhow::Error>>>,
 }
 
-impl TestSyncWorker {
+impl<RT: Runtime> TestSyncWorker<RT> {
     fn send(&self, message: ClientMessage) -> anyhow::Result<()> {
         self.tx.send((message, self.rt.monotonic_now()))?;
         Ok(())
@@ -587,8 +590,8 @@ async fn test_admin_auth(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
+#[convex_macro::prod_rt_test]
+async fn test_admin_auth_bad_key(rt: ProdRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
     let bogus_admin_key =
@@ -609,8 +612,8 @@ async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_acting_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
+#[convex_macro::prod_rt_test]
+async fn test_acting_auth_bad_key(rt: ProdRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
     let bogus_admin_key =
@@ -892,8 +895,8 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_max_observed_timestamp(rt: TestRuntime) -> anyhow::Result<()> {
+#[convex_macro::prod_rt_test]
+async fn test_max_observed_timestamp(rt: ProdRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
 
     let config = SyncWorkerConfig::default();

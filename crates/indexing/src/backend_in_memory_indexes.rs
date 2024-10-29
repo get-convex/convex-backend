@@ -33,6 +33,7 @@ use common::{
         CursorPosition,
         Order,
     },
+    runtime::try_join_buffer_unordered,
     static_span,
     types::{
         DatabaseIndexUpdate,
@@ -504,17 +505,40 @@ impl DatabaseIndexSnapshot {
             }
         }
 
-        let self_ = &*self;
-        let fetch_results = futures::future::join_all(ranges_to_fetch.into_iter().map(
-            |(batch_key, (index_id, range_request, cache_results))| async move {
-                let fetch_result = self_
-                    .fetch_cache_misses(index_id, range_request.clone(), cache_results)
-                    .await;
-                (batch_key, index_id, range_request, fetch_result)
-            },
-        ))
+        let batch_keys_to_fetch = ranges_to_fetch.keys().cloned().collect_vec();
+        let persistence = self.persistence.clone();
+        let fetch_results_or_cancelled: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
+            "fetch_cache_misses",
+            ranges_to_fetch.into_iter().map(
+                move |(batch_key, (index_id, range_request, cache_results))| {
+                    let persistence = persistence.clone();
+                    async move {
+                        let fetch_result = Self::fetch_cache_misses(
+                            persistence,
+                            index_id,
+                            range_request.clone(),
+                            cache_results,
+                        )
+                        .await;
+                        anyhow::Ok((batch_key, index_id, range_request, fetch_result))
+                    }
+                },
+            ),
+        )
         .await;
+        let fetch_results = match fetch_results_or_cancelled {
+            Ok(fetch_results) => fetch_results,
+            Err(e) => {
+                // If the task was cancelled, return the error.
+                for batch_key in batch_keys_to_fetch {
+                    results.insert(batch_key, Err(anyhow::anyhow!(e.to_string())));
+                }
+                return results;
+            },
+        };
 
+        // We've spawned all tasks into the JoinSet so it will only ever be None when
+        // we're done, and it will only error if the job panics.
         for (batch_key, index_id, range_request, fetch_result) in fetch_results {
             let result: anyhow::Result<_> = try {
                 let (fetch_result_vec, cache_miss_results, cursor) = fetch_result?;
@@ -548,7 +572,7 @@ impl DatabaseIndexSnapshot {
 
     #[minitrace::trace]
     async fn fetch_cache_misses(
-        &self,
+        persistence: PersistenceSnapshot,
         index_id: IndexId,
         range_request: RangeRequest,
         cache_results: Vec<DatabaseIndexSnapshotCacheResult>,
@@ -569,7 +593,7 @@ impl DatabaseIndexSnapshot {
                 DatabaseIndexSnapshotCacheResult::CacheMiss(interval) => {
                     log_transaction_cache_query(false);
                     // Query persistence.
-                    let mut stream = self.persistence.index_scan(
+                    let mut stream = persistence.index_scan(
                         index_id,
                         *range_request.index_name.table(),
                         &interval,

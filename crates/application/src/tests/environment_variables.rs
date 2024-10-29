@@ -8,7 +8,10 @@ use model::environment_variables::{
     },
     EnvironmentVariablesModel,
 };
-use runtime::testing::TestRuntime;
+use runtime::{
+    prod::ProdRuntime,
+    testing::TestRuntime,
+};
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -172,8 +175,8 @@ async fn test_env_var_limit_update(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 // Name conflict with system environment variable
-#[convex_macro::test_runtime]
-async fn test_env_variable_cannot_set_system_name(rt: TestRuntime) -> anyhow::Result<()> {
+#[convex_macro::prod_rt_test]
+async fn test_env_variable_cannot_set_system_name(rt: ProdRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
