@@ -215,7 +215,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
     pub async fn completed_export_at_ts(
         &mut self,
         snapshot_ts: Timestamp,
-    ) -> anyhow::Result<Option<ResolvedDocument>> {
+    ) -> anyhow::Result<Option<ParsedDocument<Export>>> {
         let index_range = IndexRange {
             index_name: EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
             range: vec![
@@ -229,7 +229,11 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         };
         let query = Query::index_range(index_range);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
-        query_stream.expect_at_most_one(self.tx).await
+        query_stream
+            .expect_at_most_one(self.tx)
+            .await?
+            .map(|doc| doc.try_into())
+            .transpose()
     }
 
     pub async fn get(

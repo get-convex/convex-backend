@@ -192,7 +192,7 @@ pub fn router(st: LocalAppState) -> Router {
 
     let snapshot_export_routes = Router::new()
         .route("/request/zip", post(request_zip_export))
-        .route("/zip/:snapshot_ts", get(get_zip_export));
+        .route("/zip/:id", get(get_zip_export));
 
     let api_routes = Router::new()
         .merge(cli_routes)

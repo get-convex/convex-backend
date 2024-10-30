@@ -24,6 +24,7 @@ use common::{
         HttpResponseError,
     },
 };
+use either::Either;
 use errors::ErrorMetadata;
 use http::StatusCode;
 use model::exports::types::{
@@ -33,6 +34,7 @@ use model::exports::types::{
 use serde::Deserialize;
 use storage::StorageGetStream;
 use sync_types::Timestamp;
+use value::DeveloperDocumentId;
 
 use crate::{
     admin::must_be_admin_with_write_access,
@@ -77,28 +79,31 @@ pub async fn request_zip_export(
 
 #[derive(Deserialize)]
 pub struct ZipExportRequest {
-    // Timestamp the snapshot export started at
-    snapshot_ts: String,
+    // The ID of the snapshot
+    id: String,
 }
 
 #[debug_handler]
 pub async fn get_zip_export(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
-    Path(ZipExportRequest { snapshot_ts }): Path<ZipExportRequest>,
+    Path(ZipExportRequest { id }): Path<ZipExportRequest>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     must_be_admin_with_write_access(&identity)?;
-    let ts: Timestamp = snapshot_ts.parse().context(ErrorMetadata::bad_request(
-        "BadSnapshotTimestamp",
-        "Snapshot timestamp did not parse to a timestamp.",
-    ))?;
+    let id: Either<DeveloperDocumentId, Timestamp> = match id.parse() {
+        Ok(id) => Either::Left(id),
+        Err(_) => Either::Right(id.parse().context(ErrorMetadata::bad_request(
+            "BadSnapshotId",
+            "Snapshot Id did not parse to an ID.",
+        ))?),
+    };
     let (
         StorageGetStream {
             content_length,
             stream,
         },
         filename,
-    ) = st.application.get_zip_export(identity, ts).await?;
+    ) = st.application.get_zip_export(identity, id).await?;
     let content_length = ContentLength(content_length as u64);
     Ok((
         TypedHeader(content_length),

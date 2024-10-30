@@ -21,6 +21,7 @@ common = { path = "../common" }
 convex_macro = { path = "../convex_macro" }
 csv-async = { workspace = true }
 database = { path = "../database" }
+either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
 file_storage = { path = "../file_storage" }

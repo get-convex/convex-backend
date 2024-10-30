@@ -21,6 +21,7 @@ clap = { workspace = true }
 cmd_util = { path = "../../crates/cmd_util" }
 common = { path = "../common" }
 database = { path = "../database" }
+either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
 file_storage = { path = "../file_storage" }

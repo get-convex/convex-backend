@@ -53,7 +53,6 @@ use common::{
     },
     document::{
         DocumentUpdate,
-        ParsedDocument,
         CREATION_TIME_FIELD_PATH,
     },
     errors::{
@@ -122,6 +121,7 @@ use database::{
     Transaction,
     WriteSource,
 };
+use either::Either;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -1373,39 +1373,32 @@ impl<RT: Runtime> Application<RT> {
     pub async fn get_zip_export(
         &self,
         identity: Identity,
-        snapshot_ts: Timestamp,
+        id: Either<DeveloperDocumentId, Timestamp>,
     ) -> anyhow::Result<(StorageGetStream, String)> {
-        let stream = self.get_export_inner(identity, snapshot_ts).await?;
-        let filename = format!(
-            // This should match the format in SnapshotExport.tsx.
-            "snapshot_{}_{snapshot_ts}.zip",
-            self.instance_name
-        );
-        Ok((stream, filename))
-    }
-
-    async fn get_export_inner(
-        &self,
-        identity: Identity,
-        snapshot_ts: Timestamp,
-    ) -> anyhow::Result<StorageGetStream> {
-        let object_key = {
+        let (object_key, snapshot_ts) = {
             let mut tx = self.begin(identity).await?;
-            let export_doc = ExportsModel::new(&mut tx)
-                .completed_export_at_ts(snapshot_ts)
-                .await?;
-            let export: ParsedDocument<Export> = export_doc
-                .context(ErrorMetadata::not_found(
-                    "ExportNotFound",
-                    format!("The requested export {snapshot_ts} was not found"),
-                ))?
-                .try_into()?;
+            let export = match id {
+                Either::Left(id) => ExportsModel::new(&mut tx).get(id).await?,
+                Either::Right(ts) => {
+                    ExportsModel::new(&mut tx)
+                        .completed_export_at_ts(ts)
+                        .await?
+                },
+            }
+            .context(ErrorMetadata::not_found(
+                "ExportNotFound",
+                format!("The requested export {id} was not found"),
+            ))?;
             match export.into_value() {
-                Export::Completed { zip_object_key, .. } => zip_object_key,
+                Export::Completed {
+                    zip_object_key,
+                    start_ts,
+                    ..
+                } => (zip_object_key, start_ts),
                 Export::Failed { .. } | Export::InProgress { .. } | Export::Requested { .. } => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "ExportNotComplete",
-                        format!("The requested export {snapshot_ts} has not completed"),
+                        format!("The requested export {id} has not completed"),
                     ))
                 },
             }
@@ -1418,7 +1411,13 @@ impl<RT: Runtime> Application<RT> {
                     "ExportNotFound",
                     format!("The requested export {snapshot_ts}/{object_key:?} was not found"),
                 ))?;
-        Ok(storage_get_stream)
+
+        let filename = format!(
+            // This should match the format in SnapshotExport.tsx.
+            "snapshot_{}_{snapshot_ts}.zip",
+            self.instance_name
+        );
+        Ok((storage_get_stream, filename))
     }
 
     /// Returns the cloud export key - fully qualified to the instance.

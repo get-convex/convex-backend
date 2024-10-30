@@ -39,6 +39,7 @@ deno_core_icudata = "0.73.0"
 derive_more = "0.99"
 divan = "0.1.14"
 dotenvy = "0.15.7"
+either = "1.9.0"
 elliptic-curve = { version = "0.12.1", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
 p256 = { version = "0.11.1", features = [ "ecdh" ] }
