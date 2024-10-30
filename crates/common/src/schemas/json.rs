@@ -480,7 +480,7 @@ impl TryFrom<JsonValue> for DocumentSchema {
 
     fn try_from(v: JsonValue) -> Result<Self, Self::Error> {
         let schema_type: Validator = v.try_into()?;
-        match schema_type.clone() {
+        match schema_type {
             Validator::Any => Ok(DocumentSchema::Any),
             Validator::Union(value) => {
                 let schemas: Vec<_> = value
@@ -491,9 +491,7 @@ impl TryFrom<JsonValue> for DocumentSchema {
                             // once data has been migrated
                             Ok(object_schema.filter_system_fields())
                         } else {
-                            Err(anyhow::anyhow!(invalid_top_level_type_in_schema(
-                                &schema_type
-                            )))
+                            Err(anyhow::anyhow!(invalid_top_level_type_in_schema(&s)))
                         }
                     })
                     .collect::<anyhow::Result<_>>()?;
@@ -757,15 +755,15 @@ impl TryFrom<JsonValue> for ObjectValidator {
     type Error = anyhow::Error;
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
-        let value = value
-            .as_object()
-            .ok_or_else(|| anyhow::anyhow!("Object must be an object"))?;
+        let JsonValue::Object(value) = value else {
+            anyhow::bail!("Object must be an object");
+        };
         let schema = ObjectValidator(
             value
                 .into_iter()
                 .map(|(k, v)| {
                     let field_name = k.parse::<IdentifierFieldName>()?;
-                    let field_value = FieldValidator::try_from(v.clone()).map_err(|e| {
+                    let field_value = FieldValidator::try_from(v).map_err(|e| {
                         e.wrap_error_message(|msg| {
                             format!("Invalid validator for key `{field_name}`: {msg}")
                         })
