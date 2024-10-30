@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+    fmt,
+    str::FromStr,
+};
 
 use anyhow::Context;
 use rand::Rng;
@@ -48,6 +51,22 @@ impl Secret {
 impl fmt::Display for Secret {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", hex::encode(self.key))
+    }
+}
+
+impl fmt::Debug for Secret {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Secret")
+            .field("key", &hex::encode(self.key))
+            .finish()
+    }
+}
+
+impl FromStr for Secret {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::try_from(s)
     }
 }
 

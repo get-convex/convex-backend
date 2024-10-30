@@ -1161,3 +1161,9 @@ pub static EXECUTE_HTTP_ACTIONS_IN_FUNRUN: LazyLock<bool> =
 /// If an import takes more than a week, the file may be deleted from S3.
 pub static MAX_IMPORT_AGE: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("MAX_IMPORT_AGE_SECONDS", 7 * 24 * 60 * 60)));
+
+/// Max staleness in seconds of a partition loader result before we allow
+/// refreshing. If a request tries to update the partition loader and this
+/// duration has not passed since the last refresh, a stale value will be used.
+pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("PARTITION_LOADER_MAX_STALE_SECS", 1)));
