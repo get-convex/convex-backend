@@ -103,12 +103,6 @@ pub struct CacheManager<RT: Runtime> {
     cache: Cache,
 }
 
-impl<RT: Runtime> HeapSize for CacheManager<RT> {
-    fn heap_size(&self) -> usize {
-        self.cache.heap_size()
-    }
-}
-
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct CacheKey {
     path: PublicFunctionPath,
@@ -713,12 +707,6 @@ impl Cache {
 
     fn put_ready(&self, key: CacheKey, result: CacheResult) {
         self.inner.lock().put_ready(key, result)
-    }
-}
-
-impl HeapSize for Cache {
-    fn heap_size(&self) -> usize {
-        self.inner.lock().size
     }
 }
 

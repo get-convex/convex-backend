@@ -527,12 +527,6 @@ pub struct FunctionExecutionLog<RT: Runtime> {
     rt: RT,
 }
 
-impl<RT: Runtime> HeapSize for FunctionExecutionLog<RT> {
-    fn heap_size(&self) -> usize {
-        self.inner.lock().heap_size()
-    }
-}
-
 impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn new(rt: RT, usage_tracking: UsageCounter, log_manager: Arc<dyn LogSender>) -> Self {
         let inner = Inner {
@@ -1226,12 +1220,6 @@ struct Inner<RT: Runtime> {
     log_manager: Arc<dyn LogSender>,
 
     metrics: Metrics,
-}
-
-impl<RT: Runtime> HeapSize for Inner<RT> {
-    fn heap_size(&self) -> usize {
-        self.log.heap_size() + self.log_waiters.heap_size()
-    }
 }
 
 impl<RT: Runtime> Inner<RT> {

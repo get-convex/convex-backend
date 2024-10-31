@@ -360,12 +360,6 @@ impl LogReader {
     }
 }
 
-impl HeapSize for LogReader {
-    fn heap_size(&self) -> usize {
-        self.inner.read().heap_size()
-    }
-}
-
 /// LogWriter can append to the log.
 pub struct LogWriter {
     inner: Arc<RwLock<WriteLog>>,

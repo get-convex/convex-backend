@@ -117,7 +117,6 @@ use isolate::{
     HttpActionOutcome,
     IsolateClient,
     IsolateConfig,
-    IsolateHeapStats,
     JsonPackedValue,
     UdfOutcome,
     ValidatedPathAndArgs,
@@ -187,7 +186,6 @@ use usage_tracking::{
     FunctionUsageTracker,
 };
 use value::{
-    heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     identifier::Identifier,
     TableNamespace,
@@ -587,12 +585,6 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     fetch_client: Arc<dyn FetchClient>,
 }
 
-impl<RT: Runtime> HeapSize for ApplicationFunctionRunner<RT> {
-    fn heap_size(&self) -> usize {
-        self.cache_manager.heap_size()
-    }
-}
-
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub fn new(
         instance_name: String,
@@ -695,14 +687,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         self.http_actions.shutdown().await?;
         self.node_actions.shutdown();
         Ok(())
-    }
-
-    pub fn database_heap_size(&self) -> IsolateHeapStats {
-        self.analyze_isolate.aggregate_heap_stats()
-    }
-
-    pub fn http_actions_heap_size(&self) -> IsolateHeapStats {
-        self.http_actions.aggregate_heap_stats()
     }
 
     // Only used for running queries from REPLs.

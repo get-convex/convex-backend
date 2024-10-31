@@ -137,7 +137,6 @@ use usage_tracking::{
     UsageCounter,
 };
 use value::{
-    heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
     Size,
     TableNamespace,
@@ -2016,10 +2015,6 @@ impl<RT: Runtime> Database<RT> {
 
     pub fn usage_counter(&self) -> UsageCounter {
         self.usage_counter.clone()
-    }
-
-    pub fn write_log_size(&self) -> usize {
-        self.log.heap_size()
     }
 
     pub fn search_storage(&self) -> Arc<dyn Storage> {
