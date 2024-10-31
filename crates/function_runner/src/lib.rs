@@ -11,6 +11,7 @@ use std::{
 use async_trait::async_trait;
 use common::{
     document::DocumentUpdate,
+    errors::JsError,
     execution_context::ExecutionContext,
     log_lines::LogLine,
     runtime::Runtime,
@@ -33,9 +34,14 @@ use isolate::{
     FunctionOutcome,
 };
 use keybroker::Identity;
-use model::environment_variables::types::{
-    EnvVarName,
-    EnvVarValue,
+use model::{
+    config::types::ModuleConfig,
+    environment_variables::types::{
+        EnvVarName,
+        EnvVarValue,
+    },
+    modules::module_versions::AnalyzedModule,
+    udf_config::types::UdfConfig,
 };
 #[cfg(any(test, feature = "testing"))]
 use proptest::strategy::Strategy;
@@ -43,7 +49,10 @@ use server::{
     FunctionMetadata,
     HttpActionMetadata,
 };
-use sync_types::Timestamp;
+use sync_types::{
+    CanonicalizedModulePath,
+    Timestamp,
+};
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageStats;
 use value::{
@@ -76,6 +85,13 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         FunctionOutcome,
         FunctionUsageStats,
     )>;
+
+    async fn analyze(
+        &self,
+        udf_config: UdfConfig,
+        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>;
 
     /// Set the action callbacks. Only used for InProcessFunctionRunner to break
     /// a reference cycle between ApplicationFunctionRunner and dyn

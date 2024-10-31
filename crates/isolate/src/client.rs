@@ -1878,14 +1878,12 @@ impl<RT: Runtime> IsolateWorker<RT> for BackendIsolateWorker<RT> {
                 let r = AnalyzeEnvironment::analyze::<RT>(
                     client_id,
                     isolate,
+                    isolate_clean,
                     udf_config,
                     modules,
                     environment_variables,
                 )
                 .await;
-
-                // Don't bother reusing isolates when used for analyze.
-                *isolate_clean = false;
 
                 let _ = response.send(r);
                 "Analyze".to_string()

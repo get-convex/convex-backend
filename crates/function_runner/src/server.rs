@@ -15,6 +15,10 @@ use common::{
         new_codel_queue_async,
         CoDelQueueSender,
     },
+    errors::{
+        recapture_stacktrace,
+        JsError,
+    },
     execution_context::ExecutionContext,
     http::{
         fetch::FetchClient,
@@ -40,6 +44,7 @@ use common::{
     types::{
         ConvexOrigin,
         IndexId,
+        ModuleEnvironment,
         RepeatableTimestamp,
         UdfType,
     },
@@ -54,6 +59,7 @@ use database::{
     Transaction,
     TransactionTextSnapshot,
 };
+use errors::ErrorMetadataAnyhowExt;
 use file_storage::TransactionalFileStorage;
 use isolate::{
     client::{
@@ -87,9 +93,14 @@ use keybroker::{
     InstanceSecret,
     KeyBroker,
 };
-use model::environment_variables::types::{
-    EnvVarName,
-    EnvVarValue,
+use model::{
+    config::types::ModuleConfig,
+    environment_variables::types::{
+        EnvVarName,
+        EnvVarValue,
+    },
+    modules::module_versions::AnalyzedModule,
+    udf_config::types::UdfConfig,
 };
 use parking_lot::{
     Mutex,
@@ -99,7 +110,10 @@ use storage::{
     Storage,
     StorageUseCase,
 };
-use sync_types::Timestamp;
+use sync_types::{
+    CanonicalizedModulePath,
+    Timestamp,
+};
 use tokio::sync::{
     mpsc,
     oneshot,
@@ -738,6 +752,42 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         };
         validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;
         result
+    }
+
+    #[minitrace::trace]
+    async fn analyze(
+        &self,
+        udf_config: UdfConfig,
+        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+        anyhow::ensure!(
+            modules
+                .values()
+                .all(|m| m.environment == ModuleEnvironment::Isolate),
+            "Can only analyze Isolate modules"
+        );
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequestType::Analyze {
+            modules,
+            response: tx,
+            udf_config,
+            environment_variables,
+        };
+        self.server.send_request(IsolateRequest::new(
+            self.instance_name.clone(),
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+            .await?
+            .map_err(|e| {
+                if e.is_overloaded() {
+                    recapture_stacktrace(e)
+                } else {
+                    e
+                }
+            })
     }
 
     /// This fn should be called on startup. All `run_function` calls will fail

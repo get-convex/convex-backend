@@ -21,6 +21,7 @@ use isolate::{
     },
     environment::{
         action::ActionEnvironment,
+        analyze::AnalyzeEnvironment,
         udf::DatabaseUdfEnvironment,
     },
     isolate::Isolate,
@@ -176,6 +177,24 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 finish_service_request_timer(timer, status);
                 let _ = response.send(r);
                 format!("Action: {udf_path:?}")
+            },
+            RequestType::Analyze {
+                udf_config,
+                modules,
+                environment_variables,
+                response,
+            } => {
+                let r = AnalyzeEnvironment::analyze::<RT>(
+                    client_id,
+                    isolate,
+                    isolate_clean,
+                    udf_config,
+                    modules,
+                    environment_variables,
+                )
+                .await;
+                let _ = response.send(r);
+                "Analyze".to_string()
             },
             RequestType::HttpAction {
                 request,

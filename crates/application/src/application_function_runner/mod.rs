@@ -232,7 +232,7 @@ static BUILD_DEPS_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| Duration::from_
 /// route requests.
 #[derive(Clone)]
 pub struct FunctionRouter<RT: Runtime> {
-    function_runner: Arc<dyn FunctionRunner<RT>>,
+    pub(crate) function_runner: Arc<dyn FunctionRunner<RT>>,
     query_limiter: Arc<Limiter>,
     mutation_limiter: Arc<Limiter>,
     action_limiter: Arc<Limiter>,
@@ -1526,7 +1526,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let mut result = BTreeMap::new();
 
-        let isolate_future = self.analyze_isolate.analyze(
+        let isolate_future = self.isolate_functions.function_runner.analyze(
             udf_config,
             isolate_modules,
             environment_variables.clone(),

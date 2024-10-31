@@ -237,6 +237,7 @@ impl AnalyzeEnvironment {
     pub async fn analyze<RT: Runtime>(
         client_id: String,
         isolate: &mut Isolate<RT>,
+        isolate_clean: &mut bool,
         udf_config: UdfConfig,
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
@@ -282,8 +283,11 @@ impl AnalyzeEnvironment {
         let handle = isolate_context.handle();
         let result = Self::run_analyze(&mut isolate_context, to_analyze).await;
 
-        // Drain the microtask queue, to clean up the isolate.
+        // Perform a microtask checkpoint one last time before taking the environment
+        // to ensure the microtask queue is empty. Otherwise, JS from this request may
+        // leak to a subsequent one on isolate reuse.
         isolate_context.scope.perform_microtask_checkpoint();
+        *isolate_clean = true;
 
         // Unlink the request from the isolate.
         // After this point, it's unsafe to run js code in the isolate that
