@@ -2958,6 +2958,7 @@ impl<RT: Runtime> Application<RT> {
         self.index_worker.lock().shutdown();
         self.search_worker.lock().shutdown();
         self.search_and_vector_bootstrap_worker.lock().shutdown();
+        self.fast_forward_worker.lock().shutdown();
         self.export_worker.lock().shutdown();
         self.snapshot_import_worker.lock().shutdown();
         self.runner.shutdown().await?;
