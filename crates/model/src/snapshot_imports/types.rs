@@ -38,7 +38,7 @@ struct SerializedSnapshotImport {
     object_key: String,
     member_id: Option<i64>,
     checkpoints: Option<Vec<SerializedImportTableCheckpoint>>,
-    requestor: Option<SerializedImportRequestor>,
+    requestor: SerializedImportRequestor,
 }
 
 impl From<SnapshotImport> for SerializedSnapshotImport {
@@ -53,7 +53,7 @@ impl From<SnapshotImport> for SerializedSnapshotImport {
             checkpoints: import
                 .checkpoints
                 .map(|checkpoints| checkpoints.into_iter().map(Into::into).collect()),
-            requestor: Some(import.requestor.into()),
+            requestor: import.requestor.into(),
         }
     }
 }
@@ -73,10 +73,7 @@ impl TryFrom<SerializedSnapshotImport> for SnapshotImport {
                 .checkpoints
                 .map(|checkpoints| checkpoints.into_iter().map(TryInto::try_into).try_collect())
                 .transpose()?,
-            requestor: import
-                .requestor
-                .unwrap_or(SerializedImportRequestor::SnapshotImport)
-                .into(),
+            requestor: import.requestor.into(),
         })
     }
 }
