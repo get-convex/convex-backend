@@ -16,6 +16,7 @@ use common::{
         ResolvedDocument,
     },
     knobs::MAX_TRANSACTION_WINDOW,
+    runtime::block_in_place,
     types::{
         DatabaseIndexUpdate,
         RepeatableReason,
@@ -200,67 +201,71 @@ impl Snapshot {
         document_update: &DocumentUpdate,
         commit_ts: Timestamp,
     ) -> anyhow::Result<(Vec<DatabaseIndexUpdate>, DocInVectorIndex)> {
-        let removal = document_update.old_document.as_ref();
-        let insertion = document_update.new_document.as_ref();
-        let document_id = document_update.id;
-        let table_update = self
-            .table_registry
-            .update(
-                &self.index_registry,
-                document_id,
-                removal.map(|d| &d.value().0),
-                insertion.map(|d| &d.value().0),
-            )
-            .context("Table registry update failed")?;
-        self.schema_registry.update(
-            self.table_registry.table_mapping(),
-            document_id,
-            removal,
-            insertion,
-        )?;
-        self.component_registry.update(
-            self.table_registry.table_mapping(),
-            document_id,
-            removal,
-            insertion,
-        )?;
-        self.table_summaries
-            .update(
-                document_id,
-                removal,
-                insertion,
-                table_update.as_ref(),
+        block_in_place(|| {
+            let removal = document_update.old_document.as_ref();
+            let insertion = document_update.new_document.as_ref();
+            let document_id = document_update.id;
+            let table_update = self
+                .table_registry
+                .update(
+                    &self.index_registry,
+                    document_id,
+                    removal.map(|d| &d.value().0),
+                    insertion.map(|d| &d.value().0),
+                )
+                .context("Table registry update failed")?;
+            self.schema_registry.update(
                 self.table_registry.table_mapping(),
-            )
-            .context("Table summaries update failed")?;
+                document_id,
+                removal,
+                insertion,
+            )?;
+            self.component_registry.update(
+                self.table_registry.table_mapping(),
+                document_id,
+                removal,
+                insertion,
+            )?;
+            self.table_summaries
+                .update(
+                    document_id,
+                    removal,
+                    insertion,
+                    table_update.as_ref(),
+                    self.table_registry.table_mapping(),
+                )
+                .context("Table summaries update failed")?;
 
-        self.index_registry
-            .update(removal, insertion)
-            .context("Index update failed")?;
-        let in_memory_index_updates = self.in_memory_indexes.update(
-            &self.index_registry,
-            commit_ts,
-            removal.cloned(),
-            insertion.cloned(),
-        );
-        self.text_indexes
-            .update(
+            self.index_registry
+                .update(removal, insertion)
+                .context("Index update failed")?;
+            let in_memory_index_updates = self.in_memory_indexes.update(
                 &self.index_registry,
-                removal,
-                insertion,
-                WriteTimestamp::Committed(commit_ts),
-            )
-            .context("Search index update failed")?;
-        let doc_in_vector_index = self
-            .vector_indexes
-            .update(
-                &self.index_registry,
-                removal,
-                insertion,
-                WriteTimestamp::Committed(commit_ts),
-            )
-            .context("Vector index update failed")?;
-        Ok((in_memory_index_updates, doc_in_vector_index))
+                commit_ts,
+                removal.cloned(),
+                insertion.cloned(),
+            );
+
+            self.text_indexes
+                .update(
+                    &self.index_registry,
+                    removal,
+                    insertion,
+                    WriteTimestamp::Committed(commit_ts),
+                )
+                .context("Search index update failed")?;
+
+            let doc_in_vector_index = self
+                .vector_indexes
+                .update(
+                    &self.index_registry,
+                    removal,
+                    insertion,
+                    WriteTimestamp::Committed(commit_ts),
+                )
+                .context("Vector index update failed")?;
+            Ok((in_memory_index_updates, doc_in_vector_index))
+        })
     }
 
     pub fn iter_user_table_summaries(

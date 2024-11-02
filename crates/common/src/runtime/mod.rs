@@ -55,6 +55,10 @@ use proptest::prelude::*;
 use rand::RngCore;
 use serde::Serialize;
 use thiserror::Error;
+use tokio::runtime::{
+    Handle,
+    RuntimeFlavor,
+};
 use tokio_metrics_collector::TaskMonitor;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
@@ -492,5 +496,19 @@ impl TaskManager {
             .add(name, monitor.clone())
             .expect("Duplicate task label?");
         monitor
+    }
+}
+
+// Helper function to only call into `tokio::task::block_in_place` if we're not
+// using the single threaded runtime.
+pub fn block_in_place<F, R>(f: F) -> R
+where
+    F: FnOnce() -> R,
+{
+    let handle = Handle::current();
+    if handle.runtime_flavor() == RuntimeFlavor::CurrentThread {
+        f()
+    } else {
+        tokio::task::block_in_place(f)
     }
 }

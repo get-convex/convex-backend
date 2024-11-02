@@ -52,7 +52,7 @@ use common::{
         InternalSearchFilterExpression,
         SearchVersion,
     },
-    runtime::try_join_buffer_unordered,
+    runtime::block_in_place,
     types::{
         IndexName,
         Timestamp,
@@ -103,6 +103,7 @@ use tantivy::{
     Term,
 };
 pub use tantivy_query::SearchQueryResult;
+use tokio::task::JoinSet;
 use value::{
     values_to_bytes,
     ConvexValue,
@@ -463,16 +464,16 @@ impl TantivySearchIndexSchema {
         }
 
         // Step 2: Execute the token queries across both the memory and disk indexes,
-        // and merge the results to get the top terms.
-        let mut match_aggregator = TokenMatchAggregator::new(MAX_UNIQUE_QUERY_TERMS);
-        memory_index.query_tokens(&token_queries, &mut match_aggregator)?;
-        let searcher_clone = searcher.clone();
-        let search_storage_clone = search_storage.clone();
-        let token_match_futs = segments.clone().into_iter().map(move |segment| {
-            let searcher = searcher_clone.clone();
-            let search_storage = search_storage_clone.clone();
+        // and merge the results to get the top terms. Note that we spawn the calls
+        // into the joinset *before* calling `block_in_place` so we can make progress
+        // while this thread gets transitioned to being a blocking thread.
+        let mut token_query_futures = JoinSet::new();
+        for segment in &segments {
+            let searcher = searcher.clone();
+            let search_storage = search_storage.clone();
+            let segment = segment.clone();
             let token_queries = token_queries.clone();
-            async move {
+            token_query_futures.spawn(async move {
                 searcher
                     .query_tokens(
                         search_storage,
@@ -481,11 +482,13 @@ impl TantivySearchIndexSchema {
                         MAX_UNIQUE_QUERY_TERMS,
                     )
                     .await
-            }
-        });
-        let token_matches_by_segment: Vec<_> =
-            try_join_buffer_unordered("query_tokens", token_match_futs).await?;
-        for segment_token_matches in token_matches_by_segment {
+            });
+        }
+        let mut match_aggregator = TokenMatchAggregator::new(MAX_UNIQUE_QUERY_TERMS);
+        block_in_place(|| memory_index.query_tokens(&token_queries, &mut match_aggregator))?;
+
+        while let Some(result) = token_query_futures.join_next().await {
+            let segment_token_matches = result??;
             anyhow::ensure!(segment_token_matches.is_sorted());
             for m in segment_token_matches {
                 // Since each segment returns results in sorted order, we can stop early once we
@@ -495,6 +498,7 @@ impl TantivySearchIndexSchema {
                 }
             }
         }
+
         // Deduplicate terms, using the best distance for each term.
         let mut results_by_term = BTreeMap::new();
         for token_match in match_aggregator.into_results() {
@@ -530,31 +534,25 @@ impl TantivySearchIndexSchema {
 
         // Step 3: Given the terms we decided on, query BM25 statistics across all of
         // the indexes and merge their results.
-        let terms_original = terms;
-        let terms = terms_original.clone();
-        let searcher_clone = searcher.clone();
-        let search_storage_clone = search_storage.clone();
-        let bm25_stats_futs = segments.clone().into_iter().map(move |segment| {
-            let searcher = searcher_clone.clone();
-            let search_storage = search_storage_clone.clone();
+        let mut bm25_futures = JoinSet::new();
+        for segment in &segments {
+            let searcher = searcher.clone();
+            let search_storage = search_storage.clone();
+            let segment = segment.clone();
             let terms = terms.clone();
-            async move {
+            bm25_futures.spawn(async move {
                 searcher
-                    .query_bm25_stats(search_storage.clone(), segment, terms.clone())
+                    .query_bm25_stats(search_storage, segment, terms)
                     .await
-            }
-        });
-        let bm25_stats_per_segment: Vec<_> =
-            try_join_buffer_unordered("query_bm25_stats", bm25_stats_futs).await?;
-
-        let mut bm25_stats =
-            bm25_stats_per_segment
-                .into_iter()
-                .fold(Bm25Stats::empty(), |mut acc, stats| {
-                    acc += stats;
-                    acc
-                });
-        bm25_stats = memory_index.update_bm25_stats(disk_index_ts, &terms_original, bm25_stats)?;
+            });
+        }
+        let mut bm25_stats = Bm25Stats::empty();
+        while let Some(result) = bm25_futures.join_next().await {
+            let segment_bm25_stats = result??;
+            bm25_stats += segment_bm25_stats;
+        }
+        let bm25_stats =
+            block_in_place(|| memory_index.update_bm25_stats(disk_index_ts, &terms, bm25_stats))?;
 
         // Step 4: Decide on our posting list queries given the previous results.
         let mut or_terms = vec![];
@@ -594,44 +592,51 @@ impl TantivySearchIndexSchema {
         // Step 5: Execute the posting list query against the memory index's tombstones
         // to know which `InternalId`s to exclude when querying the disk
         // indexes.
-        let prepared_memory_query =
-            memory_index.prepare_posting_list_query(&and_terms, &or_terms, &bm25_stats)?;
-        let mut deleted_internal_ids = BTreeSet::new();
-        if let Some(ref prepared_query) = prepared_memory_query {
-            deleted_internal_ids = memory_index.query_tombstones(disk_index_ts, prepared_query)?;
-        }
-        let query = PostingListQuery {
-            deleted_internal_ids,
-            num_terms_by_field: bm25_stats.num_terms_by_field,
-            num_documents: bm25_stats.num_documents,
-            or_terms,
-            and_terms,
-            max_results: MAX_CANDIDATE_REVISIONS,
-        };
+        let (prepared_memory_query, query) = block_in_place(|| {
+            let prepared_memory_query =
+                memory_index.prepare_posting_list_query(&and_terms, &or_terms, &bm25_stats)?;
+            let mut deleted_internal_ids = BTreeSet::new();
+            if let Some(ref prepared_query) = prepared_memory_query {
+                deleted_internal_ids =
+                    memory_index.query_tombstones(disk_index_ts, prepared_query)?;
+            }
+            let query = PostingListQuery {
+                deleted_internal_ids,
+                num_terms_by_field: bm25_stats.num_terms_by_field,
+                num_documents: bm25_stats.num_documents,
+                or_terms,
+                and_terms,
+                max_results: MAX_CANDIDATE_REVISIONS,
+            };
+            anyhow::Ok((prepared_memory_query, query))
+        })?;
 
         // Step 6: Query the posting lists across the indexes and take the best
         // results.
-        let mut match_aggregator = PostingListMatchAggregator::new(MAX_CANDIDATE_REVISIONS);
-        if let Some(ref prepared_query) = prepared_memory_query {
-            memory_index.query_posting_lists(
-                disk_index_ts,
-                prepared_query,
-                &mut match_aggregator,
-            )?;
-        }
-        let posting_list_futs = segments.into_iter().map(move |segment| {
+        let mut posting_list_futures = JoinSet::new();
+        for segment in &segments {
             let searcher = searcher.clone();
             let search_storage = search_storage.clone();
+            let segment = segment.clone();
             let query = query.clone();
-            async move {
+            posting_list_futures.spawn(async move {
                 searcher
-                    .query_posting_lists(search_storage.clone(), segment, query.clone())
+                    .query_posting_lists(search_storage, segment, query)
                     .await
-            }
-        });
-        let posting_list_results_per_segment: Vec<_> =
-            try_join_buffer_unordered("query_posting_lists", posting_list_futs).await?;
-        for segment_matches in posting_list_results_per_segment {
+            });
+        }
+        let mut match_aggregator = PostingListMatchAggregator::new(MAX_CANDIDATE_REVISIONS);
+        if let Some(ref prepared_query) = prepared_memory_query {
+            block_in_place(|| {
+                memory_index.query_posting_lists(
+                    disk_index_ts,
+                    prepared_query,
+                    &mut match_aggregator,
+                )
+            })?;
+        }
+        while let Some(result) = posting_list_futures.join_next().await {
+            let segment_matches = result??;
             for m in segment_matches {
                 if !match_aggregator.insert(m) {
                     break;
@@ -640,27 +645,30 @@ impl TantivySearchIndexSchema {
         }
 
         // Step 7: Convert the matches into the final result format.
-        let mut result = vec![];
-        for m in match_aggregator.into_results() {
-            let candidate = CandidateRevision {
-                score: m.bm25_score,
-                id: m.internal_id,
-                ts: m.ts,
-                creation_time: m.creation_time,
-            };
-            let index_fields = vec![
-                Some(ConvexValue::Float64(-f64::from(m.bm25_score))),
-                Some(ConvexValue::Float64(-f64::from(m.creation_time))),
-                Some(ConvexValue::Bytes(
-                    Vec::<u8>::from(m.internal_id)
-                        .try_into()
-                        .expect("Could not convert internal ID to value"),
-                )),
-            ];
-            let bytes = values_to_bytes(&index_fields);
-            let index_key_bytes = IndexKeyBytes(bytes);
-            result.push((candidate, index_key_bytes));
-        }
+        let result = block_in_place(|| {
+            let mut result = vec![];
+            for m in match_aggregator.into_results() {
+                let candidate = CandidateRevision {
+                    score: m.bm25_score,
+                    id: m.internal_id,
+                    ts: m.ts,
+                    creation_time: m.creation_time,
+                };
+                let index_fields = vec![
+                    Some(ConvexValue::Float64(-f64::from(m.bm25_score))),
+                    Some(ConvexValue::Float64(-f64::from(m.creation_time))),
+                    Some(ConvexValue::Bytes(
+                        Vec::<u8>::from(m.internal_id)
+                            .try_into()
+                            .expect("Could not convert internal ID to value"),
+                    )),
+                ];
+                let bytes = values_to_bytes(&index_fields);
+                let index_key_bytes = IndexKeyBytes(bytes);
+                result.push((candidate, index_key_bytes));
+            }
+            result
+        });
         Ok(result)
     }
 

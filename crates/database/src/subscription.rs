@@ -16,6 +16,7 @@ use common::{
     document::PackedDocument,
     errors::report_error,
     runtime::{
+        block_in_place,
         Runtime,
         SpawnHandle,
     },
@@ -271,43 +272,44 @@ impl SubscriptionManager {
 
     pub fn advance_log(&mut self, next_ts: Timestamp) -> anyhow::Result<()> {
         let _timer = metrics::subscriptions_update_timer();
+        block_in_place(|| {
+            let from_ts = self.processed_ts.succ()?;
 
-        let from_ts = self.processed_ts.succ()?;
-
-        let mut to_notify = BTreeSet::new();
-        self.log.for_each(from_ts, next_ts, |_, writes| {
-            for (_, document_change) in writes {
-                // We're applying a mutation to the document so if it already exists
-                // we need to remove it before writing the new version.
-                if let Some(ref old_document) = document_change.old_document {
-                    self.overlapping(old_document, &mut to_notify, self.persistence_version);
+            let mut to_notify = BTreeSet::new();
+            self.log.for_each(from_ts, next_ts, |_, writes| {
+                for (_, document_change) in writes {
+                    // We're applying a mutation to the document so if it already exists
+                    // we need to remove it before writing the new version.
+                    if let Some(ref old_document) = document_change.old_document {
+                        self.overlapping(old_document, &mut to_notify, self.persistence_version);
+                    }
+                    // If we're doing anything other than deleting the document then
+                    // we'll also need to insert a new value.
+                    if let Some(ref new_document) = document_change.new_document {
+                        self.overlapping(new_document, &mut to_notify, self.persistence_version);
+                    }
                 }
-                // If we're doing anything other than deleting the document then
-                // we'll also need to insert a new value.
-                if let Some(ref new_document) = document_change.new_document {
-                    self.overlapping(new_document, &mut to_notify, self.persistence_version);
+            })?;
+
+            // First, do a pass where we advance all of the valid subscriptions.
+            for (subscriber_id, subscriber) in &mut self.subscribers {
+                if !to_notify.contains(&subscriber_id) {
+                    subscriber.sender.set(SubscriptionState::Valid(next_ts));
                 }
             }
-        })?;
-
-        // First, do a pass where we advance all of the valid subscriptions.
-        for (subscriber_id, subscriber) in &mut self.subscribers {
-            if !to_notify.contains(&subscriber_id) {
-                subscriber.sender.set(SubscriptionState::Valid(next_ts));
+            // Then, invalidate all the remaining subscriptions.
+            for subscriber_id in to_notify {
+                self._remove(subscriber_id);
             }
-        }
-        // Then, invalidate all the remaining subscriptions.
-        for subscriber_id in to_notify {
-            self._remove(subscriber_id);
-        }
 
-        assert!(self.processed_ts <= next_ts);
-        self.processed_ts = next_ts;
+            assert!(self.processed_ts <= next_ts);
+            self.processed_ts = next_ts;
 
-        // Enforce retention after we have processed the subscriptions.
-        self.log.enforce_retention_policy(next_ts);
+            // Enforce retention after we have processed the subscriptions.
+            self.log.enforce_retention_policy(next_ts);
 
-        Ok(())
+            Ok(())
+        })
     }
 
     pub async fn wait_for_next_ts(&self) -> Timestamp {

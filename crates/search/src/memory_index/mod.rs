@@ -430,6 +430,7 @@ impl MemoryTextIndex {
         queries: &[TokenQuery],
         results: &mut TokenMatchAggregator,
     ) -> anyhow::Result<()> {
+        let _timer = metrics::index_query_tokens_timer();
         for (token_ord, query) in queries.iter().enumerate() {
             let token_ord = token_ord as u32;
             self.term_table
@@ -445,6 +446,7 @@ impl MemoryTextIndex {
         terms: &[Term],
         mut stats: Bm25Stats,
     ) -> anyhow::Result<Bm25Stats> {
+        let _timer = metrics::index_update_bm25_stats_timer();
         anyhow::ensure!(
             self.min_ts <= WriteTimestamp::Committed(snapshot_ts.succ()?),
             "Timestamps are out of order!  min ts:{:?} snapshot_ts:{snapshot_ts}",
@@ -513,6 +515,7 @@ impl MemoryTextIndex {
         or_terms: &[OrTerm],
         stats: &Bm25Stats,
     ) -> anyhow::Result<Option<PreparedMemoryPostingListQuery>> {
+        let _timer = metrics::index_prepare_posting_list_query_timer();
         let mut all_term_ids = BTreeSet::new();
         let mut intersection_term_ids = BTreeSet::new();
         for term in and_terms {
@@ -573,6 +576,7 @@ impl MemoryTextIndex {
         snapshot_ts: Timestamp,
         query: &PreparedMemoryPostingListQuery,
     ) -> anyhow::Result<BTreeSet<InternalId>> {
+        let _timer = metrics::index_query_tombstones_timer();
         anyhow::ensure!(
             self.min_ts <= WriteTimestamp::Committed(snapshot_ts.succ()?),
             "Timestamps are out of order! min ts:{:?} snapshot_ts:{snapshot_ts}",
@@ -597,6 +601,7 @@ impl MemoryTextIndex {
         query: &PreparedMemoryPostingListQuery,
         results: &mut PostingListMatchAggregator,
     ) -> anyhow::Result<()> {
+        let _timer = metrics::index_query_posting_lists_timer();
         anyhow::ensure!(
             self.min_ts <= WriteTimestamp::Committed(snapshot_ts.succ()?),
             "Timestamps are out of order!  min ts:{:?} snapshot_ts:{snapshot_ts}",

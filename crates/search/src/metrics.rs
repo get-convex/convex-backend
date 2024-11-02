@@ -55,6 +55,46 @@ pub fn index_update_timer() -> StatusTimer {
     StatusTimer::new(&SEARCH_INDEX_UPDATE_SECONDS)
 }
 
+register_convex_histogram!(
+    SEARCH_INDEX_QUERY_TOKENS_SECONDS,
+    "Duration of querying tokens in memory index",
+);
+pub fn index_query_tokens_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_INDEX_QUERY_TOKENS_SECONDS)
+}
+
+register_convex_histogram!(
+    SEARCH_INDEX_UPDATE_BM25_STATS_SECONDS,
+    "Duration of updating BM25 stats in memory index",
+);
+pub fn index_update_bm25_stats_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_INDEX_UPDATE_BM25_STATS_SECONDS)
+}
+
+register_convex_histogram!(
+    SEARCH_INDEX_PREPARE_POSTING_LIST_QUERY_SECONDS,
+    "Duration of preparing posting list query in memory index",
+);
+pub fn index_prepare_posting_list_query_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_INDEX_PREPARE_POSTING_LIST_QUERY_SECONDS)
+}
+
+register_convex_histogram!(
+    SEARCH_INDEX_QUERY_TOMBSTONES_SECONDS,
+    "Duration of querying tombstones in memory index",
+);
+pub fn index_query_tombstones_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_INDEX_QUERY_TOMBSTONES_SECONDS)
+}
+
+register_convex_histogram!(
+    SEARCH_INDEX_QUERY_POSTING_LISTS_SECONDS,
+    "Duration of querying posting lists in memory index",
+);
+pub fn index_query_posting_lists_timer() -> Timer<VMHistogram> {
+    Timer::new(&SEARCH_INDEX_QUERY_POSTING_LISTS_SECONDS)
+}
+
 register_convex_histogram!(SEARCH_TERM_TEXT_BYTES, "Size of search terms");
 pub fn log_text_term(term: &str) {
     log_distribution(&SEARCH_TERM_TEXT_BYTES, term.len() as f64);

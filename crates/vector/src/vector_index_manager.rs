@@ -16,6 +16,7 @@ use common::{
         ResolvedDocument,
     },
     knobs::SEARCHLIGHT_CLUSTER_NAME,
+    runtime::block_in_place,
     types::{
         IndexId,
         Timestamp,
@@ -523,16 +524,20 @@ impl VectorIndexManager {
         let mut disk_revisions =
             call_searchlight(qdrant_schema, compiled_query.clone(), overfetch_delta).await?;
 
-        // Filter out revisions that are no longer latest.
-        disk_revisions.retain(|r| !updated_matches.contains(&r.id));
+        block_in_place(|| {
+            // Filter out revisions that are no longer latest.
+            disk_revisions.retain(|r| !updated_matches.contains(&r.id));
 
-        let memory_revisions = memory_index.query(ts, &compiled_query)?;
+            let memory_revisions = memory_index.query(ts, &compiled_query)?;
 
-        disk_revisions.extend(memory_revisions);
-        let original_len = disk_revisions.len();
-        disk_revisions.sort_by(|a, b| a.cmp(b).reverse());
-        disk_revisions.truncate(compiled_query.limit as usize);
-        metrics::log_num_discarded_revisions(original_len - disk_revisions.len());
+            disk_revisions.extend(memory_revisions);
+            let original_len = disk_revisions.len();
+            disk_revisions.sort_by(|a, b| a.cmp(b).reverse());
+            disk_revisions.truncate(compiled_query.limit as usize);
+            metrics::log_num_discarded_revisions(original_len - disk_revisions.len());
+
+            anyhow::Ok(())
+        })?;
 
         Ok(disk_revisions)
     }

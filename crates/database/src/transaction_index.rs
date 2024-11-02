@@ -34,6 +34,7 @@ use common::{
         Order,
         SearchVersion,
     },
+    runtime,
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
@@ -758,7 +759,8 @@ impl TextIndexManagerSnapshot {
         query: pb::searchlight::TextQuery,
         pending_updates: &Vec<DocumentUpdate>,
     ) -> anyhow::Result<RevisionWithKeys> {
-        let text_indexes_snapshot = self.snapshot_with_updates(pending_updates)?;
+        let text_indexes_snapshot =
+            runtime::block_in_place(|| self.snapshot_with_updates(pending_updates))?;
         text_indexes_snapshot
             .search_with_compiled_query(
                 index,
