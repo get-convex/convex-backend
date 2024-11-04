@@ -59,6 +59,7 @@ use tokio::runtime::{
     Handle,
     RuntimeFlavor,
 };
+use tokio_metrics::Instrumented;
 use tokio_metrics_collector::TaskMonitor;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
@@ -496,6 +497,14 @@ impl TaskManager {
             .add(name, monitor.clone())
             .expect("Duplicate task label?");
         monitor
+    }
+
+    pub fn instrument<F: Future>(name: &'static str, f: F) -> Instrumented<F> {
+        let monitor = {
+            let mut manager = GLOBAL_TASK_MANAGER.lock();
+            manager.get(name)
+        };
+        monitor.instrument(f)
     }
 }
 

@@ -18,6 +18,7 @@ use common::{
         WRITE_LOG_MIN_RETENTION_SECS,
         WRITE_LOG_SOFT_MAX_SIZE_BYTES,
     },
+    runtime::block_in_place,
     types::{
         PersistenceVersion,
         Timestamp,
@@ -252,7 +253,9 @@ impl WriteLog {
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        Ok(reads.writes_overlap(self.iter(reads_ts.succ()?, ts)?, self.persistence_version))
+        block_in_place(|| {
+            Ok(reads.writes_overlap(self.iter(reads_ts.succ()?, ts)?, self.persistence_version))
+        })
     }
 
     fn refresh_token(&self, mut token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
@@ -316,18 +319,18 @@ impl LogOwner {
     }
 
     pub fn max_ts(&self) -> Timestamp {
-        self.inner.read().max_ts()
+        block_in_place(|| self.inner.read().max_ts())
     }
 
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
-        self.inner.read().refresh_token(token, ts)
+        block_in_place(|| self.inner.read().refresh_token(token, ts))
     }
 
     /// Blocks until the log has advanced past the given timestamp.
     pub async fn wait_for_higher_ts(&self, target_ts: Timestamp) -> Timestamp {
-        let fut = self.inner.write().wait_for_higher_ts(target_ts);
+        let fut = block_in_place(|| self.inner.write().wait_for_higher_ts(target_ts));
         fut.await;
-        let result = self.inner.read().max_ts();
+        let result = block_in_place(|| self.inner.read().max_ts());
         assert!(result > target_ts);
         result
     }
@@ -336,10 +339,12 @@ impl LogOwner {
     where
         for<'a> F: FnMut(Timestamp, IterWrites<'a>),
     {
-        for (ts, writes, _) in self.inner.read().iter(from, to)? {
-            f(*ts, writes)
-        }
-        Ok(())
+        block_in_place(|| {
+            for (ts, writes, _) in self.inner.read().iter(from, to)? {
+                f(*ts, writes);
+            }
+            Ok(())
+        })
     }
 }
 
@@ -350,13 +355,15 @@ pub struct LogReader {
 
 impl LogReader {
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
-        self.inner.read().refresh_token(token, ts)
+        block_in_place(|| self.inner.read().refresh_token(token, ts))
     }
 
     pub fn refresh_reads_until_max_ts(&self, token: Token) -> anyhow::Result<Option<Token>> {
-        let inner = self.inner.read();
-        let max_ts = inner.max_ts();
-        inner.refresh_token(token, max_ts)
+        block_in_place(|| {
+            let inner = self.inner.read();
+            let max_ts = inner.max_ts();
+            inner.refresh_token(token, max_ts)
+        })
     }
 }
 
@@ -367,7 +374,7 @@ pub struct LogWriter {
 
 impl LogWriter {
     pub fn append(&self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
-        self.inner.write().append(ts, writes, write_source);
+        block_in_place(|| self.inner.write().append(ts, writes, write_source));
     }
 
     pub fn is_stale(
@@ -376,7 +383,7 @@ impl LogWriter {
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        self.inner.read().is_stale(reads, reads_ts, ts)
+        block_in_place(|| self.inner.read().is_stale(reads, reads_ts, ts))
     }
 }
 
@@ -491,7 +498,9 @@ mod tests {
         },
         value::FieldPath,
     };
+    use convex_macro::test_runtime;
     use maplit::btreemap;
+    use runtime::testing::TestRuntime;
     use value::val;
 
     use crate::{
@@ -578,8 +587,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_is_stale() -> anyhow::Result<()> {
+    #[test_runtime]
+    async fn test_is_stale(_rt: TestRuntime) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
         let mut log = WriteLog::new(Timestamp::must(1000), PersistenceVersion::default());
         let table_id = id_generator.user_table_id(&"t".parse()?).tablet_id;

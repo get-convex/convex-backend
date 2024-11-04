@@ -104,6 +104,7 @@ use crate::{
     errors::report_error,
     knobs::HTTP_SERVER_TCP_BACKLOG,
     metrics::log_client_version_unsupported,
+    runtime::TaskManager,
     version::{
         ClientVersion,
         ClientVersionState,
@@ -615,6 +616,7 @@ impl ConvexHttpService {
             .layer(
                 ServiceBuilder::new()
                     // Order important. Log/stats first because they are infallible.
+                    .layer(axum::middleware::from_fn(tokio_instrumentation_middleware))
                     .layer(axum::middleware::from_fn(log_middleware))
                     .layer(axum::middleware::from_fn_with_state(
                         route_metric_mapper.clone(),
@@ -1057,6 +1059,14 @@ where
             .and_then(SpanContext::decode_w3c_traceparent);
         Ok(Self(traceparent))
     }
+}
+
+async fn tokio_instrumentation_middleware(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> Result<Response, HttpResponseError> {
+    let resp = TaskManager::instrument("axum_handler", next.run(req)).await;
+    Ok(resp)
 }
 
 async fn log_middleware(

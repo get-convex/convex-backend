@@ -1229,6 +1229,7 @@ dependencies = [
  "strum 0.26.2",
  "thiserror",
  "tokio",
+ "tokio-metrics",
  "tokio-metrics-collector",
  "tokio-stream",
  "tonic",

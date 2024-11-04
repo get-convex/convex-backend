@@ -491,6 +491,7 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
+        runtime::testing::TestDriver,
         testing::TestIdGenerator,
         types::{
             GenericIndexName,
@@ -500,6 +501,7 @@ mod tests {
             TabletIndexName,
         },
     };
+    use convex_macro::test_runtime;
     use itertools::Itertools;
     use maplit::btreeset;
     use proptest::{
@@ -512,6 +514,7 @@ mod tests {
         },
     };
     use proptest_derive::Arbitrary;
+    use runtime::testing::TestRuntime;
     use search::{
         query::{
             FuzzyDistance,
@@ -732,8 +735,10 @@ mod tests {
         ))
     }
 
-    #[test]
-    fn add_remove_two_identical_search_subscriptions_different_subscribers() -> anyhow::Result<()> {
+    #[test_runtime]
+    async fn add_remove_two_identical_search_subscriptions_different_subscribers(
+        _rt: TestRuntime,
+    ) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
         let table_id = id_generator.user_table_id(&id_generator.generate_table_name());
         let token = "token".to_string();
@@ -772,8 +777,10 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn add_remove_two_identical_search_subscriptions_same_subscriber() -> anyhow::Result<()> {
+    #[test_runtime]
+    async fn add_remove_two_identical_search_subscriptions_same_subscriber(
+        _rt: TestRuntime,
+    ) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
         let table_id = id_generator.user_table_id(&id_generator.generate_table_name());
         let token = "token".to_string();
@@ -812,58 +819,70 @@ mod tests {
 
         #[test]
         fn search_subscriptions_are_notified(tokens in search_tokens(0..10)) {
-            let mut id_generator = TestIdGenerator::new();
-            let mut subscription_manager = SubscriptionManager::new_for_testing();
-            let mut subscriptions = vec![];
-            for token in &tokens {
-                subscriptions.push(subscription_manager.subscribe(token.clone()).unwrap());
-            }
-            for (token, id) in tokens.into_iter().zip(subscriptions.into_iter()) {
-                let notifications = notify_subscribed_tokens(
-                    &mut id_generator,
-                    &mut subscription_manager,
-                    vec![token.clone()],
-                );
-
-                if !contains_text_query(token) {
-                    assert!(notifications.is_empty());
-                } else {
-                    assert_eq!(notifications, btreeset! { *id.id() });
+            let test = async move {
+                let mut id_generator = TestIdGenerator::new();
+                let mut subscription_manager = SubscriptionManager::new_for_testing();
+                let mut subscriptions = vec![];
+                for token in &tokens {
+                    subscriptions.push(subscription_manager.subscribe(token.clone()).unwrap());
                 }
-            }
+                for (token, id) in tokens.into_iter().zip(subscriptions.into_iter()) {
+                    let notifications = notify_subscribed_tokens(
+                        &mut id_generator,
+                        &mut subscription_manager,
+                        vec![token.clone()],
+                    );
+
+                    if !contains_text_query(token) {
+                        assert!(notifications.is_empty());
+                    } else {
+                        assert_eq!(notifications, btreeset! { *id.id() });
+                    }
+                }
+                anyhow::Ok(())
+            };
+            TestDriver::new().run_until(test).unwrap();
         }
 
         #[test]
         fn mismatched_subscriptions_are_not_notified(
             (token, mismatch) in token_and_mismatch(1..31)
         ) {
-            let mut id_generator = TestIdGenerator::new();
-            let mut subscription_manager = SubscriptionManager::new_for_testing();
-            subscription_manager.subscribe(token.clone()).unwrap();
-            let notifications =
-                notify_subscribed_tokens(
-                    &mut id_generator, &mut subscription_manager, vec![mismatch]
-                );
-            assert!(notifications.is_empty());
+            let test = async move {
+                let mut id_generator = TestIdGenerator::new();
+                let mut subscription_manager = SubscriptionManager::new_for_testing();
+                subscription_manager.subscribe(token.clone()).unwrap();
+                let notifications =
+                    notify_subscribed_tokens(
+                        &mut id_generator, &mut subscription_manager, vec![mismatch]
+                    );
+                assert!(notifications.is_empty());
+                anyhow::Ok(())
+            };
+            TestDriver::new().run_until(test).unwrap();
         }
 
         #[test]
         fn removed_search_subscriptions_are_not_notified(tokens in search_tokens(0..10)) {
-            let mut id_generator = TestIdGenerator::new();
-            let mut subscription_manager = SubscriptionManager::new_for_testing();
-            let mut subscriptions = vec![];
-            for token in &tokens {
+            let test = async move {
+                let mut id_generator = TestIdGenerator::new();
+                let mut subscription_manager = SubscriptionManager::new_for_testing();
+                let mut subscriptions = vec![];
+                for token in &tokens {
                 subscriptions.push(subscription_manager.subscribe(token.clone()).unwrap());
-            }
-            for subscription in &subscriptions {
-                subscription_manager._remove(*subscription.id());
-            }
-            let notifications = notify_subscribed_tokens(
-                &mut id_generator,
-                &mut subscription_manager,
-                tokens
-            );
-            assert!(notifications.is_empty());
+                }
+                for subscription in &subscriptions {
+                    subscription_manager._remove(*subscription.id());
+                }
+                let notifications = notify_subscribed_tokens(
+                    &mut id_generator,
+                    &mut subscription_manager,
+                    tokens,
+                );
+                assert!(notifications.is_empty());
+                anyhow::Ok(())
+            };
+            TestDriver::new().run_until(test).unwrap();
         }
 
         // A more constrained version of the above test that's more likely to generate edge cases
@@ -872,18 +891,22 @@ mod tests {
         fn constrained_removed_search_subscriptions_are_not_notified(
             tokens in prop::collection::vec(search_token(10..=10, 3..4), 20)
         ) {
-            let mut id_generator = TestIdGenerator::new();
-            let mut subscription_manager = SubscriptionManager::new_for_testing();
-            for token in &tokens {
-                let subscription = subscription_manager.subscribe(token.clone()).unwrap();
-                subscription_manager._remove(*subscription.id());
-            }
-            let notifications = notify_subscribed_tokens(
-                &mut id_generator,
-                &mut subscription_manager,
-                tokens
-            );
-            assert!(notifications.is_empty());
+            let test = async move {
+                let mut id_generator = TestIdGenerator::new();
+                let mut subscription_manager = SubscriptionManager::new_for_testing();
+                for token in &tokens {
+                    let subscription = subscription_manager.subscribe(token.clone()).unwrap();
+                    subscription_manager._remove(*subscription.id());
+                }
+                let notifications = notify_subscribed_tokens(
+                    &mut id_generator,
+                    &mut subscription_manager,
+                    tokens
+                );
+                assert!(notifications.is_empty());
+                anyhow::Ok(())
+            };
+            TestDriver::new().run_until(test).unwrap();
         }
     }
 

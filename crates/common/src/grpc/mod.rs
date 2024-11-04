@@ -1,11 +1,16 @@
 use std::{
     convert::Infallible,
     net::SocketAddr,
+    task::{
+        Context,
+        Poll,
+    },
 };
 
 use futures::Future;
 use pb::error_metadata::ErrorMetadataStatusExt;
 use sentry::integrations::tower as sentry_tower;
+use tokio_metrics::Instrumented;
 use tonic::{
     server::NamedService,
     service::Routes,
@@ -19,7 +24,12 @@ use tonic_health::{
     },
     ServingStatus,
 };
-use tower::ServiceBuilder;
+use tower::{
+    Service,
+    ServiceBuilder,
+};
+
+use crate::runtime::TaskManager;
 
 pub struct ConvexGrpcService {
     routes: Routes,
@@ -62,7 +72,8 @@ impl ConvexGrpcService {
     where
         F: Future<Output = ()>,
     {
-        let sentry_layer = ServiceBuilder::new()
+        let convex_layers = ServiceBuilder::new()
+            .layer_fn(TokioInstrumentationService::new)
             .layer(sentry_tower::NewSentryLayer::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::with_transaction());
 
@@ -76,7 +87,7 @@ impl ConvexGrpcService {
                 .await;
         }
         tonic::transport::Server::builder()
-            .layer(sentry_layer)
+            .layer(convex_layers)
             .add_routes(self.routes)
             .serve_with_shutdown(addr, shutdown)
             .await?;
@@ -89,5 +100,33 @@ pub fn handle_response<T>(response: Result<Response<T>, Status>) -> anyhow::Resu
     match response {
         Ok(response) => Ok(response.into_inner()),
         Err(status) => Err(status.into_anyhow()),
+    }
+}
+
+#[derive(Clone)]
+struct TokioInstrumentationService<S> {
+    inner: S,
+}
+
+impl<S> TokioInstrumentationService<S> {
+    fn new(inner: S) -> Self {
+        Self { inner }
+    }
+}
+
+impl<S, Request> Service<Request> for TokioInstrumentationService<S>
+where
+    S: Service<Request>,
+{
+    type Error = S::Error;
+    type Future = Instrumented<S::Future>;
+    type Response = S::Response;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, req: Request) -> Self::Future {
+        TaskManager::instrument("grpc_handler", self.inner.call(req))
     }
 }
