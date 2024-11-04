@@ -35,6 +35,7 @@ use value::{
     codegen_convex_serialization,
     obj,
     remove_int64,
+    remove_nullable_object,
     remove_object,
     remove_string,
     remove_vec,
@@ -56,6 +57,7 @@ use crate::{
     snapshot_imports::types::{
         ImportFormat,
         ImportMode,
+        ImportRequestor,
     },
 };
 
@@ -154,6 +156,7 @@ pub enum DeploymentAuditLogEvent {
         table_count: u64,
         import_mode: ImportMode,
         import_format: ImportFormat,
+        requestor: ImportRequestor,
     },
 }
 
@@ -276,6 +279,7 @@ impl DeploymentAuditLogEvent {
                 table_count,
                 import_mode,
                 import_format,
+                requestor,
             } => {
                 let table_names: Vec<_> = table_names
                     .into_iter()
@@ -287,7 +291,8 @@ impl DeploymentAuditLogEvent {
                     "table_names" => table_names,
                     "table_count" => table_count as i64,
                     "import_mode" => import_mode.to_string(),
-                    "import_format" => ConvexValue::Object(import_format.try_into()?)
+                    "import_format" => ConvexObject::try_from(import_format)?,
+                    "requestor" => ConvexObject::try_from(requestor)?,
                 )
             },
             DeploymentAuditLogEvent::ClearTables => obj!(),
@@ -388,6 +393,8 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     table_count: remove_int64(&mut fields, "table_count")? as u64,
                     import_mode: remove_string(&mut fields, "import_mode")?.parse()?,
                     import_format: remove_object(&mut fields, "import_format")?,
+                    requestor: remove_nullable_object(&mut fields, "requestor")?
+                        .unwrap_or(ImportRequestor::SnapshotImport),
                 }
             },
             _ => anyhow::bail!("action {action} unrecognized"),

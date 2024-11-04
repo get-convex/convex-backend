@@ -747,6 +747,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 table_count,
                 import_mode: snapshot_import.mode,
                 import_format: snapshot_import.format.clone(),
+                requestor: snapshot_import.requestor.clone(),
             },
             snapshot_import.requestor.clone(),
         )
