@@ -114,6 +114,8 @@ fn main() -> anyhow::Result<()> {
     rerun_if_changed("../../npm-packages/node-executor/src")?;
     rerun_if_changed("../../npm-packages/node-executor/package.json")?;
 
+    rerun_if_changed("../../npm-packages/system-udfs/convex/")?;
+
     // Note that we only include the component directory,`convex` directory, and
     // package.json so we ignore changes to rush files.
     rerun_if_changed("../../npm-packages/udf-tests/convex/")?;
