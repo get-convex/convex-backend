@@ -188,17 +188,22 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .table_mapping()
             .namespace(namespace)
             .id(&table_name)?;
-        self.delete_table_by_id(table_id_and_number.tablet_id).await
+        self.delete_table_by_id_bypassing_schema_enforcement(table_id_and_number.tablet_id)
+            .await
     }
 
     pub async fn delete_hidden_table(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
         let table_metadata = self.get_table_metadata(tablet_id).await?;
         // We don't need to validate hidden table with the schema.
         anyhow::ensure!(table_metadata.state == TableState::Hidden);
-        self.delete_table_by_id(tablet_id).await
+        self.delete_table_by_id_bypassing_schema_enforcement(tablet_id)
+            .await
     }
 
-    pub async fn delete_table_by_id(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
+    async fn delete_table_by_id_bypassing_schema_enforcement(
+        &mut self,
+        tablet_id: TabletId,
+    ) -> anyhow::Result<()> {
         for index in IndexModel::new(self.tx)
             .all_indexes_on_table(tablet_id)
             .await?
@@ -393,7 +398,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 .namespace(namespace)
                 .id(table_name)?;
             documents_deleted += self.count(namespace, table_name).await?;
-            self.delete_table_by_id(existing_table_by_name.tablet_id)
+            self.delete_table_by_id_bypassing_schema_enforcement(existing_table_by_name.tablet_id)
                 .await?;
         }
         let table_metadata = TableMetadata::new_with_state(

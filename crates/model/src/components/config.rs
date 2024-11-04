@@ -684,16 +684,6 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         FunctionHandlesModel::new(self.tx)
             .apply_config_diff(component_id, None)
             .await?;
-        let (schema_diff, next_schema) = SchemaModel::new(self.tx, component_id.into())
-            .apply(None)
-            .await?;
-        let index_diff = IndexModel::new(self.tx)
-            .get_full_index_diff(component_id.into(), &next_schema)
-            .await?
-            .into();
-        IndexModel::new(self.tx)
-            .apply(component_id.into(), &next_schema)
-            .await?;
         Ok((
             existing.id().into(),
             ComponentDiff {
@@ -701,8 +691,8 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 module_diff,
                 udf_config_diff: None,
                 cron_diff,
-                index_diff,
-                schema_diff,
+                index_diff: AuditLogIndexDiff::default(),
+                schema_diff: None,
             },
         ))
     }
@@ -755,9 +745,9 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
 
             // then delete all tables, including system tables
             let namespaced_table_mapping = self.tx.table_mapping().namespace(namespace);
-            for (tablet_id, ..) in namespaced_table_mapping.iter() {
+            for (_, _, table_name) in namespaced_table_mapping.iter() {
                 TableModel::new(self.tx)
-                    .delete_table_by_id(tablet_id)
+                    .delete_table(namespace, table_name.clone())
                     .await?;
             }
         }

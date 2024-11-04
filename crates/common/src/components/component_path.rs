@@ -1,5 +1,8 @@
 use std::{
-    fmt::Display,
+    fmt::{
+        Debug,
+        Display,
+    },
     ops::Deref,
     path::PathBuf,
     str::FromStr,
@@ -72,7 +75,7 @@ impl HeapSize for ComponentName {
 // path can potentially change when the component tree changes during a push, so
 // we should resolve this path to a `ComponentId` within a transaction
 // as soon as possible.
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ComponentPath {
     path: WithHeapSize<Vec<ComponentName>>,
@@ -171,6 +174,12 @@ impl From<ComponentPath> for String {
 impl Display for ComponentPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", String::from(self.clone()))
+    }
+}
+
+impl Debug for ComponentPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", *self.path)
     }
 }
 
