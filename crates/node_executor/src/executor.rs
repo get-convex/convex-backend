@@ -55,7 +55,6 @@ use model::{
             AnalyzedFunction,
             AnalyzedModule,
             AnalyzedSourcePosition,
-            MappedModule,
             SourceMap,
             Visibility,
         },
@@ -474,13 +473,8 @@ impl Actions {
 
             let functions = WithHeapSize::from(functions);
             let module = AnalyzedModule {
-                functions: functions.clone(),
-                source_mapped: Some(MappedModule {
-                    source_index,
-                    functions,
-                    http_routes: None,
-                    cron_specs: None,
-                }),
+                functions,
+                source_index,
                 http_routes: None,
                 cron_specs: None,
             };

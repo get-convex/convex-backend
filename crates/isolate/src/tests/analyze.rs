@@ -80,21 +80,14 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
         ("action_in_v8", UdfType::Action, 28),
     ];
     assert_eq!(module.functions.len(), expected.len());
-    let source_mapped = module.source_mapped.as_ref().unwrap();
-    assert_eq!(source_mapped.functions.len(), expected.len());
+    assert!(module.source_index.is_some());
 
     for (i, (name, expected_type, mapped_lineno)) in expected.iter().enumerate() {
         let function = &module.functions[i];
         assert_eq!(&function.name[..], *name);
         assert_eq!(&function.udf_type, expected_type);
 
-        let mapped_function = &source_mapped.functions[i];
-        assert_eq!(&mapped_function.name[..], *name);
-        assert_eq!(
-            mapped_function.pos.as_ref().unwrap().start_lineno,
-            *mapped_lineno
-        );
-        assert_eq!(&mapped_function.udf_type, expected_type);
+        assert_eq!(function.pos.as_ref().unwrap().start_lineno, *mapped_lineno);
     }
 
     let http_path = "http.js".parse()?;
@@ -139,12 +132,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
             .len(),
         expected_routes_unmapped.len()
     );
-    let source_mapped = module.source_mapped.as_ref().unwrap();
-    assert!(source_mapped.http_routes.is_some());
-    assert_eq!(
-        module.http_routes.as_ref().unwrap().len(),
-        source_mapped.http_routes.as_ref().unwrap().len()
-    );
+    assert!(module.source_index.is_some());
     for (i, (path, method)) in expected_routes_unmapped.iter().enumerate() {
         let route = &module.http_routes.as_ref().unwrap()[i];
         assert_eq!(&route.route.path, path);
@@ -152,7 +140,7 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     }
 
     for (i, (path, method, mapped_pos)) in expected_routes_mapped.iter().enumerate() {
-        let mapped_route = &source_mapped
+        let mapped_route = &module
             .http_routes
             .as_ref()
             .expect("no mapped http_routes found")[i];
@@ -265,46 +253,6 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
         &[
             AnalyzedFunction::new(
                 "throwsError".parse()?,
-                // Don't check line numbers since those change on every `convex/server`
-                // change.
-                Some(AnalyzedSourcePosition {
-                    path: "sourceMaps.js".parse()?,
-                    start_lineno: analyzed_module.functions[0]
-                        .pos
-                        .as_ref()
-                        .unwrap()
-                        .start_lineno,
-                    start_col: analyzed_module.functions[0].pos.as_ref().unwrap().start_col,
-                }),
-                UdfType::Query,
-                Some(Visibility::Public),
-                ArgsValidator::Unvalidated,
-                ReturnsValidator::Unvalidated,
-            )?,
-            AnalyzedFunction::new(
-                "throwsErrorInDep".parse()?,
-                Some(AnalyzedSourcePosition {
-                    path: "sourceMaps.js".parse()?,
-                    start_lineno: analyzed_module.functions[1]
-                        .pos
-                        .as_ref()
-                        .unwrap()
-                        .start_lineno,
-                    start_col: analyzed_module.functions[1].pos.as_ref().unwrap().start_col,
-                }),
-                UdfType::Query,
-                Some(Visibility::Public),
-                ArgsValidator::Unvalidated,
-                ReturnsValidator::Unvalidated,
-            )?,
-        ],
-    );
-    let source_mapped = analyzed_module.source_mapped.unwrap();
-    assert_eq!(
-        &Vec::from(source_mapped.functions),
-        &[
-            AnalyzedFunction::new(
-                "throwsError".parse()?,
                 Some(AnalyzedSourcePosition {
                     path: "sourceMaps.js".parse()?,
                     start_lineno: 21,
@@ -329,6 +277,7 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
             )?,
         ],
     );
+    analyzed_module.source_index.unwrap();
     Ok(())
 }
 
@@ -357,50 +306,6 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
                 "myInternalQuery".parse()?,
                 // Don't check line numbers since those change on every `convex/server`
                 // change.
-                analyzed_module.functions[0].pos.clone(),
-                UdfType::Query,
-                Some(Visibility::Internal),
-                ArgsValidator::Unvalidated,
-                ReturnsValidator::Unvalidated,
-            )?,
-            AnalyzedFunction::new(
-                "publicQuery".parse()?,
-                // Don't check line numbers since those change on every `convex/server`
-                // change.
-                analyzed_module.functions[1].pos.clone(),
-                UdfType::Query,
-                Some(Visibility::Public),
-                ArgsValidator::Unvalidated,
-                ReturnsValidator::Unvalidated,
-            )?,
-            AnalyzedFunction::new(
-                "myInternalMutation".parse()?,
-                // Don't check line numbers since those change on every `convex/server`
-                // change.
-                analyzed_module.functions[2].pos.clone(),
-                UdfType::Mutation,
-                Some(Visibility::Internal),
-                ArgsValidator::Unvalidated,
-                ReturnsValidator::Unvalidated,
-            )?,
-            AnalyzedFunction::new(
-                "publicMutation".parse()?,
-                // Don't check line numbers since those change on every `convex/server`
-                // change.
-                analyzed_module.functions[3].pos.clone(),
-                UdfType::Mutation,
-                Some(Visibility::Public),
-                ArgsValidator::Unvalidated,
-                ReturnsValidator::Unvalidated,
-            )?,
-        ],
-    );
-    let source_mapped = analyzed_module.source_mapped.unwrap();
-    assert_eq!(
-        &Vec::from(source_mapped.functions.clone()),
-        &[
-            AnalyzedFunction::new(
-                "myInternalQuery".parse()?,
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 16,
@@ -413,6 +318,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
             )?,
             AnalyzedFunction::new(
                 "publicQuery".parse()?,
+                // Don't check line numbers since those change on every `convex/server`
+                // change.
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 19,
@@ -425,6 +332,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
             )?,
             AnalyzedFunction::new(
                 "myInternalMutation".parse()?,
+                // Don't check line numbers since those change on every `convex/server`
+                // change.
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 23,
@@ -437,6 +346,8 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
             )?,
             AnalyzedFunction::new(
                 "publicMutation".parse()?,
+                // Don't check line numbers since those change on every `convex/server`
+                // change.
                 Some(AnalyzedSourcePosition {
                     path: "internal.js".parse()?,
                     start_lineno: 26,

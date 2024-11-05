@@ -62,7 +62,6 @@ use model::{
             AnalyzedModule,
             AnalyzedSourcePosition,
             FullModuleSource,
-            MappedModule,
             Visibility,
         },
         user_error::ModuleNotFoundError,
@@ -418,16 +417,10 @@ impl AnalyzeEnvironment {
                 });
 
             let analyzed_module = AnalyzedModule {
-                functions: functions.clone(),
-                http_routes: http_routes.clone(),
-                cron_specs: cron_specs.clone(),
-                // source_mapped should be deprecated and migrated away from in the future
-                source_mapped: Some(MappedModule {
-                    source_index,
-                    functions,
-                    http_routes,
-                    cron_specs,
-                }),
+                functions,
+                http_routes,
+                cron_specs,
+                source_index,
             };
             result.insert(path, analyzed_module);
         }

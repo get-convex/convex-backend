@@ -876,10 +876,7 @@ impl<RT: Runtime> Application<RT> {
         let Some(analyze_result) = &metadata.analyze_result else {
             return Ok(None);
         };
-        let Some(source_mapped) = &analyze_result.source_mapped else {
-            return Ok(None);
-        };
-        let Some(source_index) = source_mapped.source_index else {
+        let Some(source_index) = analyze_result.source_index else {
             return Ok(None);
         };
         let Some(full_source) = self.module_cache.get_module(&mut tx, path).await? else {

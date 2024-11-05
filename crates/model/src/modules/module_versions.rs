@@ -82,7 +82,8 @@ pub struct AnalyzedModule {
         )
     )]
     pub cron_specs: Option<WithHeapSize<BTreeMap<CronIdentifier, CronSpec>>>,
-    pub source_mapped: Option<MappedModule>,
+    /// Index of the module's original source in the source map.
+    pub source_index: Option<u32>,
 }
 
 impl HeapSize for AnalyzedModule {
@@ -90,7 +91,7 @@ impl HeapSize for AnalyzedModule {
         self.functions.heap_size()
             + self.http_routes.heap_size()
             + self.cron_specs.heap_size()
-            + self.source_mapped.heap_size()
+            + self.source_index.heap_size()
     }
 }
 
@@ -107,6 +108,11 @@ impl TryFrom<AnalyzedModule> for SerializedAnalyzedModule {
     type Error = anyhow::Error;
 
     fn try_from(m: AnalyzedModule) -> anyhow::Result<Self> {
+        let source_mapped = m
+            .source_index
+            .as_ref()
+            .map(|_source_mapped| SerializedMappedModule::try_from(m.clone()))
+            .transpose()?;
         Ok(Self {
             functions: m
                 .functions
@@ -121,7 +127,7 @@ impl TryFrom<AnalyzedModule> for SerializedAnalyzedModule {
                 .cron_specs
                 .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
                 .transpose()?,
-            source_mapped: m.source_mapped.map(TryFrom::try_from).transpose()?,
+            source_mapped,
         })
     }
 }
@@ -147,7 +153,9 @@ impl TryFrom<SerializedAnalyzedModule> for AnalyzedModule {
                 .cron_specs
                 .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
                 .transpose()?,
-            source_mapped: m.source_mapped.map(TryFrom::try_from).transpose()?,
+            source_index: m
+                .source_mapped
+                .and_then(|mapped_module| mapped_module.source_index),
         })
     }
 }
@@ -517,43 +525,10 @@ impl Deref for AnalyzedHttpRoutes {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub struct MappedModule {
-    // Index of the module's original source in the source map.
-    // TODO: consider removing this or moving this out of MappedModule into AnalyzedModule and
-    //  instead just include source information. This requires a decent migration from Dashboard
-    //  schema.
-    //  See https://github.com/get-convex/convex/pull/14382/files#r1252372646 for further discussion.
-    pub source_index: Option<u32>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "value::heap_size::of(prop::collection::vec(any::<AnalyzedFunction>(), \
-                        0..4))"
-        )
-    )]
-    pub functions: WithHeapSize<Vec<AnalyzedFunction>>,
-    pub http_routes: Option<AnalyzedHttpRoutes>,
-    #[cfg_attr(
-        any(test, feature = "testing"),
-        proptest(
-            strategy = "prop::option::of(value::heap_size::of(prop::collection::btree_map(any::<CronIdentifier>(), \
-                        any::<CronSpec>(), 0..4)))"
-        )
-    )]
-    pub cron_specs: Option<WithHeapSize<BTreeMap<CronIdentifier, CronSpec>>>,
-}
-
-impl HeapSize for MappedModule {
-    fn heap_size(&self) -> usize {
-        self.source_index.heap_size()
-            + self.functions.heap_size()
-            + self.http_routes.heap_size()
-            + self.cron_specs.heap_size()
-    }
-}
-
+// TODO: consider denormalizing SerializedMappedModule into
+// SerializedAnalyzedModule and  instead just include source information. This
+// requires a decent migration from Dashboard  schema.
+//  See https://github.com/get-convex/convex/pull/14382/files#r1252372646 for further discussion.
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct SerializedMappedModule {
@@ -563,10 +538,14 @@ struct SerializedMappedModule {
     cron_specs: Option<Vec<SerializedNamedCronSpec>>,
 }
 
-impl TryFrom<MappedModule> for SerializedMappedModule {
+impl TryFrom<AnalyzedModule> for SerializedMappedModule {
     type Error = anyhow::Error;
 
-    fn try_from(m: MappedModule) -> anyhow::Result<Self> {
+    fn try_from(m: AnalyzedModule) -> anyhow::Result<Self> {
+        anyhow::ensure!(
+            m.source_index.is_some(),
+            "source_index must be set to be serializing into SerializedMappedModule"
+        );
         Ok(Self {
             source_index: m.source_index,
             functions: m
@@ -577,32 +556,6 @@ impl TryFrom<MappedModule> for SerializedMappedModule {
             http_routes: m
                 .http_routes
                 .map(|routes| routes.into_iter().map(TryFrom::try_from).try_collect())
-                .transpose()?,
-            cron_specs: m
-                .cron_specs
-                .map(|specs| specs.into_iter().map(TryFrom::try_from).try_collect())
-                .transpose()?,
-        })
-    }
-}
-
-impl TryFrom<SerializedMappedModule> for MappedModule {
-    type Error = anyhow::Error;
-
-    fn try_from(m: SerializedMappedModule) -> anyhow::Result<Self> {
-        Ok(Self {
-            source_index: m.source_index,
-            functions: m
-                .functions
-                .into_iter()
-                .map(TryFrom::try_from)
-                .try_collect()?,
-            http_routes: m
-                .http_routes
-                .map(|routes| {
-                    let routes = routes.into_iter().map(TryFrom::try_from).try_collect()?;
-                    anyhow::Ok(AnalyzedHttpRoutes::new(routes))
-                })
                 .transpose()?,
             cron_specs: m
                 .cron_specs

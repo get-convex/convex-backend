@@ -92,13 +92,13 @@ async fn test_config(rt: TestRuntime) -> anyhow::Result<()> {
                     functions: WithHeapSize::default(),
                     http_routes: None,
                     cron_specs: None,
-                    source_mapped: None,
+                    source_index: None,
                 },
                 p2 =>  AnalyzedModule {
                     functions: WithHeapSize::default(),
                     http_routes: None,
                     cron_specs: None,
-                    source_mapped: None,
+                    source_index: None,
                 },
             },
             None,
@@ -148,7 +148,7 @@ async fn test_config_large_modules(rt: TestRuntime) -> anyhow::Result<()> {
                     functions: WithHeapSize::default(),
                     http_routes: None,
                     cron_specs: None,
-                    source_mapped: None,
+                    source_index: None,
                 },
             )
         })
