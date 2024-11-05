@@ -49,7 +49,9 @@ pub fn get_sampled_span<R: Rng>(
     let sample_ratio = get_sampling_ratio(instance_name, name);
     let should_sample = rng.gen_bool(sample_ratio);
     match should_sample {
-        true => Span::root(name.to_owned(), SpanContext::random()).with_properties(|| properties),
+        true => Span::root(name.to_owned(), SpanContext::random())
+            .with_properties(|| properties)
+            .with_property(|| ("dev.convex.instance_name", instance_name.to_owned())),
         false => Span::noop(),
     }
 }
@@ -70,7 +72,9 @@ pub fn get_keyed_sampled_span<K: Hash + std::fmt::Debug>(
     let threshold = ((u32::MAX as f64) * sample_ratio) as u32;
     if hash < threshold {
         tracing::info!("Sampling span for {key:?}: {name}");
-        Span::root(name.to_owned(), span_ctx).with_properties(|| properties)
+        Span::root(name.to_owned(), span_ctx)
+            .with_properties(|| properties)
+            .with_property(|| ("dev.convex.instance_name", instance_name.to_owned()))
     } else {
         tracing::info!("Not sampling span for {key:?}: {name}");
         Span::noop()
