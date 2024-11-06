@@ -43,6 +43,7 @@ use common::{
 };
 use database::{
     query::PaginationOptions,
+    BootstrapComponentsModel,
     Database,
     ResolvedQuery,
     SystemMetadataModel,
@@ -211,7 +212,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let ts = tx.begin_timestamp();
         let table_mapping = tx.table_mapping().clone();
-        let component_paths = tx.all_component_paths();
+        let component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
         let mut table_model = TableModel::new(&mut tx);
         for (namespace, map) in table_mapping.iter_active_namespaces() {
             let component_id = ComponentId::from(*namespace);

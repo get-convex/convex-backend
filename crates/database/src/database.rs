@@ -1647,7 +1647,7 @@ impl<RT: Runtime> Database<RT> {
             (
                 tx.begin_timestamp(),
                 tx.table_mapping().clone(),
-                tx.all_component_paths(),
+                BootstrapComponentsModel::new(&mut tx).all_component_paths(),
             )
         };
         let repeatable_persistence = RepeatablePersistence::new(

@@ -132,6 +132,12 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .resolve_path(path, &mut self.tx.reads)
     }
 
+    pub fn all_component_paths(&mut self) -> BTreeMap<ComponentId, ComponentPath> {
+        self.tx
+            .component_registry
+            .all_component_paths(&mut self.tx.reads)
+    }
+
     #[minitrace::trace]
     pub async fn load_all_components(
         &mut self,
