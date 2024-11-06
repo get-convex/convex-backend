@@ -799,6 +799,8 @@ pub static MYSQL_MAX_QUERY_DYNAMIC_BATCH_SIZE: LazyLock<usize> =
 /// Close a connection after it has been idle for some time. RDS proxy closes
 /// connections after idle_client_timeout in mysql.tf, which should be
 /// configured to be higher than this.
+///
+/// This is overridden to 30 min in funrun
 pub static MYSQL_INACTIVE_CONNECTION_LIFETIME: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("MYSQL_INACTIVE_CONNECTION_LIFETIME_SECS", 90))
 });
@@ -807,6 +809,8 @@ pub static MYSQL_INACTIVE_CONNECTION_LIFETIME: LazyLock<Duration> = LazyLock::ne
 /// connections if the SQL query which exceeded the 16384 byte limit. Having a
 /// hard limit on connection lifetime helps us reduce pinning and improve
 /// connection reuse.
+///
+/// This is overridden to 30 min in funrun
 pub static MYSQL_MAX_CONNECTION_LIFETIME: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("MYSQL_MAX_CONNECTION_LIFETIME_SECS", 600)));
 
