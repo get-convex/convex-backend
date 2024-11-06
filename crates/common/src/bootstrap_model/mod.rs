@@ -12,6 +12,6 @@
 pub mod components;
 pub mod index;
 pub mod schema;
-mod schema_metadata;
+pub mod schema_metadata;
 mod schema_state;
 pub mod tables;

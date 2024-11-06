@@ -106,7 +106,11 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             .await?
             .map(|(_id, schema)| schema);
         let next_schema = if let Some(schema_id) = schema_id {
-            Some(self.get_validated_or_active(schema_id).await?.1)
+            Some(
+                self.get_validated_or_active(schema_id)
+                    .await?
+                    .database_schema()?,
+            )
         } else {
             None
         };
@@ -217,8 +221,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             "Getting schema by state is only permitted for Pending, Validated, or Active states, \
              since Failed or Overwritten states may have multiple documents."
         );
-        let schema_doc = self.tx.get_schema_by_state(self.namespace, state)?;
-        Ok(schema_doc.map(|doc| (doc.id(), doc.into_value().schema)))
+        self.tx.get_schema_by_state(self.namespace, state)
     }
 
     #[minitrace::trace]
@@ -272,10 +275,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             (None, None) => {},
         }
 
-        let schema_metadata = SchemaMetadata {
-            state: SchemaState::Pending,
-            schema,
-        };
+        let schema_metadata = SchemaMetadata::new(SchemaState::Pending, schema)?;
         let id = SystemMetadataModel::new(self.tx, self.namespace)
             .insert(&SCHEMAS_TABLE, schema_metadata.try_into()?)
             .await?;
@@ -317,7 +317,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
     pub async fn get_validated_or_active(
         &mut self,
         schema_id: ResolvedDocumentId,
-    ) -> anyhow::Result<(SchemaState, DatabaseSchema)> {
+    ) -> anyhow::Result<SchemaMetadata> {
         let doc = self
             .tx
             .get(schema_id)
@@ -328,8 +328,8 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
             SchemaState::Pending => {
                 anyhow::bail!("Expected schema to be Validated, but it's Pending {schema_id}")
             },
-            SchemaState::Validated => Ok((SchemaState::Validated, schema.schema)),
-            SchemaState::Active => Ok((SchemaState::Active, schema.schema)),
+            SchemaState::Validated => Ok(schema),
+            SchemaState::Active => Ok(schema),
             SchemaState::Failed { error, .. } => Err(ErrorMetadata::bad_request(
                 "SchemaAlreadyFailed",
                 format!("Schema has already been failed with error: {error}"),
@@ -345,8 +345,8 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
 
     pub async fn mark_active(&mut self, document_id: ResolvedDocumentId) -> anyhow::Result<()> {
         // Make sure it's already Validated or Active.
-        let (state, _) = self.get_validated_or_active(document_id).await?;
-        match state {
+        let schema = self.get_validated_or_active(document_id).await?;
+        match schema.state {
             // Already active: no-op
             SchemaState::Active => Ok(()),
             // If it's validated, mark as active.

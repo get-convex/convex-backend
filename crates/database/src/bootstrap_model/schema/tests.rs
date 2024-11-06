@@ -129,7 +129,10 @@ async fn test_submit_new_pending_schema(rt: TestRuntime) -> anyhow::Result<()> {
         Some((id, db_schema_1.clone()))
     );
     assert!(model.get_by_state(SchemaState::Validated).await?.is_none());
-    let SchemaMetadata { state, schema: _ } = tx
+    let SchemaMetadata {
+        state,
+        raw_schema: _,
+    } = tx
         .get(db_schema_2_id)
         .await?
         .unwrap()
@@ -426,7 +429,10 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     UserFacingModel::new_root_for_test(&mut tx)
         .insert(table.clone(), bad_object.clone())
         .await?;
-    let SchemaMetadata { state, schema: _ } = tx
+    let SchemaMetadata {
+        state,
+        raw_schema: _,
+    } = tx
         .get(schema_id)
         .await?
         .unwrap()
@@ -442,7 +448,10 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     UserFacingModel::new_root_for_test(&mut tx)
         .replace(id, bad_object.clone())
         .await?;
-    let SchemaMetadata { state, schema: _ } = tx
+    let SchemaMetadata {
+        state,
+        raw_schema: _,
+    } = tx
         .get(schema_id)
         .await?
         .unwrap()
@@ -458,7 +467,10 @@ async fn test_schema_failed_after_bad_insert(rt: TestRuntime) -> anyhow::Result<
     UserFacingModel::new_root_for_test(&mut tx)
         .patch(id, bad_object.into())
         .await?;
-    let SchemaMetadata { state, schema: _ } = tx
+    let SchemaMetadata {
+        state,
+        raw_schema: _,
+    } = tx
         .get(schema_id)
         .await?
         .unwrap()

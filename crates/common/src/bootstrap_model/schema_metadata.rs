@@ -15,7 +15,20 @@ use crate::schemas::DatabaseSchema;
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct SchemaMetadata {
     pub state: SchemaState,
-    pub schema: DatabaseSchema,
+    pub raw_schema: String,
+}
+
+impl SchemaMetadata {
+    pub fn database_schema(&self) -> anyhow::Result<DatabaseSchema> {
+        let deserialized_value: JsonValue = serde_json::from_str(&self.raw_schema)?;
+        DatabaseSchema::try_from(deserialized_value)
+    }
+
+    pub fn new(state: SchemaState, schema: DatabaseSchema) -> anyhow::Result<Self> {
+        let json_schema: JsonValue = schema.try_into()?;
+        let raw_schema = serde_json::to_string(&json_schema)?;
+        Ok(Self { state, raw_schema })
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -30,7 +43,7 @@ impl TryFrom<SchemaMetadata> for SerializedSchemaMetadata {
     fn try_from(s: SchemaMetadata) -> anyhow::Result<Self> {
         Ok(Self {
             state: s.state.try_into()?,
-            schema: serde_json::to_string(&JsonValue::try_from(s.schema)?)?,
+            schema: s.raw_schema,
         })
     }
 }
@@ -39,10 +52,9 @@ impl TryFrom<SerializedSchemaMetadata> for SchemaMetadata {
     type Error = anyhow::Error;
 
     fn try_from(s: SerializedSchemaMetadata) -> anyhow::Result<Self> {
-        let deserialized_value: JsonValue = serde_json::from_str(&s.schema)?;
         Ok(Self {
             state: s.state.try_into()?,
-            schema: DatabaseSchema::try_from(deserialized_value)?,
+            raw_schema: s.schema,
         })
     }
 }

@@ -19,10 +19,7 @@ use common::{
             IndexMetadata,
             INDEX_TABLE,
         },
-        schema::{
-            SchemaMetadata,
-            SchemaState,
-        },
+        schema::SchemaState,
         tables::{
             TableMetadata,
             TABLES_TABLE,
@@ -35,7 +32,6 @@ use common::{
     document::{
         CreationTime,
         DocumentUpdate,
-        ParsedDocument,
         ResolvedDocument,
     },
     identity::InertIdentity,
@@ -56,6 +52,7 @@ use common::{
         SearchVersion,
     },
     runtime::Runtime,
+    schemas::DatabaseSchema,
     sync::split_rw_lock::Reader,
     types::{
         GenericIndexName,
@@ -689,7 +686,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         namespace: TableNamespace,
         state: SchemaState,
-    ) -> anyhow::Result<Option<ParsedDocument<SchemaMetadata>>> {
+    ) -> anyhow::Result<Option<(ResolvedDocumentId, DatabaseSchema)>> {
         if !self
             .table_mapping()
             .namespace(namespace)
