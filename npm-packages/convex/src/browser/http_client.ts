@@ -198,7 +198,6 @@ export class ConvexHttpClient {
       ...this.fetchOptions,
       method: "POST",
       headers: headers,
-      credentials: "include",
     });
     if (!response.ok) {
       throw new Error(await response.text());
@@ -260,7 +259,6 @@ export class ConvexHttpClient {
       body,
       method: "POST",
       headers: headers,
-      credentials: "include",
     });
     if (!response.ok && response.status !== STATUS_CODE_UDF_FAILED) {
       throw new Error(await response.text());
@@ -322,7 +320,6 @@ export class ConvexHttpClient {
       body,
       method: "POST",
       headers: headers,
-      credentials: "include",
     });
     if (!response.ok && response.status !== STATUS_CODE_UDF_FAILED) {
       throw new Error(await response.text());
@@ -383,7 +380,6 @@ export class ConvexHttpClient {
       body,
       method: "POST",
       headers: headers,
-      credentials: "include",
     });
     if (!response.ok && response.status !== STATUS_CODE_UDF_FAILED) {
       throw new Error(await response.text());
@@ -453,7 +449,6 @@ export class ConvexHttpClient {
       body,
       method: "POST",
       headers: headers,
-      credentials: "include",
     });
     if (!response.ok && response.status !== STATUS_CODE_UDF_FAILED) {
       throw new Error(await response.text());
