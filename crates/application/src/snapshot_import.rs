@@ -2554,7 +2554,7 @@ async fn create_unmounted_component<RT: Runtime>(
 
     let mut tx = database.begin(Identity::system()).await?;
     let definition = ComponentDefinitionMetadata {
-        path: "_initially_unmounted".parse()?,
+        path: format!("{}", parent_path.join(component_name.clone())).parse()?,
         definition_type: ComponentDefinitionType::ChildComponent {
             name: component_name.clone(),
             args: btreemap! {},
