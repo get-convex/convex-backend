@@ -50,7 +50,6 @@ use database::{
     IndexModel,
     SystemMetadataModel,
     TableSummary,
-    Transaction,
     COMPONENTS_TABLE,
 };
 use futures::{
@@ -65,7 +64,6 @@ use futures::{
 use keybroker::Identity;
 use mime2ext::mime2ext;
 use model::{
-    components::ComponentsModel,
     exports::{
         types::{
             Export,
@@ -150,24 +148,36 @@ pub struct ExportWorker<RT: Runtime> {
     usage_tracking: UsageCounter,
 }
 
+/// All components (including unmounted) organized into tree format.
 struct ComponentTree {
     id: ComponentId,
     children: BTreeMap<ComponentName, Box<ComponentTree>>,
 }
 
 impl ComponentTree {
-    #[async_recursion]
-    async fn new<RT>(tx: &mut Transaction<RT>, id: ComponentId) -> anyhow::Result<Self>
-    where
-        RT: Runtime,
-    {
+    fn new(
+        current_component_id: ComponentId,
+        component_ids_to_paths: &BTreeMap<ComponentId, ComponentPath>,
+    ) -> anyhow::Result<Self> {
+        let current_path = component_ids_to_paths
+            .get(&current_component_id)
+            .context("Not found?")?;
         let mut children = BTreeMap::new();
-        for (component_name, child_id) in
-            ComponentsModel::new(tx).component_children_ids(id).await?
-        {
-            children.insert(component_name, Box::new(Self::new(tx, child_id).await?));
+        for (component_id, component_path) in component_ids_to_paths {
+            let Some((parent_path, component_name)) = component_path.parent() else {
+                continue;
+            };
+            if parent_path == *current_path {
+                children.insert(
+                    component_name,
+                    Box::new(Self::new(*component_id, component_ids_to_paths)?),
+                );
+            }
         }
-        Ok(Self { id, children })
+        Ok(Self {
+            id: current_component_id,
+            children,
+        })
     }
 }
 
@@ -288,7 +298,6 @@ impl<RT: Runtime> ExportWorker<RT> {
     async fn export_inner(
         &mut self,
         format: ExportFormat,
-        component: ComponentId,
         requestor: ExportRequestor,
     ) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)> {
         tracing::info!("Beginning snapshot export...");
@@ -296,7 +305,6 @@ impl<RT: Runtime> ExportWorker<RT> {
         let (ts, tables, component_ids_to_paths, by_id_indexes, system_tables, component_tree) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-            let component_tree = ComponentTree::new(&mut tx, component).await?;
             let snapshot = self.database.snapshot(tx.begin_timestamp())?;
             let tables: BTreeMap<_, _> = snapshot
                 .table_registry
@@ -314,6 +322,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 })
                 .collect();
             let component_ids_to_paths = snapshot.component_ids_to_paths();
+            let component_tree = ComponentTree::new(ComponentId::Root, &component_ids_to_paths)?;
             let system_tables = snapshot
                 .table_registry
                 .iter_active_system_tables()
@@ -604,7 +613,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         export: ParsedDocument<Export>,
     ) -> anyhow::Result<()> {
         let (ts, object_key, usage) = self
-            .export_inner(export.format(), export.component(), export.requestor())
+            .export_inner(export.format(), export.requestor())
             .await?;
 
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -800,7 +809,10 @@ impl<'a> ZipSnapshotUpload<'a> {
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::BTreeMap,
+        collections::{
+            BTreeMap,
+            BTreeSet,
+        },
         str,
         sync::Arc,
     };
@@ -832,6 +844,7 @@ mod tests {
     };
     use headers::ContentType;
     use keybroker::Identity;
+    use maplit::btreeset;
     use model::{
         exports::types::{
             ExportFormat,
@@ -860,6 +873,7 @@ mod tests {
     use crate::{
         export_worker::README_MD_CONTENTS,
         test_helpers::ApplicationTestExt,
+        tests::components::unmount_component,
         Application,
     };
 
@@ -958,7 +972,6 @@ mod tests {
                 ExportFormat::Zip {
                     include_storage: true,
                 },
-                ComponentId::Root,
                 ExportRequestor::SnapshotExport,
             )
             .await?;
@@ -1073,7 +1086,6 @@ mod tests {
                 ExportFormat::Zip {
                     include_storage: false,
                 },
-                ComponentId::Root,
                 ExportRequestor::SnapshotExport,
             )
             .await?;
@@ -1104,37 +1116,33 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn test_export_child_component(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()> {
         let application = Application::new_for_tests(&rt).await?;
-        application
-            .load_component_tests_modules("with-schema")
-            .await?;
+        unmount_component(&application).await?;
+
         let db = application.database().clone();
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
         let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
         let mut export_worker =
             ExportWorker::new_test(rt, db.clone(), storage.clone(), file_storage);
 
-        let mut expected_export_entries = BTreeMap::new();
-
-        expected_export_entries.insert("README.md".to_string(), README_MD_CONTENTS.to_string());
-
-        let mut tx = db.begin(Identity::system()).await?;
-        let component_path = "component".parse()?;
-        let (_, child_component) =
-            BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path)?;
-
-        // Data in root component doesn't matter.
-        write_test_data_in_component(&db, ComponentId::Root, "", &mut BTreeMap::new()).await?;
-        write_test_data_in_component(&db, child_component, "", &mut expected_export_entries)
-            .await?;
+        let expected_export_entries = btreeset! {
+            "README.md".to_string(),
+            "_components/component/_tables/documents.jsonl".to_string(),
+            "_components/component/messages/documents.jsonl".to_string(),
+            "_components/component/messages/generated_schema.jsonl".to_string(),
+            "_components/envVars/_components/component/_tables/documents.jsonl".to_string(),
+            "_components/envVars/_components/component/messages/documents.jsonl".to_string(),
+            "_components/envVars/_components/component/messages/generated_schema.jsonl".to_string(),
+            "_components/envVars/_tables/documents.jsonl".to_string(),
+            "_tables/documents.jsonl".to_string(),
+        };
 
         let (_, zip_object_key, usage) = export_worker
             .export_inner(
                 ExportFormat::Zip {
                     include_storage: false,
                 },
-                child_component,
                 ExportRequestor::SnapshotExport,
             )
             .await?;
@@ -1146,7 +1154,7 @@ mod tests {
             .context("object missing from storage")?;
         let stored_bytes = storage_stream.collect_as_bytes().await?;
         let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
-        let mut zip_entries = BTreeMap::new();
+        let mut zip_entries = BTreeSet::new();
         let filenames: Vec<_> = zip_reader
             .entries()
             .into_iter()
@@ -1154,13 +1162,13 @@ mod tests {
             .collect();
         for (i, filename) in filenames.into_iter().enumerate() {
             let entry_reader = zip_reader.entry_reader(i).await?;
-            let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
-            zip_entries.insert(filename, entry_contents);
+            let _entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+            zip_entries.insert(filename);
         }
         assert_eq!(zip_entries, expected_export_entries);
 
         let usage = usage.gather_user_stats();
-        assert!(usage.database_egress_size[&(component_path, "messages".to_string())] > 0);
+        assert!(usage.database_egress_size[&("component".parse()?, "messages".to_string())] > 0);
         Ok(())
     }
 
@@ -1228,7 +1236,6 @@ mod tests {
                 ExportFormat::Zip {
                     include_storage: true,
                 },
-                ComponentId::Root,
                 ExportRequestor::SnapshotExport,
             )
             .await?;
@@ -1291,7 +1298,6 @@ mod tests {
                 ExportFormat::Zip {
                     include_storage: false,
                 },
-                ComponentId::test_user(),
                 ExportRequestor::SnapshotExport,
             )
             .await?;

@@ -278,7 +278,9 @@ async fn test_math_random_within_component(rt: TestRuntime) -> anyhow::Result<()
     Ok(())
 }
 
-async fn unmount_component(application: &Application<TestRuntime>) -> anyhow::Result<ComponentId> {
+pub async fn unmount_component(
+    application: &Application<TestRuntime>,
+) -> anyhow::Result<ComponentId> {
     application.load_component_tests_modules("mounted").await?;
     run_component_function(
         application,
