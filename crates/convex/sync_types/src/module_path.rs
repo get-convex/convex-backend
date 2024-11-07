@@ -30,6 +30,25 @@ pub struct ModulePath {
 }
 
 impl ModulePath {
+    /// NOTE: This constructor should only be used when converting from protos.
+    /// Otherwise, prefer parsing the path from a `str` so that it gets
+    /// validated.
+    pub fn new(
+        path: PathBuf,
+        is_system: bool,
+        is_deps: bool,
+        is_http: bool,
+        is_cron: bool,
+    ) -> Self {
+        Self {
+            path,
+            is_system,
+            is_deps,
+            is_http,
+            is_cron,
+        }
+    }
+
     /// View the module path as a `str`.
     pub fn as_str(&self) -> &str {
         self.path
@@ -254,6 +273,25 @@ pub struct CanonicalizedModulePath {
 }
 
 impl CanonicalizedModulePath {
+    /// NOTE: This constructor should only be used when converting from protos.
+    /// Otherwise, prefer the [`FromStr`] implementation since it includes
+    /// validation.
+    pub fn new(
+        path: PathBuf,
+        is_system: bool,
+        is_deps: bool,
+        is_http: bool,
+        is_cron: bool,
+    ) -> Self {
+        Self {
+            path,
+            is_system,
+            is_deps,
+            is_http,
+            is_cron,
+        }
+    }
+
     pub fn as_str(&self) -> &str {
         self.path
             .to_str()

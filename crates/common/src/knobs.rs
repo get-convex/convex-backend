@@ -1031,16 +1031,21 @@ pub static FIREHOSE_TIMEOUT: LazyLock<Duration> =
 pub static INDEX_WORKERS_INITIAL_BACKOFF: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("INDEX_WORKERS_INITIAL_BACKOFF", 500)));
 
-/// The maximum size for Funrun request messages. This is 8MiB for path and
-/// args, plus a buffer for the smaller fields.
-pub static MAX_FUNRUN_REQUEST_MESSAGE_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MAX_FUNRUN_REQUEST_MESSAGE_SIZE", (1 << 23) + 2000)); // 8 MiB + buffer
+/// The maximum size for Funrun run function request messages. This is 8MiB for
+/// path and args, plus a buffer for the smaller fields. Note that analyze has a
+/// much higher limit because it includes user source code.
+pub static MAX_FUNRUN_RUN_FUNCTION_REQUEST_MESSAGE_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "MAX_FUNRUN_REQUEST_RUN_FUNCTION_MESSAGE_SIZE",
+        (1 << 23) + 2000,
+    )
+}); // 8 MiB + buffer
 
-/// The maximum size for Funrun response messages. 8MiB for reads + 8 MiB for
-/// writes + 8MiB for function result + 4MiB for log lines and a 4 MiB buffer
-/// for the smaller fields.
-pub static MAX_FUNRUN_RESPONSE_MESSAGE_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("MAX_FUNRUN_RESPONSE_MESSAGE_SIZE", 1 << 25)); // 32 MiB
+/// The maximum size for Funrun run function response messages. 8MiB for reads +
+/// 8 MiB for writes + 8MiB for function result + 4MiB for log lines and a 4 MiB
+/// buffer for the smaller fields.
+pub static MAX_FUNRUN_RUN_FUNCTION_RESPONSE_MESSAGE_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_FUNRUN_RESPONSE_RUN_FUNCTION_MESSAGE_SIZE", 1 << 25)); // 32 MiB
 
 /// The maximum size for Backend HTTP and GRPC action callbacks. This is 8MiB
 /// for path and args, plus a buffer for the smaller fields This should also be

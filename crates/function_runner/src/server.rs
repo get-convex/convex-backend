@@ -595,6 +595,42 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             },
         }
     }
+
+    pub async fn analyze(
+        &self,
+        udf_config: UdfConfig,
+        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        instance_name: String,
+    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
+        anyhow::ensure!(
+            modules
+                .values()
+                .all(|m| m.environment == ModuleEnvironment::Isolate),
+            "Can only analyze Isolate modules"
+        );
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequestType::Analyze {
+            modules,
+            response: tx,
+            udf_config,
+            environment_variables,
+        };
+        self.send_request(IsolateRequest::new(
+            instance_name,
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+            .await?
+            .map_err(|e| {
+                if e.is_overloaded() {
+                    recapture_stacktrace(e)
+                } else {
+                    e
+                }
+            })
+    }
 }
 
 #[async_trait]
@@ -761,33 +797,14 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
-        anyhow::ensure!(
-            modules
-                .values()
-                .all(|m| m.environment == ModuleEnvironment::Isolate),
-            "Can only analyze Isolate modules"
-        );
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequestType::Analyze {
-            modules,
-            response: tx,
-            udf_config,
-            environment_variables,
-        };
-        self.server.send_request(IsolateRequest::new(
-            self.instance_name.clone(),
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        self.server
+            .analyze(
+                udf_config,
+                modules,
+                environment_variables,
+                self.instance_name.clone(),
+            )
+            .await
     }
 
     /// This fn should be called on startup. All `run_function` calls will fail
