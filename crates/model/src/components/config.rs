@@ -280,20 +280,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
                 // Creating a new component. We need to allocate a component ID
                 // here for the table namespace.
                 (None, Some(..)) => {
-                    let internal_id =
-                        SystemMetadataModel::new_global(self.tx).allocate_internal_id()?;
-                    let table_id = self
-                        .tx
-                        .table_mapping()
-                        .namespace(TableNamespace::Global)
-                        .name_to_id()(COMPONENTS_TABLE.clone())?;
-                    let id = DeveloperDocumentId::new(table_id.table_number, internal_id);
-                    let component_id = if path.is_root() {
-                        ComponentId::Root
-                    } else {
-                        ComponentId::Child(id)
-                    };
-                    self.initialize_component_namespace(component_id).await?;
+                    let id = self.initialize_component_namespace(path.is_root()).await?;
                     allocated_component_ids.insert(path.clone(), id);
                     id
                 },
@@ -353,26 +340,26 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         })
     }
 
-    // make a new function to initialize the component namespace but for tests only
-    #[cfg(any(test, feature = "testing"))]
-    pub async fn initialize_component_namespace_for_test(
-        &mut self,
-        component_id: ComponentId,
-    ) -> anyhow::Result<()> {
-        self.initialize_component_namespace(component_id).await
-    }
-
     #[minitrace::trace]
-    async fn initialize_component_namespace(
+    pub async fn initialize_component_namespace(
         &mut self,
-        component_id: ComponentId,
-    ) -> anyhow::Result<()> {
+        is_root: bool,
+    ) -> anyhow::Result<DeveloperDocumentId> {
+        let internal_id = SystemMetadataModel::new_global(self.tx).allocate_internal_id()?;
+        let table_id = self
+            .tx
+            .table_mapping()
+            .namespace(TableNamespace::Global)
+            .name_to_id()(COMPONENTS_TABLE.clone())?;
+        let id = DeveloperDocumentId::new(table_id.table_number, internal_id);
+        let component_id = ComponentId::new(is_root, id);
+
         if matches!(component_id, ComponentId::Root) {
             tracing::info!(
                 "No-op initializing component tables in global namespace, because they already \
                  exist."
             );
-            return Ok(());
+            return Ok(id);
         }
         initialize_application_system_table(
             self.tx,
@@ -390,7 +377,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             )
             .await?;
         }
-        Ok(())
+        Ok(id)
     }
 
     fn schema_id_from_schema_change(
@@ -518,7 +505,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
     }
 
     #[minitrace::trace]
-    async fn create_component(
+    pub async fn create_component(
         &mut self,
         id: DeveloperDocumentId,
         metadata: ComponentMetadata,
@@ -537,11 +524,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .insert_with_internal_id(&COMPONENTS_TABLE, id.internal_id(), metadata.try_into()?)
             .await?;
         anyhow::ensure!(DeveloperDocumentId::from(document_id) == id);
-        let component_id = if is_root {
-            ComponentId::Root
-        } else {
-            ComponentId::Child(id)
-        };
+        let component_id = ComponentId::new(is_root, id);
         let udf_config_diff = UdfConfigModel::new(self.tx, component_id.into())
             .set(udf_config.clone())
             .await?;

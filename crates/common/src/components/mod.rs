@@ -42,6 +42,14 @@ pub enum ComponentId {
 }
 
 impl ComponentId {
+    pub fn new(is_root: bool, id: DeveloperDocumentId) -> Self {
+        if is_root {
+            ComponentId::Root
+        } else {
+            ComponentId::Child(id)
+        }
+    }
+
     pub fn is_root(&self) -> bool {
         matches!(self, ComponentId::Root)
     }

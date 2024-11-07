@@ -14,6 +14,7 @@ use std::{
 };
 
 use anyhow::Context;
+use async_recursion::async_recursion;
 use async_trait::async_trait;
 use async_zip::{
     error::ZipError,
@@ -30,10 +31,20 @@ use common::{
         TokioAsyncReadCompatExt,
     },
     bootstrap_model::{
+        components::{
+            definition::{
+                ComponentDefinitionMetadata,
+                ComponentDefinitionType,
+            },
+            ComponentMetadata,
+            ComponentState,
+            ComponentType,
+        },
         schema::SchemaState,
         tables::TABLES_TABLE,
     },
     components::{
+        ComponentDefinitionPath,
         ComponentId,
         ComponentName,
         ComponentPath,
@@ -69,9 +80,11 @@ use database::{
     ImportFacingModel,
     IndexModel,
     SchemaModel,
+    SystemMetadataModel,
     TableModel,
     Transaction,
     TransactionReadSet,
+    COMPONENTS_TABLE,
     SCHEMAS_TABLE,
 };
 use errors::{
@@ -110,7 +123,15 @@ use humansize::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
+use maplit::{
+    btreemap,
+    btreeset,
+};
 use model::{
+    components::config::{
+        ComponentConfigModel,
+        ComponentDefinitionConfigModel,
+    },
     deployment_audit_log::{
         types::DeploymentAuditLogEvent,
         DeploymentAuditLogModel,
@@ -437,19 +458,28 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         let db_snapshot = self.database.latest_snapshot()?;
         for (component_and_table, count_importing) in count_by_table.iter() {
             let (component_path, table_name) = component_and_table;
-            let (_, component_id) = db_snapshot
+            let existing_num_values = db_snapshot
                 .component_registry
                 .component_path_to_ids(component_path, &mut TransactionReadSet::new())?
-                .with_context(|| ImportError::ComponentMissing(component_path.clone()))?;
+                .map(|(_, component_id)| {
+                    let table_name = if table_name == &*FILE_STORAGE_VIRTUAL_TABLE {
+                        &*FILE_STORAGE_TABLE
+                    } else {
+                        table_name
+                    };
+                    db_snapshot
+                        .table_summary(component_id.into(), table_name)
+                        .num_values()
+                })
+                .unwrap_or(0);
             if !table_name.is_system() {
-                let table_summary = db_snapshot.table_summary(component_id.into(), table_name);
                 let to_delete = match mode {
                     ImportMode::Replace => {
                         // Overwriting nonempty user table.
-                        table_summary.num_values()
+                        existing_num_values
                     },
                     ImportMode::Append => 0,
-                    ImportMode::RequireEmpty if table_summary.num_values() > 0 => {
+                    ImportMode::RequireEmpty if existing_num_values > 0 => {
                         anyhow::bail!(ImportError::TableExists(table_name.clone()))
                     },
                     ImportMode::RequireEmpty => 0,
@@ -459,22 +489,20 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                     TableChange {
                         added: *count_importing,
                         deleted: to_delete,
-                        existing: table_summary.num_values(),
+                        existing: existing_num_values,
                         unit: "",
                         is_missing_id_field: tables_missing_id_field.contains(component_and_table),
                     },
                 );
             }
             if table_name == &*FILE_STORAGE_VIRTUAL_TABLE {
-                let table_summary =
-                    db_snapshot.table_summary(component_id.into(), &FILE_STORAGE_TABLE);
                 let to_delete = match mode {
                     ImportMode::Replace => {
                         // Overwriting nonempty file storage.
-                        table_summary.num_values()
+                        existing_num_values
                     },
                     ImportMode::Append => 0,
-                    ImportMode::RequireEmpty if table_summary.num_values() > 0 => {
+                    ImportMode::RequireEmpty if existing_num_values > 0 => {
                         anyhow::bail!(ImportError::TableExists(table_name.clone()))
                     },
                     ImportMode::RequireEmpty => 0,
@@ -484,7 +512,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                     TableChange {
                         added: *count_importing,
                         deleted: to_delete,
-                        existing: table_summary.num_values(),
+                        existing: existing_num_values,
                         unit: " files",
                         is_missing_id_field: tables_missing_id_field.contains(component_and_table),
                     },
@@ -791,18 +819,13 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         };
         let objects = parse_objects(format.clone(), component_path.clone(), body_stream).boxed();
 
+        let component_id = prepare_component_for_import(&self.database, &component_path).await?;
         // Remapping could be more extensive here, it's just relatively simple to handle
         // optional types. We do remapping after parsing rather than during parsing
         // because it seems expensive to read the data for and parse all objects inside
         // of a transaction, though I haven't explicitly tested the performance.
         let mut tx = self.database.begin(Identity::system()).await?;
-
         let initial_schemas = schemas_for_import(&mut tx).await?;
-
-        let mut components_model = BootstrapComponentsModel::new(&mut tx);
-        let (_, component_id) = components_model
-            .must_component_path_to_ids(&component_path)
-            .with_context(|| ImportError::ComponentMissing(component_path))?;
         let objects = match format {
             ImportFormat::Csv(table_name) => {
                 remap_empty_string_by_schema(
@@ -838,9 +861,6 @@ pub enum ImportError {
 
     #[error("{0:?} isn't a valid table name: {1}")]
     InvalidName(String, anyhow::Error),
-
-    #[error("Component '{0}' must be created before importing")]
-    ComponentMissing(ComponentPath),
 
     #[error("Import wasn't valid UTF8: {0}")]
     NotUtf8(std::io::Error),
@@ -1777,10 +1797,7 @@ struct ImportSchemaConstraints {
 impl ImportSchemaConstraints {
     fn new(table_mapping_for_import: &TableMapping, initial_schemas: SchemasForImport) -> Self {
         let mut table_constraints = BTreeSet::new();
-        for (namespace, _, schema) in initial_schemas.iter() {
-            let Some((_, schema)) = schema else {
-                continue;
-            };
+        for (namespace, _, (_, schema)) in initial_schemas.iter() {
             for (table, table_schema) in &schema.tables {
                 if table_mapping_for_import
                     .namespace(*namespace)
@@ -1904,7 +1921,7 @@ async fn finalize_import<RT: Runtime>(
 type SchemasForImport = Vec<(
     TableNamespace,
     SchemaState,
-    Option<(ResolvedDocumentId, DatabaseSchema)>,
+    (ResolvedDocumentId, DatabaseSchema),
 )>;
 
 /// Documents in an imported table should match the schema.
@@ -1928,11 +1945,9 @@ async fn schemas_for_import<RT: Runtime>(
             SchemaState::Validated,
             SchemaState::Pending,
         ] {
-            schemas.push((
-                namespace,
-                schema_state.clone(),
-                schema_model.get_by_state(schema_state).await?,
-            ));
+            if let Some(schema) = schema_model.get_by_state(schema_state.clone()).await? {
+                schemas.push((namespace, schema_state, schema));
+            }
         }
     }
     Ok(schemas)
@@ -2315,6 +2330,7 @@ async fn import_single_table<RT: Runtime>(
         *table_name = FILE_STORAGE_TABLE.clone();
     }
     let (component_path, table_name) = &component_and_table;
+    let component_id = prepare_component_for_import(database, component_path).await?;
 
     if *table_name == *TABLES_TABLE {
         table_mapping_for_import.update(
@@ -2336,13 +2352,6 @@ async fn import_single_table<RT: Runtime>(
         .iter()
         .map(|(_, _, _, table_name)| table_name.clone())
         .collect();
-    let component_id = {
-        let mut tx = database.begin(Identity::system()).await?;
-        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
-            .component_path_to_ids(component_path)?
-            .with_context(|| ImportError::ComponentMissing(component_path.clone()))?;
-        component_id
-    };
     let (table_id, num_to_skip) = match table_mapping_for_import
         .namespace(component_id.into())
         .id_and_number_if_exists(table_name)
@@ -2492,6 +2501,129 @@ async fn import_single_table<RT: Runtime>(
     Ok(Some(num_objects))
 }
 
+#[async_recursion]
+async fn prepare_component_for_import<RT>(
+    database: &Database<RT>,
+    component_path: &ComponentPath,
+) -> anyhow::Result<ComponentId>
+where
+    RT: Runtime,
+{
+    let mut tx = database.begin(Identity::system()).await?;
+    if let Some(metadata) = BootstrapComponentsModel::new(&mut tx).resolve_path(component_path)? {
+        let component_id = if metadata.component_type.is_root() {
+            ComponentId::Root
+        } else {
+            ComponentId::Child(metadata.developer_id())
+        };
+        return Ok(component_id);
+    }
+
+    let Some((parent_path, component_name)) = component_path.parent() else {
+        tracing::info!("Creating a root component during import");
+        create_root_component(&mut tx).await?;
+        database
+            .commit_with_write_source(tx, "snapshot_import_create_root_component")
+            .await?;
+        return Ok(ComponentId::Root);
+    };
+    drop(tx);
+
+    prepare_component_for_import(database, &parent_path).await?;
+
+    tracing::info!("Creating component {component_name:?} during import");
+    let component_id = create_unmounted_component(database, parent_path, component_name).await?;
+    Ok(component_id)
+}
+
+async fn create_unmounted_component<RT: Runtime>(
+    database: &Database<RT>,
+    parent_path: ComponentPath,
+    component_name: ComponentName,
+) -> anyhow::Result<ComponentId> {
+    let mut tx = database.begin(Identity::system()).await?;
+    let component_id = ComponentConfigModel::new(&mut tx)
+        .initialize_component_namespace(false)
+        .await?;
+    database
+        .commit_with_write_source(tx, "snapshot_import_prepare_unmounted_component")
+        .await?;
+    database
+        .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
+        .await?;
+
+    let mut tx = database.begin(Identity::system()).await?;
+    let definition = ComponentDefinitionMetadata {
+        path: "_initially_unmounted".parse()?,
+        definition_type: ComponentDefinitionType::ChildComponent {
+            name: component_name.clone(),
+            args: btreemap! {},
+        },
+        child_components: vec![],
+        http_mounts: btreemap! {},
+        exports: btreemap! {},
+    };
+    let (definition_id, _diff) = ComponentDefinitionConfigModel::new(&mut tx)
+        .create_component_definition(definition)
+        .await?;
+    let metadata = ComponentMetadata {
+        definition_id,
+        component_type: ComponentType::ChildComponent {
+            parent: BootstrapComponentsModel::new(&mut tx)
+                .resolve_path(&parent_path)?
+                .context(format!(
+                    "{parent_path:?} not found in create_unmounted_component"
+                ))?
+                .developer_id(),
+            name: component_name,
+            args: btreemap! {},
+        },
+        state: ComponentState::Unmounted,
+    };
+    SystemMetadataModel::new_global(&mut tx)
+        .insert_with_internal_id(
+            &COMPONENTS_TABLE,
+            component_id.internal_id(),
+            metadata.try_into()?,
+        )
+        .await?;
+    database
+        .commit_with_write_source(tx, "snapshot_import_insert_unmounted_component")
+        .await?;
+    Ok(ComponentId::Child(component_id))
+}
+
+async fn create_root_component<RT: Runtime>(tx: &mut Transaction<RT>) -> anyhow::Result<()> {
+    let component_id = ComponentConfigModel::new(tx)
+        .initialize_component_namespace(true)
+        .await?;
+
+    let definition = ComponentDefinitionMetadata {
+        path: ComponentDefinitionPath::root(),
+        definition_type: ComponentDefinitionType::App,
+        child_components: vec![],
+        http_mounts: btreemap! {},
+        exports: btreemap! {},
+    };
+
+    let (definition_id, _diff) = ComponentDefinitionConfigModel::new(tx)
+        .create_component_definition(definition)
+        .await?;
+    let metadata = ComponentMetadata {
+        definition_id,
+        component_type: ComponentType::App,
+        state: ComponentState::Active,
+    };
+    SystemMetadataModel::new_global(tx)
+        .insert_with_internal_id(
+            &COMPONENTS_TABLE,
+            component_id.internal_id(),
+            metadata.try_into()?,
+        )
+        .await?;
+    Ok(())
+}
+
 async fn insert_import_objects<RT: Runtime>(
     database: &Database<RT>,
     identity: &Identity,
@@ -2567,7 +2699,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     let mut tx = database.begin(identity.clone()).await?;
     let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
         .component_path_to_ids(component_path)?
-        .with_context(|| ImportError::ComponentMissing(component_path.clone()))?;
+        .context(format!("Component {component_path:?} should exist by now"))?;
     let existing_active_table_id = tx
         .table_mapping()
         .namespace(component_id.into())
@@ -2806,9 +2938,12 @@ mod tests {
     use anyhow::Context;
     use bytes::Bytes;
     use common::{
-        bootstrap_model::index::{
-            IndexConfig,
-            IndexMetadata,
+        bootstrap_model::{
+            components::ComponentState,
+            index::{
+                IndexConfig,
+                IndexMetadata,
+            },
         },
         components::{
             ComponentId,
@@ -3642,7 +3777,7 @@ a,b
 a,b
 "foo","bar"
 "#;
-        let err = do_import(
+        let num_rows_written = do_import(
             &app,
             new_admin_id(),
             ImportFormat::Csv(table_name.clone()),
@@ -3650,16 +3785,16 @@ a,b
             component_path.clone(),
             stream_from_str(test_csv),
         )
-        .await
-        .unwrap_err();
+        .await?;
 
-        assert!(err.is_bad_request());
-        assert!(
-            err.to_string()
-                .contains("Component 'component' must be created before importing"),
-            "{}",
-            err.to_string()
-        );
+        assert_eq!(num_rows_written, 1);
+
+        let mut tx = app.begin(new_admin_id()).await?;
+        let metadata = BootstrapComponentsModel::new(&mut tx)
+            .resolve_path(&component_path)?
+            .context("Component missing")?
+            .into_value();
+        assert_eq!(metadata.state, ComponentState::Unmounted);
         Ok(())
     }
 
