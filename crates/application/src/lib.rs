@@ -2951,6 +2951,7 @@ impl<RT: Runtime> Application<RT> {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         self.log_sender.shutdown()?;
         self.table_summary_worker.shutdown().await?;
+        self.system_table_cleanup_worker.lock().shutdown();
         self.schema_worker.lock().shutdown();
         self.index_worker.lock().shutdown();
         self.search_worker.lock().shutdown();
