@@ -405,6 +405,10 @@ export async function entryPoints(
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath} json file`));
     } else if (base.endsWith(".jsonl")) {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath} jsonl file`));
+    } else if (base.endsWith(".txt")) {
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} txt file`));
+    } else if (base.endsWith(".md")) {
+      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} markdown file`));
     } else {
       logVerbose(ctx, chalk.green(`Preparing ${fpath}`));
       entryPoints.push(fpath);
