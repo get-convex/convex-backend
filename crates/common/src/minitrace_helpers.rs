@@ -339,7 +339,6 @@ mod tests {
             "defaultFraction": 0.01
         }"#
         .parse()?;
-        assert_eq!(config.by_regex.len(), 3);
         assert_eq!(config.sample_ratio("carnitas", "a"), 0.5);
         assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
         assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
@@ -351,7 +350,6 @@ mod tests {
             "defaultFraction": 0.0
         }"#
         .parse()?;
-        assert_eq!(config.by_regex.len(), 2);
         assert_eq!(config.sample_ratio("carnitas", "/f/a"), 0.5);
         assert_eq!(config.sample_ratio("carnitas", "/f/b"), 0.5);
         assert_eq!(config.sample_ratio("carnitas", "c"), 0.0);
@@ -359,7 +357,10 @@ mod tests {
         // Instance overrides.
         let config: SamplingConfig = r#"{
             "instanceOverrides": {
-                "alpastor": [ { "routeRegexp": "a", "fraction": 0.5 } ],
+                "alpastor": [ 
+                    { "routeRegexp": "a", "fraction": 0.5 }, 
+                    { "routeRegexp": "c", "fraction": 0.5 } 
+                ],
                 "carnitas": [ { "routeRegexp": ".*", "fraction": 0.01 } ]
             },
             "routeOverrides": [
@@ -368,13 +369,12 @@ mod tests {
             "defaultFraction": 1.0
         }"#
         .parse()?;
-        assert_eq!(config.by_regex.len(), 4);
         assert_eq!(config.sample_ratio("carnitas", "a"), 0.01);
         assert_eq!(config.sample_ratio("carnitas", "b"), 0.01);
         assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
         assert_eq!(config.sample_ratio("alpastor", "a"), 0.5);
         assert_eq!(config.sample_ratio("alpastor", "b"), 0.15);
-        assert_eq!(config.sample_ratio("alpastor", "c"), 1.0);
+        assert_eq!(config.sample_ratio("alpastor", "c"), 0.5);
         assert_eq!(config.sample_ratio("chorizo", "a"), 1.0);
         assert_eq!(config.sample_ratio("chorizo", "b"), 0.15);
         assert_eq!(config.sample_ratio("chorizo", "c"), 1.0);

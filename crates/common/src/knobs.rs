@@ -1100,35 +1100,38 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_PUSH_BYTES", 100_000_000));
 
 /// Percentage of request traces that should sampled.
-/// Can set a global value, as well as per-route values
 ///
-/// Note that the regexes can't contain commas.
+/// Sampling config is a JSON object with the following format:
+/// {
+///     instanceOverrides: {
+///         instanceName1: [{routeRegexp1: fraction1}, {routeRegexp2:
+/// fraction2}, ...],         instanceName2: [{routeRegexp1: fraction1},
+/// {routeRegexp2: fraction2}, ...],         ...
+///     },
+///     routeOverrides: [{routeRegexp: fraction}, ...],
+///     defaultFraction: fraction
+/// }
 ///
-/// Enable sampling for 10% of /api/push_config and 0.001% of all requests
-/// Use knobs to enable to higher limits for individual instances.
+/// (see also the doc comment on SamplingConfigJson).
 ///
-/// You can also enable sampling for individual instance_names if applicable,
-/// e.g. in Usher.
+/// These apply in order -- the instance overrides take precedence over route
+/// overrides, which take precedence over the default fraction.
 ///
+/// When in doubt, write out a test case to verify the behavior in
+/// minitrace_helpers.rs.
 ///
-/// Examples:
-///   REQUEST_TRACE_SAMPLE_CONFIG=0.01
-///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,0.01
-///   REQUEST_TRACE_SAMPLE_CONFIG=/route1=0.50,route2=0.50,0.01
-///   REQUEST_TRACE_SAMPLE_CONFIG=/http/.*=0.50
+/// It's often easiest to craft the JSON in a repl (e.g. node, browser console),
+/// and then stringify it at the end.
 ///
-///   REQUEST_TRACE_SAMPLE_CONFIG=carnitas:/route1=0.5,alpastor:1.0,0.01
-///   This configures:
-///   - sampling for "/route1" for instance name "carnitas" to 0.5
-///   - sampling for all methods for instance name "alpastor" to 1.0
-///   - sampling for anything else to 0.01
-
+/// See `minitrace_helpers.rs` for more examples
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new(|| {
     env_config(
         "REQUEST_TRACE_SAMPLE_CONFIG",
         prod_override(
             SamplingConfig::default(),
-            "/api/push_config=0.1,0.00001".parse().unwrap(),
+            r#"{"defaultFraction":0.00001,"routeOverrides":[{"routeRegexp":"/api/push_config","fraction":0.1}]}"#
+                .parse()
+                .unwrap(),
         ),
     )
 });
