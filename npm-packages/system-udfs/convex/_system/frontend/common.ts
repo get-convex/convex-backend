@@ -1,7 +1,6 @@
 import { Infer } from "convex/values";
 import {
   axiomConfig,
-  completedExport,
   datadogConfig,
   udfType,
   udfVisibility,
@@ -104,9 +103,9 @@ export type CronJobWithLastRun = Doc<"_cron_jobs"> & {
 
 export type Modules = Map<string, Module>;
 
-export type CompletedExport = Infer<typeof completedExport>;
-
 export type Export = Doc<"_exports">;
+
+export type CompletedExport = Export & { state: "completed" };
 
 export type EnvironmentVariable = Doc<"_environment_variables">;
 
