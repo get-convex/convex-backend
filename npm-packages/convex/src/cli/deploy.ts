@@ -118,6 +118,7 @@ export const deploy = new Command("deploy")
       .conflicts("preview-create"),
   )
   .addOption(new Option("--live-component-sources").hideHelp())
+  .addOption(new Option("--partition-id <id>").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext();
@@ -284,6 +285,7 @@ async function deployToExistingDeployment(
     url?: string | undefined;
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
+    partitionId?: string | undefined;
   },
 ) {
   const deploymentSelection = deploymentSelectionFromOptions({

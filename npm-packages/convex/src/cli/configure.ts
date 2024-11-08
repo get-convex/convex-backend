@@ -110,6 +110,7 @@ export async function deploymentCredentialsOrConfigure(
     teamSlug,
     projectSlug,
     deploymentOptions,
+    partitionId,
   });
   await updateEnvAndConfigForDeploymentSelection(ctx, {
     url,
@@ -423,6 +424,7 @@ async function ensureDeploymentProvisioned(
     teamSlug: string;
     projectSlug: string;
     deploymentOptions: DeploymentOptions;
+    partitionId: number | undefined;
   },
 ): Promise<DeploymentDetails> {
   switch (options.deploymentOptions.kind) {
@@ -433,6 +435,7 @@ async function ensureDeploymentProvisioned(
           ctx,
           { teamSlug: options.teamSlug, projectSlug: options.projectSlug },
           options.deploymentOptions.kind,
+          options.partitionId,
         );
       return {
         ...credentials,

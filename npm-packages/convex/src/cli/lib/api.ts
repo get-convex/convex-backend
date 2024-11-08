@@ -132,7 +132,7 @@ export type DeploymentSelection =
   | { kind: "deployKey" }
   | { kind: "previewName"; previewName: string }
   | { kind: "deploymentName"; deploymentName: string }
-  | { kind: "ownProd" }
+  | { kind: "ownProd"; partitionId?: number | undefined }
   | { kind: "ownDev" }
   | { kind: "urlWithAdminKey"; url: string; adminKey: string }
   | { kind: "urlWithLogin"; url: string };
@@ -154,6 +154,7 @@ export type DeploymentSelectionOptions = {
   deploymentName?: string | undefined;
   url?: string | undefined;
   adminKey?: string | undefined;
+  partitionId?: string | undefined;
 };
 
 export function deploymentSelectionFromOptions(
@@ -176,7 +177,13 @@ export function deploymentSelectionFromOptions(
   if (adminKey !== undefined) {
     return { kind: "deployKey" };
   }
-  return { kind: options.prod === true ? "ownProd" : "ownDev" };
+  const partitionId = options.partitionId
+    ? parseInt(options.partitionId)
+    : undefined;
+  return {
+    kind: options.prod === true ? "ownProd" : "ownDev",
+    partitionId,
+  };
 }
 
 // Deploy
@@ -342,6 +349,7 @@ async function fetchDeploymentCredentialsWithinCurrentProjectInner(
         url: "deployment/authorize_prod",
         data: {
           deploymentName: configuredDeployment,
+          partitionId: deploymentSelection.partitionId,
         },
       });
     case "previewName":
@@ -514,6 +522,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
   ctx: Context,
   { teamSlug, projectSlug }: { teamSlug: string; projectSlug: string },
   deploymentType: DeploymentType,
+  partitionId: number | undefined,
 ): Promise<{
   deploymentName: string;
   deploymentUrl: string;
@@ -527,6 +536,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
       teamSlug,
       projectSlug,
       deploymentType,
+      partitionId,
     },
   });
   const deploymentName = data.deploymentName;
