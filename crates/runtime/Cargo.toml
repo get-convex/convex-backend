@@ -18,13 +18,11 @@ parking_lot = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true }
 tokio-metrics-collector = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 
 [features]
-testing = [
-    "common/testing",
-    "metrics/testing",
-]
+testing = ["common/testing", "metrics/testing"]

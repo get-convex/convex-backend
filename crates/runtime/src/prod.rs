@@ -217,7 +217,10 @@ impl Runtime for ProdRuntime {
         f: impl Future<Output = ()> + Send + 'static,
     ) -> Box<dyn SpawnHandle> {
         let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
-        let handle = self.rt.spawn(monitor.instrument(f));
+        let handle = self.rt.spawn(tracing::Instrument::instrument(
+            monitor.instrument(f),
+            tracing::Span::current(),
+        ));
         Box::new(FutureHandle {
             handle: Some(handle),
         })
