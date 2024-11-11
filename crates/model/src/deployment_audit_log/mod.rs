@@ -6,11 +6,16 @@ use common::{
         ResolvedDocument,
     },
     obj,
+    query::{
+        Order,
+        Query,
+    },
     runtime::Runtime,
     types::MemberId,
 };
 use database::{
     unauthorized_error,
+    ResolvedQuery,
     SystemMetadataModel,
     Transaction,
 };
@@ -19,6 +24,7 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 pub mod types;
@@ -110,5 +116,16 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
     ) -> anyhow::Result<ResolvedDocumentId> {
         let ids = self.insert(vec![event]).await?;
         Ok(ids[0])
+    }
+
+    pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<DeploymentAuditLogEvent>>> {
+        let value_query = Query::full_table_scan(DEPLOYMENT_AUDIT_LOG_TABLE.clone(), Order::Asc);
+        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
+        let mut result = vec![];
+        while let Some(doc) = query_stream.next(self.tx, None).await? {
+            let row: ParsedDocument<DeploymentAuditLogEvent> = doc.try_into()?;
+            result.push(row);
+        }
+        Ok(result)
     }
 }
