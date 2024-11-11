@@ -21,6 +21,16 @@ export const snapshotImportMode = v.union(
   v.literal("Replace"),
 );
 
+export const snapshotImportRequestor = v.union(
+  v.object({
+    type: v.literal("snapshotImport"),
+  }),
+  v.object({
+    type: v.literal("cloudRestore"),
+    sourceCloudBackupId: v.int64(),
+  }),
+);
+
 export const snapshotImportsTable = defineTable({
   state: v.union(
     v.object({
@@ -66,18 +76,5 @@ export const snapshotImportsTable = defineTable({
       ),
     ),
   ),
-
-  // This is optional for the moment because historical data hasn’t been
-  // backfilled yet.
-  requestor: v.optional(
-    v.union(
-      v.object({
-        type: v.literal("snapshotImport"),
-      }),
-      v.object({
-        type: v.literal("cloudRestore"),
-        sourceCloudBackupId: v.int64(),
-      }),
-    ),
-  ),
+  requestor: snapshotImportRequestor,
 });

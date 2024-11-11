@@ -1,6 +1,10 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { snapshotImportFormat, snapshotImportMode } from "./snapshotImport";
+import {
+  snapshotImportFormat,
+  snapshotImportMode,
+  snapshotImportRequestor,
+} from "./snapshotImport";
 
 const createEnvironmentVariable = v.object({
   action: v.literal("create_environment_variable"),
@@ -179,6 +183,8 @@ export const snapshotImport = v.object({
     table_count: v.int64(),
     import_mode: snapshotImportMode,
     import_format: snapshotImportFormat,
+    // Optional until data is backfilled
+    requestor: v.optional(snapshotImportRequestor),
   }),
 });
 
