@@ -63,8 +63,7 @@ async function listHandler(db: DatabaseReader): Promise<[string, Module][]> {
       continue;
     }
 
-    const functions =
-      analyzeResult.sourceMapped?.functions.map(processFunction) ?? [];
+    const functions = analyzeResult.functions.map(processFunction) ?? [];
     // Stuff HTTP routes into the functions (the format the dashboard expects).
     for (const route of analyzeResult.httpRoutes || []) {
       functions.push(processHttpRoute(route));

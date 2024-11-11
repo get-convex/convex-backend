@@ -35,7 +35,7 @@ export const apiSpec = queryPrivateSystem({
         continue;
       }
 
-      for (const fn of analyzeResult.sourceMapped?.functions || []) {
+      for (const fn of analyzeResult.functions || []) {
         result.push({
           identifier: module.path + ":" + fn.name,
           functionType: fn.udfType,
@@ -47,7 +47,7 @@ export const apiSpec = queryPrivateSystem({
         });
       }
 
-      for (const httpFn of analyzeResult.sourceMapped?.httpRoutes || []) {
+      for (const httpFn of analyzeResult.httpRoutes || []) {
         result.push({
           functionType: "HttpAction",
           method: httpFn.route.method,
