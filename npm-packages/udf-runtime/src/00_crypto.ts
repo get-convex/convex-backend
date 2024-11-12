@@ -52,7 +52,7 @@ class Crypto {
     }
     const randomValues = performOp(
       "crypto/getRandomValues",
-      typedArray.buffer.byteLength,
+      typedArray.byteLength,
     );
     // TODO: CX-4404
     if (typedArray instanceof Uint8Array) {
