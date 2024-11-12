@@ -857,7 +857,9 @@ pub enum ImportError {
     #[error("Only deployment admins can import new tables")]
     Unauthorized,
 
-    #[error("Table {0} already exists. Please choose a new table name.")]
+    #[error(
+        "Table {0} already exists. Please choose a new table name or use replace/append modes."
+    )]
     TableExists(TableName),
 
     #[error("{0:?} isn't a valid table name: {1}")]
