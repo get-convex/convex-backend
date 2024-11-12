@@ -293,6 +293,13 @@ pub static SCHEDULED_JOB_RETENTION: LazyLock<Duration> = LazyLock::new(|| {
 pub static SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE", 1000));
 
+/// Delay between runs of the scheduled job garbage collector.
+/// If too low, the garbage collector will run frequently with small batches,
+/// which is less efficient. If too high, the garbage collector might fall
+/// behind.
+pub static SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY", 10)));
+
 /// Maximum number of syscalls that can run in a batch together when
 /// awaited in parallel. Higher values improve latency, while lower ones
 /// protect one isolate from hogging database connections.

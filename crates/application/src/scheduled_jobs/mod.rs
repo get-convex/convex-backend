@@ -21,6 +21,7 @@ use common::{
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
+        SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY,
         SCHEDULED_JOB_GARBAGE_COLLECTION_INITIAL_BACKOFF,
         SCHEDULED_JOB_GARBAGE_COLLECTION_MAX_BACKOFF,
         SCHEDULED_JOB_INITIAL_BACKOFF,
@@ -954,21 +955,19 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 self.database
                     .commit_with_write_source(tx, "scheduled_job_gc")
                     .await?;
-                continue;
-            }
-
-            let next_job_future = if let Some(next_job_wait) = next_job_wait {
-                Either::Left(self.rt.wait(next_job_wait))
+                self.rt.wait(*SCHEDULED_JOB_GARBAGE_COLLECTION_DELAY).await;
             } else {
-                Either::Right(std::future::pending())
-            };
-            let token = tx.into_token()?;
-            let subscription = self.database.subscribe(token).await?;
-            select_biased! {
-                _ = next_job_future.fuse() => {
+                let next_job_future = if let Some(next_job_wait) = next_job_wait {
+                    Either::Left(self.rt.wait(next_job_wait))
+                } else {
+                    Either::Right(std::future::pending())
+                };
+                let token = tx.into_token()?;
+                let subscription = self.database.subscribe(token).await?;
+                select_biased! {
+                    _ = next_job_future.fuse() => {},
+                    _ = subscription.wait_for_invalidation().fuse() => {},
                 }
-                _ = subscription.wait_for_invalidation().fuse() => {
-                },
             }
             backoff.reset();
         }
