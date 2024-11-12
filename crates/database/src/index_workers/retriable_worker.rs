@@ -61,12 +61,15 @@ async fn retry_failures<RT: Runtime>(
             .await
             .context(format!("{name} died"))
         {
+            // Note: These aren't quite the same thing, but they're close enough for
+            // the purposes of this retry loop.
+            let is_overloaded = e.is_overloaded() || e.is_operational_internal_server_error();
             if e.is_occ() {
                 occ_errors += 1;
                 // Do not reset overloaded errors because we expect
                 // overloaded to last a while during backend start and we
                 // might get the occasional random OCC.
-            } else if e.is_overloaded() {
+            } else if is_overloaded {
                 overloaded_errors += 1;
                 // Reset because we got a new failure type and we don't expect OCCs to last
                 // any particular period of time.
@@ -77,8 +80,7 @@ async fn retry_failures<RT: Runtime>(
             let expected_occ = e.is_occ() && occ_errors <= *UDF_EXECUTOR_OCC_MAX_RETRIES;
             // Overloaded means indexes are not yet ready, they should eventually become
             // ready but we can be pretty patient.
-            let expected_overloaded =
-                e.is_overloaded() && overloaded_errors <= max_overloaded_errors;
+            let expected_overloaded = is_overloaded && overloaded_errors <= max_overloaded_errors;
 
             let expected_error = expected_occ || expected_overloaded;
             if !expected_error {

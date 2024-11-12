@@ -493,6 +493,16 @@ pub static DATABASE_WORKERS_MAX_CHECKPOINT_AGE: LazyLock<Duration> =
 pub static DATABASE_WORKERS_POLL_INTERVAL: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("DATABASE_WORKERS_POLL_INTERVAL", 20)));
 
+/// When the persisted table summary is within this threshold of the current
+/// timestamp, we'll tell the committer to process any remaining writes and
+/// finish the bootstrap.
+pub static TABLE_SUMMARY_BOOTSTRAP_RECENT_THRESHOLD: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_secs(env_config(
+        "TABLE_SUMMARY_BOOTSTRAP_RECENT_THRESHOLD_SECS",
+        10,
+    ))
+});
+
 /// The minimum time to retain the WriteLog, note that we will never retain for
 /// less, even if WRITE_LOG_SOFT_MAX_SIZE_BYTES is exceeded.
 pub static WRITE_LOG_MIN_RETENTION_SECS: LazyLock<Duration> =

@@ -120,6 +120,7 @@ use crate::{
         Snapshot,
         SnapshotManager,
     },
+    table_summary::table_summary_bootstrapping_error,
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::TransactionIndex,
@@ -191,7 +192,7 @@ impl<RT: Runtime> Debug for Transaction<RT> {
 pub trait TableCountSnapshot: Send + Sync + 'static {
     /// Returns the number of documents in the table at the timestamp of the
     /// snapshot.
-    async fn count(&self, table: TabletId) -> anyhow::Result<u64>;
+    async fn count(&self, table: TabletId) -> anyhow::Result<Option<u64>>;
 }
 
 pub struct SubtransactionToken {
@@ -625,7 +626,7 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         namespace: TableNamespace,
         table: &TableName,
-    ) -> anyhow::Result<u64> {
+    ) -> anyhow::Result<Option<u64>> {
         let virtual_system_mapping = self.virtual_system_mapping().clone();
         let system_table = if virtual_system_mapping.is_virtual_table(table) {
             virtual_system_mapping.virtual_to_system_table(table)?
@@ -633,6 +634,21 @@ impl<RT: Runtime> Transaction<RT> {
             table
         };
         TableModel::new(self).count(namespace, system_table).await
+    }
+
+    #[minitrace::trace]
+    #[convex_macro::instrument_future]
+    pub async fn must_count(
+        &mut self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<u64> {
+        TableModel::new(self)
+            .count(namespace, table)
+            .await?
+            .context(table_summary_bootstrapping_error(Some(
+                "Table count unavailable while bootstrapping",
+            )))
     }
 
     pub fn into_token(self) -> anyhow::Result<Token> {

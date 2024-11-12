@@ -339,6 +339,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::Overloaded
     }
 
+    pub fn is_operational_internal_server_error(&self) -> bool {
+        self.code == ErrorCode::OperationalInternalServerError
+    }
+
     pub fn is_rejected_before_execution(&self) -> bool {
         self.code == ErrorCode::RejectedBeforeExecution
     }
@@ -531,6 +535,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn is_bad_request(&self) -> bool;
     fn is_not_found(&self) -> bool;
     fn is_overloaded(&self) -> bool;
+    fn is_operational_internal_server_error(&self) -> bool;
     fn is_rejected_before_execution(&self) -> bool;
     fn is_forbidden(&self) -> bool;
     fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)>;
@@ -603,6 +608,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_overloaded(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_overloaded();
+        }
+        false
+    }
+
+    /// Returns true if error is tagged as Overloaded
+    fn is_operational_internal_server_error(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_operational_internal_server_error();
         }
         false
     }

@@ -958,6 +958,15 @@ pub fn search_and_vector_bootstrap_timer() -> StatusTimer {
     StatusTimer::new(&DATABASE_VECTOR_AND_SEARCH_BOOTSTRAP_SECONDS)
 }
 
+register_convex_histogram!(
+    DATABASE_TABLE_SUMMARY_FINISH_BOOTSTRAP_SECONDS,
+    "Time to finish table summary bootstrap",
+    &STATUS_LABEL
+);
+pub fn table_summary_finish_bootstrap_timer() -> StatusTimer {
+    StatusTimer::new(&DATABASE_TABLE_SUMMARY_FINISH_BOOTSTRAP_SECONDS)
+}
+
 register_convex_counter!(
     SEARCH_AND_VECTOR_BOOTSTRAP_DOCUMENTS_SKIPPED_TOTAL,
     "Number of documents skipped during vector and text index bootstrap",

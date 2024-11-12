@@ -467,10 +467,11 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                     } else {
                         table_name
                     };
-                    db_snapshot
-                        .table_summary(component_id.into(), table_name)
-                        .num_values()
+                    let table_summary =
+                        db_snapshot.must_table_summary(component_id.into(), table_name)?;
+                    anyhow::Ok(table_summary.num_values())
                 })
+                .transpose()?
                 .unwrap_or(0);
             if !table_name.is_system() {
                 let to_delete = match mode {
@@ -1770,7 +1771,7 @@ impl ImportSchemaTableConstraint {
             return Ok(());
         }
         if TableModel::new(tx)
-            .count(self.namespace, &self.table_in_schema_not_in_import)
+            .must_count(self.namespace, &self.table_in_schema_not_in_import)
             .await?
             == 0
         {
@@ -2362,7 +2363,7 @@ async fn import_single_table<RT: Runtime>(
                 0
             } else {
                 TableModel::new(&mut tx)
-                    .count_tablet(table_id.tablet_id)
+                    .must_count_tablet(table_id.tablet_id)
                     .await?
             };
             (table_id, num_to_skip)
@@ -2718,7 +2719,9 @@ async fn prepare_table_for_import<RT: Runtime>(
     let (insert_into_existing_table_id, num_to_skip) = match existing_checkpoint_tablet {
         Some(tablet_id) => {
             let table_number = tx.table_mapping().tablet_number(tablet_id)?;
-            let num_to_skip = TableModel::new(&mut tx).count_tablet(tablet_id).await?;
+            let num_to_skip = TableModel::new(&mut tx)
+                .must_count_tablet(tablet_id)
+                .await?;
             (
                 Some(TabletIdAndTableNumber {
                     tablet_id,
@@ -2731,9 +2734,10 @@ async fn prepare_table_for_import<RT: Runtime>(
             let tablet_id = match mode {
                 ImportMode::Append => existing_active_table_id,
                 ImportMode::RequireEmpty => {
-                    if !TableModel::new(&mut tx)
-                        .table_is_empty(component_id.into(), table_name)
+                    if TableModel::new(&mut tx)
+                        .must_count(component_id.into(), table_name)
                         .await?
+                        != 0
                     {
                         anyhow::bail!(ImportError::TableExists(table_name.clone()));
                     }
@@ -3764,7 +3768,7 @@ a,b
         assert!(!TableModel::new(&mut tx).table_exists(ComponentId::Root.into(), &table_name));
         let (_, component_id) =
             BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path)?;
-        assert_eq!(tx.count(component_id.into(), &table_name).await?, 1);
+        assert_eq!(tx.must_count(component_id.into(), &table_name).await?, 1);
         Ok(())
     }
 

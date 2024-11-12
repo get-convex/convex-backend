@@ -50,7 +50,10 @@ use crate::{
         TableUpdate,
         TableUpdateMode,
     },
-    table_summary::TableSummarySnapshot,
+    table_summary::{
+        table_summary_bootstrapping_error,
+        TableSummarySnapshot,
+    },
     transaction::TableCountSnapshot,
     ComponentRegistry,
     TableRegistry,
@@ -80,13 +83,19 @@ pub struct TableSummaries {
 }
 
 #[async_trait]
-impl TableCountSnapshot for TableSummaries {
-    async fn count(&self, table: TabletId) -> anyhow::Result<u64> {
-        let count = self
-            .tables
-            .get(&table)
-            .map_or(0, |summary| summary.num_values() as u64);
-        Ok(count)
+impl TableCountSnapshot for Option<TableSummaries> {
+    async fn count(&self, table: TabletId) -> anyhow::Result<Option<u64>> {
+        let result = match self {
+            Some(table_summaries) => {
+                let count = table_summaries
+                    .tables
+                    .get(&table)
+                    .map_or(0, |summary| summary.num_values() as u64);
+                Some(count)
+            },
+            None => None,
+        };
+        Ok(result)
     }
 }
 
@@ -188,7 +197,7 @@ pub struct Snapshot {
     pub table_registry: TableRegistry,
     pub schema_registry: SchemaRegistry,
     pub component_registry: ComponentRegistry,
-    pub table_summaries: TableSummaries,
+    pub table_summaries: Option<TableSummaries>,
     pub index_registry: IndexRegistry,
     pub in_memory_indexes: BackendInMemoryIndexes,
     pub text_indexes: TextIndexManager,
@@ -226,15 +235,17 @@ impl Snapshot {
                 removal,
                 insertion,
             )?;
-            self.table_summaries
-                .update(
-                    document_id,
-                    removal,
-                    insertion,
-                    table_update.as_ref(),
-                    self.table_registry.table_mapping(),
-                )
-                .context("Table summaries update failed")?;
+            if let Some(table_summaries) = self.table_summaries.as_mut() {
+                table_summaries
+                    .update(
+                        document_id,
+                        removal,
+                        insertion,
+                        table_update.as_ref(),
+                        self.table_registry.table_mapping(),
+                    )
+                    .context("Table summaries update failed")?;
+            };
 
             self.index_registry
                 .update(removal, insertion)
@@ -268,10 +279,18 @@ impl Snapshot {
         })
     }
 
+    pub fn must_table_summaries(&self) -> anyhow::Result<&TableSummaries> {
+        self.table_summaries
+            .as_ref()
+            .context(table_summary_bootstrapping_error(None))
+    }
+
     pub fn iter_user_table_summaries(
         &self,
-    ) -> impl Iterator<Item = ((TableNamespace, TableName), &'_ TableSummary)> + '_ {
-        self.table_summaries
+    ) -> anyhow::Result<impl Iterator<Item = ((TableNamespace, TableName), &'_ TableSummary)> + '_>
+    {
+        let result = self
+            .must_table_summaries()?
             .tables
             .iter()
             .filter(|(table_id, _)| {
@@ -293,19 +312,34 @@ impl Snapshot {
                     summary,
                 )
             })
-            .filter(|((_, table_name), _)| !table_name.is_system())
+            .filter(|((_, table_name), _)| !table_name.is_system());
+        Ok(result)
     }
 
     pub fn table_mapping(&self) -> &TableMapping {
         self.table_registry.table_mapping()
     }
 
-    pub fn table_summary(&self, namespace: TableNamespace, table: &TableName) -> TableSummary {
+    pub fn table_summary(
+        &self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> Option<TableSummary> {
         let table_id = match self.table_mapping().namespace(namespace).id(table) {
             Ok(table_id) => table_id,
-            Err(_) => return TableSummary::empty(),
+            Err(_) => return Some(TableSummary::empty()),
         };
-        self.table_summaries.tablet_summary(&table_id.tablet_id)
+        let table_summaries = self.table_summaries.as_ref()?;
+        Some(table_summaries.tablet_summary(&table_id.tablet_id))
+    }
+
+    pub fn must_table_summary(
+        &self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<TableSummary> {
+        self.table_summary(namespace, table)
+            .context(table_summary_bootstrapping_error(None))
     }
 
     pub fn get_user_document_and_index_storage(
@@ -314,7 +348,7 @@ impl Snapshot {
         let table_mapping = self.table_mapping().clone();
 
         let mut document_storage_by_table = BTreeMap::new();
-        for (table_name, summary) in self.iter_user_table_summaries() {
+        for (table_name, summary) in self.iter_user_table_summaries()? {
             let table_size = summary.total_size();
             document_storage_by_table.insert(table_name, (table_size, 0));
         }
@@ -479,6 +513,13 @@ impl SnapshotManager {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         snapshot.text_indexes = text_indexes;
         snapshot.vector_indexes = vector_indexes;
+    }
+
+    pub fn overwrite_last_snapshot_table_summary(&mut self, table_summary: TableSummarySnapshot) {
+        let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
+        let table_mapping = snapshot.table_mapping();
+        let table_summaries = TableSummaries::new(table_summary, table_mapping);
+        snapshot.table_summaries = Some(table_summaries);
     }
 
     /// Overwrites the in-memory indexes for the latest snapshot.

@@ -47,6 +47,7 @@ use database::{
         TableFilter,
     },
     soft_data_limit,
+    table_summary::table_summary_bootstrapping_error,
     BootstrapComponentsModel,
     DeveloperQuery,
     PatchValue,
@@ -724,6 +725,11 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let component = provider.component()?;
         let tx = provider.tx()?;
         let result = tx.count(component.into(), &table).await?;
+        let Some(result) = result else {
+            return Err(table_summary_bootstrapping_error(Some(
+                "Table count unavailable while bootstrapping",
+            )));
+        };
 
         // Trim to u32 and check for overflow.
         let result = u32::try_from(result)?;

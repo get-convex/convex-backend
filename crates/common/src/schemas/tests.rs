@@ -709,7 +709,7 @@ mod tables_to_revalidate {
             None,
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         assert!(tables_to_validate.is_empty());
 
@@ -721,7 +721,7 @@ mod tables_to_revalidate {
             Some(schema_validation_enabled),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         assert!(tables_to_validate.is_empty());
         Ok(())
@@ -746,7 +746,7 @@ mod tables_to_revalidate {
             None,
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         let table_2 = "table2".parse()?;
         assert_eq!(tables_to_validate, btreeset! {&table_2});
@@ -771,7 +771,7 @@ mod tables_to_revalidate {
             Some(db_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         let table_3 = "table3".parse()?;
         assert_eq!(tables_to_validate, btreeset! {&table_3});
@@ -791,7 +791,7 @@ mod tables_to_revalidate {
             Some(db_schema_unenforced),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         let table_name = TableName::from_str("table")?;
         assert_eq!(tables_to_validate, btreeset! {&table_name});
@@ -834,7 +834,7 @@ mod tables_to_revalidate {
             Some(old_schema.clone()),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         assert!(tables_to_validate.is_empty());
 
@@ -845,7 +845,7 @@ mod tables_to_revalidate {
             Some(old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         let table_name = TableName::from_str("table")?;
         assert!(tables_to_validate == btreeset! { &table_name });
@@ -856,7 +856,7 @@ mod tables_to_revalidate {
             None,
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         assert!(tables_to_validate == btreeset! { &table_name });
 
@@ -877,7 +877,7 @@ mod tables_to_revalidate {
             Some(old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         let table_name = TableName::from_str("table")?;
         assert!(tables_to_validate == btreeset! { &table_name });
@@ -888,7 +888,7 @@ mod tables_to_revalidate {
             None,
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         assert!(tables_to_validate == btreeset! { &table_name });
 
@@ -908,7 +908,7 @@ mod tables_to_revalidate {
             None,
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         let table_name = TableName::from_str("table")?;
         assert!(tables_to_validate == btreeset! { &table_name });
@@ -949,7 +949,7 @@ mod tables_to_revalidate {
             Some(old_schema),
             &empty_table_mapping(),
             &VirtualSystemMapping::default(),
-            &|_name| shape.clone(),
+            &|_name| Some(shape.clone()),
         )?;
         assert!(tables_to_validate.is_empty());
 
@@ -992,7 +992,7 @@ mod tables_to_revalidate {
             &VirtualSystemMapping::default(),
             &|name| {
                 assert_eq!(&table_name, name);
-                shape.clone()
+                Some(shape.clone())
             },
         )?;
         assert!(tables_to_validate.is_empty());
@@ -1021,7 +1021,7 @@ mod tables_to_revalidate {
             &id_generator.virtual_system_mapping,
             &|name| {
                 assert_eq!(&table_name, name);
-                shape.clone()
+                Some(shape.clone())
             },
         )?;
         assert!(tables_to_validate.is_empty());

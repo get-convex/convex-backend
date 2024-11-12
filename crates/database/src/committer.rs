@@ -106,6 +106,7 @@ use crate::{
         self,
         bootstrap_update_timer,
         finish_bootstrap_update,
+        table_summary_finish_bootstrap_timer,
     },
     reads::ReadSet,
     search_index_bootstrap::{
@@ -113,6 +114,9 @@ use crate::{
         BootstrappedSearchIndexes,
     },
     snapshot_manager::SnapshotManager,
+    table_summary::{
+        self,
+    },
     transaction::FinalTransaction,
     write_log::{
         LogWriter,
@@ -299,6 +303,11 @@ impl<RT: Runtime> Committer<RT> {
                                 result
                             ).await;
                         },
+                        Some(CommitterMessage::FinishTableSummaryBootstrap {
+                            result,
+                        }) => {
+                            self.finish_table_summary_bootstrap(result).await;
+                        },
                         Some(CommitterMessage::LoadIndexesIntoMemory {
                             tables, result
                         }) => {
@@ -401,6 +410,44 @@ impl<RT: Runtime> Committer<RT> {
             bootstrapped_indexes.vector_index_manager,
         );
         tracing::info!("Committed backfilled vector indexes");
+        let _ = result.send(Ok(()));
+    }
+
+    async fn finish_table_summary_bootstrap(
+        &mut self,
+        result: oneshot::Sender<anyhow::Result<()>>,
+    ) {
+        let _timer = table_summary_finish_bootstrap_timer();
+        let latest_ts = {
+            let snapshot_manager = self.snapshot_manager.read();
+            snapshot_manager.latest_ts()
+        };
+        // This gets called by the TableSummaryWorker when it has successfully
+        // checkpointed a TableSummarySnapshot.
+        // Walk any changes since the last checkpoint, and update the snapshot manager
+        // with the new TableSummarySnapshot.
+        let bootstrap_result = table_summary::bootstrap::<RT>(
+            self.persistence.reader(),
+            self.retention_validator.clone(),
+            latest_ts,
+            table_summary::BootstrapKind::FromCheckpoint,
+        )
+        .await;
+        let (table_summary_snapshot, _) = match bootstrap_result {
+            Ok(res) => res,
+            Err(err) => {
+                let _ = result.send(Err(err));
+                return;
+            },
+        };
+        // Committer is currently single threaded, so commits should be blocked until we
+        // finish and the timestamp shouldn't be able to advance.
+        let mut snapshot_manager = self.snapshot_manager.write();
+        if latest_ts != snapshot_manager.latest_ts() {
+            panic!("Snapshots were changed concurrently during commit?");
+        }
+        snapshot_manager.overwrite_last_snapshot_table_summary(table_summary_snapshot);
+        tracing::info!("Bootstrapped table summaries at ts {}", latest_ts);
         let _ = result.send(Ok(()));
     }
 
@@ -675,8 +722,10 @@ impl<RT: Runtime> Committer<RT> {
         );
         drop(timer);
 
-        metrics::log_num_keys(new_snapshot.table_summaries.num_user_documents);
-        metrics::log_document_store_size(new_snapshot.table_summaries.user_size);
+        if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
+            metrics::log_num_keys(table_summaries.num_user_documents);
+            metrics::log_document_store_size(table_summaries.user_size);
+        }
 
         // Publish the new version of our database metadata and the index.
         snapshot_manager.push(commit_ts, new_snapshot);
@@ -891,6 +940,17 @@ impl CommitterClient {
         rx.await.map_err(|_| metrics::shutdown_error())?
     }
 
+    pub async fn finish_table_summary_bootstrap(&self) -> anyhow::Result<()> {
+        let (tx, rx) = oneshot::channel();
+        let message = CommitterMessage::FinishTableSummaryBootstrap { result: tx };
+        self.sender.try_send(message).map_err(|e| match e {
+            TrySendError::Full(..) => metrics::committer_full_error().into(),
+            TrySendError::Closed(..) => metrics::shutdown_error(),
+        })?;
+        // The only reason we might fail here if the committer is shutting down.
+        rx.await.map_err(|_| metrics::shutdown_error())?
+    }
+
     // Tell the committer to load all indexes for the given tables into memory.
     pub async fn load_indexes_into_memory(
         &self,
@@ -1040,6 +1100,9 @@ enum CommitterMessage {
     FinishTextAndVectorBootstrap {
         bootstrapped_indexes: BootstrappedSearchIndexes,
         bootstrap_ts: RepeatableTimestamp,
+        result: oneshot::Sender<anyhow::Result<()>>,
+    },
+    FinishTableSummaryBootstrap {
         result: oneshot::Sender<anyhow::Result<()>>,
     },
 }

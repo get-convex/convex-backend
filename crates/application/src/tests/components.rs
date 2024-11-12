@@ -220,7 +220,7 @@ async fn test_delete_tables_in_component(rt: TestRuntime) -> anyhow::Result<()> 
     // Confirm table exists and document is present
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
-    let count = table_model.count(table_namespace, &table_name).await?;
+    let count = table_model.must_count(table_namespace, &table_name).await?;
     assert_eq!(count, 1);
     assert!(table_model.table_exists(table_namespace, &table_name));
 
@@ -380,7 +380,7 @@ async fn test_data_exists_in_unmounted_components(rt: TestRuntime) -> anyhow::Re
     let mut tx = application.begin(Identity::system()).await?;
     let mut table_model = TableModel::new(&mut tx);
     let count = table_model
-        .count(component_id.into(), &table_name())
+        .must_count(component_id.into(), &table_name())
         .await?;
     assert_eq!(count, 1);
     Ok(())

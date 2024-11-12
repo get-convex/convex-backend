@@ -38,6 +38,7 @@ use common::{
         TabletId,
     },
 };
+use errors::ErrorMetadata;
 use futures::{
     Stream,
     TryStreamExt,
@@ -368,21 +369,21 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
     }
 
     pub async fn compute_from_last_checkpoint(&self) -> anyhow::Result<TableSummarySnapshot> {
-        self.compute(false).await
+        self.compute(BootstrapKind::FromCheckpoint).await
     }
 
     pub async fn compute_from_scratch(&self) -> anyhow::Result<TableSummarySnapshot> {
-        self.compute(true).await
+        self.compute(BootstrapKind::FromScratch).await
     }
 
-    async fn compute(&self, from_scratch: bool) -> anyhow::Result<TableSummarySnapshot> {
+    async fn compute(&self, bootstrap_kind: BootstrapKind) -> anyhow::Result<TableSummarySnapshot> {
         let reader = self.persistence.reader();
         let upper_bound = self.database.now_ts_for_reads();
         let (new_snapshot, _) = bootstrap::<RT>(
             reader,
             self.retention_validator.clone(),
             upper_bound,
-            from_scratch,
+            bootstrap_kind,
         )
         .await?;
         Ok(new_snapshot)
@@ -396,6 +397,16 @@ pub async fn write_snapshot(
     persistence
         .write_persistence_global(TableSummary::persistence_key(), JsonValue::from(snapshot))
         .await
+}
+
+pub enum BootstrapKind {
+    FromScratch,
+    FromCheckpoint,
+}
+
+pub fn table_summary_bootstrapping_error(msg: Option<&'static str>) -> anyhow::Error {
+    anyhow::anyhow!(msg.unwrap_or("Table summary unavailable (still bootstrapping)"))
+        .context(ErrorMetadata::operational_internal_server_error())
 }
 
 /// Compute a `TableSummarySnapshot` at a given timestamp.
@@ -413,13 +424,12 @@ pub async fn bootstrap<RT: Runtime>(
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     target_ts: RepeatableTimestamp,
-    from_scratch: bool,
+    bootstrap_kind: BootstrapKind,
 ) -> anyhow::Result<(TableSummarySnapshot, usize)> {
     let _timer = metrics::bootstrap_table_summaries_timer();
-    let stored_snapshot = if from_scratch {
-        None
-    } else {
-        TableSummarySnapshot::load(persistence.as_ref()).await?
+    let stored_snapshot = match bootstrap_kind {
+        BootstrapKind::FromScratch => None,
+        BootstrapKind::FromCheckpoint => TableSummarySnapshot::load(persistence.as_ref()).await?,
     };
     let recent_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
     let (table_mapping, _, index_registry, ..) = DatabaseSnapshot::load_table_and_index_metadata(
@@ -595,6 +605,7 @@ mod tests {
         table_summary::{
             bootstrap,
             write_snapshot,
+            BootstrapKind,
         },
         test_helpers::DbFixtures,
         TestFacingModel,
@@ -644,8 +655,13 @@ mod tests {
 
         // Bootstrap at ts2 by walking by_id, and write the snapshot that later
         // test cases will use.
-        let (snapshot, _) =
-            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts2, false).await?;
+        let (snapshot, _) = bootstrap::<TestRuntime>(
+            persistence.reader(),
+            rv.clone(),
+            ts2,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
             Some(&expected_ts2)
@@ -654,8 +670,13 @@ mod tests {
         write_snapshot(persistence.as_ref(), &snapshot).await?;
 
         // Bootstrap at ts2 by reading the snapshot and returning it.
-        let (snapshot, walked) =
-            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts2, false).await?;
+        let (snapshot, walked) = bootstrap::<TestRuntime>(
+            persistence.reader(),
+            rv.clone(),
+            ts2,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
         assert_eq!(walked, 0);
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
@@ -664,8 +685,13 @@ mod tests {
         assert_eq!(snapshot.ts, *ts2);
 
         // Bootstrap at ts3 by reading the snapshot and walking forwards.
-        let (snapshot, walked) =
-            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts3, false).await?;
+        let (snapshot, walked) = bootstrap::<TestRuntime>(
+            persistence.reader(),
+            rv.clone(),
+            ts3,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
         assert_eq!(walked, 1);
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
@@ -674,8 +700,13 @@ mod tests {
         assert_eq!(snapshot.ts, *ts3);
 
         // Bootstrap at ts1 by reading the snapshot and walking backwards.
-        let (snapshot, walked) =
-            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts1, false).await?;
+        let (snapshot, walked) = bootstrap::<TestRuntime>(
+            persistence.reader(),
+            rv.clone(),
+            ts1,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
         assert_eq!(walked, 1);
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
@@ -684,8 +715,13 @@ mod tests {
         assert_eq!(snapshot.ts, *ts1);
 
         // Bootstrap from scratch at ts3 by walking by_id.
-        let (snapshot, _) =
-            bootstrap::<TestRuntime>(persistence.reader(), rv.clone(), ts3, true).await?;
+        let (snapshot, _) = bootstrap::<TestRuntime>(
+            persistence.reader(),
+            rv.clone(),
+            ts3,
+            BootstrapKind::FromScratch,
+        )
+        .await?;
         assert_eq!(
             snapshot.tables.get(&table_id.tablet_id),
             Some(&expected_ts3)

@@ -283,6 +283,7 @@ impl<C: ShapeConfig> CountedShape<C> {
 
     /// Insert a value into a shape, returning the updated shape.
     pub fn insert_value(&self, value: &ConvexValue) -> Self {
+        std::thread::sleep(std::time::Duration::from_millis(1000));
         let union_builder = match &*self.variant {
             ShapeEnum::Union(ref union) => union.clone().into_builder(),
             _ => UnionBuilder::new().push(self.clone()),

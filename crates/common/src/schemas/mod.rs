@@ -278,7 +278,7 @@ impl DatabaseSchema {
         shape_provider: &F,
     ) -> anyhow::Result<BTreeSet<&'a TableName>>
     where
-        F: Fn(&TableName) -> Shape<C, S>,
+        F: Fn(&TableName) -> Option<Shape<C, S>>,
     {
         if !new_schema.schema_validation {
             return Ok(BTreeSet::new());
@@ -308,7 +308,7 @@ impl DatabaseSchema {
         active_schema: &Option<DatabaseSchema>,
         table_mapping: &NamespacedTableMapping,
         virtual_system_mapping: &VirtualSystemMapping,
-        table_shape: &Shape<C, S>,
+        table_shape: &Option<Shape<C, S>>,
     ) -> anyhow::Result<bool> {
         let next_schema = table_definition.document_type.clone();
         let next_schema_validator: Validator = next_schema.into();
@@ -325,14 +325,16 @@ impl DatabaseSchema {
             return Ok(false);
         }
 
-        // Can skip validation thanks to the saved shape?
-        let validator_from_shape =
-            Validator::from_shape(table_shape, table_mapping, virtual_system_mapping);
-        if validator_from_shape
-            .filter_top_level_system_fields()
-            .is_subset(&next_schema_validator)
-        {
-            return Ok(false);
+        if let Some(table_shape) = table_shape {
+            // Can skip validation thanks to the saved shape?
+            let validator_from_shape =
+                Validator::from_shape(table_shape, table_mapping, virtual_system_mapping);
+            if validator_from_shape
+                .filter_top_level_system_fields()
+                .is_subset(&next_schema_validator)
+            {
+                return Ok(false);
+            }
         }
 
         Ok(true)

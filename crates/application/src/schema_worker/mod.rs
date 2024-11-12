@@ -155,8 +155,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 &|table_name| {
                     snapshot
                         .table_summary(namespace, table_name)
-                        .inferred_type()
-                        .clone()
+                        .map(|t| t.inferred_type().clone())
                 },
             )?;
 

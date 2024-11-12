@@ -75,6 +75,7 @@ use crate::{
     },
     query::TableFilter,
     reads::TransactionReadSet,
+    table_summary::table_summary_bootstrapping_error,
     transaction_index::TransactionIndex,
     unauthorized_error,
     ResolvedQuery,
@@ -808,15 +809,23 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
         Ok(indexes)
     }
 
-    /// Returns all indexes on non-empty tables.
-    pub async fn get_all_non_empty_indexes(
+    /// Returns all search indexes (text and vector) on non-empty tables.
+    pub async fn get_all_non_empty_search_indexes(
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<TabletIndexMetadata>>> {
         let all_indexes = self.get_all_indexes().await?;
         let mut non_empty_indexes = vec![];
         for index in all_indexes {
+            match index.config {
+                IndexConfig::Text { .. } | IndexConfig::Vector { .. } => (),
+                IndexConfig::Database { .. } => continue,
+            };
             let table = *index.name.table();
-            let count = self.tx.count_snapshot.count(table).await?;
+            let Some(count) = self.tx.count_snapshot.count(table).await? else {
+                return Err(table_summary_bootstrapping_error(Some(
+                    "Table count unavailable while bootstrapping",
+                )));
+            };
             if count != 0 {
                 non_empty_indexes.push(index);
             }

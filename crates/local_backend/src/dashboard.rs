@@ -94,10 +94,15 @@ pub async fn shapes2(
             continue;
         }
         let table_summary = snapshot.table_summary(namespace, table_name);
-        let shape = ReducedShape::from_type(
-            table_summary.inferred_type(),
-            &mapping.table_number_exists(),
-        );
+
+        let shape = match table_summary {
+            Some(table_summary) => ReducedShape::from_type(
+                table_summary.inferred_type(),
+                &mapping.table_number_exists(),
+            ),
+            // Table summaries are still bootstrapping, use `Unknown` in the meantime
+            None => ReducedShape::Unknown,
+        };
         let json = dashboard_shape_json(&shape, &mapping, &virtual_system_mapping())?;
         out.insert(String::from(table_name.clone()), json);
     }

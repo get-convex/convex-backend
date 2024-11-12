@@ -306,6 +306,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
             let snapshot = self.database.snapshot(tx.begin_timestamp())?;
+            let table_summaries = snapshot.must_table_summaries()?;
             let tables: BTreeMap<_, _> = snapshot
                 .table_registry
                 .iter_active_user_tables()
@@ -316,7 +317,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                             table_namespace,
                             table_number,
                             table_name.clone(),
-                            snapshot.table_summaries.tablet_summary(&tablet_id),
+                            table_summaries.tablet_summary(&tablet_id),
                         ),
                     )
                 })

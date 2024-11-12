@@ -222,7 +222,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             for (table_name, tablet_id) in map.iter() {
                 // Ensure user tables are empty before deleting.
                 if !table_name.is_system() {
-                    let count = table_model.count(*namespace, table_name).await?;
+                    let count = table_model.must_count(*namespace, table_name).await?;
                     anyhow::ensure!(
                         count == 0,
                         "Non-system table {table_name} found with {count} documents in orphaned \

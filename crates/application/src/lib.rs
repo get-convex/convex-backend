@@ -193,7 +193,6 @@ use model::{
     environment_variables::{
         types::EnvironmentVariable,
         EnvironmentVariablesModel,
-        ENVIRONMENT_VARIABLES_TABLE,
     },
     exports::{
         types::{
@@ -1454,11 +1453,10 @@ impl<RT: Runtime> Application<RT> {
             }
         }
 
+        let all_env_vars = model.get_all().await?;
+
         anyhow::ensure!(
-            TableModel::new(tx)
-                .count(TableNamespace::Global, &ENVIRONMENT_VARIABLES_TABLE.clone())
-                .await?
-                <= (ENV_VAR_LIMIT as u64),
+            all_env_vars.len() as u64 <= (ENV_VAR_LIMIT as u64),
             env_var_limit_met(),
         );
 
@@ -1472,11 +1470,9 @@ impl<RT: Runtime> Application<RT> {
         tx: &mut Transaction<RT>,
         environment_variables: Vec<EnvironmentVariable>,
     ) -> anyhow::Result<Vec<DeploymentAuditLogEvent>> {
+        let all_env_vars = EnvironmentVariablesModel::new(tx).get_all().await?;
         anyhow::ensure!(
-            environment_variables.len() as u64
-                + TableModel::new(tx)
-                    .count(TableNamespace::Global, &ENVIRONMENT_VARIABLES_TABLE.clone())
-                    .await?
+            environment_variables.len() as u64 + all_env_vars.len() as u64
                 <= (ENV_VAR_LIMIT as u64),
             env_var_limit_met(),
         );
@@ -2353,7 +2349,7 @@ impl<RT: Runtime> Application<RT> {
                 "cannot delete system table {table_name}"
             );
             let mut table_model = TableModel::new(&mut tx);
-            count += table_model.count(table_namespace, &table_name).await?;
+            count += table_model.must_count(table_namespace, &table_name).await?;
             table_model
                 .delete_table(table_namespace, table_name)
                 .await?;

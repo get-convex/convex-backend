@@ -193,7 +193,10 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     db.commit(tx).await?;
 
     let snapshot = db.latest_snapshot()?;
-    assert_eq!(snapshot.table_summary(namespace, &table1), summary1);
+    assert_eq!(
+        snapshot.table_summary(namespace, &table1),
+        Some(summary1.clone())
+    );
 
     let snapshot = writer.compute_from_last_checkpoint().await?;
     write_snapshot(tp.as_ref(), &snapshot).await?;
@@ -235,8 +238,8 @@ async fn test_load_from_table_summary_snapshot(rt: TestRuntime) -> anyhow::Resul
     )
     .await?;
     let snapshot = db.latest_snapshot()?;
-    assert_eq!(snapshot.table_summary(namespace, &table1), summary1);
-    assert_eq!(snapshot.table_summary(namespace, &table2), summary2);
+    assert_eq!(snapshot.table_summary(namespace, &table1), Some(summary1));
+    assert_eq!(snapshot.table_summary(namespace, &table2), Some(summary2));
     Ok(())
 }
 

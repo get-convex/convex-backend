@@ -56,6 +56,7 @@ use crate::{
         SystemIndex,
         SystemTable,
     },
+    table_summary::table_summary_bootstrapping_error,
     IndexModel,
     ResolvedQuery,
     SchemaModel,
@@ -114,7 +115,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         &mut self,
         namespace: TableNamespace,
         table: &TableName,
-    ) -> anyhow::Result<u64> {
+    ) -> anyhow::Result<Option<u64>> {
         let count = if let Some(tablet_id) = self
             .tx
             .table_mapping()
@@ -123,13 +124,27 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         {
             self.count_tablet(tablet_id).await?
         } else {
-            0
+            Some(0)
         };
 
         Ok(count)
     }
 
-    pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<u64> {
+    /// Returns the number of documents in the table, up-to-date with the
+    /// current transaction.
+    pub async fn must_count(
+        &mut self,
+        namespace: TableNamespace,
+        table: &TableName,
+    ) -> anyhow::Result<u64> {
+        self.count(namespace, table)
+            .await?
+            .context(table_summary_bootstrapping_error(Some(
+                "Table count unavailable while bootstrapping",
+            )))
+    }
+
+    pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<Option<u64>> {
         // Add read dependency on the entire table.
         // But we haven't explicitly read the documents, so don't record_read_documents.
         self.tx.reads.record_indexed_directly(
@@ -141,8 +156,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         // Get table count at the beginning of the transaction, then add the delta from
         // the transaction so far.
         let snapshot_count = self.tx.count_snapshot.count(tablet_id).await?;
+        let Some(snapshot_count) = snapshot_count else {
+            return Ok(None);
+        };
         let transaction_delta = self.tx.table_count_deltas.get(&tablet_id).unwrap_or(&0);
-        if *transaction_delta < 0 {
+        let result = if *transaction_delta < 0 {
             snapshot_count
                 .checked_sub(transaction_delta.unsigned_abs())
                 .context("Count underflow")
@@ -150,7 +168,16 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             snapshot_count
                 .checked_add(*transaction_delta as u64)
                 .context("Count overflow")
-        }
+        };
+        Ok(Some(result?))
+    }
+
+    pub async fn must_count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<u64> {
+        self.count_tablet(tablet_id)
+            .await?
+            .context(table_summary_bootstrapping_error(Some(
+                "Table count unavailable while bootstrapping",
+            )))
     }
 
     pub(crate) fn doc_table_id_to_name(
@@ -240,12 +267,13 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .try_into()
     }
 
+    #[cfg(any(test, feature = "testing"))]
     pub async fn table_is_empty(
         &mut self,
         namespace: TableNamespace,
         table: &TableName,
     ) -> anyhow::Result<bool> {
-        Ok(self.count(namespace, table).await? == 0)
+        Ok(self.must_count(namespace, table).await? == 0)
     }
 
     // Checks both _tables and _virtual_tables to find a non-conflicting table
@@ -397,9 +425,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
                 .table_mapping()
                 .namespace(namespace)
                 .id(table_name)?;
-            documents_deleted += self.count(namespace, table_name).await?;
+            documents_deleted += self.must_count(namespace, table_name).await?;
             self.delete_table_by_id_bypassing_schema_enforcement(existing_table_by_name.tablet_id)
-                .await?;
+                .await?
         }
         let table_metadata = TableMetadata::new_with_state(
             namespace,

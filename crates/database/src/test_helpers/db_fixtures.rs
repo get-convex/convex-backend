@@ -43,6 +43,7 @@ pub struct DbFixturesArgs {
     pub search_storage: Option<Arc<dyn Storage>>,
     pub virtual_system_mapping: VirtualSystemMapping,
     pub bootstrap_search_and_vector_indexes: bool,
+    pub bootstrap_table_summaries: bool,
 }
 
 impl Default for DbFixturesArgs {
@@ -53,6 +54,7 @@ impl Default for DbFixturesArgs {
             search_storage: None,
             virtual_system_mapping: Default::default(),
             bootstrap_search_and_vector_indexes: true,
+            bootstrap_table_summaries: true,
         }
     }
 }
@@ -70,6 +72,7 @@ impl<RT: Runtime> DbFixtures<RT> {
             search_storage,
             virtual_system_mapping,
             bootstrap_search_and_vector_indexes,
+            bootstrap_table_summaries,
         }: DbFixturesArgs,
     ) -> anyhow::Result<Self> {
         let tp = tp.unwrap_or_else(|| Arc::new(TestPersistence::new()));
@@ -97,6 +100,9 @@ impl<RT: Runtime> DbFixtures<RT> {
             search_storage: search_storage.clone(),
             segment_term_metadata_fetcher: Arc::new(InProcessSearcher::new(rt.clone()).await?),
         };
+        if bootstrap_table_summaries {
+            db.finish_table_summary_bootstrap().await?;
+        }
         Ok(Self {
             tp,
             db,

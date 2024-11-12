@@ -103,3 +103,28 @@ fn log_worker_status(is_working: bool, name: &'static str) {
         vec![StaticMetricLabel::new("worker", name)],
     )
 }
+
+register_convex_counter!(
+    TABLE_SUMMARY_CHECKPOINT_TOTAL,
+    "Number of table summary checkpoint writes",
+    &["is_bootstrapping"],
+);
+pub fn log_table_summary_checkpoint(is_bootstrapping: bool) {
+    log_counter_with_labels(
+        &TABLE_SUMMARY_CHECKPOINT_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "is_bootstrapping",
+            is_bootstrapping.to_string(),
+        )],
+    );
+}
+
+register_convex_histogram!(
+    TABLE_SUMMARY_BOOTSTRAP_SECONDS,
+    "Time to bootstrap table summary",
+    &STATUS_LABEL
+);
+pub fn table_summary_bootstrap_timer() -> StatusTimer {
+    StatusTimer::new(&TABLE_SUMMARY_BOOTSTRAP_SECONDS)
+}

@@ -185,7 +185,7 @@ use crate::{
     table_registry::TableRegistry,
     table_summary::{
         self,
-        TableSummarySnapshot,
+        BootstrapKind,
     },
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
@@ -290,8 +290,6 @@ pub struct DatabaseSnapshot {
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
     pub persistence_snapshot: PersistenceSnapshot,
-
-    summaries_num_rows: usize,
 
     // To read lots of data at the snapshot, sometimes you need
     // to look at current data and walk backwards.
@@ -580,21 +578,7 @@ impl DatabaseSnapshot {
             TextIndexManager::new(TextIndexManagerState::Bootstrapping, persistence.version());
         let vector = VectorIndexManager::bootstrap_index_metadata(&index_registry)?;
 
-        // Step 3: Stream document changes since the last table summary snapshot so they
-        // are up to date.
-        tracing::info!("Bootstrapping table summaries...");
-        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap::<RT>(
-            persistence.clone(),
-            retention_validator.clone(),
-            snapshot,
-            false,
-        )
-        .await?;
-        let table_summaries = TableSummaries::new(table_summary_snapshot.clone(), &table_mapping);
-        tracing::info!("Bootstrapped table summaries (read {summaries_num_rows} rows)");
-
-        // Step 4: Bootstrap our database metadata from the `_tables` documents and
-        // computed table summaries.
+        // Step 3: Bootstrap our database metadata from the `_tables` documents
         tracing::info!("Bootstrapping table metadata...");
         let table_registry = Self::load_table_registry(
             &persistence_snapshot,
@@ -638,7 +622,7 @@ impl DatabaseSnapshot {
                 table_registry,
                 schema_registry,
                 component_registry,
-                table_summaries,
+                table_summaries: None,
                 index_registry,
                 in_memory_indexes,
                 text_indexes: search,
@@ -646,11 +630,35 @@ impl DatabaseSnapshot {
             },
             persistence_snapshot,
 
-            summaries_num_rows,
-
             persistence_reader: persistence,
             retention_validator,
         })
+    }
+
+    /// Block on loading the table summaries at the current snapshot timestamp.
+    /// We intentionally do not block on loading table summaries on database
+    /// initialization since it can be expensive, and instead do it in the
+    /// background and later update it via the committer.
+    ///
+    /// But for tools like `db-info` or `db-verifier`, we want the table
+    /// summaries to be loaded (and can't rely on TableSummaryWorker +
+    /// committer in these services).
+    pub async fn load_table_summaries<RT: Runtime>(&mut self) -> anyhow::Result<()> {
+        tracing::info!("Bootstrapping table summaries...");
+        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap::<RT>(
+            self.persistence_reader.clone(),
+            self.retention_validator.clone(),
+            self.ts,
+            BootstrapKind::FromCheckpoint,
+        )
+        .await?;
+        let table_summaries = TableSummaries::new(
+            table_summary_snapshot.clone(),
+            self.table_registry().table_mapping(),
+        );
+        self.snapshot.table_summaries = Some(table_summaries);
+        tracing::info!("Bootstrapped table summaries (read {summaries_num_rows} rows)");
+        Ok(())
     }
 
     pub fn timestamp(&self) -> RepeatableTimestamp {
@@ -693,8 +701,8 @@ impl DatabaseSnapshot {
         &self.snapshot.index_registry
     }
 
-    pub fn table_summaries(&self) -> &TableSummaries {
-        &self.snapshot.table_summaries
+    pub fn table_summaries(&self) -> Option<&TableSummaries> {
+        self.snapshot.table_summaries.as_ref()
     }
 
     pub fn get_user_document_and_index_storage(
@@ -806,22 +814,9 @@ impl<RT: Runtime> Database<RT> {
             persistence_snapshot: _,
             ts,
             snapshot,
-            summaries_num_rows,
             persistence_reader: _,
             retention_validator: _,
         } = db_snapshot;
-        if summaries_num_rows > 0 {
-            let table_summary_snapshot = TableSummarySnapshot {
-                tables: snapshot
-                    .table_summaries
-                    .tables
-                    .clone()
-                    .into_iter()
-                    .collect(),
-                ts: *ts,
-            };
-            table_summary::write_snapshot(&*persistence, &table_summary_snapshot).await?;
-        }
 
         let snapshot_manager = SnapshotManager::new(*ts, snapshot);
         let (snapshot_reader, snapshot_writer) = new_split_rw_lock(snapshot_manager);
@@ -893,6 +888,10 @@ impl<RT: Runtime> Database<RT> {
             .spawn("search_and_vector_bootstrap", async move {
                 worker.start().await
             })
+    }
+
+    pub async fn finish_table_summary_bootstrap(&self) -> anyhow::Result<()> {
+        self.committer.finish_table_summary_bootstrap().await
     }
 
     #[cfg(test)]
@@ -1957,7 +1956,7 @@ impl<RT: Runtime> Database<RT> {
         let mut components_model = BootstrapComponentsModel::new(&mut tx);
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let mut document_counts = vec![];
-        for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries() {
+        for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries()? {
             let count = summary.num_values() as u64;
             if let Some(component_path) =
                 components_model.get_component_path(ComponentId::from(table_namespace))
@@ -1974,6 +1973,14 @@ impl<RT: Runtime> Database<RT> {
             }
         }
         Ok(document_counts)
+    }
+
+    pub fn has_table_summaries_bootstrapped(&self) -> bool {
+        self.snapshot_manager
+            .lock()
+            .latest_snapshot()
+            .table_summaries
+            .is_some()
     }
 
     pub async fn get_user_document_and_index_storage(
