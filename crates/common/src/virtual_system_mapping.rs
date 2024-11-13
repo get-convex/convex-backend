@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use errors::ErrorMetadata;
 use imbl::OrdMap;
 use semver::Version;
@@ -150,8 +151,11 @@ impl VirtualSystemMapping {
         virtual_id_v6: &DeveloperDocumentId,
         table_mapping: &TableMapping,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        let tablet_id =
-            table_mapping.namespace(namespace).number_to_tablet()(virtual_id_v6.table())?;
+        let table_number = virtual_id_v6.table();
+        let tablet_id = table_mapping.namespace(namespace).number_to_tablet()(table_number)
+            .with_context(|| {
+                format!("cannot find table with id {table_number} in {namespace:?}")
+            })?;
         Ok(ResolvedDocumentId::new(tablet_id, *virtual_id_v6))
     }
 
