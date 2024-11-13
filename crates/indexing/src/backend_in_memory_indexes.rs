@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     cmp,
     collections::{
         BTreeMap,
@@ -51,7 +50,6 @@ use errors::ErrorMetadata;
 use futures::TryStreamExt;
 use imbl::OrdMap;
 use itertools::Itertools;
-use minitrace::Event;
 use value::{
     ResolvedDocumentId,
     TableMapping,
@@ -443,36 +441,37 @@ impl DatabaseIndexSnapshot {
     }
 
     fn log_start_range_fetch(
-        table_name: &TableName,
-        num_cached_ranges: usize,
-        num_cache_misses: usize,
-        prefetch_size: usize,
+        _table_name: &TableName,
+        _num_cached_ranges: usize,
+        _num_cache_misses: usize,
+        _prefetch_size: usize,
     ) {
-        Event::add_to_local_parent("start_range_fetch", || {
-            let table_name = if table_name.is_system() {
-                table_name.to_string()
-            } else {
-                format!("user_table")
-            };
-            let cached_ranges = num_cached_ranges.to_string();
-            let cache_misses = num_cache_misses.to_string();
-            let prefetch_size = prefetch_size.to_string();
-            [
-                (Cow::Borrowed("query.table"), Cow::Owned(table_name)),
-                (
-                    Cow::Borrowed("query.cached_ranges"),
-                    Cow::Owned(cached_ranges),
-                ),
-                (
-                    Cow::Borrowed("query.cache_miss_ranges"),
-                    Cow::Owned(cache_misses),
-                ),
-                (
-                    Cow::Borrowed("query.prefetch_size"),
-                    Cow::Owned(prefetch_size),
-                ),
-            ]
-        });
+        // TODO: This event is reporting to Honeycomb too often
+        // Event::add_to_local_parent("start_range_fetch", || {
+        //     let table_name = if table_name.is_system() {
+        //         table_name.to_string()
+        //     } else {
+        //         format!("user_table")
+        //     };
+        //     let cached_ranges = num_cached_ranges.to_string();
+        //     let cache_misses = num_cache_misses.to_string();
+        //     let prefetch_size = prefetch_size.to_string();
+        //     [
+        //         (Cow::Borrowed("query.table"), Cow::Owned(table_name)),
+        //         (
+        //             Cow::Borrowed("query.cached_ranges"),
+        //             Cow::Owned(cached_ranges),
+        //         ),
+        //         (
+        //             Cow::Borrowed("query.cache_miss_ranges"),
+        //             Cow::Owned(cache_misses),
+        //         ),
+        //         (
+        //             Cow::Borrowed("query.prefetch_size"),
+        //             Cow::Owned(prefetch_size),
+        //         ),
+        //     ]
+        // });
     }
 
     /// Query the given index at the snapshot.

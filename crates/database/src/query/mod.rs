@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::BTreeMap,
     marker::PhantomData,
     ops::Deref,
@@ -41,7 +40,6 @@ use futures::{
 };
 use indexing::backend_in_memory_indexes::BatchKey;
 use maplit::btreemap;
-use minitrace::Event;
 use value::TableNamespace;
 
 use self::{
@@ -605,15 +603,16 @@ pub async fn query_batch_next_<RT: Runtime>(
                     batch_to_feed.insert(batch_key, (query, prefetch_hint));
                 },
                 Ok(QueryStreamNext::Ready(result)) => {
-                    Event::add_to_local_parent("query_batch_next_ready", || {
-                        let table_name = query.root.printable_index_name().table();
-                        let table_name = if table_name.is_system() {
-                            table_name.to_string()
-                        } else {
-                            format!("user_table")
-                        };
-                        [(Cow::Borrowed("query.table"), Cow::Owned(table_name))]
-                    });
+                    // TODO: This event is reporting too often to Honeycomb
+                    // Event::add_to_local_parent("query_batch_next_ready", || {
+                    //     let table_name = query.root.printable_index_name().table();
+                    //     let table_name = if table_name.is_system() {
+                    //         table_name.to_string()
+                    //     } else {
+                    //         format!("user_table")
+                    //     };
+                    //     [(Cow::Borrowed("query.table"), Cow::Owned(table_name))]
+                    // });
 
                     results.insert(batch_key, Ok(result));
                 },
