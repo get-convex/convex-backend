@@ -312,7 +312,7 @@ impl SubscriptionManager {
         })
     }
 
-    pub async fn wait_for_next_ts(&self) -> Timestamp {
+    pub async fn wait_for_next_ts(&mut self) -> Timestamp {
         self.log.wait_for_higher_ts(self.processed_ts).await
     }
 

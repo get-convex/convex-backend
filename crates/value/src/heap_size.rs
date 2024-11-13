@@ -24,6 +24,7 @@ use std::{
     ptr::NonNull,
 };
 
+use imbl::Vector;
 #[cfg(any(test, feature = "testing"))]
 use proptest::{
     prelude::Arbitrary,
@@ -246,6 +247,58 @@ impl<T: HeapSize> From<WithHeapSize<Vec<T>>> for Vec<T> {
 impl<T: HeapSize> HeapSize for WithHeapSize<Vec<T>> {
     fn heap_size(&self) -> usize {
         self.capacity() * mem::size_of::<T>() + self.elements_heap_size
+    }
+}
+
+impl<T: HeapSize + Clone> WithHeapSize<imbl::Vector<T>> {
+    pub fn push_back(&mut self, value: T) {
+        self.elements_heap_size += value.heap_size();
+        self.inner.push_back(value)
+    }
+
+    pub fn push_front(&mut self, value: T) {
+        self.elements_heap_size += value.heap_size();
+        self.inner.push_front(value)
+    }
+
+    fn remove_from_heap_size(&mut self, element: &Option<T>) {
+        if let Some(value) = element {
+            self.elements_heap_size -= value.heap_size();
+        }
+    }
+
+    pub fn pop_front(&mut self) -> Option<T> {
+        let result = self.inner.pop_front();
+        self.remove_from_heap_size(&result);
+        result
+    }
+
+    pub fn pop_back(&mut self) -> Option<T> {
+        let result = self.inner.pop_back();
+        self.remove_from_heap_size(&result);
+        result
+    }
+}
+
+impl<T: HeapSize + Clone> HeapSize for WithHeapSize<Vector<T>> {
+    fn heap_size(&self) -> usize {
+        self.elements_heap_size
+    }
+}
+
+impl<T: HeapSize + Clone> From<Vector<T>> for WithHeapSize<Vector<T>> {
+    fn from(value: Vector<T>) -> Self {
+        let elements_heap_size = value.iter().map(|e| e.heap_size()).sum();
+        Self {
+            inner: value,
+            elements_heap_size,
+        }
+    }
+}
+
+impl<T: HeapSize + Clone> From<WithHeapSize<Vector<T>>> for Vector<T> {
+    fn from(value: WithHeapSize<Vector<T>>) -> Self {
+        value.inner
     }
 }
 

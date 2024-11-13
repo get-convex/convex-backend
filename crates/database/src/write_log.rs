@@ -30,7 +30,8 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::Future;
-use parking_lot::RwLock;
+use imbl::Vector;
+use parking_lot::Mutex;
 use tokio::sync::oneshot;
 use value::heap_size::{
     HeapSize,
@@ -44,6 +45,7 @@ use crate::{
     Token,
 };
 
+#[derive(Clone)]
 pub struct PackedDocumentUpdate {
     pub id: ResolvedDocumentId,
     pub old_document: Option<PackedDocument>,
@@ -76,8 +78,6 @@ impl PackedDocumentUpdate {
         }
     }
 }
-
-pub type IterWrites<'a> = impl Iterator<Item = (&'a ResolvedDocumentId, &'a PackedDocumentUpdate)>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WriteSource(pub(crate) Option<Cow<'static, str>>);
@@ -119,39 +119,20 @@ impl HeapSize for WriteSource {
     }
 }
 
-/// WriteLog holds recent commits that have been written to persistence and
-/// snapshot manager. These commits may cause OCC aborts for new commits, and
-/// they may trigger subscriptions.
-struct WriteLog {
-    by_ts: WithHeapSize<VecDeque<(Timestamp, Writes, WriteSource)>>,
-    purged_ts: Timestamp,
-
-    // List of waiters to be notified on new appends. Each waiter is notified
-    // when it see a timestamp higher to the given one.
-    waiters: WithHeapSize<VecDeque<(Timestamp, oneshot::Sender<()>)>>,
-    persistence_version: PersistenceVersion,
+struct WriteLogManager {
+    log: WriteLog,
+    waiters: VecDeque<(Timestamp, oneshot::Sender<()>)>,
 }
 
-impl WriteLog {
+impl WriteLogManager {
     fn new(initial_timestamp: Timestamp, persistence_version: PersistenceVersion) -> Self {
-        Self {
-            by_ts: WithHeapSize::default(),
-            purged_ts: initial_timestamp,
-
-            waiters: WithHeapSize::default(),
-            persistence_version,
-        }
-    }
-
-    fn max_ts(&self) -> Timestamp {
-        match self.by_ts.back() {
-            Some((ts, ..)) => *ts,
-            None => self.purged_ts,
-        }
+        let log = WriteLog::new(initial_timestamp, persistence_version);
+        let waiters = VecDeque::new();
+        Self { log, waiters }
     }
 
     fn notify_waiters(&mut self) {
-        let ts = self.max_ts();
+        let ts = self.log.max_ts();
         // Notify waiters
         let mut i = 0;
         while i < self.waiters.len() {
@@ -169,9 +150,9 @@ impl WriteLog {
     }
 
     fn append(&mut self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
-        assert!(self.max_ts() < ts, "{:?} >= {}", self.max_ts(), ts);
+        assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
-        self.by_ts.push_back((ts, writes, write_source));
+        self.log.by_ts.push_back((ts, writes, write_source));
 
         self.notify_waiters();
     }
@@ -182,7 +163,7 @@ impl WriteLog {
         // Clean up waiters that are canceled.
         self.notify_waiters();
 
-        let receiver = if self.max_ts() <= target_ts {
+        let receiver = if self.log.max_ts() <= target_ts {
             let (sender, receiver) = oneshot::channel();
             self.waiters.push_back((target_ts, sender));
             Some(receiver)
@@ -204,7 +185,7 @@ impl WriteLog {
         let target_ts = current_ts
             .sub(*WRITE_LOG_MAX_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
-        while let Some((ts, ..)) = self.by_ts.front() {
+        while let Some((ts, ..)) = self.log.by_ts.front() {
             let ts = *ts;
 
             // We never trim past max_ts, even if the size of the write log
@@ -214,12 +195,39 @@ impl WriteLog {
             }
 
             // Trim the log based on both target_ts and size.
-            if ts >= target_ts && self.by_ts.heap_size() < *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
+            if ts >= target_ts && self.log.by_ts.heap_size() < *WRITE_LOG_SOFT_MAX_SIZE_BYTES {
                 break;
             }
 
-            self.purged_ts = ts;
-            self.by_ts.pop_front();
+            self.log.purged_ts = ts;
+            self.log.by_ts.pop_front();
+        }
+    }
+}
+
+/// WriteLog holds recent commits that have been written to persistence and
+/// snapshot manager. These commits may cause OCC aborts for new commits, and
+/// they may trigger subscriptions.
+#[derive(Clone)]
+struct WriteLog {
+    by_ts: WithHeapSize<Vector<(Timestamp, Writes, WriteSource)>>,
+    purged_ts: Timestamp,
+    persistence_version: PersistenceVersion,
+}
+
+impl WriteLog {
+    fn new(initial_timestamp: Timestamp, persistence_version: PersistenceVersion) -> Self {
+        Self {
+            by_ts: WithHeapSize::default(),
+            purged_ts: initial_timestamp,
+            persistence_version,
+        }
+    }
+
+    fn max_ts(&self) -> Timestamp {
+        match self.by_ts.back() {
+            Some((ts, ..)) => *ts,
+            None => self.purged_ts,
         }
     }
 
@@ -227,7 +235,7 @@ impl WriteLog {
         &self,
         from: Timestamp,
         to: Timestamp,
-    ) -> anyhow::Result<impl Iterator<Item = (&Timestamp, IterWrites<'_>, &WriteSource)>> {
+    ) -> anyhow::Result<Vector<(Timestamp, Writes, WriteSource)>> {
         anyhow::ensure!(
             from > self.purged_ts,
             anyhow::anyhow!(
@@ -240,11 +248,22 @@ impl WriteLog {
             Ok(i) => i,
             Err(i) => i,
         };
-        Ok(self
-            .by_ts
-            .range(start..)
-            .take_while(move |(t, ..)| *t <= to)
-            .map(|(t, w, source)| (t, w.iter(), source)))
+        let end = match self.by_ts.binary_search_by_key(&to, |&(ts, ..)| ts) {
+            Ok(i) => i,
+            Err(i) => {
+                if let Some(i) = i.checked_sub(1) {
+                    i
+                } else {
+                    return Ok(Vector::new());
+                }
+            },
+        };
+        let vector = if end + 1 < self.by_ts.len() {
+            Vector::from(self.by_ts.clone()).slice(start..end + 1)
+        } else {
+            Vector::from(self.by_ts.clone()).slice(start..)
+        };
+        Ok(vector)
     }
 
     fn is_stale(
@@ -254,7 +273,11 @@ impl WriteLog {
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
         block_in_place(|| {
-            Ok(reads.writes_overlap(self.iter(reads_ts.succ()?, ts)?, self.persistence_version))
+            let log_range = self.iter(reads_ts.succ()?, ts)?;
+            let iterator = log_range
+                .iter()
+                .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source));
+            Ok(reads.writes_overlap(iterator, self.persistence_version))
         })
     }
 
@@ -278,38 +301,33 @@ impl WriteLog {
     }
 }
 
-impl HeapSize for WriteLog {
-    fn heap_size(&self) -> usize {
-        let mut size = 0;
-        size += self.by_ts.heap_size();
-        size += self.waiters.heap_size();
-        size
-    }
-}
-
 pub fn new_write_log(
     initial_timestamp: Timestamp,
     persistence_version: PersistenceVersion,
 ) -> (LogOwner, LogReader, LogWriter) {
-    let log = Arc::new(RwLock::new(WriteLog::new(
+    let log_manager = Arc::new(Mutex::new(WriteLogManager::new(
         initial_timestamp,
         persistence_version,
     )));
     (
-        LogOwner { inner: log.clone() },
-        LogReader { inner: log.clone() },
-        LogWriter { inner: log },
+        LogOwner {
+            inner: log_manager.clone(),
+        },
+        LogReader {
+            inner: log_manager.clone(),
+        },
+        LogWriter { inner: log_manager },
     )
 }
 
 /// LogOwner consumes the log and is responsible for trimming it.
 pub struct LogOwner {
-    inner: Arc<RwLock<WriteLog>>,
+    inner: Arc<Mutex<WriteLogManager>>,
 }
 
 impl LogOwner {
-    pub fn enforce_retention_policy(&self, current_ts: Timestamp) {
-        self.inner.write().enforce_retention_policy(current_ts)
+    pub fn enforce_retention_policy(&mut self, current_ts: Timestamp) {
+        self.inner.lock().enforce_retention_policy(current_ts)
     }
 
     pub fn reader(&self) -> LogReader {
@@ -319,29 +337,32 @@ impl LogOwner {
     }
 
     pub fn max_ts(&self) -> Timestamp {
-        block_in_place(|| self.inner.read().max_ts())
+        let snapshot = { self.inner.lock().log.clone() };
+        block_in_place(|| snapshot.max_ts())
     }
 
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
-        block_in_place(|| self.inner.read().refresh_token(token, ts))
+        let snapshot = { self.inner.lock().log.clone() };
+        block_in_place(|| snapshot.refresh_token(token, ts))
     }
 
     /// Blocks until the log has advanced past the given timestamp.
-    pub async fn wait_for_higher_ts(&self, target_ts: Timestamp) -> Timestamp {
-        let fut = block_in_place(|| self.inner.write().wait_for_higher_ts(target_ts));
+    pub async fn wait_for_higher_ts(&mut self, target_ts: Timestamp) -> Timestamp {
+        let fut = block_in_place(|| self.inner.lock().wait_for_higher_ts(target_ts));
         fut.await;
-        let result = block_in_place(|| self.inner.read().max_ts());
+        let result = block_in_place(|| self.inner.lock().log.max_ts());
         assert!(result > target_ts);
         result
     }
 
     pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
     where
-        for<'a> F: FnMut(Timestamp, IterWrites<'a>),
+        for<'a> F: FnMut(Timestamp, Writes),
     {
+        let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
-            for (ts, writes, _) in self.inner.read().iter(from, to)? {
-                f(*ts, writes);
+            for (ts, writes, _) in snapshot.iter(from, to)? {
+                f(ts, writes);
             }
             Ok(())
         })
@@ -350,31 +371,32 @@ impl LogOwner {
 
 #[derive(Clone)]
 pub struct LogReader {
-    inner: Arc<RwLock<WriteLog>>,
+    inner: Arc<Mutex<WriteLogManager>>,
 }
 
 impl LogReader {
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
-        block_in_place(|| self.inner.read().refresh_token(token, ts))
+        let snapshot = { self.inner.lock().log.clone() };
+        block_in_place(|| snapshot.refresh_token(token, ts))
     }
 
     pub fn refresh_reads_until_max_ts(&self, token: Token) -> anyhow::Result<Option<Token>> {
+        let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
-            let inner = self.inner.read();
-            let max_ts = inner.max_ts();
-            inner.refresh_token(token, max_ts)
+            let max_ts = snapshot.max_ts();
+            snapshot.refresh_token(token, max_ts)
         })
     }
 }
 
 /// LogWriter can append to the log.
 pub struct LogWriter {
-    inner: Arc<RwLock<WriteLog>>,
+    inner: Arc<Mutex<WriteLogManager>>,
 }
 
 impl LogWriter {
-    pub fn append(&self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
-        block_in_place(|| self.inner.write().append(ts, writes, write_source));
+    pub fn append(&mut self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
+        block_in_place(|| self.inner.lock().append(ts, writes, write_source));
     }
 
     pub fn is_stale(
@@ -383,7 +405,8 @@ impl LogWriter {
         reads_ts: Timestamp,
         ts: Timestamp,
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
-        block_in_place(|| self.inner.read().is_stale(reads, reads_ts, ts))
+        let snapshot = { self.inner.lock().log.clone() };
+        block_in_place(|| snapshot.is_stale(reads, reads_ts, ts))
     }
 }
 
@@ -511,33 +534,38 @@ mod tests {
         write_log::{
             DocumentUpdate,
             PackedDocumentUpdate,
-            WriteLog,
+            WriteLogManager,
             WriteSource,
         },
     };
 
     #[test]
     fn test_write_log() -> anyhow::Result<()> {
-        let mut log = WriteLog::new(Timestamp::must(1000), PersistenceVersion::default());
-        assert_eq!(log.purged_ts, Timestamp::must(1000));
-        assert_eq!(log.max_ts(), Timestamp::must(1000));
+        let mut log_manager =
+            WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
+        assert_eq!(log_manager.log.purged_ts, Timestamp::must(1000));
+        assert_eq!(log_manager.log.max_ts(), Timestamp::must(1000));
 
         for ts in (1002..=1010).step_by(2) {
-            log.append(
+            log_manager.append(
                 Timestamp::must(ts),
                 btreemap!().into(),
                 WriteSource::unknown(),
             );
-            assert_eq!(log.purged_ts, Timestamp::must(1000));
-            assert_eq!(log.max_ts(), Timestamp::must(ts));
+            assert_eq!(log_manager.log.purged_ts, Timestamp::must(1000));
+            assert_eq!(log_manager.log.max_ts(), Timestamp::must(ts));
         }
 
-        assert!(log
+        assert!(log_manager
+            .log
             .iter(Timestamp::must(1000), Timestamp::must(1010))
             .is_err());
         assert_eq!(
-            log.iter(Timestamp::must(1001), Timestamp::must(1010))?
-                .map(|(ts, ..)| *ts)
+            log_manager
+                .log
+                .iter(Timestamp::must(1001), Timestamp::must(1010))?
+                .into_iter()
+                .map(|(ts, ..)| ts)
                 .collect::<Vec<_>>(),
             (1002..=1010)
                 .step_by(2)
@@ -545,8 +573,11 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(
-            log.iter(Timestamp::must(1004), Timestamp::must(1008))?
-                .map(|(ts, ..)| *ts)
+            log_manager
+                .log
+                .iter(Timestamp::must(1004), Timestamp::must(1008))?
+                .into_iter()
+                .map(|(ts, ..)| ts)
                 .collect::<Vec<_>>(),
             (1004..=1008)
                 .step_by(2)
@@ -554,8 +585,11 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert_eq!(
-            log.iter(Timestamp::must(1004), Timestamp::must(1020))?
-                .map(|(ts, ..)| *ts)
+            log_manager
+                .log
+                .iter(Timestamp::must(1004), Timestamp::must(1020))?
+                .into_iter()
+                .map(|(ts, ..)| ts)
                 .collect::<Vec<_>>(),
             (1004..=1010)
                 .step_by(2)
@@ -563,20 +597,24 @@ mod tests {
                 .collect::<Vec<_>>()
         );
 
-        log.enforce_retention_policy(
+        log_manager.enforce_retention_policy(
             Timestamp::must(1005)
                 .add(*WRITE_LOG_MAX_RETENTION_SECS)
                 .unwrap(),
         );
-        assert_eq!(log.purged_ts, Timestamp::must(1004));
-        assert_eq!(log.max_ts(), Timestamp::must(1010));
+        assert_eq!(log_manager.log.purged_ts, Timestamp::must(1004));
+        assert_eq!(log_manager.log.max_ts(), Timestamp::must(1010));
 
-        assert!(log
+        assert!(log_manager
+            .log
             .iter(Timestamp::must(1004), Timestamp::must(1010))
             .is_err());
         assert_eq!(
-            log.iter(Timestamp::must(1005), Timestamp::must(1010))?
-                .map(|(ts, ..)| *ts)
+            log_manager
+                .log
+                .iter(Timestamp::must(1005), Timestamp::must(1010))?
+                .into_iter()
+                .map(|(ts, ..)| ts)
                 .collect::<Vec<_>>(),
             (1006..=1010)
                 .step_by(2)
@@ -590,14 +628,15 @@ mod tests {
     #[test_runtime]
     async fn test_is_stale(_rt: TestRuntime) -> anyhow::Result<()> {
         let mut id_generator = TestIdGenerator::new();
-        let mut log = WriteLog::new(Timestamp::must(1000), PersistenceVersion::default());
+        let mut log_manager =
+            WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
         let table_id = id_generator.user_table_id(&"t".parse()?).tablet_id;
         let id = id_generator.user_generate(&"t".parse()?);
         let index_key = IndexKey::new(vec![val!(5)], id.into());
         let index_key_binary: BinaryKey = index_key.into_bytes().into();
         let index_name = TabletIndexName::new(table_id, "by_k".parse().unwrap()).unwrap();
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("k" => 5))?;
-        log.append(
+        log_manager.append(
             Timestamp::must(1003),
             btreemap! {
                 id => PackedDocumentUpdate::pack(DocumentUpdate {
@@ -624,19 +663,21 @@ mod tests {
         // Write conflicts with read.
         let read_set_conflict = read_set(Interval::all());
         assert_eq!(
-            log.is_stale(
-                &read_set_conflict,
-                Timestamp::must(1001),
-                Timestamp::must(1004)
-            )?
-            .unwrap()
-            .read
-            .index,
+            log_manager
+                .log
+                .is_stale(
+                    &read_set_conflict,
+                    Timestamp::must(1001),
+                    Timestamp::must(1004)
+                )?
+                .unwrap()
+                .read
+                .index,
             index_name.clone()
         );
         // Write happened after read finished.
         assert_eq!(
-            log.is_stale(
+            log_manager.log.is_stale(
                 &read_set_conflict,
                 Timestamp::must(1001),
                 Timestamp::must(1002)
@@ -645,7 +686,7 @@ mod tests {
         );
         // Write happened before read started.
         assert_eq!(
-            log.is_stale(
+            log_manager.log.is_stale(
                 &read_set_conflict,
                 Timestamp::must(1003),
                 Timestamp::must(1004)
@@ -655,7 +696,7 @@ mod tests {
         // Different intervals, some of which intersect the write.
         let empty_read_set = read_set(Interval::empty());
         assert_eq!(
-            log.is_stale(
+            log_manager.log.is_stale(
                 &empty_read_set,
                 Timestamp::must(1001),
                 Timestamp::must(1004)
@@ -664,14 +705,16 @@ mod tests {
         );
         let prefix_read_set = read_set(Interval::prefix(index_key_binary.clone()));
         assert_eq!(
-            log.is_stale(
-                &prefix_read_set,
-                Timestamp::must(1001),
-                Timestamp::must(1004)
-            )?
-            .unwrap()
-            .read
-            .index,
+            log_manager
+                .log
+                .is_stale(
+                    &prefix_read_set,
+                    Timestamp::must(1001),
+                    Timestamp::must(1004)
+                )?
+                .unwrap()
+                .read
+                .index,
             index_name.clone()
         );
         let end_excluded_read_set = read_set(Interval {
@@ -679,7 +722,7 @@ mod tests {
             end: End::Excluded(index_key_binary.clone()),
         });
         assert_eq!(
-            log.is_stale(
+            log_manager.log.is_stale(
                 &end_excluded_read_set,
                 Timestamp::must(1001),
                 Timestamp::must(1004)
@@ -691,19 +734,22 @@ mod tests {
             end: End::Unbounded,
         });
         assert_eq!(
-            log.is_stale(
-                &start_included_read_set,
-                Timestamp::must(1001),
-                Timestamp::must(1004)
-            )?
-            .unwrap()
-            .read
-            .index,
+            log_manager
+                .log
+                .is_stale(
+                    &start_included_read_set,
+                    Timestamp::must(1001),
+                    Timestamp::must(1004)
+                )?
+                .unwrap()
+                .read
+                .index,
             index_name.clone()
         );
 
-        let mut delete_log = WriteLog::new(Timestamp::must(1000), PersistenceVersion::default());
-        delete_log.append(
+        let mut delete_log_manager =
+            WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
+        delete_log_manager.append(
             Timestamp::must(1003),
             btreemap! {
                 id => PackedDocumentUpdate::pack(DocumentUpdate {
@@ -716,7 +762,8 @@ mod tests {
             WriteSource::unknown(),
         );
         assert_eq!(
-            delete_log
+            delete_log_manager
+                .log
                 .is_stale(
                     &read_set_conflict,
                     Timestamp::must(1001),
@@ -728,7 +775,7 @@ mod tests {
             index_name
         );
         assert_eq!(
-            delete_log.is_stale(
+            delete_log_manager.log.is_stale(
                 &empty_read_set,
                 Timestamp::must(1001),
                 Timestamp::must(1004)
