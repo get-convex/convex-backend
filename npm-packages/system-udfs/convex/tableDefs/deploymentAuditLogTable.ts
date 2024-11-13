@@ -185,6 +185,8 @@ export const snapshotImport = v.object({
     import_format: snapshotImportFormat,
     // Optional until data is backfilled
     requestor: v.optional(snapshotImportRequestor),
+    table_names_deleted: v.optional(v.array(v.string())),
+    table_count_deleted: v.optional(v.int64()),
   }),
 });
 

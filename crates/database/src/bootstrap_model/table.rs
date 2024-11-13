@@ -333,7 +333,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
-        tables_in_import: &BTreeSet<TableName>,
+        tables_affected_in_import: &BTreeSet<TableName>,
     ) -> anyhow::Result<()> {
         let Some(table_number) = table_number else {
             return Ok(());
@@ -378,7 +378,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             // Overwriting in-place, same table name and number.
             return Ok(());
         }
-        if tables_in_import.contains(&existing_table_by_number) {
+        if tables_affected_in_import.contains(&existing_table_by_number) {
             // Overwriting would create a table number conflict with an
             // existing table, but that existing table is also being
             // overwritten.
@@ -408,7 +408,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         tablet_id: TabletId,
         table_name: &TableName,
         table_number: TableNumber,
-        tables_in_import: &BTreeSet<TableName>,
+        tables_affected_in_import: &BTreeSet<TableName>,
     ) -> anyhow::Result<u64> {
         let mut documents_deleted = 0;
         let table_metadata = self.get_table_metadata(tablet_id).await?;
@@ -418,7 +418,12 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             TableState::Hidden => {},
         }
         let namespace = table_metadata.namespace;
-        self.check_can_overwrite(namespace, table_name, Some(table_number), tables_in_import)?;
+        self.check_can_overwrite(
+            namespace,
+            table_name,
+            Some(table_number),
+            tables_affected_in_import,
+        )?;
         if self.table_exists(namespace, table_name) {
             let existing_table_by_name = self
                 .tx
@@ -474,7 +479,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
-        tables_in_import: &BTreeSet<TableName>,
+        tables_affected_in_import: &BTreeSet<TableName>,
     ) -> anyhow::Result<TabletIdAndTableNumber> {
         anyhow::ensure!(
             bootstrap_system_tables()
@@ -489,7 +494,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .id_and_number_if_exists(table)
             .map(|id| id.table_number);
         let table_number = table_number.or(existing_table_by_name);
-        self.check_can_overwrite(namespace, table, table_number, tables_in_import)?;
+        self.check_can_overwrite(namespace, table, table_number, tables_affected_in_import)?;
         self._insert_table_metadata(namespace, table, table_number, TableState::Hidden)
             .await
     }

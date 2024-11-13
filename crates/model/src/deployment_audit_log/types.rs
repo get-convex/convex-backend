@@ -157,6 +157,8 @@ pub enum DeploymentAuditLogEvent {
         import_mode: ImportMode,
         import_format: ImportFormat,
         requestor: ImportRequestor,
+        table_names_deleted: Vec<TableName>,
+        table_count_deleted: u64,
     },
 }
 
@@ -280,8 +282,16 @@ impl DeploymentAuditLogEvent {
                 import_mode,
                 import_format,
                 requestor,
+                table_names_deleted,
+                table_count_deleted,
             } => {
                 let table_names: Vec<_> = table_names
+                    .into_iter()
+                    .map(|table_name| {
+                        anyhow::Ok(ConvexValue::String(table_name.to_string().try_into()?))
+                    })
+                    .try_collect()?;
+                let table_names_deleted: Vec<_> = table_names_deleted
                     .into_iter()
                     .map(|table_name| {
                         anyhow::Ok(ConvexValue::String(table_name.to_string().try_into()?))
@@ -293,6 +303,8 @@ impl DeploymentAuditLogEvent {
                     "import_mode" => import_mode.to_string(),
                     "import_format" => ConvexObject::try_from(import_format)?,
                     "requestor" => ConvexObject::try_from(requestor)?,
+                    "table_names_deleted" => table_names_deleted,
+                    "table_count_deleted" => table_count_deleted as i64,
                 )
             },
             DeploymentAuditLogEvent::ClearTables => obj!(),
@@ -388,6 +400,11 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     .iter()
                     .map(|s| TableName::from_str(s))
                     .try_collect()?;
+                let table_names_deleted =
+                    remove_vec_of_strings(&mut fields, "table_names_deleted")?
+                        .iter()
+                        .map(|s| TableName::from_str(s))
+                        .try_collect()?;
                 DeploymentAuditLogEvent::SnapshotImport {
                     table_names,
                     table_count: remove_int64(&mut fields, "table_count")? as u64,
@@ -395,6 +412,8 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     import_format: remove_object(&mut fields, "import_format")?,
                     requestor: remove_nullable_object(&mut fields, "requestor")?
                         .unwrap_or(ImportRequestor::SnapshotImport),
+                    table_names_deleted,
+                    table_count_deleted: remove_int64(&mut fields, "table_count_deleted")? as u64,
                 }
             },
             _ => anyhow::bail!("action {action} unrecognized"),

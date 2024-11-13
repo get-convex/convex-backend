@@ -370,6 +370,7 @@ impl TryFrom<SerializedImportTableCheckpoint> for ImportTableCheckpoint {
 pub enum ImportMode {
     Append,
     Replace,
+    ReplaceAll,
     #[default]
     RequireEmpty,
 }

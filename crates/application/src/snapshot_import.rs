@@ -475,7 +475,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 .unwrap_or(0);
             if !table_name.is_system() {
                 let to_delete = match mode {
-                    ImportMode::Replace => {
+                    ImportMode::Replace | ImportMode::ReplaceAll => {
                         // Overwriting nonempty user table.
                         existing_num_values
                     },
@@ -498,7 +498,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             }
             if table_name == &*FILE_STORAGE_VIRTUAL_TABLE {
                 let to_delete = match mode {
-                    ImportMode::Replace => {
+                    ImportMode::Replace | ImportMode::ReplaceAll => {
                         // Overwriting nonempty file storage.
                         existing_num_values
                     },
@@ -750,6 +750,7 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
         // Truncate list of table names to avoid storing too much data in
         // audit log object.
         let table_names: Vec<_> = table_mapping_for_import
+            .table_mapping_in_import
             .iter()
             .map(|(_, _, _, table_name)| {
                 if table_name == &*FILE_STORAGE_TABLE {
@@ -760,7 +761,13 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
             })
             .take(20)
             .collect();
-        let table_count = table_mapping_for_import.iter().count() as u64;
+        let table_count = table_mapping_for_import
+            .table_mapping_in_import
+            .iter()
+            .count() as u64;
+        let mut table_names_deleted = table_mapping_for_import.deleted_for_audit_log();
+        let table_count_deleted = table_names_deleted.len() as u64;
+        table_names_deleted = table_names_deleted.into_iter().take(20).collect();
 
         self.pause_client.wait("before_finalize_import").await;
         let (ts, _documents_deleted) = finalize_import(
@@ -777,6 +784,8 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
                 import_mode: snapshot_import.mode,
                 import_format: snapshot_import.format.clone(),
                 requestor: snapshot_import.requestor.clone(),
+                table_names_deleted,
+                table_count_deleted,
             },
             snapshot_import.requestor.clone(),
         )
@@ -1711,12 +1720,72 @@ async fn import_objects<RT: Runtime>(
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
     usage_tracking: &UsageCounter,
-) -> anyhow::Result<(TableMapping, u64)> {
+) -> anyhow::Result<(TableMappingForImport, u64)> {
     pin_mut!(objects);
     let mut generated_schemas = BTreeMap::new();
-
-    let mut table_mapping_for_import = TableMapping::new();
     let mut total_num_documents = 0;
+
+    // In ReplaceAll mode, we want to delete all unaffected user tables
+    // If there's a schema, then we want to clear it instead.
+    let mut tx = database.begin(identity.clone()).await?;
+    let to_delete = match mode {
+        ImportMode::Append | ImportMode::Replace | ImportMode::RequireEmpty => BTreeMap::new(),
+        ImportMode::ReplaceAll => tx
+            .table_mapping()
+            .iter_active_user_tables()
+            .map(|(tablet_id, namespace, table_number, table_name)| {
+                (tablet_id, (namespace, table_number, table_name.clone()))
+            })
+            .collect(),
+    };
+
+    let mut table_mapping_for_import = TableMappingForImport {
+        table_mapping_in_import: TableMapping::new(),
+        to_delete,
+    };
+
+    let all_component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
+    for (tablet_id, (namespace, _table_number, table_name)) in
+        table_mapping_for_import.to_delete.clone().into_iter()
+    {
+        let schema_tables = SchemaModel::new(&mut tx, namespace)
+            .get_by_state(SchemaState::Active)
+            .await?
+            .map(|(_id, active_schema)| active_schema.tables)
+            .unwrap_or_default();
+
+        // Delete if it's not in the schema
+        if !schema_tables.contains_key(&table_name) {
+            continue;
+        }
+
+        let old_component_id: ComponentId = namespace.into();
+        let component_path = all_component_paths.get(&old_component_id).context(
+            "Existing user table had a namespace that was not found in all_component_paths()",
+        )?;
+
+        // For tables in the schema, clear them
+        table_mapping_for_import.to_delete.remove(&tablet_id);
+        let tables_affected = table_mapping_for_import.tables_affected();
+        let (table_id, component_id, _num_to_skip) = prepare_table_for_import(
+            database,
+            &identity,
+            mode,
+            component_path,
+            &table_name,
+            None,
+            &tables_affected,
+            import_id,
+        )
+        .await?;
+
+        table_mapping_for_import.table_mapping_in_import.insert(
+            table_id.tablet_id,
+            component_id.into(),
+            table_id.table_number,
+            table_name.clone(),
+        );
+    }
 
     while let Some(num_documents) = import_single_table(
         database,
@@ -1735,6 +1804,7 @@ async fn import_objects<RT: Runtime>(
     {
         total_num_documents += num_documents;
     }
+
     Ok((table_mapping_for_import, total_num_documents))
 }
 
@@ -1852,25 +1922,55 @@ impl ImportSchemaConstraints {
     }
 }
 
+struct TableMappingForImport {
+    table_mapping_in_import: TableMapping,
+    to_delete: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName)>,
+}
+
+impl TableMappingForImport {
+    fn tables_affected(&self) -> BTreeSet<TableName> {
+        // TODO - include compenent here
+        let mut tables_affected: BTreeSet<_> = self
+            .table_mapping_in_import
+            .iter()
+            .map(|(_, _, _, table_name)| table_name.clone())
+            .collect();
+        tables_affected.extend(self.to_delete.values().map(|v| v.2.clone()));
+        tables_affected
+    }
+
+    fn deleted_for_audit_log(&self) -> Vec<TableName> {
+        // TODO - include the component path here
+        self.to_delete
+            .values()
+            .filter(|(_namespace, _table_number, table_name)| {
+                self.table_mapping_in_import
+                    .namespaces_for_name(table_name)
+                    .is_empty()
+            })
+            .map(|(_namespace, _table_number, table_name)| table_name.clone())
+            .collect()
+    }
+}
+
 async fn finalize_import<RT: Runtime>(
     database: &Database<RT>,
     usage_tracking: &UsageCounter,
     identity: Identity,
     member_id_override: Option<MemberId>,
     initial_schemas: SchemasForImport,
-    table_mapping_for_import: TableMapping,
+    table_mapping_for_import: TableMappingForImport,
     usage: FunctionUsageTracker,
     audit_log_event: DeploymentAuditLogEvent,
     requestor: ImportRequestor,
 ) -> anyhow::Result<(Timestamp, u64)> {
-    let tables_in_import = table_mapping_for_import
-        .iter()
-        .map(|(_, _, _, table_name)| table_name.clone())
-        .collect();
+    let tables_affected = table_mapping_for_import.tables_affected();
 
     // Ensure that schemas will be valid after the tables are activated.
-    let schema_constraints =
-        ImportSchemaConstraints::new(&table_mapping_for_import, initial_schemas);
+    let schema_constraints = ImportSchemaConstraints::new(
+        &table_mapping_for_import.table_mapping_in_import,
+        initial_schemas,
+    );
 
     // If we inserted into an existing table, we're done because the table is
     // now populated and active.
@@ -1884,11 +1984,23 @@ async fn finalize_import<RT: Runtime>(
             |tx| {
                 async {
                     let mut documents_deleted = 0;
+                    for tablet_id in table_mapping_for_import.to_delete.keys() {
+                        let namespace = tx.table_mapping().tablet_namespace(*tablet_id)?;
+                        let table_name = tx.table_mapping().tablet_name(*tablet_id)?;
+                        let mut table_model = TableModel::new(tx);
+                        documents_deleted += table_model
+                            .count(namespace, &table_name)
+                            .await?
+                            .unwrap_or(0);
+                        table_model.delete_table(namespace, table_name).await?;
+                    }
                     schema_constraints.validate(tx).await?;
                     let mut table_model = TableModel::new(tx);
-                    for (table_id, _, table_number, table_name) in table_mapping_for_import.iter() {
+                    for (table_id, _, table_number, table_name) in
+                        table_mapping_for_import.table_mapping_in_import.iter()
+                    {
                         documents_deleted += table_model
-                            .activate_table(table_id, table_name, table_number, &tables_in_import)
+                            .activate_table(table_id, table_name, table_number, &tables_affected)
                             .await?;
                     }
                     DeploymentAuditLogModel::new(tx)
@@ -1963,8 +2075,8 @@ async fn import_tables_table<RT: Runtime>(
     mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
     component_path: &ComponentPath,
     import_id: Option<ResolvedDocumentId>,
-) -> anyhow::Result<TableMapping> {
-    let mut table_mapping_for_import = TableMapping::new();
+    table_mapping_for_import: &mut TableMappingForImport,
+) -> anyhow::Result<()> {
     let mut import_tables: Vec<(TableName, TableNumber)> = vec![];
     let mut lineno = 0;
     while let Some(ImportUnit::Object(exported_value)) = objects
@@ -2000,10 +2112,7 @@ async fn import_tables_table<RT: Runtime>(
             })?;
         import_tables.push((table_name, table_number));
     }
-    let tables_in_import = import_tables
-        .iter()
-        .map(|(table_name, _)| table_name.clone())
-        .collect();
+    let tables_affected = table_mapping_for_import.tables_affected();
     for (table_name, table_number) in import_tables.iter() {
         let (table_id, component_id, _) = prepare_table_for_import(
             database,
@@ -2012,18 +2121,18 @@ async fn import_tables_table<RT: Runtime>(
             component_path,
             table_name,
             Some(*table_number),
-            &tables_in_import,
+            &tables_affected,
             import_id,
         )
         .await?;
-        table_mapping_for_import.insert(
+        table_mapping_for_import.table_mapping_in_import.insert(
             table_id.tablet_id,
             component_id.into(),
             table_id.table_number,
             table_name.clone(),
         );
     }
-    Ok(table_mapping_for_import)
+    Ok(())
 }
 
 async fn import_storage_table<RT: Runtime>(
@@ -2290,7 +2399,7 @@ async fn import_single_table<RT: Runtime>(
         (ComponentPath, TableName),
         GeneratedSchema<ProdConfigWithOptionalFields>,
     >,
-    table_mapping_for_import: &mut TableMapping,
+    table_mapping_for_import: &mut TableMappingForImport,
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
@@ -2336,26 +2445,23 @@ async fn import_single_table<RT: Runtime>(
     let component_id = prepare_component_for_import(database, component_path).await?;
 
     if *table_name == *TABLES_TABLE {
-        table_mapping_for_import.update(
-            import_tables_table(
-                database,
-                identity,
-                mode,
-                objects.as_mut(),
-                component_path,
-                import_id,
-            )
-            .await?,
-        );
+        import_tables_table(
+            database,
+            identity,
+            mode,
+            objects.as_mut(),
+            component_path,
+            import_id,
+            table_mapping_for_import,
+        )
+        .await?;
         return Ok(Some(0));
     }
 
     let mut generated_schema = generated_schemas.get_mut(&component_and_table);
-    let tables_in_import = table_mapping_for_import
-        .iter()
-        .map(|(_, _, _, table_name)| table_name.clone())
-        .collect();
+    let tables_affected = table_mapping_for_import.tables_affected();
     let (table_id, num_to_skip) = match table_mapping_for_import
+        .table_mapping_in_import
         .namespace(component_id.into())
         .id_and_number_if_exists(table_name)
     {
@@ -2378,11 +2484,11 @@ async fn import_single_table<RT: Runtime>(
                 component_path,
                 table_name,
                 table_number_from_docs,
-                &tables_in_import,
+                &tables_affected,
                 import_id,
             )
             .await?;
-            table_mapping_for_import.insert(
+            table_mapping_for_import.table_mapping_in_import.insert(
                 table_id.tablet_id,
                 component_id.into(),
                 table_id.table_number,
@@ -2414,7 +2520,7 @@ async fn import_single_table<RT: Runtime>(
 
     let mut tx = database.begin(identity.clone()).await?;
     let mut table_mapping_for_schema = tx.table_mapping().clone();
-    table_mapping_for_schema.update(table_mapping_for_import.clone());
+    table_mapping_for_schema.update(table_mapping_for_import.table_mapping_in_import.clone());
     let mut objects_to_insert = vec![];
     let mut objects_to_insert_size = 0;
     // Peek so we don't pop ImportUnit::NewTable items.
@@ -2684,7 +2790,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     component_path: &ComponentPath,
     table_name: &TableName,
     table_number: Option<TableNumber>,
-    tables_in_import: &BTreeSet<TableName>,
+    tables_affected: &BTreeSet<TableName>,
     import_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<(TabletIdAndTableNumber, ComponentId, u64)> {
     anyhow::ensure!(
@@ -2745,7 +2851,7 @@ async fn prepare_table_for_import<RT: Runtime>(
                     }
                     None
                 },
-                ImportMode::Replace => None,
+                ImportMode::Replace | ImportMode::ReplaceAll => None,
             };
             (tablet_id, 0)
         },
@@ -2769,7 +2875,7 @@ async fn prepare_table_for_import<RT: Runtime>(
                                 component_id.into(),
                                 table_name,
                                 table_number,
-                                tables_in_import,
+                                tables_affected,
                             )
                             .await?;
                         IndexModel::new(tx)
@@ -3022,6 +3128,7 @@ mod tests {
         assert_obj,
         assert_val,
         id_v6::DeveloperDocumentId,
+        val,
         ConvexObject,
         FieldName,
         TableName,
@@ -3651,6 +3758,95 @@ a
         activate_schema(&app, initial_schema).await?;
 
         run_csv_import(&app, table_name, test_csv).await?;
+        Ok(())
+    }
+
+    /// Add three tables (table1, table2, table3)
+    ///
+    /// table1: [ doc1 ]
+    /// table2: [ doc2 ]
+    /// table3: [ doc3 ]
+    ///
+    /// Schema only contains table3
+    ///
+    /// Do an import with an ID from table1, but import into table2
+    ///
+    /// Expect that in the end, table2/table3 exist, but table3 is truncated
+    ///
+    /// table2: [ doc1 ]
+    /// table3: []
+    #[convex_macro::test_runtime]
+    async fn import_replace_all(rt: TestRuntime) -> anyhow::Result<()> {
+        let app = Application::new_for_tests(&rt).await?;
+        let table_name1: TableName = "table1".parse()?;
+        let table_name2: TableName = "table2".parse()?;
+        let table_name3: TableName = "table3".parse()?;
+        let identity = new_admin_id();
+
+        // Create tables
+        let t1_doc = {
+            let mut tx = app.begin(identity.clone()).await?;
+            let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+            let t1_doc = ufm.insert(table_name1, assert_obj!()).await?;
+            ufm.insert(table_name2.clone(), assert_obj!()).await?;
+            ufm.insert(table_name3.clone(), assert_obj!()).await?;
+            app.commit_test(tx).await?;
+            t1_doc
+        };
+
+        // Add table3 to schema
+        let initial_schema = db_schema!("table3" => DocumentSchema::Any);
+        activate_schema(&app, initial_schema).await?;
+
+        // ID is for a table corresponding to table1, but we're writing it into table2
+        let test_csv = format!(
+            r#"
+_id,a
+"{t1_doc}","string"
+"#
+        );
+
+        assert_eq!(
+            TableModel::new(&mut app.begin(identity.clone()).await?).count_user_tables(),
+            3
+        );
+
+        // Import into table2
+        do_import(
+            &app,
+            new_admin_id(),
+            ImportFormat::Csv(table_name2.clone()),
+            ImportMode::ReplaceAll,
+            ComponentPath::root(),
+            stream_from_str(&test_csv),
+        )
+        .await?;
+
+        let mut tx = app.begin(identity.clone()).await?;
+        assert_eq!(TableModel::new(&mut tx).count_user_tables(), 2);
+        assert_eq!(
+            TableModel::new(&mut tx)
+                .must_count(TableNamespace::Global, &table_name2)
+                .await?,
+            1
+        );
+        assert_eq!(
+            TableModel::new(&mut tx)
+                .must_count(TableNamespace::Global, &table_name3)
+                .await?,
+            0
+        );
+        assert_eq!(
+            UserFacingModel::new_root_for_test(&mut tx)
+                .get(t1_doc, None)
+                .await?
+                .context("Not found")?
+                .into_value()
+                .into_value()
+                .get("a"),
+            Some(&val!("string")),
+        );
+
         Ok(())
     }
 

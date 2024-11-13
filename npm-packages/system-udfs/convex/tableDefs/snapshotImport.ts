@@ -19,6 +19,7 @@ export const snapshotImportMode = v.union(
   v.literal("RequireEmpty"),
   v.literal("Append"),
   v.literal("Replace"),
+  v.literal("ReplaceAll"),
 );
 
 export const snapshotImportRequestor = v.union(
