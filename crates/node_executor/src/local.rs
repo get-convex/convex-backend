@@ -61,17 +61,16 @@ impl LocalNodeExecutor {
         );
         let node_version = NODE_VERSION.trim();
 
-        // Look for node16 in a few places. CI nvm installer uses `mynvm`
-        let mut node_path = "node".to_string();
-        for nvm_dir in [".nvm", "mynvm"] {
-            let possible_path = home::home_dir()
-                .unwrap()
-                .join(nvm_dir)
-                .join(format!("versions/node/v{node_version}/bin/node"));
-            if possible_path.exists() {
-                node_path = possible_path.to_string_lossy().to_string();
-            }
-        }
+        // Look for node in a few places.
+        let possible_path = home::home_dir()
+            .unwrap()
+            .join(".nvm")
+            .join(format!("versions/node/v{node_version}/bin/node"));
+        let node_path = if possible_path.exists() {
+            possible_path.to_string_lossy().to_string()
+        } else {
+            "node".to_string()
+        };
 
         Ok(Self {
             _source_dir: source_dir,
