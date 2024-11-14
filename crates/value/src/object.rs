@@ -239,6 +239,17 @@ pub fn remove_int64(
     }
 }
 
+pub fn remove_nullable_int64(
+    fields: &mut BTreeMap<FieldName, ConvexValue>,
+    field: &str,
+) -> anyhow::Result<Option<i64>> {
+    match fields.remove(field) {
+        Some(ConvexValue::Int64(i)) => Ok(Some(i)),
+        None => Ok(None),
+        v => anyhow::bail!("expected int for {field}, got {v:?}"),
+    }
+}
+
 pub fn remove_object<E, T: TryFrom<ConvexObject, Error = E>>(
     fields: &mut BTreeMap<FieldName, ConvexValue>,
     field: &str,
@@ -286,6 +297,34 @@ pub fn remove_vec_of_strings(
             v => anyhow::bail!("expected string in array at {field}, got {v:?}"),
         })
         .try_collect()
+}
+
+pub fn remove_nullable_vec(
+    fields: &mut BTreeMap<FieldName, ConvexValue>,
+    field: &str,
+) -> anyhow::Result<Option<Vec<ConvexValue>>> {
+    match fields.remove(field) {
+        Some(ConvexValue::Array(a)) => Ok(Some(a.into())),
+        None => Ok(None),
+        v => anyhow::bail!("expected array for {field}, got {v:?}"),
+    }
+}
+pub fn remove_nullable_vec_of_strings(
+    fields: &mut BTreeMap<FieldName, ConvexValue>,
+    field: &str,
+) -> anyhow::Result<Option<Vec<String>>> {
+    let Some(values) = remove_nullable_vec(fields, field)? else {
+        return Ok(None);
+    };
+    Ok(Some(
+        values
+            .into_iter()
+            .map(|value| match value {
+                ConvexValue::String(s) => anyhow::Ok(s.into()),
+                v => anyhow::bail!("expected string in array at {field}, got {v:?}"),
+            })
+            .try_collect()?,
+    ))
 }
 
 impl Size for ConvexObject {

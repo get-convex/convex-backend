@@ -90,8 +90,11 @@ pub use crate::{
     object::{
         remove_boolean,
         remove_int64,
+        remove_nullable_int64,
         remove_nullable_object,
         remove_nullable_string,
+        remove_nullable_vec,
+        remove_nullable_vec_of_strings,
         remove_object,
         remove_string,
         remove_vec,
