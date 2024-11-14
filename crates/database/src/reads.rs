@@ -537,6 +537,21 @@ mod tests {
         )
     }
 
+    fn create_document_with_extra_field(
+        id: ResolvedDocumentId,
+        field_name: &str,
+        value: ConvexValue,
+    ) -> anyhow::Result<ResolvedDocument> {
+        ResolvedDocument::new(
+            id,
+            CreationTime::ONE,
+            assert_obj!(
+                field_name => value,
+                "extraField" => ConvexValue::String("word".to_string().try_into()?),
+            ),
+        )
+    }
+
     #[test]
     fn search_fuzzy_text_no_prefix_0_distance_reads() -> anyhow::Result<()> {
         let mut reads = TransactionReadSet::new();
@@ -902,7 +917,7 @@ mod tests {
     }
 
     #[test]
-    fn test_search_filter_reads() -> anyhow::Result<()> {
+    fn test_search_filter_reads_empty_query() -> anyhow::Result<()> {
         let mut reads = TransactionReadSet::new();
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
@@ -955,6 +970,82 @@ mod tests {
 
         // If "nullField" is a different type, it does not overlap.
         let doc_with_implicit_null = create_document_with_one_field(
+            id_generator.user_generate(&table_name),
+            "nullField",
+            ConvexValue::Int64(123),
+        )?;
+        assert_eq!(
+            read_set.overlaps(
+                &PackedDocument::pack(doc_with_implicit_null),
+                PersistenceVersion::default()
+            ),
+            None
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn test_search_filter_reads() -> anyhow::Result<()> {
+        let mut reads = TransactionReadSet::new();
+        let mut id_generator = TestIdGenerator::new();
+        let table_name = "mytable".parse()?;
+        let table_id = id_generator.user_table_id(&table_name);
+        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+
+        let search_reads = SearchQueryReads::new(
+            vec![TextQueryTermRead {
+                field_path: FieldPath::from_str("extraField")?,
+                term: TextQueryTerm::Fuzzy {
+                    max_distance: FuzzyDistance::Zero,
+                    token: "word".to_string(),
+                    prefix: false,
+                },
+            }]
+            .into(),
+            vec![FilterConditionRead::Must(
+                FieldPath::from_str("nullField")?,
+                search_value_to_bytes(Some(&ConvexValue::Null)),
+            )]
+            .into(),
+        );
+
+        reads.record_search(index_name.clone(), search_reads);
+
+        let read_set = reads.into_read_set();
+
+        // If "nullField" is Null, it overlaps.
+        let doc_with_explicit_null = create_document_with_extra_field(
+            id_generator.user_generate(&table_name),
+            "nullField",
+            ConvexValue::Null,
+        )?;
+        assert_eq!(
+            read_set
+                .overlaps(
+                    &PackedDocument::pack(doc_with_explicit_null),
+                    PersistenceVersion::default()
+                )
+                .unwrap()
+                .index,
+            index_name
+        );
+
+        // If "nullField" is not present, it does not overlap.
+        let doc_with_missing_field = create_document_with_extra_field(
+            id_generator.user_generate(&table_name),
+            "unrelatedField",
+            ConvexValue::Null,
+        )?;
+        assert_eq!(
+            read_set.overlaps(
+                &PackedDocument::pack(doc_with_missing_field),
+                PersistenceVersion::default()
+            ),
+            None
+        );
+
+        // If "nullField" is a different type, it does not overlap.
+        let doc_with_implicit_null = create_document_with_extra_field(
             id_generator.user_generate(&table_name),
             "nullField",
             ConvexValue::Int64(123),

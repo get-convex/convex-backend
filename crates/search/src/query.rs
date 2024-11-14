@@ -927,20 +927,25 @@ impl QueryReads {
             let FilterConditionRead::Must(field_path, filter_value) = filter_condition;
             let document_value = document.value().get_path(field_path);
             let document_value = search_value_to_bytes(document_value.as_ref());
-
-            if document_value == *filter_value {
-                metrics::log_query_reads_outcome(true);
-                return true;
+            // If the document doesn't match the filter condition, we can skip checking
+            // fuzzy terms
+            if document_value != *filter_value {
+                metrics::log_query_reads_outcome(false);
+                return false;
             }
         }
-        let analyzer = convex_en();
-        if self.fuzzy_terms.overlaps(document, &analyzer) {
+        // If there are no text queries and all filters match, this counts as an
+        // overlap.
+        if self.text_queries.is_empty() {
             metrics::log_query_reads_outcome(true);
             return true;
         }
-
-        metrics::log_query_reads_outcome(false);
-        false
+        // If all the filter conditions match and there are text queries, we then check
+        // for fuzzy matches.
+        let analyzer = convex_en();
+        let is_fuzzy_match = self.fuzzy_terms.overlaps(document, &analyzer);
+        metrics::log_query_reads_outcome(is_fuzzy_match);
+        is_fuzzy_match
     }
 }
 
