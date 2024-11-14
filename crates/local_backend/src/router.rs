@@ -120,7 +120,6 @@ use crate::{
         import_start_upload,
         import_upload_part,
         perform_import,
-        prepare_import,
     },
     storage::{
         storage_get,
@@ -293,7 +292,6 @@ where
         .route("/import/start_upload", post(import_start_upload))
         .route("/import/upload_part", post(import_upload_part))
         .route("/import/finish_upload", post(import_finish_upload))
-        .route("/prepare_import", post(prepare_import))
         .route("/perform_import", post(perform_import))
         .route("/cancel_import", post(cancel_import))
 }

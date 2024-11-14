@@ -757,30 +757,6 @@ impl<RT: Runtime> SnapshotImportWorker<RT> {
     }
 }
 
-pub async fn upload_import_file<RT: Runtime>(
-    application: &Application<RT>,
-    identity: Identity,
-    format: ImportFormat,
-    mode: ImportMode,
-    component_path: ComponentPath,
-    body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
-) -> anyhow::Result<DeveloperDocumentId> {
-    if !identity.is_admin() {
-        anyhow::bail!(ImportError::Unauthorized);
-    }
-    let object_key = application.upload_snapshot_import(body_stream).await?;
-    start_stored_import(
-        application,
-        identity,
-        format,
-        mode,
-        component_path,
-        object_key,
-        ImportRequestor::SnapshotImport,
-    )
-    .await
-}
-
 pub async fn start_stored_import<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
@@ -790,6 +766,9 @@ pub async fn start_stored_import<RT: Runtime>(
     object_key: ObjectKey,
     requestor: ImportRequestor,
 ) -> anyhow::Result<DeveloperDocumentId> {
+    if !(identity.is_admin() || identity.is_system()) {
+        anyhow::bail!(ImportError::Unauthorized);
+    }
     let (_, id, _) = application
         .database
         .execute_with_overloaded_retries(
@@ -937,13 +916,15 @@ pub async fn do_import<RT: Runtime>(
     component_path: ComponentPath,
     body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
 ) -> anyhow::Result<u64> {
-    let import_id = upload_import_file(
+    let object_key = application.upload_snapshot_import(body_stream).await?;
+    let import_id = start_stored_import(
         application,
         identity.clone(),
         format,
         mode,
         component_path,
-        body_stream,
+        object_key,
+        ImportRequestor::SnapshotImport,
     )
     .await?;
 

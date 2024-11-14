@@ -100,7 +100,7 @@ use crate::{
             parse_objects,
             ImportUnit,
         },
-        upload_import_file,
+        start_stored_import,
         wait_for_import_worker,
         ImportFormat,
         ImportMode,
@@ -429,13 +429,17 @@ a
     // Create some data so there's something to replace.
     run_csv_import(&app, table_name, test_csv).await?;
 
-    let import_id = upload_import_file(
+    let object_key = app
+        .upload_snapshot_import(stream_from_str(test_csv))
+        .await?;
+    let import_id = start_stored_import(
         &app,
         new_admin_id(),
         ImportFormat::Csv(table_name.parse()?),
         ImportMode::Replace,
         ComponentPath::root(),
-        stream_from_str(test_csv),
+        object_key,
+        ImportRequestor::SnapshotImport,
     )
     .await?;
 

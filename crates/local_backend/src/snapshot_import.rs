@@ -4,7 +4,6 @@ use anyhow::Context;
 use application::snapshot_import::{
     self,
     do_import,
-    upload_import_file,
 };
 use axum::{
     body::Body,
@@ -209,6 +208,12 @@ pub async fn import_upload_part(
     Ok(Json(token.0))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportFinishUploadResponse {
+    pub import_id: String,
+}
+
 pub async fn import_finish_upload(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,
@@ -241,45 +246,7 @@ pub async fn import_finish_upload(
                 .collect(),
         )
         .await?;
-    Ok(Json(PrepareImportResponse {
-        import_id: import_id.encode(),
-    }))
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PrepareImportResponse {
-    pub import_id: String,
-}
-
-pub async fn prepare_import(
-    State(st): State<LocalAppState>,
-    ExtractIdentity(identity): ExtractIdentity,
-    Query(ImportQueryArgs {
-        table_name,
-        component_path,
-        format,
-        mode,
-    }): Query<ImportQueryArgs>,
-    stream: Body,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    must_be_admin_with_write_access(&identity)?;
-    let format = parse_format_arg(table_name, format)?;
-    let component_path = ComponentPath::deserialize(component_path.as_deref())?;
-    let body_stream = stream
-        .into_data_stream()
-        .map_err(anyhow::Error::from)
-        .boxed();
-    let import_id = upload_import_file(
-        &st.application,
-        identity,
-        format,
-        mode,
-        component_path,
-        body_stream,
-    )
-    .await?;
-    Ok(Json(PrepareImportResponse {
+    Ok(Json(ImportFinishUploadResponse {
         import_id: import_id.encode(),
     }))
 }
