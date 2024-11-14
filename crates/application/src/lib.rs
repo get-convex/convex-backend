@@ -657,7 +657,7 @@ impl<RT: Runtime> Application<RT> {
         );
         let export_worker = Arc::new(Mutex::new(runtime.spawn("export_worker", export_worker)));
 
-        let snapshot_import_worker = SnapshotImportWorker::new(
+        let snapshot_import_worker = SnapshotImportWorker::start(
             runtime.clone(),
             database.clone(),
             snapshot_imports_storage.clone(),

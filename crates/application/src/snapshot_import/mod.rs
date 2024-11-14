@@ -40,7 +40,6 @@ use common::{
         CREATION_TIME_FIELD,
         ID_FIELD,
     },
-    errors::report_error,
     execution_context::ExecutionId,
     knobs::{
         MAX_IMPORT_AGE,
@@ -83,7 +82,6 @@ use futures::{
         BoxStream,
         Peekable,
     },
-    Future,
     Stream,
     StreamExt,
     TryStream,
@@ -164,11 +162,7 @@ use value::{
 
 use crate::{
     export_worker::FileStorageZipMetadata,
-    metrics::{
-        log_snapshot_import_age,
-        log_worker_starting,
-        snapshot_import_timer,
-    },
+    metrics::log_snapshot_import_age,
     snapshot_import::{
         import_error::ImportError,
         parse::{
@@ -188,11 +182,11 @@ mod parse;
 mod table_change;
 #[cfg(test)]
 mod tests;
+mod worker;
 
-const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
-const MAX_BACKOFF: Duration = Duration::from_secs(60);
+pub use worker::SnapshotImportWorker;
 
-pub struct SnapshotImportWorker<RT: Runtime> {
+struct SnapshotImportExecutor<RT: Runtime> {
     runtime: RT,
     database: Database<RT>,
     snapshot_imports_storage: Arc<dyn Storage>,
@@ -202,69 +196,7 @@ pub struct SnapshotImportWorker<RT: Runtime> {
     pause_client: PauseClient,
 }
 
-impl<RT: Runtime> SnapshotImportWorker<RT> {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(
-        runtime: RT,
-        database: Database<RT>,
-        snapshot_imports_storage: Arc<dyn Storage>,
-        file_storage: FileStorage<RT>,
-        usage_tracking: UsageCounter,
-        pause_client: PauseClient,
-    ) -> impl Future<Output = ()> + Send {
-        let mut worker = Self {
-            runtime,
-            database,
-            snapshot_imports_storage,
-            file_storage,
-            usage_tracking,
-            pause_client,
-            backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
-        };
-        async move {
-            loop {
-                if let Err(e) = worker.run().await {
-                    report_error(&mut e.context("SnapshotImportWorker died"));
-                    let delay = worker.backoff.fail(&mut worker.runtime.rng());
-                    worker.runtime.wait(delay).await;
-                } else {
-                    worker.backoff.reset();
-                }
-            }
-        }
-    }
-
-    /// Subscribe to the _snapshot_imports table.
-    /// If an import has Uploaded, parse it and set to WaitingForConfirmation.
-    /// If an import is InProgress, execute it.
-    pub async fn run(&mut self) -> anyhow::Result<()> {
-        let status = log_worker_starting("SnapshotImport");
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let mut import_model = SnapshotImportModel::new(&mut tx);
-        if let Some(import_uploaded) = import_model.import_in_state(ImportState::Uploaded).await? {
-            tracing::info!("Marking snapshot export as WaitingForConfirmation");
-            self.parse_and_mark_waiting_for_confirmation(import_uploaded)
-                .await?;
-        } else if let Some(import_in_progress) = import_model
-            .import_in_state(ImportState::InProgress {
-                progress_message: String::new(),
-                checkpoint_messages: vec![],
-            })
-            .await?
-        {
-            tracing::info!("Executing in-progress snapshot import");
-            let timer = snapshot_import_timer();
-            self.attempt_perform_import_and_mark_done(import_in_progress)
-                .await?;
-            timer.finish();
-        }
-        drop(status);
-        let token = tx.into_token()?;
-        let subscription = self.database.subscribe(token).await?;
-        subscription.wait_for_invalidation().await;
-        Ok(())
-    }
-
+impl<RT: Runtime> SnapshotImportExecutor<RT> {
     async fn parse_and_mark_waiting_for_confirmation(
         &self,
         snapshot_import: ParsedDocument<SnapshotImport>,
