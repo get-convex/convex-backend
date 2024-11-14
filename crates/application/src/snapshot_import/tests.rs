@@ -92,23 +92,19 @@ use value::{
     TableNamespace,
 };
 
-use super::{
-    do_import,
-    import_objects,
-    parse_documents_jsonl_table_name,
-    parse_objects,
-    ImportFormat,
-    ImportMode,
-    ImportUnit,
-    PeekableExt,
-    GENERATED_SCHEMA_PATTERN,
-};
 use crate::{
     snapshot_import::{
-        parse_storage_filename,
-        parse_table_filename,
+        do_import,
+        import_objects,
+        parse::{
+            parse_objects,
+            ImportUnit,
+        },
         upload_import_file,
         wait_for_import_worker,
+        ImportFormat,
+        ImportMode,
+        PeekableExt,
     },
     test_helpers::{
         ApplicationFixtureArgs,
@@ -116,96 +112,6 @@ use crate::{
     },
     Application,
 };
-
-#[test]
-fn test_filename_regex() -> anyhow::Result<()> {
-    let (_, table_name) =
-        parse_documents_jsonl_table_name("users/documents.jsonl", &ComponentPath::root())?.unwrap();
-    assert_eq!(table_name, "users".parse()?);
-    // Regression test, checking that the '.' is escaped.
-    assert!(
-        parse_documents_jsonl_table_name("users/documentsxjsonl", &ComponentPath::root())?
-            .is_none()
-    );
-    // When an export is unzipped and re-zipped, sometimes there's a prefix.
-    let (_, table_name) =
-        parse_documents_jsonl_table_name("snapshot/users/documents.jsonl", &ComponentPath::root())?
-            .unwrap();
-    assert_eq!(table_name, "users".parse()?);
-    let (_, table_name) = parse_table_filename(
-        "users/generated_schema.jsonl",
-        &ComponentPath::root(),
-        &GENERATED_SCHEMA_PATTERN,
-    )?
-    .unwrap();
-    assert_eq!(table_name, "users".parse()?);
-    let (_, storage_id) = parse_storage_filename(
-        "_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f.gif",
-        &ComponentPath::root(),
-    )?
-    .unwrap();
-    assert_eq!(&storage_id.to_string(), "kg2ah8mk1xtg35g7zyexyc96e96yr74f");
-    let (_, storage_id) = parse_storage_filename(
-        "snapshot/_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f.gif",
-        &ComponentPath::root(),
-    )?
-    .unwrap();
-    assert_eq!(&storage_id.to_string(), "kg2ah8mk1xtg35g7zyexyc96e96yr74f");
-    // No file extension.
-    let (_, storage_id) = parse_storage_filename(
-        "_storage/kg2ah8mk1xtg35g7zyexyc96e96yr74f",
-        &ComponentPath::root(),
-    )?
-    .unwrap();
-    assert_eq!(&storage_id.to_string(), "kg2ah8mk1xtg35g7zyexyc96e96yr74f");
-    Ok(())
-}
-
-#[test]
-fn test_component_path_regex() -> anyhow::Result<()> {
-    let (component_path, table_name) = parse_documents_jsonl_table_name(
-        "_components/waitlist/tbl/documents.jsonl",
-        &ComponentPath::root(),
-    )?
-    .unwrap();
-    assert_eq!(&String::from(component_path), "waitlist");
-    assert_eq!(&table_name.to_string(), "tbl");
-
-    let (component_path, table_name) = parse_documents_jsonl_table_name(
-        "some/parentdir/_components/waitlist/tbl/documents.jsonl",
-        &ComponentPath::root(),
-    )?
-    .unwrap();
-    assert_eq!(&String::from(component_path), "waitlist");
-    assert_eq!(&table_name.to_string(), "tbl");
-
-    let (component_path, table_name) = parse_documents_jsonl_table_name(
-        "_components/waitlist/_components/ratelimit/tbl/documents.jsonl",
-        &ComponentPath::root(),
-    )?
-    .unwrap();
-    assert_eq!(&String::from(component_path), "waitlist/ratelimit");
-    assert_eq!(&table_name.to_string(), "tbl");
-
-    let (component_path, table_name) = parse_documents_jsonl_table_name(
-        "_components/waitlist/_components/ratelimit/tbl/documents.jsonl",
-        &"friendship".parse()?,
-    )?
-    .unwrap();
-    assert_eq!(
-        &String::from(component_path),
-        "friendship/waitlist/ratelimit"
-    );
-    assert_eq!(&table_name.to_string(), "tbl");
-
-    let (component_path, table_name) =
-        parse_documents_jsonl_table_name("tbl/documents.jsonl", &"waitlist/ratelimit".parse()?)?
-            .unwrap();
-    assert_eq!(&String::from(component_path), "waitlist/ratelimit");
-    assert_eq!(&table_name.to_string(), "tbl");
-
-    Ok(())
-}
 
 #[convex_macro::test_runtime]
 async fn test_peeking_take_while(_rt: TestRuntime) {
