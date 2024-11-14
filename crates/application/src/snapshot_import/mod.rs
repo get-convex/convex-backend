@@ -197,22 +197,13 @@ struct SnapshotImportExecutor<RT: Runtime> {
 }
 
 impl<RT: Runtime> SnapshotImportExecutor<RT> {
-    async fn parse_and_mark_waiting_for_confirmation(
+    async fn handle_uploaded_state(
         &self,
         snapshot_import: ParsedDocument<SnapshotImport>,
     ) -> anyhow::Result<()> {
+        anyhow::ensure!(snapshot_import.state == ImportState::Uploaded);
+        tracing::info!("Marking snapshot export as WaitingForConfirmation");
         let import_id = snapshot_import.id();
-        match snapshot_import.state {
-            ImportState::Uploaded => {
-                // Can make progress. Continue.
-            },
-            ImportState::Completed { .. }
-            | ImportState::Failed(..)
-            | ImportState::InProgress { .. }
-            | ImportState::WaitingForConfirmation { .. } => {
-                anyhow::bail!("unexpected state {snapshot_import:?}");
-            },
-        }
         self.fail_if_too_old(&snapshot_import)?;
         match self.info_message_for_import(snapshot_import).await {
             Ok((info_message, require_manual_confirmation, new_checkpoints)) => {
@@ -462,22 +453,15 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         Ok((message_lines, require_manual_confirmation, new_checkpoints))
     }
 
-    async fn attempt_perform_import_and_mark_done(
+    async fn handle_in_progress_state(
         &mut self,
         snapshot_import: ParsedDocument<SnapshotImport>,
     ) -> anyhow::Result<()> {
+        anyhow::ensure!(matches!(
+            snapshot_import.state,
+            ImportState::InProgress { .. }
+        ));
         let import_id = snapshot_import.id();
-        match snapshot_import.state {
-            ImportState::InProgress { .. } => {
-                // Can make progress. Continue.
-            },
-            ImportState::Completed { .. }
-            | ImportState::Failed(..)
-            | ImportState::Uploaded
-            | ImportState::WaitingForConfirmation { .. } => {
-                anyhow::bail!("unexpected state {snapshot_import:?}");
-            },
-        }
         match self.attempt_perform_import(snapshot_import).await {
             Ok((ts, num_rows_written)) => {
                 self.database

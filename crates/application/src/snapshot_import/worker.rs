@@ -73,27 +73,26 @@ impl SnapshotImportWorker {
         let status = log_worker_starting("SnapshotImport");
         let mut tx = executor.database.begin(Identity::system()).await?;
         let mut import_model = SnapshotImportModel::new(&mut tx);
-        if let Some(import_uploaded) = import_model.import_in_state(ImportState::Uploaded).await? {
-            tracing::info!("Marking snapshot export as WaitingForConfirmation");
-            executor
-                .parse_and_mark_waiting_for_confirmation(import_uploaded)
-                .await?;
-        } else if let Some(import_in_progress) = import_model
+        let import_uploaded = import_model.import_in_state(ImportState::Uploaded).await?;
+        let import_in_progress = import_model
             .import_in_state(ImportState::InProgress {
                 progress_message: String::new(),
                 checkpoint_messages: vec![],
             })
-            .await?
-        {
+            .await?;
+        let token = tx.into_token()?;
+
+        if let Some(import_uploaded) = import_uploaded {
+            executor.handle_uploaded_state(import_uploaded).await?;
+        } else if let Some(import_in_progress) = import_in_progress {
             tracing::info!("Executing in-progress snapshot import");
             let timer = snapshot_import_timer();
             executor
-                .attempt_perform_import_and_mark_done(import_in_progress)
+                .handle_in_progress_state(import_in_progress)
                 .await?;
             timer.finish();
         }
         drop(status);
-        let token = tx.into_token()?;
         let subscription = executor.database.subscribe(token).await?;
         subscription.wait_for_invalidation().await;
         Ok(())
