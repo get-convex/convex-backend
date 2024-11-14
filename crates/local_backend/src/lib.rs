@@ -234,7 +234,7 @@ pub async fn make_app(
                 modules_storage: modules_storage.clone(),
             },
             database.clone(),
-            fetch_client.clone(),
+            fetch_client,
         )
         .await?,
     );
@@ -258,7 +258,6 @@ pub async fn make_app(
         segment_metadata_fetcher.clone(),
         persistence,
         actions,
-        fetch_client,
         Arc::new(NoopLogSender),
         Arc::new(AllowLogging),
         PauseClient::new(),

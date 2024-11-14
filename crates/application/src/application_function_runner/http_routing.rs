@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use anyhow::Context;
 use common::{
     components::{
@@ -10,7 +8,6 @@ use common::{
     errors::JsError,
     execution_context::ExecutionContext,
     http::RoutedHttpPath,
-    knobs::EXECUTE_HTTP_ACTIONS_IN_FUNRUN,
     log_lines::{
         run_function_and_collect_log_lines,
         LogLevel,
@@ -39,7 +36,6 @@ use futures::{
 };
 use http::StatusCode;
 use isolate::{
-    ActionCallbacks,
     HttpActionOutcome,
     HttpActionRequest,
     HttpActionRequestHead,
@@ -73,7 +69,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mut response_streamer: HttpActionResponseStreamer,
         identity: Identity,
         caller: FunctionCaller,
-        action_callbacks: Arc<dyn ActionCallbacks>,
     ) -> anyhow::Result<isolate::HttpActionResult> {
         let start = self.runtime.monotonic_now();
         let usage_tracker = FunctionUsageTracker::new();
@@ -121,36 +116,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         let (isolate_response_sender, isolate_response_receiver) = mpsc::unbounded_channel();
         let http_response_streamer = HttpActionResponseStreamer::new(isolate_response_sender);
 
-        let outcome_future = if *EXECUTE_HTTP_ACTIONS_IN_FUNRUN {
-            self.isolate_functions
-                .execute_http_action(
-                    tx,
-                    log_line_sender,
-                    HttpActionMetadata {
-                        http_response_streamer,
-                        http_module_path: validated_path,
-                        routed_path,
-                        http_request,
-                    },
-                    context.clone(),
-                )
-                .boxed()
-        } else {
-            self.http_actions
-                .execute_http_action(
-                    validated_path,
+        let outcome_future = self
+            .isolate_functions
+            .execute_http_action(
+                tx,
+                log_line_sender,
+                HttpActionMetadata {
+                    http_response_streamer,
+                    http_module_path: validated_path,
                     routed_path,
                     http_request,
-                    identity.clone(),
-                    action_callbacks,
-                    self.fetch_client.clone(),
-                    log_line_sender,
-                    http_response_streamer,
-                    tx,
-                    context.clone(),
-                )
-                .boxed()
-        };
+                },
+                context.clone(),
+            )
+            .boxed();
 
         let context_ = context.clone();
         let mut outcome_and_log_lines_fut = Box::pin(

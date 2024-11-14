@@ -33,7 +33,6 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
-    http::fetch::FetchClient,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
@@ -570,7 +569,6 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     isolate_functions: FunctionRouter<RT>,
     // Used for analyze, schema, etc.
     analyze_isolate: IsolateClient<RT>,
-    http_actions: IsolateClient<RT>,
     node_actions: Actions,
 
     pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
@@ -582,7 +580,6 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     cache_manager: CacheManager<RT>,
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter,
-    fetch_client: Arc<dyn FetchClient>,
 }
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
@@ -599,7 +596,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-        fetch_client: Arc<dyn FetchClient>,
     ) -> Self {
         // We limit the isolates to only consume fraction of the available
         // cores leaving the rest for tokio. This is still over-provisioning
@@ -612,22 +608,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             isolate_concurrency_limit,
             *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
             num_cpus::get_physical(),
-        );
-
-        let http_actions_worker = BackendIsolateWorker::new(
-            runtime.clone(),
-            IsolateConfig::new("actions", limiter.clone()),
-        );
-        let http_actions = IsolateClient::new(
-            runtime.clone(),
-            http_actions_worker,
-            *APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
-            true,
-            instance_name.clone(),
-            instance_secret,
-            file_storage.clone(),
-            system_env_vars.clone(),
-            module_cache.clone(),
         );
 
         let analyze_isolate_worker = BackendIsolateWorker::new(
@@ -665,7 +645,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             key_broker,
             isolate_functions,
             analyze_isolate,
-            http_actions,
             node_actions,
             module_cache,
             modules_storage,
@@ -678,13 +657,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 UdfType::Action,
                 *APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
             ),
-            fetch_client,
         }
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
         self.analyze_isolate.shutdown().await?;
-        self.http_actions.shutdown().await?;
         self.node_actions.shutdown();
         Ok(())
     }

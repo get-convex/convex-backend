@@ -231,7 +231,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                     modules_storage: modules_storage.clone(),
                 },
                 database.clone(),
-                fetch_client.clone(),
+                fetch_client,
             )
             .await?,
         );
@@ -269,7 +269,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             segment_term_metadata_fetcher,
             Arc::new(persistence.clone()),
             actions,
-            fetch_client,
             Arc::new(NoopLogSender),
             Arc::new(AllowLogging),
             snapshot_import_pause_client,

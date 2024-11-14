@@ -873,8 +873,8 @@ pub static MIN_COMPACTION_SEGMENTS: LazyLock<u64> =
 pub static MAX_SEGMENT_DELETED_PERCENTAGE: LazyLock<f64> =
     LazyLock::new(|| env_config("MAX_SEGMENT_DELETED_PERCENTAGE", 0.2));
 
-/// Whether to run queries, mutations, and v8 actions in Funrun (true) or
-/// InProcessFunctionRunner (false).
+/// Whether to run queries, mutations, HTTP actions, and v8 actions in Funrun
+/// (true) or InProcessFunctionRunner (false).
 pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", true));
 
 /// Whether to analyze code in Funrun (true) or
@@ -1185,10 +1185,6 @@ pub static USHER_MAX_CONCURRENT_STREAMS_PER_CHANNEL: LazyLock<usize> =
 /// Batch size for migration that rewrites virtual tables.
 pub static MIGRATION_REWRITE_BATCH_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("MIGRATION_REWRITE_BATCH_SIZE", 100));
-
-/// Whether or not HTTP actions are executed in FunRun
-pub static EXECUTE_HTTP_ACTIONS_IN_FUNRUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("EXECUTE_HTTP_ACTIONS_IN_FUNRUN", false));
 
 /// If an import is taking longer than a day, it's a problem (and our fault).
 /// But the customer is probably no longer waiting so we should fail the import.

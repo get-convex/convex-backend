@@ -59,7 +59,6 @@ use common::{
         report_error,
         JsError,
     },
-    http::fetch::FetchClient,
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         MAX_JOBS_CANCEL_BATCH,
@@ -554,7 +553,6 @@ impl<RT: Runtime> Application<RT> {
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         persistence: Arc<dyn Persistence>,
         node_actions: Actions,
-        fetch_client: Arc<dyn FetchClient>,
         log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
         snapshot_import_pause_client: PauseClient,
@@ -627,7 +625,6 @@ impl<RT: Runtime> Application<RT> {
             module_loader,
             function_log.clone(),
             system_env_vars.clone(),
-            fetch_client,
         ));
         function_runner.set_action_callbacks(runner.clone());
 
@@ -1156,7 +1153,6 @@ impl<RT: Runtime> Application<RT> {
                     response_streamer_,
                     identity,
                     caller,
-                    runner.clone(),
                 )
                 .in_span(span)
                 .await;
