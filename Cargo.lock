@@ -4313,6 +4313,7 @@ dependencies = [
  "derive_more",
  "errors",
  "futures",
+ "futures-async-stream",
  "humansize",
  "keybroker",
  "maplit",

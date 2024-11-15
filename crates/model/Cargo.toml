@@ -23,6 +23,7 @@ database = { path = "../database" }
 derive_more = { workspace = true }
 errors = { path = "../errors" }
 futures = { workspace = true }
+futures-async-stream = { workspace = true }
 humansize = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }

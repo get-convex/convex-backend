@@ -19,6 +19,7 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
+use futures_async_stream::try_stream;
 use value::{
     ConvexObject,
     FieldPath,
@@ -118,14 +119,13 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
         Ok(ids[0])
     }
 
-    pub async fn list(&mut self) -> anyhow::Result<Vec<ParsedDocument<DeploymentAuditLogEvent>>> {
+    #[try_stream(boxed, ok = ParsedDocument<DeploymentAuditLogEvent>, error = anyhow::Error)]
+    pub async fn list(&mut self) {
         let value_query = Query::full_table_scan(DEPLOYMENT_AUDIT_LOG_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
-        let mut result = vec![];
         while let Some(doc) = query_stream.next(self.tx, None).await? {
             let row: ParsedDocument<DeploymentAuditLogEvent> = doc.try_into()?;
-            result.push(row);
+            yield row;
         }
-        Ok(result)
     }
 }
