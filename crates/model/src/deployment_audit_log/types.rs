@@ -35,9 +35,6 @@ use value::{
     codegen_convex_serialization,
     obj,
     remove_int64,
-    remove_nullable_int64,
-    remove_nullable_object,
-    remove_nullable_vec_of_strings,
     remove_object,
     remove_string,
     remove_vec,
@@ -403,8 +400,7 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     .map(|s| TableName::from_str(s))
                     .try_collect()?;
                 let table_names_deleted =
-                    remove_nullable_vec_of_strings(&mut fields, "table_names_deleted")?
-                        .unwrap_or_default()
+                    remove_vec_of_strings(&mut fields, "table_names_deleted")?
                         .iter()
                         .map(|s| TableName::from_str(s))
                         .try_collect()?;
@@ -413,11 +409,9 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
                     table_count: remove_int64(&mut fields, "table_count")? as u64,
                     import_mode: remove_string(&mut fields, "import_mode")?.parse()?,
                     import_format: remove_object(&mut fields, "import_format")?,
-                    requestor: remove_nullable_object(&mut fields, "requestor")?
-                        .unwrap_or(ImportRequestor::SnapshotImport),
+                    requestor: remove_object(&mut fields, "requestor")?,
                     table_names_deleted,
-                    table_count_deleted: remove_nullable_int64(&mut fields, "table_count_deleted")?
-                        .unwrap_or(0) as u64,
+                    table_count_deleted: remove_int64(&mut fields, "table_count_deleted")? as u64,
                 }
             },
             _ => anyhow::bail!("action {action} unrecognized"),
