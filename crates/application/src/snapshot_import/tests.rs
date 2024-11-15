@@ -20,6 +20,7 @@ use common::{
     },
     db_schema,
     document::ResolvedDocument,
+    ext::PeekableExt,
     object_validator,
     pause::PauseController,
     query::Order,
@@ -104,7 +105,6 @@ use crate::{
         wait_for_import_worker,
         ImportFormat,
         ImportMode,
-        PeekableExt,
     },
     test_helpers::{
         ApplicationFixtureArgs,

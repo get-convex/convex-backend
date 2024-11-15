@@ -3,7 +3,16 @@
 use std::{
     collections::BTreeSet,
     ops::Bound,
+    pin::Pin,
 };
+
+use async_trait::async_trait;
+use futures::{
+    stream::Peekable,
+    Stream,
+    TryStream,
+};
+use futures_async_stream::stream;
 
 /// Small trait for creating a container with a single value in it
 pub trait BTreeSetExt {
@@ -39,5 +48,58 @@ impl<T> BoundExt<T> for Bound<T> {
             Bound::Excluded(b) => Bound::Excluded(f(b)),
             Bound::Unbounded => Bound::Unbounded,
         }
+    }
+}
+
+/// StreamExt::take_while but it works better on peekable streams, not dropping
+/// any elements. See `test_peeking_take_while` below.
+/// Equivalent to https://docs.rs/peeking_take_while/latest/peeking_take_while/#
+/// but for streams instead of iterators.
+pub trait PeekableExt: Stream {
+    #[stream(item=Self::Item)]
+    async fn peeking_take_while<F>(self: Pin<&mut Self>, predicate: F)
+    where
+        F: Fn(&Self::Item) -> bool + 'static;
+}
+
+impl<S: Stream> PeekableExt for Peekable<S> {
+    #[stream(item=S::Item)]
+    async fn peeking_take_while<F>(mut self: Pin<&mut Self>, predicate: F)
+    where
+        F: Fn(&Self::Item) -> bool + 'static,
+    {
+        while let Some(item) = self.as_mut().next_if(&predicate).await {
+            yield item;
+        }
+    }
+}
+
+#[async_trait]
+pub trait TryPeekableExt: TryStream {
+    async fn try_next_if<F>(
+        self: Pin<&mut Self>,
+        predicate: F,
+    ) -> Result<Option<Self::Ok>, Self::Error>
+    where
+        F: Fn(&Self::Ok) -> bool + 'static + Send + Sync;
+}
+
+#[async_trait]
+impl<Ok: Send, Error: Send, S: Stream<Item = Result<Ok, Error>> + Send> TryPeekableExt
+    for Peekable<S>
+{
+    async fn try_next_if<F>(
+        self: Pin<&mut Self>,
+        predicate: F,
+    ) -> Result<Option<Self::Ok>, Self::Error>
+    where
+        F: Fn(&Self::Ok) -> bool + 'static + Send + Sync,
+    {
+        self.next_if(&|result: &Result<Ok, Error>| match result {
+            Ok(item) => predicate(item),
+            Err(_) => true,
+        })
+        .await
+        .transpose()
     }
 }

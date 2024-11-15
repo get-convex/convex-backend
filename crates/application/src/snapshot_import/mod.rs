@@ -12,7 +12,6 @@ use std::{
 
 use anyhow::Context;
 use async_recursion::async_recursion;
-use async_trait::async_trait;
 use bytes::Bytes;
 use common::{
     bootstrap_model::{
@@ -41,6 +40,10 @@ use common::{
         ID_FIELD,
     },
     execution_context::ExecutionId,
+    ext::{
+        PeekableExt,
+        TryPeekableExt,
+    },
     knobs::{
         MAX_IMPORT_AGE,
         TRANSACTION_MAX_NUM_USER_WRITES,
@@ -81,12 +84,9 @@ use futures::{
         BoxStream,
         Peekable,
     },
-    Stream,
     StreamExt,
-    TryStream,
     TryStreamExt,
 };
-use futures_async_stream::stream;
 use headers::{
     ContentLength,
     ContentType,
@@ -1404,59 +1404,6 @@ async fn import_storage_table<RT: Runtime>(
         .await?;
     }
     Ok(())
-}
-
-/// StreamExt::take_while but it works better on peekable streams, not dropping
-/// any elements. See `test_peeking_take_while` below.
-/// Equivalent to https://docs.rs/peeking_take_while/latest/peeking_take_while/#
-/// but for streams instead of iterators.
-trait PeekableExt: Stream {
-    #[stream(item=Self::Item)]
-    async fn peeking_take_while<F>(self: Pin<&mut Self>, predicate: F)
-    where
-        F: Fn(&Self::Item) -> bool + 'static;
-}
-
-impl<S: Stream> PeekableExt for Peekable<S> {
-    #[stream(item=S::Item)]
-    async fn peeking_take_while<F>(mut self: Pin<&mut Self>, predicate: F)
-    where
-        F: Fn(&Self::Item) -> bool + 'static,
-    {
-        while let Some(item) = self.as_mut().next_if(&predicate).await {
-            yield item;
-        }
-    }
-}
-
-#[async_trait]
-trait TryPeekableExt: TryStream {
-    async fn try_next_if<F>(
-        self: Pin<&mut Self>,
-        predicate: F,
-    ) -> Result<Option<Self::Ok>, Self::Error>
-    where
-        F: Fn(&Self::Ok) -> bool + 'static + Send + Sync;
-}
-
-#[async_trait]
-impl<Ok: Send, Error: Send, S: Stream<Item = Result<Ok, Error>> + Send> TryPeekableExt
-    for Peekable<S>
-{
-    async fn try_next_if<F>(
-        self: Pin<&mut Self>,
-        predicate: F,
-    ) -> Result<Option<Self::Ok>, Self::Error>
-    where
-        F: Fn(&Self::Ok) -> bool + 'static + Send + Sync,
-    {
-        self.next_if(&|result: &Result<Ok, Error>| match result {
-            Ok(item) => predicate(item),
-            Err(_) => true,
-        })
-        .await
-        .transpose()
-    }
 }
 
 async fn import_single_table<RT: Runtime>(
