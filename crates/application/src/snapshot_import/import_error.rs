@@ -1,7 +1,10 @@
 use std::sync::LazyLock;
 
 use common::knobs::TRANSACTION_MAX_USER_WRITE_SIZE_BYTES;
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use humansize::{
     FormatSize,
     BINARY,
@@ -67,5 +70,15 @@ impl ImportError {
             },
             _ => ErrorMetadata::bad_request(self.as_ref().to_string(), self.to_string()),
         }
+    }
+}
+
+pub fn wrap_import_err(e: anyhow::Error) -> anyhow::Error {
+    let e = e.wrap_error_message(|msg| format!("Hit an error while importing:\n{msg}"));
+    if let Some(import_err) = e.downcast_ref::<ImportError>() {
+        let error_metadata = import_err.error_metadata();
+        e.context(error_metadata)
+    } else {
+        e
     }
 }
