@@ -13,7 +13,8 @@ import { promisify } from "util";
 import { Readable } from "stream";
 import { nodeFs } from "../../../bundler/fs.js";
 import detect from "detect-port";
-
+import { SENTRY_DSN } from "../utils/sentry.js";
+import { createHash } from "crypto";
 const LOCAL_BACKEND_INSTANCE_SECRET =
   "4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974";
 
@@ -137,11 +138,16 @@ export async function runLocalBackend(
   const { ports } = args;
   const deploymentDir = deploymentStateDir(args.deploymentName);
   ctx.fs.mkdir(deploymentDir, { recursive: true });
+  const deploymentNameSha = createHash("sha256")
+    .update(args.deploymentName)
+    .digest("hex");
   const commandArgs = [
     "--port",
     ports.cloud.toString(),
     "--site-proxy-port",
     ports.site.toString(),
+    "--sentry-identifier",
+    deploymentNameSha,
     "--instance-name",
     args.deploymentName,
     "--instance-secret",
@@ -153,7 +159,13 @@ export async function runLocalBackend(
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
   logVerbose(ctx, `Starting local backend: \`${commandStr}\``);
   const p = child_process
-    .spawn(args.binaryPath, commandArgs, { stdio: "ignore" })
+    .spawn(args.binaryPath, commandArgs, {
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        SENTRY_DSN: SENTRY_DSN,
+      },
+    })
     .on("exit", (code) => {
       logVerbose(
         ctx,

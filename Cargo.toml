@@ -113,6 +113,7 @@ saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5
 schemars = { version = "0.8" }
 semver = { version = "1", features = [ "serde" ] }
 sentry = { version = "0.32", features = [ "anyhow", "tower", "tower-http" ] }
+sentry-tracing = "0.34"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order" ] }
 sha1 = { version = "0.10.5", features = [ "oid" ] }

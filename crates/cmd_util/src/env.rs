@@ -7,6 +7,7 @@ use std::{
     sync::LazyLock,
 };
 
+use sentry_tracing::EventFilter;
 use tracing::Level;
 use tracing_subscriber::{
     fmt::{
@@ -103,6 +104,13 @@ where
         )
         .boxed();
     layers.push(format_layer);
+    let sentry_layer = sentry_tracing::layer()
+        .event_filter(|md| match md.level() {
+            &tracing::Level::DEBUG => EventFilter::Ignore,
+            _ => EventFilter::Breadcrumb,
+        })
+        .span_filter(|_md| false);
+    layers.push(sentry_layer.boxed());
 
     let guard = if let Some(ref file) = *CONVEX_TRACE_FILE {
         let (file_writer, guard) = tracing_appender::non_blocking(file);

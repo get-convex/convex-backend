@@ -41,6 +41,29 @@ fn main() -> Result<(), MainError> {
     let _guard = config_service();
     let config = LocalConfig::parse();
     tracing::info!("Starting with config {:?}", config);
+    let sentry = sentry::init(sentry::ClientOptions {
+        release: Some(format!("local-backend@{}", *SERVER_VERSION_STR).into()),
+        ..Default::default()
+    });
+    if sentry.is_enabled() {
+        tracing::info!(
+            "Sentry is enabled. Errors will be reported to project with ID {}",
+            sentry
+                .dsn()
+                .map(|dsn| dsn.project_id().to_string())
+                .unwrap_or("unknown".to_string())
+        );
+        if let Some(sentry_identifier) = config.sentry_identifier.clone() {
+            sentry::configure_scope(|scope| {
+                scope.set_user(Some(sentry::User {
+                    id: Some(sentry_identifier),
+                    ..Default::default()
+                }));
+            });
+        }
+    } else {
+        tracing::info!("Sentry is not enabled.")
+    }
 
     sodiumoxide::init().map_err(|()| anyhow!("sodiumoxide initialization failed"))?;
 

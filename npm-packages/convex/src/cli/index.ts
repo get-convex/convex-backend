@@ -14,15 +14,13 @@ import { login } from "./login.js";
 import { logout } from "./logout.js";
 import chalk from "chalk";
 import * as Sentry from "@sentry/node";
-import "@sentry/tracing";
-import stripAnsi from "strip-ansi";
-import { productionProvisionHost, provisionHost } from "./lib/config.js";
-import { convexImport } from "./convexImport.js";
+import { initSentry } from "./lib/utils/sentry.js";
 import { dev } from "./dev.js";
 import { deploy } from "./deploy.js";
 import { logs } from "./logs.js";
 import { networkTest } from "./network_test.js";
 import { convexExport } from "./convexExport.js";
+import { convexImport } from "./convexImport.js";
 import { env } from "./env.js";
 import { data } from "./data.js";
 import inquirer from "inquirer";
@@ -40,28 +38,10 @@ function logToStderr(...args: unknown[]) {
 }
 
 async function main() {
-  // If you want to use `@sentry/tracing` in your project directly, use a named import instead:
-  // import * as SentryTracing from "@sentry/tracing"
-  // Unused named imports are not guaranteed to patch the global hub.
-
   // Use ipv4 first for 127.0.0.1 in tests
   dns.setDefaultResultOrder("ipv4first");
 
-  if (!process.env.CI && provisionHost === productionProvisionHost) {
-    Sentry.init({
-      dsn: "https://f9fa0306e3d540079cf40ce8c2ad9644@o1192621.ingest.sentry.io/6390839",
-      release: "cli@" + version,
-      tracesSampleRate: 0.2,
-      beforeBreadcrumb: (breadcrumb) => {
-        // Strip ANSI color codes from log lines that are sent as breadcrumbs.
-        if (breadcrumb.message) {
-          breadcrumb.message = stripAnsi(breadcrumb.message);
-        }
-        return breadcrumb;
-      },
-    });
-  }
-
+  initSentry();
   inquirer.registerPrompt("search-list", inquirerSearchList);
 
   const nodeVersion = process.versions.node;
