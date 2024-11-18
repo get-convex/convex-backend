@@ -10,6 +10,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use authentication::{
     access_token_auth::NullAccessTokenAuth,
@@ -30,7 +31,10 @@ use common::{
     persistence::Persistence,
     runtime::Runtime,
     testing::TestPersistence,
-    types::ConvexOrigin,
+    types::{
+        ConvexOrigin,
+        FullyQualifiedObjectKey,
+    },
 };
 use database::{
     Database,
@@ -66,6 +70,14 @@ use model::{
         ConfigModel,
     },
     cron_jobs::types::CronJob,
+    exports::{
+        types::{
+            Export,
+            ExportFormat,
+            ExportRequestor,
+        },
+        ExportsModel,
+    },
     initialize_application_system_tables,
     scheduled_jobs::types::ScheduledJob,
     udf_config::types::UdfConfig,
@@ -161,6 +173,7 @@ pub trait ApplicationTestExt<RT: Runtime> {
     fn database(&self) -> &Database<RT>;
     fn snapshot_imports_storage(&self) -> Arc<dyn Storage>;
     fn exports_storage(&self) -> Arc<dyn Storage>;
+    async fn export_and_wait(&self) -> anyhow::Result<FullyQualifiedObjectKey>;
 }
 
 #[async_trait]
@@ -363,6 +376,33 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
     fn database(&self) -> &Database<RT> {
         &self.database
+    }
+
+    async fn export_and_wait(&self) -> anyhow::Result<FullyQualifiedObjectKey> {
+        let export_id = self
+            .request_export(
+                Identity::system(),
+                ExportFormat::Zip {
+                    include_storage: true,
+                },
+                ComponentId::Root,
+                ExportRequestor::CloudBackup,
+                None,
+            )
+            .await?;
+        let export_object_key = loop {
+            let mut tx = self.begin(Identity::system()).await?;
+            let export_doc = ExportsModel::new(&mut tx)
+                .get(export_id)
+                .await?
+                .context("Missing?")?
+                .into_value();
+            let Export::Completed { zip_object_key, .. } = export_doc else {
+                continue;
+            };
+            break zip_object_key;
+        };
+        Ok(self.cloud_export_key(export_object_key))
     }
 }
 

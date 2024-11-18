@@ -25,6 +25,7 @@ use common::{
         ParsedDocument,
         ID_FIELD,
     },
+    errors::report_error,
     execution_context::ExecutionId,
     ext::TryPeekableExt,
     knobs::{
@@ -35,6 +36,7 @@ use common::{
     pause::PauseClient,
     runtime::Runtime,
     types::{
+        FullyQualifiedObjectKey,
         MemberId,
         ObjectKey,
         TableName,
@@ -206,8 +208,9 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     .await?;
             },
             Err(e) => {
-                let e = wrap_import_err(e);
+                let mut e = wrap_import_err(e);
                 if e.is_bad_request() {
+                    report_error(&mut e);
                     self.database
                         .execute_with_overloaded_retries(
                             Identity::system(),
@@ -265,8 +268,9 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     .await?;
             },
             Err(e) => {
-                let e = wrap_import_err(e);
+                let mut e = wrap_import_err(e);
                 if e.is_bad_request() {
+                    report_error(&mut e);
                     self.database
                         .execute_with_overloaded_retries(
                             Identity::system(),
@@ -597,6 +601,48 @@ pub async fn do_import<RT: Runtime>(
     body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
 ) -> anyhow::Result<u64> {
     let object_key = application.upload_snapshot_import(body_stream).await?;
+    do_import_from_object_key(
+        application,
+        identity,
+        format,
+        mode,
+        component_path,
+        object_key,
+    )
+    .await
+}
+
+pub async fn do_import_from_fully_qualified_export<RT: Runtime>(
+    application: &Application<RT>,
+    identity: Identity,
+    format: ImportFormat,
+    mode: ImportMode,
+    component_path: ComponentPath,
+    export_object_key: FullyQualifiedObjectKey,
+) -> anyhow::Result<u64> {
+    let import_object_key: ObjectKey = application
+        .snapshot_imports_storage
+        .copy_object(export_object_key)
+        .await?;
+    do_import_from_object_key(
+        application,
+        identity,
+        format,
+        mode,
+        component_path,
+        import_object_key,
+    )
+    .await
+}
+
+async fn do_import_from_object_key<RT: Runtime>(
+    application: &Application<RT>,
+    identity: Identity,
+    format: ImportFormat,
+    mode: ImportMode,
+    component_path: ComponentPath,
+    object_key: ObjectKey,
+) -> anyhow::Result<u64> {
     let import_id = start_stored_import(
         application,
         identity.clone(),
@@ -940,7 +986,16 @@ async fn import_tables_table<RT: Runtime>(
             })?;
         import_tables.push((table_name, table_number));
     }
-    let tables_affected = table_mapping_for_import.tables_affected();
+    let tables_affected = table_mapping_for_import
+        .tables_affected()
+        .union(
+            &import_tables
+                .iter()
+                .map(|(table_name, _)| table_name.clone())
+                .collect(),
+        )
+        .cloned()
+        .collect();
     for (table_name, table_number) in import_tables.iter() {
         let (table_id, component_id, _) = prepare_table_for_import(
             database,

@@ -37,6 +37,7 @@ use common::{
     types::{
         IndexName,
         MemberId,
+        ObjectKey,
     },
     value::ConvexValue,
 };
@@ -96,6 +97,7 @@ use value::{
 use crate::{
     snapshot_import::{
         do_import,
+        do_import_from_object_key,
         import_objects,
         parse::{
             parse_objects,
@@ -705,6 +707,263 @@ _id,a
             .get("a"),
         Some(&val!("string")),
     );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_zip_flip_table_number(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let table_name1: TableName = "table1".parse()?;
+    let table_name2: TableName = "table2".parse()?;
+    let identity = new_admin_id();
+
+    // Create tables (t1 then t2)
+    let mut tx = app.begin(identity.clone()).await?;
+    let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+    ufm.insert(table_name1.clone(), assert_obj!()).await?;
+    ufm.insert(table_name2.clone(), assert_obj!()).await?;
+    app.commit_test(tx).await?;
+    let export_object_key = app.export_and_wait().await?;
+
+    for (mode, expect_success) in [
+        (ImportMode::Append, false),
+        (ImportMode::Replace, true),
+        (ImportMode::ReplaceAll, true),
+        (ImportMode::RequireEmpty, false),
+    ] {
+        let app = Application::new_for_tests(&rt).await?;
+
+        // Create tables (t2 then t1)
+        let mut tx = app.begin(identity.clone()).await?;
+        let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+        ufm.insert(table_name2.clone(), assert_obj!()).await?;
+        ufm.insert(table_name1.clone(), assert_obj!()).await?;
+        app.commit_test(tx).await?;
+
+        let import_object_key: ObjectKey = app
+            .snapshot_imports_storage
+            .copy_object(export_object_key.clone())
+            .await?;
+        let rows_written = do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            mode,
+            ComponentPath::root(),
+            import_object_key,
+        )
+        .await;
+        tracing::info!("Imported in test for {mode}");
+        if expect_success {
+            assert_eq!(rows_written?, 2);
+        } else {
+            rows_written.unwrap_err();
+        }
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_zip_to_clone_of_deployment(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let table_name1: TableName = "table1".parse()?;
+    let table_name2: TableName = "table2".parse()?;
+    let identity = new_admin_id();
+
+    // Create tables (t1 then t2)
+    let mut tx = app.begin(identity.clone()).await?;
+    let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+    ufm.insert(table_name1.clone(), assert_obj!()).await?;
+    ufm.insert(table_name2.clone(), assert_obj!()).await?;
+    app.commit_test(tx).await?;
+    let export_object_key = app.export_and_wait().await?;
+
+    for (mode, expect_success) in [
+        (ImportMode::Append, true),
+        (ImportMode::Replace, true),
+        (ImportMode::ReplaceAll, true),
+        (ImportMode::RequireEmpty, false),
+    ] {
+        let app = Application::new_for_tests(&rt).await?;
+
+        // Create tables (t1 then t2) again
+        let mut tx = app.begin(identity.clone()).await?;
+        let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+        ufm.insert(table_name1.clone(), assert_obj!()).await?;
+        ufm.insert(table_name2.clone(), assert_obj!()).await?;
+        app.commit_test(tx).await?;
+
+        let import_object_key: ObjectKey = app
+            .snapshot_imports_storage
+            .copy_object(export_object_key.clone())
+            .await?;
+        let rows_written = do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            mode,
+            ComponentPath::root(),
+            import_object_key,
+        )
+        .await;
+        tracing::info!("Imported in test for {mode}");
+        if expect_success {
+            assert_eq!(rows_written?, 2);
+        } else {
+            rows_written.unwrap_err();
+        }
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_zip_to_deployment_with_unrelated_tables(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let table_name1: TableName = "table1".parse()?;
+    let table_name2: TableName = "table2".parse()?;
+    let identity = new_admin_id();
+
+    // unrelated tables
+    let table_name3: TableName = "table3".parse()?;
+    let table_name4: TableName = "table4".parse()?;
+
+    // Create tables (t1 then t2)
+    let mut tx = app.begin(identity.clone()).await?;
+    let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+    ufm.insert(table_name1.clone(), assert_obj!()).await?;
+    ufm.insert(table_name2.clone(), assert_obj!()).await?;
+    app.commit_test(tx).await?;
+    let export_object_key = app.export_and_wait().await?;
+
+    for (mode, expect_success) in [
+        (ImportMode::Append, false),
+        (ImportMode::Replace, false),
+        (ImportMode::ReplaceAll, true),
+        (ImportMode::RequireEmpty, false),
+    ] {
+        let app = Application::new_for_tests(&rt).await?;
+
+        // Create unrelated tables (t3 then t4)
+        let mut tx = app.begin(identity.clone()).await?;
+        let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+        ufm.insert(table_name3.clone(), assert_obj!()).await?;
+        ufm.insert(table_name4.clone(), assert_obj!()).await?;
+        app.commit_test(tx).await?;
+
+        let import_object_key: ObjectKey = app
+            .snapshot_imports_storage
+            .copy_object(export_object_key.clone())
+            .await?;
+        let rows_written = do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            mode,
+            ComponentPath::root(),
+            import_object_key,
+        )
+        .await;
+        tracing::info!("Imported in test for {mode}");
+        if expect_success {
+            assert_eq!(rows_written?, 2);
+        } else {
+            rows_written.unwrap_err();
+        }
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_zip_to_empty(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let table_name1: TableName = "table1".parse()?;
+    let table_name2: TableName = "table2".parse()?;
+    let identity = new_admin_id();
+
+    // Create tables (t1 then t2)
+    let mut tx = app.begin(identity.clone()).await?;
+    let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+    ufm.insert(table_name1.clone(), assert_obj!()).await?;
+    ufm.insert(table_name2.clone(), assert_obj!()).await?;
+    app.commit_test(tx).await?;
+    let export_object_key = app.export_and_wait().await?;
+
+    for (mode, expect_success) in [
+        (ImportMode::Append, true),
+        (ImportMode::Replace, true),
+        (ImportMode::ReplaceAll, true),
+        (ImportMode::RequireEmpty, true),
+    ] {
+        let app = Application::new_for_tests(&rt).await?;
+        let import_object_key: ObjectKey = app
+            .snapshot_imports_storage
+            .copy_object(export_object_key.clone())
+            .await?;
+        let rows_written = do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            mode,
+            ComponentPath::root(),
+            import_object_key,
+        )
+        .await;
+        tracing::info!("Imported in test for {mode}");
+        if expect_success {
+            assert_eq!(rows_written?, 2);
+        } else {
+            rows_written.unwrap_err();
+        }
+    }
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_zip_to_same_deployment(rt: TestRuntime) -> anyhow::Result<()> {
+    for (mode, expect_success) in [
+        (ImportMode::Append, false),
+        (ImportMode::Replace, true),
+        (ImportMode::ReplaceAll, true),
+        (ImportMode::RequireEmpty, false),
+    ] {
+        let app = Application::new_for_tests(&rt).await?;
+        let table_name1: TableName = "table1".parse()?;
+        let table_name2: TableName = "table2".parse()?;
+        let identity = new_admin_id();
+
+        // Create tables (t1 then t2)
+        let mut tx = app.begin(identity.clone()).await?;
+        let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+        ufm.insert(table_name1.clone(), assert_obj!()).await?;
+        ufm.insert(table_name2.clone(), assert_obj!()).await?;
+        app.commit_test(tx).await?;
+        let export_object_key = app.export_and_wait().await?;
+
+        let import_object_key: ObjectKey = app
+            .snapshot_imports_storage
+            .copy_object(export_object_key.clone())
+            .await?;
+        let rows_written = do_import_from_object_key(
+            &app,
+            identity.clone(),
+            ImportFormat::Zip,
+            mode,
+            ComponentPath::root(),
+            import_object_key,
+        )
+        .await;
+        tracing::info!("Imported in test for {mode}");
+        if expect_success {
+            assert_eq!(rows_written?, 2);
+        } else {
+            rows_written.unwrap_err();
+        }
+    }
 
     Ok(())
 }

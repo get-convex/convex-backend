@@ -1085,7 +1085,10 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         let source_path = Path::new(&source);
         let key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
         let dest_path = self.dir.join(self.path_for_key(key.clone()));
-        fs::copy(source_path, dest_path)?;
+        fs::create_dir_all(dest_path.parent().expect("Must have parent")).context(
+            "LocalDirStorage file creation failed. Perhaps the storage object key isn't valid?",
+        )?;
+        fs::copy(source_path, dest_path).context("fs copy failed")?;
         Ok(key)
     }
 

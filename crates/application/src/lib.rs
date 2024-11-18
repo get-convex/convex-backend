@@ -1413,7 +1413,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     /// Returns the cloud export key - fully qualified to the instance.
-    pub async fn cloud_export_key(&self, zip_export_key: ObjectKey) -> FullyQualifiedObjectKey {
+    pub fn cloud_export_key(&self, zip_export_key: ObjectKey) -> FullyQualifiedObjectKey {
         self.exports_storage.fully_qualified_key(&zip_export_key)
     }
 
