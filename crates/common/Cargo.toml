@@ -85,6 +85,7 @@ tracy-client = { workspace = true, optional = true }
 tungstenite = { workspace = true }
 tuple_struct = { path = "../tuple_struct" }
 url = { workspace = true }
+utoipa = { version = "5" }
 uuid = { workspace = true }
 value = { path = "../value" }
 
