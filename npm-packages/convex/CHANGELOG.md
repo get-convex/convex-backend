@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.17.1
+
+- Use local Prettier settings to format code in `convex/_generated` if found.
+- Extend supported react and react-dom peerDependencies to include v19
+  prereleases. This is temporary, only stable React 19 releases will be
+  supported in the long term.
+- Hook up Sentry reporting for local deployments, opted-into by
+  `npx convex dev --local`. This telemetry will be made configurable before this
+  feature is released more broadly. This is being called out here for
+  transparency regarding telemetry, but this `--local` feature is not yet ready
+  for general consumption. Please don't use it unless you're excited to help
+  test unfinished features and willing to have errors submitted to Convex.
+- Don't try to bundle .txt or .md files in the convex/ directory.
+- Don't include credentials in HTTP client requests.
+
 ## 1.17.0
 
 - Disallow extra arguments to CLI commands.
