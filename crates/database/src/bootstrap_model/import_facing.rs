@@ -91,8 +91,10 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
                 ErrorMetadata::bad_request(
                     "ImportConflict",
                     format!(
-                        "_id {s} cannot be imported into '{table_name}' because its IDs have a \
-                         different format"
+                        "_id {s} cannot be imported into '{table_name}' because it came from a \
+                         different deployment and conflict with preexisting tables in this \
+                         deployment. Try deleting preexisting tables or importing into an empty
+                         deployment."
                     )
                 )
             );
