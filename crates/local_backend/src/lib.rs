@@ -250,7 +250,6 @@ pub async fn make_app(
         database.usage_counter(),
         key_broker.clone(),
         config.name(),
-        config.secret()?,
         function_runner,
         config.convex_origin_url(),
         config.convex_site_url(),

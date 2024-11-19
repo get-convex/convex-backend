@@ -45,7 +45,6 @@ use common::{
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
-        UDF_ISOLATE_MAX_EXEC_THREADS,
     },
     log_lines::{
         run_function_and_collect_log_lines,
@@ -108,21 +107,16 @@ use isolate::{
     ActionCallbacks,
     ActionOutcome,
     AuthConfig,
-    BackendIsolateWorker,
-    ConcurrencyLimiter,
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
     FunctionResult,
     HttpActionOutcome,
-    IsolateClient,
-    IsolateConfig,
     JsonPackedValue,
     UdfOutcome,
     ValidatedPathAndArgs,
 };
 use keybroker::{
     Identity,
-    InstanceSecret,
     KeyBroker,
 };
 use model::{
@@ -568,7 +562,6 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
     isolate_functions: FunctionRouter<RT>,
     // Used for analyze, schema, etc.
-    analyze_isolate: IsolateClient<RT>,
     node_actions: Actions,
 
     pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
@@ -584,8 +577,6 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub fn new(
-        instance_name: String,
-        instance_secret: InstanceSecret,
         runtime: RT,
         database: Database<RT>,
         key_broker: KeyBroker,
@@ -602,28 +593,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         // in case there are multiple active backends per server.
         let isolate_concurrency_limit =
             *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT * num_cpus::get_physical() / 100;
-        let limiter = ConcurrencyLimiter::new(isolate_concurrency_limit);
         tracing::info!(
             "Limiting isolate concurrency to {} ({}% out of {} physical cores)",
             isolate_concurrency_limit,
             *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
             num_cpus::get_physical(),
-        );
-
-        let analyze_isolate_worker = BackendIsolateWorker::new(
-            runtime.clone(),
-            IsolateConfig::new("database_executor", limiter),
-        );
-        let analyze_isolate = IsolateClient::new(
-            runtime.clone(),
-            analyze_isolate_worker,
-            *UDF_ISOLATE_MAX_EXEC_THREADS,
-            false,
-            instance_name,
-            instance_secret,
-            file_storage.clone(),
-            system_env_vars.clone(),
-            module_cache.clone(),
         );
 
         let isolate_functions = FunctionRouter::new(
@@ -644,7 +618,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database,
             key_broker,
             isolate_functions,
-            analyze_isolate,
             node_actions,
             module_cache,
             modules_storage,
@@ -661,7 +634,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
-        self.analyze_isolate.shutdown().await?;
         self.node_actions.shutdown();
         Ok(())
     }
@@ -1477,7 +1449,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_app_definitions(
                 app_definition,
                 component_definitions,
@@ -1497,7 +1470,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         args: BTreeMap<Identifier, Resource>,
         name: ComponentName,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_component_initializer(evaluated_definitions, path, definition, args, name)
             .await
     }
@@ -1667,7 +1641,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<DatabaseSchema> {
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_schema(schema_bundle, source_map, rng_seed, unix_timestamp)
             .await
     }
@@ -1679,7 +1654,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<AuthConfig> {
         environment_variables.extend(self.system_env_vars.clone());
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_auth_config(auth_config_bundle, source_map, environment_variables)
             .await
     }

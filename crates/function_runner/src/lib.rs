@@ -4,17 +4,30 @@
 #![feature(try_blocks)]
 #![feature(lint_reasons)]
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::Arc,
 };
 
 use async_trait::async_trait;
 use common::{
+    bootstrap_model::components::definition::ComponentDefinitionMetadata,
+    components::{
+        ComponentDefinitionPath,
+        ComponentName,
+        Resource,
+    },
     document::DocumentUpdate,
     errors::JsError,
     execution_context::ExecutionContext,
     log_lines::LogLine,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
+    schemas::DatabaseSchema,
     types::{
         IndexId,
         RepeatableTimestamp,
@@ -31,6 +44,8 @@ use database::{
 use imbl::OrdMap;
 use isolate::{
     ActionCallbacks,
+    AuthConfig,
+    EvaluateAppDefinitionsResult,
     FunctionOutcome,
 };
 use keybroker::Identity;
@@ -40,7 +55,11 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::module_versions::AnalyzedModule,
+    modules::module_versions::{
+        AnalyzedModule,
+        ModuleSource,
+        SourceMap,
+    },
     udf_config::types::UdfConfig,
 };
 #[cfg(any(test, feature = "testing"))]
@@ -56,6 +75,7 @@ use sync_types::{
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageStats;
 use value::{
+    identifier::Identifier,
     ResolvedDocumentId,
     TabletId,
 };
@@ -92,6 +112,39 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>;
+
+    async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult>;
+
+    async fn evaluate_component_initializer(
+        &self,
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>>;
+
+    async fn evaluate_schema(
+        &self,
+        schema_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
+    ) -> anyhow::Result<DatabaseSchema>;
+
+    async fn evaluate_auth_config(
+        &self,
+        auth_config_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    ) -> anyhow::Result<AuthConfig>;
 
     /// Set the action callbacks. Only used for InProcessFunctionRunner to break
     /// a reference cycle between ApplicationFunctionRunner and dyn

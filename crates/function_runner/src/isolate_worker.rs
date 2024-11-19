@@ -5,7 +5,6 @@ use async_trait::async_trait;
 #[cfg(any(test, feature = "testing"))]
 use common::pause::PauseClient;
 use common::{
-    errors::report_error,
     runtime::Runtime,
     sync::oneshot_receiver_closed,
     types::UdfType,
@@ -22,6 +21,12 @@ use isolate::{
     environment::{
         action::ActionEnvironment,
         analyze::AnalyzeEnvironment,
+        auth_config::AuthConfigEnvironment,
+        component_definitions::{
+            AppDefinitionEvaluator,
+            ComponentInitializerEvaluator,
+        },
+        schema::SchemaEnvironment,
         udf::DatabaseUdfEnvironment,
     },
     isolate::Isolate,
@@ -246,11 +251,80 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 let _ = response.send(r);
                 format!("Http: {udf_path:?}")
             },
-            _ => {
-                report_error(&mut anyhow::anyhow!(
-                    "Unsupported request sent to funrun isolate",
-                ));
-                "Unsupported request".to_string()
+            RequestType::EvaluateSchema {
+                schema_bundle,
+                source_map,
+                rng_seed,
+                unix_timestamp,
+                response,
+            } => {
+                let r = SchemaEnvironment::evaluate_schema(
+                    client_id,
+                    isolate,
+                    schema_bundle,
+                    source_map,
+                    rng_seed,
+                    unix_timestamp,
+                )
+                .await;
+
+                let _ = response.send(r);
+                "EvaluateSchema".to_string()
+            },
+            RequestType::EvaluateAuthConfig {
+                auth_config_bundle,
+                source_map,
+                environment_variables,
+                response,
+            } => {
+                let r = AuthConfigEnvironment::evaluate_auth_config(
+                    client_id,
+                    isolate,
+                    auth_config_bundle,
+                    source_map,
+                    environment_variables,
+                )
+                .await;
+                let _ = response.send(r);
+                "EvaluateAuthConfig".to_string()
+            },
+            RequestType::EvaluateAppDefinitions {
+                app_definition,
+                component_definitions,
+                dependency_graph,
+                environment_variables,
+                system_env_vars,
+                response,
+            } => {
+                let env = AppDefinitionEvaluator::new(
+                    app_definition,
+                    component_definitions,
+                    dependency_graph,
+                    environment_variables,
+                    system_env_vars,
+                );
+                let r = env.evaluate(client_id, isolate).await;
+                let _ = response.send(r);
+                "EvaluateAppDefinitions".to_string()
+            },
+            RequestType::EvaluateComponentInitializer {
+                evaluated_definitions,
+                path,
+                definition,
+                args,
+                name,
+                response,
+            } => {
+                let env = ComponentInitializerEvaluator::new(
+                    evaluated_definitions,
+                    path,
+                    definition,
+                    args,
+                    name,
+                );
+                let r = env.evaluate(client_id, isolate).await;
+                let _ = response.send(r);
+                "EvaluateComponentInitializer".to_string()
             },
         }
     }

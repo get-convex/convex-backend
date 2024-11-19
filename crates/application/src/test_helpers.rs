@@ -285,7 +285,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             database.usage_counter(),
             kb.clone(),
             DEV_INSTANCE_NAME.into(),
-            DEV_SECRET.try_into()?,
             function_runner,
             convex_origin,
             convex_site,

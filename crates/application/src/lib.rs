@@ -156,7 +156,6 @@ use isolate::{
 };
 use keybroker::{
     Identity,
-    InstanceSecret,
     KeyBroker,
 };
 use maplit::btreemap;
@@ -545,7 +544,6 @@ impl<RT: Runtime> Application<RT> {
         usage_tracking: UsageCounter,
         key_broker: KeyBroker,
         instance_name: String,
-        instance_secret: InstanceSecret,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
@@ -613,8 +611,6 @@ impl<RT: Runtime> Application<RT> {
             log_sender.clone(),
         );
         let runner = Arc::new(ApplicationFunctionRunner::new(
-            instance_name.clone(),
-            instance_secret,
             runtime.clone(),
             database.clone(),
             key_broker.clone(),

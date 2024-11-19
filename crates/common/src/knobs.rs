@@ -663,18 +663,6 @@ pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
 /// 0 -> default (number of cores)
 pub static V8_THREADS: LazyLock<u32> = LazyLock::new(|| env_config("V8_THREADS", 0));
 
-/// Cap on the number of active isolate execution threads.
-pub static UDF_ISOLATE_MAX_EXEC_THREADS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "UDF_ISOLATE_MAX_EXEC_THREADS",
-        if cfg!(any(test, feature = "testing")) {
-            2
-        } else {
-            16
-        },
-    )
-});
-
 /// If false, each UDF runs in its own isolate with its own heap.
 /// If true, each UDF runs in the same isolate in its own context, sharing a
 /// heap.
