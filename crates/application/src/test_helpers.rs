@@ -42,7 +42,10 @@ use database::{
     ShutdownSignal,
     Transaction,
 };
-use events::usage::NoOpUsageEventLogger;
+use events::usage::{
+    NoOpUsageEventLogger,
+    UsageEventLogger,
+};
 use file_storage::{
     FileStorage,
     TransactionalFileStorage,
@@ -121,6 +124,7 @@ pub struct ApplicationFixtureArgs {
     pub tp: Option<TestPersistence>,
     pub snapshot_import_pause_client: Option<PauseClient>,
     pub scheduled_jobs_pause_client: PauseClient,
+    pub event_logger: Option<Arc<dyn UsageEventLogger>>,
 }
 
 impl ApplicationFixtureArgs {
@@ -141,6 +145,13 @@ impl ApplicationFixtureArgs {
             ..Default::default()
         };
         (args, pause_controller)
+    }
+
+    pub fn with_event_logger(event_logger: Arc<dyn UsageEventLogger>) -> Self {
+        Self {
+            event_logger: Some(event_logger),
+            ..Default::default()
+        }
     }
 }
 
@@ -201,7 +212,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             searcher.clone(),
             ShutdownSignal::panic(),
             virtual_system_mapping(),
-            Arc::new(NoOpUsageEventLogger),
+            args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger)),
         )
         .await?;
         initialize_application_system_tables(&database).await?;

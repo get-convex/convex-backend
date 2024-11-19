@@ -78,7 +78,9 @@ use url::Url;
 use usage_tracking::{
     AggregatedFunctionUsageStats,
     CallType,
+    FunctionUsageStats,
     FunctionUsageTracker,
+    OccInfo,
     UsageCounter,
 };
 use value::{
@@ -715,7 +717,24 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         execution_time: Duration,
         caller: FunctionCaller,
         context: ExecutionContext,
+        table_name: Option<String>,
+        document_id: Option<String>,
+        retry_count: u64,
     ) {
+        self.usage_tracking.track_call(
+            UdfIdentifier::Function(outcome.path.clone()),
+            context.execution_id.clone(),
+            CallType::Mutation {
+                occ_info: Some(OccInfo {
+                    table_name,
+                    document_id,
+                    retry_count,
+                }),
+            },
+            // This track call is only to keep track of OCC error metadata.
+            // Usage states across all retries are tracked in the `log_mutation` call.
+            FunctionUsageStats::default(),
+        );
         self._log_mutation(
             outcome,
             tables_touched,
@@ -742,7 +761,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
-                    CallType::Mutation,
+                    CallType::Mutation { occ_info: None },
                     usage_stats,
                 );
                 aggregated

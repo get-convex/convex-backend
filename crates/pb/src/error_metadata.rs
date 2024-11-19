@@ -10,6 +10,7 @@ use prost::Message;
 use crate::errors::{
     ErrorCode as ErrorCodeProto,
     ErrorMetadata as ErrorMetadataProto,
+    OccInfo as OccInfoProto,
     StatusDetails as StatusDetailsProto,
 };
 
@@ -24,7 +25,7 @@ impl From<ErrorCode> for ErrorCodeProto {
             ErrorCode::RateLimited => ErrorCodeProto::RateLimited,
             ErrorCode::Overloaded => ErrorCodeProto::Overloaded,
             ErrorCode::RejectedBeforeExecution => ErrorCodeProto::RejectedBeforeExecution,
-            ErrorCode::OCC => ErrorCodeProto::Occ,
+            ErrorCode::OCC { .. } => ErrorCodeProto::Occ,
             ErrorCode::PaginationLimit => ErrorCodeProto::PaginationLimit,
             ErrorCode::OutOfRetention => ErrorCodeProto::OutOfRetention,
             ErrorCode::OperationalInternalServerError => {
@@ -46,7 +47,10 @@ impl From<ErrorCodeProto> for ErrorCode {
             ErrorCodeProto::RateLimited => ErrorCode::RateLimited,
             ErrorCodeProto::Overloaded => ErrorCode::Overloaded,
             ErrorCodeProto::RejectedBeforeExecution => ErrorCode::RejectedBeforeExecution,
-            ErrorCodeProto::Occ => ErrorCode::OCC,
+            ErrorCodeProto::Occ => ErrorCode::OCC {
+                table_name: None,
+                document_id: None,
+            },
             ErrorCodeProto::PaginationLimit => ErrorCode::PaginationLimit,
             ErrorCodeProto::OutOfRetention => ErrorCode::OutOfRetention,
             ErrorCodeProto::OperationalInternalServerError => {
@@ -60,9 +64,19 @@ impl From<ErrorCodeProto> for ErrorCode {
 impl From<ErrorMetadata> for ErrorMetadataProto {
     fn from(metadata: ErrorMetadata) -> Self {
         ErrorMetadataProto {
-            code: ErrorCodeProto::from(metadata.code).into(),
+            code: ErrorCodeProto::from(metadata.code.clone()).into(),
             short_msg: Some(metadata.short_msg.to_string()),
             msg: Some(metadata.msg.to_string()),
+            occ_info: match metadata.code {
+                ErrorCode::OCC {
+                    table_name,
+                    document_id,
+                } => Some(OccInfoProto {
+                    table_name,
+                    document_id,
+                }),
+                _ => None,
+            },
         }
     }
 }

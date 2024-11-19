@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use common::{
     components::{
@@ -14,6 +16,13 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadataAnyhowExt;
+use events::{
+    testing::BasicTestUsageEventLogger,
+    usage::{
+        FunctionCallUsageFields,
+        UsageEvent,
+    },
+};
 use keybroker::Identity;
 use runtime::testing::TestRuntime;
 use serde_json::{
@@ -22,7 +31,10 @@ use serde_json::{
 };
 
 use crate::{
-    test_helpers::ApplicationTestExt,
+    test_helpers::{
+        ApplicationFixtureArgs,
+        ApplicationTestExt,
+    },
     Application,
 };
 
@@ -87,7 +99,12 @@ async fn test_mutation(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_mutation_occ_fail(rt: TestRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+    let logger = BasicTestUsageEventLogger::new();
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_event_logger(Arc::new(logger.clone())),
+    )
+    .await?;
     application.load_udf_tests_modules().await?;
 
     let (mut pause, pause_client) = PauseController::new(["retry_mutation_loop_start"]);
@@ -110,12 +127,63 @@ async fn test_mutation_occ_fail(rt: TestRuntime) -> anyhow::Result<()> {
     };
     let err = futures::try_join!(fut1, fut2).unwrap_err();
     assert!(err.is_occ());
+
+    // Test that the usage events look good.
+    let function_call_events: Vec<FunctionCallUsageFields> = logger
+        .collect()
+        .into_iter()
+        .filter_map(|event| {
+            if let UsageEvent::FunctionCall { fields } = event {
+                if fields.udf_id == "basic.js:insertAndCount" {
+                    Some(fields)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    // One for each of the conflicting transactions.
+    assert_eq!(
+        function_call_events.len(),
+        (*UDF_EXECUTOR_OCC_MAX_RETRIES + 1) * 2,
+    );
+    for (index, event) in function_call_events.iter().enumerate() {
+        if index % 2 == 0 {
+            // The first event, and every other event after that should not be an OCC.
+            assert!(!event.is_occ);
+            assert!(event.is_tracked);
+            assert!(event.occ_table_name.is_none());
+            assert!(event.occ_document_id.is_none());
+            assert!(event.occ_retry_count.is_none());
+        } else {
+            // The second event, and every other event after that should be an OCC.
+            assert!(event.is_occ);
+            assert!(!event.is_tracked);
+            // Only the second OCC will have a table name and document id.
+            if index > 1 {
+                assert!(event.occ_table_name.is_some());
+                assert!(event.occ_document_id.is_some());
+            } else {
+                assert!(event.occ_table_name.is_none());
+                assert!(event.occ_document_id.is_none());
+            }
+            assert_eq!(event.occ_retry_count.unwrap() as usize, index / 2);
+        }
+    }
     Ok(())
 }
 
 #[convex_macro::test_runtime]
 async fn test_mutation_occ_success(rt: TestRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+    let logger = BasicTestUsageEventLogger::new();
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_event_logger(Arc::new(logger.clone())),
+    )
+    .await?;
     application.load_udf_tests_modules().await?;
 
     let (mut pause, pause_client) = PauseController::new(["retry_mutation_loop_start"]);
@@ -144,6 +212,52 @@ async fn test_mutation_occ_success(rt: TestRuntime) -> anyhow::Result<()> {
     // one for each of the conflicting transactions + one more for the success at
     // the end
     assert_eq!(count, *UDF_EXECUTOR_OCC_MAX_RETRIES + 1);
+
+    // Test that the usage events look good.
+    let function_call_events: Vec<FunctionCallUsageFields> = logger
+        .collect()
+        .into_iter()
+        .filter_map(|event| {
+            if let UsageEvent::FunctionCall { fields } = event {
+                if fields.udf_id == "basic.js:insertAndCount" {
+                    Some(fields)
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    assert_eq!(
+        function_call_events.len(),
+        *UDF_EXECUTOR_OCC_MAX_RETRIES * 2 + 1,
+    );
+    for (index, event) in function_call_events.iter().enumerate() {
+        println!("{:?}", event);
+        if index % 2 == 0 {
+            // The first event, and every other event after that should not be an OCC.
+            assert!(!event.is_occ);
+            assert!(event.is_tracked);
+            assert!(event.occ_table_name.is_none());
+            assert!(event.occ_document_id.is_none());
+            assert!(event.occ_retry_count.is_none());
+        } else {
+            // The second event, and every other event after that should be an OCC.
+            assert!(event.is_occ);
+            assert!(!event.is_tracked);
+            // Only the second OCC will have a table name and document id.
+            if index > 1 {
+                assert!(event.occ_table_name.is_some());
+                assert!(event.occ_document_id.is_some());
+            } else {
+                assert!(event.occ_table_name.is_none());
+                assert!(event.occ_document_id.is_none());
+            }
+            assert_eq!(event.occ_retry_count.unwrap() as usize, index / 2);
+        }
+    }
     Ok(())
 }
 

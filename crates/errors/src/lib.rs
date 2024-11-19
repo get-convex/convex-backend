@@ -40,7 +40,7 @@ pub struct ErrorMetadata {
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ErrorCode {
     BadRequest,
     Unauthenticated,
@@ -51,7 +51,10 @@ pub enum ErrorCode {
 
     Overloaded,
     RejectedBeforeExecution,
-    OCC,
+    OCC {
+        table_name: Option<String>,
+        document_id: Option<String>,
+    },
     PaginationLimit,
     OutOfRetention,
 
@@ -243,22 +246,34 @@ impl ErrorMetadata {
     /// These come from sqlx, or are caused by OCCs on system tables.
     pub fn system_occ() -> Self {
         Self {
-            code: ErrorCode::OCC,
+            code: ErrorCode::OCC {
+                table_name: None,
+                document_id: None,
+            },
             short_msg: OCC_ERROR.into(),
             msg: OCC_ERROR_MSG.into(),
         }
     }
 
     /// User-caused Optimistic Concurrency Control / Commit Race Error
-    pub fn user_occ(table_name: Option<String>, occ_write_source: Option<String>) -> Self {
+    pub fn user_occ(
+        table_name: Option<String>,
+        document_id: Option<String>,
+        occ_write_source: Option<String>,
+    ) -> Self {
         let table_description = table_name
+            .clone()
             .map(|name| format!("the \"{name}\" table"))
             .unwrap_or("some table".to_owned());
         let write_source_description = occ_write_source
+            .clone()
             .map(|source| format!("{}. ", source))
             .unwrap_or_default();
         Self {
-            code: ErrorCode::OCC,
+            code: ErrorCode::OCC {
+                table_name,
+                document_id,
+            },
             short_msg: OCC_ERROR.into(),
             msg: format!(
                 "Documents read from or written to {table_description} \
@@ -312,7 +327,7 @@ impl ErrorMetadata {
     }
 
     pub fn is_occ(&self) -> bool {
-        self.code == ErrorCode::OCC
+        matches!(self.code, ErrorCode::OCC { .. })
     }
 
     pub fn is_pagination_limit(&self) -> bool {
@@ -368,7 +383,7 @@ impl ErrorMetadata {
             | ErrorCode::ClientDisconnect
             | ErrorCode::NotFound
             | ErrorCode::RateLimited
-            | ErrorCode::OCC
+            | ErrorCode::OCC { .. }
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
             | ErrorCode::RejectedBeforeExecution
@@ -397,7 +412,7 @@ impl ErrorMetadata {
 
             // 1% sampling for OCC, since we only really care about the details if they
             // happen at high volume.
-            ErrorCode::OCC => Some((sentry::Level::Warning, Some(0.01))),
+            ErrorCode::OCC { .. } => Some((sentry::Level::Warning, Some(0.01))),
         }
     }
 
@@ -411,7 +426,7 @@ impl ErrorMetadata {
             | ErrorCode::MisdirectedRequest
             | ErrorCode::RateLimited => None,
             ErrorCode::NotFound => Some("not_found"),
-            ErrorCode::OCC => Some("occ"),
+            ErrorCode::OCC { .. } => Some("occ"),
             ErrorCode::OutOfRetention => Some("out_of_retention"),
             ErrorCode::Overloaded => Some("overloaded"),
             ErrorCode::RejectedBeforeExecution => Some("rejected_before_execution"),
@@ -431,7 +446,7 @@ impl ErrorMetadata {
             ErrorCode::RateLimited => Some(&crate::metrics::RATE_LIMITED_ERROR_TOTAL),
             ErrorCode::Unauthenticated => Some(&crate::metrics::SYNC_AUTH_ERROR_TOTAL),
             ErrorCode::Forbidden => Some(&crate::metrics::FORBIDDEN_ERROR_TOTAL),
-            ErrorCode::OCC => Some(&crate::metrics::COMMIT_RACE_TOTAL),
+            ErrorCode::OCC { .. } => Some(&crate::metrics::COMMIT_RACE_TOTAL),
             ErrorCode::NotFound => None,
             ErrorCode::PaginationLimit => None,
             ErrorCode::OutOfRetention => None,
@@ -448,7 +463,7 @@ impl ErrorMetadata {
             | ErrorCode::PaginationLimit
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect => Some(CloseCode::Normal),
-            ErrorCode::OCC
+            ErrorCode::OCC { .. }
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
             | ErrorCode::RateLimited
@@ -484,7 +499,7 @@ impl ErrorCode {
             ErrorCode::NotFound => StatusCode::NOT_FOUND,
             ErrorCode::RateLimited => StatusCode::TOO_MANY_REQUESTS,
             ErrorCode::OperationalInternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
-            ErrorCode::OCC
+            ErrorCode::OCC { .. }
             | ErrorCode::OutOfRetention
             | ErrorCode::Overloaded
             | ErrorCode::RejectedBeforeExecution => StatusCode::SERVICE_UNAVAILABLE,
@@ -503,7 +518,7 @@ impl ErrorCode {
             ErrorCode::Overloaded | ErrorCode::RejectedBeforeExecution | ErrorCode::RateLimited => {
                 tonic::Code::ResourceExhausted
             },
-            ErrorCode::OCC => tonic::Code::ResourceExhausted,
+            ErrorCode::OCC { .. } => tonic::Code::ResourceExhausted,
             ErrorCode::PaginationLimit => tonic::Code::InvalidArgument,
             ErrorCode::OutOfRetention => tonic::Code::OutOfRange,
             ErrorCode::OperationalInternalServerError => tonic::Code::Internal,
@@ -529,6 +544,7 @@ impl ErrorCode {
 
 pub trait ErrorMetadataAnyhowExt {
     fn is_occ(&self) -> bool;
+    fn occ_info(&self) -> Option<(Option<String>, Option<String>)>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
     fn is_out_of_retention(&self) -> bool;
@@ -562,6 +578,19 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
             return e.is_occ();
         }
         false
+    }
+
+    fn occ_info(&self) -> Option<(Option<String>, Option<String>)> {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return match &e.code {
+                ErrorCode::OCC {
+                    table_name,
+                    document_id,
+                } => Some((table_name.clone(), document_id.clone())),
+                _ => None,
+            };
+        }
+        None
     }
 
     /// Returns true if error is tagged as PaginationLimit
@@ -824,7 +853,7 @@ mod proptest {
                 ErrorCode::PaginationLimit => {
                     ErrorMetadata::pagination_limit("pagination", "limit")
                 },
-                ErrorCode::OCC => ErrorMetadata::system_occ(),
+                ErrorCode::OCC { .. } => ErrorMetadata::system_occ(),
                 ErrorCode::OutOfRetention => ErrorMetadata::out_of_retention(),
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),
@@ -870,7 +899,7 @@ mod tests {
                 if err.code == ErrorCode::Overloaded ||
                     err.code == ErrorCode::RejectedBeforeExecution {
                     // Overloaded messages come with custom messaging
-                } else if err.code == ErrorCode::OCC {
+                } else if matches!(err.code, ErrorCode::OCC{ .. }) {
                     assert_eq!(err.short_msg, OCC_ERROR);
                 } else {
                     // User is informed that they are not responsible.

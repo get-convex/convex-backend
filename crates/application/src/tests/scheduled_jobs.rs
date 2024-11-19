@@ -357,7 +357,7 @@ async fn test_scheduled_job_retry(rt: TestRuntime) -> anyhow::Result<()> {
         .wait_for_blocked(SCHEDULED_JOB_COMMITTING)
         .await
     {
-        pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(None, None)));
+        pause_guard.inject_error(anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None)));
         pause_guard.unpause();
     }
 

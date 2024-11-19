@@ -90,38 +90,29 @@ pub struct UsageCounterState {
 impl UsageCounterState {
     fn record_event(&mut self, event: UsageEvent) {
         match event {
-            UsageEvent::FunctionCall {
-                component_path,
-                udf_id,
-                tag,
-                memory_megabytes,
-                duration_millis,
-                environment,
-                is_tracked,
-                ..
-            } => {
-                if is_tracked {
-                    let fn_name = if let Some(mut component) = component_path {
+            UsageEvent::FunctionCall { fields } => {
+                if fields.is_tracked {
+                    let fn_name = if let Some(mut component) = fields.component_path {
                         component.push('/');
-                        component.push_str(&udf_id);
+                        component.push_str(&fields.udf_id);
                         component
                     } else {
-                        udf_id.clone()
+                        fields.udf_id.clone()
                     };
                     *self.recent_calls.entry(fn_name).or_default() += 1;
-                    *self.recent_calls_by_tag.entry(tag).or_default() += 1;
+                    *self.recent_calls_by_tag.entry(fields.tag).or_default() += 1;
 
                     // Convert into MB-milliseconds of compute time
-                    let value = duration_millis * memory_megabytes;
-                    if environment == ModuleEnvironment::Isolate.to_string() {
+                    let value = fields.duration_millis * fields.memory_megabytes;
+                    if fields.environment == ModuleEnvironment::Isolate.to_string() {
                         *self
                             .recent_v8_action_compute_time
-                            .entry(udf_id)
+                            .entry(fields.udf_id)
                             .or_default() += value;
-                    } else if environment == ModuleEnvironment::Node.to_string() {
+                    } else if fields.environment == ModuleEnvironment::Node.to_string() {
                         *self
                             .recent_node_action_compute_time
-                            .entry(udf_id)
+                            .entry(fields.udf_id)
                             .or_default() += value;
                     }
                 }
@@ -185,5 +176,43 @@ impl UsageCounterState {
             } => todo!(),
             UsageEvent::CurrentDocumentCounts { tables: _ } => todo!(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BasicTestUsageEventLogger {
+    state: Arc<Mutex<Vec<UsageEvent>>>,
+}
+
+impl BasicTestUsageEventLogger {
+    pub fn new() -> Self {
+        let state = Arc::new(Mutex::new(vec![]));
+        Self { state }
+    }
+
+    pub fn record(&mut self, events: Vec<UsageEvent>) {
+        let mut state = self.state.lock();
+        state.extend(events);
+    }
+
+    pub fn collect(&self) -> Vec<UsageEvent> {
+        let mut state = self.state.lock();
+        std::mem::take(&mut *state)
+    }
+}
+
+#[async_trait]
+impl UsageEventLogger for BasicTestUsageEventLogger {
+    fn record(&self, events: Vec<UsageEvent>) {
+        let mut state = self.state.lock();
+        state.extend(events);
+    }
+
+    async fn record_async(&self, events: Vec<UsageEvent>) {
+        self.record(events)
+    }
+
+    async fn shutdown(&self) -> anyhow::Result<()> {
+        Ok(())
     }
 }

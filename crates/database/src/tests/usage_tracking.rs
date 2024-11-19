@@ -105,7 +105,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     fixtures.db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
-        CallType::Mutation,
+        CallType::Mutation { occ_info: None },
         tx_usage.gather_user_stats(),
     );
 
@@ -267,7 +267,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
-        CallType::Mutation,
+        CallType::Mutation { occ_info: None },
         tx_usage.gather_user_stats(),
     );
 
@@ -292,7 +292,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
-        CallType::Mutation,
+        CallType::Mutation { occ_info: None },
         tx_usage.gather_user_stats(),
     );
 
@@ -334,7 +334,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
-        CallType::Mutation,
+        CallType::Mutation { occ_info: None },
         tx_usage.gather_user_stats(),
     );
 
@@ -358,7 +358,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
-        CallType::Mutation,
+        CallType::Mutation { occ_info: None },
         tx_usage.gather_user_stats(),
     );
 
@@ -385,7 +385,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
-        CallType::Mutation,
+        CallType::Mutation { occ_info: None },
         tx_usage.gather_user_stats(),
     );
 

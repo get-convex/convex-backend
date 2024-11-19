@@ -18,10 +18,16 @@ enum ErrorCode {
   MISDIRECTED_REQUEST = 12;
 }
 
+message OccInfo {
+  optional string table_name = 1;
+  optional string document_id = 2;
+}
+
 message ErrorMetadata {
   ErrorCode code = 1;
   optional string short_msg = 2;
   optional string msg = 3;
+  optional OccInfo occ_info = 4;
 }
 
 // The message we put in tonic::Status details.

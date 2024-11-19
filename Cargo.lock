@@ -2285,6 +2285,7 @@ dependencies = [
  "proptest",
  "proptest-derive",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

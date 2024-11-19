@@ -20,6 +20,7 @@ use common::{
     },
 };
 use events::usage::{
+    FunctionCallUsageFields,
     UsageEvent,
     UsageEventLogger,
 };
@@ -77,6 +78,12 @@ impl UsageCounter {
     }
 }
 
+pub struct OccInfo {
+    pub table_name: Option<String>,
+    pub document_id: Option<String>,
+    pub retry_count: u64,
+}
+
 pub enum CallType {
     Action {
         env: ModuleEnvironment,
@@ -93,7 +100,9 @@ pub enum CallType {
     Export,
     CachedQuery,
     UncachedQuery,
-    Mutation,
+    Mutation {
+        occ_info: Option<OccInfo>,
+    },
     Import,
     CloudBackup,
     CloudRestore,
@@ -106,11 +115,43 @@ impl CallType {
             Self::Export => "export",
             Self::CachedQuery => "cached_query",
             Self::UncachedQuery => "uncached_query",
-            Self::Mutation => "mutation",
+            Self::Mutation { .. } => "mutation",
             Self::HttpAction { .. } => "http_action",
             Self::Import => "import",
             Self::CloudBackup => "cloud_backup",
             Self::CloudRestore => "cloud_restore",
+        }
+    }
+
+    fn is_occ(&self) -> bool {
+        match self {
+            Self::Mutation { occ_info, .. } => occ_info.is_some(),
+            _ => false,
+        }
+    }
+
+    fn occ_document_id(&self) -> Option<String> {
+        match self {
+            Self::Mutation { occ_info } => {
+                occ_info.as_ref().and_then(|info| info.document_id.clone())
+            },
+            _ => None,
+        }
+    }
+
+    fn occ_table_name(&self) -> Option<String> {
+        match self {
+            Self::Mutation { occ_info, .. } => {
+                occ_info.as_ref().and_then(|info| info.table_name.clone())
+            },
+            _ => None,
+        }
+    }
+
+    fn occ_retry_count(&self) -> Option<u64> {
+        match self {
+            Self::Mutation { occ_info, .. } => occ_info.as_ref().map(|info| info.retry_count),
+            _ => None,
         }
     }
 
@@ -165,23 +206,32 @@ impl UsageCounter {
 
         // Because system udfs might cause usage before any data is added by the user,
         // we do not count their calls. We do count their bandwidth.
-        let (should_track_calls, udf_id_type) = match &udf_path {
+        let (should_track_calls_by_udf_path, udf_id_type) = match &udf_path {
             UdfIdentifier::Function(path) => (!path.udf_path.is_system(), "function"),
             UdfIdentifier::Http(_) => (true, "http"),
             UdfIdentifier::Cli(_) => (false, "cli"),
         };
+
+        let should_track_calls = should_track_calls_by_udf_path && !call_type.is_occ();
+
         let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();
         usage_metrics.push(UsageEvent::FunctionCall {
-            id: execution_id.to_string(),
-            component_path,
-            udf_id,
-            udf_id_type: udf_id_type.to_string(),
-            tag: call_type.tag().to_string(),
-            memory_megabytes: call_type.memory_megabytes(),
-            duration_millis: call_type.duration_millis(),
-            environment: call_type.environment(),
-            is_tracked: should_track_calls,
-            response_sha256: call_type.response_sha256(),
+            fields: FunctionCallUsageFields {
+                id: execution_id.to_string(),
+                component_path,
+                udf_id,
+                udf_id_type: udf_id_type.to_string(),
+                tag: call_type.tag().to_string(),
+                memory_megabytes: call_type.memory_megabytes(),
+                duration_millis: call_type.duration_millis(),
+                environment: call_type.environment(),
+                is_tracked: should_track_calls,
+                response_sha256: call_type.response_sha256(),
+                is_occ: call_type.is_occ(),
+                occ_table_name: call_type.occ_table_name(),
+                occ_document_id: call_type.occ_document_id(),
+                occ_retry_count: call_type.occ_retry_count(),
+            },
         });
 
         // We always track bandwidth, even for system udfs.

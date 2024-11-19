@@ -12,38 +12,57 @@ pub enum UdfType {
     Mutation,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct FunctionCallUsageFields {
+    /// The ExecutionId of a particular UDF
+    pub id: String,
+    /// The path of a component. Uniquely identifies a component in a
+    /// project.
+    pub component_path: Option<String>,
+    /// The path / name of the UDF
+    pub udf_id: String,
+    /// The type of the udf identifier (http, function, cli)
+    pub udf_id_type: String,
+    /// "storage", "mutation", "cached_query" etc.
+    pub tag: String,
+    /// The memory used in megabytes by the UDF, or 0 if we don't track
+    /// memory for this tag type.
+    pub memory_megabytes: u64,
+    /// The duration in milliseconds of the UDF, or 0 if we don't track
+    /// execution time for this tag type.
+    pub duration_millis: u64,
+    /// Whether this was run in V8 or Node, or "unknown".
+    pub environment: String,
+    /// True if we think it's a call we should track in usage. Right now
+    /// this is basically any UDF that's neither system nor
+    /// triggered by the CLI.
+    /// Function calls events that are OCCs are also not tracked.
+    /// This could be derived from path and
+    /// udf type, but it seems better to be explicit)
+    pub is_tracked: bool,
+    /// The sha256 of the response body. Only set for HTTP actions.
+    pub response_sha256: Option<String>,
+    /// Whether this function call resulted in an OCC.
+    pub is_occ: bool,
+    /// The name of the table that the OCC occurred on. Only set if is_occ is
+    /// true.
+    pub occ_table_name: Option<String>,
+    /// The document ID of the document that the OCC occurred on. Only set if
+    /// is_occ is true.
+    pub occ_document_id: Option<String>,
+    /// The retry number of the OCC. Only set if is_occ is true.
+    pub occ_retry_count: Option<u64>,
+}
+
 // TODO(CX-5845): Use proper serializable types for constants rather than
 // Strings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum UsageEvent {
     FunctionCall {
-        /// The ExecutionId of a particular UDF
-        id: String,
-        /// The path of a component. Uniquely identifies a component in a
-        /// project.
-        component_path: Option<String>,
-        /// The path / name of the UDF
-        udf_id: String,
-        /// The type of the udf identifier (http, function, cli)
-        udf_id_type: String,
-        /// "storage", "mutation", "cached_query" etc.
-        tag: String,
-        /// The memory used in megabytes by the UDF, or 0 if we don't track
-        /// memory for this tag type.
-        memory_megabytes: u64,
-        /// The duration in milliseconds of the UDF, or 0 if we don't track
-        /// execution time for this tag type.
-        duration_millis: u64,
-        /// Whether this was run in V8 or Node, or "unknown".
-        environment: String,
-        /// True if we think it's a call we should track in usage. Right now
-        /// this is basically any UDF that's neither system nor
-        /// triggered by the CLI . This could be derived from path and
-        /// udf type, but it seems better to be explicit)
-        is_tracked: bool,
-        /// The sha256 of the response body. Only set for HTTP actions.
-        response_sha256: Option<String>,
+        #[serde(flatten)]
+        fields: FunctionCallUsageFields,
     },
     /// A set of storage calls originating from a single user function
     /// invocation.
@@ -175,5 +194,120 @@ impl UsageEventLogger for NoOpUsageEventLogger {
 
     async fn shutdown(&self) -> anyhow::Result<()> {
         Ok(())
+    }
+}
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn test_function_call_serialization() {
+        let event = UsageEvent::FunctionCall {
+            fields: FunctionCallUsageFields {
+                id: "123".to_string(),
+                component_path: Some("component/path".to_string()),
+                udf_id: "udf_id".to_string(),
+                udf_id_type: "http".to_string(),
+                tag: "tag".to_string(),
+                memory_megabytes: 100,
+                duration_millis: 200,
+                environment: "Node".to_string(),
+                is_tracked: true,
+                response_sha256: Some("sha256".to_string()),
+                is_occ: false,
+                occ_table_name: None,
+                occ_document_id: None,
+                occ_retry_count: None,
+            },
+        };
+
+        let output = serde_json::to_string(&event).unwrap();
+        let expected_output = json!({"FunctionCall": {
+            "id": "123",
+            "component_path": "component/path",
+            "udf_id": "udf_id",
+            "udf_id_type": "http",
+            "tag": "tag",
+            "memory_megabytes": 100,
+            "duration_millis": 200,
+            "environment": "Node",
+            "is_tracked": true,
+            "response_sha256": "sha256",
+            "is_occ": false,
+            "occ_table_name": null,
+            "occ_document_id": null,
+            "occ_retry_count": null,
+        }})
+        .to_string();
+
+        assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn test_function_call_serialization_with_occ() {
+        let event = UsageEvent::FunctionCall {
+            fields: FunctionCallUsageFields {
+                id: "123".to_string(),
+                component_path: Some("component/path".to_string()),
+                udf_id: "udf_id".to_string(),
+                udf_id_type: "http".to_string(),
+                tag: "tag".to_string(),
+                memory_megabytes: 100,
+                duration_millis: 200,
+                environment: "Node".to_string(),
+                is_tracked: true,
+                response_sha256: Some("sha256".to_string()),
+                is_occ: true,
+                occ_table_name: Some("table_name".to_string()),
+                occ_document_id: Some("document_id".to_string()),
+                occ_retry_count: Some(1),
+            },
+        };
+
+        let output = serde_json::to_string(&event).unwrap();
+        let expected_output = json!({"FunctionCall": {
+            "id": "123",
+            "component_path": "component/path",
+            "udf_id": "udf_id",
+            "udf_id_type": "http",
+            "tag": "tag",
+            "memory_megabytes": 100,
+            "duration_millis": 200,
+            "environment": "Node",
+            "is_tracked": true,
+            "response_sha256": "sha256",
+            "is_occ": true,
+            "occ_table_name": "table_name",
+            "occ_document_id": "document_id",
+            "occ_retry_count": 1,
+        }})
+        .to_string();
+
+        assert_eq!(output, expected_output);
+    }
+
+    #[test]
+    fn test_function_storage_calls_serialization() {
+        let event = UsageEvent::FunctionStorageCalls {
+            id: "456".to_string(),
+            component_path: Some("component/path".to_string()),
+            udf_id: "udf_id".to_string(),
+            call: "call".to_string(),
+            count: 10,
+        };
+
+        let output = serde_json::to_string(&event).unwrap();
+        let expected_output = json!({"FunctionStorageCalls": {
+            "id": "456",
+            "component_path": "component/path",
+            "udf_id": "udf_id",
+            "call": "call",
+            "count": 10,
+        }})
+        .to_string();
+
+        assert_eq!(output, expected_output);
     }
 }

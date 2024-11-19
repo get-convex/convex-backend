@@ -795,6 +795,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             *UDF_EXECUTOR_OCC_MAX_BACKOFF,
         );
 
+        // Function usage is accumulated across retries. So if a function is retried due
+        // to OCC, we will continue to accumulate usage for the function.
         let usage_tracker = FunctionUsageTracker::new();
         loop {
             // Note that we use different context for every mutation attempt.
@@ -904,17 +906,32 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                  {udf_path_string:?} after {sleep:?}",
                             );
                             self.runtime.wait(sleep).await;
+                            let (table_name, document_id) = e.occ_info().unwrap_or((None, None));
+                            self.function_log.log_mutation_occ_error(
+                                outcome,
+                                stats,
+                                execution_time,
+                                caller.clone(),
+                                context.clone(),
+                                table_name,
+                                document_id,
+                                (backoff.failures() - 1) as u64,
+                            );
                             continue;
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
 
                         if e.is_occ() {
+                            let (table_name, document_id) = e.occ_info().unwrap_or((None, None));
                             self.function_log.log_mutation_occ_error(
                                 outcome,
                                 stats,
                                 execution_time,
                                 caller,
                                 context.clone(),
+                                table_name,
+                                document_id,
+                                backoff.failures().into(),
                             );
                         } else {
                             self.function_log.log_mutation_system_error(
