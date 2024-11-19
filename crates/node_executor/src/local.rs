@@ -228,6 +228,7 @@ mod tests {
         source_packages::upload_download::upload_package,
     };
     use runtime::prod::ProdRuntime;
+    use serde_json::json;
     use storage::{
         LocalDirStorage,
         Storage,
@@ -802,7 +803,7 @@ mod tests {
 async function invokeAction(func, requestId, argsStr) {
   throw new Error("unimplemented");
 }
-var actionGeneric = func => {
+var actionGeneric = (func) => {
   const q = func;
   if (q.isRegistered) {
     throw new Error("Function registered twice " + func);
@@ -811,19 +812,29 @@ var actionGeneric = func => {
   q.isAction = true;
   q.isPublic = true;
   q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);
+  q.exportArgs = () => `{ "type": "any" }`;
+  q.exportReturns = () => `null`;
   return q;
 };
-var internalActionGeneric = func => {
-    const q = func;
-    if (q.isRegistered) {
-      throw new Error("Function registered twice " + func);
-    }
-    q.isRegistered = true;
-    q.isAction = true;
-    q.isInternal = true;
-    q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);
-    return q;
-  };
+var internalActionGeneric = (func) => {
+  const q = func;
+  if (q.isRegistered) {
+    throw new Error("Function registered twice " + func);
+  }
+  q.isRegistered = true;
+  q.isAction = true;
+  q.isInternal = true;
+  q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);
+  q.exportArgs = () => `{ "type": "any" }`;
+  q.exportReturns = () => `null`;
+  return q;
+};
+var actionWithStringArgNamedAAndStringReturnValue = (func) => {
+  const q = actionGeneric(func);
+  q.exportArgs = () => `{"type": "object", "value": {"a": {"fieldType": {"type": "string"}, "optional": false}}}`;
+  q.exportReturns = () => `{"type": "string"}`;
+  return q;
+};
 var action = actionGeneric;
 var internalAction = internalActionGeneric;
 var hello = action(async ({}) => {
@@ -832,7 +843,15 @@ var hello = action(async ({}) => {
 var internalHello = internalAction(async ({}) => {
   console.log("analyze me pls");
 });
-export { hello, internalHello };
+var argsAndReturns = actionWithStringArgNamedAAndStringReturnValue(async ({}, { a }) => {
+  console.log("analyze me pls");
+  return a;
+});
+export {
+  argsAndReturns,
+  hello,
+  internalHello
+};
 "#;
 
     // Generated via `npx esbuild static_node_source.js --bundle --format=esm
@@ -841,8 +860,8 @@ export { hello, internalHello };
 {
   "version": 3,
   "sources": ["static_node_source.js"],
-  "sourcesContent": ["async function invokeAction(func, requestId, argsStr) {\n  throw new Error(\"unimplemented\");\n}\nvar actionGeneric = func => {\n  const q = func;\n  if (q.isRegistered) {\n    throw new Error(\"Function registered twice \" + func);\n  }\n  q.isRegistered = true;\n  q.isAction = true;\n  q.isPublic = true;\n  q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);\n  return q;\n};\nvar internalActionGeneric = func => {\n    const q = func;\n    if (q.isRegistered) {\n      throw new Error(\"Function registered twice \" + func);\n    }\n    q.isRegistered = true;\n    q.isAction = true;\n    q.isInternal = true;\n    q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);\n    return q;\n  };\nvar action = actionGeneric;\nvar internalAction = internalActionGeneric;\nvar hello = action(async ({}) => {\n  console.log(\"analyze me pls\");\n});\nvar internalHello = internalAction(async ({}) => {\n  console.log(\"analyze me pls\");\n});\nexport { hello, internalHello };\n"],
-  "mappings": ";AAAA,eAAe,aAAa,MAAM,WAAW,SAAS;AACpD,QAAM,IAAI,MAAM,eAAe;AACjC;AACA,IAAI,gBAAgB,UAAQ;AAC1B,QAAM,IAAI;AACV,MAAI,EAAE,cAAc;AAClB,UAAM,IAAI,MAAM,+BAA+B,IAAI;AAAA,EACrD;AACA,IAAE,eAAe;AACjB,IAAE,WAAW;AACb,IAAE,WAAW;AACb,IAAE,eAAe,CAAC,WAAW,YAAY,aAAa,MAAM,WAAW,OAAO;AAC9E,SAAO;AACT;AACA,IAAI,wBAAwB,UAAQ;AAChC,QAAM,IAAI;AACV,MAAI,EAAE,cAAc;AAClB,UAAM,IAAI,MAAM,+BAA+B,IAAI;AAAA,EACrD;AACA,IAAE,eAAe;AACjB,IAAE,WAAW;AACb,IAAE,aAAa;AACf,IAAE,eAAe,CAAC,WAAW,YAAY,aAAa,MAAM,WAAW,OAAO;AAC9E,SAAO;AACT;AACF,IAAI,SAAS;AACb,IAAI,iBAAiB;AACrB,IAAI,QAAQ,OAAO,OAAO,CAAC,MAAM;AAC/B,UAAQ,IAAI,gBAAgB;AAC9B,CAAC;AACD,IAAI,gBAAgB,eAAe,OAAO,CAAC,MAAM;AAC/C,UAAQ,IAAI,gBAAgB;AAC9B,CAAC;",
+  "sourcesContent": ["async function invokeAction(func, requestId, argsStr) {\n  throw new Error(\"unimplemented\");\n}\nvar actionGeneric = func => {\n  const q = func;\n  if (q.isRegistered) {\n    throw new Error(\"Function registered twice \" + func);\n  }\n  q.isRegistered = true;\n  q.isAction = true;\n  q.isPublic = true;\n  q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);\n  q.exportArgs =  () => `{ \"type\": \"any\" }`\n  q.exportReturns =  () => `null`\n  return q;\n};\nvar internalActionGeneric = func => {\n  const q = func;\n  if (q.isRegistered) {\n    throw new Error(\"Function registered twice \" + func);\n  }\n  q.isRegistered = true;\n  q.isAction = true;\n  q.isInternal = true;\n  q.invokeAction = (requestId, argsStr) => invokeAction(func, requestId, argsStr);\n  q.exportArgs =  () => `{ \"type\": \"any\" }`\n  q.exportReturns =  () => `null`\n  return q;\n};\nvar actionWithStringArgNamedAAndStringReturnValue = func => {\n  const q = actionGeneric(func);\n  q.exportArgs = () => `{\"type\": \"object\", \"value\": {\"a\": {\"fieldType\": {\"type\": \"string\"}, \"optional\": false}}}`\n  q.exportReturns = () => `{\"type\": \"string\"}`\n  return q;\n}\nvar action = actionGeneric;\nvar internalAction = internalActionGeneric;\nvar hello = action(async ({}) => {\n  console.log(\"analyze me pls\");\n});\nvar internalHello = internalAction(async ({}) => {\n  console.log(\"analyze me pls\");\n});\nconst argsAndReturns = actionWithStringArgNamedAAndStringReturnValue(async ({}, {a}) => {\n  console.log(\"analyze me pls\");\n  return a;\n});\nexport { argsAndReturns, hello, internalHello };\n"],
+  "mappings": ";AAAA,eAAe,aAAa,MAAM,WAAW,SAAS;AACpD,QAAM,IAAI,MAAM,eAAe;AACjC;AACA,IAAI,gBAAgB,UAAQ;AAC1B,QAAM,IAAI;AACV,MAAI,EAAE,cAAc;AAClB,UAAM,IAAI,MAAM,+BAA+B,IAAI;AAAA,EACrD;AACA,IAAE,eAAe;AACjB,IAAE,WAAW;AACb,IAAE,WAAW;AACb,IAAE,eAAe,CAAC,WAAW,YAAY,aAAa,MAAM,WAAW,OAAO;AAC9E,IAAE,aAAc,MAAM;AACtB,IAAE,gBAAiB,MAAM;AACzB,SAAO;AACT;AACA,IAAI,wBAAwB,UAAQ;AAClC,QAAM,IAAI;AACV,MAAI,EAAE,cAAc;AAClB,UAAM,IAAI,MAAM,+BAA+B,IAAI;AAAA,EACrD;AACA,IAAE,eAAe;AACjB,IAAE,WAAW;AACb,IAAE,aAAa;AACf,IAAE,eAAe,CAAC,WAAW,YAAY,aAAa,MAAM,WAAW,OAAO;AAC9E,IAAE,aAAc,MAAM;AACtB,IAAE,gBAAiB,MAAM;AACzB,SAAO;AACT;AACA,IAAI,gDAAgD,UAAQ;AAC1D,QAAM,IAAI,cAAc,IAAI;AAC5B,IAAE,aAAa,MAAM;AACrB,IAAE,gBAAgB,MAAM;AACxB,SAAO;AACT;AACA,IAAI,SAAS;AACb,IAAI,iBAAiB;AACrB,IAAI,QAAQ,OAAO,OAAO,CAAC,MAAM;AAC/B,UAAQ,IAAI,gBAAgB;AAC9B,CAAC;AACD,IAAI,gBAAgB,eAAe,OAAO,CAAC,MAAM;AAC/C,UAAQ,IAAI,gBAAgB;AAC9B,CAAC;AACD,IAAM,iBAAiB,8CAA8C,OAAO,CAAC,GAAG,EAAC,EAAC,MAAM;AACtF,UAAQ,IAAI,gBAAgB;AAC5B,SAAO;AACT,CAAC;",
   "names": []
 }
 "#;
@@ -886,7 +905,7 @@ export { hello, internalHello };
                     "hello".parse()?,
                     Some(AnalyzedSourcePosition {
                         path: "static_node_source.js".parse()?,
-                        start_lineno: 28,
+                        start_lineno: 38,
                         start_col: modules[&path].functions[0].pos.as_ref().unwrap().start_col,
                     }),
                     UdfType::Action,
@@ -898,13 +917,25 @@ export { hello, internalHello };
                     "internalHello".parse()?,
                     Some(AnalyzedSourcePosition {
                         path: "static_node_source.js".parse()?,
-                        start_lineno: 31,
+                        start_lineno: 41,
                         start_col: modules[&path].functions[1].pos.as_ref().unwrap().start_col,
                     }),
                     UdfType::Action,
                     Some(Visibility::Internal),
                     ArgsValidator::Unvalidated,
                     ReturnsValidator::Unvalidated,
+                )?,
+                AnalyzedFunction::new(
+                    "argsAndReturns".parse()?,
+                    Some(AnalyzedSourcePosition {
+                        path: "static_node_source.js".parse()?,
+                        start_lineno: 44,
+                        start_col: modules[&path].functions[2].pos.as_ref().unwrap().start_col,
+                    }),
+                    UdfType::Action,
+                    Some(Visibility::Public),
+                    ArgsValidator::try_from(json!({"type": "object", "value": {"a": {"fieldType": {"type": "string"}, "optional": false}}})).unwrap(),
+                    ReturnsValidator::try_from(json!({"type": "string"})).unwrap()
                 )?,
             ]
         );

@@ -399,7 +399,7 @@ export type AnalyzedFunctions = Array<{
   udfType: UdfType;
   visibility: Visibility | null;
   args: JSONValue | null;
-  output: JSONValue | null;
+  returns: JSONValue | null;
 }>;
 
 async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
@@ -413,7 +413,7 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
       udfType: UdfType;
       visibility: Visibility | null;
       args: JSONValue | null;
-      output: JSONValue | null;
+      returns: JSONValue | null;
     }
   > = new Map();
   for (const [name, value] of Object.entries(module)) {
@@ -465,14 +465,14 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
         args = JSON.parse(exportedArgs);
       }
     }
-    let output: string | null = null;
+    let returns: string | null = null;
     if (
       Object.prototype.hasOwnProperty.call(value, "exportReturns") &&
       typeof (value as any).exportReturns === "function"
     ) {
-      const exportedOutput = (value as any).exportReturns();
-      if (typeof exportedOutput === "string") {
-        output = JSON.parse(exportedOutput);
+      const exportedReturns = (value as any).exportReturns();
+      if (typeof exportedReturns === "string") {
+        returns = JSON.parse(exportedReturns);
       }
     }
 
@@ -484,17 +484,17 @@ async function analyzeModule(filePath: string): Promise<AnalyzedFunctions> {
         udfType,
         visibility: { kind: "public" },
         args,
-        output,
+        returns,
       });
     } else if (isInternal) {
       functions.set(name, {
         udfType,
         visibility: { kind: "internal" },
         args,
-        output,
+        returns,
       });
     } else {
-      functions.set(name, { udfType, visibility: null, args, output });
+      functions.set(name, { udfType, visibility: null, args, returns });
     }
   }
   // Do an awful, regex based line match that assumes that moduleConfig.source originates from
