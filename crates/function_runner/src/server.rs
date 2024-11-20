@@ -649,6 +649,150 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 }
             })
     }
+
+    #[minitrace::trace]
+    async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        instance_name: String,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
+        anyhow::ensure!(
+            app_definition.environment == ModuleEnvironment::Isolate,
+            "Can only evaluate Isolate modules"
+        );
+        anyhow::ensure!(
+            component_definitions
+                .values()
+                .all(|m| m.environment == ModuleEnvironment::Isolate),
+            "Can only evaluate Isolate modules"
+        );
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequestType::EvaluateAppDefinitions {
+            app_definition,
+            component_definitions,
+            dependency_graph,
+            environment_variables,
+            system_env_vars,
+            response: tx,
+        };
+        self.send_request(IsolateRequest::new(
+            instance_name,
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+            .await?
+            .map_err(|e| {
+                if e.is_overloaded() {
+                    recapture_stacktrace(e)
+                } else {
+                    e
+                }
+            })
+    }
+
+    #[minitrace::trace]
+    async fn evaluate_component_initializer(
+        &self,
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+        instance_name: String,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequestType::EvaluateComponentInitializer {
+            evaluated_definitions,
+            path,
+            definition,
+            args,
+            name,
+            response: tx,
+        };
+        self.send_request(IsolateRequest::new(
+            instance_name,
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+            .await?
+            .map_err(|e| {
+                if e.is_overloaded() {
+                    recapture_stacktrace(e)
+                } else {
+                    e
+                }
+            })
+    }
+
+    #[minitrace::trace]
+    async fn evaluate_schema(
+        &self,
+        schema_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
+        instance_name: String,
+    ) -> anyhow::Result<DatabaseSchema> {
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequestType::EvaluateSchema {
+            schema_bundle,
+            source_map,
+            rng_seed,
+            unix_timestamp,
+            response: tx,
+        };
+        self.send_request(IsolateRequest::new(
+            instance_name,
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+            .await?
+            .map_err(|e| {
+                if e.is_overloaded() {
+                    recapture_stacktrace(e)
+                } else {
+                    e
+                }
+            })
+    }
+
+    #[minitrace::trace]
+    async fn evaluate_auth_config(
+        &self,
+        auth_config_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        instance_name: String,
+    ) -> anyhow::Result<AuthConfig> {
+        let (tx, rx) = oneshot::channel();
+        let request = IsolateRequestType::EvaluateAuthConfig {
+            auth_config_bundle,
+            source_map,
+            environment_variables,
+            response: tx,
+        };
+        self.send_request(IsolateRequest::new(
+            instance_name,
+            request,
+            EncodedSpan::from_parent(),
+        ))?;
+        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+            .await?
+            .map_err(|e| {
+                if e.is_overloaded() {
+                    recapture_stacktrace(e)
+                } else {
+                    e
+                }
+            })
+    }
 }
 
 #[async_trait]
@@ -834,39 +978,16 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
-        anyhow::ensure!(
-            app_definition.environment == ModuleEnvironment::Isolate,
-            "Can only evaluate Isolate modules"
-        );
-        anyhow::ensure!(
-            component_definitions
-                .values()
-                .all(|m| m.environment == ModuleEnvironment::Isolate),
-            "Can only evaluate Isolate modules"
-        );
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequestType::EvaluateAppDefinitions {
-            app_definition,
-            component_definitions,
-            dependency_graph,
-            environment_variables,
-            system_env_vars,
-            response: tx,
-        };
-        self.server.send_request(IsolateRequest::new(
-            self.instance_name.clone(),
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        self.server
+            .evaluate_app_definitions(
+                app_definition,
+                component_definitions,
+                dependency_graph,
+                environment_variables,
+                system_env_vars,
+                self.instance_name.clone(),
+            )
+            .await
     }
 
     #[minitrace::trace]
@@ -878,29 +999,16 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         args: BTreeMap<Identifier, Resource>,
         name: ComponentName,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequestType::EvaluateComponentInitializer {
-            evaluated_definitions,
-            path,
-            definition,
-            args,
-            name,
-            response: tx,
-        };
-        self.server.send_request(IsolateRequest::new(
-            self.instance_name.clone(),
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        self.server
+            .evaluate_component_initializer(
+                evaluated_definitions,
+                path,
+                definition,
+                args,
+                name,
+                self.instance_name.clone(),
+            )
+            .await
     }
 
     #[minitrace::trace]
@@ -911,28 +1019,15 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<DatabaseSchema> {
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequestType::EvaluateSchema {
-            schema_bundle,
-            source_map,
-            rng_seed,
-            unix_timestamp,
-            response: tx,
-        };
-        self.server.send_request(IsolateRequest::new(
-            self.instance_name.clone(),
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        self.server
+            .evaluate_schema(
+                schema_bundle,
+                source_map,
+                rng_seed,
+                unix_timestamp,
+                self.instance_name.clone(),
+            )
+            .await
     }
 
     #[minitrace::trace]
@@ -942,27 +1037,14 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<AuthConfig> {
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequestType::EvaluateAuthConfig {
-            auth_config_bundle,
-            source_map,
-            environment_variables,
-            response: tx,
-        };
-        self.server.send_request(IsolateRequest::new(
-            self.instance_name.clone(),
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+        self.server
+            .evaluate_auth_config(
+                auth_config_bundle,
+                source_map,
+                environment_variables,
+                self.instance_name.clone(),
+            )
+            .await
     }
 
     /// This fn should be called on startup. All `run_function` calls will fail
