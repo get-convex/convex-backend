@@ -104,7 +104,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         config.clone(),
         Arc::new(persistence),
         shutdown_rx.clone(),
-        ShutdownSignal::new(preempt_tx.clone()),
+        ShutdownSignal::new(preempt_tx.clone(), config.name()),
     )
     .await?;
     let router = router(st.clone());

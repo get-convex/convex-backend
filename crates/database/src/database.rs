@@ -715,24 +715,41 @@ impl DatabaseSnapshot {
 // Used by the database to signal it has encountered a fatal error.
 #[derive(Clone)]
 pub struct ShutdownSignal {
-    shutdown_tx: Option<async_broadcast::Sender<Arc<anyhow::Error>>>,
+    shutdown_tx: Option<async_broadcast::Sender<ShutdownMessage>>,
+    instance_name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct ShutdownMessage {
+    pub error: Arc<anyhow::Error>,
+    pub instance_name: String,
 }
 
 impl ShutdownSignal {
-    pub fn new(shutdown_tx: async_broadcast::Sender<Arc<anyhow::Error>>) -> Self {
+    pub fn new(
+        shutdown_tx: async_broadcast::Sender<ShutdownMessage>,
+        instance_name: String,
+    ) -> Self {
         Self {
             shutdown_tx: Some(shutdown_tx),
+            instance_name,
         }
     }
 
     // Creates a new ShutdownSignal that panics when signaled.
     pub fn panic() -> Self {
-        Self { shutdown_tx: None }
+        Self {
+            shutdown_tx: None,
+            instance_name: "test".to_owned(),
+        }
     }
 
     pub fn signal(&self, fatal_error: anyhow::Error) {
         if let Some(ref shutdown_tx) = self.shutdown_tx {
-            _ = shutdown_tx.try_broadcast(Arc::new(fatal_error));
+            _ = shutdown_tx.try_broadcast(ShutdownMessage {
+                error: Arc::new(fatal_error),
+                instance_name: self.instance_name.clone(),
+            });
         } else {
             // We don't anyone to shutdown signal configured. Just panic.
             panic!("Shutting down due to fatal error: {}", fatal_error);
