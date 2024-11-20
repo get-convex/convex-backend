@@ -179,6 +179,7 @@ async function deployToNewPreviewDeployment(
 
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
+    partitionId?: string | undefined;
   },
 ) {
   const previewName = options.previewCreate ?? gitBranchFromEnvironment();
@@ -223,6 +224,7 @@ async function deployToNewPreviewDeployment(
         options.configuredDeployKey,
       ),
       identifier: previewName,
+      partitionId: options.partitionId,
     },
   });
 
