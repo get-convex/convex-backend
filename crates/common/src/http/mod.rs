@@ -98,6 +98,7 @@ use tower_http::cors::{
     CorsLayer,
 };
 use url::Url;
+use utoipa::ToSchema;
 
 use self::metrics::log_http_request;
 use crate::{
@@ -847,7 +848,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
 pub struct InstanceNameExt(pub String);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(ToSchema, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RequestDestination {
     ConvexCloud,
