@@ -44,6 +44,7 @@ use common::{
         Timestamp,
         UdfIdentifier,
     },
+    RequestId,
 };
 use database::{
     Database,
@@ -649,6 +650,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         self.usage_tracking.track_call(
             UdfIdentifier::Cli(tag),
             ExecutionId::new(),
+            RequestId::new(),
             call_type,
             usage.gather_user_stats(),
         );

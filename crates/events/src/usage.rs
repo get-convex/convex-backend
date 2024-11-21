@@ -17,6 +17,8 @@ pub enum UdfType {
 pub struct FunctionCallUsageFields {
     /// The ExecutionId of a particular UDF
     pub id: String,
+    /// The RequestId of a particular UDF
+    pub request_id: String,
     /// The path of a component. Uniquely identifies a component in a
     /// project.
     pub component_path: Option<String>,
@@ -103,6 +105,7 @@ pub enum UsageEvent {
     },
     DatabaseBandwidth {
         id: String,
+        request_id: String,
         component_path: Option<String>,
         udf_id: String,
         table_name: String,
@@ -207,6 +210,7 @@ mod tests {
         let event = UsageEvent::FunctionCall {
             fields: FunctionCallUsageFields {
                 id: "123".to_string(),
+                request_id: "request_id".to_string(),
                 component_path: Some("component/path".to_string()),
                 udf_id: "udf_id".to_string(),
                 udf_id_type: "http".to_string(),
@@ -226,6 +230,7 @@ mod tests {
         let output = serde_json::to_string(&event).unwrap();
         let expected_output = json!({"FunctionCall": {
             "id": "123",
+            "request_id": "request_id",
             "component_path": "component/path",
             "udf_id": "udf_id",
             "udf_id_type": "http",
@@ -250,6 +255,7 @@ mod tests {
         let event = UsageEvent::FunctionCall {
             fields: FunctionCallUsageFields {
                 id: "123".to_string(),
+                request_id: "request_id".to_string(),
                 component_path: Some("component/path".to_string()),
                 udf_id: "udf_id".to_string(),
                 udf_id_type: "http".to_string(),
@@ -269,6 +275,7 @@ mod tests {
         let output = serde_json::to_string(&event).unwrap();
         let expected_output = json!({"FunctionCall": {
             "id": "123",
+            "request_id": "request_id",
             "component_path": "component/path",
             "udf_id": "udf_id",
             "udf_id_type": "http",

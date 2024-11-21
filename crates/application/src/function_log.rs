@@ -618,6 +618,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
+                    context.request_id.clone(),
                     if was_cached {
                         CallType::CachedQuery
                     } else {
@@ -724,6 +725,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         self.usage_tracking.track_call(
             UdfIdentifier::Function(outcome.path.clone()),
             context.execution_id.clone(),
+            context.request_id.clone(),
             CallType::Mutation {
                 occ_info: Some(OccInfo {
                     table_name,
@@ -761,6 +763,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
+                    context.request_id.clone(),
                     CallType::Mutation { occ_info: None },
                     usage_stats,
                 );
@@ -845,6 +848,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     completion.context.execution_id.clone(),
+                    completion.context.request_id.clone(),
                     CallType::Action {
                         env: completion.environment,
                         duration: completion.execution_time,
@@ -983,6 +987,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Http(outcome.route.clone()),
                     context.execution_id.clone(),
+                    context.request_id.clone(),
                     CallType::HttpAction {
                         duration: execution_time,
                         memory_in_mb: outcome.memory_in_mb(),

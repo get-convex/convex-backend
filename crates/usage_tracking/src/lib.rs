@@ -18,6 +18,7 @@ use common::{
         StorageUuid,
         UdfIdentifier,
     },
+    RequestId,
 };
 use events::usage::{
     FunctionCallUsageFields,
@@ -199,6 +200,7 @@ impl UsageCounter {
         &self,
         udf_path: UdfIdentifier,
         execution_id: ExecutionId,
+        request_id: RequestId,
         call_type: CallType,
         stats: FunctionUsageStats,
     ) {
@@ -218,6 +220,7 @@ impl UsageCounter {
         usage_metrics.push(UsageEvent::FunctionCall {
             fields: FunctionCallUsageFields {
                 id: execution_id.to_string(),
+                request_id: request_id.to_string(),
                 component_path,
                 udf_id,
                 udf_id_type: udf_id_type.to_string(),
@@ -235,7 +238,13 @@ impl UsageCounter {
         });
 
         // We always track bandwidth, even for system udfs.
-        self._track_function_usage(udf_path, stats, execution_id, &mut usage_metrics);
+        self._track_function_usage(
+            udf_path,
+            stats,
+            execution_id,
+            request_id,
+            &mut usage_metrics,
+        );
         self.usage_logger.record(usage_metrics);
     }
 
@@ -248,10 +257,17 @@ impl UsageCounter {
         &self,
         udf_path: UdfIdentifier,
         execution_id: ExecutionId,
+        request_id: RequestId,
         stats: FunctionUsageStats,
     ) {
         let mut usage_metrics = Vec::new();
-        self._track_function_usage(udf_path, stats, execution_id, &mut usage_metrics);
+        self._track_function_usage(
+            udf_path,
+            stats,
+            execution_id,
+            request_id,
+            &mut usage_metrics,
+        );
         self.usage_logger.record(usage_metrics);
     }
 
@@ -260,6 +276,7 @@ impl UsageCounter {
         udf_path: UdfIdentifier,
         stats: FunctionUsageStats,
         execution_id: ExecutionId,
+        request_id: RequestId,
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
         // Merge the storage stats.
@@ -296,6 +313,7 @@ impl UsageCounter {
         for ((component_path, table_name), ingress_size) in stats.database_ingress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
+                request_id: request_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
@@ -306,6 +324,7 @@ impl UsageCounter {
         for ((component_path, table_name), egress_size) in stats.database_egress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
+                request_id: request_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,

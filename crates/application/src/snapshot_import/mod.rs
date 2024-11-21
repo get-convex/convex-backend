@@ -42,6 +42,7 @@ use common::{
         TableName,
         UdfIdentifier,
     },
+    RequestId,
 };
 use database::{
     BootstrapComponentsModel,
@@ -935,6 +936,7 @@ async fn finalize_import<RT: Runtime>(
     usage_tracking.track_call(
         UdfIdentifier::Cli(tag),
         ExecutionId::new(),
+        RequestId::new(),
         call_type,
         usage.gather_user_stats(),
     );

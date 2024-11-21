@@ -440,6 +440,7 @@ pub async fn vector_search(
             UdfIdentifier::Function(path.canonicalize()),
             // TODO(CX-6045) - have the action send the ExecutionId as a request header
             context.execution_id,
+            context.request_id,
             usage.gather_user_stats(),
         );
     }
