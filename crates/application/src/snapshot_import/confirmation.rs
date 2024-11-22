@@ -124,8 +124,27 @@ async fn messages_to_confirm_replace<RT: Runtime>(
         }
     }
 
-    let mut table_changes = BTreeMap::new();
     let db_snapshot = executor.database.latest_snapshot()?;
+
+    // Add to count_by_table all tables that are being replaced that don't appear in
+    // the import.
+    if mode == ImportMode::ReplaceAll {
+        let component_paths = db_snapshot.component_ids_to_paths();
+        let table_mapping = db_snapshot.table_mapping();
+        for (tablet_id, namespace, _, table_name) in table_mapping.iter() {
+            let Some(component_path) = component_paths.get(&namespace.into()) else {
+                continue;
+            };
+            if !table_mapping.is_active(tablet_id) {
+                continue;
+            }
+            count_by_table
+                .entry((component_path.clone(), table_name.clone()))
+                .or_default();
+        }
+    }
+
+    let mut table_changes = BTreeMap::new();
     for (component_and_table, count_importing) in count_by_table.iter() {
         let (component_path, table_name) = component_and_table;
         let existing_num_values = db_snapshot
