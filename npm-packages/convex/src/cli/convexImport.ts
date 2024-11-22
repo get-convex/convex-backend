@@ -54,13 +54,24 @@ export const convexImport = new Command("import")
     new Option(
       "--replace",
       "Replace all existing data in any of the imported tables",
-    ).conflicts("--append"),
+    )
+      .conflicts("--append")
+      .conflicts("--replace-all"),
+  )
+  .addOption(
+    new Option("--append", "Append imported data to any existing tables")
+      .conflicts("--replace-all")
+      .conflicts("--replace"),
   )
   .addOption(
     new Option(
-      "--append",
-      "Append imported data to any existing tables",
-    ).conflicts("--replace"),
+      "--replace-all",
+      "Replace all existing data in the deployment with the imported tables,\n" +
+        "  deleting tables that don't appear in the import file or the schema,\n" +
+        "  and clearing tables that appear in the schema but not in the import file",
+    )
+      .conflicts("--append")
+      .conflicts("--replace"),
   )
   .option(
     "-y, --yes",
@@ -160,6 +171,8 @@ export const convexImport = new Command("import")
       mode = "append";
     } else if (options.replace) {
       mode = "replace";
+    } else if (options.replaceAll) {
+      mode = "replaceAll";
     }
     const importArgs = {
       tableName: tableName === null ? undefined : tableName,
