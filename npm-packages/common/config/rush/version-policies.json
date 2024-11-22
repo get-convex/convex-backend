@@ -102,7 +102,7 @@
     {
       "policyName": "convex",
       "definitionName": "lockStepVersion",
-      "version": "1.17.1",
+      "version": "1.17.2",
       "nextBump": "patch"
     }
   ]
