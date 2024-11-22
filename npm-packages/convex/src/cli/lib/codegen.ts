@@ -309,7 +309,7 @@ async function doReadmeCodegen(
     readmeCodegen(),
     "markdown",
     readmePath,
-    { ignoreLocalConfig: true, ...opts },
+    opts,
   );
 }
 
@@ -331,7 +331,7 @@ async function doTsconfigCodegen(
     tsconfigCodegen(),
     "json",
     tsconfigPath,
-    { ignoreLocalConfig: true, ...opts },
+    opts,
   );
 }
 
@@ -547,17 +547,15 @@ async function writeFormattedFile(
   options?: {
     dryRun?: boolean;
     debug?: boolean;
-    ignoreLocalConfig?: boolean;
   },
 ) {
   // Run prettier so we don't have to think about formatting!
-  // If we can find them, use the developer's Prettier configuration.
-  const config = options?.ignoreLocalConfig
-    ? null
-    : await prettier.resolveConfig(destination);
+  //
+  // This is a little sketchy because we are using the default prettier config
+  // (not our user's one) but it's better than nothing.
   const formattedContents = await prettier.format(contents, {
     parser: filetype,
-    ...config,
+    pluginSearchDirs: false,
   });
   if (options?.debug) {
     // NB: The `test_codegen_projects_are_up_to_date` smoke test depends
