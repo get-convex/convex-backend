@@ -66,6 +66,7 @@ impl<'a> tantivy::fst::automaton::Automaton for LevenshteinDfaWrapper<'a> {
     }
 }
 
+#[minitrace::trace]
 pub fn build_fuzzy_dfa(query: &str, distance: u8, prefix: bool) -> DFA {
     assert!(distance <= 2);
     let dfa_builder = &LEVENSHTEIN_DFAS[distance as usize];

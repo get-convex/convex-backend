@@ -123,6 +123,7 @@ impl ReadSet {
     }
 
     /// Determine whether a mutation to a document overlaps with the read set.
+    #[minitrace::trace]
     pub fn overlaps(
         &self,
         document: &PackedDocument,
@@ -177,6 +178,7 @@ impl ReadSet {
     /// If a write transaction intersects, it will be retried to maintain
     /// serializability. If a subscription intersects, it will be rerun and the
     /// result sent to all clients.
+    #[minitrace::trace]
     pub fn writes_overlap<'a>(
         &self,
         updates: impl Iterator<

@@ -664,6 +664,15 @@ impl<RT: Runtime> SyncWorker<RT> {
         new_ts: Timestamp,
         subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>>> {
+        let root = get_sampled_span(
+            &self.host.instance_name,
+            "sync-worker/update-queries",
+            &mut self.rt.rng(),
+            btreemap! {
+               "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
+            },
+        );
+        let _gaurd = root.set_local_parent();
         let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
 
@@ -722,15 +731,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             let identity_ = identity.clone();
             let client_version = self.config.client_version.clone();
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
-            let root = get_sampled_span(
-                &self.host.instance_name,
-                "sync-worker/update-queries",
-                &mut self.rt.rng(),
-                btreemap! {
-                   "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
-                   "udf_path".into() => query.udf_path.clone().into(),
-                },
-            );
+            let span = Span::enter_with_local_parent("update_query")
+                .with_property(|| ("udf_path", query.udf_path.clone().to_string()));
             let subscriptions_client = subscriptions_client.clone();
             let future = async move {
                 let new_subscription = match current_subscription {
@@ -801,7 +803,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 };
                 Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
             }
-            .in_span(root);
+            .in_span(span);
             futures.push(future);
         }
         Ok(async move {
@@ -822,7 +824,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 new_version,
                 timer,
             })
-        })
+        }
+        .in_span(root))
     }
 
     fn finish_update_queries(

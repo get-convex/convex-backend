@@ -811,6 +811,7 @@ impl<T: Clone + Ord> SearchTermTries<T> {
         }
     }
 
+    #[minitrace::trace]
     fn overlaps<'a>(&'a self, document: &'a PackedDocument, analyzer: &'a TextAnalyzer) -> bool {
         let mut tokens = DocumentTokens::new(analyzer, document);
         !self.matching_values(&mut tokens).is_empty()
@@ -920,6 +921,7 @@ impl QueryReads {
         self.filter_conditions.extend(other.filter_conditions);
     }
 
+    #[minitrace::trace]
     pub fn overlaps(&self, document: &PackedDocument) -> bool {
         let _timer = metrics::query_reads_overlaps_timer();
 
