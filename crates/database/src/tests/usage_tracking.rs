@@ -83,6 +83,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -109,6 +110,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
         ExecutionId::new(),
         RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -147,6 +149,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -181,6 +184,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -236,6 +240,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -275,6 +280,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         ExecutionId::new(),
         RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -301,6 +307,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
         ExecutionId::new(),
         RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -344,6 +351,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         ExecutionId::new(),
         RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -369,6 +377,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         ExecutionId::new(),
         RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -397,6 +406,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
         ExecutionId::new(),
         RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -429,6 +439,7 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
             memory_in_mb: 100,
             response_sha256: Sha256Digest::from([0; 32]),
         },
+        true,
         tx_usage.gather_user_stats(),
     );
     let stats = test_usage_logger.collect();

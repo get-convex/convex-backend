@@ -19,6 +19,8 @@ pub struct FunctionCallUsageFields {
     pub id: String,
     /// The RequestId of a particular UDF
     pub request_id: String,
+    /// Whether the request succeeded or failed
+    pub status: String,
     /// The path of a component. Uniquely identifies a component in a
     /// project.
     pub component_path: Option<String>,
@@ -211,6 +213,7 @@ mod tests {
             fields: FunctionCallUsageFields {
                 id: "123".to_string(),
                 request_id: "request_id".to_string(),
+                status: "success".to_string(),
                 component_path: Some("component/path".to_string()),
                 udf_id: "udf_id".to_string(),
                 udf_id_type: "http".to_string(),
@@ -231,6 +234,7 @@ mod tests {
         let expected_output = json!({"FunctionCall": {
             "id": "123",
             "request_id": "request_id",
+            "status": "success",
             "component_path": "component/path",
             "udf_id": "udf_id",
             "udf_id_type": "http",
@@ -256,6 +260,7 @@ mod tests {
             fields: FunctionCallUsageFields {
                 id: "123".to_string(),
                 request_id: "request_id".to_string(),
+                status: "success".to_string(),
                 component_path: Some("component/path".to_string()),
                 udf_id: "udf_id".to_string(),
                 udf_id_type: "http".to_string(),
@@ -276,6 +281,7 @@ mod tests {
         let expected_output = json!({"FunctionCall": {
             "id": "123",
             "request_id": "request_id",
+            "status": "success",
             "component_path": "component/path",
             "udf_id": "udf_id",
             "udf_id_type": "http",

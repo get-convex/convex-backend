@@ -624,6 +624,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     } else {
                         CallType::UncachedQuery
                     },
+                    outcome.result.is_ok(),
                     usage_stats,
                 );
                 aggregated
@@ -733,6 +734,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     retry_count,
                 }),
             },
+            false,
             // This track call is only to keep track of OCC error metadata.
             // Usage states across all retries are tracked in the `log_mutation` call.
             FunctionUsageStats::default(),
@@ -765,6 +767,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     context.execution_id.clone(),
                     context.request_id.clone(),
                     CallType::Mutation { occ_info: None },
+                    outcome.result.is_ok(),
                     usage_stats,
                 );
                 aggregated
@@ -854,6 +857,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         duration: completion.execution_time,
                         memory_in_mb: completion.memory_in_mb,
                     },
+                    outcome.result.is_ok(),
                     usage_stats,
                 );
                 aggregated
@@ -993,6 +997,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                         memory_in_mb: outcome.memory_in_mb(),
                         response_sha256,
                     },
+                    result.clone().is_ok_and(|code| code.0.as_u16() < 400),
                     usage_stats,
                 );
                 aggregated

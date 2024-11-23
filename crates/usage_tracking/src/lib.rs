@@ -202,6 +202,7 @@ impl UsageCounter {
         execution_id: ExecutionId,
         request_id: RequestId,
         call_type: CallType,
+        success: bool,
         stats: FunctionUsageStats,
     ) {
         let mut usage_metrics = Vec::new();
@@ -221,6 +222,7 @@ impl UsageCounter {
             fields: FunctionCallUsageFields {
                 id: execution_id.to_string(),
                 request_id: request_id.to_string(),
+                status: if success { "success" } else { "failure" }.to_string(),
                 component_path,
                 udf_id,
                 udf_id_type: udf_id_type.to_string(),

@@ -938,6 +938,7 @@ async fn finalize_import<RT: Runtime>(
         ExecutionId::new(),
         RequestId::new(),
         call_type,
+        true,
         usage.gather_user_stats(),
     );
 

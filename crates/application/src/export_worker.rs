@@ -652,6 +652,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             ExecutionId::new(),
             RequestId::new(),
             call_type,
+            true,
             usage.gather_user_stats(),
         );
         Ok(())
