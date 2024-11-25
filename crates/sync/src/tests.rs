@@ -56,10 +56,7 @@ use model::{
 };
 use must_let::must_let;
 use parking_lot::Mutex;
-use runtime::{
-    prod::ProdRuntime,
-    testing::TestRuntime,
-};
+use runtime::testing::TestRuntime;
 use sync_types::{
     AuthenticationToken,
     ClientMessage,
@@ -590,8 +587,8 @@ async fn test_admin_auth(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_admin_auth_bad_key(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
     let bogus_admin_key =
@@ -612,8 +609,8 @@ async fn test_admin_auth_bad_key(rt: ProdRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_acting_auth_bad_key(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_acting_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
     let mut sync_worker = test.new_worker()?;
     let bogus_admin_key =
@@ -895,8 +892,8 @@ async fn test_udf_cache_out_of_order(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[convex_macro::prod_rt_test]
-async fn test_max_observed_timestamp(rt: ProdRuntime) -> anyhow::Result<()> {
+#[convex_macro::test_runtime]
+async fn test_max_observed_timestamp(rt: TestRuntime) -> anyhow::Result<()> {
     let test = SyncTest::new(rt).await?;
 
     let config = SyncWorkerConfig::default();
