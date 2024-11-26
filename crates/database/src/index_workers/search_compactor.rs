@@ -40,7 +40,6 @@ use crate::{
     },
     metrics::{
         compaction_build_one_timer,
-        finish_compaction_timer,
         log_compaction_compacted_segment_num_documents_total,
         log_compaction_total_segments,
         CompactionReason,
@@ -168,7 +167,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
     }
 
     async fn build_one(&self, job: CompactionJob<T>) -> anyhow::Result<u64> {
-        let timer = compaction_build_one_timer(Self::search_type());
+        let timer = compaction_build_one_timer(Self::search_type(), job.compaction_reason);
         let snapshot_ts = match job.on_disk_state {
             SearchOnDiskState::Backfilling(BackfillState {
                 backfill_snapshot_ts,
@@ -218,8 +217,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 .collect::<anyhow::Result<Vec<_>>>()?,
             Self::format(&new_segment, &job.developer_config)?,
         );
-
-        finish_compaction_timer(timer, job.compaction_reason);
+        timer.finish();
         Ok(total_compacted_segments)
     }
 

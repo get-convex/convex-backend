@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use ::search::metrics::{
     SearchType,
     SEARCH_TYPE_LABEL,
@@ -889,24 +887,20 @@ impl CompactionReason {
         StaticMetricLabel::new(COMPACTION_REASON_LABEL, label)
     }
 }
-static UNKNOWN_COMPACTION_LABEL: LazyLock<StaticMetricLabel> =
-    LazyLock::new(|| StaticMetricLabel::new(COMPACTION_REASON_LABEL, "unknown"));
 
 register_convex_histogram!(
     COMPACTION_BUILD_ONE_SECONDS,
     "Time to run a single vector/text index compaction",
     &[STATUS_LABEL[0], COMPACTION_REASON_LABEL, SEARCH_TYPE_LABEL],
 );
-pub fn compaction_build_one_timer(search_type: SearchType) -> StatusTimer {
+pub fn compaction_build_one_timer(
+    search_type: SearchType,
+    reason: CompactionReason,
+) -> StatusTimer {
     let mut timer = StatusTimer::new(&COMPACTION_BUILD_ONE_SECONDS);
     timer.add_label(search_type.tag());
-    timer.add_label(UNKNOWN_COMPACTION_LABEL.clone());
+    timer.add_label(reason.metric_label());
     timer
-}
-
-pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
-    timer.replace_label(UNKNOWN_COMPACTION_LABEL.clone(), reason.metric_label());
-    timer.finish();
 }
 
 register_convex_histogram!(
