@@ -69,6 +69,10 @@ pub struct AuthConfigEnvironment {
 }
 
 #[derive(Debug, Deserialize)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthConfig {
     pub providers: Vec<AuthInfo>,

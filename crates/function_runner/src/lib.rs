@@ -144,6 +144,7 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
     ) -> anyhow::Result<AuthConfig>;
 
     /// Set the action callbacks. Only used for InProcessFunctionRunner to break

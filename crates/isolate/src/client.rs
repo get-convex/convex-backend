@@ -1055,8 +1055,6 @@ impl<RT: Runtime> IsolateClient<RT> {
             environment_variables,
             response: tx,
         };
-        // TODO(jordan): this is an incomplete state. eventually we will expand to trace
-        // other requests besides udfs
         self.send_request(Request::new(
             self.instance_name.clone(),
             request,

@@ -1707,31 +1707,14 @@ impl<RT: Runtime> Application<RT> {
         auth_config_module: ModuleConfig,
         explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
-        let auth_config = runner
+        runner
             .evaluate_auth_config(
                 auth_config_module.source,
                 auth_config_module.source_map,
                 environment_variables,
+                explanation,
             )
             .await
-            .map_err(|error| {
-                let error = error.to_string();
-                if error.starts_with("Uncaught Error: Environment variable") {
-                    // Reformatting the underlying message to be nicer
-                    // here. Since we lost the underlying ErrorMetadata into the JSError,
-                    // we do some string matching instead. CX-4531
-                    ErrorMetadata::bad_request(
-                        "AuthConfigMissingEnvironmentVariable",
-                        error.trim_start_matches("Uncaught Error: ").to_string(),
-                    )
-                } else {
-                    ErrorMetadata::bad_request(
-                        "InvalidAuthConfig",
-                        format!("{explanation}: {error}"),
-                    )
-                }
-            })?;
-        Ok(auth_config)
     }
 
     #[minitrace::trace]

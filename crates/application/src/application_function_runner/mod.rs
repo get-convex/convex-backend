@@ -1658,11 +1658,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
         environment_variables.extend(self.system_env_vars.clone());
         self.isolate_functions
             .function_runner
-            .evaluate_auth_config(auth_config_bundle, source_map, environment_variables)
+            .evaluate_auth_config(
+                auth_config_bundle,
+                source_map,
+                environment_variables,
+                explanation,
+            )
             .await
     }
 

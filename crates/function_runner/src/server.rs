@@ -70,7 +70,10 @@ use database::{
     Transaction,
     TransactionTextSnapshot,
 };
-use errors::ErrorMetadataAnyhowExt;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use file_storage::TransactionalFileStorage;
 use isolate::{
     client::{
@@ -764,11 +767,12 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     }
 
     #[minitrace::trace]
-    async fn evaluate_auth_config(
+    pub async fn evaluate_auth_config(
         &self,
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
         instance_name: String,
     ) -> anyhow::Result<AuthConfig> {
         let (tx, rx) = oneshot::channel();
@@ -783,15 +787,32 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             request,
             EncodedSpan::from_parent(),
         ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
+        let auth_config = FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
             .await?
             .map_err(|e| {
-                if e.is_overloaded() {
+                let err = if e.is_overloaded() {
                     recapture_stacktrace(e)
                 } else {
                     e
+                };
+                let error = err.to_string();
+                if error.starts_with("Uncaught Error: Environment variable") {
+                    // Reformatting the underlying message to be nicer
+                    // here. Since we lost the underlying ErrorMetadata into the JSError,
+                    // we do some string matching instead. CX-4531
+                    ErrorMetadata::bad_request(
+                        "AuthConfigMissingEnvironmentVariable",
+                        error.trim_start_matches("Uncaught Error: ").to_string(),
+                    )
+                } else {
+                    ErrorMetadata::bad_request(
+                        "InvalidAuthConfig",
+                        format!("{explanation}: {error}"),
+                    )
                 }
-            })
+            })?;
+
+        Ok(auth_config)
     }
 }
 
@@ -1036,12 +1057,14 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
         self.server
             .evaluate_auth_config(
                 auth_config_bundle,
                 source_map,
                 environment_variables,
+                explanation,
                 self.instance_name.clone(),
             )
             .await

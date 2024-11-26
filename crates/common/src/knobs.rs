@@ -870,6 +870,11 @@ pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE
 pub static ANALYZE_IN_FUNRUN: LazyLock<bool> =
     LazyLock::new(|| env_config("ANALYZE_IN_FUNRUN", false));
 
+/// Whether to evaluate the auth config in Funrun (true) or
+/// InProcessFunctionRunner (false)
+pub static AUTH_CONFIG_IN_FUNRUN: LazyLock<bool> =
+    LazyLock::new(|| env_config("AUTH_CONFIG_IN_FUNRUN", false));
+
 /// The amount of time to wait for the primary request to finish before starting
 /// a second backup request when running a vector search.
 pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =
