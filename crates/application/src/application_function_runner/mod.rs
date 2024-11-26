@@ -177,6 +177,7 @@ use tokio::sync::mpsc;
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
+    OccInfo,
 };
 use value::{
     id_v6::DeveloperDocumentId,
@@ -767,10 +768,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             *UDF_EXECUTOR_OCC_MAX_BACKOFF,
         );
 
-        // Function usage is accumulated across retries. So if a function is retried due
-        // to OCC, we will continue to accumulate usage for the function.
-        let usage_tracker = FunctionUsageTracker::new();
         loop {
+            let usage_tracker = FunctionUsageTracker::new();
+
             // Note that we use different context for every mutation attempt.
             // This so every JS function run gets a different executionId.
             let context = ExecutionContext::new(request_id.clone(), &caller);
@@ -884,10 +884,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                 stats,
                                 execution_time,
                                 caller.clone(),
+                                usage_tracker,
                                 context.clone(),
-                                table_name,
-                                document_id,
-                                (backoff.failures() - 1) as u64,
+                                OccInfo {
+                                    table_name,
+                                    document_id,
+                                    retry_count: (backoff.failures() - 1) as u64,
+                                },
                             );
                             continue;
                         }
@@ -900,10 +903,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                 stats,
                                 execution_time,
                                 caller,
+                                usage_tracker,
                                 context.clone(),
-                                table_name,
-                                document_id,
-                                backoff.failures().into(),
+                                OccInfo {
+                                    table_name,
+                                    document_id,
+                                    retry_count: backoff.failures().into(),
+                                },
                             );
                         } else {
                             self.function_log.log_mutation_system_error(

@@ -78,7 +78,6 @@ use url::Url;
 use usage_tracking::{
     AggregatedFunctionUsageStats,
     CallType,
-    FunctionUsageStats,
     FunctionUsageTracker,
     OccInfo,
     UsageCounter,
@@ -677,6 +676,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::Track(usage),
             context,
+            None,
         )
     }
 
@@ -708,6 +708,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::SystemError,
             context,
+            None,
         );
         Ok(())
     }
@@ -718,34 +719,18 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         tables_touched: BTreeMap<TableName, TableStats>,
         execution_time: Duration,
         caller: FunctionCaller,
+        usage: FunctionUsageTracker,
         context: ExecutionContext,
-        table_name: Option<String>,
-        document_id: Option<String>,
-        retry_count: u64,
+        occ_info: OccInfo,
     ) {
-        self.usage_tracking.track_call(
-            UdfIdentifier::Function(outcome.path.clone()),
-            context.execution_id.clone(),
-            context.request_id.clone(),
-            CallType::Mutation {
-                occ_info: Some(OccInfo {
-                    table_name,
-                    document_id,
-                    retry_count,
-                }),
-            },
-            false,
-            // This track call is only to keep track of OCC error metadata.
-            // Usage states across all retries are tracked in the `log_mutation` call.
-            FunctionUsageStats::default(),
-        );
         self._log_mutation(
             outcome,
             tables_touched,
             execution_time,
             caller,
-            TrackUsage::SystemError,
+            TrackUsage::Track(usage),
             context,
+            Some(occ_info),
         );
     }
 
@@ -757,6 +742,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: TrackUsage,
         context: ExecutionContext,
+        occ_info: Option<OccInfo>,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -766,7 +752,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
                     context.request_id.clone(),
-                    CallType::Mutation { occ_info: None },
+                    CallType::Mutation { occ_info },
                     outcome.result.is_ok(),
                     usage_stats,
                 );

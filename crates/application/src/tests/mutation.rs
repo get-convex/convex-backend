@@ -161,7 +161,7 @@ async fn test_mutation_occ_fail(rt: TestRuntime) -> anyhow::Result<()> {
         } else {
             // The second event, and every other event after that should be an OCC.
             assert!(event.is_occ);
-            assert!(!event.is_tracked);
+            assert!(event.is_tracked);
             // Only the second OCC will have a table name and document id.
             if index > 1 {
                 assert!(event.occ_table_name.is_some());
@@ -235,7 +235,6 @@ async fn test_mutation_occ_success(rt: TestRuntime) -> anyhow::Result<()> {
         *UDF_EXECUTOR_OCC_MAX_RETRIES * 2 + 1,
     );
     for (index, event) in function_call_events.iter().enumerate() {
-        println!("{:?}", event);
         if index % 2 == 0 {
             // The first event, and every other event after that should not be an OCC.
             assert!(!event.is_occ);
@@ -246,7 +245,7 @@ async fn test_mutation_occ_success(rt: TestRuntime) -> anyhow::Result<()> {
         } else {
             // The second event, and every other event after that should be an OCC.
             assert!(event.is_occ);
-            assert!(!event.is_tracked);
+            assert!(event.is_tracked);
             // Only the second OCC will have a table name and document id.
             if index > 1 {
                 assert!(event.occ_table_name.is_some());

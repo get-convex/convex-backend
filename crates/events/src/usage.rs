@@ -41,7 +41,6 @@ pub struct FunctionCallUsageFields {
     /// True if we think it's a call we should track in usage. Right now
     /// this is basically any UDF that's neither system nor
     /// triggered by the CLI.
-    /// Function calls events that are OCCs are also not tracked.
     /// This could be derived from path and
     /// udf type, but it seems better to be explicit)
     pub is_tracked: bool,
