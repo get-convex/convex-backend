@@ -65,6 +65,9 @@ export function useConvexAuth(): {
  * should be a React hook that returns the provider's authentication state
  * and a function to fetch a JWT access token.
  *
+ * If the `useAuth` prop function updates causing a rerender then auth state
+ * wil transition to loading and the `fetchAccessToken()` function called again.
+ *
  * See [Custom Auth Integration](https://docs.convex.dev/auth/advanced/custom-auth) for more information.
  *
  * @public
@@ -84,20 +87,25 @@ export function ConvexProviderWithAuth({
     }) => Promise<string | null>;
   };
 }) {
-  const { isLoading, isAuthenticated, fetchAccessToken } = useAuth();
+  const {
+    isLoading: tokenLoading,
+    isAuthenticated,
+    fetchAccessToken,
+  } = useAuth();
   const [isConvexAuthenticated, setIsConvexAuthenticated] = useState<
     boolean | null
   >(null);
 
-  // If the useAuth went back to the loading state (which is unusual but possible)
+  // If the useAuth went back to the tokenLoading state (which is unusual but possible)
   // reset the Convex auth state to null so that we can correctly
   // transition the state from "loading" to "authenticated"
   // without going through "unauthenticated".
-  if (isLoading && isConvexAuthenticated !== null) {
+  if (tokenLoading && isConvexAuthenticated !== null) {
     setIsConvexAuthenticated(null);
   }
 
-  if (!isLoading && !isAuthenticated && isConvexAuthenticated !== false) {
+  // If the useAuth goes to not authenticated then isConvexAuthenticated should reflect that.
+  if (!tokenLoading && !isAuthenticated && isConvexAuthenticated !== false) {
     setIsConvexAuthenticated(false);
   }
 
@@ -111,7 +119,7 @@ export function ConvexProviderWithAuth({
       <ConvexAuthStateFirstEffect
         isAuthenticated={isAuthenticated}
         fetchAccessToken={fetchAccessToken}
-        isLoading={isLoading}
+        isLoading={tokenLoading}
         client={client}
         setIsConvexAuthenticated={setIsConvexAuthenticated}
       />
@@ -119,8 +127,9 @@ export function ConvexProviderWithAuth({
       <ConvexAuthStateLastEffect
         isAuthenticated={isAuthenticated}
         fetchAccessToken={fetchAccessToken}
-        isLoading={isLoading}
+        isLoading={tokenLoading}
         client={client}
+        setIsConvexAuthenticated={setIsConvexAuthenticated}
       />
     </ConvexAuthContext.Provider>
   );
@@ -148,16 +157,16 @@ function ConvexAuthStateFirstEffect({
   useEffect(() => {
     let isThisEffectRelevant = true;
     if (isAuthenticated) {
-      client.setAuth(fetchAccessToken, (isAuthenticated) => {
+      client.setAuth(fetchAccessToken, (backendReportsIsAuthenticated) => {
         if (isThisEffectRelevant) {
-          setIsConvexAuthenticated(isAuthenticated);
+          setIsConvexAuthenticated(() => backendReportsIsAuthenticated);
         }
       });
       return () => {
         isThisEffectRelevant = false;
 
-        // If we haven't finished fetching the token by now
-        // we shouldn't transition to a loaded state
+        // If unmounting or something changed before we finished fetching the token
+        // we shouldn't transition to a loaded state.
         setIsConvexAuthenticated((isConvexAuthenticated) =>
           isConvexAuthenticated ? false : null,
         );
@@ -181,6 +190,7 @@ function ConvexAuthStateLastEffect({
   fetchAccessToken,
   isLoading,
   client,
+  setIsConvexAuthenticated,
 }: {
   isAuthenticated: boolean;
   fetchAccessToken: (args: {
@@ -188,13 +198,30 @@ function ConvexAuthStateLastEffect({
   }) => Promise<string | null>;
   isLoading: boolean;
   client: IConvexReactClient;
+  setIsConvexAuthenticated: React.Dispatch<
+    React.SetStateAction<boolean | null>
+  >;
 }) {
   useEffect(() => {
+    // If rendered with isAuthenticated=true then clear that auth on in cleanup.
     if (isAuthenticated) {
       return () => {
         client.clearAuth();
+        // Set state back to loading in case this is a transition from one
+        // fetchToken function to another which signals a new auth context,
+        // e.g. a new orgId from Clerk. Auth context changes like this
+        // return isAuthenticated: true from useAuth() but if
+        // useQuth reports isAuthenticated: false on the next render
+        // then this null value will be overridden to false.
+        setIsConvexAuthenticated(() => null);
       };
     }
-  }, [isAuthenticated, fetchAccessToken, isLoading, client]);
+  }, [
+    isAuthenticated,
+    fetchAccessToken,
+    isLoading,
+    client,
+    setIsConvexAuthenticated,
+  ]);
   return null;
 }
