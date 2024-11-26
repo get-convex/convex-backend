@@ -268,7 +268,7 @@ export class Crons {
   }
 
   /**
-   * Schedule a mutation or action to run on an hourly basis.
+   * Schedule a mutation or action to run at some interval.
    *
    * ```js
    * crons.interval("Clear presence data", {seconds: 30}, api.presence.clear);
@@ -310,13 +310,12 @@ export class Crons {
   }
 
   /**
-   * Schedule a mutation or action to run on a daily basis.
+   * Schedule a mutation or action to run on an hourly basis.
    *
    * ```js
-   * crons.daily(
+   * crons.hourly(
    *   "Reset high scores",
    *   {
-   *     hourUTC: 17, // (9:30am Pacific/10:30am Daylight Savings Pacific)
    *     minuteUTC: 30,
    *   },
    *   api.scores.reset
@@ -387,6 +386,7 @@ export class Crons {
    * crons.weekly(
    *   "Weekly re-engagement email",
    *   {
+   *     dayOfWeek: "Tuesday",
    *     hourUTC: 17, // (9:30am Pacific/10:30am Daylight Savings Pacific)
    *     minuteUTC: 30,
    *   },
