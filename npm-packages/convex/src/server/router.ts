@@ -221,7 +221,7 @@ export class HttpRouter {
    * @returns - an array of [path, method, endpoint] tuples.
    */
   getRoutes = (): Array<
-    Readonly<[string, RoutableMethod, (...args: any[]) => any]>
+    Readonly<[string, RoutableMethod, PublicHttpAction]>
   > => {
     const exactPaths: string[] = [...this.exactRoutes.keys()].sort();
     const exact = exactPaths.flatMap((path) =>
