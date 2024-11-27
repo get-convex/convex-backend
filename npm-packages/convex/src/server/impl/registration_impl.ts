@@ -84,6 +84,20 @@ export async function invokeFunction<
   return result;
 }
 
+function dontCallDirectly(
+  funcType: string,
+  handler: (ctx: any, args: any) => any,
+) {
+  return (ctx: any, args: any) => {
+    globalThis.console.warn(
+      "Do not call Convex functions directly. " +
+        `e.g. \`export const foo = ${funcType}(...); await foo(ctx);\` is not supported. ` +
+        "See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code",
+    );
+    return handler(ctx, args);
+  };
+}
+
 // Keep in sync with node executor
 function serializeConvexErrorData(thrown: unknown) {
   if (
@@ -179,13 +193,16 @@ export const mutationGeneric: MutationBuilder<any, "public"> = ((
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredMutation<"public", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredMutation<"public", any, any>;
+  const func = dontCallDirectly("mutation", handler) as RegisteredMutation<
+    "public",
+    any,
+    any
+  >;
 
   assertNotBrowser();
   func.isMutation = true;
   func.isPublic = true;
-  func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
+  func.invokeMutation = (argsStr) => invokeMutation(handler, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -213,13 +230,15 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredMutation<"internal", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredMutation<"internal", any, any>;
+  const func = dontCallDirectly(
+    "internalMutation",
+    handler,
+  ) as RegisteredMutation<"internal", any, any>;
 
   assertNotBrowser();
   func.isMutation = true;
   func.isInternal = true;
-  func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
+  func.invokeMutation = (argsStr) => invokeMutation(handler, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -265,7 +284,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = ((
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredQuery<"public", any, any>;
-  const func = ((ctx: any, args: any) => handler(ctx, args)) as RegisteredQuery<
+  const func = dontCallDirectly("query", handler) as RegisteredQuery<
     "public",
     any,
     any
@@ -274,7 +293,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = ((
   assertNotBrowser();
   func.isQuery = true;
   func.isPublic = true;
-  func.invokeQuery = (argsStr) => invokeQuery(func, argsStr);
+  func.invokeQuery = (argsStr) => invokeQuery(handler, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -302,7 +321,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredQuery<"internal", any, any>;
-  const func = ((ctx: any, args: any) => handler(ctx, args)) as RegisteredQuery<
+  const func = dontCallDirectly("internalQuery", handler) as RegisteredQuery<
     "internal",
     any,
     any
@@ -311,7 +330,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
   assertNotBrowser();
   func.isQuery = true;
   func.isInternal = true;
-  func.invokeQuery = (argsStr) => invokeQuery(func as any, argsStr);
+  func.invokeQuery = (argsStr) => invokeQuery(handler as any, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -353,14 +372,17 @@ export const actionGeneric: ActionBuilder<any, "public"> = ((
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredAction<"public", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredAction<"public", any, any>;
+  const func = dontCallDirectly("action", handler) as RegisteredAction<
+    "public",
+    any,
+    any
+  >;
 
   assertNotBrowser();
   func.isAction = true;
   func.isPublic = true;
   func.invokeAction = (requestId, argsStr) =>
-    invokeAction(func, requestId, argsStr);
+    invokeAction(handler, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -386,14 +408,17 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
       ? functionDefinition
       : functionDefinition.handler
   ) as RegisteredAction<"internal", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredAction<"internal", any, any>;
+  const func = dontCallDirectly("internalAction", handler) as RegisteredAction<
+    "internal",
+    any,
+    any
+  >;
 
   assertNotBrowser();
   func.isAction = true;
   func.isInternal = true;
   func.invokeAction = (requestId, argsStr) =>
-    invokeAction(func, requestId, argsStr);
+    invokeAction(handler, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -433,11 +458,10 @@ export const httpActionGeneric = (
   ) => Promise<Response>,
 ): PublicHttpAction => {
   const handler = func as unknown as PublicHttpAction;
-  const q = ((ctx: any, request: any) =>
-    handler(ctx, request)) as PublicHttpAction;
+  const q = dontCallDirectly("httpAction", handler) as PublicHttpAction;
   assertNotBrowser();
   q.isHttp = true;
-  q.invokeHttpAction = (request) => invokeHttpAction(func as any, request);
+  q.invokeHttpAction = (request) => invokeHttpAction(handler as any, request);
   q._handler = func;
   return q;
 };

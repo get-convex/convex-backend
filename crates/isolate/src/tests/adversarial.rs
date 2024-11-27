@@ -903,3 +903,23 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
     assert_contains(&js_error, "Could not find public function for 'myFunc'");
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_invoke_function_directly(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let mut outcome = t
+        .raw_query(
+            "adversarial:invokeFunctionDirectly",
+            vec![assert_val!({})],
+            Identity::system(),
+            None,
+        )
+        .await?;
+    let log_line = outcome
+        .log_lines
+        .pop()
+        .unwrap()
+        .to_pretty_string_test_only();
+    assert_contains(&log_line, "[WARN] 'Do not call Convex functions directly.");
+    Ok(())
+}
