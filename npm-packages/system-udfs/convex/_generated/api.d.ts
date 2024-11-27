@@ -27,6 +27,7 @@ import type * as _system_frontend_components from "../_system/frontend/component
 import type * as _system_frontend_convexSiteUrl from "../_system/frontend/convexSiteUrl.js";
 import type * as _system_frontend_createTable from "../_system/frontend/createTable.js";
 import type * as _system_frontend_deleteDocuments from "../_system/frontend/deleteDocuments.js";
+import type * as _system_frontend_deploymentEvents from "../_system/frontend/deploymentEvents.js";
 import type * as _system_frontend_deploymentState from "../_system/frontend/deploymentState.js";
 import type * as _system_frontend_fileStorageV2 from "../_system/frontend/fileStorageV2.js";
 import type * as _system_frontend_getById from "../_system/frontend/getById.js";
@@ -82,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/convexSiteUrl": typeof _system_frontend_convexSiteUrl;
   "_system/frontend/createTable": typeof _system_frontend_createTable;
   "_system/frontend/deleteDocuments": typeof _system_frontend_deleteDocuments;
+  "_system/frontend/deploymentEvents": typeof _system_frontend_deploymentEvents;
   "_system/frontend/deploymentState": typeof _system_frontend_deploymentState;
   "_system/frontend/fileStorageV2": typeof _system_frontend_fileStorageV2;
   "_system/frontend/getById": typeof _system_frontend_getById;
