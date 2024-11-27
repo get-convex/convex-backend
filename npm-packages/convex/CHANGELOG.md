@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.17.3
+
+- Fetch a new JWT from Clerk when using CLerk components to change the active
+  orgId or orgRole in React on the client. Any auth provider can implement this
+  by returning a new `getToken` function from the `useAuth` hook passed into
+  `ConvexProviderWithAuth`.
+
+## 1.17.2
+
+- Revert local Prettier settings change described in 1.17.1 which removed angle
+  brackets in some cases where local prettier config used plugins.
+
+- `npx convex import --replace-all` flag which behaves like the Restore
+  functionality in the dashboard.
+
 ## 1.17.1
 
 - Use local Prettier settings to format code in `convex/_generated` if found.
