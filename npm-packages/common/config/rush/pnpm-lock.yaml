@@ -431,7 +431,7 @@ importers:
         specifier: ^27.0.0
         version: 27.5.2
       jest:
-        specifier: ^29.5.0
+        specifier: ^29.6.0
         version: 29.7.0
       ts-jest:
         specifier: ^29.1.1
@@ -504,7 +504,7 @@ importers:
         specifier: ^5.1.0-beta-26f2496093-20240514
         version: 5.1.0-rc-fb9a90fa48-20240614(eslint@8.57.0)
       jest:
-        specifier: ^29.5.0
+        specifier: ^29.6.0
         version: 29.7.0
       typescript:
         specifier: ~5.0.3
