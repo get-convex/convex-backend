@@ -224,7 +224,9 @@ async function deployToNewPreviewDeployment(
         options.configuredDeployKey,
       ),
       identifier: previewName,
-      partitionId: options.partitionId,
+      partitionId: options.partitionId
+        ? parseInt(options.partitionId)
+        : undefined,
     },
   });
 
