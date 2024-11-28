@@ -6,6 +6,7 @@ use std::{
 use anyhow::Context;
 use common::{
     knobs::{
+        MAX_COMPACTION_SEGMENTS,
         MAX_SEGMENT_DELETED_PERCENTAGE,
         MIN_COMPACTION_SEGMENTS,
         SEARCH_WORKER_PASSIVE_PAGES_PER_SECOND,
@@ -17,6 +18,7 @@ use common::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
+use rand::seq::SliceRandom;
 use search::{
     metrics::SearchType,
     Searcher,
@@ -147,11 +149,20 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 )?,
                 _ => continue,
             };
-            if let Some((segments_to_compact, compaction_reason)) = maybe_segments_to_compact {
+            if let Some((mut segments_to_compact, compaction_reason)) = maybe_segments_to_compact {
                 tracing::info!(
                     "Queueing {:?} index for compaction: {name:?}",
                     Self::search_type()
                 );
+                // Choose segments to compact at random.
+                segments_to_compact.shuffle(&mut rand::thread_rng());
+                tracing::info!(
+                    "Compacting {} segments out of {} that need compaction for reason: {:?}",
+                    *MAX_COMPACTION_SEGMENTS,
+                    segments_to_compact.len(),
+                    compaction_reason,
+                );
+                segments_to_compact.truncate(*MAX_COMPACTION_SEGMENTS);
                 let job = CompactionJob {
                     index_id,
                     index_name: name.clone(),

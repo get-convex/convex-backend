@@ -855,6 +855,9 @@ pub static SEGMENT_MAX_SIZE_BYTES: LazyLock<u64> =
 /// The minimum number of segments we will compact in one pass.
 pub static MIN_COMPACTION_SEGMENTS: LazyLock<u64> =
     LazyLock::new(|| env_config("MIN_COMPACTION_SEGMENTS", 3));
+/// The maximum number of segments to compact in one request.
+pub static MAX_COMPACTION_SEGMENTS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_COMPACTION_SEGMENTS", 10));
 /// The maximum percentage of a Segment that can be deleted before we will
 /// recompact that segment to remove deleted vectors
 /// This number must be between 0 and 1.

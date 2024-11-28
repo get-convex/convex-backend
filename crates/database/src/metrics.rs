@@ -871,6 +871,7 @@ pub fn log_non_deleted_documents_per_search_index(count: u64, search_type: Searc
 
 const COMPACTION_REASON_LABEL: &str = "compaction_reason";
 
+#[derive(Debug)]
 pub enum CompactionReason {
     SmallSegments,
     LargeSegments,
