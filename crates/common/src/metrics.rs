@@ -151,10 +151,10 @@ pub fn register_prometheus_exporter<RT: Runtime>(
         async move {
             // Prometheus scrapes metrics every 30s.
             let shutdown = tokio::signal::ctrl_c();
-            let flush_fut = rt_.wait(Duration::from_secs(35));
+            let flush_fut = rt_.wait(Duration::from_secs(60));
             pin_mut!(shutdown);
             pin_mut!(flush_fut);
-            tracing::info!("Flushing metrics (35s)... Ctrl-C to skip");
+            tracing::info!("Flushing metrics (60s)... Ctrl-C to skip");
             match futures::future::select(shutdown, flush_fut).await {
                 Either::Left(_) => tracing::info!("Got another ctrl-C, shutting down"),
                 Either::Right(_) => tracing::info!("Finished flushing metrics"),
