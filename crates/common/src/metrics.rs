@@ -4,7 +4,10 @@ use std::{
 };
 
 use futures::{
-    future::BoxFuture,
+    future::{
+        BoxFuture,
+        Either,
+    },
     pin_mut,
     FutureExt,
 };
@@ -152,7 +155,10 @@ pub fn register_prometheus_exporter<RT: Runtime>(
             pin_mut!(shutdown);
             pin_mut!(flush_fut);
             tracing::info!("Flushing metrics (35s)... Ctrl-C to skip");
-            futures::future::select(shutdown, flush_fut).await;
+            match futures::future::select(shutdown, flush_fut).await {
+                Either::Left(_) => tracing::info!("Got another ctrl-C, shutting down"),
+                Either::Right(_) => tracing::info!("Finished flushing metrics"),
+            }
         }
         .boxed()
     };
