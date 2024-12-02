@@ -578,6 +578,7 @@ impl TantivySearchIndexSchema {
                     doc_frequency,
                     bm25_boost: boost,
                 };
+                metrics::log_search_term_edit_distance(distance, prefix);
                 or_terms.push(or_term);
             }
         }

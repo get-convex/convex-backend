@@ -292,6 +292,23 @@ pub fn log_num_discarded_revisions(discarded_revisions: usize) {
     );
 }
 
+register_convex_counter!(
+    SEARCH_SEARCH_TERM_EDIT_DISTANCE_TOTAL,
+    "Number of times a search term was edited",
+    &["distance", "prefix"]
+);
+
+pub fn log_search_term_edit_distance(distance: u32, prefix: bool) {
+    log_counter_with_labels(
+        &SEARCH_SEARCH_TERM_EDIT_DISTANCE_TOTAL,
+        1,
+        vec![
+            StaticMetricLabel::new("distance", distance.to_string()),
+            StaticMetricLabel::new("prefix", prefix.to_string()),
+        ],
+    );
+}
+
 register_convex_histogram!(
     SEARCH_SEARCHLIGHT_CLIENT_RESULTS_TOTAL,
     "Number of results from Searchlight"
