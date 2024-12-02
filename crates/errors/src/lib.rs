@@ -391,6 +391,14 @@ impl ErrorMetadata {
         }
     }
 
+    /// Returns the level at which the given error should report to sentry
+    /// INFO -> it's a client-at-fault error
+    /// WARNING -> it's a server-at-fault error that is expected
+    /// ERROR -> it's a server-at-fault error that is unexpected (probably a
+    /// bug)
+    /// FATAL -> it crashes the backend
+    ///
+    /// Also return an optional sampling rate for this type of error
     pub fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)> {
         // Sentry considers errors invalid if this field is empty.
         if self.short_msg.is_empty() {
@@ -398,7 +406,6 @@ impl ErrorMetadata {
         }
         match self.code {
             ErrorCode::ClientDisconnect => None,
-            ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.01))),
             ErrorCode::BadRequest
             | ErrorCode::NotFound
             | ErrorCode::PaginationLimit
@@ -406,13 +413,14 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden
             | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
             ErrorCode::OutOfRetention
-            | ErrorCode::Overloaded
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
 
-            // 1% sampling for OCC, since we only really care about the details if they
-            // happen at high volume.
-            ErrorCode::OCC { .. } => Some((sentry::Level::Warning, Some(0.01))),
+            // 1% sampling for OCC/Overloaded/RateLimited, since we only really care about the
+            // details if they happen at high volume.
+            ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.001))),
+            ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.001))),
+            ErrorCode::OCC { .. } => Some((sentry::Level::Warning, Some(0.001))),
         }
     }
 
