@@ -9,6 +9,7 @@ export const nextScheduledJobTimestamp = queryPrivateSystem({
     const nextJob = await db
       .query("_scheduled_jobs")
       .withIndex("by_next_ts", (q) => q.gt("nextTs", null))
+      .filter((q) => q.eq(q.field("state"), { type: "pending" }))
       .order("asc")
       .first();
     return nextJob?.nextTs ?? null;
