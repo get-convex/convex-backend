@@ -583,7 +583,7 @@ export type ReturnValueForOptionalValidator<
 > = [ReturnsValidator] extends [Validator<any, any, any>]
   ? ValidatorTypeToReturnType<Infer<ReturnsValidator>>
   : [ReturnsValidator] extends [PropertyValidators]
-    ? ObjectType<ReturnsValidator>
+    ? ValidatorTypeToReturnType<ObjectType<ReturnsValidator>>
     : any;
 
 export type ArgsArrayForOptionalValidator<
