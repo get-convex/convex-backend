@@ -571,7 +571,7 @@ impl Arbitrary for ValidatedHttpPath {
                     udf_path,
                     component_path: Some(component_path),
                 },
-                npm_version: None,
+                npm_version: Some(Version::parse("0.0.0").unwrap()),
             },
         )
     }

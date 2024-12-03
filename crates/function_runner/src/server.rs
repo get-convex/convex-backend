@@ -654,7 +654,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     }
 
     #[minitrace::trace]
-    async fn evaluate_app_definitions(
+    pub async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
