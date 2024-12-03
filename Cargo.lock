@@ -6919,6 +6919,37 @@ dependencies = [
 ]
 
 [[package]]
+name = "simulation"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "application",
+ "common",
+ "convex",
+ "convex_macro",
+ "convex_sync_types",
+ "deno_core",
+ "errors",
+ "futures",
+ "isolate",
+ "keybroker",
+ "maplit",
+ "metrics",
+ "model",
+ "must-let",
+ "proptest",
+ "proptest-derive",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "runtime",
+ "serde",
+ "serde_json",
+ "sync",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "siphasher"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7255,6 +7286,7 @@ dependencies = [
  "application",
  "cmd_util",
  "common",
+ "convex",
  "convex_macro",
  "convex_sync_types",
  "errors",

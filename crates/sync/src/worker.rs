@@ -196,6 +196,18 @@ impl SingleFlightReceiver {
         }
         result
     }
+
+    pub fn try_next(&mut self) -> Option<(ServerMessage, tokio::time::Instant)> {
+        let result = self.inner.try_recv().ok();
+        if let Some(msg) = &result {
+            if matches!(msg.0, ServerMessage::Transition { .. }) {
+                self.transition_count.fetch_sub(1, Ordering::SeqCst);
+            }
+            // Don't block if channel is full.
+            _ = self.size_reduced_tx.try_send(());
+        }
+        result
+    }
 }
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);

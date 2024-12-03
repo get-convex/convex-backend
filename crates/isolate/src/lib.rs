@@ -51,7 +51,10 @@ pub use self::{
         IsolateConfig,
         UdfCallback,
     },
-    concurrency_limiter::ConcurrencyLimiter,
+    concurrency_limiter::{
+        ConcurrencyLimiter,
+        ConcurrencyPermit,
+    },
     environment::{
         action::{
             outcome::{
@@ -78,6 +81,7 @@ pub use self::{
             CONVEX_SITE,
         },
     },
+    execution_scope::ExecutionScope,
     helpers::{
         deserialize_udf_custom_error,
         deserialize_udf_result,
@@ -99,4 +103,6 @@ pub use self::{
         log_source_map_missing,
         log_source_map_token_lookup_failed,
     },
+    request_scope::RequestScope,
+    timeout::Timeout,
 };

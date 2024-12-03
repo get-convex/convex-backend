@@ -38,4 +38,8 @@ export default defineSchema({
     dimensions: 4,
     filterFields: ["filterA", "filterB"],
   }),
+
+  listRegisters: defineTable({
+    value: v.array(v.number()),
+  }),
 });
