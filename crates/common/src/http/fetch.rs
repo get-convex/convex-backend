@@ -3,9 +3,12 @@ use std::{
         BTreeMap,
         HashMap,
     },
-    sync::atomic::{
-        AtomicU64,
-        Ordering,
+    sync::{
+        atomic::{
+            AtomicU64,
+            Ordering,
+        },
+        LazyLock,
     },
 };
 
@@ -47,31 +50,35 @@ pub trait FetchClient: Send + Sync {
     ) -> anyhow::Result<HttpResponseStream>;
 }
 
-#[derive(Clone)]
+pub static INTERNAL_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(reqwest::Client::new);
+
 pub struct ProxiedFetchClient {
-    http_client: reqwest::Client,
+    http_client:
+        LazyLock<reqwest::Client, Box<dyn FnOnce() -> reqwest::Client + Send + Sync + 'static>>,
     internal_http_client: reqwest::Client,
 }
 
 impl ProxiedFetchClient {
     pub fn new(proxy_url: Option<Url>, client_id: String) -> Self {
-        let mut builder = reqwest::Client::builder().redirect(redirect::Policy::none());
-        // It's okay to panic on these errors, as they indicate a serious programming
-        // error -- building the reqwest client is expected to be infallible.
-        if let Some(proxy_url) = proxy_url {
-            let proxy = Proxy::all(proxy_url)
-                .expect("Infallible conversion from URL type to URL type")
-                .custom_http_auth(
-                    client_id
-                        .try_into()
-                        .expect("Backend name is not valid ASCII?"),
-                );
-            builder = builder.proxy(proxy);
-        }
-        builder = builder.user_agent("Convex/1.0");
         Self {
-            http_client: builder.build().expect("Failed to build reqwest client"),
-            internal_http_client: reqwest::Client::new(),
+            http_client: LazyLock::new(Box::new(move || {
+                let mut builder = reqwest::Client::builder().redirect(redirect::Policy::none());
+                // It's okay to panic on these errors, as they indicate a serious programming
+                // error -- building the reqwest client is expected to be infallible.
+                if let Some(proxy_url) = proxy_url {
+                    let proxy = Proxy::all(proxy_url)
+                        .expect("Infallible conversion from URL type to URL type")
+                        .custom_http_auth(
+                            client_id
+                                .try_into()
+                                .expect("Backend name is not valid ASCII?"),
+                        );
+                    builder = builder.proxy(proxy);
+                }
+                builder = builder.user_agent("Convex/1.0");
+                builder.build().expect("Failed to build reqwest client")
+            })),
+            internal_http_client: INTERNAL_HTTP_CLIENT.clone(),
         }
     }
 }
