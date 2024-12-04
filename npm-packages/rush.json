@@ -28,6 +28,10 @@
       "projectFolder": "udf-runtime"
     },
     {
+      "packageName": "simulation",
+      "projectFolder": "simulation"
+    },
+    {
       "packageName": "system-udfs",
       "projectFolder": "system-udfs"
     },
