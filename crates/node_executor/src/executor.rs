@@ -12,7 +12,6 @@ use async_trait::async_trait;
 use common::{
     backoff::Backoff,
     errors::{
-        report_error,
         FrameData,
         JsError,
     },
@@ -361,13 +360,12 @@ impl<RT: Runtime> Actions<RT> {
             let request = ExecutorRequest::Analyze(request.clone());
             match self.executor.invoke(request, log_line_sender).await {
                 Ok(response) => return Ok(response),
-                Err(mut e) => {
+                Err(e) => {
                     if retries >= *NODE_ANALYZE_MAX_RETRIES || e.is_deterministic_user_error() {
                         return Err(e);
                     }
                     tracing::warn!("Failed to invoke analyze: {:?}", e);
                     retries += 1;
-                    report_error(&mut e);
                     let duration = backoff.fail(&mut self.runtime.rng());
                     self.runtime.wait(duration).await;
                 },
