@@ -125,6 +125,7 @@ use value::{
 use crate::{
     metrics::log_snapshot_import_age,
     snapshot_import::{
+        audit_log::make_audit_log_event,
         confirmation::info_message_for_import,
         import_error::{
             wrap_import_err,
@@ -149,6 +150,7 @@ use crate::{
     Application,
 };
 
+mod audit_log;
 mod confirmation;
 mod import_error;
 mod import_file_storage;
@@ -345,27 +347,9 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         )
         .await?;
 
-        // Truncate list of table names to avoid storing too much data in
-        // audit log object.
-        let table_names: Vec<_> = table_mapping_for_import
-            .table_mapping_in_import
-            .iter()
-            .map(|(_, _, _, table_name)| {
-                if table_name == &*FILE_STORAGE_TABLE {
-                    FILE_STORAGE_VIRTUAL_TABLE.clone()
-                } else {
-                    table_name.clone()
-                }
-            })
-            .take(20)
-            .collect();
-        let table_count = table_mapping_for_import
-            .table_mapping_in_import
-            .iter()
-            .count() as u64;
-        let mut table_names_deleted = table_mapping_for_import.deleted_for_audit_log();
-        let table_count_deleted = table_names_deleted.len() as u64;
-        table_names_deleted = table_names_deleted.into_iter().take(20).collect();
+        let audit_log_event =
+            make_audit_log_event(&self.database, &table_mapping_for_import, &snapshot_import)
+                .await?;
 
         self.pause_client.wait("before_finalize_import").await;
         let (ts, _documents_deleted) = finalize_import(
@@ -376,15 +360,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             initial_schemas,
             table_mapping_for_import,
             usage,
-            DeploymentAuditLogEvent::SnapshotImport {
-                table_names,
-                table_count,
-                import_mode: snapshot_import.mode,
-                import_format: snapshot_import.format.clone(),
-                requestor: snapshot_import.requestor.clone(),
-                table_names_deleted,
-                table_count_deleted,
-            },
+            audit_log_event,
             snapshot_import.requestor.clone(),
         )
         .await?;
@@ -838,28 +814,30 @@ struct TableMappingForImport {
 }
 
 impl TableMappingForImport {
-    fn tables_affected(&self) -> BTreeSet<TableName> {
-        // TODO - include compenent here
-        let mut tables_affected: BTreeSet<_> = self
-            .table_mapping_in_import
+    fn tables_imported(&self) -> BTreeSet<(TableNamespace, TableName)> {
+        self.table_mapping_in_import
             .iter()
-            .map(|(_, _, _, table_name)| table_name.clone())
-            .collect();
-        tables_affected.extend(self.to_delete.values().map(|v| v.2.clone()));
-        tables_affected
+            .map(|(_, namespace, _, table_name)| (namespace, table_name.clone()))
+            .collect()
     }
 
-    fn deleted_for_audit_log(&self) -> Vec<TableName> {
-        // TODO - include the component path here
+    fn tables_deleted(&self) -> BTreeSet<(TableNamespace, TableName)> {
         self.to_delete
             .values()
-            .filter(|(_namespace, _table_number, table_name)| {
-                self.table_mapping_in_import
-                    .namespaces_for_name(table_name)
-                    .is_empty()
+            .filter(|(namespace, _table_number, table_name)| {
+                !self
+                    .table_mapping_in_import
+                    .namespace(*namespace)
+                    .name_exists(table_name)
             })
-            .map(|(_namespace, _table_number, table_name)| table_name.clone())
+            .map(|(namespace, _table_number, table_name)| (*namespace, table_name.clone()))
             .collect()
+    }
+
+    fn tables_affected(&self) -> BTreeSet<(TableNamespace, TableName)> {
+        let mut tables_affected = self.tables_imported();
+        tables_affected.extend(self.tables_deleted());
+        tables_affected
     }
 }
 
@@ -989,12 +967,21 @@ async fn import_tables_table<RT: Runtime>(
             })?;
         import_tables.push((table_name, table_number));
     }
+
+    let table_namespace: TableNamespace = {
+        let mut tx = database.begin(identity.clone()).await?;
+        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(component_path)?
+            .context(format!("Component {component_path:?} should exist by now"))?;
+        component_id.into()
+    };
+
     let tables_affected = table_mapping_for_import
         .tables_affected()
         .union(
             &import_tables
                 .iter()
-                .map(|(table_name, _)| table_name.clone())
+                .map(|(table_name, _)| (table_namespace, table_name.clone()))
                 .collect(),
         )
         .cloned()
@@ -1299,7 +1286,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     component_path: &ComponentPath,
     table_name: &TableName,
     table_number: Option<TableNumber>,
-    tables_affected: &BTreeSet<TableName>,
+    tables_affected: &BTreeSet<(TableNamespace, TableName)>,
     import_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<(TabletIdAndTableNumber, ComponentId, u64)> {
     anyhow::ensure!(

@@ -179,12 +179,28 @@ export const snapshotImport = v.object({
   action: v.literal("snapshot_import"),
   member_id: v.union(v.int64(), v.null()),
   metadata: v.object({
-    table_names: v.array(v.string()),
+    table_names: v.union(
+      v.array(v.string()),
+      v.array(
+        v.object({
+          component: v.union(v.null(), v.string()),
+          table_names: v.array(v.string()),
+        }),
+      ),
+    ),
     table_count: v.int64(),
     import_mode: snapshotImportMode,
     import_format: snapshotImportFormat,
     requestor: snapshotImportRequestor,
-    table_names_deleted: v.array(v.string()),
+    table_names_deleted: v.union(
+      v.array(v.string()),
+      v.array(
+        v.object({
+          component: v.union(v.null(), v.string()),
+          table_names: v.array(v.string()),
+        }),
+      ),
+    ),
     table_count_deleted: v.int64(),
   }),
 });

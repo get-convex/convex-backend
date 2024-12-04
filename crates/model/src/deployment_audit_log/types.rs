@@ -24,6 +24,7 @@ use common::{
     },
 };
 use database::LegacyIndexDiff;
+use maplit::btreemap;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde::{
@@ -35,10 +36,12 @@ use value::{
     codegen_convex_serialization,
     obj,
     remove_int64,
+    remove_nullable_string,
     remove_object,
     remove_string,
     remove_vec,
     remove_vec_of_strings,
+    val,
     ConvexObject,
     ConvexValue,
     TableName,
@@ -151,12 +154,12 @@ pub enum DeploymentAuditLogEvent {
     // and we have a story about limiting size.
     ClearTables,
     SnapshotImport {
-        table_names: Vec<TableName>,
+        table_names: BTreeMap<ComponentPath, Vec<TableName>>,
         table_count: u64,
         import_mode: ImportMode,
         import_format: ImportFormat,
         requestor: ImportRequestor,
-        table_names_deleted: Vec<TableName>,
+        table_names_deleted: BTreeMap<ComponentPath, Vec<TableName>>,
         table_count_deleted: u64,
     },
 }
@@ -286,14 +289,34 @@ impl DeploymentAuditLogEvent {
             } => {
                 let table_names: Vec<_> = table_names
                     .into_iter()
-                    .map(|table_name| {
-                        anyhow::Ok(ConvexValue::String(table_name.to_string().try_into()?))
+                    .map(|(component_path, table_names)| {
+                        let component_path: ConvexValue = component_path.serialize().try_into()?;
+                        let table_names: Vec<_> = table_names
+                            .into_iter()
+                            .map(|table_name| {
+                                anyhow::Ok(ConvexValue::String(table_name.to_string().try_into()?))
+                            })
+                            .try_collect()?;
+                        anyhow::Ok(val!({
+                            "component" => component_path,
+                            "table_names" => table_names,
+                        }))
                     })
                     .try_collect()?;
                 let table_names_deleted: Vec<_> = table_names_deleted
                     .into_iter()
-                    .map(|table_name| {
-                        anyhow::Ok(ConvexValue::String(table_name.to_string().try_into()?))
+                    .map(|(component_path, table_names)| {
+                        let component_path: ConvexValue = component_path.serialize().try_into()?;
+                        let table_names: Vec<_> = table_names
+                            .into_iter()
+                            .map(|table_name| {
+                                anyhow::Ok(ConvexValue::String(table_name.to_string().try_into()?))
+                            })
+                            .try_collect()?;
+                        anyhow::Ok(val!({
+                            "component" => component_path,
+                            "table_names" => table_names,
+                        }))
                     })
                     .try_collect()?;
                 obj!(
@@ -395,15 +418,67 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
             },
             "clear_tables" => DeploymentAuditLogEvent::ClearTables,
             "snapshot_import" => {
-                let table_names = remove_vec_of_strings(&mut fields, "table_names")?
-                    .iter()
-                    .map(|s| TableName::from_str(s))
-                    .try_collect()?;
-                let table_names_deleted =
-                    remove_vec_of_strings(&mut fields, "table_names_deleted")?
-                        .iter()
-                        .map(|s| TableName::from_str(s))
-                        .try_collect()?;
+                let first_entry = match fields.get("table_names") {
+                    Some(ConvexValue::Array(a)) => a.first().cloned(),
+                    v => anyhow::bail!("expected array for table_names, got {v:?}"),
+                };
+                let table_names: BTreeMap<_, _> = match first_entry {
+                    None => btreemap!(),
+                    Some(ConvexValue::String(_)) => btreemap!(
+                        ComponentPath::root() => remove_vec_of_strings(&mut fields, "table_names")?
+                            .iter()
+                            .map(|s| TableName::from_str(s))
+                            .try_collect()?,
+                    ),
+                    Some(ConvexValue::Object(_)) => remove_vec(&mut fields, "table_names")?
+                        .into_iter()
+                        .map(|v| {
+                            let o: ConvexObject = v.try_into()?;
+                            let mut fields = BTreeMap::from(o);
+                            let component = ComponentPath::deserialize(
+                                remove_nullable_string(&mut fields, "component")?.as_deref(),
+                            )?;
+                            let table_names: Vec<_> =
+                                remove_vec_of_strings(&mut fields, "table_names")?
+                                    .iter()
+                                    .map(|s| TableName::from_str(s))
+                                    .try_collect()?;
+                            anyhow::Ok((component, table_names))
+                        })
+                        .try_collect()?,
+                    _ => anyhow::bail!("Unknown table_names field type"),
+                };
+
+                let first_entry = match fields.get("table_names_deleted") {
+                    Some(ConvexValue::Array(a)) => a.first().cloned(),
+                    v => anyhow::bail!("expected array for table_names, got {v:?}"),
+                };
+                let table_names_deleted: BTreeMap<_, _> = match first_entry {
+                    None => btreemap!(),
+                    Some(ConvexValue::String(_)) => btreemap!(
+                        ComponentPath::root() => remove_vec_of_strings(&mut fields, "table_names_deleted")?
+                            .iter()
+                            .map(|s| TableName::from_str(s))
+                            .try_collect()?,
+                    ),
+                    Some(ConvexValue::Object(_)) => remove_vec(&mut fields, "table_names_deleted")?
+                        .into_iter()
+                        .map(|v| {
+                            let o: ConvexObject = v.try_into()?;
+                            let mut fields = BTreeMap::from(o);
+                            let component = ComponentPath::deserialize(
+                                remove_nullable_string(&mut fields, "component")?.as_deref(),
+                            )?;
+                            let table_names: Vec<_> =
+                                remove_vec_of_strings(&mut fields, "table_names")?
+                                    .iter()
+                                    .map(|s| TableName::from_str(s))
+                                    .try_collect()?;
+                            anyhow::Ok((component, table_names))
+                        })
+                        .try_collect()?,
+                    _ => anyhow::bail!("Unknown table_names_deleted field type"),
+                };
                 DeploymentAuditLogEvent::SnapshotImport {
                     table_names,
                     table_count: remove_int64(&mut fields, "table_count")? as u64,

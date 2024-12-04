@@ -1299,8 +1299,8 @@ async fn test_import_overwrite_foreign_reference_schema_validated(
         )
         .await
         .is_err());
-    tables_in_import.insert(table_name.clone());
-    tables_in_import.insert(foreign_table_name.clone());
+    tables_in_import.insert((TableNamespace::test_user(), table_name.clone()));
+    tables_in_import.insert((TableNamespace::test_user(), foreign_table_name.clone()));
     // If tables_in_import is populated, we're allowed to create both tables.
     let table_id = table_model
         .insert_table_for_import(
