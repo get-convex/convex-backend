@@ -206,7 +206,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             while let Err(mut e) = executor.run(&mut backoff).await {
                 let delay = backoff.fail(&mut executor.rt.rng());
                 tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
-                report_error(&mut e);
+                report_error(&mut e).await;
                 executor.rt.wait(delay).await;
             }
         }
@@ -437,7 +437,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         // If scheduling a retry hits an error, nothing has
                         // changed so the job will remain at the head of the queue and
                         // will be picked up by the scheduler in the next cycle.
-                        report_error(&mut retry_err);
+                        report_error(&mut retry_err).await;
                     },
                 }
             },
@@ -465,7 +465,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         // Only report OCCs that happen repeatedly
         if !system_error.is_occ() || (attempts.occ_errors as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
         {
-            report_error(&mut system_error);
+            report_error(&mut system_error).await;
         }
         if system_error.is_occ() {
             attempts.occ_errors += 1;
@@ -770,7 +770,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 {
                     let delay = backoff.fail(&mut self.rt.rng());
                     tracing::error!("Failed to update action state, sleeping {delay:?}");
-                    report_error(&mut err);
+                    report_error(&mut err).await;
                     self.rt.wait(delay).await;
                 }
                 self.function_log.log_action(completion, usage_tracker);
@@ -882,7 +882,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 tracing::error!("Scheduled job garbage collector failed, sleeping {delay:?}");
                 // Only report OCCs that happen repeatedly
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                 }
                 garbage_collector.rt.wait(delay).await;
             }

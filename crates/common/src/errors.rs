@@ -60,7 +60,7 @@ pub struct MainError(anyhow::Error);
 impl<T: Into<anyhow::Error>> From<T> for MainError {
     fn from(e: T) -> Self {
         let mut err: anyhow::Error = e.into();
-        report_error(&mut err);
+        report_error_sync(&mut err);
         Self(err)
     }
 }
@@ -106,7 +106,17 @@ fn strip_pii(err: &mut anyhow::Error) {
 /// This is the one point where we call into Sentry.
 ///
 /// Other parts of codebase should not use the `sentry_anyhow` crate directly!
-pub fn report_error(err: &mut anyhow::Error) {
+pub async fn report_error(err: &mut anyhow::Error) {
+    // Yield in case this is during shutdown - at which point, errors being reported
+    // explicitly aren't useful. Yielding allows tokio to complete a cancellation.
+    tokio::task::yield_now().await;
+
+    report_error_sync(err);
+}
+
+/// Use the `pub async fn report_error` above if possible to log an error to
+/// sentry. This is a synchronous version for use in sync contexts.
+pub fn report_error_sync(err: &mut anyhow::Error) {
     strip_pii(err);
     if let Some(label) = err.metric_server_error_label() {
         log_errors_reported_total(label);
@@ -165,7 +175,7 @@ pub fn report_error(err: &mut anyhow::Error) {
 /// See https://docs.rs/anyhow/latest/anyhow/struct.Error.html#display-representations
 pub fn recapture_stacktrace(mut err: anyhow::Error) -> anyhow::Error {
     let new_error = recapture_stacktrace_noreport(&err);
-    report_error(&mut err); // report original error, mutating it to strip pii
+    report_error_sync(&mut err); // report original error, mutating it to strip pii
     new_error
 }
 
@@ -525,7 +535,7 @@ impl JsError {
                             Err(err) => {
                                 // This is not expected so report an error.
                                 let mut err = err.context("Failed to lookup source_map");
-                                report_error(&mut err);
+                                report_error_sync(&mut err);
                                 continue;
                             },
                         };

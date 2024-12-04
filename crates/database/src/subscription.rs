@@ -151,7 +151,7 @@ impl SubscriptionsWorker {
                                 Ok(s) => {
                                     let _: Result<_, _> = result.send(s);
                                 },
-                                Err(mut e) => report_error(&mut e),
+                                Err(mut e) => report_error(&mut e).await,
                             }
                         },
                         Some(SubscriptionRequest::Cancel(key)) => {
@@ -165,7 +165,7 @@ impl SubscriptionsWorker {
                 },
                 next_ts = self.subscriptions.wait_for_next_ts() => {
                     if let Err(mut e) = self.subscriptions.advance_log(next_ts) {
-                        report_error(&mut e);
+                        report_error(&mut e).await;
                     }
                 },
             }

@@ -19,7 +19,7 @@ use common::{
         ComponentPath,
     },
     errors::{
-        report_error,
+        report_error_sync,
         JsError,
     },
     execution_context::ExecutionContext,
@@ -1041,7 +1041,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             .lock()
             .log_execution(execution, send_console_events)
         {
-            report_error(&mut e);
+            report_error_sync(&mut e);
         }
     }
 
@@ -1056,7 +1056,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 .lock()
                 .log_execution_progress(log_lines, event_source, timestamp)
         {
-            report_error(&mut e);
+            report_error_sync(&mut e);
         }
     }
 
@@ -1259,7 +1259,7 @@ impl<RT: Runtime> Inner<RT> {
                 // Don't let failing to construct the UDF execution record block sending
                 // the other log events
                 tracing::error!("failed to create UDF execution record: {}", e);
-                report_error(&mut e);
+                report_error_sync(&mut e);
             },
         }
 

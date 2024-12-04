@@ -463,11 +463,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     ) {
         match ts {
             Err(mut err) => {
-                report_error(&mut err);
+                report_error(&mut err).await;
             },
             Ok(Some(ts)) => {
                 if let Err(err) = snapshot_sender.send(ts) {
-                    report_error(&mut err.into());
+                    report_error(&mut err.into()).await;
                 }
             },
             Ok(None) => {},
@@ -557,7 +557,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         report_error(&mut anyhow::anyhow!(
                             "Skipping deleting indexes for {id}@{prev_rev_ts}. It is a tombstone \
                              at {prev_rev_ts} but has a later revision at {ts}"
-                        ));
+                        ))
+                        .await;
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
                     };
@@ -968,7 +969,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             report_error(&mut anyhow::anyhow!(
                 "retention wanted to delete {index_entries_to_delete} entries but found \
                  {deleted_rows} to delete"
-            ));
+            ))
+            .await;
         }
 
         tracing::trace!("delete: deleted {deleted_rows:?} rows");
@@ -1006,7 +1008,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             report_error(&mut anyhow::anyhow!(
                 "retention wanted to delete {documents_to_delete} documents but found \
                  {deleted_rows} to delete"
-            ));
+            ))
+            .await;
         }
 
         tracing::trace!("delete_documents: deleted {deleted_rows:?} rows");
@@ -1043,7 +1046,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if !is_working {
                 min_snapshot_ts = match min_snapshot_rx.changed().await {
                     Err(err) => {
-                        report_error(&mut err.into());
+                        report_error(&mut err.into()).await;
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
@@ -1130,7 +1133,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 }
             };
             if let Err(mut err) = r {
-                report_error(&mut err);
+                report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
                 tracing::debug!("go_delete: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;
@@ -1168,7 +1171,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if !is_working {
                 min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
                     Err(err) => {
-                        report_error(&mut err.into());
+                        report_error(&mut err.into()).await;
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS)
@@ -1229,7 +1232,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 }
             };
             if let Err(mut err) = r {
-                report_error(&mut err);
+                report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
                 tracing::debug!("go_delete_documents: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;

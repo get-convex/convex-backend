@@ -4,7 +4,7 @@ use std::{
 };
 
 use common::errors::{
-    report_error,
+    report_error_sync,
     JsError,
     TIMEOUT_ERROR_MESSAGE,
 };
@@ -83,7 +83,7 @@ impl IsolateHandle {
         if inner.reason.is_none() {
             inner.reason = Some(reason);
         } else {
-            report_error(&mut anyhow::anyhow!(
+            report_error_sync(&mut anyhow::anyhow!(
                 "termination after already terminated: {reason:?}"
             ));
         }

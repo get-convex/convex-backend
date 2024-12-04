@@ -54,7 +54,7 @@ impl SnapshotImportWorker {
         async move {
             loop {
                 if let Err(e) = Self::run_once(&mut worker).await {
-                    report_error(&mut e.context("SnapshotImportWorker died"));
+                    report_error(&mut e.context("SnapshotImportWorker died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     worker.runtime.wait(delay).await;
                 } else {

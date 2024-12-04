@@ -476,7 +476,7 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
                 // Forgive OCC errors < N to match UDF mutation retry behavior.
                 if !e.is_occ() || (self.backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
                 {
-                    report_error(&mut e.context("SearchAndVectorBootstrapWorker died"));
+                    report_error(&mut e.context("SearchAndVectorBootstrapWorker died")).await;
                     tracing::error!(
                         "SearchIndexBoostrapWorker died, num_failures: {}. Backing off for {}ms",
                         self.backoff.failures(),

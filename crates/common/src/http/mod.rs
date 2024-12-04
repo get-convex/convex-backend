@@ -102,7 +102,7 @@ use utoipa::ToSchema;
 
 use self::metrics::log_http_request;
 use crate::{
-    errors::report_error,
+    errors::report_error_sync,
     knobs::HTTP_SERVER_TCP_BACKLOG,
     metrics::log_client_version_unsupported,
     runtime::TaskManager,
@@ -541,7 +541,7 @@ impl IntoResponse for HttpResponseError {
     fn into_response(mut self) -> Response {
         // This is the only place we capture errors to sentry because it is the exit
         // point of the HTTP layer
-        report_error(&mut self.trace);
+        report_error_sync(&mut self.trace);
         self.http_error.into_response()
     }
 }

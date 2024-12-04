@@ -213,7 +213,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             Err(e) => {
                 let mut e = wrap_import_err(e);
                 if e.is_bad_request() {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                     self.database
                         .execute_with_overloaded_retries(
                             Identity::system(),
@@ -273,7 +273,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             Err(e) => {
                 let mut e = wrap_import_err(e);
                 if e.is_bad_request() {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                     self.database
                         .execute_with_overloaded_retries(
                             Identity::system(),

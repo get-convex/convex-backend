@@ -401,7 +401,7 @@ impl<RT: Runtime> FragmentedSegmentPrefetcher<RT> {
                     {
                         log_vector_prefetch_expiration();
                     } else {
-                        report_error(&mut e);
+                        report_error(&mut e).await;
                     }
                 }
             })

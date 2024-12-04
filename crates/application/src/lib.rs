@@ -1534,7 +1534,8 @@ impl<RT: Runtime> Application<RT> {
                     // project default env variables. Report the error but do not fail the request.
                     report_error(&mut anyhow::anyhow!(
                         "Error setting initial environment variables: {e}"
-                    ));
+                    ))
+                    .await;
                     Ok(())
                 } else {
                     Err(e)

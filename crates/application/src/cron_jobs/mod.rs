@@ -129,7 +129,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             while let Err(mut e) = executor.run(&mut backoff).await {
                 // Only report OCCs that happen repeatedly
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                 }
                 let delay = backoff.fail(&mut executor.rt.rng());
                 tracing::error!("Cron job executor failed, sleeping {delay:?}");
@@ -308,7 +308,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 Err(mut e) => {
                     let delay = function_backoff.fail(&mut self.rt.rng());
                     tracing::error!("System error executing job:, sleeping {delay:?}");
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                     metrics::log_cron_job_failure(&e);
                     self.rt.wait(delay).await;
                 },
@@ -621,7 +621,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 {
                     let delay = backoff.fail(&mut self.rt.rng());
                     tracing::error!("Failed to update action state, sleeping {delay:?}");
-                    report_error(&mut err);
+                    report_error(&mut err).await;
                     self.rt.wait(delay).await;
                 }
                 self.function_log.log_action(completion, usage_tracker);

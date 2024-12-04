@@ -81,7 +81,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             loop {
                 if let Err(e) = worker.run().await {
                     let delay = backoff.fail(&mut worker.runtime.rng());
-                    report_error(&mut e.context("SchemaWorker died"));
+                    report_error(&mut e.context("SchemaWorker died")).await;
                     tracing::error!("Schema worker failed, sleeping {delay:?}");
                     worker.runtime.wait(delay).await;
                 } else {

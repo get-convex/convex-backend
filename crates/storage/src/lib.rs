@@ -675,10 +675,11 @@ async fn stream_object_with_retries(
                 return Err(e);
             },
             Err(e) => {
-                report_error(&mut anyhow::anyhow!(e).context(format!(
+                let mut toreport = anyhow::anyhow!(e).context(format!(
                     "failed while reading stream for {key:?}. {retries_remaining} attempts \
                      remaining"
-                )));
+                ));
+                report_error(&mut toreport).await;
                 let new_range =
                     (small_byte_range.start + bytes_yielded as u64)..small_byte_range.end;
                 let output = storage

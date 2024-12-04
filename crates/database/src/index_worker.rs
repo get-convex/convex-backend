@@ -230,7 +230,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             }
             loop {
                 if let Err(e) = worker.run().await {
-                    report_error(&mut e.context("IndexWorker died"));
+                    report_error(&mut e.context("IndexWorker died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     log::error!(
                         "IndexWorker died, num_failures: {}. Backing off for {}ms",

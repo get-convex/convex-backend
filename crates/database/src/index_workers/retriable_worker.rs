@@ -84,7 +84,7 @@ async fn retry_failures<RT: Runtime>(
 
             let expected_error = expected_occ || expected_overloaded;
             if !expected_error {
-                report_error(&mut e);
+                report_error(&mut e).await;
             }
             let delay = backoff.fail(&mut runtime.rng());
             tracing::error!(

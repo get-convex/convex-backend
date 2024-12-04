@@ -152,7 +152,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
                 }
             }
             if let Err(mut err) = result {
-                report_error(&mut err);
+                report_error(&mut err).await;
             }
             let wait_fut = self.runtime.wait(Duration::from_secs(10)).fuse();
             pin_mut!(wait_fut);
