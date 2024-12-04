@@ -550,7 +550,7 @@ impl<RT: Runtime> Application<RT> {
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         persistence: Arc<dyn Persistence>,
-        node_actions: Actions,
+        node_actions: Actions<RT>,
         log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
         snapshot_import_pause_client: PauseClient,

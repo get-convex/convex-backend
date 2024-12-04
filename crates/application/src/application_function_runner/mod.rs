@@ -563,7 +563,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
     isolate_functions: FunctionRouter<RT>,
     // Used for analyze, schema, etc.
-    node_actions: Actions,
+    node_actions: Actions<RT>,
 
     pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
     modules_storage: Arc<dyn Storage>,
@@ -582,7 +582,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         database: Database<RT>,
         key_broker: KeyBroker,
         function_runner: Arc<dyn FunctionRunner<RT>>,
-        node_actions: Actions,
+        node_actions: Actions<RT>,
         file_storage: TransactionalFileStorage<RT>,
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,

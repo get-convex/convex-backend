@@ -210,6 +210,7 @@ pub async fn make_app(
         node_executor,
         config.convex_origin_url(),
         *ACTION_USER_TIMEOUT,
+        runtime.clone(),
     );
 
     #[cfg(not(debug_assertions))]

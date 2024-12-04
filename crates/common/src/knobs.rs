@@ -997,6 +997,10 @@ pub static AWS_LAMBDA_DEPLOY_SPLAY_SECONDS: LazyLock<Duration> =
 pub static AWS_LAMBDA_CLIENT_MAX_CONCURRENT_REQUESTS: LazyLock<usize> =
     LazyLock::new(|| env_config("AWS_LAMBDA_MAX_CONCURRENT_STREAMS_PER_CONNECTION", 100));
 
+/// The maximum number of times to retry analyze requests for node actions.
+pub static NODE_ANALYZE_MAX_RETRIES: LazyLock<usize> =
+    LazyLock::new(|| env_config("NODE_ANALYZE_MAX_RETRIES", 3));
+
 /// The number of seconds backend should wait for requests to drain before
 /// shutting down after SIGINT.
 pub static BACKEND_REQUEST_DRAIN_TIMEOUT: LazyLock<Duration> =

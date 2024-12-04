@@ -193,6 +193,7 @@ mod tests {
             LogLines,
         },
         minitrace_helpers::EncodedSpan,
+        runtime::Runtime,
         types::{
             ModuleEnvironment,
             UdfType,
@@ -305,8 +306,8 @@ mod tests {
         }
     }
 
-    async fn execute(
-        actions: &Actions,
+    async fn execute<RT: Runtime>(
+        actions: &Actions<RT>,
         execute_request: ExecuteRequest,
         source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
     ) -> anyhow::Result<(NodeActionOutcome, LogLines)> {
@@ -324,14 +325,19 @@ mod tests {
         }
     }
 
-    #[convex_macro::prod_rt_test]
-    async fn test_success(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
+    fn create_actions<RT: Runtime>(rt: RT) -> Actions<RT> {
+        Actions::new(
+            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT).unwrap()),
             TEST_BACKEND_ADDRESS.into(),
             TEST_USER_TIMEOUT,
-        );
+            rt,
+        )
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_success(rt: ProdRuntime) -> anyhow::Result<()> {
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
 
         let source_maps = BTreeMap::new();
@@ -357,12 +363,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_log_lines(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
@@ -390,12 +392,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_auth_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let identity = UserIdentity::test();
 
@@ -431,11 +429,12 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_query_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = Actions::new(
             Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
             "http://localhost:8719".into(),
             TEST_USER_TIMEOUT,
+            rt,
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
@@ -467,11 +466,12 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_schedule_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = Actions::new(
             Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
             "http://localhost:8719".into(),
             TEST_USER_TIMEOUT,
+            rt,
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
@@ -502,12 +502,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_error(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = TEST_SOURCE
             .clone()
@@ -551,12 +547,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_forgot_await(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = TEST_SOURCE
             .clone()
@@ -599,12 +591,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_missing_export(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
@@ -630,12 +618,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_environment_variables(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let mut environment_variables = BTreeMap::new();
@@ -667,12 +651,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_user_timeout(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
@@ -706,12 +686,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_partial_escape_sequence_result(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
@@ -732,12 +708,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_process_timeout(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
@@ -770,12 +742,8 @@ mod tests {
 
     #[convex_macro::prod_rt_test]
     async fn test_deadlock(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
@@ -868,12 +836,8 @@ export {
 
     #[convex_macro::prod_rt_test]
     async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let path: ModulePath = "static_node_source.js".parse()?;
         let source_package = upload_modules(
             storage.clone(),
@@ -970,12 +934,8 @@ export { hello };
 
     #[convex_macro::prod_rt_test]
     async fn test_analyze_query(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(
             storage.clone(),
             vec![ModuleConfig {
@@ -1006,12 +966,8 @@ export { hello };
 
     #[convex_macro::prod_rt_test]
     async fn test_syscall_trace(rt: ProdRuntime) -> anyhow::Result<()> {
-        let storage = Arc::new(LocalDirStorage::new(rt)?);
-        let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
-            TEST_BACKEND_ADDRESS.into(),
-            TEST_USER_TIMEOUT,
-        );
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = BTreeMap::new();
 

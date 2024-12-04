@@ -271,7 +271,12 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
         let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
         let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout)?);
-        let actions = Actions::new(node_executor, convex_origin.clone(), *ACTION_USER_TIMEOUT);
+        let actions = Actions::new(
+            node_executor,
+            convex_origin.clone(),
+            *ACTION_USER_TIMEOUT,
+            rt.clone(),
+        );
 
         let application = Application::new(
             rt.clone(),
