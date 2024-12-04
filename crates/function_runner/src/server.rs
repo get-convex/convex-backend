@@ -699,7 +699,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     }
 
     #[minitrace::trace]
-    async fn evaluate_component_initializer(
+    pub async fn evaluate_component_initializer(
         &self,
         evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
         path: ComponentDefinitionPath,
