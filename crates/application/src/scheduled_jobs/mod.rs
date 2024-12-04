@@ -884,7 +884,6 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
                     report_error(&mut e);
                 }
-                report_error(&mut e);
                 garbage_collector.rt.wait(delay).await;
             }
         }
