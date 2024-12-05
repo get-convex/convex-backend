@@ -98,6 +98,7 @@ impl TableSummary {
         self.inferred_type.is_empty() && self.total_size == 0
     }
 
+    // TODO: change this to u64
     pub fn total_size(&self) -> usize {
         self.total_size as usize
     }

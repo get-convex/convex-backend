@@ -37,6 +37,7 @@ mod stack_traces;
 pub mod subscription;
 mod table_registry;
 pub mod table_summary;
+mod table_usage;
 mod token;
 mod transaction;
 mod transaction_id_generator;
@@ -178,6 +179,10 @@ pub use self::{
     table_summary::{
         TableSummary,
         TableSummaryWriter,
+    },
+    table_usage::{
+        TableUsage,
+        TablesUsage,
     },
     transaction::DEFAULT_PAGE_SIZE,
     transaction_id_generator::TransactionIdGenerator,

@@ -166,7 +166,10 @@ impl UsageCounterState {
                     .or_default() += egress;
             },
             UsageEvent::CurrentVectorStorage { tables: _ } => todo!(),
-            UsageEvent::CurrentDatabaseStorage { tables: _ } => todo!(),
+            UsageEvent::CurrentDatabaseStorage {
+                tables: _,
+                system_tables: _,
+            } => todo!(),
             UsageEvent::CurrentFileStorage {
                 tag: _,
                 total_size: _,
@@ -174,7 +177,10 @@ impl UsageCounterState {
                 total_cloud_backup_size: _,
                 total_snapshot_export_size: _,
             } => todo!(),
-            UsageEvent::CurrentDocumentCounts { tables: _ } => todo!(),
+            UsageEvent::CurrentDocumentCounts {
+                tables: _,
+                system_tables: _,
+            } => todo!(),
         }
     }
 }

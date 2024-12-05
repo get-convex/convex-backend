@@ -58,6 +58,8 @@ use crate::{
     ComponentRegistry,
     TableRegistry,
     TableSummary,
+    TableUsage,
+    TablesUsage,
     TransactionReadSet,
 };
 
@@ -285,7 +287,7 @@ impl Snapshot {
             .context(table_summary_bootstrapping_error(None))
     }
 
-    pub fn iter_user_table_summaries(
+    pub fn iter_table_summaries(
         &self,
     ) -> anyhow::Result<impl Iterator<Item = ((TableNamespace, TableName), &'_ TableSummary)> + '_>
     {
@@ -311,8 +313,7 @@ impl Snapshot {
                     ),
                     summary,
                 )
-            })
-            .filter(|((_, table_name), _)| !table_name.is_system());
+            });
         Ok(result)
     }
 
@@ -342,15 +343,23 @@ impl Snapshot {
             .context(table_summary_bootstrapping_error(None))
     }
 
-    pub fn get_user_document_and_index_storage(
+    /// Counts storage space used by all tables, including system tables
+    pub fn get_document_and_index_storage(
         &self,
-    ) -> anyhow::Result<BTreeMap<(TableNamespace, TableName), (usize, usize)>> {
-        let table_mapping = self.table_mapping().clone();
+    ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
+        let table_mapping: TableMapping = self.table_mapping().clone();
 
         let mut document_storage_by_table = BTreeMap::new();
-        for (table_name, summary) in self.iter_user_table_summaries()? {
+        for (table_name, summary) in self.iter_table_summaries()? {
             let table_size = summary.total_size();
-            document_storage_by_table.insert(table_name, (table_size, 0));
+            document_storage_by_table.insert(
+                table_name,
+                TableUsage {
+                    document_size: table_size as u64,
+                    index_size: 0,
+                    system_index_size: 0,
+                },
+            );
         }
 
         // TODO: We are currently using document size * index count as a rough
@@ -368,26 +377,22 @@ impl Snapshot {
                 .clone()
                 .map_table(&table_mapping.tablet_to_name())
                 .unwrap();
-            let table_name = index_name.table().clone();
-
-            if !index_name.is_system_owned() {
-                let (document_size, total_index_size) = *document_storage_by_table
-                    .get(&(table_namespace, table_name.clone()))
-                    .with_context(|| {
-                        format!(
-                            "Index {index_name} on a nonexistent table {table_name} in namespace \
-                             {:?}",
-                            table_namespace
-                        )
-                    })?;
-                document_storage_by_table.insert(
-                    (table_namespace, table_name),
-                    (document_size, total_index_size + document_size),
-                );
+            let key = (table_namespace, index_name.table().clone());
+            let table_usage = document_storage_by_table.get_mut(&key).with_context(|| {
+                format!(
+                    "Index {index_name} on a nonexistent table {table_name} in namespace \
+                     {table_namespace:?}",
+                    table_name = key.1
+                )
+            })?;
+            if index_name.is_system_owned() {
+                table_usage.system_index_size += table_usage.document_size;
+            } else {
+                table_usage.index_size += table_usage.document_size;
             }
         }
 
-        Ok(document_storage_by_table)
+        Ok(TablesUsage(document_storage_by_table))
     }
 
     pub fn component_ids_to_paths(&self) -> BTreeMap<ComponentId, ComponentPath> {

@@ -187,6 +187,7 @@ use crate::{
         self,
         BootstrapKind,
     },
+    table_usage::TablesUsage,
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::{
@@ -705,10 +706,10 @@ impl DatabaseSnapshot {
         self.snapshot.table_summaries.as_ref()
     }
 
-    pub fn get_user_document_and_index_storage(
+    pub fn get_document_and_index_storage(
         &self,
-    ) -> anyhow::Result<BTreeMap<(TableNamespace, TableName), (usize, usize)>> {
-        self.snapshot.get_user_document_and_index_storage()
+    ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
+        self.snapshot.get_document_and_index_storage()
     }
 }
 
@@ -1965,6 +1966,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(vector_index_storage)
     }
 
+    /// Counts the number of documents in each table, including system tables.
     pub async fn get_document_counts(
         &self,
     ) -> anyhow::Result<Vec<(ComponentPath, TableName, u64)>> {
@@ -1973,7 +1975,7 @@ impl<RT: Runtime> Database<RT> {
         let mut components_model = BootstrapComponentsModel::new(&mut tx);
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let mut document_counts = vec![];
-        for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries()? {
+        for ((table_namespace, table_name), summary) in snapshot.iter_table_summaries()? {
             let count = summary.num_values() as u64;
             if let Some(component_path) =
                 components_model.get_component_path(ComponentId::from(table_namespace))
@@ -2000,10 +2002,10 @@ impl<RT: Runtime> Database<RT> {
             .is_some()
     }
 
-    pub async fn get_user_document_and_index_storage(
+    pub async fn get_document_and_index_storage(
         &self,
         identity: Identity,
-    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), (u64, u64)>> {
+    ) -> anyhow::Result<TablesUsage<(ComponentPath, TableName)>> {
         if !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("get_user_document_storage"));
         }
@@ -2012,29 +2014,26 @@ impl<RT: Runtime> Database<RT> {
         let ts = *tx.begin_timestamp();
         let mut components_model = BootstrapComponentsModel::new(&mut tx);
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
-        let documents_and_index_storage = snapshot.get_user_document_and_index_storage()?;
+        let documents_and_index_storage = snapshot.get_document_and_index_storage()?;
         let mut remapped_documents_and_index_storage = BTreeMap::new();
-        for ((table_namespace, table_name), (document_size, index_size)) in
-            documents_and_index_storage.into_iter()
-        {
+        for ((table_namespace, table_name), usage) in documents_and_index_storage.0 {
             if let Some(component_path) =
                 components_model.get_component_path(ComponentId::from(table_namespace))
             {
-                remapped_documents_and_index_storage.insert(
-                    (component_path, table_name),
-                    (document_size as u64, index_size as u64),
-                );
+                remapped_documents_and_index_storage.insert((component_path, table_name), usage);
             } else {
                 // If there is no component path for this table namespace, this must be an empty
                 // user table left over from incomplete components push
                 anyhow::ensure!(
-                    document_size == 0 && index_size == 0,
+                    usage.document_size == 0 && usage.index_size == 0,
                     "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has document size {document_size} and index size {index_size}",
+                     has document size {} and index size {}",
+                    usage.document_size,
+                    usage.index_size
                 );
             }
         }
-        Ok(remapped_documents_and_index_storage)
+        Ok(TablesUsage(remapped_documents_and_index_storage))
     }
 
     pub fn usage_counter(&self) -> UsageCounter {

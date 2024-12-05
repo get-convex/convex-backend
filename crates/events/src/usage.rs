@@ -130,6 +130,7 @@ pub enum UsageEvent {
     },
     CurrentDatabaseStorage {
         tables: Vec<TableDatabaseStorage>,
+        system_tables: Vec<TableDatabaseStorage>,
     },
     CurrentFileStorage {
         // TODO(Rebecca): tag and total_size can be cleaned up after we start using the other
@@ -142,6 +143,7 @@ pub enum UsageEvent {
     },
     CurrentDocumentCounts {
         tables: Vec<TableDocumentCount>,
+        system_tables: Vec<TableDocumentCount>,
     },
 }
 
