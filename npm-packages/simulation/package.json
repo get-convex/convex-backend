@@ -1,0 +1,12 @@
+{
+  "name": "simulation",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "esbuild src/main.ts --format=esm --target=esnext --bundle --outfile=dist/main.js --sourcemap --metafile=dist/metafile.json --log-level=error"
+  },
+  "dependencies": {
+    "assert": "2.1.0",
+    "convex": "workspace:*",
+    "esbuild": "0.23.0"
+  }
+}
