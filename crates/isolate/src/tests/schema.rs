@@ -18,6 +18,7 @@ use common::{
         TableName,
     },
 };
+use keybroker::DEV_INSTANCE_NAME;
 use maplit::{
     btreemap,
     btreeset,
@@ -227,7 +228,13 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
 
     let schema = t
         .isolate
-        .evaluate_schema(source.to_string(), None, rng_seed, unix_timestamp)
+        .evaluate_schema(
+            source.to_string(),
+            None,
+            rng_seed,
+            unix_timestamp,
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await?;
 
     let name1: TableName = "noIndexes".parse()?;

@@ -11,7 +11,10 @@ use common::{
         UdfType,
     },
 };
-use keybroker::Identity;
+use keybroker::{
+    Identity,
+    DEV_INSTANCE_NAME,
+};
 use maplit::btreemap;
 use model::{
     config::types::ModuleConfig,
@@ -65,7 +68,12 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let mut result = t
         .isolate
-        .analyze(udf_config.clone(), modules, BTreeMap::new())
+        .analyze(
+            udf_config.clone(),
+            modules,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
     let analyze_path = "analyze.js".parse()?;
     let module = result.remove(&analyze_path).unwrap();
@@ -219,7 +227,12 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
         let Err(err) = t
             .isolate
-            .analyze(udf_config, modules, BTreeMap::new())
+            .analyze(
+                udf_config,
+                modules,
+                BTreeMap::new(),
+                DEV_INSTANCE_NAME.to_string(),
+            )
             .await?
         else {
             anyhow::bail!("No JsError raised for missing default export");
@@ -243,7 +256,12 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let mut result = t
         .isolate
-        .analyze(udf_config, modules, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
     let source_maps_path = "sourceMaps.js".parse()?;
     let analyzed_module = result.remove(&source_maps_path).unwrap();
@@ -294,7 +312,12 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let mut result = t
         .isolate
-        .analyze(udf_config, modules, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
     let internal_path = "internal.js".parse()?;
     let analyzed_module = result.remove(&internal_path).unwrap();
@@ -480,7 +503,12 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
         let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
         let mut analyze_result = t
             .isolate
-            .analyze(udf_config, modules, BTreeMap::new())
+            .analyze(
+                udf_config,
+                modules,
+                BTreeMap::new(),
+                DEV_INSTANCE_NAME.to_string(),
+            )
             .await?
             .expect("analyze failed");
         let with_http = case_canon_path.with_http();

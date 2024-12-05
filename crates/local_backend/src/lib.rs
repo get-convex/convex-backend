@@ -50,10 +50,8 @@ use file_storage::{
     TransactionalFileStorage,
 };
 use function_runner::{
-    server::{
-        InProcessFunctionRunner,
-        InstanceStorage,
-    },
+    in_process_function_runner::InProcessFunctionRunner,
+    server::InstanceStorage,
     FunctionRunner,
 };
 use model::{

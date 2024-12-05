@@ -81,7 +81,7 @@ use value::{
 };
 
 mod in_memory_indexes;
-mod isolate_worker;
+pub mod in_process_function_runner;
 mod metrics;
 mod module_cache;
 pub mod server;

@@ -20,6 +20,7 @@ use common::{
 use keybroker::{
     AdminIdentity,
     Identity,
+    DEV_INSTANCE_NAME,
 };
 use model::{
     config::ConfigModel,
@@ -70,7 +71,12 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let analyze_results = t
         .isolate
-        .analyze(udf_config, modules_by_path, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules_by_path,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
 
     let source_package = SourcePackageModel::new(&mut tx, TableNamespace::test_user())

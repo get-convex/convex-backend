@@ -25,6 +25,7 @@ mod http_action;
 mod is_instance_of_error;
 pub mod isolate;
 pub mod isolate2;
+pub mod isolate_worker;
 pub mod metrics;
 pub mod module_map;
 mod ops;
@@ -44,7 +45,6 @@ pub use self::{
         ActionCallbacks,
         ActionRequest,
         ActionRequestParams,
-        BackendIsolateWorker,
         EvaluateAppDefinitionsResult,
         FunctionResult,
         IsolateClient,

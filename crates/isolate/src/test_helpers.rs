@@ -172,7 +172,6 @@ use crate::{
     parse_udf_args,
     validate_schedule_args,
     ActionCallbacks,
-    BackendIsolateWorker,
     HttpActionResponse,
     HttpActionResult,
     IsolateClient,
@@ -255,6 +254,7 @@ pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
     search_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
+    environment_data: EnvironmentData<RT>,
 
     isolate_v2_enabled: bool,
 }
@@ -292,23 +292,22 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let convex_origin = "http://127.0.0.1:8000".into();
         let file_storage =
             TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
-
-        let system_env_vars = btreemap! {
-            CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,
-            CONVEX_SITE.clone() => "https://carnitas.convex.site".parse()?
+        let environment_data = EnvironmentData {
+            key_broker: key_broker.clone(),
+            system_env_vars: btreemap! {
+                CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,
+                CONVEX_SITE.clone() => "https://carnitas.convex.site".parse()?
+            },
+            file_storage: file_storage.clone(),
+            module_loader: module_loader.clone(),
         };
-        let isolate_worker = BackendIsolateWorker::new(rt.clone(), config.isolate_config);
+
         let isolate = IsolateClient::new(
             rt.clone(),
-            isolate_worker,
+            100,
             max_isolate_workers,
-            true,
-            DEV_INSTANCE_NAME.to_string(),
-            DEV_SECRET.try_into()?,
-            file_storage.clone(),
-            system_env_vars,
-            module_loader.clone(),
-        );
+            Some(config.isolate_config),
+        )?;
 
         anyhow::ensure!(
             modules
@@ -324,7 +323,12 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .map(|c| (c.path.clone().canonicalize(), c.clone()))
             .collect();
         let analyze_results = match isolate
-            .analyze(udf_config.clone(), modules_by_path.clone(), BTreeMap::new())
+            .analyze(
+                udf_config.clone(),
+                modules_by_path.clone(),
+                BTreeMap::new(),
+                DEV_INSTANCE_NAME.to_string(),
+            )
             .await?
         {
             Ok(analyze_results) => analyze_results,
@@ -367,6 +371,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             search_storage,
             module_loader,
             file_storage,
+            environment_data,
             isolate_v2_enabled: false,
         }))
     }
@@ -560,7 +565,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
+                    self.environment_data.clone(),
                     0,
+                    DEV_INSTANCE_NAME.to_string(),
                 )
                 .await?;
             let FunctionOutcome::Mutation(outcome) = outcome else {
@@ -706,7 +713,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     journal.unwrap_or_else(QueryJournal::new),
                     ExecutionContext::new_for_test(),
+                    self.environment_data.clone(),
                     0,
+                    DEV_INSTANCE_NAME.to_string(),
                 )
                 .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
@@ -770,7 +779,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
+                    self.environment_data.clone(),
                     0,
+                    DEV_INSTANCE_NAME.to_string(),
                 )
                 .await?;
             match outcome {
@@ -959,6 +970,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 http_response_streamer,
                 tx,
                 ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                DEV_INSTANCE_NAME.to_string(),
             )
             .await?;
         let mut log_lines = vec![];
@@ -1094,6 +1107,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 fetch_client,
                 log_line_sender,
                 ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                DEV_INSTANCE_NAME.to_string(),
             )
             .await?;
         let mut log_lines = vec![];
@@ -1109,7 +1124,7 @@ static DEFAULT_CONFIG: LazyLock<UdfTestConfig> = LazyLock::new(|| UdfTestConfig 
     udf_server_version: Version::parse("1000.0.0").unwrap(),
 });
 
-static DEFAULT_MAX_ISOLATE_WORKERS: usize = 1;
+static DEFAULT_MAX_ISOLATE_WORKERS: usize = 2;
 
 #[derive(Clone)]
 pub struct UdfTestConfig {
@@ -1209,7 +1224,6 @@ impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
     async fn execute_udf(
         &self,
         _client_id: String,
-        _identity: Identity,
         _udf_type: UdfType,
         _path_and_args: ValidatedPathAndArgs,
         _environment_data: EnvironmentData<RT>,
@@ -1420,7 +1434,6 @@ pub async fn bogus_udf_request<RT: Runtime>(
     sender: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
 ) -> anyhow::Result<Request<RT>> {
     let tx = db.begin_system().await?;
-    // let (sender, _rx) = oneshot::channel();
     let request = UdfRequest {
         path_and_args: ValidatedPathAndArgs::new_for_tests(
             "path.js:default".parse()?,
@@ -1456,7 +1469,6 @@ impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
     async fn execute_udf(
         &self,
         _client_id: String,
-        _identity: Identity,
         _udf_type: UdfType,
         _path_and_args: ValidatedPathAndArgs,
         _environment_data: EnvironmentData<RT>,

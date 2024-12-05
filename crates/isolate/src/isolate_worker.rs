@@ -10,7 +10,9 @@ use common::{
     types::UdfType,
 };
 use futures::FutureExt;
-use isolate::{
+use sync_types::CanonicalizedUdfPath;
+
+use crate::{
     client::{
         IsolateWorker,
         Request,
@@ -39,7 +41,6 @@ use isolate::{
     HttpActionResult,
     IsolateConfig,
 };
-use sync_types::CanonicalizedUdfPath;
 #[derive(Clone)]
 pub(crate) struct FunctionRunnerIsolateWorker<RT: Runtime> {
     rt: RT,
@@ -346,7 +347,10 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
 #[cfg(test)]
 mod tests {
     use common::pause::PauseController;
-    use isolate::{
+    use runtime::testing::TestRuntime;
+
+    use super::FunctionRunnerIsolateWorker;
+    use crate::{
         client::PAUSE_RECREATE_CLIENT,
         test_helpers::{
             test_isolate_not_recreated_with_same_client,
@@ -354,9 +358,6 @@ mod tests {
         },
         IsolateConfig,
     };
-    use runtime::testing::TestRuntime;
-
-    use super::FunctionRunnerIsolateWorker;
 
     #[convex_macro::test_runtime]
     async fn test_isolate_recreated_with_client_change_function_runner(

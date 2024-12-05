@@ -50,9 +50,9 @@ use file_storage::{
     FileStorage,
     TransactionalFileStorage,
 };
-use function_runner::server::{
-    InProcessFunctionRunner,
-    InstanceStorage,
+use function_runner::{
+    in_process_function_runner::InProcessFunctionRunner,
+    server::InstanceStorage,
 };
 use isolate::{
     bundled_js::OUT_DIR,
