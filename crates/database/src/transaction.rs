@@ -646,9 +646,11 @@ impl<RT: Runtime> Transaction<RT> {
         TableModel::new(self)
             .count(namespace, table)
             .await?
-            .context(table_summary_bootstrapping_error(Some(
-                "Table count unavailable while bootstrapping",
-            )))
+            .ok_or_else(|| {
+                table_summary_bootstrapping_error(Some(
+                    "Table count unavailable while bootstrapping",
+                ))
+            })
     }
 
     pub fn into_token(self) -> anyhow::Result<Token> {

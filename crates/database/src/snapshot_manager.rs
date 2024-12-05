@@ -284,7 +284,7 @@ impl Snapshot {
     pub fn must_table_summaries(&self) -> anyhow::Result<&TableSummaries> {
         self.table_summaries
             .as_ref()
-            .context(table_summary_bootstrapping_error(None))
+            .ok_or_else(|| table_summary_bootstrapping_error(None))
     }
 
     pub fn iter_table_summaries(
@@ -340,7 +340,7 @@ impl Snapshot {
         table: &TableName,
     ) -> anyhow::Result<TableSummary> {
         self.table_summary(namespace, table)
-            .context(table_summary_bootstrapping_error(None))
+            .ok_or_else(|| table_summary_bootstrapping_error(None))
     }
 
     /// Counts storage space used by all tables, including system tables

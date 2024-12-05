@@ -137,11 +137,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
     ) -> anyhow::Result<u64> {
-        self.count(namespace, table)
-            .await?
-            .context(table_summary_bootstrapping_error(Some(
-                "Table count unavailable while bootstrapping",
-            )))
+        self.count(namespace, table).await?.ok_or_else(|| {
+            table_summary_bootstrapping_error(Some("Table count unavailable while bootstrapping"))
+        })
     }
 
     pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<Option<u64>> {
@@ -173,11 +171,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     }
 
     pub async fn must_count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<u64> {
-        self.count_tablet(tablet_id)
-            .await?
-            .context(table_summary_bootstrapping_error(Some(
-                "Table count unavailable while bootstrapping",
-            )))
+        self.count_tablet(tablet_id).await?.ok_or_else(|| {
+            table_summary_bootstrapping_error(Some("Table count unavailable while bootstrapping"))
+        })
     }
 
     pub(crate) fn doc_table_id_to_name(
