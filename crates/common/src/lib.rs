@@ -15,7 +15,6 @@
 #![feature(bound_as_ref)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
-#![feature(const_trait_impl)]
 #![feature(async_closure)]
 #![feature(error_iter)]
 #![feature(impl_trait_in_assoc_type)]

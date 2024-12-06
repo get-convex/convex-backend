@@ -60,7 +60,7 @@ impl AsRef<[u8]> for Sha256Digest {
     }
 }
 
-impl const From<[u8; 32]> for Sha256Digest {
+impl From<[u8; 32]> for Sha256Digest {
     fn from(d: [u8; 32]) -> Self {
         Self(d)
     }

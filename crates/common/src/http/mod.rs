@@ -525,7 +525,7 @@ pub struct HttpResponseError {
     http_error: HttpError,
 }
 
-impl const From<Infallible> for HttpResponseError {
+impl From<Infallible> for HttpResponseError {
     fn from(x: Infallible) -> Self {
         match x {}
     }

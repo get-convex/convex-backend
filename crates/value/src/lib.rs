@@ -4,7 +4,6 @@
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
 #![feature(lazy_cell)]
-#![feature(const_trait_impl)]
 #![feature(exclusive_range_pattern)]
 #![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]

@@ -3,7 +3,6 @@
 #![feature(lazy_cell)]
 #![feature(async_closure)]
 #![feature(try_blocks)]
-#![feature(const_trait_impl)]
 #![feature(iterator_try_collect)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
