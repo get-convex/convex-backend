@@ -66,20 +66,11 @@ struct SubscriptionKey {
 // Provide large enough limit so we never hit this in practice.
 const SUBSCRIPTIONS_BUFFER: usize = 10000;
 
+#[derive(Clone)]
 pub struct SubscriptionsClient {
     handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
     log: LogReader,
     sender: mpsc::Sender<SubscriptionRequest>,
-}
-
-impl Clone for SubscriptionsClient {
-    fn clone(&self) -> Self {
-        Self {
-            handle: self.handle.clone(),
-            log: self.log.clone(),
-            sender: self.sender.clone(),
-        }
-    }
 }
 
 impl SubscriptionsClient {

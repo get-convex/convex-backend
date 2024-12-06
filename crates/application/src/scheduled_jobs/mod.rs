@@ -102,18 +102,10 @@ mod metrics;
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
 pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
 
+#[derive(Clone)]
 pub struct ScheduledJobRunner {
     executor: Arc<Mutex<Box<dyn SpawnHandle>>>,
     garbage_collector: Arc<Mutex<Box<dyn SpawnHandle>>>,
-}
-
-impl Clone for ScheduledJobRunner {
-    fn clone(&self) -> Self {
-        Self {
-            executor: self.executor.clone(),
-            garbage_collector: self.garbage_collector.clone(),
-        }
-    }
 }
 
 impl ScheduledJobRunner {

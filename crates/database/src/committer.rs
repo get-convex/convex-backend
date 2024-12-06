@@ -900,24 +900,13 @@ struct ValidatedDocumentWrite {
     doc_in_vector_index: DocInVectorIndex,
 }
 
+#[derive(Clone)]
 pub struct CommitterClient {
     handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
     sender: mpsc::Sender<CommitterMessage>,
     persistence_reader: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     snapshot_reader: Reader<SnapshotManager>,
-}
-
-impl Clone for CommitterClient {
-    fn clone(&self) -> Self {
-        Self {
-            handle: self.handle.clone(),
-            sender: self.sender.clone(),
-            persistence_reader: self.persistence_reader.clone(),
-            retention_validator: self.retention_validator.clone(),
-            snapshot_reader: self.snapshot_reader.clone(),
-        }
-    }
 }
 
 impl CommitterClient {

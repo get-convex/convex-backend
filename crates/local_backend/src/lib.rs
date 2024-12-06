@@ -99,6 +99,7 @@ mod test_helpers;
 
 pub const MAX_CONCURRENT_REQUESTS: usize = 128;
 
+#[derive(Clone)]
 pub struct LocalAppState {
     // Origin for the server (e.g. http://127.0.0.1:3210, https://demo.convex.cloud)
     pub origin: ConvexOrigin,
@@ -115,18 +116,6 @@ impl LocalAppState {
         self.application.shutdown().await?;
 
         Ok(())
-    }
-}
-
-impl Clone for LocalAppState {
-    fn clone(&self) -> Self {
-        Self {
-            origin: self.origin.clone(),
-            site_origin: self.site_origin.clone(),
-            instance_name: self.instance_name.clone(),
-            application: self.application.clone(),
-            zombify_rx: self.zombify_rx.clone(),
-        }
     }
 }
 
