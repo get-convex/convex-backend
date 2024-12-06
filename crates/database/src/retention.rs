@@ -31,7 +31,10 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    errors::report_error,
+    errors::{
+        report_error,
+        LeaseLostError,
+    },
     index::{
         IndexEntry,
         SplitKey,
@@ -135,6 +138,7 @@ use crate::{
         retention_delete_timer,
     },
     snapshot_manager::SnapshotManager,
+    ShutdownSignal,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -236,6 +240,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         snapshot_reader: Reader<SnapshotManager>,
         follower_retention_manager: FollowerRetentionManager<RT>,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
         let reader = persistence.reader();
         let snapshot_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
@@ -318,6 +323,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 send_min_snapshot,
                 send_min_document_snapshot,
                 snapshot_reader.clone(),
+                lease_lost_shutdown.clone(),
             ),
         );
         let deletion_handle = rt.spawn(
@@ -410,6 +416,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: &Reader<SnapshotManager>,
         checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Option<RepeatableTimestamp>> {
         let candidate =
             Self::candidate_min_snapshot_ts(snapshot_reader, checkpoint_reader, retention_type)
@@ -431,12 +438,24 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // because reads (follower reads and leader on restart) use persistence, while
         // the actual deletions use memory. With the invariant that persistence >=
         // memory, we will never read something that has been deleted.
-        persistence
+        if let Err(e) = persistence
             .write_persistence_global(
                 persistence_key,
                 ConvexValue::from(i64::from(*new_min_snapshot_ts)).into(),
             )
-            .await?;
+            .await
+        {
+            // An idle instance with no commits at all may never notice that it has lost its
+            // lease, except that we'll keep erroring here when we try to advance a
+            // timestamp.
+            // We want to signal that the instance should shut down if that's the case.
+            if let Some(LeaseLostError) = e.downcast_ref() {
+                lease_lost_shutdown.signal(
+                    anyhow::Error::new(LeaseLostError).context("Failed to advance timestamp"),
+                );
+            }
+            return Err(e);
+        }
         match retention_type {
             RetentionType::Document => bounds_writer
                 .write()
@@ -482,6 +501,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         min_snapshot_sender: Sender<RepeatableTimestamp>,
         min_document_snapshot_sender: Sender<RepeatableTimestamp>,
         snapshot_reader: Reader<SnapshotManager>,
+        shutdown: ShutdownSignal,
     ) {
         loop {
             {
@@ -493,6 +513,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &snapshot_reader,
                     &checkpoint_reader,
                     RetentionType::Index,
+                    shutdown.clone(),
                 )
                 .await;
                 Self::emit_timestamp(&min_snapshot_sender, index_ts).await;
@@ -503,6 +524,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &snapshot_reader,
                     &checkpoint_reader,
                     RetentionType::Document,
+                    shutdown.clone(),
                 )
                 .await;
                 Self::emit_timestamp(&min_document_snapshot_sender, document_ts).await;

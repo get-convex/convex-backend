@@ -844,6 +844,7 @@ impl<RT: Runtime> Database<RT> {
             persistence.clone(),
             snapshot_reader.clone(),
             follower_retention_manager,
+            shutdown.clone(),
         )
         .await?;
 
