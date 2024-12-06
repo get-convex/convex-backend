@@ -204,3 +204,6 @@ codegen-units = 16
 [profile.dev.package.tokio-stream]
 opt-level = 3
 codegen-units = 16
+
+[profile.release.package.segment]
+overflow-checks = false
