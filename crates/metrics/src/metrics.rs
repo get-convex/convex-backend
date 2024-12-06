@@ -132,11 +132,7 @@ const fn validate_metric_name(name: &str) {
     let mut i = 0;
     while i < name_bytes.len() {
         let c = name_bytes[i];
-        let is_upper = 65 <= c && c <= 90;
-        let is_lower = 97 <= c && c <= 122;
-        let is_numeric = 48 <= c && c <= 57;
-        let is_underscore = c == 95;
-        if !(is_upper || is_lower || is_numeric || is_underscore) {
+        if !(c.is_ascii_alphanumeric() || c == b'_') {
             panic!("Metric names can only contain alphanumeric characters and underscores");
         }
         i += 1;
