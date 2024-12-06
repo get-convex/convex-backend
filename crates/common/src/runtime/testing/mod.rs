@@ -224,22 +224,37 @@ impl SpawnHandle for TestFutureHandle {
     }
 }
 
-#[test]
-fn test_runtime2() -> anyhow::Result<()> {
-    let td = TestDriver::new_with_seed(0);
-    let rt = td.rt();
-    td.run_until(async {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        let mut r = rt.spawn_thread(|| async move {
-            println!("hi!");
-            let _ = tx.send(());
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runtime::MutexWithTimeout;
+
+    #[test]
+    fn test_runtime2() -> anyhow::Result<()> {
+        let td = TestDriver::new_with_seed(0);
+        let rt = td.rt();
+        td.run_until(async {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            let mut r = rt.spawn_thread(|| async move {
+                println!("hi!");
+                let _ = tx.send(());
+            });
+            println!("there!");
+            let _ = rx.await;
+            r.shutdown();
+            let (Ok(()) | Err(JoinError::Canceled)) = r.join().await else {
+                panic!("Expected JoinError::Canceled");
+            };
         });
-        println!("there!");
-        let _ = rx.await;
-        r.shutdown();
-        let (Ok(()) | Err(JoinError::Canceled)) = r.join().await else {
-            panic!("Expected JoinError::Canceled");
-        };
-    });
-    Ok(())
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_mutex_with_timeout() -> anyhow::Result<()> {
+        let mutex = MutexWithTimeout::new(Duration::from_secs(1), ());
+        let _lock = mutex.acquire_lock_with_timeout().await?;
+        // Trying to acquire lock while the lock is already held should timeout
+        assert!(mutex.acquire_lock_with_timeout().await.is_err());
+        Ok(())
+    }
 }

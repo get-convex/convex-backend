@@ -1207,3 +1207,8 @@ pub static MAX_IMPORT_AGE: LazyLock<Duration> =
 /// duration has not passed since the last refresh, a stale value will be used.
 pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("PARTITION_LOADER_MAX_STALE_SECS", 1)));
+
+/// Seconds to wait before timing out when trying to acquire the lock for
+/// claiming an instance in big-brain.
+pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("CLAIM_INSTANCE_TIMEOUT_SECS", 10)));
