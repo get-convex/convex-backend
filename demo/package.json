@@ -1,5 +1,5 @@
 {
-  "name": "convex-tutorial",
+  "name": "convex-tutorial-original",
   "version": "0.0.0",
   "scripts": {
     "dev": "npm-run-all --parallel dev:backend dev:frontend",
