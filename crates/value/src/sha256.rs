@@ -8,10 +8,7 @@ use std::{
         self,
         Write,
     },
-    ops::{
-        BitXorAssign,
-        Deref,
-    },
+    ops::Deref,
 };
 
 use anyhow::Context;
@@ -21,7 +18,7 @@ use crate::ConvexValue;
 
 #[must_use]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-#[derive(Clone, Default, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Sha256Digest([u8; 32]);
 
 impl Sha256Digest {
@@ -76,11 +73,40 @@ impl TryFrom<Vec<u8>> for Sha256Digest {
     }
 }
 
-impl BitXorAssign for Sha256Digest {
-    fn bitxor_assign(&mut self, rhs: Self) {
-        for (i, x) in rhs.iter().enumerate() {
-            self.0[i] ^= *x;
+/// Accumulates a set of `Sha256Digest`s into a single digest.
+///
+/// Two `SetDigest`s compare equal if the set of values `.add`ed to them are
+/// equal up to ordering; otherwise, they (almost always) do not compare equal.
+/// Note that `add`ing the same value multiple times creates a different digest,
+/// i.e. multiplicity is counted.
+///
+/// This is *not* a strong cryptographic hash function and it is possible to
+/// create colliding inputs, especially if the added values are not unique.
+#[must_use]
+#[derive(Clone, Default, Eq, PartialEq)]
+pub struct SetDigest([u8; 32]);
+
+impl SetDigest {
+    /// The digest of an empty set.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn add(&mut self, digest: &Sha256Digest) {
+        // The algorithm used here is bytewise wrapping addition,
+        // i.e. vector addition over Zmod(2^8)^32
+        // This is roughly MSet-VAdd-Hash from https://people.csail.mit.edu/devadas/pubs/mhashes.pdf
+        //
+        // This is not cryptographically strong because the parameters are very small.
+        for (i, x) in digest.iter().enumerate() {
+            self.0[i] = self.0[i].wrapping_add(*x);
         }
+    }
+}
+
+impl fmt::Debug for SetDigest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SetDigest({})", hex::encode(self.0))
     }
 }
 
