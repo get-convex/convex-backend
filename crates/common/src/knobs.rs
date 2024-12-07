@@ -1212,3 +1212,7 @@ pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
 /// claiming an instance in big-brain.
 pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("CLAIM_INSTANCE_TIMEOUT_SECS", 10)));
+
+/// Max word-length in characters for exact search in typo-tolerance
+pub static EXACT_SEARCH_MAX_WORD_LENGTH: LazyLock<usize> =
+    LazyLock::new(|| env_config("EXACT_SEARCH_MAX_WORD_LENGTH", 4));

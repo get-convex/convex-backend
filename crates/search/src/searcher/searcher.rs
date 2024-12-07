@@ -1446,6 +1446,7 @@ mod tests {
             ResolvedDocument,
         },
         id_tracker::StaticIdTracker,
+        knobs::EXACT_SEARCH_MAX_WORD_LENGTH,
         persistence_helpers::{
             DocumentRevision,
             RevisionPair,
@@ -1501,7 +1502,6 @@ mod tests {
         },
         TantivySearchIndexSchema,
         TextSegmentPaths,
-        EXACT_SEARCH_MAX_WORD_LENGTH,
         SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
     };
 
@@ -1592,7 +1592,7 @@ mod tests {
         let mut token_queries = vec![];
         for (i, token) in tokens.into_iter().enumerate() {
             let char_count = token.chars().count();
-            let max_distance = if char_count <= EXACT_SEARCH_MAX_WORD_LENGTH {
+            let max_distance = if char_count <= *EXACT_SEARCH_MAX_WORD_LENGTH {
                 0
             } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
                 1
@@ -1842,7 +1842,7 @@ mod tests {
         let mut token_queries = vec![];
         for (i, token) in tokens.into_iter().enumerate() {
             let char_count = token.chars().count();
-            let max_distance = if char_count <= EXACT_SEARCH_MAX_WORD_LENGTH {
+            let max_distance = if char_count <= *EXACT_SEARCH_MAX_WORD_LENGTH {
                 0
             } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
                 1

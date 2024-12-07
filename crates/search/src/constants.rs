@@ -23,9 +23,6 @@ pub const MAX_FILTER_CONDITIONS: usize = 8;
 /// Name of the Convex English tokenizer passed to Tantivy.
 pub const CONVEX_EN_TOKENIZER: &str = "convex_en";
 
-/// Max word-length in characters for exact search in typo-tolerance
-pub const EXACT_SEARCH_MAX_WORD_LENGTH: usize = 4;
-
 /// Max word-length in characters for 1-typo search in typo-tolerance
 pub const SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH: usize = 8;
 

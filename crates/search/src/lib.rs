@@ -46,6 +46,7 @@ use common::{
     },
     document::ResolvedDocument,
     index::IndexKeyBytes,
+    knobs::EXACT_SEARCH_MAX_WORD_LENGTH,
     query::{
         search_value_to_bytes,
         InternalSearch,
@@ -61,7 +62,6 @@ use common::{
 use constants::CONVEX_EN_TOKENIZER;
 pub use constants::{
     convex_en,
-    EXACT_SEARCH_MAX_WORD_LENGTH,
     MAX_CANDIDATE_REVISIONS,
     MAX_FILTER_CONDITIONS,
     MAX_QUERY_TERMS,
@@ -686,7 +686,7 @@ impl TantivySearchIndexSchema {
 
             let char_count = text.chars().count();
             let is_prefix = it.peek().is_none();
-            let num_typos = if char_count <= EXACT_SEARCH_MAX_WORD_LENGTH {
+            let num_typos = if char_count <= *EXACT_SEARCH_MAX_WORD_LENGTH {
                 0
             } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
                 1
