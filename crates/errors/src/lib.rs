@@ -576,7 +576,6 @@ pub trait ErrorMetadataAnyhowExt {
     fn wrap_error_message<F>(self, f: F) -> Self
     where
         F: FnOnce(String) -> String;
-    fn last_second_classification(self) -> Self;
 }
 
 impl ErrorMetadataAnyhowExt for anyhow::Error {
@@ -794,39 +793,6 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         // No underlying code. Just use .context()
         let new_msg = f(self.to_string());
         self.context(new_msg)
-    }
-
-    /// Escape hatch classification function.
-    /// Call this near the edge of the system to do a last-second classification
-    /// on the way out. This is not an ideal place to do error
-    /// classification. It is much better to do it at the point it is being
-    /// thrown.
-    ///
-    /// Reality is that in some cases it's not ergonomic or possible to classify
-    /// during throw, so leaving ourselves an escape hatch
-    fn last_second_classification(self) -> Self {
-        // Each classification here should have a comment explaining why we're doing
-        // it last second. We'd much rather prefer doing it at the time of throw.
-
-        let as_string = self.to_string();
-        // Just doing this as a quick hack because sqlx::query has 100 throw sites.
-        // Ideally, we would wrap sqlx and do handling there, but punting to save time.
-        let postgres_occs = [
-            "could not serialize access due to read/write dependencies among transactions",
-            "could not serialize access due to concurrent update",
-        ];
-        if let Some(occ) = postgres_occs
-            .into_iter()
-            .find(|occ| as_string.contains(occ))
-        {
-            // Classify postgres occ as overloaded. ErrorMetadata::OCC is specific to the
-            // application level inside convex backend.
-            return self
-                .context(ErrorMetadata::overloaded("PostgresOcc", occ))
-                .context(as_string);
-        }
-
-        self
     }
 }
 

@@ -250,8 +250,7 @@ async fn run_sync_socket(
 
     let close_msg = match result {
         Ok(..) => None,
-        Err(err) => {
-            let mut err = err.last_second_classification();
+        Err(mut err) => {
             // Send a message on the WebSocket before closing it if the sync
             // worker failed with a "4xx" type error. In this case the client will
             // assume the error is its fault and not retry.

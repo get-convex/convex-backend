@@ -553,8 +553,10 @@ impl From<anyhow::Error> for HttpResponseError {
             error_code: err.short_msg().to_string().into(),
             msg: err.msg().to_string().into(),
         };
-        let trace = err.last_second_classification();
-        Self { trace, http_error }
+        Self {
+            trace: err,
+            http_error,
+        }
     }
 }
 
