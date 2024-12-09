@@ -33,6 +33,7 @@ pub enum Export {
         requestor: ExportRequestor,
         /// Expiration timestamp in nanos
         expiration_ts: u64,
+        progress_message: Option<String>,
     },
     Completed {
         /// Timestamp for the successful (final) attempt at Export.
@@ -75,6 +76,7 @@ enum SerializedExport {
         component: Option<String>,
         requestor: String,
         expiration_ts: i64,
+        progress_message: Option<String>,
     },
     Completed {
         start_ts: u64,
@@ -116,12 +118,14 @@ impl TryFrom<Export> for SerializedExport {
                 component,
                 expiration_ts,
                 requestor,
+                progress_message,
             } => SerializedExport::InProgress {
                 start_ts: start_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
                 expiration_ts: expiration_ts as i64,
+                progress_message,
             },
             Export::Completed {
                 start_ts,
@@ -179,12 +183,14 @@ impl TryFrom<SerializedExport> for Export {
                 component,
                 expiration_ts,
                 requestor,
+                progress_message,
             } => Export::InProgress {
                 start_ts: start_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
                 expiration_ts: expiration_ts as u64,
+                progress_message,
             },
             SerializedExport::Completed {
                 start_ts,
@@ -329,9 +335,33 @@ impl Export {
                 component,
                 requestor,
                 expiration_ts,
+                progress_message: None,
             }),
             Self::Completed { .. } | Self::InProgress { .. } | Self::Failed { .. } => Err(
                 anyhow::anyhow!("Can only begin an export that is requested"),
+            ),
+        }
+    }
+
+    pub fn update_progress(self, msg: String) -> anyhow::Result<Export> {
+        match self {
+            Self::InProgress {
+                format,
+                component,
+                requestor,
+                expiration_ts,
+                start_ts,
+                progress_message: _,
+            } => Ok(Self::InProgress {
+                start_ts,
+                format,
+                component,
+                requestor,
+                expiration_ts,
+                progress_message: Some(msg),
+            }),
+            Self::Completed { .. } | Self::Requested { .. } | Self::Failed { .. } => Err(
+                anyhow::anyhow!("Can only update progress on an export that is InProgress"),
             ),
         }
     }
@@ -349,6 +379,7 @@ impl Export {
                 requestor,
                 expiration_ts,
                 start_ts: _, // replace start_ts with the actual database TS
+                progress_message: _,
             } => {
                 anyhow::ensure!(snapshot_ts <= complete_ts);
                 Ok(Self::Completed {

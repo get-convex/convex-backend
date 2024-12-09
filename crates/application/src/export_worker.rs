@@ -296,13 +296,19 @@ impl<RT: Runtime> ExportWorker<RT> {
         }
     }
 
-    async fn export_inner(
+    async fn export_inner<F, Fut>(
         &mut self,
         format: ExportFormat,
         requestor: ExportRequestor,
-    ) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)> {
+        update_progress: F,
+    ) -> anyhow::Result<(Timestamp, ObjectKey, FunctionUsageTracker)>
+    where
+        F: Fn(String) -> Fut + Send + Copy,
+        Fut: Future<Output = anyhow::Result<()>> + Send,
+    {
         tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
+        update_progress("Beginning backup".to_string()).await?;
         let (ts, tables, component_ids_to_paths, by_id_indexes, system_tables, component_tree) = {
             let mut tx = self.database.begin(Identity::system()).await?;
             let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
@@ -360,6 +366,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                     include_storage,
                     usage.clone(),
                     requestor,
+                    update_progress,
                 );
                 let (_, ()) = try_join!(uploader, zipper)?;
                 let zip_object_key = upload.complete().await?;
@@ -369,7 +376,7 @@ impl<RT: Runtime> ExportWorker<RT> {
     }
 
     #[async_recursion]
-    async fn write_component<'a, 'b: 'a>(
+    async fn write_component<'a, 'b: 'a, F, Fut>(
         &self,
         path_prefix: &'a str,
         component_tree: &'a ComponentTree,
@@ -382,12 +389,18 @@ impl<RT: Runtime> ExportWorker<RT> {
         include_storage: bool,
         usage: FunctionUsageTracker,
         requestor: ExportRequestor,
-    ) -> anyhow::Result<()> {
+        update_progress: F,
+    ) -> anyhow::Result<()>
+    where
+        F: Fn(String) -> Fut + Send + Copy,
+        Fut: Future<Output = anyhow::Result<()>> + Send,
+    {
         let namespace: TableNamespace = component_tree.id.into();
         let component_path = component_ids_to_paths
             .get(&component_tree.id)
             .cloned()
             .unwrap_or_default();
+        let in_component_str = component_path.in_component_str();
         let tablet_ids: BTreeSet<_> = tables
             .iter()
             .filter(|(_, (ns, ..))| *ns == namespace)
@@ -395,6 +408,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             .collect();
 
         {
+            update_progress(format!("Enumerating tables{in_component_str}")).await?;
             // _tables
             let mut table_upload = zip_snapshot_upload
                 .start_system_table(path_prefix, TABLES_TABLE.clone())
@@ -420,6 +434,8 @@ impl<RT: Runtime> ExportWorker<RT> {
         }
 
         if include_storage {
+            update_progress(format!("Backing up _storage{in_component_str}")).await?;
+
             // _storage
             let tablet_id = system_tables
                 .get(&(namespace, FILE_STORAGE_TABLE.clone()))
@@ -517,6 +533,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                 .get(tablet_id)
                 .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
 
+            update_progress(format!("Backing up {table_name}{in_component_str}")).await?;
+
             let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
             if ExportContext::is_ambiguous(table_summary.inferred_type()) {
                 let table_iterator = self.database.table_iterator(snapshot_ts, 1000, None);
@@ -567,6 +585,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                 include_storage,
                 usage.clone(),
                 requestor,
+                update_progress,
             )
             .await?;
         }
@@ -574,7 +593,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         Ok(())
     }
 
-    async fn construct_zip_snapshot(
+    async fn construct_zip_snapshot<F, Fut>(
         &self,
         mut writer: ChannelWriter,
         component_tree: ComponentTree,
@@ -586,7 +605,12 @@ impl<RT: Runtime> ExportWorker<RT> {
         include_storage: bool,
         usage: FunctionUsageTracker,
         requestor: ExportRequestor,
-    ) -> anyhow::Result<()> {
+        update_progress: F,
+    ) -> anyhow::Result<()>
+    where
+        F: Fn(String) -> Fut + Send + Copy,
+        Fut: Future<Output = anyhow::Result<()>> + Send,
+    {
         let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
 
         self.write_component(
@@ -601,6 +625,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             include_storage,
             usage,
             requestor,
+            update_progress,
         )
         .await?;
 
@@ -614,8 +639,21 @@ impl<RT: Runtime> ExportWorker<RT> {
         &mut self,
         export: ParsedDocument<Export>,
     ) -> anyhow::Result<()> {
+        let database_ = self.database.clone();
+        let update_progress = |msg: String| async {
+            let mut tx = database_.begin(Identity::system()).await?;
+            let updated = (*export).clone().update_progress(msg)?;
+            SystemMetadataModel::new_global(&mut tx)
+                .replace(export.id(), updated.try_into()?)
+                .await?;
+            database_
+                .commit_with_write_source(tx, "export_worker_update_progress")
+                .await?;
+            anyhow::Ok(())
+        };
+
         let (ts, object_key, usage) = self
-            .export_inner(export.format(), export.requestor())
+            .export_inner(export.format(), export.requestor(), update_progress)
             .await?;
 
         let mut tx = self.database.begin(Identity::system()).await?;
@@ -977,6 +1015,7 @@ mod tests {
                     include_storage: true,
                 },
                 ExportRequestor::SnapshotExport,
+                |_| async { Ok(()) },
             )
             .await?;
 
@@ -1091,6 +1130,7 @@ mod tests {
                     include_storage: false,
                 },
                 ExportRequestor::SnapshotExport,
+                |_| async { Ok(()) },
             )
             .await?;
 
@@ -1148,6 +1188,7 @@ mod tests {
                     include_storage: false,
                 },
                 ExportRequestor::SnapshotExport,
+                |_| async { Ok(()) },
             )
             .await?;
 
@@ -1241,6 +1282,7 @@ mod tests {
                     include_storage: true,
                 },
                 ExportRequestor::SnapshotExport,
+                |_| async { Ok(()) },
             )
             .await?;
 
@@ -1303,6 +1345,7 @@ mod tests {
                     include_storage: false,
                 },
                 ExportRequestor::SnapshotExport,
+                |_| async { Ok(()) },
             )
             .await?;
         Ok(())
