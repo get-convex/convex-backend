@@ -123,7 +123,6 @@ impl ReadSet {
     }
 
     /// Determine whether a mutation to a document overlaps with the read set.
-    #[minitrace::trace]
     pub fn overlaps(
         &self,
         document: &PackedDocument,
