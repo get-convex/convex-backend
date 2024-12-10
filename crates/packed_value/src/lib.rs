@@ -113,9 +113,6 @@ where
 }
 
 impl PackedValue<ByteBuffer> {
-    // TODO: Improve `flexbuffers` to allow taking in a `BytesMut`, since the
-    // `Vec<u8>` to `Bytes` conversion does a copy the first the time refcount
-    // is bumped.
     pub fn pack(value: &ConvexValue) -> Self {
         let mut builder = Builder::default();
         Self::_pack(value, &mut builder);
