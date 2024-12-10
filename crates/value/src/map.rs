@@ -2,6 +2,7 @@ use std::{
     cmp,
     collections::BTreeMap,
     fmt,
+    hash::Hash,
     ops::Deref,
 };
 
@@ -127,6 +128,12 @@ impl Size for ConvexMap {
 
     fn nesting(&self) -> usize {
         self.nesting
+    }
+}
+
+impl Hash for ConvexMap {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.items.hash(state);
     }
 }
 

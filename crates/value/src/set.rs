@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeSet,
     fmt,
+    hash::Hash,
     ops::Deref,
 };
 
@@ -117,6 +118,12 @@ impl Size for ConvexSet {
 
     fn nesting(&self) -> usize {
         self.nesting
+    }
+}
+
+impl Hash for ConvexSet {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.items.hash(state);
     }
 }
 

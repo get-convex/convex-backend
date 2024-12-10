@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    hash::Hash,
     mem,
     time::SystemTime,
 };
@@ -487,9 +488,7 @@ fn hash_result(
 
 fn udf_result_sha256(return_value: &ConvexValue, log_lines: &RedactedLogLines) -> ValueDigest {
     let mut hasher = Sha256::new();
-    return_value
-        .encode_for_hash(&mut hasher)
-        .expect("Failed to create SHA256 digest");
+    return_value.hash(&mut hasher);
     hash_log_lines(&mut hasher, log_lines);
 
     hasher.finalize()

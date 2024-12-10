@@ -441,118 +441,76 @@ impl HeapSize for ConvexValue {
     }
 }
 
-/// Encode to bytes that can be hashed for quick equality checks, where
-/// if values compare as equal with Eq, their v.encode_for_hash() will match.
-/// They are not portable, so don't store them durably. They are not ordered
-/// the same as impl PartialOrd.
-pub mod encode_for_hash {
-    use std::io::{
-        self,
-        Write,
-    };
-
-    use byteorder::WriteBytesExt;
-
-    use crate::{
-        sorting::write_escaped_bytes,
-        ConvexObject,
-        ConvexValue,
-    };
-
-    impl ConvexValue {
-        pub fn encode_for_hash<W: Write>(&self, w: &mut W) -> io::Result<()> {
-            match self {
-                ConvexValue::Null => {
-                    w.write_u8(2)?;
-                },
-                ConvexValue::Int64(i) => {
-                    w.write_u8(3)?;
-                    write_escaped_bytes(&i.to_le_bytes(), w)?;
-                },
-                ConvexValue::Float64(f) => {
-                    w.write_u8(4)?;
-                    write_escaped_bytes(&f.to_le_bytes(), w)?;
-                },
-                ConvexValue::Boolean(b) => {
-                    w.write_u8(5)?;
-                    write_escaped_bytes(&[*b as u8], w)?;
-                },
-                ConvexValue::String(s) => {
-                    w.write_u8(6)?;
-                    write_escaped_bytes(s.as_bytes(), w)?;
-                },
-                ConvexValue::Bytes(b) => {
-                    w.write_u8(7)?;
-                    write_escaped_bytes(b, w)?;
-                },
-                ConvexValue::Array(a) => {
-                    w.write_u8(8)?;
-                    for v in a {
-                        v.encode_for_hash(w)?;
-                    }
-                },
-                ConvexValue::Set(s) => {
-                    w.write_u8(9)?;
-                    for v in s {
-                        v.encode_for_hash(w)?;
-                    }
-                },
-                ConvexValue::Map(m) => {
-                    w.write_u8(10)?;
-                    for (k, v) in m {
-                        k.encode_for_hash(w)?;
-                        v.encode_for_hash(w)?;
-                    }
-                },
-                ConvexValue::Object(o) => {
-                    w.write_u8(11)?;
-                    o.encode_for_hash(w)?;
-                },
-            }
-            Ok(())
-        }
-    }
-
-    impl ConvexObject {
-        pub fn encode_for_hash<W: Write>(&self, w: &mut W) -> io::Result<()> {
-            for (k, v) in self.iter() {
-                write_escaped_bytes(k.as_bytes(), w)?;
-                v.encode_for_hash(w)?;
-            }
-            Ok(())
-        }
-    }
-}
-
+/// f64 doesn't implement `hash` so we need to manually implement `hash` for
+/// `ConvexValue`. Must be compatible with our manual implementation of `cmp`.
 impl Hash for ConvexValue {
-    /// f64 doesn't implement `hash` so we need to manually implement `hash` for
-    /// `Value`. Must be compatible with our manual implementation of `cmp`.
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        let mut bytes = vec![];
-        self.encode_for_hash(&mut bytes)
-            .expect("failed to write to memory");
-        bytes.hash(hasher)
-    }
-}
-
-impl Hash for ConvexObject {
-    /// f64 doesn't implement `hash` so we need to manually implement `hash` for
-    /// `ConvexObject`. Must be compatible with our manual implementation of
-    /// `cmp`.
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        let mut bytes = vec![];
-        self.encode_for_hash(&mut bytes)
-            .expect("failed to write to memory");
-        bytes.hash(hasher)
+    fn hash<H: Hasher>(&self, h: &mut H) {
+        match self {
+            ConvexValue::Null => {
+                h.write_u8(2);
+            },
+            ConvexValue::Int64(i) => {
+                h.write_u8(3);
+                i.hash(h);
+            },
+            ConvexValue::Float64(f) => {
+                h.write_u8(4);
+                f.to_le_bytes().hash(h);
+            },
+            ConvexValue::Boolean(b) => {
+                h.write_u8(5);
+                b.hash(h);
+            },
+            ConvexValue::String(s) => {
+                h.write_u8(6);
+                s.hash(h);
+            },
+            ConvexValue::Bytes(b) => {
+                h.write_u8(7);
+                b.hash(h);
+            },
+            ConvexValue::Array(a) => {
+                h.write_u8(8);
+                a.hash(h);
+            },
+            ConvexValue::Set(s) => {
+                h.write_u8(9);
+                s.hash(h);
+            },
+            ConvexValue::Map(m) => {
+                h.write_u8(10);
+                m.hash(h);
+            },
+            ConvexValue::Object(o) => {
+                h.write_u8(11);
+                o.hash(h);
+            },
+        }
     }
 }
 
 #[cfg(test)]
 mod hash_tests {
+    use std::hash::{
+        Hash,
+        Hasher,
+    };
+
     use cmd_util::env::env_config;
     use proptest::prelude::*;
 
     use crate::ConvexValue;
+
+    struct SaveHasher(Vec<u8>);
+    impl Hasher for SaveHasher {
+        fn finish(&self) -> u64 {
+            unimplemented!()
+        }
+
+        fn write(&mut self, bytes: &[u8]) {
+            self.0.extend_from_slice(bytes);
+        }
+    }
 
     proptest! {
         #![proptest_config(ProptestConfig { cases: 1024 * env_config("CONVEX_PROPTEST_MULTIPLIER", 1), failure_persistence: None, .. ProptestConfig::default() })]
@@ -562,13 +520,13 @@ mod hash_tests {
             v1 in any::<ConvexValue>(),
             v2 in any::<ConvexValue>(),
         ) {
-            let mut v1_encoded = vec![];
-            let mut v2_encoded = vec![];
-            v1.encode_for_hash(&mut v1_encoded).unwrap();
-            v2.encode_for_hash(&mut v2_encoded).unwrap();
+            let mut v1_encoded = SaveHasher(vec![]);
+            let mut v2_encoded = SaveHasher(vec![]);
+            v1.hash(&mut v1_encoded);
+            v2.hash(&mut v2_encoded);
             assert_eq!(
                 v1 == v2,
-                v1_encoded == v2_encoded
+                v1_encoded.0 == v2_encoded.0
             );
         }
     }
