@@ -431,6 +431,12 @@ pub trait PersistenceReader: Send + Sync + 'static {
 
     fn version(&self) -> PersistenceVersion;
 
+    /// Returns `(table, data size, index size, number of rows)` from the
+    /// underlying database
+    async fn usage_stats(&self) -> anyhow::Result<Vec<(String, u64, u64, u64)>> {
+        Ok(vec![])
+    }
+
     /// Returns all timestamps and documents in ascending (ts, tablet_id, id)
     /// order. Only should be used for testing
     #[cfg(any(test, feature = "testing"))]
