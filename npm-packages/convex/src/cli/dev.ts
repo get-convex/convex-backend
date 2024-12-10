@@ -106,6 +106,7 @@ export const dev = new Command("dev")
   )
   .addOption(new Option("--trace-events").default(false).hideHelp())
   .addOption(new Option("--verbose").default(false).hideHelp())
+  .addOption(new Option("--skip-push").default(false).hideHelp())
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
   .addOption(new Option("--debug-bundle-path <path>").hideHelp())
@@ -211,6 +212,10 @@ export const dev = new Command("dev")
     );
 
     await usageStateWarning(ctx);
+
+    if (cmdOptions.skipPush) {
+      return;
+    }
 
     const promises = [];
     if (cmdOptions.tailLogs) {
