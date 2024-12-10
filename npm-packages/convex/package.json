@@ -265,7 +265,7 @@
     "@auth0/auth0-react": "2.0.1",
     "@babel/parser": "^7.21.3",
     "@babel/types": "7.24.0",
-    "@clerk/clerk-react": "4.18.0",
+    "@clerk/clerk-react": "^5.18.2",
     "@commander-js/extra-typings": "^11.1.0",
     "@eslint/compat": "~1.1.1",
     "@eslint/eslintrc": "~3.1.0",
