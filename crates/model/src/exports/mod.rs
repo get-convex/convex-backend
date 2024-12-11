@@ -289,8 +289,14 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
                         SystemMetadataModel::new_global(self.tx).delete(id).await?;
                     }
                 },
-                Export::Failed { failed_ts, .. } => {
-                    if failed_ts < delete_before_ts {
+                Export::Failed {
+                    failed_ts: last_ts, ..
+                }
+                | Export::Cancelled {
+                    cancelled_ts: last_ts,
+                    ..
+                } => {
+                    if last_ts < delete_before_ts {
                         SystemMetadataModel::new_global(self.tx).delete(id).await?;
                     }
                 },
@@ -333,6 +339,17 @@ mod tests {
 
     #[test]
     fn test_export_deserialization() -> anyhow::Result<()> {
+        #[track_caller]
+        fn check_roundtrip(export: &Export) {
+            let object: ConvexObject = export
+                .clone()
+                .try_into()
+                .expect("failed to serialize export");
+            let deserialized_export: Export =
+                object.try_into().expect("failed to deserialize export");
+            assert_eq!(*export, deserialized_export);
+        }
+
         // Requested
         let requested_export = Export::requested(
             ExportFormat::Zip {
@@ -342,30 +359,30 @@ mod tests {
             ExportRequestor::SnapshotExport,
             4321,
         );
-        let object: ConvexObject = requested_export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(requested_export, deserialized_export);
+        check_roundtrip(&requested_export);
 
         let ts = Timestamp::must(1234);
         // InProgress
         let in_progress_export = requested_export.clone().in_progress(ts)?;
-        let object: ConvexObject = in_progress_export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(in_progress_export, deserialized_export);
+        check_roundtrip(&in_progress_export);
 
         // Completed
         let export = in_progress_export
             .clone()
             .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
-        let object: ConvexObject = export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(export, deserialized_export);
+        check_roundtrip(&export);
 
         // Failed
-        let export = in_progress_export.failed(ts, ts)?;
-        let object: ConvexObject = export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(export, deserialized_export);
+        let export = in_progress_export.clone().failed(ts, ts)?;
+        check_roundtrip(&export);
+
+        // Cancelled (never started)
+        let export = requested_export.cancelled(Timestamp::must(1235))?;
+        check_roundtrip(&export);
+
+        // Cancelled (was started)
+        let export = in_progress_export.cancelled(Timestamp::must(1235))?;
+        check_roundtrip(&export);
 
         Ok(())
     }

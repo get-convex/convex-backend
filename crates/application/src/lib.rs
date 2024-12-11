@@ -1383,7 +1383,10 @@ impl<RT: Runtime> Application<RT> {
                     start_ts,
                     ..
                 } => (zip_object_key, start_ts),
-                Export::Failed { .. } | Export::InProgress { .. } | Export::Requested { .. } => {
+                Export::Failed { .. }
+                | Export::Cancelled { .. }
+                | Export::InProgress { .. }
+                | Export::Requested { .. } => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "ExportNotComplete",
                         format!("The requested export {id} has not completed"),
