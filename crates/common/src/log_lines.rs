@@ -194,7 +194,11 @@ impl LogLineStructured {
         timestamp: UnixTimestamp,
     ) -> Self {
         // total length of messages joined by a space
-        let total_length = messages.iter().map(|m| m.len() + 1).sum::<usize>() - 1;
+        let total_length = messages
+            .iter()
+            .map(|m| m.len() + 1)
+            .sum::<usize>()
+            .saturating_sub(1);
         if total_length <= MAX_LOG_LINE_LENGTH {
             return Self {
                 messages: messages.into(),
