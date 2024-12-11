@@ -304,11 +304,27 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         }
         Ok(to_delete)
     }
+
+    pub async fn cancel(&mut self, snapshot_id: DeveloperDocumentId) -> anyhow::Result<()> {
+        let (id, export) = self
+            .get(snapshot_id)
+            .await?
+            .context("Snapshot not found")?
+            .into_id_and_value();
+        let export = export.cancelled(*self.tx.begin_timestamp())?;
+        SystemMetadataModel::new_global(self.tx)
+            .replace(id, export.try_into()?)
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{
+        assert_matches::assert_matches,
+        time::Duration,
+    };
 
     use anyhow::Context;
     use cmd_util::env::env_config;
@@ -607,6 +623,63 @@ mod tests {
             .await?;
         assert_eq!(toremove, vec![ObjectKey::try_from("asdf")?]);
         assert_eq!(exports_model.list().await?.len(), 0);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_cancel(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+
+        let initial_export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::CloudBackup,
+            u64::MAX,
+        );
+
+        // Should be able to cancel a `Requested` or `InProgress` export
+        let ts = *db.now_ts_for_reads();
+        for export in [
+            initial_export.clone(),
+            initial_export.clone().in_progress(ts)?,
+        ] {
+            let mut tx = db.begin_system().await?;
+            let mut exports_model = ExportsModel::new(&mut tx);
+            let export_id = exports_model.insert_export(export).await?;
+            exports_model.cancel(export_id.developer_id).await?;
+            assert_matches!(
+                *exports_model
+                    .get(export_id.developer_id)
+                    .await?
+                    .expect("Document must exist"),
+                Export::Cancelled { .. }
+            );
+            db.commit(tx).await?;
+        }
+
+        // Should not be able to cancel a `Completed`, `Failed`, or `Cancelled` export
+        let ts = *db.now_ts_for_reads();
+        for export in [
+            initial_export.clone().in_progress(ts)?.completed(
+                ts,
+                ts,
+                ObjectKey::try_from("asdf")?,
+            )?,
+            initial_export.clone().in_progress(ts)?.failed(ts, ts)?,
+            initial_export.clone().cancelled(ts)?,
+        ] {
+            let mut tx = db.begin_system().await?;
+            let mut exports_model = ExportsModel::new(&mut tx);
+            let export_id = exports_model.insert_export(export).await?;
+            exports_model
+                .cancel(export_id.developer_id)
+                .await
+                .unwrap_err();
+            db.commit(tx).await?;
+        }
+
         Ok(())
     }
 }
