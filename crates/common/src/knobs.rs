@@ -888,6 +888,11 @@ pub static APP_DEFINITIONS_IN_FUNRUN: LazyLock<bool> =
 pub static COMPONENT_INITIALIZER_IN_FUNRUN: LazyLock<bool> =
     LazyLock::new(|| env_config("COMPONENT_INITIALIZER_IN_FUNRUN", false));
 
+/// Whether to evaluate schema in Funrun (true) or
+/// InProcessFunctionRunner (false).
+pub static SCHEMA_IN_FUNRUN: LazyLock<bool> =
+    LazyLock::new(|| env_config("SCHEMA_IN_FUNRUN", false));
+
 /// The amount of time to wait for the primary request to finish before starting
 /// a second backup request when running a vector search.
 pub static VECTOR_BACKUP_REQUEST_DELAY_MILLIS: LazyLock<Duration> =

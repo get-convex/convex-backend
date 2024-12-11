@@ -999,8 +999,8 @@ pub struct FieldValidator {
         any(test, feature = "testing"),
         proptest(strategy = "any_with::<Validator>(params)")
     )]
-    pub(crate) validator: Validator,
-    pub(crate) optional: bool,
+    pub validator: Validator,
+    pub optional: bool,
 }
 
 impl FieldValidator {
