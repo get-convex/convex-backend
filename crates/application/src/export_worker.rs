@@ -239,32 +239,17 @@ impl<RT: Runtime> ExportWorker<RT> {
         let mut exports_model = ExportsModel::new(&mut tx);
         let export_requested = exports_model.latest_requested().await?;
         let export_in_progress = exports_model.latest_in_progress().await?;
+        let is_restarting = export_in_progress.is_some();
         match (export_requested, export_in_progress) {
             (Some(_), Some(_)) => {
                 anyhow::bail!("Can only have one export requested or in progress at once.")
             },
-            (Some(export), None) => {
-                tracing::info!("Export requested.");
-                let _status = log_worker_starting("ExportWorker");
-                let timer = export_timer();
-                let ts = self.database.now_ts_for_reads();
-                let in_progress_export = (*export).clone().in_progress(*ts)?;
-                let mut inner_tx = self.database.begin(Identity::system()).await?;
-                let in_progress_export_doc = SystemMetadataModel::new_global(&mut inner_tx)
-                    .replace(
-                        export.id().to_owned(),
-                        in_progress_export.clone().try_into()?,
-                    )
-                    .await?
-                    .try_into()?;
-                self.database
-                    .commit_with_write_source(inner_tx, "export_worker_export_requested")
-                    .await?;
-                self.export(in_progress_export_doc).await?;
-                timer.finish();
-            },
-            (None, Some(export)) => {
-                tracing::info!("In progress export restarting...");
+            (Some(export), None) | (None, Some(export)) => {
+                if is_restarting {
+                    tracing::info!("In progress export restarting...");
+                } else {
+                    tracing::info!("Export requested.");
+                }
                 let _status = log_worker_starting("ExportWorker");
                 let timer = export_timer();
                 self.export(export).await?;
@@ -287,6 +272,10 @@ impl<RT: Runtime> ExportWorker<RT> {
                     return Ok(());
                 },
                 Err(mut e) => {
+                    if e.is::<ExportCancelled>() {
+                        tracing::info!("Export {} cancelled", export.id());
+                        return Ok(());
+                    }
                     report_error(&mut e).await;
                     let delay = self.backoff.fail(&mut self.runtime.rng());
                     tracing::error!("Export failed, retrying in {delay:?}");
@@ -640,33 +629,119 @@ impl<RT: Runtime> ExportWorker<RT> {
         export: ParsedDocument<Export>,
     ) -> anyhow::Result<()> {
         let database_ = self.database.clone();
-        let update_progress = |msg: String| async {
-            let mut tx = database_.begin(Identity::system()).await?;
-            let updated = (*export).clone().update_progress(msg)?;
-            SystemMetadataModel::new_global(&mut tx)
-                .replace(export.id(), updated.try_into()?)
-                .await?;
-            database_
-                .commit_with_write_source(tx, "export_worker_update_progress")
-                .await?;
-            anyhow::Ok(())
+        let id = export.id();
+
+        let (update_progress_tx, mut update_progress_rx) =
+            tokio::sync::watch::channel(String::new());
+        let (export_done_tx, export_done_rx) = tokio::sync::oneshot::channel();
+
+        let (object_key, usage) = {
+            let export_future = async {
+                let _ = export_done_tx.send(
+                    self.export_inner(export.format(), export.requestor(), |msg| async {
+                        let _ = update_progress_tx.send(msg);
+                        Ok(())
+                    })
+                    .await,
+                );
+            };
+            tokio::pin!(export_future);
+
+            // In parallel:
+            // - monitor the export document and check for cancellation
+            // - update progress on the export as reported to `update_progress_rx`
+            let monitor_export = async move {
+                tokio::pin!(export_done_rx);
+                let (snapshot_ts, object_key, usage) = 'reload_loop: loop {
+                    let mut tx = database_.begin_system().await?;
+                    let Some(export) = tx.get(id).await? else {
+                        tracing::warn!("Export {id} disappeared");
+                        return Err(ExportCancelled.into());
+                    };
+                    let export: ParsedDocument<Export> = export.try_into()?;
+                    match *export {
+                        Export::Requested { .. } | Export::InProgress { .. } => (),
+                        Export::Cancelled { .. } => return Err(ExportCancelled.into()),
+                        Export::Failed { .. } | Export::Completed { .. } => {
+                            tracing::warn!("Export {id} is in unexpected state: {export:?}");
+                            return Err(ExportCancelled.into());
+                        },
+                    }
+                    if let Export::Requested { .. } = *export {
+                        // Mark the export as `InProgress`
+                        let actual_ts = *database_.now_ts_for_reads();
+                        SystemMetadataModel::new_global(&mut tx)
+                            .replace(id, export.into_value().in_progress(actual_ts)?.try_into()?)
+                            .await?;
+                        // N.B.: OCC errors here will cause the entire export to fail and retry,
+                        // but that should only happen if the export is cancelled.
+                        database_
+                            .commit_with_write_source(tx, "export_worker_export_requested")
+                            .await?;
+                        continue;
+                    }
+                    let token = tx.into_token()?;
+                    let token_ts = token.ts();
+                    let subscription = database_.subscribe(token).await?;
+                    tokio::select! {
+                        r = &mut export_done_rx => {
+                            break 'reload_loop r??;
+                        }
+                        () = subscription.wait_for_invalidation() => {
+                            // Racing write happened; we might be cancelled. Reload and check.
+                            continue;
+                        }
+                        _ = update_progress_rx.changed() => {
+                            // A new progress message was reported; write it into the document,
+                            // then reload it.
+                            // Note that we use `token_ts` to make sure `export` is up to date.
+                            let usage_tracker = FunctionUsageTracker::new();
+                            let mut tx = database_
+                                .begin_with_ts(Identity::system(), token_ts, usage_tracker)
+                                .await?;
+                            let msg = update_progress_rx.borrow_and_update().clone();
+                            tracing::info!("Export {id} progress: {msg}");
+                            SystemMetadataModel::new_global(&mut tx)
+                                .replace(id, export.into_value().update_progress(msg)?.try_into()?)
+                                .await?;
+                            database_
+                                .commit_with_write_source(tx, "export_worker_update_progress")
+                                .await?;
+                            continue;
+                        }
+                    }
+                };
+
+                // Export is done; mark it as such.
+                let mut tx = database_.begin_system().await?;
+                tracing::info!("Export {id} completed");
+                let Some(export) = tx.get(id).await? else {
+                    tracing::warn!("Export {id} disappeared");
+                    return Err(ExportCancelled.into());
+                };
+                let export: ParsedDocument<Export> = export.try_into()?;
+                if let Export::Cancelled { .. } = *export {
+                    return Err(ExportCancelled.into());
+                }
+                let completed_export = (*export).clone().completed(
+                    snapshot_ts,
+                    *tx.begin_timestamp(),
+                    object_key.clone(),
+                )?;
+                SystemMetadataModel::new_global(&mut tx)
+                    .replace(id, completed_export.try_into()?)
+                    .await?;
+                database_
+                    .commit_with_write_source(tx, "export_worker_mark_complete")
+                    .await?;
+                anyhow::Ok((object_key, usage))
+            };
+            tokio::pin!(monitor_export);
+
+            let ((), r) = futures::future::join(export_future, monitor_export).await;
+            r?
         };
 
-        let (ts, object_key, usage) = self
-            .export_inner(export.format(), export.requestor(), update_progress)
-            .await?;
-
-        let mut tx = self.database.begin(Identity::system()).await?;
-        let completed_export =
-            (*export)
-                .clone()
-                .completed(ts, *tx.begin_timestamp(), object_key.clone())?;
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(export.id(), completed_export.try_into()?)
-            .await?;
-        self.database
-            .commit_with_write_source(tx, "export_worker_mark_complete")
-            .await?;
         let object_attributes = self
             .storage
             .get_object_attributes(&object_key)
@@ -696,6 +771,10 @@ impl<RT: Runtime> ExportWorker<RT> {
         Ok(())
     }
 }
+
+#[derive(thiserror::Error, Debug)]
+#[error("Export cancelled")]
+struct ExportCancelled;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
