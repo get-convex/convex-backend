@@ -738,11 +738,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // Complete the syscall's promise, which will put its handlers on the microtask
             // queue.
             for (resolver, result) in resolvers.into_iter().zip(results.into_iter()) {
+                let mut result_scope = v8::HandleScope::new(&mut *scope);
                 let result_v8 = match result {
-                    Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
+                    Ok(v) => Ok(serde_v8::to_v8(&mut result_scope, v)?),
                     Err(e) => Err(e),
                 };
-                resolve_promise(&mut scope, resolver, result_v8)?;
+                resolve_promise(&mut result_scope, resolver, result_v8)?;
             }
             handle.check_terminated()?;
         }

@@ -1105,11 +1105,16 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                                 .remove(&task_id) else {
                                     anyhow::bail!("Task with id {} did not have a promise", task_id);
                                 };
+                            let mut result_scope = v8::HandleScope::new(&mut **scope);
                             let result_v8 = match variant {
-                                Ok(v) => Ok(v.into_v8(scope)?),
+                                Ok(v) => Ok(v.into_v8(&mut result_scope)?),
                                 Err(e) => Err(e),
                             };
-                            resolve_promise_allow_all_errors(scope, resolver, result_v8)?;
+                            resolve_promise_allow_all_errors(
+                                &mut result_scope,
+                                resolver,
+                                result_v8,
+                            )?;
                         },
                     };
                 },
