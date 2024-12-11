@@ -754,6 +754,7 @@ pub async fn run_function_and_collect_log_lines<Outcome>(
 
 #[cfg(test)]
 mod tests {
+
     use cmd_util::env::env_config;
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
@@ -762,9 +763,12 @@ mod tests {
         ConvexValue,
     };
 
-    use crate::log_lines::{
-        LogLine,
-        LogLineStructured,
+    use crate::{
+        log_lines::{
+            LogLine,
+            LogLineStructured,
+        },
+        runtime::UnixTimestamp,
     };
 
     proptest! {
@@ -780,5 +784,15 @@ mod tests {
         fn test_json_round_trips(log_line in any::<LogLineStructured>()) {
             assert_roundtrips::<LogLineStructured, JsonValue>(log_line);
         }
+    }
+
+    #[test]
+    pub fn empty_log_line() {
+        // This used to panic due to a underflow bug when calculating message length.
+        LogLineStructured::new_developer_log_line(
+            super::LogLevel::Info,
+            vec![],
+            UnixTimestamp::from_secs_f64(1733952824.),
+        );
     }
 }
