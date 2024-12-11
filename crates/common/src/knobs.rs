@@ -1221,3 +1221,11 @@ pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
 /// Max word-length in characters for exact search in typo-tolerance
 pub static EXACT_SEARCH_MAX_WORD_LENGTH: LazyLock<usize> =
     LazyLock::new(|| env_config("EXACT_SEARCH_MAX_WORD_LENGTH", 4));
+
+/// How many instances a Conductor will try to simultaneously load (on startup,
+/// or when it discovers new instances) Going too high means that the Conductor
+/// may be unable to serve requests for already-loaded instances in a timely
+/// manner, or that we may exhaust CPU on the physical host and affect other
+/// Conductors that are colocated.
+pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 16));
