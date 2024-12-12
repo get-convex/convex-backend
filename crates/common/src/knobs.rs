@@ -868,26 +868,6 @@ pub static MAX_SEGMENT_DELETED_PERCENTAGE: LazyLock<f64> =
 /// (true) or InProcessFunctionRunner (false).
 pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", true));
 
-/// Whether to analyze code in Funrun (true) or
-/// InProcessFunctionRunner (false).
-pub static ANALYZE_IN_FUNRUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("ANALYZE_IN_FUNRUN", false));
-
-/// Whether to evaluate the auth config in Funrun (true) or
-/// InProcessFunctionRunner (false)
-pub static AUTH_CONFIG_IN_FUNRUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("AUTH_CONFIG_IN_FUNRUN", false));
-
-/// Whether to evaluate app definitions in Funrun (true) or
-/// InProcessFunctionRunner (false).
-pub static APP_DEFINITIONS_IN_FUNRUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("APP_DEFINITIONS_IN_FUNRUN", false));
-
-/// Whether to evaluate the component initializer in Funrun (true) or
-/// InProcessFunctionRunner (false).
-pub static COMPONENT_INITIALIZER_IN_FUNRUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("COMPONENT_INITIALIZER_IN_FUNRUN", false));
-
 /// Whether to evaluate schema in Funrun (true) or
 /// InProcessFunctionRunner (false).
 pub static SCHEMA_IN_FUNRUN: LazyLock<bool> =
