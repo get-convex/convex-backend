@@ -35,6 +35,7 @@ use common::{
     },
     errors::report_error,
     execution_context::ExecutionId,
+    pause::PauseClient,
     runtime::Runtime,
     types::{
         IndexId,
@@ -59,6 +60,7 @@ use futures::{
     try_join,
     AsyncWriteExt,
     Future,
+    FutureExt,
     StreamExt,
     TryStreamExt,
 };
@@ -645,26 +647,41 @@ impl<RT: Runtime> ExportWorker<RT> {
         export: ParsedDocument<Export>,
     ) -> anyhow::Result<()> {
         let id = export.id();
+        let format = export.format();
+        let requestor = export.requestor();
+        drop(export); // Drop this to prevent accidentally using stale state
 
         let (snapshot_ts, object_key, usage) = {
             let database_ = self.database.clone();
             let export_future = async {
                 let database_ = self.database.clone();
 
-                self.export_inner(export.format(), export.requestor(), |msg| async {
-                    let mut tx = database_.begin_system().await?;
+                self.export_inner(format, requestor, |msg| async {
                     tracing::info!("Export {id} progress: {msg}");
-                    let export: ParsedDocument<Export> =
-                        tx.get(id).await?.context(ExportCanceled)?.try_into()?;
-                    let export = export.into_value();
-                    if let Export::Canceled { .. } = export {
-                        anyhow::bail!(ExportCanceled);
-                    }
-                    SystemMetadataModel::new_global(&mut tx)
-                        .replace(id, export.update_progress(msg)?.try_into()?)
-                        .await?;
                     database_
-                        .commit_with_write_source(tx, "export_worker_update_progress")
+                        .execute_with_occ_retries(
+                            Identity::system(),
+                            FunctionUsageTracker::new(),
+                            PauseClient::new(),
+                            "export_worker_update_progress",
+                            move |tx| {
+                                let msg = msg.clone();
+                                async move {
+                                    let export: ParsedDocument<Export> =
+                                        tx.get(id).await?.context(ExportCanceled)?.try_into()?;
+                                    let export = export.into_value();
+                                    if let Export::Canceled { .. } = export {
+                                        anyhow::bail!(ExportCanceled);
+                                    }
+                                    SystemMetadataModel::new_global(tx)
+                                        .replace(id, export.update_progress(msg)?.try_into()?)
+                                        .await?;
+                                    Ok(())
+                                }
+                                .boxed()
+                                .into()
+                            },
+                        )
                         .await?;
                     Ok(())
                 })
@@ -704,25 +721,38 @@ impl<RT: Runtime> ExportWorker<RT> {
         };
 
         // Export is done; mark it as such.
-        let mut tx = self.database.begin_system().await?;
         tracing::info!("Export {id} completed");
-        let Some(export) = tx.get(id).await? else {
-            tracing::warn!("Export {id} disappeared");
-            return Err(ExportCanceled.into());
-        };
-        let export: ParsedDocument<Export> = export.try_into()?;
-        if let Export::Canceled { .. } = *export {
-            return Err(ExportCanceled.into());
-        }
-        let completed_export =
-            (*export)
-                .clone()
-                .completed(snapshot_ts, *tx.begin_timestamp(), object_key.clone())?;
-        SystemMetadataModel::new_global(&mut tx)
-            .replace(id, completed_export.try_into()?)
-            .await?;
         self.database
-            .commit_with_write_source(tx, "export_worker_mark_complete")
+            .execute_with_occ_retries(
+                Identity::system(),
+                FunctionUsageTracker::new(),
+                PauseClient::new(),
+                "export_worker_mark_complete",
+                |tx| {
+                    let object_key = object_key.clone();
+                    async move {
+                        let Some(export) = tx.get(id).await? else {
+                            tracing::warn!("Export {id} disappeared");
+                            return Err(ExportCanceled.into());
+                        };
+                        let export: ParsedDocument<Export> = export.try_into()?;
+                        if let Export::Canceled { .. } = *export {
+                            return Err(ExportCanceled.into());
+                        }
+                        let completed_export = export.into_value().completed(
+                            snapshot_ts,
+                            *tx.begin_timestamp(),
+                            object_key,
+                        )?;
+                        SystemMetadataModel::new_global(tx)
+                            .replace(id, completed_export.try_into()?)
+                            .await?;
+                        Ok(())
+                    }
+                    .boxed()
+                    .into()
+                },
+            )
             .await?;
 
         let object_attributes = self
@@ -731,8 +761,8 @@ impl<RT: Runtime> ExportWorker<RT> {
             .await?
             .context("error getting export object attributes from S3")?;
 
-        let tag = export.requestor().usage_tag().to_string();
-        let call_type = match export.requestor() {
+        let tag = requestor.usage_tag().to_string();
+        let call_type = match requestor {
             ExportRequestor::SnapshotExport => CallType::Export,
             ExportRequestor::CloudBackup => CallType::CloudBackup,
         };
