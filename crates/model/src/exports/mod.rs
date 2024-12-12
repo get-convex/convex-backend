@@ -292,8 +292,8 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
                 Export::Failed {
                     failed_ts: last_ts, ..
                 }
-                | Export::Cancelled {
-                    cancelled_ts: last_ts,
+                | Export::Canceled {
+                    canceled_ts: last_ts,
                     ..
                 } => {
                     if last_ts < delete_before_ts {
@@ -654,7 +654,7 @@ mod tests {
                     .get(export_id.developer_id)
                     .await?
                     .expect("Document must exist"),
-                Export::Cancelled { .. }
+                Export::Canceled { .. }
             );
             db.commit(tx).await?;
         }

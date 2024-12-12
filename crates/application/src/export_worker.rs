@@ -272,8 +272,8 @@ impl<RT: Runtime> ExportWorker<RT> {
                     return Ok(());
                 },
                 Err(mut e) => {
-                    if e.is::<ExportCancelled>() {
-                        tracing::info!("Export {} cancelled", export.id());
+                    if e.is::<ExportCanceled>() {
+                        tracing::info!("Export {} canceled", export.id());
                         return Ok(());
                     }
                     report_error(&mut e).await;
@@ -656,15 +656,15 @@ impl<RT: Runtime> ExportWorker<RT> {
                     let mut tx = database_.begin_system().await?;
                     let Some(export) = tx.get(id).await? else {
                         tracing::warn!("Export {id} disappeared");
-                        return Err(ExportCancelled.into());
+                        return Err(ExportCanceled.into());
                     };
                     let export: ParsedDocument<Export> = export.try_into()?;
                     match *export {
                         Export::Requested { .. } | Export::InProgress { .. } => (),
-                        Export::Cancelled { .. } => return Err(ExportCancelled.into()),
+                        Export::Canceled { .. } => return Err(ExportCanceled.into()),
                         Export::Failed { .. } | Export::Completed { .. } => {
                             tracing::warn!("Export {id} is in unexpected state: {export:?}");
-                            return Err(ExportCancelled.into());
+                            return Err(ExportCanceled.into());
                         },
                     }
                     if let Export::Requested { .. } = *export {
@@ -674,7 +674,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                             .replace(id, export.into_value().in_progress(actual_ts)?.try_into()?)
                             .await?;
                         // N.B.: OCC errors here will cause the entire export to fail and retry,
-                        // but that should only happen if the export is cancelled.
+                        // but that should only happen if the export is canceled.
                         database_
                             .commit_with_write_source(tx, "export_worker_export_requested")
                             .await?;
@@ -688,7 +688,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                             break 'reload_loop r??;
                         }
                         () = subscription.wait_for_invalidation() => {
-                            // Racing write happened; we might be cancelled. Reload and check.
+                            // Racing write happened; we might be canceled. Reload and check.
                             continue;
                         }
                         _ = update_progress_rx.changed() => {
@@ -717,11 +717,11 @@ impl<RT: Runtime> ExportWorker<RT> {
                 tracing::info!("Export {id} completed");
                 let Some(export) = tx.get(id).await? else {
                     tracing::warn!("Export {id} disappeared");
-                    return Err(ExportCancelled.into());
+                    return Err(ExportCanceled.into());
                 };
                 let export: ParsedDocument<Export> = export.try_into()?;
-                if let Export::Cancelled { .. } = *export {
-                    return Err(ExportCancelled.into());
+                if let Export::Canceled { .. } = *export {
+                    return Err(ExportCanceled.into());
                 }
                 let completed_export = (*export).clone().completed(
                     snapshot_ts,
@@ -773,8 +773,8 @@ impl<RT: Runtime> ExportWorker<RT> {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("Export cancelled")]
-struct ExportCancelled;
+#[error("Export canceled")]
+struct ExportCanceled;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

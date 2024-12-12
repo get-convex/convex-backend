@@ -299,12 +299,7 @@ export default defineSchema({
         state: v.literal("requested"),
         requestor: exportRequestor,
       }),
-      v.object({
-        state: v.literal("cancelled"),
-        start_ts: v.optional(v.int64()),
-        cancelled_ts: v.int64(),
-        requestor: exportRequestor,
-      }),
+      // TODO: add canceled
     ),
   ).index("by_requestor", ["requestor"]),
   _deployment_audit_log: deploymentAuditLogTable,

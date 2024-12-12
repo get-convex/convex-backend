@@ -1384,7 +1384,7 @@ impl<RT: Runtime> Application<RT> {
                     ..
                 } => (zip_object_key, start_ts),
                 Export::Failed { .. }
-                | Export::Cancelled { .. }
+                | Export::Canceled { .. }
                 | Export::InProgress { .. }
                 | Export::Requested { .. } => {
                     anyhow::bail!(ErrorMetadata::bad_request(
