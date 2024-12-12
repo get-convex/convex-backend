@@ -311,7 +311,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
             .await?
             .context("Snapshot not found")?
             .into_id_and_value();
-        let export = export.cancelled(*self.tx.begin_timestamp())?;
+        let export = export.canceled(*self.tx.begin_timestamp())?;
         SystemMetadataModel::new_global(self.tx)
             .replace(id, export.try_into()?)
             .await?;
@@ -392,12 +392,12 @@ mod tests {
         let export = in_progress_export.clone().failed(ts, ts)?;
         check_roundtrip(&export);
 
-        // Cancelled (never started)
-        let export = requested_export.cancelled(Timestamp::must(1235))?;
+        // Canceled (never started)
+        let export = requested_export.canceled(Timestamp::must(1235))?;
         check_roundtrip(&export);
 
-        // Cancelled (was started)
-        let export = in_progress_export.cancelled(Timestamp::must(1235))?;
+        // Canceled (was started)
+        let export = in_progress_export.canceled(Timestamp::must(1235))?;
         check_roundtrip(&export);
 
         Ok(())
@@ -659,7 +659,7 @@ mod tests {
             db.commit(tx).await?;
         }
 
-        // Should not be able to cancel a `Completed`, `Failed`, or `Cancelled` export
+        // Should not be able to cancel a `Completed`, `Failed`, or `Canceled` export
         let ts = *db.now_ts_for_reads();
         for export in [
             initial_export.clone().in_progress(ts)?.completed(
@@ -668,7 +668,7 @@ mod tests {
                 ObjectKey::try_from("asdf")?,
             )?,
             initial_export.clone().in_progress(ts)?.failed(ts, ts)?,
-            initial_export.clone().cancelled(ts)?,
+            initial_export.clone().canceled(ts)?,
         ] {
             let mut tx = db.begin_system().await?;
             let mut exports_model = ExportsModel::new(&mut tx);

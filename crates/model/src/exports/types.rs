@@ -25,10 +25,10 @@ use value::codegen_convex_serialization;
 ///   object
 /// - InProgress -> Failed: not currently possible, but could be used in the
 ///   future if the export worker encounters an unrecoverable error
-/// - Requested,InProgress -> Cancelled: an admin cancelled the export, which
-///   may or may not have started.
+/// - Requested,InProgress -> Canceled: an admin canceled the export, which may
+///   or may not have started.
 ///
-/// Completed, Failed, and Cancelled are terminal states.
+/// Completed, Failed, and Canceled are terminal states.
 pub enum Export {
     Requested {
         format: ExportFormat,
@@ -74,7 +74,7 @@ pub enum Export {
     Canceled {
         /// When the Export first started, if at all
         start_ts: Option<Timestamp>,
-        /// Timestamp when the Export was cancelled
+        /// Timestamp when the Export was canceled
         canceled_ts: Timestamp,
         format: ExportFormat,
         component: ComponentId,
@@ -543,7 +543,7 @@ impl Export {
         }
     }
 
-    pub fn cancelled(self, canceled_ts: Timestamp) -> anyhow::Result<Export> {
+    pub fn canceled(self, canceled_ts: Timestamp) -> anyhow::Result<Export> {
         match self {
             Self::InProgress {
                 format,
