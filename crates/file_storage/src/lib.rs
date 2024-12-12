@@ -30,7 +30,9 @@ pub struct FileStream {
 
 pub struct FileRangeStream {
     pub content_length: ContentLength,
-    pub content_range: ContentRange,
+    /// None if file size is 0, as the RFC doesn't allow range responses on
+    /// 0-size files https://datatracker.ietf.org/doc/html/rfc7233#section-4.2
+    pub content_range: Option<ContentRange>,
     pub content_type: Option<ContentType>,
     pub stream: BoxStream<'static, futures::io::Result<bytes::Bytes>>,
 }
