@@ -431,9 +431,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
 
     fn version(&self) -> PersistenceVersion;
 
-    /// Returns `(table, data size, index size, number of rows)` from the
-    /// underlying database
-    async fn usage_stats(&self) -> anyhow::Result<Vec<(String, u64, u64, u64)>> {
+    async fn table_size_stats(&self) -> anyhow::Result<Vec<PersistenceTableSize>> {
         Ok(vec![])
     }
 
@@ -704,6 +702,15 @@ impl RetentionValidator for NoopRetentionValidator {
     fn fail_if_falling_behind(&self) -> anyhow::Result<()> {
         Ok(())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct PersistenceTableSize {
+    /// The name of the underlying persistence table
+    pub table_name: String,
+    pub data_bytes: u64,
+    pub index_bytes: u64,
+    pub row_count: u64,
 }
 
 #[cfg(test)]
