@@ -130,7 +130,7 @@ export class ThrowingFetchError extends Error {
  */
 export async function throwingFetch(
   resource: RequestInfo | URL,
-  options: (RequestInit & RequestInitRetryParams) | undefined,
+  options: (RequestInit & RequestInitRetryParams<typeof fetch>) | undefined,
 ): Promise<Response> {
   const Headers = globalThis.Headers;
   const headers = new Headers((options || {})["headers"]);

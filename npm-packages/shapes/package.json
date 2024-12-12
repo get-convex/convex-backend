@@ -23,8 +23,8 @@
   "author": "Convex, Inc.",
   "license": "MIT",
   "dependencies": {
-    "zod": "^3.21.4",
-    "prettier": "3.2.5"
+    "zod": "^3.24.0",
+    "prettier": "3.4.2"
   },
   "devDependencies": {
     "typescript": "~5.0.3",
