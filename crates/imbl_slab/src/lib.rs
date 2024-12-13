@@ -84,7 +84,10 @@ impl<T: Clone> Slab<T> {
         self.len
     }
 
-    #[allow(unused)]
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (SlabKey, &T)> + '_ {
         self.entries
             .iter()

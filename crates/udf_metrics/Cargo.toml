@@ -1,0 +1,22 @@
+[package]
+name = "udf_metrics"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["proptest", "proptest-derive"]
+development = ["proptest", "proptest-derive"]
+
+[dependencies]
+anyhow = { workspace = true }
+hdrhistogram = { workspace = true }
+imbl = { workspace = true }
+imbl_slab = { path = "../imbl_slab" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

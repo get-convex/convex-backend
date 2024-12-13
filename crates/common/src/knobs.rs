@@ -65,6 +65,28 @@ pub static UDF_CACHE_MAX_SIZE: LazyLock<usize> =
 pub static MAX_UDF_EXECUTION: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_UDF_EXECUTION", 1000));
 
+/// What is the metrics aggregation window for UDF metrics?
+pub static UDF_METRICS_BUCKET_WIDTH: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("UDF_METRICS_BUCKET_WIDTH_SECS", 60)));
+
+/// How many UDF metrics buckets do we keep in-memory? This defaults to 60s * 60
+/// = 1 hour.
+pub static UDF_METRICS_MAX_BUCKETS: LazyLock<usize> =
+    LazyLock::new(|| env_config("UDF_METRICS_MAX_BUCKETS", 60));
+
+/// Minimum duration to record in a histogram bucket.
+pub static UDF_METRICS_MIN_DURATION: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("UDF_METRICS_MIN_DURATION_MS", 1)));
+
+/// Maximum duration to record in a histogram bucket.
+pub static UDF_METRICS_MAX_DURATION: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_millis(env_config("UDF_METRICS_MAX_DURATION_MS", 15 * 60 * 1000))
+});
+
+/// How many significant figures to store in a histogram bucket.
+pub static UDF_METRICS_SIGNIFICANT_FIGURES: LazyLock<u8> =
+    LazyLock::new(|| env_config("UDF_METRICS_SIGNIFICANT_FIGURES", 2));
+
 /// How often to flush function activity reports to analytics (in seconds).
 pub static UDF_ANALYTICS_POLL_TIME: LazyLock<u64> =
     LazyLock::new(|| env_config("UDF_ANALYTICS_POLL_TIME", 60));

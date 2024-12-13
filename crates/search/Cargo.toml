@@ -21,6 +21,7 @@ common = { path = "../common" }
 errors = { path = "../errors" }
 futures = { workspace = true }
 imbl = { workspace = true }
+imbl_slab = { path = "../imbl_slab" }
 indexing = { path = "../indexing" }
 itertools = { workspace = true }
 levenshtein_automata = { workspace = true }

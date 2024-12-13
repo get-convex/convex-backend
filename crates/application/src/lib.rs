@@ -286,6 +286,11 @@ use tokio::{
     },
     task::JoinSet,
 };
+use udf_metrics::{
+    MetricsWindow,
+    Percentile,
+    Timeseries,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -310,10 +315,7 @@ use crate::{
     export_worker::ExportWorker,
     function_log::{
         FunctionExecutionLog,
-        MetricsWindow,
-        Percentile,
         TableRate,
-        Timeseries,
         UdfMetricSummary,
         UdfRate,
     },

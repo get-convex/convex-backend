@@ -68,6 +68,7 @@ thousands = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
+udf_metrics = { path = "../udf_metrics" }
 url = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
 value = { path = "../value" }

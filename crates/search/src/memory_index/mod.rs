@@ -2,7 +2,6 @@ use tantivy::schema::Field;
 pub mod art;
 mod bitset64;
 mod iter_set_bits;
-mod slab;
 mod small_slice;
 mod term_list;
 mod term_table;
