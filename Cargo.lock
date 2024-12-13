@@ -1229,6 +1229,7 @@ dependencies = [
  "sourcemap",
  "strum 0.26.2",
  "thiserror",
+ "tld",
  "tokio",
  "tokio-metrics",
  "tokio-metrics-collector",
@@ -5203,6 +5204,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "phf_codegen"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8d39688d359e6b34654d328e262234662d16cc0f60ec8dcbe5e718709342a5a"
+dependencies = [
+ "phf_generator",
+ "phf_shared",
+]
+
+[[package]]
 name = "phf_generator"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7861,6 +7872,16 @@ name = "tinyvec_macros"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
+
+[[package]]
+name = "tld"
+version = "2.36.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6672b01e3831c99e7e65d2617dbbc4cdf603e60dfc7120a3b6df7fc97ebe3096"
+dependencies = [
+ "phf",
+ "phf_codegen",
+]
 
 [[package]]
 name = "tokio"
