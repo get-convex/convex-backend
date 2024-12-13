@@ -50,6 +50,7 @@ impl From<ErrorCodeProto> for ErrorCode {
             ErrorCodeProto::Occ => ErrorCode::OCC {
                 table_name: None,
                 document_id: None,
+                write_source: None,
             },
             ErrorCodeProto::PaginationLimit => ErrorCode::PaginationLimit,
             ErrorCodeProto::OutOfRetention => ErrorCode::OutOfRetention,
@@ -71,9 +72,11 @@ impl From<ErrorMetadata> for ErrorMetadataProto {
                 ErrorCode::OCC {
                     table_name,
                     document_id,
+                    write_source,
                 } => Some(OccInfoProto {
                     table_name,
                     document_id,
+                    write_source,
                 }),
                 _ => None,
             },

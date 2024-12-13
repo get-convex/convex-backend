@@ -2221,12 +2221,12 @@ impl ConflictingReadWithWriteSource {
         let table_name = mapping.tablet_name(*self.read.index.table());
 
         let Ok(table_name) = table_name else {
-            return anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None));
+            return anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None, None));
         };
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_write_source = self.write_source.0.as_ref().map(|write_source| {
+        let occ_msg = self.write_source.0.as_ref().map(|write_source| {
             occ_write_source_string(
                 write_source,
                 self.read.id.to_string(),
@@ -2238,11 +2238,12 @@ impl ConflictingReadWithWriteSource {
             return anyhow::anyhow!(ErrorMetadata::user_occ(
                 Some(table_name.into()),
                 Some(self.read.id.developer_id.encode()),
-                occ_write_source,
+                self.write_source.0.as_ref().map(|s| s.to_string()),
+                occ_msg,
             ));
         }
 
-        let msg = occ_write_source
+        let msg = occ_msg
             .map(|write_source| format!("{}.\n", write_source))
             .unwrap_or_default();
         let index = format!("{table_name}.{}", self.read.index.descriptor());

@@ -878,7 +878,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                  {udf_path_string:?} after {sleep:?}",
                             );
                             self.runtime.wait(sleep).await;
-                            let (table_name, document_id) = e.occ_info().unwrap_or((None, None));
+                            let (table_name, document_id, write_source) =
+                                e.occ_info().unwrap_or((None, None, None));
                             self.function_log.log_mutation_occ_error(
                                 outcome,
                                 stats,
@@ -889,6 +890,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                 OccInfo {
                                     table_name,
                                     document_id,
+                                    write_source,
                                     retry_count: (backoff.failures() - 1) as u64,
                                 },
                             );
@@ -897,7 +899,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         outcome.result = Err(JsError::from_error_ref(&e));
 
                         if e.is_occ() {
-                            let (table_name, document_id) = e.occ_info().unwrap_or((None, None));
+                            let (table_name, document_id, write_source) =
+                                e.occ_info().unwrap_or((None, None, None));
                             self.function_log.log_mutation_occ_error(
                                 outcome,
                                 stats,
@@ -908,6 +911,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                 OccInfo {
                                     table_name,
                                     document_id,
+                                    write_source,
                                     retry_count: backoff.failures().into(),
                                 },
                             );

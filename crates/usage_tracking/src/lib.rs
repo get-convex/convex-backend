@@ -82,6 +82,7 @@ impl UsageCounter {
 pub struct OccInfo {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
+    pub write_source: Option<String>,
     pub retry_count: u64,
 }
 
@@ -144,6 +145,15 @@ impl CallType {
         match self {
             Self::Mutation { occ_info, .. } => {
                 occ_info.as_ref().and_then(|info| info.table_name.clone())
+            },
+            _ => None,
+        }
+    }
+
+    fn occ_write_source(&self) -> Option<String> {
+        match self {
+            Self::Mutation { occ_info, .. } => {
+                occ_info.as_ref().and_then(|info| info.write_source.clone())
             },
             _ => None,
         }
@@ -233,6 +243,7 @@ impl UsageCounter {
                 is_occ: call_type.is_occ(),
                 occ_table_name: call_type.occ_table_name(),
                 occ_document_id: call_type.occ_document_id(),
+                occ_write_source: call_type.occ_write_source(),
                 occ_retry_count: call_type.occ_retry_count(),
             },
         });

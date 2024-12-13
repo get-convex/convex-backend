@@ -54,6 +54,8 @@ pub struct FunctionCallUsageFields {
     /// The document ID of the document that the OCC occurred on. Only set if
     /// is_occ is true.
     pub occ_document_id: Option<String>,
+    // The source of the OCC. Only set if is_occ is true.
+    pub occ_write_source: Option<String>,
     /// The retry number of the OCC. Only set if is_occ is true.
     pub occ_retry_count: Option<u64>,
 }
@@ -227,6 +229,7 @@ mod tests {
                 is_occ: false,
                 occ_table_name: None,
                 occ_document_id: None,
+                occ_write_source: None,
                 occ_retry_count: None,
             },
         };
@@ -248,6 +251,7 @@ mod tests {
             "is_occ": false,
             "occ_table_name": null,
             "occ_document_id": null,
+            "occ_write_source": null,
             "occ_retry_count": null,
         }})
         .to_string();
@@ -274,6 +278,7 @@ mod tests {
                 is_occ: true,
                 occ_table_name: Some("table_name".to_string()),
                 occ_document_id: Some("document_id".to_string()),
+                occ_write_source: None,
                 occ_retry_count: Some(1),
             },
         };
@@ -295,6 +300,7 @@ mod tests {
             "is_occ": true,
             "occ_table_name": "table_name",
             "occ_document_id": "document_id",
+            "occ_write_source": null,
             "occ_retry_count": 1,
         }})
         .to_string();

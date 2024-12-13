@@ -54,6 +54,7 @@ pub enum ErrorCode {
     OCC {
         table_name: Option<String>,
         document_id: Option<String>,
+        write_source: Option<String>,
     },
     PaginationLimit,
     OutOfRetention,
@@ -249,6 +250,7 @@ impl ErrorMetadata {
             code: ErrorCode::OCC {
                 table_name: None,
                 document_id: None,
+                write_source: None,
             },
             short_msg: OCC_ERROR.into(),
             msg: OCC_ERROR_MSG.into(),
@@ -259,13 +261,14 @@ impl ErrorMetadata {
     pub fn user_occ(
         table_name: Option<String>,
         document_id: Option<String>,
-        occ_write_source: Option<String>,
+        write_source: Option<String>,
+        description: Option<String>,
     ) -> Self {
         let table_description = table_name
             .clone()
             .map(|name| format!("the \"{name}\" table"))
             .unwrap_or("some table".to_owned());
-        let write_source_description = occ_write_source
+        let write_source_description = description
             .clone()
             .map(|source| format!("{}. ", source))
             .unwrap_or_default();
@@ -273,6 +276,7 @@ impl ErrorMetadata {
             code: ErrorCode::OCC {
                 table_name,
                 document_id,
+                write_source,
             },
             short_msg: OCC_ERROR.into(),
             msg: format!(
@@ -552,7 +556,7 @@ impl ErrorCode {
 
 pub trait ErrorMetadataAnyhowExt {
     fn is_occ(&self) -> bool;
-    fn occ_info(&self) -> Option<(Option<String>, Option<String>)>;
+    fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
     fn is_out_of_retention(&self) -> bool;
@@ -587,13 +591,18 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         false
     }
 
-    fn occ_info(&self) -> Option<(Option<String>, Option<String>)> {
+    fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return match &e.code {
                 ErrorCode::OCC {
                     table_name,
                     document_id,
-                } => Some((table_name.clone(), document_id.clone())),
+                    write_source,
+                } => Some((
+                    table_name.clone(),
+                    document_id.clone(),
+                    write_source.clone(),
+                )),
                 _ => None,
             };
         }
