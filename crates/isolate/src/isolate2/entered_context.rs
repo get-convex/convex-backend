@@ -413,18 +413,20 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             (async_syscalls, async_ops)
         };
         for (resolver, result) in async_syscalls {
+            let mut scope = v8::HandleScope::new(self.scope);
             let result_v8 = match result {
-                Ok(v) => Ok(serde_v8::to_v8(self.scope, v)?),
+                Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
                 Err(e) => Err(e),
             };
-            resolve_promise(self.scope, resolver, result_v8)?;
+            resolve_promise(&mut scope, resolver, result_v8)?;
         }
         for (resolver, result) in async_ops {
+            let mut scope = v8::HandleScope::new(self.scope);
             let result_v8 = match result {
-                Ok(v) => Ok(v.into_v8(self.scope)?),
+                Ok(v) => Ok(v.into_v8(&mut scope)?),
                 Err(e) => Err(e),
             };
-            resolve_promise(self.scope, resolver, result_v8)?;
+            resolve_promise(&mut scope, resolver, result_v8)?;
         }
 
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;

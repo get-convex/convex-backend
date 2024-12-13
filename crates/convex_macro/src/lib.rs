@@ -218,7 +218,7 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let #pat = {
                     let __raw_arg = __args.get(#idx);
                     ::deno_core::serde_v8::from_v8(
-                        OpProvider::scope(#provider_ident),
+                        &mut __scope,
                         __raw_arg,
                     ).context(#arg_info)?
                 };
@@ -247,13 +247,6 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     else {
         panic!("op must return anyhow::Result<...>");
     };
-    let serialize_retval = quote! {
-        let __value_v8 = deno_core::serde_v8::to_v8(
-            OpProvider::scope(#provider_ident),
-            __result_v,
-        )?;
-        __rv.set(__value_v8);
-    };
 
     let gen = quote! {
         #(#attrs)*
@@ -262,9 +255,17 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             __args: ::deno_core::v8::FunctionCallbackArguments,
             mut __rv: ::deno_core::v8::ReturnValue,
         ) -> ::anyhow::Result<()> {
+            let mut __scope = ::deno_core::v8::HandleScope::new(OpProvider::scope(#provider_ident));
             #arg_parsing
+            drop(__scope);
             let __result_v = (|| #output { #block })()?;
-            { #serialize_retval }
+            {
+                let mut __scope = ::deno_core::v8::HandleScope::new(
+                    OpProvider::scope(#provider_ident),
+                );
+                let __value_v8 = deno_core::serde_v8::to_v8(&mut __scope, __result_v)?;
+                __rv.set(__value_v8);
+            }
             Ok(())
         }
     };
