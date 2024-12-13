@@ -8,6 +8,7 @@ use common::{
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
         DATABASE_WORKERS_MIN_COMMITS,
+        TABLE_SUMMARY_AGE_JITTER_SECONDS,
         TABLE_SUMMARY_BOOTSTRAP_RECENT_THRESHOLD,
     },
     persistence::Persistence,
@@ -28,6 +29,7 @@ use futures::{
     FutureExt,
 };
 use parking_lot::Mutex;
+use rand::Rng;
 use tokio::sync::oneshot;
 
 use crate::metrics::{
@@ -87,6 +89,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         last_write_info: &mut Option<LastWriteInfo>,
         has_bootstrapped: &mut bool,
         writer: &TableSummaryWriter<RT>,
+        max_age: Duration,
     ) -> anyhow::Result<()> {
         let _status = log_worker_starting("TableSummaryWorker");
         let commits_since_load = self.database.write_commits_since_load();
@@ -94,7 +97,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         if let Some(last_write_info) = last_write_info
             && *has_bootstrapped
             && commits_since_load - last_write_info.observed_commits < *DATABASE_WORKERS_MIN_COMMITS
-            && now - last_write_info.ts < *DATABASE_WORKERS_MAX_CHECKPOINT_AGE
+            && now - last_write_info.ts < max_age
         {
             return Ok(());
         }
@@ -139,9 +142,19 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
 
         let mut last_write_info = None;
         let mut has_bootstrapped = false;
+        let max_age_jitter =
+            *TABLE_SUMMARY_AGE_JITTER_SECONDS * self.runtime.rng().gen_range(-1.0..=1.0);
+        let jittered_max_age = Duration::from_secs_f32(
+            DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() + max_age_jitter,
+        );
         loop {
             let result = self
-                .checkpoint_table_summaries(&mut last_write_info, &mut has_bootstrapped, &writer)
+                .checkpoint_table_summaries(
+                    &mut last_write_info,
+                    &mut has_bootstrapped,
+                    &writer,
+                    jittered_max_age,
+                )
                 .await;
             if timer.is_some() && has_bootstrapped {
                 match timer.take() {

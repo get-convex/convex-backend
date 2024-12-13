@@ -1100,6 +1100,13 @@ pub static MAX_BACKEND_PUBLIC_API_REQUEST_SIZE: LazyLock<usize> =
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
     LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 100));
 
+/// The TableSummaryWorker must checkpoint every
+/// [`DATABASE_WORKERS_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.
+/// However, to prevent all instances from checkpointing at the same time, we'll
+/// add a jitter of up to ±TABLE_SUMMARY_AGE_JITTER_SECONDS.
+pub static TABLE_SUMMARY_AGE_JITTER_SECONDS: LazyLock<f32> =
+    LazyLock::new(|| env_config("TABLE_SUMMARY_AGE_JITTER_SECONDS", 900.0));
+
 /// HTTP requests to backend will time out after this duration has passed.
 ///
 /// See https://docs.rs/tower-http/0.5.0/tower_http/timeout/struct.TimeoutLayer.html
