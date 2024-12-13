@@ -2022,9 +2022,11 @@ impl<RT: Runtime> Database<RT> {
                 components_model.get_component_path(ComponentId::from(table_namespace))
             {
                 remapped_documents_and_index_storage.insert((component_path, table_name), usage);
-            } else {
+            } else if !table_name.is_system() {
                 // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push
+                // user table left over from incomplete components push.
+                // System tables may be created earlier (e.g. `_schemas`), so they may be
+                // legitimately nonempty in that case.
                 anyhow::ensure!(
                     usage.document_size == 0 && usage.index_size == 0,
                     "Table {table_name} is in an orphaned TableNamespace without a component, but \
