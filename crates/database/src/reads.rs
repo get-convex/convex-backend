@@ -347,9 +347,15 @@ impl TransactionReadSet {
         // Database bandwidth for document reads
         let is_system_table = table_name.is_system() && !is_virtual_table;
         usage_tracker.track_database_egress_size(
-            component_path,
+            component_path.clone(),
             table_name.to_string(),
             document_size as u64,
+            is_system_table,
+        );
+        usage_tracker.track_database_egress_rows(
+            component_path,
+            table_name.to_string(),
+            1,
             is_system_table,
         );
 

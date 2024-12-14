@@ -114,6 +114,7 @@ pub enum UsageEvent {
         table_name: String,
         ingress: u64,
         egress: u64,
+        egress_rows: u64,
     },
     VectorBandwidth {
         id: String,

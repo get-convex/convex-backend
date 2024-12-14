@@ -12,6 +12,7 @@ message FunctionUsageStats {
     repeated CounterWithTag database_egress_size = 5;
     repeated CounterWithTag vector_ingress_size = 6;
     repeated CounterWithTag vector_egress_size = 7;
+    repeated CounterWithTag database_egress_rows = 10;
 }
 
 message CounterWithTag {
