@@ -81,20 +81,21 @@
      * These are for private-demos/nextjs-15-app to closely match
      * npx create-next-app@latest next-15-app
      */
-    "next": ["15.0.3"],
-    "react": ["19.0.0-rc-66855b96-20241106"],
-    "react-dom": ["19.0.0-rc-66855b96-20241106"],
+    "next": ["15.1.0"],
+    "react": ["^19.0.0"],
+    "react-dom": ["^19.0.0"],
     //"typescript": ["^5"],
     "@types/node": ["^20"],
     "@types/react": ["^18"],
     "@types/react-dom": ["^18"],
     //"eslint": ["^8"],
-    "eslint-config-next": ["15.0.3"],
+    "@eslint/eslintrc": ["^3"],
+    "eslint-config-next": ["15.1.0"],
 
     /**
      * Until an upgrade to ESLint 9 is done
      */
-     "eslint": ["^8.29.0", "^8"],
+     "eslint": ["^8.29.0", "^9"],
      "eslint-plugin-react-hooks": ["^4.6.2"]
   }
 }
