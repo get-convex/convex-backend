@@ -485,7 +485,6 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
-        knobs::EXACT_SEARCH_MAX_WORD_LENGTH,
         runtime::testing::TestDriver,
         testing::TestIdGenerator,
         types::{
@@ -515,6 +514,7 @@ mod tests {
             FuzzyDistance,
             TextQueryTerm,
         },
+        EXACT_SEARCH_MAX_WORD_LENGTH,
         SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
     };
     use sync_types::Timestamp;
@@ -585,7 +585,7 @@ mod tests {
         let num_chars = token.chars().count();
         if num_chars > SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
             FuzzyDistance::Two
-        } else if num_chars > *EXACT_SEARCH_MAX_WORD_LENGTH {
+        } else if num_chars > EXACT_SEARCH_MAX_WORD_LENGTH {
             FuzzyDistance::One
         } else {
             FuzzyDistance::Zero

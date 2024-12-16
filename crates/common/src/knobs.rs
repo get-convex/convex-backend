@@ -1227,9 +1227,9 @@ pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
 pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("CLAIM_INSTANCE_TIMEOUT_SECS", 10)));
 
-/// Max word-length in characters for exact search in typo-tolerance
-pub static EXACT_SEARCH_MAX_WORD_LENGTH: LazyLock<usize> =
-    LazyLock::new(|| env_config("EXACT_SEARCH_MAX_WORD_LENGTH", 4));
+/// Disable fuzzy matches on text search results
+pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
+    LazyLock::new(|| env_config("DISABLE_FUZZY_TEXT_SEARCH", false));
 
 /// How many instances a Conductor will try to simultaneously load (on startup,
 /// or when it discovers new instances) Going too high means that the Conductor

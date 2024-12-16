@@ -46,7 +46,6 @@ use common::{
     },
     document::ResolvedDocument,
     index::IndexKeyBytes,
-    knobs::EXACT_SEARCH_MAX_WORD_LENGTH,
     query::{
         search_value_to_bytes,
         InternalSearch,
@@ -59,13 +58,17 @@ use common::{
         Timestamp,
     },
 };
-use constants::CONVEX_EN_TOKENIZER;
 pub use constants::{
     convex_en,
+    EXACT_SEARCH_MAX_WORD_LENGTH,
     MAX_CANDIDATE_REVISIONS,
     MAX_FILTER_CONDITIONS,
     MAX_QUERY_TERMS,
     SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
+};
+use constants::{
+    CONVEX_EN_TOKENIZER,
+    MAX_TEXT_TERM_LENGTH,
 };
 use convex_query::OrTerm;
 use errors::ErrorMetadata;
@@ -676,17 +679,23 @@ impl TantivySearchIndexSchema {
     fn compile_tokens_with_typo_tolerance(
         search_field: Field,
         tokens: &Vec<String>,
+        disable_fuzzy_text_search: bool,
     ) -> anyhow::Result<Vec<QueryTerm>> {
         let mut res = vec![];
 
         let mut it = tokens.iter().peekable();
+        let exact_search_max_word_length = if disable_fuzzy_text_search {
+            MAX_TEXT_TERM_LENGTH
+        } else {
+            EXACT_SEARCH_MAX_WORD_LENGTH
+        };
         while let Some(text) = it.next() {
             let term = Term::from_field_text(search_field, text);
             anyhow::ensure!(term.as_str().is_some(), "Term was not valid UTF8");
 
             let char_count = text.chars().count();
             let is_prefix = it.peek().is_none();
-            let num_typos = if char_count <= *EXACT_SEARCH_MAX_WORD_LENGTH {
+            let num_typos = if char_count <= exact_search_max_word_length {
                 0
             } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
                 1
@@ -711,6 +720,7 @@ impl TantivySearchIndexSchema {
         &self,
         query: &InternalSearch,
         version: SearchVersion,
+        disable_fuzzy_text_search: bool,
     ) -> anyhow::Result<(CompiledQuery, QueryReads)> {
         let timer = metrics::compile_timer();
 
@@ -797,9 +807,11 @@ impl TantivySearchIndexSchema {
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
             // Only the V2 search codepath can generate QueryTerm::Fuzzy
-            SearchVersion::V2 => {
-                Self::compile_tokens_with_typo_tolerance(self.search_field, &tokens)?
-            },
+            SearchVersion::V2 => Self::compile_tokens_with_typo_tolerance(
+                self.search_field,
+                &tokens,
+                disable_fuzzy_text_search,
+            )?,
         };
 
         let text_reads = text_query
