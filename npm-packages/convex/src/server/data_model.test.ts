@@ -17,6 +17,9 @@ type Document = {
     };
   };
   optionalField?: string;
+  nestedOptionalObject?: {
+    numberField: number;
+  };
 };
 
 // This method is doing some fancy inference so test it carefully.
@@ -27,6 +30,12 @@ test("FieldTypeFromFieldPath allows accessing all the primitives in the document
   assert<Equals<FieldTypeFromFieldPath<Document, "stringField">, string>>();
   assert<
     Equals<FieldTypeFromFieldPath<Document, "nestedObject.numberField">, number>
+  >();
+  assert<
+    Equals<
+      FieldTypeFromFieldPath<Document, "nestedOptionalObject.numberField">,
+      number | undefined
+    >
   >();
   assert<
     Equals<

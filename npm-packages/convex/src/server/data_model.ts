@@ -114,7 +114,16 @@ export type FieldTypeFromFieldPath<
         ValueFromUnion<Document, First, Record<never, never>>,
         Second
       >
-    : undefined
+    : ValueFromUnion<Document, First, Record<never, never>> extends
+          | GenericDocument
+          | undefined
+      ?
+          | FieldTypeFromFieldPath<
+              ValueFromUnion<Document, First, Record<never, never>>,
+              Second
+            >
+          | undefined
+      : undefined
   : ValueFromUnion<Document, FieldPath, undefined>;
 
 // Table Types /////////////////////////////////////////////////////////////////
