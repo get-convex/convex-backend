@@ -785,6 +785,7 @@ impl Default for StreamingExportTableFilter {
 }
 
 impl<RT: Runtime> Database<RT> {
+    #[minitrace::trace]
     pub async fn load(
         mut persistence: Arc<dyn Persistence>,
         runtime: RT,
