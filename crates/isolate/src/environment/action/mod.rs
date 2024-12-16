@@ -744,7 +744,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             );
             return Ok(Err(JsError::from_message(message)));
         }
-        let function: v8::Local<v8::Function> = namespace
+        let function: v8::Local<v8::Object> = namespace
             .get(&mut scope, function_str)
             .ok_or_else(|| anyhow!("Did not find function in module after checking?"))?
             .try_into()?;

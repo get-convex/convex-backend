@@ -442,7 +442,7 @@ fn make_str_val<'s>(
 #[minitrace::trace]
 fn parse_args_validator<'s, RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
-    function: v8::Local<v8::Function>,
+    function: v8::Local<v8::Object>,
     function_identifier_for_error: String,
 ) -> anyhow::Result<Result<ArgsValidator, JsError>> {
     // Call `exportArgs` to get the args validator.
@@ -503,7 +503,7 @@ fn parse_args_validator<'s, RT: Runtime>(
 #[minitrace::trace]
 fn parse_returns_validator<'s, RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
-    function: v8::Local<v8::Function>,
+    function: v8::Local<v8::Object>,
     function_identifier_for_error: String,
 ) -> anyhow::Result<Result<ReturnsValidator, JsError>> {
     // TODO(CX-6287) unify argument and returns validators
@@ -585,7 +585,7 @@ fn udf_analyze<RT: Runtime>(
         let property_value = namespace
             .get(scope, property_name)
             .ok_or_else(|| anyhow!("Failed to get property name on module namespace"))?;
-        let function: v8::Local<v8::Function> = match property_value.try_into() {
+        let function: v8::Local<v8::Object> = match property_value.try_into() {
             Ok(f) => f,
             Err(_) => continue,
         };
@@ -647,12 +647,17 @@ fn udf_analyze<RT: Runtime>(
                 let handler: v8::Local<v8::Function> = handler_value.try_into()?;
                 handler
             },
-            Some(handler_value) if handler_value.is_undefined() => function,
-            Some(_) => {
+            Some(handler_value) if !handler_value.is_undefined() => {
                 let message = format!("{module_path:?}:{property_name}.handler is not a function.");
                 return Ok(Err(JsError::from_message(message)));
             },
-            None => function,
+            _ => match function.try_into() {
+                Ok(f) => f,
+                Err(_) => {
+                    let message = format!("{module_path:?}:{property_name} is not a function.");
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            },
         };
 
         // These are originally zero-indexed, so we just add 1
@@ -880,7 +885,7 @@ fn http_analyze<RT: Runtime>(
         let Some(function) = entry.get_index(scope, 2) else {
             return routes_error(format!("problem with third element of {} of array", i).as_str());
         };
-        let function: Result<v8::Local<v8::Function>, _> = function.try_into();
+        let function: Result<v8::Local<v8::Object>, _> = function.try_into();
         let Ok(function) = function else {
             return routes_error(format!("arr[{}][2] not an HttpAction", i).as_str());
         };
@@ -891,12 +896,17 @@ fn http_analyze<RT: Runtime>(
                 let handler: v8::Local<v8::Function> = handler_value.try_into()?;
                 handler
             },
-            Some(handler_value) if handler_value.is_undefined() => function,
-            Some(_) => {
+            Some(handler_value) if !handler_value.is_undefined() => {
                 let message = format!("arr[{}][2].handler is not a function", i);
                 return Ok(Err(JsError::from_message(message)));
             },
-            None => function,
+            _ => match function.try_into() {
+                Ok(f) => f,
+                Err(_) => {
+                    let message = format!("arr[{}][2] is not an HttpAction", i);
+                    return Ok(Err(JsError::from_message(message)));
+                },
+            },
         };
 
         // These are originally zero-indexed, so we just add 1
