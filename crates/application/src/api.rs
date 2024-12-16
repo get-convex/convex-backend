@@ -1,5 +1,6 @@
 use std::{
     ops::Bound,
+    sync::Arc,
     time::Duration,
 };
 
@@ -554,7 +555,7 @@ impl<RT: Runtime> SubscriptionClient for ApplicationSubscriptionClient<RT> {
         let inner = self.database.subscribe(token.clone()).await?;
         Ok(Box::new(ApplicationSubscription {
             initial_ts: token.ts(),
-            reads: token.into_reads(),
+            reads: token.reads_owned(),
             inner,
             log: self.database.log().clone(),
         }))
@@ -575,7 +576,7 @@ struct ApplicationSubscription {
     inner: Subscription,
     log: LogReader,
 
-    reads: ReadSet,
+    reads: Arc<ReadSet>,
     // The initial timestamp the subscription was created at. This is known
     // to be valid.
     initial_ts: Timestamp,

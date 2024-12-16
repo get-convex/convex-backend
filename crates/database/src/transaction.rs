@@ -659,7 +659,7 @@ impl<RT: Runtime> Transaction<RT> {
         }
         metrics::log_read_tx(&self);
         let ts = *self.begin_timestamp();
-        Ok(Token::new(self.reads.into_read_set(), ts))
+        Ok(Token::new(Arc::new(self.reads.into_read_set()), ts))
     }
 
     pub fn take_stats(&mut self) -> BTreeMap<TableName, TableStats> {

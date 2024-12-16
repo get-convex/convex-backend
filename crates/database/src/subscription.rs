@@ -182,7 +182,7 @@ pub struct SubscriptionManager {
 }
 
 struct Subscriber {
-    reads: ReadSet,
+    reads: Arc<ReadSet>,
     valid_ts: Arc<Mutex<Option<Timestamp>>>,
     valid: watch::Sender<SubscriptionState>,
     seq: Sequence,
@@ -245,9 +245,8 @@ impl SubscriptionManager {
             seq,
         };
         self.next_seq += 1;
-        let reads = token.into_reads();
         entry.insert(Subscriber {
-            reads: reads.clone(),
+            reads: token.reads_owned(),
             valid_ts: valid_ts.clone(),
             valid: valid_tx,
             seq,
@@ -906,7 +905,7 @@ mod tests {
 
     fn contains_text_query(token: Token) -> bool {
         token
-            .into_reads()
+            .reads()
             .iter_search()
             .any(|(_, reads)| !reads.text_queries.is_empty())
     }
@@ -918,7 +917,7 @@ mod tests {
     ) -> BTreeSet<SubscriberId> {
         let mut to_notify = BTreeSet::new();
         for token in tokens {
-            let documents = create_matching_documents(&token.into_reads(), id_generator);
+            let documents = create_matching_documents(token.reads(), id_generator);
             for doc in &documents {
                 subscription_manager.overlapping(doc, &mut to_notify, PersistenceVersion::V5);
             }

@@ -1,6 +1,8 @@
 //! Externalizable tokens that record the currently-observed state within a
 //! transaction.
 
+use std::sync::Arc;
+
 #[cfg(any(test, feature = "testing"))]
 use common::types::TabletIndexName;
 use common::types::Timestamp;
@@ -21,7 +23,7 @@ pub type SerializedToken = String;
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct Token {
-    read_set: ReadSet,
+    read_set: Arc<ReadSet>,
     ts: Timestamp,
 }
 
@@ -29,7 +31,7 @@ impl Token {
     #[allow(unused)]
     #[cfg(any(test, feature = "testing"))]
     pub fn new_for_testing(read_set: ReadSet, ts: Timestamp) -> Self {
-        Self::new(read_set, ts)
+        Self::new(Arc::new(read_set), ts)
     }
 
     #[allow(unused)]
@@ -68,13 +70,13 @@ impl Token {
         )
     }
 
-    pub fn new(read_set: ReadSet, ts: Timestamp) -> Self {
+    pub fn new(read_set: Arc<ReadSet>, ts: Timestamp) -> Self {
         Self { read_set, ts }
     }
 
     pub fn empty(ts: Timestamp) -> Self {
         Self {
-            read_set: ReadSet::empty(),
+            read_set: Arc::new(ReadSet::empty()),
             ts,
         }
     }
@@ -87,8 +89,8 @@ impl Token {
         &self.read_set
     }
 
-    pub fn into_reads(self) -> ReadSet {
-        self.read_set
+    pub fn reads_owned(&self) -> Arc<ReadSet> {
+        self.read_set.clone()
     }
 
     /// Advance the token's timestamp to a new timestamp.
