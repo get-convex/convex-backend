@@ -66,6 +66,7 @@ pub type MetricName = String;
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MetricType {
     Counter,
+    Gauge,
     Histogram,
 }
 
@@ -93,16 +94,6 @@ pub struct HistogramBucket {
     pub histogram: Histogram<u8>,
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct MetricStoreConfig {
-    pub bucket_width: Duration,
-    pub max_buckets: usize,
-
-    pub histogram_min_duration: Duration,
-    pub histogram_max_duration: Duration,
-    pub histogram_significant_figures: u8,
-}
-
 impl HistogramBucket {
     fn new(config: &MetricStoreConfig, index: BucketIndex) -> Result<Self, UdfMetricsError> {
         let histogram = Histogram::new_with_bounds(
@@ -127,6 +118,28 @@ impl HistogramBucket {
 }
 
 #[derive(Clone)]
+pub struct GaugeBucket {
+    pub index: BucketIndex,
+    pub value: f32,
+}
+
+impl GaugeBucket {
+    pub fn new(index: BucketIndex, value: f32) -> Self {
+        Self { index, value }
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct MetricStoreConfig {
+    pub bucket_width: Duration,
+    pub max_buckets: usize,
+
+    pub histogram_min_duration: Duration,
+    pub histogram_max_duration: Duration,
+    pub histogram_significant_figures: u8,
+}
+
+#[derive(Clone)]
 pub struct MetricStore {
     base_ts: SystemTime,
     config: MetricStoreConfig,
@@ -136,6 +149,7 @@ pub struct MetricStore {
 
     counter_buckets: Slab<CounterBucket>,
     histogram_buckets: Slab<HistogramBucket>,
+    gauge_buckets: Slab<GaugeBucket>,
 
     // NB: Both of these indexes have bucket keys that point either to `counter_buckets`
     // or `histogram_buckets`: Since a single metric has to either be a counter or a
@@ -153,6 +167,7 @@ impl MetricStore {
             metrics_by_name: HashMap::new(),
             counter_buckets: Slab::new(),
             histogram_buckets: Slab::new(),
+            gauge_buckets: Slab::new(),
             bucket_by_start: OrdMap::new(),
             bucket_by_metric: OrdMap::new(),
         }
@@ -183,6 +198,17 @@ impl MetricStore {
         value: Duration,
     ) -> Result<(), UdfMetricsError> {
         self.add(MetricType::Histogram, metric_name, ts, value.as_secs_f32())
+    }
+
+    /// Add a sample to a gauge metric, allocating the metric if it doesn't
+    /// exist already and pruning sufficiently old buckets.
+    pub fn add_gauge(
+        &mut self,
+        metric_name: &str,
+        ts: SystemTime,
+        value: f32,
+    ) -> Result<(), UdfMetricsError> {
+        self.add(MetricType::Gauge, metric_name, ts, value)
     }
 
     fn add(
@@ -244,6 +270,13 @@ impl MetricStore {
                             .context("Invalid bucket key")?;
                         bucket.value += value;
                     },
+                    MetricType::Gauge => {
+                        let bucket = self
+                            .gauge_buckets
+                            .get_mut(*bucket_key.get())
+                            .context("Invalid bucket key")?;
+                        bucket.value = value;
+                    },
                     MetricType::Histogram => {
                         let bucket = self
                             .histogram_buckets
@@ -260,6 +293,10 @@ impl MetricStore {
                     MetricType::Counter => {
                         let new_bucket = CounterBucket::new(bucket_index, value);
                         self.counter_buckets.alloc(new_bucket)
+                    },
+                    MetricType::Gauge => {
+                        let new_bucket = GaugeBucket::new(bucket_index, value);
+                        self.gauge_buckets.alloc(new_bucket)
                     },
                     MetricType::Histogram => {
                         let mut new_bucket = HistogramBucket::new(&self.config, bucket_index)?;
@@ -322,6 +359,53 @@ impl MetricStore {
         for (_, bucket_key) in self.bucket_by_metric.range(start..=end) {
             let bucket = self
                 .counter_buckets
+                .get(*bucket_key)
+                .context("Invalid bucket key")?;
+            result.push(bucket);
+        }
+        Ok(result)
+    }
+
+    /// Query all of the gauge buckets that cover a desired time range. The
+    /// time range is inclusive of its start endpoint and exclusive of its
+    /// end endpoint.
+    pub fn query_gauge(
+        &self,
+        metric_name: &str,
+        range: Range<SystemTime>,
+    ) -> Result<Vec<&GaugeBucket>, UdfMetricsError> {
+        if range.end <= range.start {
+            return Err(UdfMetricsError::InvalidTimeRange {
+                start: range.start,
+                end: range.end,
+            });
+        }
+        let Some(metric_key) = self.metrics_by_name.get(metric_name) else {
+            return Ok(vec![]);
+        };
+        let metric = self
+            .metrics
+            .get(*metric_key)
+            .context("Invalid metric key")?;
+        if metric.metric_type != MetricType::Gauge {
+            return Err(UdfMetricsError::MetricTypeMismatch {
+                metric_type: metric.metric_type,
+                expected_type: MetricType::Gauge,
+            });
+        }
+
+        // As with counters, map the input half-open interval into a closed interval
+        // of covering bucket indexes.
+        let start = (*metric_key, self.saturating_bucket_index(range.start));
+        let end = (
+            *metric_key,
+            self.saturating_bucket_index(range.end - Duration::from_nanos(1)),
+        );
+
+        let mut result = Vec::new();
+        for (_, bucket_key) in self.bucket_by_metric.range(start..=end) {
+            let bucket = self
+                .gauge_buckets
                 .get(*bucket_key)
                 .context("Invalid bucket key")?;
             result.push(bucket);
@@ -412,6 +496,9 @@ impl MetricStore {
             match metric.metric_type {
                 MetricType::Counter => {
                     self.counter_buckets.free(bucket_key);
+                },
+                MetricType::Gauge => {
+                    self.gauge_buckets.free(bucket_key);
                 },
                 MetricType::Histogram => {
                     self.histogram_buckets.free(bucket_key);
@@ -589,6 +676,62 @@ impl MetricsWindow {
         Ok(result)
     }
 
+    pub fn resample_gauges(
+        &self,
+        metrics: &MetricStore,
+        buckets: Vec<&GaugeBucket>,
+    ) -> anyhow::Result<Timeseries> {
+        // Start by filling out the output buckets with unknown values.
+        let mut result = Vec::with_capacity(self.num_buckets);
+        for i in 0..self.num_buckets {
+            let bucket_start = self.bucket_start(i)?;
+            result.push((bucket_start, None));
+        }
+
+        // If we don't overlap with with any input buckets, return early.
+        if metrics.bucket_index_range().is_none() {
+            return Ok(result);
+        }
+
+        // Fill in values in increasing time order, taking the last value in case
+        // multiple input buckets map to the same output bucket.
+        let mut output_range: Option<RangeInclusive<usize>> = None;
+        for bucket in buckets {
+            let bucket_start = metrics.bucket_start(bucket.index);
+            if (self.start..self.end).contains(&bucket_start) {
+                let output_index = self.bucket_index(bucket_start)?;
+                let new_range = match output_range {
+                    None => RangeInclusive::new(output_index, output_index),
+                    Some(range) => RangeInclusive::new(
+                        cmp::min(*range.start(), output_index),
+                        cmp::max(*range.end(), output_index),
+                    ),
+                };
+                output_range = Some(new_range);
+                let (_, existing) = &mut result[output_index];
+                *existing = Some(bucket.value as f64);
+            }
+        }
+
+        // Fill in missing output buckets within our known output range with the last
+        // known value.
+        if let Some(range) = output_range {
+            let mut last_value = None;
+            for (_, value) in &mut result[range] {
+                match value {
+                    Some(..) => {
+                        last_value = *value;
+                    },
+                    None => {
+                        *value = last_value;
+                    },
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
     pub fn resample_histograms(
         &self,
         metrics: &MetricStore,
@@ -692,7 +835,10 @@ mod tests {
             by_metric_keys.sort();
             anyhow::ensure!(by_start_keys == by_metric_keys);
             anyhow::ensure!(
-                by_start_keys.len() == self.counter_buckets.len() + self.histogram_buckets.len()
+                by_start_keys.len()
+                    == self.counter_buckets.len()
+                        + self.gauge_buckets.len()
+                        + self.histogram_buckets.len()
             );
 
             // Check that each index entry matches its bucket.
@@ -717,6 +863,13 @@ mod tests {
                         MetricType::Counter => {
                             let bucket = self
                                 .counter_buckets
+                                .get(bucket_key)
+                                .context("Invalid bucket key")?;
+                            anyhow::ensure!(bucket.index == bucket_index);
+                        },
+                        MetricType::Gauge => {
+                            let bucket = self
+                                .gauge_buckets
                                 .get(bucket_key)
                                 .context("Invalid bucket key")?;
                             anyhow::ensure!(bucket.index == bucket_index);
@@ -786,6 +939,31 @@ mod tests {
         let result = store.query_counter("requests", t0..(t1 + Duration::from_secs(120)))?;
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].value, 3.0);
+        assert_eq!(result[1].value, 5.0);
+
+        store.consistency_check()?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_add_and_query_gauge() -> anyhow::Result<()> {
+        let mut store = new_store(2);
+
+        let t0 = store.base_ts;
+        let t1 = store.base_ts + Duration::from_secs(60); // next bucket
+
+        store.add_gauge("requests", t0, 1.0)?;
+        store.add_gauge("requests", t0, 2.0)?; // same bucket, accumulative
+        store.add_gauge("requests", t1, 5.0)?; // next bucket
+
+        let result = store.query_gauge("requests", t0..(t0 + Duration::from_secs(1)))?;
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].value, 2.0);
+
+        let result = store.query_gauge("requests", t0..(t1 + Duration::from_secs(120)))?;
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].value, 2.0);
         assert_eq!(result[1].value, 5.0);
 
         store.consistency_check()?;
