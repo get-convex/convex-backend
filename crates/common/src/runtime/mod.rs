@@ -65,6 +65,7 @@ use uuid::Uuid;
 use value::heap_size::HeapSize;
 
 use crate::{
+    errors::recapture_stacktrace,
     is_canceled::IsCanceled,
     types::Timestamp,
 };
@@ -174,7 +175,7 @@ pub async fn try_join<T: Send + 'static>(
     span: Span,
 ) -> anyhow::Result<T> {
     let handle = tokio_spawn(name, fut.in_span(span));
-    handle.await?
+    handle.await?.map_err(recapture_stacktrace)
 }
 
 /// A Runtime can be considered somewhat like an operating system abstraction
