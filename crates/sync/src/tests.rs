@@ -156,6 +156,7 @@ impl<RT: Runtime> SyncTest<RT> {
                 config,
                 client_rx,
                 server_tx,
+                Box::new(|_session_id| ()),
             )
             .go()
             .await

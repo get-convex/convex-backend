@@ -125,10 +125,7 @@ use crate::{
         storage_get,
         storage_upload,
     },
-    subs::{
-        sync,
-        sync_client_version_url,
-    },
+    subs::sync,
     LocalAppState,
     RouterState,
 };
@@ -148,7 +145,7 @@ pub fn router(st: LocalAppState) -> Router {
     let browser_routes = Router::new()
         // Called by the browser (and optionally authenticated by a cookie or `Authorization`
         // header). Passes version in the URL because websockets can't do it in header.
-        .route("/:client_version/sync", get(sync_client_version_url));
+        .route("/:client_version/sync", get(sync));
 
     let dashboard_routes = common_dashboard_routes()
         // Scheduled jobs routes

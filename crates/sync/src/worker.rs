@@ -75,6 +75,7 @@ use sync_types::{
     QueryId,
     QuerySetModification,
     SerializedQueryJournal,
+    SessionId,
     StateModification,
     StateVersion,
     Timestamp,
@@ -234,7 +235,7 @@ pub struct SyncWorker<RT: Runtime> {
     // Has an update been scheduled for the future?
     update_scheduled: bool,
 
-    connect_timer: Option<StatusTimer>,
+    on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
 }
 
 enum QueryResult {
@@ -262,6 +263,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         config: SyncWorkerConfig,
         rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
         tx: SingleFlightSender,
+        on_connect: Box<dyn FnOnce(SessionId) + Send>,
     ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = ReceiverStream::new(receiver).buffered(1); // Execute at most one operation at a time.
@@ -278,7 +280,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             action_futures: FuturesUnordered::new(),
             transition_future: None,
             update_scheduled: false,
-            connect_timer: Some(connect_timer()),
+            on_connect: Some((connect_timer(), on_connect)),
         }
     }
 
@@ -426,8 +428,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 max_observed_timestamp,
                 connection_count,
             } => {
-                if let Some(timer) = self.connect_timer.take() {
+                if let Some((timer, on_connect)) = self.on_connect.take() {
                     timer.finish();
+                    on_connect(session_id);
                 }
                 self.state.set_session_id(session_id);
                 if let Some(max_observed_timestamp) = max_observed_timestamp {

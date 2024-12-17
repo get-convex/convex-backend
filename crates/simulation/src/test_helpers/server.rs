@@ -145,6 +145,7 @@ impl ServerThread {
                                 SyncWorkerConfig::default(),
                                 incoming,
                                 outgoing,
+                                Box::new(|_session_id| ()),
                             );
                             join_set.spawn(async move { w.go().await });
                         },
