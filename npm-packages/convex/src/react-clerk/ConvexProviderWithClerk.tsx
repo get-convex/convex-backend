@@ -19,7 +19,7 @@ type UseAuth = () => {
     template?: "convex";
     skipCache?: boolean;
   }) => Promise<string | null>;
-  // We don't use the properties but they should trigger a new token fetch.
+  // We don't use these properties but they should trigger a new token fetch.
   orgId: string | undefined | null;
   orgRole: string | undefined | null;
 };
@@ -73,8 +73,9 @@ function useUseAuthFromClerk(useAuth: UseAuth) {
           },
           // Build a new fetchAccessToken to trigger setAuth() whenever these change.
           // Anything else from the JWT Clerk wants to be reactive goes here too.
+          // Clerk's Expo useAuth hook is not memoized so we don't include getToken.
           // eslint-disable-next-line react-hooks/exhaustive-deps
-          [getToken, orgId, orgRole],
+          [orgId, orgRole],
         );
         return useMemo(
           () => ({
