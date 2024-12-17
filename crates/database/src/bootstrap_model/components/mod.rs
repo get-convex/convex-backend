@@ -259,7 +259,10 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let component = self
             .load_component(id)
             .await?
-            .context("Component not found")?
+            .context(format!(
+                "Component not found for ComponentId {:?}",
+                id.serialize_to_string()
+            ))?
             .into_value();
         let args = match component.component_type {
             ComponentType::App => anyhow::bail!(ErrorMetadata::bad_request(
