@@ -312,7 +312,7 @@ impl FunctionExecutionProgress {
         }
     }
 
-    fn console_log_events(self) -> Vec<LogEvent> {
+    fn console_log_events(&self) -> Vec<LogEvent> {
         self.log_lines
             .iter()
             .flat_map(|line| self.console_log_events_for_log_line(line, None))
@@ -1394,7 +1394,7 @@ impl<RT: Runtime> Inner<RT> {
             function_start_timestamp,
         };
 
-        let log_events = progress.clone().console_log_events();
+        let log_events = progress.console_log_events();
         self.log_manager.send_logs(log_events);
         self.log
             .push_back((next_time, FunctionExecutionPart::Progress(progress)));
