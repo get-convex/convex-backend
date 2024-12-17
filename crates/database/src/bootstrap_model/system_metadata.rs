@@ -152,6 +152,17 @@ impl<'a, RT: Runtime> SystemMetadataModel<'a, RT> {
         self.tx.patch_inner(id, value).await
     }
 
+    /// Get's the object by ID
+    #[minitrace::trace]
+    #[convex_macro::instrument_future]
+    pub async fn get(
+        &mut self,
+        id: ResolvedDocumentId,
+    ) -> anyhow::Result<Option<ResolvedDocument>> {
+        anyhow::ensure!(self.tx.table_mapping().is_system_tablet(id.tablet_id));
+        self.tx.get(id).await
+    }
+
     #[minitrace::trace]
     #[convex_macro::instrument_future]
     pub async fn replace(
