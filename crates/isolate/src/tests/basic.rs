@@ -69,6 +69,7 @@ async fn test_insert_object(rt: TestRuntime) -> anyhow::Result<()> {
             assert_val!(true),
             assert_val!("hi there"),
             assert_val!([0, 1, 2, 3]),
+            assert_val!({"_nested" => 1, "_system_field" => 2}),
         ];
 
         for value in values {

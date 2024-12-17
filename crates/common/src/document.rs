@@ -432,49 +432,10 @@ impl ResolvedDocument {
         Ok(())
     }
 
-    /// Checks system fields _id and _creationTime and confirms
-    /// those are the only system fields.
+    /// Checks system fields _id and _creationTime and checks that there aren't
+    /// any other top-level system fields.
     /// Returns vec of violations, which may be displayed to clients.
     pub fn validate(&self) -> Vec<DocumentValidationError> {
-        fn validate_inner_value(
-            value: &ConvexValue,
-            violations: &mut Vec<DocumentValidationError>,
-        ) {
-            match value {
-                ConvexValue::Object(fields) => {
-                    for (field, value) in fields.iter() {
-                        if field.is_system() {
-                            violations
-                                .push(DocumentValidationError::NestedSystemField(field.clone()));
-                        }
-                        validate_inner_value(value, violations);
-                    }
-                },
-                ConvexValue::Array(items) => {
-                    for item in items {
-                        validate_inner_value(item, violations);
-                    }
-                },
-                ConvexValue::Set(items) => {
-                    for item in items {
-                        validate_inner_value(item, violations);
-                    }
-                },
-                ConvexValue::Map(map) => {
-                    for (key, value) in map {
-                        validate_inner_value(key, violations);
-                        validate_inner_value(value, violations);
-                    }
-                },
-                ConvexValue::Boolean(_)
-                | ConvexValue::Bytes(_)
-                | ConvexValue::Null
-                | ConvexValue::Int64(_)
-                | ConvexValue::Float64(_)
-                | ConvexValue::String(_) => {},
-            }
-        }
-
         let mut violations = vec![];
 
         let nesting = self.value().nesting();
@@ -518,7 +479,7 @@ impl ResolvedDocument {
             },
             None => violations.push(DocumentValidationError::CreationTimeMissing),
         }
-        for (field, value) in self.value.iter() {
+        for (field, _) in self.value.iter() {
             if field == &(*ID_FIELD).clone().into()
                 || field == &(*CREATION_TIME_FIELD).clone().into()
             {
@@ -527,7 +488,6 @@ impl ResolvedDocument {
             if field.is_system() {
                 violations.push(DocumentValidationError::SystemField(field.clone()));
             }
-            validate_inner_value(value, &mut violations);
         }
         violations
     }
@@ -847,8 +807,6 @@ pub enum DocumentValidationError {
         "Field '{0}' starts with an underscore, which is only allowed for system fields like '_id'"
     )]
     SystemField(FieldName),
-    #[error("Field '{0}' starts with an underscore, which is not allowed for nested fields")]
-    NestedSystemField(FieldName),
     #[error("The document belongs to a different table than its '_id' field")]
     IdWrongTable,
     #[error("The document has id {0}, but its '_id' field is {1}")]
@@ -877,7 +835,6 @@ impl DocumentValidationError {
             DocumentValidationError::IdMismatch(..) => "_id mismatch",
             DocumentValidationError::IdBadType(_) => "_id is not an Id",
             DocumentValidationError::IdMissing => "_id missing",
-            DocumentValidationError::NestedSystemField(_) => "invalid nested system field",
             DocumentValidationError::CreationTimeInvalidFloat(_) => "_creationTime invalid float",
             DocumentValidationError::CreationTimeBadType(_) => "_creationTime wrong type",
             DocumentValidationError::CreationTimeMissing => "_creationTime missing",
