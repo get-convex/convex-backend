@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::Cell,
     cmp::Ordering,
     collections::{
         BTreeMap,
@@ -1323,24 +1323,16 @@ impl<RT: Runtime> Inner<RT> {
         // Only log an error to tracing and/or Sentry at most once every 10 seconds per
         // thread.
         thread_local! {
-            static LAST_LOGGED_ERROR: RefCell<Option<SystemTime>> = const { RefCell::new(None) };
+            static LAST_LOGGED_ERROR: Cell<Option<SystemTime>> = const { Cell::new(None) };
         }
-        let should_log = LAST_LOGGED_ERROR.with_borrow_mut(|cell| {
-            let now = SystemTime::now();
-            if let Some(ref mut last_logged_error) = *cell {
-                let duration = now
-                    .duration_since(*last_logged_error)
-                    .unwrap_or(Duration::ZERO);
-                if duration < Duration::from_secs(10) {
-                    return false;
-                }
-            }
-            *cell = Some(now);
-            true
+        let now = SystemTime::now();
+        let should_log = LAST_LOGGED_ERROR.get().map_or(true, |last_logged| {
+            now.duration_since(last_logged).unwrap_or(Duration::ZERO) >= Duration::from_secs(10)
         });
         if !should_log {
             return;
         }
+        LAST_LOGGED_ERROR.set(Some(now));
         tracing::error!("Failed to log execution metrics: {}", error);
         if let UdfMetricsError::InternalError(mut e) = error {
             report_error_sync(&mut e);

@@ -5,7 +5,7 @@ pub use cstr::cstr;
 #[cfg(feature = "tracy-tracing")]
 mod tracing_on {
     use std::{
-        cell::RefCell,
+        cell::Cell,
         cmp::Reverse,
         collections::BinaryHeap,
         ffi::{
@@ -95,7 +95,7 @@ mod tracing_on {
     // into the non-overlapping fibers Tracy expects by using a thread-local to
     // keep track of the current fiber, stash it when entering a new one, and
     // restore it whne existing the old one.
-    thread_local!(static CURRENT_FIBER: RefCell<Option<usize>> = RefCell::new(None));
+    thread_local!(static CURRENT_FIBER: Cell<Option<usize>> = Cell::new(None));
 
     #[pin_project(PinnedDrop)]
     pub struct InstrumentedFuture<F: Future> {
@@ -136,7 +136,7 @@ mod tracing_on {
 
             // First, leave our parent fiber's execution, and stash its number on the stack
             // in `current_fiber`.
-            let current_fiber = CURRENT_FIBER.with(|f| f.borrow_mut().take());
+            let current_fiber = CURRENT_FIBER.take();
             if current_fiber.is_some() {
                 unsafe {
                     sys::___tracy_fiber_leave();
@@ -190,7 +190,7 @@ mod tracing_on {
             };
 
             // Set ourselves as the current fiber in the thread local.
-            CURRENT_FIBER.with(|f| *f.borrow_mut() = Some(fiber_ix));
+            CURRENT_FIBER.set(Some(fiber_ix));
 
             // Poll our future, which may end up polling other instrumented futures.
             let r = this.inner.poll(cx);
@@ -214,11 +214,7 @@ mod tracing_on {
             }
 
             // Restore our parent fiber in the thread local.
-            CURRENT_FIBER.with(|f| {
-                let mut f = f.borrow_mut();
-                assert_eq!(*f, Some(fiber_ix));
-                *f = current_fiber;
-            });
+            assert_eq!(CURRENT_FIBER.replace(current_fiber), Some(fiber_ix));
 
             r
         }
