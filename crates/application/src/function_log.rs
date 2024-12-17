@@ -524,7 +524,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     pub fn log_query(
         &self,
-        outcome: UdfOutcome,
+        outcome: &UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         was_cached: bool,
         execution_time: Duration,
@@ -565,7 +565,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             None,
         )?;
         self._log_query(
-            outcome,
+            &outcome,
             BTreeMap::new(),
             false,
             start.elapsed(),
@@ -579,7 +579,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
     #[minitrace::trace]
     fn _log_query(
         &self,
-        outcome: UdfOutcome,
+        outcome: &UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         was_cached: bool,
         execution_time: Duration,
@@ -612,26 +612,26 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
         let execution = FunctionExecution {
             params: UdfParams::Function {
-                error: match outcome.result {
+                error: match &outcome.result {
                     Ok(_) => None,
-                    Err(e) => Some(e),
+                    Err(e) => Some(e.clone()),
                 },
-                identifier: outcome.path,
+                identifier: outcome.path.clone(),
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
             udf_type: UdfType::Query,
-            log_lines: outcome.log_lines,
+            log_lines: outcome.log_lines.clone(),
             tables_touched: tables_touched.into(),
             cached_result: was_cached,
             execution_time: execution_time.as_secs_f64(),
             caller,
             environment: ModuleEnvironment::Isolate,
-            syscall_trace: outcome.syscall_trace,
+            syscall_trace: outcome.syscall_trace.clone(),
             usage_stats: aggregated,
             action_memory_used_mb: None,
-            udf_server_version: outcome.udf_server_version,
-            identity: outcome.identity,
+            udf_server_version: outcome.udf_server_version.clone(),
+            identity: outcome.identity.clone(),
             context,
         };
         self.log_execution(execution, true);

@@ -150,7 +150,6 @@ use isolate::{
     HttpActionRequest,
     HttpActionResponseStreamer,
     HttpActionResult,
-    UdfOutcome,
     CONVEX_ORIGIN,
     CONVEX_SITE,
 };
@@ -2224,15 +2223,11 @@ impl<RT: Runtime> Application<RT> {
         };
         let arguments = parse_udf_args(&path.udf_path, args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
-            UdfType::Query => self
-                .runner
-                .run_query_without_caching(request_id.clone(), tx, path, arguments, caller)
-                .await
-                .map(
-                    |UdfOutcome {
-                         result, log_lines, ..
-                     }| { (result, log_lines) },
-                ),
+            UdfType::Query => {
+                self.runner
+                    .run_query_without_caching(request_id.clone(), tx, path, arguments, caller)
+                    .await
+            },
             UdfType::Mutation => {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "UnsupportedTestQuery",

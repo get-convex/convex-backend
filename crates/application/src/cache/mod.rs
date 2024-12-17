@@ -165,7 +165,7 @@ impl CacheEntry {
 
 #[derive(Clone)]
 struct CacheResult {
-    outcome: UdfOutcome,
+    outcome: Arc<UdfOutcome>,
     original_ts: Timestamp,
     token: Token,
 }
@@ -329,7 +329,7 @@ impl<RT: Runtime> CacheManager<RT> {
             // Step 5: Log some stuff and return.
             log_success(num_attempts);
             self.udf_execution.log_query(
-                cache_result.outcome.clone(),
+                &cache_result.outcome,
                 table_stats,
                 is_cache_hit,
                 start.elapsed(),
@@ -339,10 +339,15 @@ impl<RT: Runtime> CacheManager<RT> {
             );
 
             let result = QueryReturn {
-                result: cache_result.outcome.result.map(|r| r.unpack()),
-                log_lines: cache_result.outcome.log_lines,
+                result: cache_result
+                    .outcome
+                    .result
+                    .as_ref()
+                    .map(|r| r.unpack())
+                    .map_err(|e| e.clone()),
+                log_lines: cache_result.outcome.log_lines.clone(),
                 token: cache_result.token,
-                journal: cache_result.outcome.journal,
+                journal: cache_result.outcome.journal.clone(),
             };
             return Ok((result, is_cache_hit));
         }
@@ -473,7 +478,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 let table_stats = tx.take_stats();
                 let token = tx.into_token()?;
                 let result = CacheResult {
-                    outcome: query_outcome,
+                    outcome: Arc::new(query_outcome),
                     original_ts: *ts,
                     token,
                 };

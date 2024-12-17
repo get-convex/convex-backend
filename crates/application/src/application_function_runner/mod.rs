@@ -49,6 +49,7 @@ use common::{
     log_lines::{
         run_function_and_collect_log_lines,
         LogLine,
+        LogLines,
     },
     minitrace_helpers::EncodedSpan,
     pause::PauseClient,
@@ -647,7 +648,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         caller: FunctionCaller,
-    ) -> anyhow::Result<UdfOutcome> {
+    ) -> anyhow::Result<(Result<JsonPackedValue, JsError>, LogLines)> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("query_without_caching"));
         }
@@ -693,8 +694,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         };
         let stats = tx.take_stats();
 
+        let result = outcome.result.clone();
+        let log_lines = outcome.log_lines.clone();
         self.function_log.log_query(
-            outcome.clone(),
+            &outcome,
             stats,
             false,
             start.elapsed(),
@@ -703,7 +706,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             context,
         );
 
-        Ok(outcome)
+        Ok((result, log_lines))
     }
 
     /// Runs a mutations and retries on OCC errors.
