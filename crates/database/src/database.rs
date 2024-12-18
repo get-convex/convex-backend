@@ -1983,9 +1983,11 @@ impl<RT: Runtime> Database<RT> {
                 components_model.get_component_path(ComponentId::from(table_namespace))
             {
                 document_counts.push((component_path, table_name, count));
-            } else {
+            } else if !table_name.is_system() {
                 // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push
+                // user table left over from incomplete components push.
+                // System tables may be created earlier (e.g. `_schemas`), so they may be
+                // legitimately nonempty in that case.
                 anyhow::ensure!(
                     count == 0,
                     "Table {table_name} is in an orphaned TableNamespace without a component, but \
