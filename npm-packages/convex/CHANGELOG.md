@@ -1,5 +1,76 @@
 # Changelog
 
+## Unreleased
+
+- Warn on direct Convex function call. This adds a console.warn whenever a
+  Convex Function (mutation, query, action, internalMutation, etc.) is called
+  directly
+
+  ```ts
+  export const foo = mutation(...);
+
+  export const bar = mutation({
+    args: v.any(),
+    returns: v.any(),
+    handler: (ctx, args) => {
+      const result = await foo();
+    })
+  }
+  ```
+
+  because this pattern causes problems and there are straightforward
+  workarounds. The problems here:
+
+  1. Arguments and return values aren't validated despite the presence of
+     validators at the function definition site.
+  2. Functions called this way unexpectedly lack isolation and atomicity. Convex
+     functions may be writting assuming they will run as independent
+     transactions, but running these function directly breaks that assumption.
+  3. Running Convex functions defined by customFunctions like triggers can cause
+     deadlocks and other bad behavior.
+
+  There are two options for how to modify your code to address the warning:
+
+  1. Refactor it out as a helper function, then call that helper function
+     directly.
+  2. Use `ctx.runMutation`, `ctx.runQuery`, or `ctx.runAction()` instead of
+     calling the function directly. This has more overhead (it's slower) but you
+     gain isolation and atomicity because it runs as a subtransaction.
+
+  See
+  https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+  for more.
+
+  Filter to warnings in the convex dashboard logs to see if you're using this
+  pattern.
+
+  For now running functions this way only logs a warning, but this pattern is
+  now deprecated and may be deleted in a future version.
+
+- Support for Next.js 15 and
+  [Clerk core 2](https://clerk.com/docs/upgrade-guides/core-2/overview):
+  `@clerk/nextjs@5` and `@clerk/nextjs@6` are now known to work to Convex. Docs,
+  quickstarts and templates have not yet been updated. If you're upgrading
+  `@clerk/nextjs` be sure to follow the Clerk upgrade guides as there are many
+  breaking changes.
+
+- Fix type for FieldTypeFromFieldPath with optional objects.
+
+- Fix types when a handler returns a promise when using return value validators
+  with object syntax.
+
+## 1.17.4
+
+- Revert use of the identity of useAuth from Clerk to determine whether
+  refreshing auth is necessary. This was causing an auth loop in Expo.
+
+## 1.17.3
+
+- Fetch a new JWT from Clerk when using Clerk components to change the active
+  orgId or orgRole in React on the client. Any auth provider can implement this
+  by returning a new `getToken` function from the `useAuth` hook passed into
+  `ConvexProviderWithAuth`.
+
 ## 1.17.3
 
 - Fetch a new JWT from Clerk when using CLerk components to change the active
