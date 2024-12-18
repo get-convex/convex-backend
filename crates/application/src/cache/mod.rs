@@ -444,11 +444,12 @@ impl<RT: Runtime> CacheManager<RT> {
                         (tx, query_outcome)
                     },
                     Ok((path_and_args, returns_validator)) => {
+                        let component = path_and_args.path().component;
                         let (mut tx, outcome) = self
                             .function_router
                             .execute_query_or_mutation(
                                 tx,
-                                path_and_args.clone(),
+                                path_and_args,
                                 UdfType::Query,
                                 journal,
                                 context,
@@ -459,7 +460,6 @@ impl<RT: Runtime> CacheManager<RT> {
                         };
                         if let Ok(ref json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
-                            let component = path_and_args.path().component;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(
