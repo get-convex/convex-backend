@@ -179,3 +179,19 @@ fn parse_udf_identifier(
     };
     Ok(udf_identifier)
 }
+
+#[derive(Deserialize)]
+pub(crate) struct ScheduledJobLagArgs {
+    window: String,
+}
+pub(crate) async fn scheduled_job_lag(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(query_args): Query<ScheduledJobLagArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let window_json: serde_json::Value =
+        serde_json::from_str(&query_args.window).map_err(anyhow::Error::new)?;
+    let window = window_json.try_into()?;
+    let timeseries = st.application.scheduled_job_lag(identity, window).await?;
+    Ok(Json(timeseries))
+}

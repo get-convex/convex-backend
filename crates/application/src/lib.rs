@@ -2679,6 +2679,17 @@ impl<RT: Runtime> Application<RT> {
         Ok(self.function_log.stream_parts(cursor).await)
     }
 
+    pub async fn scheduled_job_lag(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+    ) -> anyhow::Result<Timeseries> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("scheduled_job_lag"));
+        }
+        self.function_log.scheduled_job_lag(window)
+    }
+
     pub async fn cancel_all_jobs(
         &self,
         component_id: ComponentId,

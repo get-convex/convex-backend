@@ -6,7 +6,10 @@ use std::{
     },
     ops::Deref,
     sync::Arc,
-    time::Duration,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use common::{
@@ -270,19 +273,17 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             };
 
             metrics::log_num_running_jobs(running_job_ids.len());
+            let now = self.rt.system_time();
+            let next_job_ready_time = next_job_ready_time.map(SystemTime::from);
+            self.log_scheduled_job_execution_lag(next_job_ready_time, now);
             let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
-                let now = self.rt.generate_timestamp()?;
-                Either::Left(if next_job_ts < now {
-                    metrics::log_scheduled_job_execution_lag(now - next_job_ts);
+                let wait_time = next_job_ts.duration_since(now).unwrap_or_else(|_| {
                     // If we're behind, re-run this loop every 5 seconds to log the gauge above and
                     // track how far we're behind in our metrics.
-                    self.rt.wait(Duration::from_secs(5))
-                } else {
-                    metrics::log_scheduled_job_execution_lag(Duration::from_secs(0));
-                    self.rt.wait(next_job_ts - now)
-                })
+                    Duration::from_secs(5)
+                });
+                Either::Left(self.rt.wait(wait_time))
             } else {
-                metrics::log_scheduled_job_execution_lag(Duration::from_secs(0));
                 Either::Right(std::future::pending())
             };
 
@@ -408,6 +409,22 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 queries.insert((next_ts, namespace), (job, query));
             }
         }
+    }
+
+    fn log_scheduled_job_execution_lag(
+        &self,
+        next_job_ready_time: Option<SystemTime>,
+        now: SystemTime,
+    ) {
+        if let Some(next_job_ts) = next_job_ready_time {
+            metrics::log_scheduled_job_execution_lag(
+                now.duration_since(next_job_ts).unwrap_or(Duration::ZERO),
+            );
+        } else {
+            metrics::log_scheduled_job_execution_lag(Duration::ZERO);
+        }
+        self.function_log
+            .log_scheduled_job_lag(next_job_ready_time, now);
     }
 }
 

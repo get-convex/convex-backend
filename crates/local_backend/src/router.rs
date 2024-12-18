@@ -53,6 +53,7 @@ use crate::{
     app_metrics::{
         cache_hit_percentage,
         latency_percentiles,
+        scheduled_job_lag,
         table_rate,
         udf_rate,
     },
@@ -312,6 +313,7 @@ where
         .route("/cache_hit_percentage", get(cache_hit_percentage))
         .route("/table_rate", get(table_rate))
         .route("/latency_percentiles", get(latency_percentiles))
+        .route("/scheduled_job_lag", get(scheduled_job_lag))
 }
 
 // Routes with the same handlers for the local backend + closed source backend

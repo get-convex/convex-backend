@@ -1037,6 +1037,18 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
     }
 
+    /// Indicates that as of now (`timestamp`), the next scheduled job is at
+    /// `next_job_ts` (None if there are no pending jobs)
+    pub fn log_scheduled_job_lag(&self, next_job_ts: Option<SystemTime>, timestamp: SystemTime) {
+        if let Err(mut e) = self
+            .inner
+            .lock()
+            .log_scheduled_job_lag(next_job_ts, timestamp)
+        {
+            report_error_sync(&mut e);
+        }
+    }
+
     pub fn udf_rate(
         &self,
         identifier: UdfIdentifier,
@@ -1262,6 +1274,36 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             0.0
         }
     }
+
+    pub fn scheduled_job_lag(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+        let buckets = metrics
+            .query_gauge(scheduled_job_next_ts_metric(), window.start..window.end)?
+            .into_iter()
+            .collect();
+        let mut timeseries = window.resample_gauges(&metrics, buckets)?;
+        // For buckets where no value is recorded, interpolate the previous known value
+        // but increase it by the timestep (since lag naturally increases over
+        // time)
+        for i in 1..timeseries.len() {
+            if timeseries[i].1.is_none()
+                && let Some(prev) = timeseries[i - 1].1
+            {
+                let offset = timeseries[i].0.duration_since(timeseries[i - 1].0)?;
+                timeseries[i].1 = Some(prev + offset.as_secs_f64());
+            }
+        }
+        // Then clamp negative values to zero
+        for (_, bucket) in &mut timeseries {
+            if let Some(value) = bucket {
+                *value = value.max(0.);
+            }
+        }
+        Ok(timeseries)
+    }
 }
 
 struct Inner<RT: Runtime> {
@@ -1404,6 +1446,28 @@ impl<RT: Runtime> Inner<RT> {
         Ok(())
     }
 
+    fn log_scheduled_job_lag(
+        &mut self,
+        next_job_ts: Option<SystemTime>,
+        now: SystemTime,
+    ) -> anyhow::Result<()> {
+        let name = scheduled_job_next_ts_metric();
+        // -Infinity means there is no scheduled job
+        let value = next_job_ts.map_or(-f32::INFINITY, |ts| signed_duration_since(now, ts));
+        match self.metrics.add_gauge(name, now, value) {
+            Ok(()) => (),
+            Err(UdfMetricsError::SamplePrecedesCutoff { ts: _, cutoff }) => {
+                // `now` was too old; automatically promote the sample to the cutoff time
+                // instead
+                let value =
+                    next_job_ts.map_or(-f32::INFINITY, |ts| signed_duration_since(cutoff, ts));
+                self.metrics.add_gauge(name, cutoff, value)?;
+            },
+            Err(err) => return Err(err.into()),
+        }
+        Ok(())
+    }
+
     fn next_time(&self) -> anyhow::Result<CursorMs> {
         let since_epoch = self
             .rt
@@ -1418,6 +1482,14 @@ impl<RT: Runtime> Inner<RT> {
             }
         }
         Ok(next_time)
+    }
+}
+
+/// `t1 - t2` in seconds, possibly negative
+fn signed_duration_since(t1: SystemTime, t2: SystemTime) -> f32 {
+    match t1.duration_since(t2) {
+        Ok(d) => d.as_secs_f32(),
+        Err(e) => -e.duration().as_secs_f32(),
     }
 }
 
@@ -1507,4 +1579,8 @@ fn table_rows_read_metric(table_name: &TableName) -> MetricName {
 
 fn table_rows_written_metric(table_name: &TableName) -> MetricName {
     format!("table:{}:rows_written", table_name)
+}
+
+fn scheduled_job_next_ts_metric() -> &'static str {
+    "scheduled_jobs:next_ts"
 }

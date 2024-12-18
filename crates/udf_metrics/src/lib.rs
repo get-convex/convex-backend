@@ -525,6 +525,10 @@ impl MetricStore {
         }
         Ok(())
     }
+
+    pub fn base_ts(&self) -> SystemTime {
+        self.base_ts
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
