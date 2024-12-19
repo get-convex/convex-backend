@@ -316,9 +316,9 @@ impl<RT: Runtime> CacheManager<RT> {
                 None => continue 'top,
             };
 
-            // Step 4: Rewrite the value into the cache. This method will discard the new
-            // value if the UDF failed or if a newer (i.e. higher `original_ts`)
-            // value is in the cache.
+            // Step 4: Rewrite the value into the cache. If this was a cache hit, this will
+            // bump the cache result's token. This method will discard the new value if the
+            // UDF failed or if a newer (i.e. higher `original_ts`) value is in the cache.
             if cache_result.outcome.result.is_ok() {
                 // We do not cache JSErrors
                 waiting_entry_guard.complete(cache_result.clone());
