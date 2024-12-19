@@ -53,6 +53,11 @@ pub trait HeapSize {
     fn heap_size(&self) -> usize;
 }
 
+pub trait ElementsHeapSize {
+    /// May iterate `self`
+    fn elements_heap_size(&self) -> usize;
+}
+
 /// Wraps a collection and implements HeapSize in constant time. WithHeapSize
 /// provides Deref but not DerefMut. All methods that require mutable
 /// reference, need to be manually implemented. Please implement as needed.
@@ -81,11 +86,14 @@ impl<T: Default> Default for WithHeapSize<T> {
     }
 }
 
-impl<T: Clone> Clone for WithHeapSize<T> {
+impl<T: ElementsHeapSize + Clone> Clone for WithHeapSize<T> {
     fn clone(&self) -> Self {
+        let inner = self.inner.clone();
         Self {
-            inner: self.inner.clone(),
-            elements_heap_size: self.elements_heap_size,
+            // Recalculate the heap size of the clone, because the cloned values don't necessarily
+            // have the same capacity
+            elements_heap_size: inner.elements_heap_size(),
+            inner,
         }
     }
 }
@@ -188,6 +196,13 @@ where
     t.prop_map(|v| WithHeapSize::from(v))
 }
 
+impl<T: ElementsHeapSize> WithHeapSize<T> {
+    #[cfg(test)]
+    fn verify_heap_size(&self) {
+        assert_eq!(self.elements_heap_size, self.inner.elements_heap_size());
+    }
+}
+
 // HeapSize for Vec<u8> can be implemented in constant time.
 impl HeapSize for Vec<u8> {
     fn heap_size(&self) -> usize {
@@ -221,6 +236,12 @@ impl<T: HeapSize> WithHeapSize<Vec<T>> {
     }
 }
 
+impl<T: HeapSize> ElementsHeapSize for Vec<T> {
+    fn elements_heap_size(&self) -> usize {
+        self.iter().map(|v| v.heap_size()).sum::<usize>()
+    }
+}
+
 impl<T: HeapSize> Extend<T> for WithHeapSize<Vec<T>> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for value in iter.into_iter() {
@@ -251,6 +272,12 @@ impl<T: HeapSize> WithHeapSize<Vec<T>> {
 impl<T: HeapSize> From<WithHeapSize<Vec<T>>> for Vec<T> {
     fn from(value: WithHeapSize<Vec<T>>) -> Self {
         value.inner
+    }
+}
+
+impl<T: HeapSize> ElementsHeapSize for Vector<T> {
+    fn elements_heap_size(&self) -> usize {
+        self.iter().map(|v| v.heap_size()).sum::<usize>()
     }
 }
 
@@ -347,6 +374,12 @@ impl<T: HeapSize> WithHeapSize<VecDeque<T>> {
         let result = self.inner.swap_remove_back(index);
         self.remove_from_heap_size(&result);
         result
+    }
+}
+
+impl<T: HeapSize> ElementsHeapSize for VecDeque<T> {
+    fn elements_heap_size(&self) -> usize {
+        self.iter().map(|v| v.heap_size()).sum::<usize>()
     }
 }
 
@@ -711,6 +744,14 @@ impl<K: HeapSize + Ord, V: HeapSize> WithHeapSize<BTreeMap<K, V>> {
     }
 }
 
+impl<K: HeapSize, V: HeapSize> ElementsHeapSize for BTreeMap<K, V> {
+    fn elements_heap_size(&self) -> usize {
+        self.iter()
+            .map(|(k, v)| k.heap_size() + v.heap_size())
+            .sum::<usize>()
+    }
+}
+
 impl<K: HeapSize, V: HeapSize> HeapSize for WithHeapSize<BTreeMap<K, V>> {
     fn heap_size(&self) -> usize {
         estimate_btree_heap_size::<K, V>(self.len()) + self.elements_heap_size
@@ -758,6 +799,12 @@ impl<T: HeapSize + Ord> WithHeapSize<BTreeSet<T>> {
     }
 }
 
+impl<T: HeapSize> ElementsHeapSize for BTreeSet<T> {
+    fn elements_heap_size(&self) -> usize {
+        self.iter().map(|v| v.heap_size()).sum::<usize>()
+    }
+}
+
 impl<T: HeapSize> HeapSize for WithHeapSize<BTreeSet<T>> {
     fn heap_size(&self) -> usize {
         estimate_btree_heap_size::<T, ()>(self.len()) + self.elements_heap_size
@@ -798,9 +845,7 @@ impl HeapSize for serde_json::Map<String, JsonValue> {
 // can't do that until we move HeapSize in sync_types. This will also allow us
 // to move the impl HeapSize next to the respective struct.
 fn estimate_vec_size<T: HeapSize>(vec: &Vec<T>) -> usize {
-    let mut size = vec.capacity() * mem::size_of::<T>();
-    size += vec.iter().map(|v| v.heap_size()).sum::<usize>();
-    size
+    vec.capacity() * mem::size_of::<T>() + vec.elements_heap_size()
 }
 
 impl HeapSize for JsonValue {
@@ -928,6 +973,7 @@ mod tests {
         LeafNode,
         WithHeapSize,
     };
+    use crate::heap_size::HeapSize;
 
     #[test]
     fn test_btree_estimation() {
@@ -1092,5 +1138,22 @@ mod tests {
         let was_removed = set.remove(&"one".to_owned());
         assert!(!was_removed);
         assert_eq!(set.elements_heap_size, 4);
+    }
+
+    #[test]
+    fn test_cloned_heap_size() {
+        let mut long_string = "foo".to_string();
+        long_string.reserve(1 << 20);
+        let value: WithHeapSize<Vec<WithHeapSize<Vec<String>>>> =
+            vec![vec![long_string, "bar".to_string()].into()].into();
+        assert!(value.heap_size() > 1 << 20);
+        value.verify_heap_size();
+        value[0].verify_heap_size();
+        // Cloning `value` recursively reallocates all contained objects, effectively
+        // shrinking excess capacity.
+        let cloned_value = value.clone();
+        assert!(cloned_value.heap_size() < 1 << 20);
+        cloned_value.verify_heap_size();
+        cloned_value[0].verify_heap_size();
     }
 }
