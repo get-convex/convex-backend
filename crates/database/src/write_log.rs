@@ -517,6 +517,7 @@ mod tests {
         knobs::WRITE_LOG_MAX_RETENTION_SECS,
         testing::TestIdGenerator,
         types::{
+            IndexDescriptor,
             PersistenceVersion,
             TabletIndexName,
             Timestamp,
@@ -636,7 +637,8 @@ mod tests {
         let id = id_generator.user_generate(&"t".parse()?);
         let index_key = IndexKey::new(vec![val!(5)], id.into());
         let index_key_binary: BinaryKey = index_key.into_bytes().into();
-        let index_name = TabletIndexName::new(table_id, "by_k".parse().unwrap()).unwrap();
+        let index_name =
+            TabletIndexName::new(table_id, IndexDescriptor::new("by_k").unwrap()).unwrap();
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("k" => 5))?;
         log_manager.append(
             Timestamp::must(1003),

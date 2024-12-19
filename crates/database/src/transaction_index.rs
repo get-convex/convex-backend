@@ -835,6 +835,7 @@ mod tests {
         },
         types::{
             unchecked_repeatable_ts,
+            IndexDescriptor,
             IndexName,
             PersistenceVersion,
             TableName,
@@ -944,8 +945,9 @@ mod tests {
         let ps = rp.read_snapshot(unchecked_repeatable_ts(Timestamp::must(1000)))?;
 
         let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
-        let messages_by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
-        let printable_messages_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
+        let messages_by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
+        let printable_messages_by_name =
+            IndexName::new("messages".parse()?, IndexDescriptor::new("by_name")?)?;
         let (index_registry, inner, search, _) = bootstrap_index(
             &mut id_generator,
             vec![IndexMetadata::new_enabled(
@@ -1044,8 +1046,9 @@ mod tests {
         let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id("messages".parse()?);
-        let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
-        let printable_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
+        let by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
+        let printable_by_name =
+            IndexName::new("messages".parse()?, IndexDescriptor::new("by_name")?)?;
 
         // Create a transactions with table missing before the transaction started.
         let persistence = Arc::new(TestPersistence::new());
@@ -1204,8 +1207,8 @@ mod tests {
         let table_id = id_generator.user_table_id(&table).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id(table.clone());
-        let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
-        let printable_by_name = IndexName::new(table.clone(), "by_name".parse()?)?;
+        let by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
+        let printable_by_name = IndexName::new(table.clone(), IndexDescriptor::new("by_name")?)?;
         let (mut index_registry, mut index, search, index_ids) = bootstrap_index(
             &mut id_generator,
             vec![

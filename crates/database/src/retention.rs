@@ -1650,6 +1650,7 @@ mod tests {
             DatabaseIndexUpdate,
             DatabaseIndexValue,
             GenericIndexName,
+            IndexDescriptor,
             RepeatableTimestamp,
             Timestamp,
         },
@@ -1809,7 +1810,7 @@ mod tests {
 
         let all_indexes = btreemap!(
             by_id_index_id => (GenericIndexName::by_id(table_id), IndexedFields::by_id()),
-            by_val_index_id => (GenericIndexName::new(table_id, "by_val".parse()?)?, IndexedFields::try_from(vec!["value".parse()?])?),
+            by_val_index_id => (GenericIndexName::new(table_id, IndexDescriptor::new("by_val")?)?, IndexedFields::try_from(vec!["value".parse()?])?),
         );
         let expired_stream = LeaderRetentionManager::<TestRuntime>::expired_index_entries(
             reader,

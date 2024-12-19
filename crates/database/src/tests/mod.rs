@@ -251,8 +251,8 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     let namespace = TableNamespace::test_user();
 
     // Register two indexes and make sure it works.
-    let index_name1 = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
-    let index_name2 = IndexName::new(table_name.clone(), "c_and_d".parse()?)?;
+    let index_name1 = IndexName::new(table_name.clone(), IndexDescriptor::new("a_and_b")?)?;
+    let index_name2 = IndexName::new(table_name.clone(), IndexDescriptor::new("c_and_d")?)?;
 
     let mut tx = database.begin(Identity::system()).await?;
 
@@ -309,7 +309,7 @@ async fn test_build_indexes(rt: TestRuntime) -> anyhow::Result<()> {
     );
 
     // Add one index, overwrite one, drop the other.
-    let index_name3 = IndexName::new(table_name.clone(), "e_and_f".parse()?)?;
+    let index_name3 = IndexName::new(table_name.clone(), IndexDescriptor::new("e_and_f")?)?;
 
     let mut indexes = BTreeMap::<IndexDescriptor, IndexSchema>::new();
     indexes.remove(index_name1.descriptor());
@@ -714,7 +714,7 @@ where
     } = DbFixtures::new(&rt).await?;
     let table_name: TableName = str::parse("messages")?;
     let namespace = TableNamespace::test_user();
-    let index_name = IndexName::new(table_name.clone(), "a_and_b".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("a_and_b")?)?;
 
     let mut tx = database.begin(Identity::system()).await?;
     let begin_ts = tx.begin_timestamp();
@@ -1670,7 +1670,10 @@ fn assert_single_pending_index_error(result: anyhow::Result<ResolvedDocumentId>)
 
 fn new_index_and_field_path(index: usize) -> anyhow::Result<(IndexName, FieldPath)> {
     let field_name = format!("field_{}", index);
-    let index_name = IndexName::new("table".parse()?, format!("by_{}", field_name).parse()?)?;
+    let index_name = IndexName::new(
+        "table".parse()?,
+        IndexDescriptor::new(format!("by_{}", field_name))?,
+    )?;
     Ok((index_name, field_name.parse()?))
 }
 
@@ -1802,7 +1805,7 @@ async fn test_index_backfill(rt: TestRuntime) -> anyhow::Result<()> {
     let values = insert_documents(&mut tx, table_name.clone()).await?;
     db.commit(tx).await?;
 
-    let index_name = IndexName::new(table_name, "a_and_b".parse()?)?;
+    let index_name = IndexName::new(table_name, IndexDescriptor::new("a_and_b")?)?;
     let mut tx = db.begin_system().await?;
     let begin_ts = tx.begin_timestamp();
     IndexModel::new(&mut tx)
@@ -1889,7 +1892,7 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
     let values = insert_documents(&mut tx, table_name.clone()).await?;
     database.commit(tx).await?;
 
-    let index_name = IndexName::new(table_name, "a_and_b".parse()?)?;
+    let index_name = IndexName::new(table_name, IndexDescriptor::new("a_and_b")?)?;
     let mut tx = database.begin(Identity::system()).await?;
     IndexModel::new(&mut tx)
         .add_application_index(
@@ -2188,7 +2191,7 @@ async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
     let namespace = TableNamespace::test_user();
 
     let table_name: TableName = str::parse("messages")?;
-    let index_name = IndexName::new(table_name.clone(), "by_rank".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_rank")?)?;
     let index_fields: IndexedFields = vec!["rank".parse()?].try_into()?;
 
     add_and_enable_index(rt, &database, tp, namespace, &index_name, index_fields).await?;
@@ -2305,7 +2308,7 @@ async fn test_query_readset_empty_query(rt: TestRuntime) -> anyhow::Result<()> {
     let namespace = TableNamespace::test_user();
 
     let table_name: TableName = str::parse("messages")?;
-    let index_name = IndexName::new(table_name.clone(), "by_rank".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_rank")?)?;
     let index_fields: IndexedFields = vec!["rank".parse()?].try_into()?;
     add_and_enable_index(rt, &database, tp, namespace, &index_name, index_fields).await?;
 

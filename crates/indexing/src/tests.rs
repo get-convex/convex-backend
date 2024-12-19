@@ -36,6 +36,7 @@ use common::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
         GenericIndexName,
+        IndexDescriptor,
         PersistenceVersion,
         TableName,
         Timestamp,
@@ -122,7 +123,7 @@ fn test_metadata_add_and_drop_index() -> anyhow::Result<()> {
 
     let table_id = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table_id.tablet_id);
-    let by_name = GenericIndexName::new(table_id.tablet_id, "by_name".parse()?)?;
+    let by_name = GenericIndexName::new(table_id.tablet_id, IndexDescriptor::new("by_name")?)?;
     // Add `messages.by_id`.
     let by_id = gen_index_document(
         &mut id_generator,
@@ -161,9 +162,10 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
     )?;
     let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
-    let by_first_id = GenericIndexName::new(table.tablet_id, "by_first_id".parse()?)?;
-    let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
-    let by_first_name = GenericIndexName::new(table.tablet_id, "by_first_name".parse()?)?;
+    let by_first_id = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_first_id")?)?;
+    let by_name = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_name")?)?;
+    let by_first_name =
+        GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_first_name")?)?;
 
     // Add messages table_scan index.
     let original = gen_index_document(
@@ -231,9 +233,10 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
-    let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
+    let by_name = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_name")?)?;
     let authors_table = id_generator.user_table_id(&"authors".parse()?);
-    let authors_by_name = GenericIndexName::new(authors_table.tablet_id, "by_name".parse()?)?;
+    let authors_by_name =
+        GenericIndexName::new(authors_table.tablet_id, IndexDescriptor::new("by_name")?)?;
 
     let indexes = vec![IndexMetadata::new_enabled(by_id, IndexedFields::by_id())];
     let index_documents = index_documents(&mut id_generator, indexes)?;
@@ -324,7 +327,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
     let table = id_generator.user_table_id(&"messages".parse()?);
 
     // Creating a new index with the same name and state is not allowed.
-    let by_name = GenericIndexName::new(table.tablet_id, "by_name".parse()?)?;
+    let by_name = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_name")?)?;
     let pending = gen_index_document(
         &mut id_generator,
         IndexMetadata::new_backfilling(
@@ -366,8 +369,8 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
-    let by_author = GenericIndexName::new(table.tablet_id, "by_author".parse()?)?;
-    let by_content = GenericIndexName::new(table.tablet_id, "by_content".parse()?)?;
+    let by_author = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_author")?)?;
+    let by_content = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_content")?)?;
     let indexes = vec![
         IndexMetadata::new_enabled(by_id.clone(), IndexedFields::by_id()),
         IndexMetadata::new_enabled(by_author.clone(), vec!["author".parse()?].try_into()?),
@@ -544,7 +547,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table = id_generator.user_table_id(&"messages".parse()?);
     let by_id = GenericIndexName::by_id(table.tablet_id);
-    let by_author = GenericIndexName::new(table.tablet_id, "by_author".parse()?)?;
+    let by_author = GenericIndexName::new(table.tablet_id, IndexDescriptor::new("by_author")?)?;
 
     let indexes = vec![IndexMetadata::new_enabled(
         by_id.clone(),
@@ -710,7 +713,7 @@ fn new_enabled_doc(
     name: &str,
     fields: Vec<&str>,
 ) -> anyhow::Result<ResolvedDocument> {
-    let index_name = GenericIndexName::new(tablet_id, name.parse()?)?;
+    let index_name = GenericIndexName::new(tablet_id, IndexDescriptor::new(name.to_string())?)?;
     let field_paths = fields
         .into_iter()
         .map(|field| field.parse())
@@ -726,7 +729,7 @@ fn new_pending_doc(
     name: &str,
     fields: Vec<&str>,
 ) -> anyhow::Result<ResolvedDocument> {
-    let index_name = GenericIndexName::new(tablet_id, name.parse()?)?;
+    let index_name = GenericIndexName::new(tablet_id, IndexDescriptor::new(name.to_string())?)?;
     let field_paths = fields
         .into_iter()
         .map(|field| field.parse())

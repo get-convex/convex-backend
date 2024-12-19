@@ -29,7 +29,10 @@ use common::{
         TRANSACTION_MAX_SYSTEM_WRITE_SIZE_BYTES,
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
-    types::TabletIndexName,
+    types::{
+        IndexDescriptor,
+        TabletIndexName,
+    },
     value::{
         ResolvedDocumentId,
         Size,
@@ -332,7 +335,10 @@ impl Writes {
             let table_name_bytes =
                 values_to_bytes(&[Some(index_metadata_serialize_tablet_id(&tablet_id)?)]);
             reads.record_indexed_derived(
-                TabletIndexName::new(table_mapping.index_id.tablet_id, "by_table_id".parse()?)?,
+                TabletIndexName::new(
+                    table_mapping.index_id.tablet_id,
+                    IndexDescriptor::new("by_table_id")?,
+                )?,
                 vec![TABLE_ID_FIELD_PATH.clone()].try_into()?,
                 // Note that should really be exact point instead of a prefix,
                 // but our read set interval does not support this.
@@ -416,6 +422,7 @@ mod tests {
         },
         testing::TestIdGenerator,
         types::{
+            IndexDescriptor,
             PersistenceVersion,
             TabletIndexName,
         },
@@ -473,7 +480,7 @@ mod tests {
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
                 Timestamp::MIN,
-                TabletIndexName::new(user_table1.tablet_id, "by_likes".parse()?)?,
+                TabletIndexName::new(user_table1.tablet_id, IndexDescriptor::new("by_likes")?)?,
                 IndexedFields::by_id(),
             )
             .try_into()?,
@@ -508,7 +515,7 @@ mod tests {
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
                 Timestamp::MIN,
-                TabletIndexName::new(user_table2.tablet_id, "by_likes".parse()?)?,
+                TabletIndexName::new(user_table2.tablet_id, IndexDescriptor::new("by_likes")?)?,
                 IndexedFields::by_id(),
             )
             .try_into()?,

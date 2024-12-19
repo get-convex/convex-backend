@@ -17,6 +17,7 @@ use common::{
         Query,
     },
     types::{
+        IndexDescriptor,
         IndexName,
         ModuleEnvironment,
         TableName,
@@ -337,7 +338,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let mut tx = db
         .begin_with_usage(Identity::system(), tx_usage.clone())
         .await?;
-    let index_name = IndexName::new(table_name.clone(), "by_key".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_key")?)?;
     IndexModel::new(&mut tx)
         .add_application_index(
             namespace,

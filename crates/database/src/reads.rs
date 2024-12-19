@@ -507,6 +507,7 @@ mod tests {
         query::search_value_to_bytes,
         testing::TestIdGenerator,
         types::{
+            IndexDescriptor,
             PersistenceVersion,
             TabletIndexName,
         },
@@ -565,7 +566,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -611,7 +613,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -657,7 +660,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -714,7 +718,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -760,7 +765,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -806,7 +812,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -874,7 +881,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
 
         let search_reads = SearchQueryReads::new(
             vec![TextQueryTermRead {
@@ -929,7 +937,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
 
         let search_reads = SearchQueryReads::new(
             vec![].into(),
@@ -997,7 +1006,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
 
         let search_reads = SearchQueryReads::new(
             vec![TextQueryTermRead {

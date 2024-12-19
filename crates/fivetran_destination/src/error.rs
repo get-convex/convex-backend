@@ -338,6 +338,7 @@ mod tests {
             IndexSchema,
             TableDefinition,
         },
+        types::IndexDescriptor,
     };
     use maplit::btreemap;
 
@@ -347,7 +348,7 @@ mod tests {
     #[test]
     fn it_formats_suggested_indexes() {
         let schema = IndexSchema {
-            index_descriptor: "by_field_and_subfield".parse().unwrap(),
+            index_descriptor: IndexDescriptor::new("by_field_and_subfield").unwrap(),
             fields: vec![
                 "field".parse().unwrap(),
                 "field.subfield".parse().unwrap(),
@@ -368,14 +369,14 @@ mod tests {
         let table = TableDefinition {
             table_name: "my_table".parse().unwrap(),
             indexes: btreemap! {
-                "by_name".parse().unwrap() => IndexSchema {
-                    index_descriptor: "by_name".parse().unwrap(),
+                IndexDescriptor::new("by_name").unwrap() => IndexSchema {
+                    index_descriptor: IndexDescriptor::new("by_name").unwrap(),
                     fields: vec![
                         "name".parse().unwrap()
                     ].try_into().unwrap()
                 },
-                "by_email".parse().unwrap() => IndexSchema {
-                    index_descriptor: "by_email".parse().unwrap(),
+                IndexDescriptor::new("by_email").unwrap() => IndexSchema {
+                    index_descriptor: IndexDescriptor::new("by_email").unwrap(),
                     fields: vec![
                         "email".parse().unwrap()
                     ].try_into().unwrap()

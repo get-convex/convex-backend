@@ -168,7 +168,7 @@ fn create_subscription_token(
     token: String,
 ) -> Token {
     let index_name: GenericIndexName<TabletId> =
-        GenericIndexName::new(tablet_id, IndexDescriptor::from_str("index").unwrap()).unwrap();
+        GenericIndexName::new(tablet_id, IndexDescriptor::new("index").unwrap()).unwrap();
 
     Token::text_search_token(
         index_name,

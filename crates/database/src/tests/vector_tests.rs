@@ -29,6 +29,7 @@ use common::{
     runtime::Runtime,
     types::{
         unchecked_repeatable_ts,
+        IndexDescriptor,
         IndexName,
     },
 };
@@ -180,7 +181,7 @@ impl<RT: Runtime> Scenario<RT> {
         IndexModel::new(&mut tx)
             .enable_index_for_testing(
                 TABLE_NAMESPACE,
-                &IndexName::new(TABLE_NAME.parse()?, INDEX_DESCRIPTOR.parse()?)?,
+                &IndexName::new(TABLE_NAME.parse()?, IndexDescriptor::new(INDEX_DESCRIPTOR)?)?,
             )
             .await?;
         self.database.commit(tx).await?;

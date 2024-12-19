@@ -26,6 +26,7 @@ use common::{
     runtime::Runtime,
     types::{
         GenericIndexName,
+        IndexDescriptor,
         IndexName,
         TabletIndexName,
     },
@@ -438,7 +439,7 @@ pub struct IndexData {
 
 fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
     let table_name: TableName = "table".parse()?;
-    let index_name = IndexName::new(table_name, "vector_index".parse()?)?;
+    let index_name = IndexName::new(table_name, IndexDescriptor::new("vector_index")?)?;
     let vector_field: FieldPath = "vector".parse()?;
     let filter_field: FieldPath = "channel".parse()?;
     let metadata = IndexMetadata::new_backfilling_vector_index(

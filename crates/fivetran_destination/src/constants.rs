@@ -33,7 +33,7 @@ pub static UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> 
     LazyLock::new(|| "columns".parse().unwrap());
 
 pub static PRIMARY_KEY_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| "by_primary_key".parse().unwrap());
+    LazyLock::new(|| IndexDescriptor::new("by_primary_key").unwrap());
 
 pub static SOFT_DELETE_FIELD_PATH: LazyLock<FieldPath> = LazyLock::new(|| {
     FieldPath::new(vec![

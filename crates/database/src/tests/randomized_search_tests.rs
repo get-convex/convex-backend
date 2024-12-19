@@ -33,6 +33,7 @@ use common::{
         SearchVersion,
     },
     types::{
+        IndexDescriptor,
         IndexName,
         Timestamp,
     },
@@ -266,7 +267,7 @@ impl Scenario {
         IndexModel::new(&mut txn)
             .enable_index_for_testing(
                 self.namespace,
-                &IndexName::new("test".parse()?, "by_text".parse()?)?,
+                &IndexName::new("test".parse()?, IndexDescriptor::new("by_text")?)?,
             )
             .await?;
         self.database.commit(txn).await?;

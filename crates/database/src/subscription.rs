@@ -715,10 +715,8 @@ mod tests {
         table_id: TabletIdAndTableNumber,
         terms: Vec<TextQueryTerm>,
     ) -> anyhow::Result<Token> {
-        let index_name: GenericIndexName<TabletId> = GenericIndexName::new(
-            table_id.tablet_id,
-            IndexDescriptor::from_str("index").unwrap(),
-        )?;
+        let index_name: GenericIndexName<TabletId> =
+            GenericIndexName::new(table_id.tablet_id, IndexDescriptor::new("index").unwrap())?;
         let field_path = FieldPath::from_str("path")?;
 
         Ok(Token::text_search_token(

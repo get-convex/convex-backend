@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     cmp::Ordering,
     collections::{
         BTreeMap,
@@ -488,6 +489,15 @@ impl HeapSize for String {
     #[inline]
     fn heap_size(&self) -> usize {
         self.capacity()
+    }
+}
+
+impl HeapSize for Cow<'_, str> {
+    fn heap_size(&self) -> usize {
+        match &self {
+            Cow::Borrowed(_) => 0,
+            Cow::Owned(s) => s.capacity(),
+        }
     }
 }
 

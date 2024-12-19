@@ -82,7 +82,7 @@ pub fn assert_backfilling(
 pub async fn assert_backfilled(
     db: &Database<TestRuntime>,
     table_name: &str,
-    index_name: &str,
+    index_name: &'static str,
 ) -> anyhow::Result<()> {
     let mut tx = db.begin_system().await?;
     let index_metadata: common::bootstrap_model::index::IndexMetadata<value::TabletId> =
@@ -124,7 +124,10 @@ pub async fn assert_enabled(
 }
 
 pub fn new_index_name(table_name: &str, index_name: &str) -> anyhow::Result<IndexName> {
-    IndexName::new(str::parse(table_name)?, index_name.parse()?)
+    IndexName::new(
+        str::parse(table_name)?,
+        IndexDescriptor::new(index_name.to_string())?,
+    )
 }
 
 pub fn new_index_descriptor(table_name: &str, index_name: &str) -> anyhow::Result<IndexDescriptor> {

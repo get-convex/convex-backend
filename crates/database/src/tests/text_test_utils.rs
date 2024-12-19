@@ -28,6 +28,7 @@ use common::{
     runtime::testing::TestRuntime,
     types::{
         GenericIndexName,
+        IndexDescriptor,
         IndexId,
         IndexName,
         TabletIndexName,
@@ -358,7 +359,7 @@ pub struct IndexData {
 
 pub fn backfilling_text_index() -> anyhow::Result<IndexMetadata<TableName>> {
     let table_name: TableName = TABLE_NAME.parse()?;
-    let index_name = IndexName::new(table_name, "search_index".parse()?)?;
+    let index_name = IndexName::new(table_name, IndexDescriptor::new("search_index")?)?;
     let search_field: FieldPath = SEARCH_FIELD.parse()?;
     let filter_field: FieldPath = "channel".parse()?;
     let metadata = IndexMetadata::new_backfilling_text_index(

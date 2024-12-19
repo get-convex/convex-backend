@@ -314,7 +314,7 @@ impl TryFrom<JsonValue> for IndexSchema {
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         let j: IndexSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
-        let index_descriptor = j.index_descriptor.parse()?;
+        let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let fields = j
             .fields
             .into_iter()
@@ -370,7 +370,7 @@ impl TryFrom<JsonValue> for VectorIndexSchema {
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         let j: VectorIndexSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
-        let index_descriptor = j.index_descriptor.parse()?;
+        let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let vector_field = j.vector_field.parse().with_context(|| {
             index_validation_error::invalid_index_field(&index_descriptor, &j.vector_field)
         })?;
@@ -434,7 +434,7 @@ impl TryFrom<JsonValue> for SearchIndexSchema {
 
     fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
         let j: SearchIndexSchemaJson = serde_json::from_value(value).with_context(invalid_json)?;
-        let index_descriptor = j.index_descriptor.parse()?;
+        let index_descriptor = IndexDescriptor::new(j.index_descriptor)?;
         let search_field = j.search_field.parse().with_context(|| {
             index_validation_error::invalid_index_field(&index_descriptor, &j.search_field)
         })?;

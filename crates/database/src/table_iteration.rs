@@ -552,6 +552,7 @@ mod tests {
         types::{
             unchecked_repeatable_ts,
             GenericIndexName,
+            IndexDescriptor,
             IndexName,
         },
         value::{
@@ -787,7 +788,7 @@ mod tests {
         let table_name: TableName = "a".parse()?;
 
         // Create a.by_k and backfill.
-        let index_name = GenericIndexName::new(table_name.clone(), "by_k".parse()?)?;
+        let index_name = GenericIndexName::new(table_name.clone(), IndexDescriptor::new("by_k")?)?;
         let field: FieldPath = "k".parse()?;
         let index_fields = IndexedFields::try_from(vec![field.clone()])?;
         let mut tx = database.begin(Identity::system()).await?;

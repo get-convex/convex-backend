@@ -35,6 +35,7 @@ use common::{
     },
     tokio::select,
     types::{
+        IndexDescriptor,
         IndexName,
         MemberId,
         ObjectKey,
@@ -977,7 +978,7 @@ a
 "string"
 "#;
     let identity = new_admin_id();
-    let index_name = IndexName::new(table_name.clone(), "by_a".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_a")?)?;
 
     let index_id = {
         let mut tx = app.begin(identity.clone()).await?;

@@ -19,6 +19,7 @@ use common::{
     },
     document::ResolvedDocument,
     types::{
+        IndexDescriptor,
         IndexId,
         IndexName,
         TableName,
@@ -59,7 +60,7 @@ use crate::{
 pub fn system_index(table: &impl Deref<Target = TableName>, name: &'static str) -> IndexName {
     IndexName::new(
         table.deref().clone(),
-        name.parse().expect("Invalid system index descriptor"),
+        IndexDescriptor::new(name).expect("Invalid system index descriptor"),
     )
     .expect("Invalid system index")
 }

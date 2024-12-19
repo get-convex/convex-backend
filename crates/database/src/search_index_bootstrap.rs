@@ -570,6 +570,7 @@ mod tests {
         },
         runtime::Runtime,
         types::{
+            IndexDescriptor,
             IndexId,
             IndexName,
             WriteTimestamp,
@@ -937,7 +938,7 @@ mod tests {
     }
 
     fn backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
-        let index_name = IndexName::new(table(), "vector_index".parse()?)?;
+        let index_name = IndexName::new(table(), IndexDescriptor::new("vector_index")?)?;
         let vector_field: FieldPath = "vector".parse()?;
         let filter_field: FieldPath = "channel".parse()?;
         let metadata = IndexMetadata::new_backfilling_vector_index(
@@ -1191,7 +1192,7 @@ mod tests {
         );
         flusher.step().await?;
 
-        let index_name = IndexName::new(table_name, "by_text".parse()?)?;
+        let index_name = IndexName::new(table_name, IndexDescriptor::new("by_text")?)?;
         let mut tx = db.begin_system().await?;
         let mut model = IndexModel::new(&mut tx);
         let index_doc = model

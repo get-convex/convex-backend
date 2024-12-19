@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::{
         self,
         Debug,
@@ -35,13 +36,11 @@ use crate::{
 /// Descriptor for an index, e.g., "by_email".
 #[derive(Clone, derive_more::Deref, derive_more::Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display(fmt = "{_0}")]
-pub struct IndexDescriptor(String);
+pub struct IndexDescriptor(Cow<'static, str>);
 
 impl IndexDescriptor {
     pub fn min() -> Self {
-        MIN_IDENTIFIER
-            .parse()
-            .expect("Invalid min IndexDescriptor?")
+        Self::new(MIN_IDENTIFIER).expect("Invalid min IndexDescriptor?")
     }
 
     pub fn is_reserved(&self) -> bool {
@@ -49,14 +48,16 @@ impl IndexDescriptor {
             || self == &*INDEX_BY_CREATION_TIME_DESCRIPTOR
             || self.0.starts_with('_')
     }
-}
 
-impl FromStr for IndexDescriptor {
-    type Err = anyhow::Error;
+    pub fn new<S: Into<Cow<'static, str>>>(s: S) -> anyhow::Result<Self> {
+        let cow: Cow<'static, str> = s.into();
+        check_valid_identifier(&cow)
+            .with_context(|| index_validation_error::invalid_index_name(&cow))?;
+        Ok(Self(cow))
+    }
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        check_valid_identifier(s).with_context(|| index_validation_error::invalid_index_name(s))?;
-        Ok(Self(s.to_owned()))
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 
@@ -68,7 +69,7 @@ impl fmt::Debug for IndexDescriptor {
 
 impl From<IndexDescriptor> for String {
     fn from(t: IndexDescriptor) -> Self {
-        t.0
+        t.0.to_string()
     }
 }
 
@@ -94,9 +95,8 @@ impl proptest::arbitrary::Arbitrary for IndexDescriptor {
         use proptest::prelude::*;
 
         use crate::identifier::arbitrary_regexes::USER_IDENTIFIER_REGEX;
-        USER_IDENTIFIER_REGEX.prop_filter_map("Invalid IndexDescriptor", |s| {
-            IndexDescriptor::from_str(&s).ok()
-        })
+        USER_IDENTIFIER_REGEX
+            .prop_filter_map("Invalid IndexDescriptor", |s| IndexDescriptor::new(s).ok())
     }
 }
 
@@ -164,8 +164,7 @@ impl<T: IndexTableIdentifier + FromStr<Err = anyhow::Error>> FromStr for Generic
             None => anyhow::bail!(index_validation_error::not_enough_name_components(s)),
         };
         let descriptor = match parts.next() {
-            Some(s) => s
-                .parse()
+            Some(s) => IndexDescriptor::new(s.to_string())
                 .with_context(|| index_validation_error::invalid_table_name(s))?,
             None => anyhow::bail!(index_validation_error::not_enough_name_components(s)),
         };
@@ -199,10 +198,10 @@ impl<T: IndexTableIdentifier> fmt::Debug for GenericIndexName<T> {
 }
 
 pub static INDEX_BY_ID_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| "by_id".parse().unwrap());
+    LazyLock::new(|| IndexDescriptor::new("by_id").unwrap());
 
 pub static INDEX_BY_CREATION_TIME_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| "by_creation_time".parse().unwrap());
+    LazyLock::new(|| IndexDescriptor::new("by_creation_time").unwrap());
 
 impl<T: IndexTableIdentifier> GenericIndexName<T> {
     /// Create a new index name for the table and given descriptor,
@@ -352,8 +351,6 @@ impl DatabaseIndexValue {
 #[cfg(test)]
 mod tests {
     mod test_min_index_descriptor {
-        use std::str::FromStr;
-
         use cmd_util::env::env_config;
         use proptest::prelude::*;
 
@@ -373,7 +370,7 @@ mod tests {
         #[test]
         fn proptest_trophies() {
             // #2716: `IndexDescriptor::min` was "a", where "A" < "a".
-            assert!(IndexDescriptor::min() <= IndexDescriptor::from_str("B").unwrap());
+            assert!(IndexDescriptor::min() <= IndexDescriptor::new("B").unwrap());
         }
     }
 }
