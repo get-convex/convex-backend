@@ -20,8 +20,11 @@ pub type SerializedToken = String;
 /// A token is a base64 serializable representation of the current read-state
 /// for a transaction. This can be externalized to a user and used to represent
 /// current transaction state.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Eq, PartialEq)
+)]
 pub struct Token {
     read_set: Arc<ReadSet>,
     ts: Timestamp,

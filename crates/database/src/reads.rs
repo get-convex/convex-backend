@@ -61,7 +61,8 @@ pub const OVER_LIMIT_HELP: &str = "Consider using smaller limits in your queries
 static READ_SET_CAPTURE_BACKTRACES: LazyLock<bool> =
     LazyLock::new(|| env_config("READ_SET_CAPTURE_BACKTRACES", false));
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
+#[derive(Debug, Clone)]
 pub struct IndexReads {
     pub fields: IndexedFields,
     pub intervals: IntervalSet,
@@ -74,7 +75,8 @@ impl HeapSize for IndexReads {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
 pub struct ReadSet {
     indexed: WithHeapSize<BTreeMap<TabletIndexName, IndexReads>>,
     search: WithHeapSize<BTreeMap<TabletIndexName, SearchQueryReads>>,
