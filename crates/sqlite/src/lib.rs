@@ -26,7 +26,7 @@ use common::{
     interval::{
         End,
         Interval,
-        Start,
+        StartIncluded,
     },
     persistence::{
         ConflictStrategy,
@@ -134,7 +134,7 @@ impl SqlitePersistence {
 
         let mut params = params![index_id, read_timestamp].to_vec();
 
-        let Start::Included(ref start) = interval.start;
+        let StartIncluded(ref start) = interval.start;
         let start_bytes = &start[..];
 
         params.push(&start_bytes);

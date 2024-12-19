@@ -6,14 +6,12 @@ use super::key::BinaryKey;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
-pub enum Start {
-    Included(BinaryKey),
-}
+pub struct StartIncluded(pub BinaryKey);
 
-impl HeapSize for Start {
+impl HeapSize for StartIncluded {
     fn heap_size(&self) -> usize {
         match self {
-            Start::Included(k) => k.heap_size(),
+            StartIncluded(k) => k.heap_size(),
         }
     }
 }
@@ -34,17 +32,17 @@ impl End {
     }
 
     /// Is the interval `(-inf, end)` disjoint with `[start, +inf)`?
-    pub fn is_disjoint(&self, start: &Start) -> bool {
+    pub fn is_disjoint(&self, start: &StartIncluded) -> bool {
         match (self, start) {
             (End::Unbounded, _) => false,
-            (End::Excluded(ref s), Start::Included(ref t)) => s <= t,
+            (End::Excluded(ref s), StartIncluded(ref t)) => s <= t,
         }
     }
 
-    pub fn is_adjacent(&self, start: &Start) -> bool {
+    pub fn is_adjacent(&self, start: &StartIncluded) -> bool {
         match (self, start) {
             (End::Unbounded, _) => false,
-            (End::Excluded(ref s), Start::Included(ref t)) => s[..].eq(&t[..]),
+            (End::Excluded(ref s), StartIncluded(ref t)) => s[..].eq(&t[..]),
         }
     }
 }

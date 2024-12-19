@@ -19,7 +19,7 @@ use super::BinaryKey;
 use super::{
     bounds::{
         End,
-        Start,
+        StartIncluded,
     },
     Interval,
 };
@@ -30,9 +30,9 @@ use super::{
 pub enum IntervalSet {
     /// Map from Interval.start to Interval.end. All intervals are
     /// non-intersecting, non-adjacent, and non-empty.
-    Intervals(WithHeapSize<BTreeMap<Start, End>>),
+    Intervals(WithHeapSize<BTreeMap<StartIncluded, End>>),
     /// In-memory optimization to avoid allocating a [`BTreeMap`] to represent
-    /// `{ Start::Included(BinaryKey::min()) => End::Unbounded }`
+    /// `{ Start(BinaryKey::min()) => End::Unbounded }`
     All,
 }
 
@@ -49,7 +49,7 @@ impl PartialEq for IntervalSet {
             (Self::All, Self::All) => true,
             (Self::All, Self::Intervals(intervals)) | (Self::Intervals(intervals), Self::All) => {
                 let mut map: WithHeapSize<BTreeMap<_, _>> = WithHeapSize::default();
-                map.insert(Start::Included(BinaryKey::min()), End::Unbounded);
+                map.insert(StartIncluded(BinaryKey::min()), End::Unbounded);
                 intervals == &map
             },
             (Self::Intervals(x), Self::Intervals(y)) => x == y,
@@ -70,7 +70,7 @@ impl From<IntervalSet> for Vec<IntervalProto> {
                 .into_iter()
                 .map(|(start, end)| {
                     let start = match start {
-                        Start::Included(b) => b.into(),
+                        StartIncluded(b) => b.into(),
                     };
                     let end = match end {
                         End::Unbounded => EndProto::AfterAll(()),
@@ -95,7 +95,7 @@ impl TryFrom<Vec<IntervalProto>> for IntervalSet {
             return Ok(IntervalSet::All);
         }
         for interval in intervals {
-            let start = Start::Included(interval.start_inclusive.into());
+            let start = StartIncluded(interval.start_inclusive.into());
             let end = match interval.end {
                 None => return Err(anyhow::anyhow!("Interval missing end")),
                 Some(end) => match end {
@@ -136,7 +136,7 @@ impl IntervalSet {
     // `interval`. This is O(log(n) + m), with `n` intervals in this IntervalSet and
     // `m` matches.
     fn intersecting_or_adjacent<'a>(
-        intervals: &'a WithHeapSize<BTreeMap<Start, End>>,
+        intervals: &'a WithHeapSize<BTreeMap<StartIncluded, End>>,
         interval: &'a Interval,
     ) -> impl Iterator<Item = Interval> + 'a {
         iter::from_coroutine(
@@ -236,7 +236,7 @@ impl IntervalSet {
                 let (start, end) = intervals
                     .range((
                         Bound::Unbounded,
-                        Bound::Included(Start::Included(k.to_vec().into())),
+                        Bound::Included(StartIncluded(k.to_vec().into())),
                     ))
                     .next_back()?;
                 Some(Interval {
@@ -303,7 +303,7 @@ impl IntervalSet {
                         if target.is_empty() {
                             return;
                         }
-                        let Start::Included(target_start) = target.start.clone();
+                        let StartIncluded(target_start) = target.start.clone();
                         let interval_before = self.interval_preceding(&target_start);
                         let mut component_start = match interval_before {
                             None => target_start,
@@ -335,20 +335,20 @@ impl IntervalSet {
                         // `intersecting` is all intervals in `self` that intersect with `target`,
                         // excluding `interval_before`.
                         let intersecting = intervals.range((
-                            Bound::Excluded(Start::Included(component_start.clone())),
+                            Bound::Excluded(StartIncluded(component_start.clone())),
                             match &target.end {
                                 End::Excluded(target_end) => {
-                                    Bound::Excluded(Start::Included(target_end.clone()))
+                                    Bound::Excluded(StartIncluded(target_end.clone()))
                                 },
                                 End::Unbounded => Bound::Unbounded,
                             },
                         ));
                         for (interval_start, interval_end) in intersecting {
-                            let Start::Included(interval_start_bytes) = interval_start;
+                            let StartIncluded(interval_start_bytes) = interval_start;
                             yield (
                                 false,
                                 Interval {
-                                    start: Start::Included(component_start),
+                                    start: StartIncluded(component_start),
                                     end: End::Excluded(interval_start_bytes.clone()),
                                 },
                             );
@@ -377,7 +377,7 @@ impl IntervalSet {
                         yield (
                             false,
                             Interval {
-                                start: Start::Included(component_start),
+                                start: StartIncluded(component_start),
                                 end: target.end.clone(),
                             },
                         );
@@ -440,14 +440,14 @@ mod tests {
         },
         IntervalSet,
     };
-    use crate::interval::Start;
+    use crate::interval::StartIncluded;
 
     impl IntervalSet {
-        fn intervals(&self) -> WithHeapSize<BTreeMap<Start, End>> {
+        fn intervals(&self) -> WithHeapSize<BTreeMap<StartIncluded, End>> {
             match self {
                 Self::All => {
                     let mut map: WithHeapSize<BTreeMap<_, _>> = WithHeapSize::default();
-                    map.insert(Start::Included(BinaryKey::min()), End::Unbounded);
+                    map.insert(StartIncluded(BinaryKey::min()), End::Unbounded);
                     map
                 },
                 Self::Intervals(intervals) => intervals.clone(),
@@ -729,7 +729,7 @@ mod tests {
     fn test_empty_interval() {
         test_sequence(
             vec![Interval {
-                start: Start::Included(BinaryKey::min()),
+                start: StartIncluded(BinaryKey::min()),
                 end: End::Excluded(BinaryKey::min()),
             }],
             vec![BinaryKey::min()],
@@ -740,7 +740,7 @@ mod tests {
     fn test_interval_set_all_split_interval_components() {
         let mut set = IntervalSet::default();
         set.add(Interval {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Unbounded,
         });
         let all_set = IntervalSet::All;
@@ -757,7 +757,7 @@ mod tests {
         set1.add(Interval::all());
         let mut set2 = IntervalSet::default();
         set2.add(Interval {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Unbounded,
         });
         assert_eq!(set1, set2);
@@ -824,7 +824,7 @@ mod tests {
             for ((in_set1, interval1), (in_set2, interval2)) in components.iter().tuples() {
                 assert!(in_set1 != in_set2);
                 must_let!(let End::Excluded(interval1_end) = &interval1.end);
-                must_let!(let Start::Included(interval2_start) = &interval2.start);
+                must_let!(let StartIncluded(interval2_start) = &interval2.start);
                 assert_eq!(interval1_end, interval2_start);
             }
             let mut union_components = IntervalSet::new();

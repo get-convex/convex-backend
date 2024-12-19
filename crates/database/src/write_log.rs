@@ -512,7 +512,7 @@ mod tests {
             BinaryKey,
             End,
             Interval,
-            Start,
+            StartIncluded,
         },
         knobs::WRITE_LOG_MAX_RETENTION_SECS,
         testing::TestIdGenerator,
@@ -722,7 +722,7 @@ mod tests {
             index_name.clone()
         );
         let end_excluded_read_set = read_set(Interval {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Excluded(index_key_binary.clone()),
         });
         assert_eq!(
@@ -734,7 +734,7 @@ mod tests {
             None
         );
         let start_included_read_set = read_set(Interval {
-            start: Start::Included(index_key_binary),
+            start: StartIncluded(index_key_binary),
             end: End::Unbounded,
         });
         assert_eq!(

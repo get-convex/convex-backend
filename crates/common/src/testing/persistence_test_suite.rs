@@ -47,7 +47,7 @@ use crate::{
         BinaryKey,
         End,
         Interval,
-        Start,
+        StartIncluded,
     },
     persistence::{
         ConflictStrategy,
@@ -931,7 +931,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                         tablet_id,
                         ts,
                         &Interval {
-                            start: Start::Included(keys[i].clone().into_bytes().into()),
+                            start: StartIncluded(keys[i].clone().into_bytes().into()),
                             end: End::after_prefix(&BinaryKey::from(keys[j].clone().into_bytes())),
                         },
                         order,

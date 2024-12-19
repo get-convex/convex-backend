@@ -34,7 +34,7 @@ use crate::{
     interval::{
         End,
         Interval,
-        Start,
+        StartIncluded,
     },
     persistence::{
         ConflictStrategy,
@@ -269,7 +269,7 @@ impl PersistenceReader for TestPersistence {
         let interval = interval.clone();
         // Add timestamp.
         let lower = match interval.start {
-            Start::Included(v) => Bound::Included((v.into(), Timestamp::MIN)),
+            StartIncluded(v) => Bound::Included((v.into(), Timestamp::MIN)),
         };
         let upper = match interval.end {
             End::Excluded(v) => Bound::Excluded((v.into(), Timestamp::MIN)),

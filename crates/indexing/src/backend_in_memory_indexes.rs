@@ -781,7 +781,7 @@ mod cache_tests {
             BinaryKey,
             End,
             Interval,
-            Start,
+            StartIncluded,
         },
         query::Order,
         testing::TestIdGenerator,
@@ -851,7 +851,7 @@ mod cache_tests {
         cache.populate(index_id, index_key_bytes2.clone(), ts2, doc2.clone());
 
         let interval_gt_18 = Interval {
-            start: Start::Included(values_to_bytes(&[Some(val!(18.0))]).into()),
+            start: StartIncluded(values_to_bytes(&[Some(val!(18.0))]).into()),
             end: End::Unbounded,
         };
 
@@ -867,7 +867,7 @@ mod cache_tests {
                 }),
                 d(index_key_bytes1.clone(), ts1, doc1.clone()),
                 cache_miss(Interval {
-                    start: Start::Included(
+                    start: StartIncluded(
                         BinaryKey::from(index_key_bytes1.clone())
                             .increment()
                             .unwrap()
@@ -876,7 +876,7 @@ mod cache_tests {
                 }),
                 d(index_key_bytes2.clone(), ts2, doc2.clone()),
                 cache_miss(Interval {
-                    start: Start::Included(
+                    start: StartIncluded(
                         BinaryKey::from(index_key_bytes2.clone())
                             .increment()
                             .unwrap()
@@ -887,7 +887,7 @@ mod cache_tests {
         );
         // Impossible interval (e.g. age > 18 && age < 16) is always cached.
         let interval_impossible = Interval {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Excluded(BinaryKey::min()),
         };
         assert_eq!(
@@ -914,7 +914,7 @@ mod cache_tests {
         );
         // Sub-interval also cached.
         let interval_gt_35 = Interval {
-            start: Start::Included(values_to_bytes(&[Some(val!(35.0))]).into()),
+            start: StartIncluded(values_to_bytes(&[Some(val!(35.0))]).into()),
             end: End::Unbounded,
         };
         assert_eq!(
@@ -926,7 +926,7 @@ mod cache_tests {
         assert_eq!(cache.get(index_id, &interval_eq_35, Order::Asc), vec![]);
         // Super-interval partially cached.
         let interval_gt_16 = Interval {
-            start: Start::Included(values_to_bytes(&[Some(val!(16.0))]).into()),
+            start: StartIncluded(values_to_bytes(&[Some(val!(16.0))]).into()),
             end: End::Unbounded,
         };
         assert_eq!(
@@ -981,7 +981,7 @@ mod cache_tests {
         let _ = make_doc(45.0);
         let _ = make_doc(50.0);
         let interval_gt_18 = Interval {
-            start: Start::Included(values_to_bytes(&[Some(val!(18.0))]).into()),
+            start: StartIncluded(values_to_bytes(&[Some(val!(18.0))]).into()),
             end: End::Unbounded,
         };
         let d = DatabaseIndexSnapshotCacheResult::Document;
@@ -995,17 +995,17 @@ mod cache_tests {
                 }),
                 d(index_key1.clone(), ts, doc1),
                 cache_miss(Interval {
-                    start: Start::Included(BinaryKey::from(index_key1).increment().unwrap()),
+                    start: StartIncluded(BinaryKey::from(index_key1).increment().unwrap()),
                     end: End::Excluded(index_key2.clone().into()),
                 }),
                 d(index_key2.clone(), ts, doc2),
                 cache_miss(Interval {
-                    start: Start::Included(BinaryKey::from(index_key2).increment().unwrap()),
+                    start: StartIncluded(BinaryKey::from(index_key2).increment().unwrap()),
                     end: End::Excluded(index_key3.clone().into()),
                 }),
                 d(index_key3.clone(), ts, doc3),
                 cache_miss(Interval {
-                    start: Start::Included(BinaryKey::from(index_key3).increment().unwrap()),
+                    start: StartIncluded(BinaryKey::from(index_key3).increment().unwrap()),
                     end: End::Unbounded,
                 }),
             ]
