@@ -238,6 +238,15 @@ impl<T: HeapSize> From<Vec<T>> for WithHeapSize<Vec<T>> {
     }
 }
 
+impl<T: HeapSize> WithHeapSize<Vec<T>> {
+    pub const fn new_vec() -> Self {
+        Self {
+            inner: Vec::new(),
+            elements_heap_size: 0,
+        }
+    }
+}
+
 impl<T: HeapSize> From<WithHeapSize<Vec<T>>> for Vec<T> {
     fn from(value: WithHeapSize<Vec<T>>) -> Self {
         value.inner
