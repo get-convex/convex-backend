@@ -1,9 +1,12 @@
 use std::{
     cmp,
     collections::BTreeMap,
-    fmt,
     mem,
     sync::{
+        atomic::{
+            AtomicU32,
+            Ordering,
+        },
         Arc,
         LazyLock,
     },
@@ -22,7 +25,6 @@ use common::{
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
-        UDF_CACHE_MAX_SIZE,
     },
     query_journal::QueryJournal,
     runtime::Runtime,
@@ -100,29 +102,29 @@ pub struct CacheManager<RT: Runtime> {
     function_router: FunctionRouter<RT>,
     udf_execution: FunctionExecutionLog<RT>,
 
-    cache: Cache,
+    instance_id: InstanceId,
+    cache: QueryCache,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+struct InstanceId(u32);
+impl InstanceId {
+    fn allocate() -> Self {
+        static NEXT_INSTANCE_ID: AtomicU32 = AtomicU32::new(0);
+        let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::SeqCst);
+        assert_ne!(id, u32::MAX, "instance id overflow");
+        InstanceId(id)
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CacheKey {
+    instance: InstanceId,
     path: PublicFunctionPath,
     args: ConvexArray,
     identity: IdentityCacheKey,
     journal: QueryJournal,
     allowed_visibility: AllowedVisibility,
-}
-
-impl fmt::Debug for CacheKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut builder = f.debug_struct("CacheKey");
-        builder
-            .field("path", &self.path)
-            .field("args", &self.args)
-            .field("identity", &self.identity)
-            .field("journal", &self.journal)
-            .field("allowed_visibility", &self.allowed_visibility)
-            .finish()
-    }
 }
 
 impl CacheKey {
@@ -182,13 +184,18 @@ impl<RT: Runtime> CacheManager<RT> {
         database: Database<RT>,
         function_router: FunctionRouter<RT>,
         udf_execution: FunctionExecutionLog<RT>,
+        cache: QueryCache,
     ) -> Self {
+        // each `CacheManager` (for a different instance) gets its own cache key space
+        // within `Cache`, which has a _global_ size-limit
+        let instance_id = InstanceId::allocate();
         Self {
             rt,
             database,
             function_router,
             udf_execution,
-            cache: Cache::new(),
+            instance_id,
+            cache,
         }
     }
 
@@ -247,6 +254,7 @@ impl<RT: Runtime> CacheManager<RT> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
         let key = CacheKey {
+            instance: self.instance_id,
             path: path.clone(),
             args: args.clone(),
             identity: identity_cache_key,
@@ -357,7 +365,7 @@ impl<RT: Runtime> CacheManager<RT> {
     async fn perform_cache_op(
         &self,
         key: &CacheKey,
-        op: CacheOp,
+        op: CacheOp<'_>,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<Option<(CacheResult, BTreeMap<TableName, TableStats>)>> {
         let r = match op {
@@ -436,8 +444,8 @@ impl<RT: Runtime> CacheManager<RT> {
                         let query_outcome = UdfOutcome::from_error(
                             js_err,
                             path.clone().debug_into_component_path(),
-                            args,
-                            identity.into(),
+                            args.clone(),
+                            identity.clone().into(),
                             self.rt.clone(),
                             None,
                         )?;
@@ -451,7 +459,7 @@ impl<RT: Runtime> CacheManager<RT> {
                                 tx,
                                 path_and_args,
                                 UdfType::Query,
-                                journal,
+                                journal.clone(),
                                 context,
                             )
                             .await?;
@@ -555,11 +563,11 @@ impl<RT: Runtime> CacheManager<RT> {
 struct WaitingEntryGuard<'a> {
     entry_id: Option<u64>,
     key: &'a CacheKey,
-    cache: Cache,
+    cache: QueryCache,
 }
 
 impl<'a> WaitingEntryGuard<'a> {
-    fn new(entry_id: Option<u64>, key: &'a CacheKey, cache: Cache) -> Self {
+    fn new(entry_id: Option<u64>, key: &'a CacheKey, cache: QueryCache) -> Self {
         Self {
             entry_id,
             key,
@@ -588,36 +596,38 @@ impl<'a> Drop for WaitingEntryGuard<'a> {
 struct Inner {
     cache: LruCache<CacheKey, CacheEntry>,
     size: usize,
+    size_limit: usize,
 
     next_waiting_id: u64,
 }
 
 #[derive(Clone)]
-struct Cache {
+pub struct QueryCache {
     inner: Arc<Mutex<Inner>>,
 }
 
-impl Cache {
-    fn new() -> Self {
+impl QueryCache {
+    pub fn new(size_limit: usize) -> Self {
         let inner = Inner {
             cache: LruCache::unbounded(),
             size: 0,
             next_waiting_id: 0,
+            size_limit,
         };
         Self {
             inner: Arc::new(Mutex::new(inner)),
         }
     }
 
-    fn plan_cache_op(
+    fn plan_cache_op<'a>(
         &self,
-        key: &CacheKey,
+        key: &'a CacheKey,
         start: tokio::time::Instant,
         now: tokio::time::Instant,
-        identity: &Identity,
+        identity: &'a Identity,
         ts: Timestamp,
         context: ExecutionContext,
-    ) -> Option<CacheOp> {
+    ) -> Option<CacheOp<'a>> {
         let go = |sender: Option<(Sender<_>, u64)>| {
             let (sender, waiting_entry_id) = match sender {
                 Some((sender, waiting_entry_id)) => (sender, Some(waiting_entry_id)),
@@ -631,11 +641,11 @@ impl Cache {
             CacheOp::Go {
                 waiting_entry_id,
                 sender,
-                path: key.path.clone(),
-                args: key.args.clone(),
-                identity: identity.clone(),
+                path: &key.path,
+                args: &key.args,
+                identity,
                 ts,
-                journal: key.journal.clone(),
+                journal: &key.journal,
                 allowed_visibility: key.allowed_visibility.clone(),
                 context,
             }
@@ -811,7 +821,7 @@ impl Inner {
 
     /// Pop records until the cache is under the given size.
     fn enforce_size_limit(&mut self) {
-        while self.size > *UDF_CACHE_MAX_SIZE {
+        while self.size > self.size_limit {
             let (popped_key, popped_entry) = self
                 .cache
                 .pop_lru()
@@ -822,7 +832,7 @@ impl Inner {
     }
 }
 
-enum CacheOp {
+enum CacheOp<'a> {
     Ready {
         result: CacheResult,
     },
@@ -834,11 +844,11 @@ enum CacheOp {
     Go {
         waiting_entry_id: Option<u64>,
         sender: Sender<CacheResult>,
-        path: PublicFunctionPath,
-        args: ConvexArray,
-        identity: Identity,
+        path: &'a PublicFunctionPath,
+        args: &'a ConvexArray,
+        identity: &'a Identity,
         ts: Timestamp,
-        journal: QueryJournal,
+        journal: &'a QueryJournal,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
     },

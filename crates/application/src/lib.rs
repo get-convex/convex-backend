@@ -350,6 +350,7 @@ pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 
+pub use crate::cache::QueryCache;
 use crate::metrics::{
     log_external_deps_package,
     log_source_package_size_bytes_total,
@@ -557,6 +558,7 @@ impl<RT: Runtime> Application<RT> {
         snapshot_import_pause_client: PauseClient,
         scheduled_jobs_pause_client: PauseClient,
         app_auth: Arc<ApplicationAuth>,
+        cache: QueryCache,
     ) -> anyhow::Result<Self> {
         let module_cache = ModuleCache::new(runtime.clone(), modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
@@ -622,6 +624,7 @@ impl<RT: Runtime> Application<RT> {
             module_loader,
             function_log.clone(),
             system_env_vars.clone(),
+            cache,
         ));
         function_runner.set_action_callbacks(runner.clone());
 

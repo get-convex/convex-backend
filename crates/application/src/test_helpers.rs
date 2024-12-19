@@ -22,7 +22,10 @@ use common::{
     components::ComponentId,
     db_schema,
     http::fetch::StaticFetchClient,
-    knobs::ACTION_USER_TIMEOUT,
+    knobs::{
+        ACTION_USER_TIMEOUT,
+        UDF_CACHE_MAX_SIZE,
+    },
     log_streaming::NoopLogSender,
     pause::{
         PauseClient,
@@ -102,6 +105,7 @@ use value::{
 };
 
 use crate::{
+    cache::QueryCache,
     cron_jobs::CronJobExecutor,
     deploy_config::{
         SchemaStatus,
@@ -305,6 +309,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 kb.clone(),
                 Arc::new(NullAccessTokenAuth),
             )),
+            QueryCache::new(*UDF_CACHE_MAX_SIZE),
         )
         .await?;
 

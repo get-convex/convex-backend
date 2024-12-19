@@ -24,13 +24,17 @@ use application::{
     api::ApplicationApi,
     log_visibility::AllowLogging,
     Application,
+    QueryCache,
 };
 use common::{
     http::{
         fetch::ProxiedFetchClient,
         RouteMapper,
     },
-    knobs::ACTION_USER_TIMEOUT,
+    knobs::{
+        ACTION_USER_TIMEOUT,
+        UDF_CACHE_MAX_SIZE,
+    },
     log_streaming::NoopLogSender,
     pause::PauseClient,
     persistence::Persistence,
@@ -253,6 +257,7 @@ pub async fn make_app(
             key_broker.clone(),
             Arc::new(NullAccessTokenAuth),
         )),
+        QueryCache::new(*UDF_CACHE_MAX_SIZE),
     )
     .await?;
 

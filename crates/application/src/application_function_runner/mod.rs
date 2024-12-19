@@ -206,7 +206,10 @@ use crate::{
         log_function_wait_timeout,
         log_mutation_already_committed,
     },
-    cache::CacheManager,
+    cache::{
+        CacheManager,
+        QueryCache,
+    },
     function_log::{
         ActionCompletion,
         FunctionExecutionLog,
@@ -589,6 +592,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        cache: QueryCache,
     ) -> Self {
         // We limit the isolates to only consume fraction of the available
         // cores leaving the rest for tokio. This is still over-provisioning
@@ -613,6 +617,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database.clone(),
             isolate_functions.clone(),
             function_log.clone(),
+            cache,
         );
 
         Self {
