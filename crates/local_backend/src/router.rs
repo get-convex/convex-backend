@@ -52,6 +52,8 @@ use tower_http::{
 use crate::{
     app_metrics::{
         cache_hit_percentage,
+        cache_hit_percentage_top_k,
+        failure_percentage_top_k,
         latency_percentiles,
         scheduled_job_lag,
         table_rate,
@@ -310,6 +312,11 @@ where
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))
         .route("/udf_rate", get(udf_rate))
+        .route("/failure_percentage_top_k", get(failure_percentage_top_k))
+        .route(
+            "/cache_hit_percentage_top_k",
+            get(cache_hit_percentage_top_k),
+        )
         .route("/cache_hit_percentage", get(cache_hit_percentage))
         .route("/table_rate", get(table_rate))
         .route("/latency_percentiles", get(latency_percentiles))

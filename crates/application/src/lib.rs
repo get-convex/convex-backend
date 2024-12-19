@@ -2607,6 +2607,30 @@ impl<RT: Runtime> Application<RT> {
         self.function_log.udf_rate(identifier, metric, window)
     }
 
+    pub async fn failure_percentage_top_k(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("failure_percentage_top_k"));
+        }
+        self.function_log.failure_percentage_top_k(window, k)
+    }
+
+    pub async fn cache_hit_percentage_top_k(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("failure_percentage_top_k"));
+        }
+        self.function_log.cache_hit_percentage_top_k(window, k)
+    }
+
     pub async fn cache_hit_percentage(
         &self,
         identity: Identity,

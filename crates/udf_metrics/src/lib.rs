@@ -24,7 +24,9 @@
 //! time, and one on `(metric_key, bucket_index)` for efficiently finding the
 //! buckets for a given metric.
 use std::{
-    cmp,
+    cmp::{
+        self,
+    },
     collections::{
         BTreeMap,
         BTreeSet,
@@ -317,6 +319,22 @@ impl MetricStore {
         }
 
         Ok(())
+    }
+
+    /// Query all of the metrics that match a given metric type and name within
+    /// a desired time range. The time range is inclusive of its start
+    /// endpoint and exclusive of its end endpoint.
+    pub fn metric_names_for_type(&self, metric_type: MetricType) -> Vec<MetricName> {
+        self.metrics
+            .iter()
+            .filter_map(|(_, metric)| {
+                if metric.metric_type == metric_type {
+                    Some(metric.name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     /// Query all of the counter buckets that cover a desired time range. The
@@ -633,7 +651,7 @@ impl MetricsWindow {
     pub fn resample_counters(
         &self,
         metrics: &MetricStore,
-        buckets: Vec<(BucketIndex, f32)>,
+        buckets: Vec<&CounterBucket>,
         is_rate: bool,
     ) -> anyhow::Result<Timeseries> {
         // Start by filling out the output buckets with unknown values.
@@ -659,8 +677,8 @@ impl MetricsWindow {
         // simply find which output bucket the input bucket's start time falls into.
         // This may create some aliasing, especially if the output bucket size is small
         // relative to the input bucket size, but is good enough for now.
-        for (bucket_index, value) in buckets {
-            let bucket_start = metrics.bucket_start(bucket_index);
+        for &CounterBucket { index, value } in buckets {
+            let bucket_start = metrics.bucket_start(index);
             if (self.start..self.end).contains(&bucket_start) {
                 let (_, existing) = &mut result[self.bucket_index(bucket_start)?];
                 *existing.as_mut().context("Missing counter")? += value as f64;

@@ -58,6 +58,45 @@ pub(crate) async fn udf_rate(
         .application
         .udf_rate(identity, udf_identifier, metric.parse()?, window)
         .await?;
+    Ok(Json(timeseries.clone()))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct TopKQueryArgs {
+    window: String,
+    k: Option<usize>,
+}
+
+pub(crate) async fn failure_percentage_top_k(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(TopKQueryArgs { window, k }): Query<TopKQueryArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let window_json: serde_json::Value =
+        serde_json::from_str(&window).map_err(anyhow::Error::new)?;
+    let window = window_json.try_into()?;
+
+    let timeseries = st
+        .application
+        .failure_percentage_top_k(identity, window, k.unwrap_or(5))
+        .await?;
+    Ok(Json(timeseries))
+}
+
+pub(crate) async fn cache_hit_percentage_top_k(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Query(TopKQueryArgs { window, k }): Query<TopKQueryArgs>,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    let window_json: serde_json::Value =
+        serde_json::from_str(&window).map_err(anyhow::Error::new)?;
+    let window = window_json.try_into()?;
+
+    let timeseries = st
+        .application
+        .cache_hit_percentage_top_k(identity, window, k.unwrap_or(5))
+        .await?;
     Ok(Json(timeseries))
 }
 
