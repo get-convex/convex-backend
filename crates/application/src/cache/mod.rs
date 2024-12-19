@@ -255,8 +255,8 @@ impl<RT: Runtime> CacheManager<RT> {
         let identity_cache_key = identity.cache_key();
         let key = CacheKey {
             instance: self.instance_id,
-            path: path.clone(),
-            args: args.clone(),
+            path,
+            args,
             identity: identity_cache_key,
             journal: journal.unwrap_or_else(QueryJournal::new),
             allowed_visibility: caller.allowed_visibility(),
@@ -731,7 +731,8 @@ impl Inner {
     fn remove_waiting(&mut self, key: &CacheKey, entry_id: u64) {
         match self.cache.get(key) {
             Some(CacheEntry::Waiting { id, .. }) if *id == entry_id => {
-                self.size -= key.size() + self.cache.pop(key).unwrap().size();
+                let (actual_key, entry) = self.cache.pop_entry(key).unwrap();
+                self.size -= actual_key.size() + entry.size();
             },
             _ => (),
         }
@@ -743,7 +744,8 @@ impl Inner {
     fn remove_ready(&mut self, key: &CacheKey, original_ts: Timestamp) {
         match self.cache.get(key) {
             Some(CacheEntry::Ready(ref result)) if result.original_ts == original_ts => {
-                self.size -= key.size() + self.cache.pop(key).unwrap().size();
+                let (actual_key, entry) = self.cache.pop_entry(key).unwrap();
+                self.size -= actual_key.size() + entry.size();
             },
             _ => (),
         }
@@ -761,22 +763,22 @@ impl Inner {
 
         let (sender, receiver) = broadcast(1);
 
-        let key_size = key.size();
         let new_entry = CacheEntry::Waiting {
             id,
             receiver,
             started: now,
             ts,
         };
-        let new_size = key_size + new_entry.size();
+        let new_size = key.size() + new_entry.size();
         let old_size = self
             .cache
-            .put(key, new_entry)
-            .map(|value| key_size + value.size())
+            .push(key, new_entry)
+            .map(|(old_key, old_value)| old_key.size() + old_value.size())
             .unwrap_or(0);
 
-        self.size -= old_size;
-        self.size += new_size;
+        // N.B.: `self.size - old_size` could be _negative_ if `key.size()` was larger
+        // than the size of the preexisting key; therefore add before subtracting
+        self.size = self.size + new_size - old_size;
 
         self.enforce_size_limit();
         (sender, id)
@@ -852,4 +854,136 @@ enum CacheOp<'a> {
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        path::PathBuf,
+        sync::Arc,
+    };
+
+    use common::{
+        components::{
+            ExportPath,
+            PublicFunctionPath,
+        },
+        identity::IdentityCacheKey,
+        index::IndexKeyBytes,
+        query::{
+            Cursor,
+            CursorPosition,
+        },
+        query_journal::QueryJournal,
+        types::AllowedVisibility,
+    };
+    use database::Token;
+    use isolate::UdfOutcome;
+    use proptest::{
+        prelude::{
+            Arbitrary,
+            Strategy,
+        },
+        strategy::ValueTree,
+        test_runner::TestRunner,
+    };
+    use sync_types::{
+        CanonicalizedModulePath,
+        CanonicalizedUdfPath,
+        Timestamp,
+    };
+    use tokio::time::Instant;
+    use value::{
+        ConvexArray,
+        ConvexValue,
+    };
+
+    use super::{
+        CacheKey,
+        CacheResult,
+        InstanceId,
+        QueryCache,
+    };
+
+    // Construct a cache key where as many fields as possible have extra capacity in
+    // them
+    fn make_cache_key() -> CacheKey {
+        macro_rules! with_extra_capacity {
+            ($e:expr) => {{
+                let mut r = $e;
+                r.reserve(100);
+                r
+            }};
+        }
+        CacheKey {
+            instance: InstanceId(0),
+            path: PublicFunctionPath::RootExport(ExportPath::from(CanonicalizedUdfPath::new(
+                CanonicalizedModulePath::new(
+                    PathBuf::with_capacity(1 << 10),
+                    false,
+                    false,
+                    false,
+                    false,
+                ),
+                "function_name".parse().unwrap(),
+            ))),
+            args: ConvexArray::try_from(with_extra_capacity!(vec![ConvexValue::from(100.)]))
+                .unwrap(),
+            identity: IdentityCacheKey::InstanceAdmin(with_extra_capacity!("admin".to_string())),
+            journal: QueryJournal {
+                end_cursor: Some(Cursor {
+                    position: CursorPosition::After(IndexKeyBytes(with_extra_capacity!(
+                        b"key".to_vec()
+                    ))),
+                    query_fingerprint: with_extra_capacity!(b"fingerprint".to_vec()),
+                }),
+            },
+            allowed_visibility: AllowedVisibility::All,
+        }
+    }
+
+    fn make_cache_result() -> CacheResult {
+        let mut test_runner = TestRunner::deterministic();
+        CacheResult {
+            outcome: Arc::new(
+                UdfOutcome::arbitrary()
+                    .new_tree(&mut test_runner)
+                    .unwrap()
+                    .current(),
+            ),
+            original_ts: Timestamp::MIN,
+            token: Token::arbitrary()
+                .new_tree(&mut test_runner)
+                .unwrap()
+                .current(),
+        }
+    }
+
+    #[test]
+    fn test_put_waiting_excess_capacity() {
+        let cache = QueryCache::new(usize::MAX);
+        let cache_key = make_cache_key();
+        // Cloning the key effectively shrinks away the excess capacity
+        let cloned_key = cache_key.clone();
+        assert_ne!(cache_key.size(), cloned_key.size());
+        let (_, id) = cache
+            .inner
+            .lock()
+            .put_waiting(cloned_key, Instant::now(), Timestamp::MIN);
+        assert!(cache.inner.lock().size > 0);
+        cache.remove_waiting(&cache_key, id);
+        assert_eq!(cache.inner.lock().size, 0);
+    }
+
+    #[test]
+    fn test_put_ready_excess_capacity() {
+        let cache = QueryCache::new(usize::MAX);
+        let cache_key = make_cache_key();
+        let cloned_key = cache_key.clone();
+        assert_ne!(cache_key.size(), cloned_key.size());
+        cache.put_ready(cloned_key, make_cache_result());
+        assert!(cache.inner.lock().size > 0);
+        cache.remove_ready(&cache_key, Timestamp::MIN);
+        assert_eq!(cache.inner.lock().size, 0);
+    }
 }
