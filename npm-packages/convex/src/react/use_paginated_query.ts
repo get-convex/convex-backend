@@ -7,7 +7,7 @@ import {
   paginationOptsValidator,
   PaginationResult,
 } from "../server/index.js";
-import { convexToJson, Infer, Value } from "../values/index.js";
+import { ConvexError, convexToJson, Infer, Value } from "../values/index.js";
 import { useQueries } from "./use_queries.js";
 import {
   FunctionArgs,
@@ -247,7 +247,13 @@ export function usePaginatedQuery<Query extends PaginatedQueryReference>(
       }
 
       if (currResult instanceof Error) {
-        if (currResult.message.includes("InvalidCursor")) {
+        if (
+          currResult.message.includes("InvalidCursor") ||
+          (currResult instanceof ConvexError &&
+            typeof currResult.data === "object" &&
+            currResult.data?.isConvexSystemError === true &&
+            currResult.data?.paginationError === "InvalidCursor")
+        ) {
           // - InvalidCursor: If the cursor is invalid, probably the paginated
           // database query was data-dependent and changed underneath us. The
           // cursor in the params or journal no longer matches the current
