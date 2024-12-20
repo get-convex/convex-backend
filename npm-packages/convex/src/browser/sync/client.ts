@@ -719,6 +719,24 @@ export class BaseConvexClient {
     options?: MutationOptions,
     componentPath?: string,
   ): Promise<FunctionResult> {
+    const { mutationPromise } = this.enqueueMutation(
+      udfPath,
+      args,
+      options,
+      componentPath,
+    );
+    return mutationPromise;
+  }
+
+  /**
+   * @internal
+   */
+  enqueueMutation(
+    udfPath: string,
+    args?: Record<string, Value>,
+    options?: MutationOptions,
+    componentPath?: string,
+  ): { requestId: RequestId; mutationPromise: Promise<FunctionResult> } {
     const mutationArgs = parseArgs(args);
     this.tryReportLongDisconnect();
     const requestId = this.nextRequestId;
@@ -770,7 +788,11 @@ export class BaseConvexClient {
       args: [convexToJson(mutationArgs)],
     };
     const mightBeSent = this.webSocketManager.sendMessage(message);
-    return this.requestManager.request(message, mightBeSent);
+    const mutationPromise = this.requestManager.request(message, mightBeSent);
+    return {
+      requestId,
+      mutationPromise,
+    };
   }
 
   /**
