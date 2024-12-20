@@ -66,6 +66,7 @@ use isolate::{
     SyscallTrace,
     UdfOutcome,
 };
+use itertools::Itertools;
 use parking_lot::Mutex;
 use serde_json::{
     json,
@@ -1091,7 +1092,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         )?;
         let misses = window.resample_counters(&metrics, misses, false /* is_rate */)?;
 
-        merge_cache_hit_rate(&hits, &misses)
+        merge_series(&hits, &misses, cache_hit_percentage)
     }
 
     pub fn failure_percentage_top_k(
@@ -1108,7 +1109,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let invocations = Self::get_udf_metric_counter(&window, &metrics, "invocations")?;
         let errors = Self::get_udf_metric_counter(&window, &metrics, "errors")?;
 
-        Self::top_k_for_rate(&window, errors, invocations, k, merge_rate, false)
+        Self::top_k_for_rate(&window, errors, invocations, k, percentage, false)
     }
 
     pub fn cache_hit_percentage_top_k(
@@ -1125,7 +1126,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         let hits = Self::get_udf_metric_counter(&window, &metrics, "cache_hits")?;
         let misses = Self::get_udf_metric_counter(&window, &metrics, "cache_misses")?;
 
-        Self::top_k_for_rate(&window, hits, misses, k, merge_cache_hit_rate, true)
+        Self::top_k_for_rate(&window, hits, misses, k, cache_hit_percentage, true)
     }
 
     fn get_udf_metric_counter(
@@ -1161,38 +1162,18 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             .collect()
     }
 
-    fn top_k(
-        map: HashMap<String, Timeseries>,
-        k: usize,
-        ascending: bool,
-    ) -> Vec<(String, Timeseries)> {
-        let mut top_k: Vec<_> = map
-            .iter()
-            .map(|(key, timeseries)| {
-                let sum: f64 = timeseries
-                    .iter()
-                    .map(|(_, value)| (*value).unwrap_or_default())
-                    .sum();
-                (key, sum)
-            })
-            .collect();
-
-        top_k.sort_by(|(_, a), (_, b)| {
+    fn top_k(map: &HashMap<&str, f64>, k: usize, ascending: bool) -> Vec<String> {
+        let mut top_k: Vec<_> = map.iter().map(|(&key, &sum)| (key, sum)).collect();
+        top_k.sort_unstable_by(|(name1, a), (name2, b)| {
             if ascending {
                 a.total_cmp(b)
             } else {
                 b.total_cmp(a)
             }
+            .then(name1.cmp(name2)) // tiebreak by name
         });
         top_k.truncate(k);
-
-        let mut ret = Vec::new();
-        for (name, _) in &top_k {
-            let timeseries = map.get(*name).unwrap();
-            ret.push((name.to_string(), timeseries.clone()));
-        }
-
-        ret
+        top_k.into_iter().map(|(name, _)| name.to_owned()).collect()
     }
 
     // Compute the top k rates for the given UDFs
@@ -1201,42 +1182,42 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         mut ts1: HashMap<String, Timeseries>,
         mut ts2: HashMap<String, Timeseries>,
         k: usize,
-        merge: impl Fn(&Timeseries, &Timeseries) -> anyhow::Result<Timeseries>,
+        merge: impl Fn(Option<f64>, Option<f64>) -> Option<f64> + Copy,
         ascending: bool,
     ) -> anyhow::Result<Vec<(String, Timeseries)>> {
-        let mut map: HashMap<String, Timeseries> = HashMap::new();
-
-        for (udf_id, ts1_bucket) in ts1.iter() {
-            let ts2_bucket = ts2.get(udf_id);
-
-            match ts2_bucket {
-                None => {
-                    let result = ts1_bucket.iter().map(|&(ts, _)| (ts, None)).collect();
-
-                    map.insert(udf_id.to_string(), result);
-                },
-                Some(ts2_bucket) => {
-                    let merged: Vec<(SystemTime, Option<f64>)> = merge(ts1_bucket, ts2_bucket)?;
-                    map.insert(udf_id.to_string(), merged);
-                },
+        // First, calculate the overall rates summed over the entire time window
+        let mut overall: HashMap<&str, f64> = HashMap::new();
+        for (udf_id, ts1_series) in ts1.iter() {
+            let ts1_sum = ts1_series.iter().filter_map(|&(_, value)| value).sum1();
+            let ts2_sum = ts2
+                .get(udf_id)
+                .and_then(|ts2_series| ts2_series.iter().filter_map(|&(_, value)| value).sum1());
+            if let Some(ratio) = merge(ts1_sum, ts2_sum) {
+                overall.insert(udf_id, ratio);
             }
         }
+        let top_k = Self::top_k(&overall, k, ascending);
 
-        let mut ret = Self::top_k(map, k, ascending);
+        let mut ret = vec![];
 
-        // Remove the top k from the hits and misses timeseries
-        // so we can sum up everything that's left over.
-        for (name, _) in &ret {
-            ts1.remove(name);
-            ts2.remove(name);
+        for udf_id in top_k {
+            // Remove the top k from the hits and misses timeseries
+            // so we can sum up everything that's left over.
+            let ts1_series = ts1
+                .remove(&udf_id)
+                .expect("everything in topk came from ts1");
+            let ts2_series = ts2
+                .remove(&udf_id)
+                .unwrap_or_else(|| ts1_series.iter().map(|&(ts, _)| (ts, None)).collect());
+            let merged: Timeseries = merge_series(&ts1_series, &ts2_series, merge)?;
+            ret.push((udf_id.to_string(), merged));
         }
 
         // Sum up the rest of the rates
         if !ts2.is_empty() || !ts1.is_empty() {
             let rest_ts1 = sum_timeseries(window, ts1.values())?;
             let rest_ts2 = sum_timeseries(window, ts2.values())?;
-
-            let rest = merge(&rest_ts1, &rest_ts2)?;
+            let rest = merge_series(&rest_ts1, &rest_ts2, merge)?;
             ret.push(("_rest".to_string(), rest));
         }
 
@@ -1440,52 +1421,42 @@ fn sum_timeseries<'a>(
     Ok(result)
 }
 
-/// Merges two series to get the rate, where rate = partial / total * 100.
-fn merge_rate(partial: &Timeseries, total: &Timeseries) -> anyhow::Result<Timeseries> {
-    anyhow::ensure!(total.len() == partial.len());
-    total
-        .iter()
-        .zip(partial)
-        .map(|(&(t1, total_value), &(t2, partial_value))| {
+fn merge_series(
+    ts1: &Timeseries,
+    ts2: &Timeseries,
+    merge: impl Fn(Option<f64>, Option<f64>) -> Option<f64>,
+) -> anyhow::Result<Timeseries> {
+    anyhow::ensure!(ts2.len() == ts1.len());
+    ts2.iter()
+        .zip(ts1)
+        .map(|(&(t1, t1_value), &(t2, t2_value))| {
             anyhow::ensure!(t1 == t2);
-            Ok((
-                t1,
-                match (total_value, partial_value) {
-                    (Some(total_value), Some(partial_value)) => {
-                        Some(partial_value / total_value * 100.)
-                    },
-                    (Some(_total_value), None) => Some(0.),
-                    (None, Some(_partial_value)) => Some(100.),
-                    (None, None) => None,
-                },
-            ))
+            Ok((t1, merge(t1_value, t2_value)))
         })
         .collect()
 }
 
-/// Merges two series to get the cache hit rate,
-/// where rate = hits / (misses + hits) * 100.
-fn merge_cache_hit_rate(hits: &Timeseries, misses: &Timeseries) -> anyhow::Result<Timeseries> {
-    anyhow::ensure!(hits.len() == misses.len());
-    hits.iter()
-        .zip(misses)
-        .map(|(&(t1, hits_value), &(t2, misses_value))| {
-            anyhow::ensure!(t1 == t2);
-            Ok((
-                t1,
-                match (hits_value, misses_value) {
-                    (Some(hits_value), Some(misses_value)) => {
-                        Some(hits_value / (hits_value + misses_value) * 100.)
-                    },
-                    // There are hits but not misses, so the hit rate is 100.
-                    (Some(_hits_value), None) => Some(100.),
-                    // There are misses but not hits, so the hit rate is 0.
-                    (None, Some(_misses_value)) => Some(0.),
-                    (None, None) => None,
-                },
-            ))
-        })
-        .collect()
+/// numerator / denominator * 100
+fn percentage(numerator: Option<f64>, denominator: Option<f64>) -> Option<f64> {
+    match (numerator, denominator) {
+        (Some(numerator), Some(denominator)) => Some(numerator / denominator * 100.),
+        (None, Some(_denominator)) => Some(0.),
+        // This doesn't make sense, but could happen with mismatched timeseries or missing data
+        (Some(_numerator), None) => Some(100.),
+        (None, None) => None,
+    }
+}
+
+/// hits / (hits + misses) * 100
+fn cache_hit_percentage(hits: Option<f64>, misses: Option<f64>) -> Option<f64> {
+    match (hits, misses) {
+        (Some(hits), Some(misses)) => Some(hits / (hits + misses) * 100.),
+        // There are hits but not misses, so the hit rate is 100.
+        (Some(_hits), None) => Some(100.),
+        // There are misses but not hits, so the hit rate is 0.
+        (None, Some(_misses)) => Some(0.),
+        (None, None) => None,
+    }
 }
 
 struct Inner<RT: Runtime> {
