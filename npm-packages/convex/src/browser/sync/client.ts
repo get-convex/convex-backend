@@ -148,6 +148,29 @@ export interface MutationOptions {
 }
 
 /**
+ * Type describing updates to a query within a `Transition`.
+ *
+ * @public
+ */
+export type QueryModification =
+  // `undefined` generally comes from an optimistic update setting the query to be loading
+  { kind: "Updated"; result: FunctionResult | undefined } | { kind: "Removed" };
+
+/**
+ * Object describing a transition passed into the `onTransition` handler.
+ *
+ * These can be from receiving a transition from the server, or from applying an
+ * optimistc update locally.
+ *
+ * @public
+ */
+export type Transition = {
+  queries: Array<{ token: QueryToken; modification: QueryModification }>;
+  reflectedMutations: Array<{ requestId: RequestId; result: FunctionResult }>;
+  timestamp: TS;
+};
+
+/**
  * Low-level client for directly integrating state management libraries
  * with Convex.
  *
@@ -164,8 +187,10 @@ export class BaseConvexClient {
   private readonly authenticationManager: AuthenticationManager;
   private remoteQuerySet: RemoteQuerySet;
   private readonly optimisticQueryResults: OptimisticQueryResults;
-  private readonly onTransition: (updatedQueries: QueryToken[]) => void;
+  private _transitionHandlerCounter = 0;
   private _nextRequestId: RequestId;
+  private _onTransitionFns: Map<number, (transition: Transition) => void> =
+    new Map();
   private readonly _sessionId: string;
   private firstMessageReceived = false;
   private readonly debug: boolean;
@@ -176,7 +201,8 @@ export class BaseConvexClient {
    * @param address - The url of your Convex deployment, often provided
    * by an environment variable. E.g. `https://small-mouse-123.convex.cloud`.
    * @param onTransition - A callback receiving an array of query tokens
-   * corresponding to query results that have changed.
+   * corresponding to query results that have changed -- additional handlers
+   * can be added via `addOnTransitionHandler`.
    * @param options - See {@link BaseConvexClientOptions} for a full description.
    */
   constructor(
@@ -254,7 +280,9 @@ export class BaseConvexClient {
       },
     );
     this.optimisticQueryResults = new OptimisticQueryResults();
-    this.onTransition = onTransition;
+    this.addOnTransitionHandler((transition) => {
+      onTransition(transition.queries.map((q) => q.token));
+    });
     this._nextRequestId = 0;
     this._sessionId = newSessionId();
 
@@ -355,10 +383,17 @@ export class BaseConvexClient {
               if (serverMessage.success) {
                 this.observedTimestamp(serverMessage.ts);
               }
-              const completedMutationId =
+              const completedMutationInfo =
                 this.requestManager.onResponse(serverMessage);
-              if (completedMutationId !== null) {
-                this.notifyOnQueryResultChanges(new Set([completedMutationId]));
+              if (completedMutationInfo !== null) {
+                this.notifyOnQueryResultChanges(
+                  new Map([
+                    [
+                      completedMutationInfo.requestId,
+                      completedMutationInfo.result,
+                    ],
+                  ]),
+                );
               }
               break;
             }
@@ -426,7 +461,9 @@ export class BaseConvexClient {
    * @param completedMutations - A set of mutation IDs whose optimistic updates
    * are no longer needed.
    */
-  private notifyOnQueryResultChanges(completedRequest: Set<RequestId>) {
+  private notifyOnQueryResultChanges(
+    completedRequests: Map<RequestId, FunctionResult>,
+  ) {
     const remoteQueryResults: Map<QueryId, FunctionResult> =
       this.remoteQuerySet.remoteQueryResults();
     const queryTokenToValue: QueryResultsMap = new Map();
@@ -444,13 +481,49 @@ export class BaseConvexClient {
         queryTokenToValue.set(queryToken, query);
       }
     }
-
-    this.onTransition(
+    const changedQueryTokens =
       this.optimisticQueryResults.ingestQueryResultsFromServer(
         queryTokenToValue,
-        completedRequest,
+        new Set(completedRequests.keys()),
+      );
+
+    this.handleTransition({
+      queries: changedQueryTokens.map((token) => ({
+        token,
+        modification: {
+          kind: "Updated",
+          result: queryTokenToValue.get(token)!.result,
+        },
+      })),
+      reflectedMutations: Array.from(completedRequests).map(
+        ([requestId, result]) => ({
+          requestId,
+          result,
+        }),
       ),
-    );
+      timestamp: this.remoteQuerySet.timestamp(),
+    });
+  }
+
+  private handleTransition(transition: Transition) {
+    for (const fn of this._onTransitionFns.values()) {
+      fn(transition);
+    }
+  }
+
+  /**
+   * Add a handler that will be called on a transition.
+   *
+   * Any external side effects (e.g. setting React state) should be handled here.
+   *
+   * @param fn
+   *
+   * @returns
+   */
+  addOnTransitionHandler(fn: (transition: Transition) => void) {
+    const id = this._transitionHandlerCounter++;
+    this._onTransitionFns.set(id, fn);
+    return () => this._onTransitionFns.delete(id);
   }
 
   /**
@@ -658,12 +731,34 @@ export class BaseConvexClient {
           optimisticUpdate(localQueryStore, mutationArgs);
         };
 
-        const changedQueries =
+        const changedQueryTokens =
           this.optimisticQueryResults.applyOptimisticUpdate(
             wrappedUpdate,
             requestId,
           );
-        this.onTransition(changedQueries);
+
+        const changedQueries = changedQueryTokens.map((token) => {
+          const localResult = this.localQueryResultByToken(token);
+          return {
+            token,
+            modification: {
+              kind: "Updated" as const,
+              result:
+                localResult === undefined
+                  ? undefined
+                  : {
+                      success: true as const,
+                      value: localResult,
+                      logLines: [],
+                    },
+            },
+          };
+        });
+        this.handleTransition({
+          queries: changedQueries,
+          reflectedMutations: [],
+          timestamp: this.remoteQuerySet.timestamp(),
+        });
       }
     }
 
