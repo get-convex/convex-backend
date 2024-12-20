@@ -1978,7 +1978,7 @@ impl<RT: Runtime> Database<RT> {
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let mut document_counts = vec![];
         for ((table_namespace, table_name), summary) in snapshot.iter_table_summaries()? {
-            let count = summary.num_values() as u64;
+            let count = summary.num_values();
             if let Some(component_path) =
                 components_model.get_component_path(ComponentId::from(table_namespace))
             {

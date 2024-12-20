@@ -73,7 +73,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableSummary {
     inferred_type: CountedShape<ProdConfigWithOptionalFields>,
-    total_size: i64,
+    total_size: u64,
 }
 
 impl fmt::Display for TableSummary {
@@ -98,13 +98,12 @@ impl TableSummary {
         self.inferred_type.is_empty() && self.total_size == 0
     }
 
-    // TODO: change this to u64
-    pub fn total_size(&self) -> usize {
-        self.total_size as usize
+    pub fn total_size(&self) -> u64 {
+        self.total_size
     }
 
-    pub fn num_values(&self) -> usize {
-        *self.inferred_type.num_values() as usize
+    pub fn num_values(&self) -> u64 {
+        *self.inferred_type.num_values()
     }
 
     pub fn inferred_type(&self) -> &CountedShape<ProdConfigWithOptionalFields> {
@@ -112,7 +111,7 @@ impl TableSummary {
     }
 
     pub fn insert(&self, object: &ConvexObject) -> Self {
-        let total_size = self.total_size + object.size() as i64;
+        let total_size = self.total_size + object.size() as u64;
         Self {
             inferred_type: self.inferred_type.insert(object),
             total_size,
@@ -120,7 +119,7 @@ impl TableSummary {
     }
 
     pub fn remove(&self, object: &ConvexObject) -> anyhow::Result<Self> {
-        let size = object.size() as i64;
+        let size = object.size() as u64;
         Ok(Self {
             inferred_type: self.inferred_type.remove(object)?,
             total_size: self.total_size - size,
@@ -128,7 +127,7 @@ impl TableSummary {
     }
 
     pub fn reset_shape(&mut self) {
-        self.inferred_type = CountedShape::new(ShapeEnum::Unknown, self.num_values() as u64);
+        self.inferred_type = CountedShape::new(ShapeEnum::Unknown, self.num_values());
     }
 
     pub fn persistence_key() -> PersistenceGlobalKey {
@@ -139,7 +138,7 @@ impl TableSummary {
 impl From<&TableSummary> for JsonValue {
     fn from(summary: &TableSummary) -> Self {
         json!({
-            "totalSize": JsonInteger::encode(summary.total_size),
+            "totalSize": JsonInteger::encode(summary.total_size as i64),
             "inferredTypeWithOptionalFields": JsonValue::from(&summary.inferred_type)
         })
     }
@@ -152,7 +151,7 @@ impl TryFrom<JsonValue> for TableSummary {
         match json_value {
             JsonValue::Object(mut v) => {
                 let total_size = match v.remove("totalSize") {
-                    Some(JsonValue::String(s)) => JsonInteger::decode(s)?,
+                    Some(JsonValue::String(s)) => JsonInteger::decode(s)? as u64,
                     _ => anyhow::bail!("Invalid totalSize"),
                 };
                 anyhow::ensure!(total_size >= 0);

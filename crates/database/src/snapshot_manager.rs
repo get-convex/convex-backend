@@ -80,8 +80,8 @@ pub struct SnapshotManager {
 /// exist and tracks the user document and size counts.
 pub struct TableSummaries {
     pub tables: OrdMap<TabletId, TableSummary>,
-    pub num_user_documents: usize,
-    pub user_size: usize,
+    pub num_user_documents: u64,
+    pub user_size: u64,
 }
 
 #[async_trait]
@@ -92,7 +92,7 @@ impl TableCountSnapshot for Option<TableSummaries> {
                 let count = table_summaries
                     .tables
                     .get(&table)
-                    .map_or(0, |summary| summary.num_values() as u64);
+                    .map_or(0, |summary| summary.num_values());
                 Some(count)
             },
             None => None,
@@ -355,7 +355,7 @@ impl Snapshot {
             document_storage_by_table.insert(
                 table_name,
                 TableUsage {
-                    document_size: table_size as u64,
+                    document_size: table_size,
                     index_size: 0,
                     system_index_size: 0,
                 },

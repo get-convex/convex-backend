@@ -6,8 +6,8 @@ use value::TableName;
 
 pub struct TableChange {
     pub added: u64,
-    pub deleted: usize,
-    pub existing: usize,
+    pub deleted: u64,
+    pub existing: u64,
     pub unit: &'static str,
     pub is_missing_id_field: bool,
 }

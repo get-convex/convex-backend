@@ -37,12 +37,12 @@ register_convex_gauge!(
     DOCUMENTS_SIZE_BYTES,
     "Total size of document store in bytes"
 );
-pub fn log_document_store_size(total_size: usize) {
+pub fn log_document_store_size(total_size: u64) {
     log_gauge(&DOCUMENTS_SIZE_BYTES, total_size as f64);
 }
 
 register_convex_gauge!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");
-pub fn log_num_keys(num_keys: usize) {
+pub fn log_num_keys(num_keys: u64) {
     log_gauge(&DOCUMENTS_KEYS_TOTAL, num_keys as f64);
 }
 
