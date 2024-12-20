@@ -39,7 +39,7 @@ use crate::{
     UdfOutcome,
 };
 
-async fn add_index<RT: Runtime, P: Persistence + Clone>(t: &UdfTest<RT, P>) -> anyhow::Result<()> {
+async fn add_index<RT: Runtime, P: Persistence>(t: &UdfTest<RT, P>) -> anyhow::Result<()> {
     t.add_index(IndexMetadata::new_backfilling(
         *t.database.now_ts_for_reads(),
         "myTable.by_a_b".parse()?,

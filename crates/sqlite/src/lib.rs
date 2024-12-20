@@ -69,7 +69,6 @@ use serde_json::Value as JsonValue;
 
 // We only have a single Sqlite connection which does not allow async calls, so
 // we can't really make queries concurrent.
-#[derive(Clone)]
 pub struct SqlitePersistence {
     inner: Arc<Mutex<Inner>>,
 }

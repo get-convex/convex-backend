@@ -244,8 +244,7 @@ pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentD
     })
 }
 
-#[derive(Clone)]
-pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
+pub struct UdfTest<RT: Runtime, P: Persistence> {
     pub database: Database<RT>,
     pub isolate: IsolateClient<RT>,
     pub persistence: Arc<P>,
@@ -259,7 +258,24 @@ pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
     isolate_v2_enabled: bool,
 }
 
-impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
+impl<RT: Runtime, P: Persistence> Clone for UdfTest<RT, P> {
+    fn clone(&self) -> Self {
+        Self {
+            database: self.database.clone(),
+            isolate: self.isolate.clone(),
+            persistence: self.persistence.clone(),
+            rt: self.rt.clone(),
+            key_broker: self.key_broker.clone(),
+            module_loader: self.module_loader.clone(),
+            search_storage: self.search_storage.clone(),
+            file_storage: self.file_storage.clone(),
+            environment_data: self.environment_data.clone(),
+            isolate_v2_enabled: self.isolate_v2_enabled,
+        }
+    }
+}
+
+impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
     async fn new(
         modules: Vec<ModuleConfig>,
         rt: RT,
@@ -1220,7 +1236,7 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
 }
 
 #[async_trait]
-impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
+impl<RT: Runtime, P: Persistence> UdfCallback<RT> for UdfTest<RT, P> {
     async fn execute_udf(
         &self,
         _client_id: String,
@@ -1237,7 +1253,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
 }
 
 #[async_trait]
-impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
+impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_query(
         &self,
         identity: Identity,
