@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     ffi,
     ptr,
@@ -22,6 +23,7 @@ use humansize::{
     FormatSize,
     BINARY,
 };
+use minitrace::Event;
 use value::heap_size::WithHeapSize;
 
 use crate::{
@@ -339,8 +341,20 @@ struct HeapContext {
 extern "C" fn near_heap_limit_callback(
     data: *mut ffi::c_void,
     current_heap_limit: usize,
-    _initial_heap_limit: usize,
+    initial_heap_limit: usize,
 ) -> usize {
+    Event::add_to_local_parent("isolate_out_of_memory", || {
+        [
+            (
+                Cow::Borrowed("current_heap_limit"),
+                Cow::Owned(current_heap_limit.to_string()),
+            ),
+            (
+                Cow::Borrowed("initial_heap_limit"),
+                Cow::Owned(initial_heap_limit.to_string()),
+            ),
+        ]
+    });
     let heap_ctx = unsafe { &mut *(data as *mut HeapContext) };
     heap_ctx.handle.terminate(TerminationReason::OutOfMemory);
 
