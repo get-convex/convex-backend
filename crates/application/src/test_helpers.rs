@@ -108,6 +108,7 @@ use crate::{
     cache::QueryCache,
     cron_jobs::CronJobExecutor,
     deploy_config::{
+        FinishPushDiff,
         SchemaStatus,
         StartPushRequest,
     },
@@ -176,6 +177,8 @@ pub trait ApplicationTestExt<RT: Runtime> {
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
     /// Load the modules form npm-packages/component-tests
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()>;
+    async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff>;
+
     async fn test_one_off_cron_job_executor_run(
         &self,
         job: CronJob,
@@ -366,6 +369,11 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()> {
         let request = Self::load_start_push_request(Path::new(layout))?;
+        self.run_test_push(request).await?;
+        Ok(())
+    }
+
+    async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff> {
         let dry_run = request.dry_run;
         let config = request.into_project_config()?;
         let start_push = self.start_push(&config, dry_run).await?;
@@ -383,8 +391,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 _ => anyhow::bail!("Unexpected schema status: {schema_status:?}"),
             }
         }
-        self.finish_push(Identity::system(), start_push).await?;
-        Ok(())
+        let diff = self.finish_push(Identity::system(), start_push).await?;
+        Ok(diff)
     }
 
     fn validate_user_defined_index_fields(

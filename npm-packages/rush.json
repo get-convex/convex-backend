@@ -24,6 +24,10 @@
       "versionPolicyName": "convex"
     },
     {
+      "packageName": "local-store",
+      "projectFolder": "local-store"
+    },
+    {
       "packageName": "udf-runtime",
       "projectFolder": "udf-runtime"
     },

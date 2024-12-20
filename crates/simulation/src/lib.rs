@@ -1,4 +1,6 @@
 #![feature(async_closure)]
+#![feature(lazy_cell)]
+#![feature(try_blocks)]
 
 #[cfg(test)]
 mod tests;

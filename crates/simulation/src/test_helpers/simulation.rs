@@ -1,10 +1,12 @@
 use std::{
     future::Future,
     sync::Arc,
+    time::Duration,
 };
 
 use application::{
     api::ApplicationApi,
+    deploy_config::StartPushRequest,
     test_helpers::ApplicationTestExt,
     Application,
 };
@@ -24,8 +26,17 @@ pub struct SimulationTest {
     pub js_clients: Vec<JsClientThread>,
 }
 
+pub struct SimulationTestConfig {
+    pub num_client_threads: usize,
+    pub expected_delay_duration: Option<Duration>,
+}
+
 impl SimulationTest {
-    pub async fn run<F, Fut>(rt: TestRuntime, num_client_threads: usize, f: F) -> anyhow::Result<()>
+    pub async fn run<F, Fut>(
+        rt: TestRuntime,
+        config: SimulationTestConfig,
+        f: F,
+    ) -> anyhow::Result<()>
     where
         F: FnOnce(Self) -> Fut,
         Fut: Future<Output = anyhow::Result<()>>,
@@ -37,17 +48,24 @@ impl SimulationTest {
         tracing::error!("create app: {:?}", start.elapsed());
 
         let start = std::time::Instant::now();
-        application.load_udf_tests_modules().await?;
-        tracing::error!("load modules: {:?}", start.elapsed());
+        let start_push_json =
+            include_str!("../../../../npm-packages/simulation/dist/start_push.json");
+        let output: StartPushRequest = serde_json::from_str(start_push_json)?;
+        application.run_test_push(output).await?;
+        tracing::error!("push: {:?}", start.elapsed());
 
         let application = Arc::new(application);
 
         let start = std::time::Instant::now();
         let mut handles = vec![];
-        let (server, handle) = ServerThread::new(rt.clone(), application.clone());
+        let (server, handle) = ServerThread::new(
+            rt.clone(),
+            application.clone(),
+            config.expected_delay_duration,
+        );
         handles.push(handle);
         let mut js_clients = vec![];
-        for _ in 0..num_client_threads {
+        for _ in 0..config.num_client_threads {
             let (js_client, handle) = JsClientThread::new(rt.clone(), server.clone());
             js_clients.push(js_client);
             handles.push(handle);

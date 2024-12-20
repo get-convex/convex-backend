@@ -118,7 +118,7 @@ impl BaseClientThread {
                         }
                     },
                     // Wait for an incoming message from the server.
-                    message = server_rx.next() => {
+                    message = server_rx.recv() => {
                         match message {
                             Some((msg, _)) => {
                                 tracing::debug!("Received message from sync worker: {msg:?}");

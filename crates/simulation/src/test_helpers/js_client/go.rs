@@ -96,6 +96,9 @@ impl JsClientThread {
                     }
                 }
             }
+
+            // TODO: Do this conditionally
+            // state.print_replay_state();
         }
         tracing::info!("JsThread shutting down...");
         drop(isolate_context);

@@ -1,48 +1,5 @@
-import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
-
-export const initializeRegister = mutation({
-  args: {},
-  handler: async (ctx) => {
-    return await ctx.db.insert("listRegisters", { value: [] });
-  },
-});
-
-export const getRegister = query({
-  args: {
-    id: v.id("listRegisters"),
-  },
-  returns: v.array(v.number()),
-  handler: async (ctx, args) => {
-    const register = await ctx.db.get(args.id);
-    if (!register) {
-      throw new Error(`Invalid ID: ${args.id}`);
-    }
-    return register.value;
-  },
-});
-
-export const appendRegisters = mutation({
-  args: {
-    ids: v.array(v.id("listRegisters")),
-    value: v.number(),
-  },
-  returns: v.record(v.id("listRegisters"), v.array(v.number())),
-  handler: async (ctx, args) => {
-    const results: Record<Id<"listRegisters">, number[]> = {};
-    for (const id of args.ids) {
-      const register = await ctx.db.get(id);
-      if (!register) {
-        throw new Error(`Invalid ID: ${id}`);
-      }
-      const newValue = [...register.value, args.value];
-      await ctx.db.replace(id, { value: newValue });
-      results[id] = newValue;
-    }
-    return results;
-  },
-});
 
 export const initialize = mutation(
   async ({ db }, { name, balance }: { name: string; balance: number }) => {

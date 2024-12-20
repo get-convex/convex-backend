@@ -22,6 +22,7 @@ use anyhow::Context;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use value::sha256::Sha256;
+use walkdir::WalkDir;
 
 const PACKAGES_DIR: &str = "../../npm-packages";
 const NPM_DIR: &str = "../../npm-packages/convex";
@@ -302,6 +303,9 @@ fn main() -> anyhow::Result<()> {
         }
         let path = fs::canonicalize(Path::new(PACKAGES_DIR).join("simulation").join(rel_path))?;
         rerun_if_changed(path.as_os_str().to_str().unwrap())?;
+    }
+    for entry in WalkDir::new(Path::new(PACKAGES_DIR).join("simulation/convex")) {
+        rerun_if_changed(entry?.path().to_str().expect("Invalid path"))?;
     }
 
     Ok(())

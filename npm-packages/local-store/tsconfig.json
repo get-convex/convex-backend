@@ -1,0 +1,19 @@
+{
+  "include": ["**/*.ts", "**/*.js", "**/*.tsx"],
+  "exclude": ["node_modules"],
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "es2020",
+    "noEmit": true,
+    "moduleResolution": "node",
+    "isolatedModules": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "allowJs": true
+  },
+  /* allow use of internal Convex APIS */
+  "customConditions": ["convex-internal-types"]
+}

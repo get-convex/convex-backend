@@ -85,8 +85,10 @@ model = { path = "../model", features = ["testing"] }
 must-let = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
+rand_distr = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 sync = { path = "../sync", features = ["testing"] }
+uuid = { workspace = true }
 
 [features]
 testing = [

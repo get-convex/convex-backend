@@ -227,6 +227,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
     }
 }
 
+#[derive(Debug)]
 pub struct ComponentDefinitionDiff {}
 
 #[derive(Serialize)]

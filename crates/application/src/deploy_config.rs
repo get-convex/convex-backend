@@ -851,7 +851,7 @@ pub struct NodeDependencyJson {
     version: String,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct FinishPushDiff {
     pub auth_diff: AuthDiff,
     pub definition_diffs: BTreeMap<ComponentDefinitionPath, ComponentDefinitionDiff>,

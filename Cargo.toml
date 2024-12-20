@@ -103,6 +103,7 @@ qdrant_common = { git = "https://github.com/get-convex/qdrant", rev = "8819071e5
 quote = "1.0"
 rand = "0.8"
 rand_chacha = "0.3.1"
+rand_distr = "0.4"
 ref-cast = "1.0.20"
 regex = "1"
 reqwest = { version = "0.12.7", features = [ "json", "stream", "gzip", "native-tls-vendored" ] }

@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::Duration,
+};
 
 use application::{
     api::ApplicationApi,
@@ -15,17 +18,21 @@ use common::{
         SpawnHandle,
     },
     types::FunctionCaller,
+    value::ConvexObject,
     RequestId,
 };
 use keybroker::Identity;
+use rand_distr::{
+    Distribution,
+    Geometric,
+};
 use runtime::testing::TestRuntime;
-use serde_json::Value as JsonValue;
 use sync::{
     worker::{
         measurable_unbounded_channel,
-        SingleFlightReceiver,
         SingleFlightSender,
     },
+    ServerMessage,
     SyncWorker,
     SyncWorkerConfig,
 };
@@ -50,7 +57,7 @@ pub enum ServerRequest {
     },
     Mutation {
         udf_path: UdfPath,
-        args: Vec<JsonValue>,
+        args: ConvexObject,
         result: oneshot::Sender<Result<RedactedMutationReturn, RedactedMutationError>>,
     },
     LatestTimestamp {
@@ -60,42 +67,89 @@ pub enum ServerRequest {
 
 #[derive(Clone)]
 pub struct ServerThread {
+    rt: TestRuntime,
     tx: mpsc::UnboundedSender<ServerRequest>,
+    expected_delay_duration: Option<Duration>,
 }
 
 impl ServerThread {
     pub fn new(
         rt: TestRuntime,
         application: Arc<dyn ApplicationApi>,
+        expected_delay_duration: Option<Duration>,
     ) -> (Self, Box<dyn SpawnHandle>) {
         let (tx, rx) = mpsc::unbounded_channel();
-        let handle = rt.clone().spawn("ServerThread", async move {
-            Self::go(rt, application, rx)
+        let rt_clone = rt.clone();
+        let handle = rt.spawn("ServerThread", async move {
+            Self::go(rt_clone, application, rx)
                 .await
                 .expect("Server thread crashed")
         });
-        (Self { tx }, handle)
+        (
+            Self {
+                rt,
+                tx,
+                expected_delay_duration,
+            },
+            handle,
+        )
     }
 
     pub fn connect(
         &self,
     ) -> anyhow::Result<(
         mpsc::UnboundedSender<(ClientMessage, Instant)>,
-        SingleFlightReceiver,
+        mpsc::UnboundedReceiver<(ServerMessage, Instant)>,
     )> {
         let (client_tx, client_rx) = mpsc::unbounded_channel();
-        let (server_tx, server_rx) = measurable_unbounded_channel();
+        let (server_tx, mut server_rx) = measurable_unbounded_channel();
         self.tx.send(ServerRequest::Subscribe {
             incoming: client_rx,
             outgoing: server_tx,
         })?;
-        Ok((client_tx, server_rx))
+
+        let (faulty_client_tx, mut faulty_client_rx) = mpsc::unbounded_channel();
+        let (faulty_server_tx, faulty_server_rx) = mpsc::unbounded_channel();
+
+        let delay_distribution = match self.expected_delay_duration {
+            Some(duration) => Some(Geometric::new(1.0 / duration.as_secs_f64())?),
+            None => None,
+        };
+        let rt = self.rt.clone();
+        tokio::task::spawn(async move {
+            while let Some(msg) = faulty_client_rx.recv().await {
+                if let Some(delay_distribution) = delay_distribution {
+                    let delay = delay_distribution.sample(&mut *rt.rng());
+                    tokio::time::sleep(Duration::from_secs(delay)).await;
+                }
+                if client_tx.send(msg).is_err() {
+                    tracing::debug!("Server receiver closed");
+                    return;
+                }
+            }
+            tracing::debug!("Client sender closed");
+        });
+        let rt = self.rt.clone();
+        tokio::task::spawn(async move {
+            while let Some(msg) = server_rx.next().await {
+                if let Some(delay_distribution) = delay_distribution {
+                    let delay = delay_distribution.sample(&mut *rt.rng());
+                    tokio::time::sleep(Duration::from_secs(delay)).await;
+                }
+                if faulty_server_tx.send(msg).is_err() {
+                    tracing::debug!("Client receiver closed");
+                    return;
+                }
+            }
+            tracing::debug!("Server sender closed");
+        });
+        Ok((faulty_client_tx, faulty_server_rx))
     }
 
     pub async fn mutation(
         &self,
         udf_path: UdfPath,
-        args: Vec<JsonValue>,
+        args: ConvexObject,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         let (tx, rx) = oneshot::channel();
         self.tx.send(ServerRequest::Mutation {
@@ -155,7 +209,7 @@ impl ServerThread {
                                 RequestId::new(),
                                 Identity::system(),
                                 udf_path.canonicalize().into(),
-                                args,
+                                vec![args.into()],
                                 FunctionCaller::Test,
                                 None,
                             ).await?;
