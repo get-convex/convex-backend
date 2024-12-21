@@ -93,7 +93,7 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         &'a self,
         search_storage: Arc<dyn Storage>,
         fragments: Vec<T>,
-    ) -> impl Stream<Item = anyhow::Result<UntarredVectorDiskSegmentPaths>> + '_
+    ) -> impl Stream<Item = anyhow::Result<UntarredVectorDiskSegmentPaths>> + 'a
     where
         anyhow::Error: From<T::Error>,
     {

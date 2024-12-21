@@ -1,4 +1,3 @@
-#![feature(async_closure)]
 #![feature(try_blocks)]
 #![feature(let_chains)]
 #![feature(coroutines)]

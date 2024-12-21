@@ -74,7 +74,7 @@ mod test_pause {
         fault: Fault,
     }
 
-    impl<'a> PauseGuard<'a> {
+    impl PauseGuard<'_> {
         pub fn inject_error(&mut self, error: anyhow::Error) {
             self.fault = Fault::Error(error);
         }
@@ -101,7 +101,7 @@ mod test_pause {
         }
     }
 
-    impl<'a> Drop for PauseGuard<'a> {
+    impl Drop for PauseGuard<'_> {
         fn drop(&mut self) {
             if !self.unpaused {
                 tracing::info!("Unpausing waiter for {:?} on unclean drop", self.label);

@@ -800,7 +800,7 @@ mod tests {
             .header("Content-Type", "application/json")
             .header("Convex-Action-Callback-Token", callback_token.clone())
             .body(body)?;
-        backend.expect_success(req).await?;
+        let () = backend.expect_success(req).await?;
 
         // Try to schedule a job as though we are a the currently running node action
         // that was just canceled

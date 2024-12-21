@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 #![feature(coroutines)]
 
 use std::{

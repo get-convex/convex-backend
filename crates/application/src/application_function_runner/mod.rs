@@ -526,7 +526,7 @@ struct RequestGuard<'a> {
     permit: Option<SemaphorePermit<'a>>,
 }
 
-impl<'a> RequestGuard<'a> {
+impl RequestGuard<'_> {
     async fn acquire_permit(&mut self) -> anyhow::Result<()> {
         let timer = function_waiter_timer(self.limiter.udf_type);
         assert!(
@@ -541,7 +541,7 @@ impl<'a> RequestGuard<'a> {
     }
 }
 
-impl<'a> Drop for RequestGuard<'a> {
+impl Drop for RequestGuard<'_> {
     fn drop(&mut self) {
         // Drop the semaphore permit before updating gauges.
         drop(self.permit.take());

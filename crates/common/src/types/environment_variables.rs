@@ -57,8 +57,8 @@ impl AsRef<str> for EnvVarValue {
 static NAME_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^[a-zA-Z_]+[a-zA-Z0-9_]*$").unwrap());
 
-/// NOTE: Make sure to update the doc if you change any of these limits. Also
-/// don't reduce them since that might break existing projects.
+// NOTE: Make sure to update the doc if you change any of these limits. Also
+// don't reduce them since that might break existing projects.
 
 /// Maximum number of environment variables that can be stored.
 /// Also update client-side limit GenericEnvironmentVariables.tsx.

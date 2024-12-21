@@ -3,8 +3,6 @@
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
-#![feature(lazy_cell)]
-#![feature(exclusive_range_pattern)]
 #![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]
 
@@ -135,7 +133,7 @@ pub mod testing {
     pub use sync_types::testing::assert_roundtrips;
 }
 
-/// The various types that can be stored as a field in an [`Object`].
+/// The various types that can be stored as a field in a [`ConvexObject`].
 #[derive(Clone, Debug)]
 pub enum ConvexValue {
     /// Sentinel `Null` value.
@@ -160,10 +158,10 @@ pub enum ConvexValue {
     /// Arbitrary binary data.
     Bytes(ConvexBytes),
 
-    /// Arrays of (potentially heterogeneous) [`Value`]s.
+    /// Arrays of (potentially heterogeneous) [`ConvexValue`]s.
     Array(ConvexArray),
 
-    /// Set of (potentially heterogeneous) [`Value`]s.
+    /// Set of (potentially heterogeneous) [`ConvexValue`]s.
     Set(ConvexSet),
 
     /// Map of (potentially heterogenous) keys and values.

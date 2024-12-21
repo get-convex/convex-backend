@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 #![feature(impl_trait_in_fn_trait_return)]
 
 use std::sync::LazyLock;

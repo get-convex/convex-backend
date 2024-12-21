@@ -39,7 +39,6 @@ pub const ID_TABLE_VERSION: u8 = 1;
 /// This implementation currently loads the full indexes into memory, but we
 /// could eventually change this to use `mmap(2)` to lazily load pieces as
 /// necessary.
-
 pub struct StaticIdTracker {
     count: usize,
     /// Convex IDs in search/vector index id order.

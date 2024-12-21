@@ -336,10 +336,7 @@ impl SubscriptionManager {
     }
 
     fn get_subscriber(&self, key: SubscriptionKey) -> Option<&Subscriber> {
-        let entry = match self.subscribers.get(key.id) {
-            None => return None,
-            Some(e) => e,
-        };
+        let entry = self.subscribers.get(key.id)?;
         if entry.seq > key.seq {
             return None;
         }

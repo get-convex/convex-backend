@@ -247,7 +247,7 @@ pub(crate) struct Update<'a> {
     update: Option<SchemaUpdate>,
 }
 
-impl<'a> Update<'a> {
+impl Update<'_> {
     pub(crate) fn apply(self) {
         if let Some(update) = self.update {
             let namespaced_registry = self

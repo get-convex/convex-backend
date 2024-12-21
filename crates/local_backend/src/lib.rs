@@ -1,10 +1,7 @@
-#![feature(async_closure)]
-#![feature(lazy_cell)]
 #![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
-#![feature(lint_reasons)]
 #![feature(exhaustive_patterns)]
 
 use std::{

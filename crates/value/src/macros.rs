@@ -1,4 +1,4 @@
-/// Patterned off of serde_json::json!
+// Patterned off of serde_json::json!
 
 #[macro_export(local_inner_macros)]
 macro_rules! val {

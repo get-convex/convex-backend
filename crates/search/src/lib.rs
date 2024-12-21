@@ -1,15 +1,11 @@
 #![feature(iter_from_coroutine, coroutines)]
 #![feature(let_chains)]
-#![feature(lazy_cell)]
 #![feature(try_blocks)]
-#![feature(is_sorted)]
 #![feature(ptr_metadata)]
 #![feature(iterator_try_collect)]
-#![feature(async_closure)]
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(trait_alias)]
-#![feature(lint_reasons)]
 
 mod aggregation;
 mod archive;

@@ -23,10 +23,7 @@ pub fn op_validate_args<'b, P: OpProvider<'b>>(
     };
 
     let args_validator: ArgsValidator = match serde_json::from_str::<JsonValue>(&validator_string) {
-        Ok(args_json) => match ArgsValidator::try_from(args_json) {
-            Ok(validator) => validator,
-            Err(err) => return Err(err),
-        },
+        Ok(args_json) => ArgsValidator::try_from(args_json)?,
         Err(json_error) => {
             let message = format!("Unable to parse JSON returned from `exportArgs`: {json_error}");
             return Err(anyhow::anyhow!(message));

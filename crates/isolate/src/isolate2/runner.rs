@@ -842,7 +842,7 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
     }
 }
 
-impl<'a, RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'a, RT> {
+impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
     fn rt(&self) -> &RT {
         &self.rt
     }

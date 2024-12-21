@@ -570,7 +570,7 @@ impl TransactionIndex {
         &'a self,
         reads: &mut TransactionReadSet,
         getter: impl FnOnce() -> Option<&'a Index>,
-    ) -> Option<&Index> {
+    ) -> Option<&'a Index> {
         let result = getter();
         self.record_interval(reads, result);
         result
@@ -661,7 +661,7 @@ pub struct Update<'a> {
     registry: IndexRegistry,
 }
 
-impl<'a> Update<'a> {
+impl Update<'_> {
     pub fn apply(self) -> Vec<DatabaseIndexUpdate> {
         self.index.finish_update(self.deletion, self.insertion)
     }

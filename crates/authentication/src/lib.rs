@@ -1,4 +1,3 @@
-#![feature(lazy_cell)]
 use std::{
     str::FromStr,
     sync::LazyLock,
@@ -62,8 +61,6 @@ const CONFIG_URL_SUFFIX: &str = ".well-known/jwks.json";
 /// and not user-facing. These API access tokens are constructed from multiple
 /// clients (eg dashboard/cli)
 pub const CONVEX_CONSOLE_API_AUDIENCE: &str = "https://console.convex.dev/api/";
-/// Scopes required for an access token to be considered valid.
-/// Not really used meaningfully yet, but might be in the future.
 
 /// Extract the bearer token from an `Authorization: Bearer` header.
 pub async fn extract_bearer_token(header: Option<String>) -> anyhow::Result<Option<String>> {

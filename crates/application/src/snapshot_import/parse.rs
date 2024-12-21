@@ -456,7 +456,7 @@ async fn parse_documents_jsonl<'a, R: TokioAsyncRead + Unpin>(
     }
 }
 
-async fn parse_generated_schema<'a, T: ShapeConfig, R: AsyncRead + Unpin>(
+async fn parse_generated_schema<T: ShapeConfig, R: AsyncRead + Unpin>(
     filename: &str,
     mut entry_reader: BufReader<R>,
 ) -> anyhow::Result<GeneratedSchema<T>> {

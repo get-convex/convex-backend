@@ -12,21 +12,21 @@ pub const IDENTIFIER_REQUIREMENTS: &str =
 /// Check that a string can be used for a table name or field name in a
 /// document.
 ///
-/// We use a simplified ASCII version of Rust's syntax [^1] which also overlaps
-/// with JavaScript's syntax [^2].
+/// We use a simplified ASCII version of Rust's syntax[^1] which also overlaps
+/// with JavaScript's syntax[^2].
 ///
 /// ```text
 /// ident: start continue*
 /// start: a-zA-z_
 /// continue: a-zA-Z0-9_
 /// ```
-/// [^3][^4]
+/// [^3] [^4]
 /// To be conservative, let's also ban identifiers of entirely `_` too.
 ///
-/// [1]: <https://doc.rust-lang.org/reference/identifiers.html>
-/// [2]: <https://developer.mozilla.org/en-US/docs/Glossary/Identifier>
-/// [3]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_START%3A%5D&g=&i=>
-/// [4]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_CONTINUE%3A%5D&g=&i=>
+/// [^1]: <https://doc.rust-lang.org/reference/identifiers.html>
+/// [^2]: <https://developer.mozilla.org/en-US/docs/Glossary/Identifier>
+/// [^3]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_START%3A%5D&g=&i=>
+/// [^4]: <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5B%3AXID_CONTINUE%3A%5D&g=&i=>
 pub fn check_valid_identifier(s: &str) -> anyhow::Result<()> {
     check_valid_identifier_inner(s).map_err(|e| anyhow::anyhow!(e))
 }

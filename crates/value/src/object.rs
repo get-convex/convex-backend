@@ -29,7 +29,7 @@ use crate::{
 
 pub const MAX_OBJECT_FIELDS: usize = 1024;
 
-/// A mapping of field name to [`Value`] that's used as the contents of a
+/// A mapping of field name to [`ConvexValue`] that's used as the contents of a
 /// Convex Document.
 ///
 /// To mutate an object, convert it to a `BTreeMap` using `into()`, mutate the

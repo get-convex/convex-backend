@@ -259,8 +259,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .number_to_tablet(),
@@ -296,8 +295,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
         let id_ = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .number_to_tablet(),
@@ -322,8 +320,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .number_to_tablet(),

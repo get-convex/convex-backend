@@ -1521,7 +1521,7 @@ impl<RT: Runtime> Inner<RT> {
             static LAST_LOGGED_ERROR: Cell<Option<SystemTime>> = const { Cell::new(None) };
         }
         let now = SystemTime::now();
-        let should_log = LAST_LOGGED_ERROR.get().map_or(true, |last_logged| {
+        let should_log = LAST_LOGGED_ERROR.get().is_none_or(|last_logged| {
             now.duration_since(last_logged).unwrap_or(Duration::ZERO) >= Duration::from_secs(10)
         });
         if !should_log {

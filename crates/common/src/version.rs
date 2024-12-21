@@ -332,9 +332,7 @@ impl FromStr for ClientVersion {
                 (client_str, version)
             },
         };
-        let Ok(client) = client_str.parse::<ClientType>() else {
-            unreachable!()
-        };
+        let Ok(client) = client_str.parse::<ClientType>();
         Ok(Self { client, version })
     }
 }

@@ -1,5 +1,4 @@
 //! Code for interacting with our metrics logging
-#![feature(lazy_cell)]
 #![feature(iter_intersperse)]
 #![feature(try_blocks)]
 #![feature(min_specialization)]

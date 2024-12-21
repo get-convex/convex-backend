@@ -1,6 +1,5 @@
 #![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(lazy_cell)]
 mod metrics;
 #[cfg(test)]
 mod tests;

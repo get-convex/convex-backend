@@ -473,7 +473,7 @@ async fn test_id_reuse_across_transactions(rt: TestRuntime) -> anyhow::Result<()
         .insert("table".parse()?, assert_obj!())
         .await?;
     let id_ = id.to_resolved(
-        &tx.table_mapping()
+        tx.table_mapping()
             .namespace(TableNamespace::test_user())
             .number_to_tablet(),
     )?;
@@ -1522,7 +1522,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .insert(table_name.clone(), object)
         .await?;
     let doc0_id_inner = doc0_id.to_resolved(
-        &tx.table_mapping()
+        tx.table_mapping()
             .namespace(TableNamespace::test_user())
             .number_to_tablet(),
     )?;

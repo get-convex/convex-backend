@@ -590,12 +590,11 @@ async fn test_multiple_paginated_queries_error(rt: TestRuntime) -> anyhow::Resul
 
 /// Assert that these produce a the same result + query journal:
 /// 1. A UDF that runs a paginated query with no query journal.
-/// 2. The same UDF + args with the journal produced in (1).
-/// This ensures that our journaling is deterministic.
-///
+/// 2. The same UDF + args with the journal produced in (1). This ensures that
+///    our journaling is deterministic.
 /// 3. Then we insert an object which may be within the page, and asserts the
-/// object is returned or not (so the journal is actually doing something).
-/// Then we delete the object.
+///    object is returned or not (so the journal is actually doing something).
+///    Then we delete the object.
 ///
 /// Returns (page_of_results, is_done)
 pub async fn assert_paginated_query_journal_is_correct(

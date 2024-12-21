@@ -108,7 +108,7 @@ fn load_datasets(
     let mut terms = 0;
     for dataset in datasets {
         let mut frequency_map: BTreeMap<String, u32> = BTreeMap::new();
-        let f = File::open(&format!("{path}/{dataset}.jsonl"))?;
+        let f = File::open(format!("{path}/{dataset}.jsonl"))?;
         let f = BufReader::new(f);
         let mut documents = vec![];
         let mut m = 0;

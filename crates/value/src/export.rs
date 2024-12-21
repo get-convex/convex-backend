@@ -28,7 +28,7 @@ pub enum ValueFormat {
     /// On export, we'll use the clean export algorithm: implemented as
     /// `.export_clean()` in `Value`
     ///
-    /// https://www.notion.so/convex-dev/Clean-Export-serialization-c02508b390f54bdfa1cfdf06f9b7f71e.
+    /// <https://www.notion.so/convex-dev/Clean-Export-serialization-c02508b390f54bdfa1cfdf06f9b7f71e>.
     ConvexCleanJSON,
 }
 

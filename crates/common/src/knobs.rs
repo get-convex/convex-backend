@@ -548,10 +548,10 @@ pub static WRITE_LOG_MAX_RETENTION_SECS: LazyLock<Duration> =
 
 /// The maximum size of the write log. Notes:
 /// - the write log will be trimmed based on WRITE_LOG_MAX_RETENTION_SECS, and
-/// thus it might never reach this size.
+///   thus it might never reach this size.
 /// - the write log always retains at least WRITE_LOG_MIN_RETENTION_SECS, and
-/// thus we could exceed this limit. The reason we do that is to allow some
-/// minimum buffer for queries to refresh after execution.
+///   thus we could exceed this limit. The reason we do that is to allow some
+///   minimum buffer for queries to refresh after execution.
 pub static WRITE_LOG_SOFT_MAX_SIZE_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("WRITE_LOG_SOFT_MAX_SIZE_BYTES", 50 * 1024 * 1024));
 

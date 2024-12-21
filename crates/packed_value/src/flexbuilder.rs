@@ -25,7 +25,7 @@ impl FlexBuilder for Builder {
     }
 }
 
-impl<'a> FlexBuilder for VectorBuilder<'a> {
+impl FlexBuilder for VectorBuilder<'_> {
     fn push<P: Pushable>(&mut self, value: P) {
         self.push(value)
     }
@@ -39,7 +39,7 @@ impl<'a> FlexBuilder for VectorBuilder<'a> {
     }
 }
 
-impl<'a, 'b> FlexBuilder for (&'a str, &'a mut MapBuilder<'b>) {
+impl<'a> FlexBuilder for (&'a str, &'a mut MapBuilder<'_>) {
     fn push<P: Pushable>(&mut self, value: P) {
         self.1.push(self.0, value);
     }

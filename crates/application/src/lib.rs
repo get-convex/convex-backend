@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 #![feature(iterator_try_collect)]
 #![feature(let_chains)]
 #![feature(coroutines)]

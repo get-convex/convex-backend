@@ -65,8 +65,9 @@ use crate::{
 /// UDF execution has two phases:
 ///
 /// 1. We start by loading all imported modules, evaluating them, and inserting
-/// them into the module map. 2. We find the query or mutation function in the
-/// specified module and run it.
+///    them into the module map.
+/// 2. We find the query or mutation function in the specified module and run
+///    it.
 ///
 /// We shouldn't be looking at the database in the first step (other than to
 /// load code), and we shouldn't be performing dynamic imports in the second

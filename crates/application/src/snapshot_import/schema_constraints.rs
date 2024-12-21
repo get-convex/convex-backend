@@ -25,6 +25,7 @@ use value::{
 /// 2. import does not touch table "bar".
 /// 3. "bar" has a foreign reference to "foo", validated by schema.
 /// 4. when the import commits, "bar" is nonempty.
+///
 /// To prevent this case we throw an error if a schema'd table outside the
 /// import is nonempty and points into the import, and the import changes the
 /// table number.

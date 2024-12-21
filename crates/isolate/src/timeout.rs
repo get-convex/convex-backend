@@ -242,13 +242,13 @@ pub struct PauseGuard<'a, RT: Runtime> {
     pause_done: Option<async_broadcast::Sender<()>>,
 }
 
-impl<'a, RT: Runtime> PauseGuard<'a, RT> {
+impl<RT: Runtime> PauseGuard<'_, RT> {
     pub fn resume(self) {
         drop(self);
     }
 }
 
-impl<'a, RT: Runtime> Drop for PauseGuard<'a, RT> {
+impl<RT: Runtime> Drop for PauseGuard<'_, RT> {
     fn drop(&mut self) {
         let Some(tx) = self.pause_done.take() else {
             return;

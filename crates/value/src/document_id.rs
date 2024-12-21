@@ -91,10 +91,11 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocumentId {
 }
 
 impl InternalDocumentId {
-    /// Minimum valid [`DocumentId`].
+    /// Minimum valid [`InternalDocumentId`].
     pub const MIN: InternalDocumentId = InternalDocumentId::new(TabletId::MIN, InternalId::MIN);
 
-    /// Create a new [`DocumentId`] from a [`TableName`] and an [`InternalId`].
+    /// Create a new [`InternalDocumentId`] from a [`TabletId`] and an
+    /// [`InternalId`].
     pub const fn new(table: TabletId, internal_id: InternalId) -> Self {
         Self { table, internal_id }
     }
@@ -120,11 +121,12 @@ impl InternalDocumentId {
 }
 
 impl DeveloperDocumentId {
-    /// Minimum valid [`DocumentId`].
+    /// Minimum valid [`DeveloperDocumentId`].
     pub const MIN: DeveloperDocumentId =
         DeveloperDocumentId::new(TableNumber::MIN, InternalId::MIN);
 
-    /// Create a new [`DocumentId`] from a [`TableName`] and an [`InternalId`].
+    /// Create a new [`DeveloperDocumentId`] from a [`TableNumber`] and an
+    /// [`InternalId`].
     pub const fn new(table: TableNumber, internal_id: InternalId) -> Self {
         Self { table, internal_id }
     }

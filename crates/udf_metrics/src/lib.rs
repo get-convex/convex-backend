@@ -11,9 +11,9 @@
 //!
 //! # Implementation notes
 //! The data structure keeps a `base_ts` for its creation time and partitions
-//! time into one minute "buckets" of the form `[base_ts + i * 1m, base_ts + (i
-//! + 1) * 1m)`. For memory efficiency, buckets only store their index, not the
-//! full timestamp.
+//! time into one minute "buckets" of the form
+//! `[base_ts + i * 1m, base_ts + (i + 1) * 1m)`. For memory efficiency, buckets
+//! only store their index, not the full timestamp.
 //!
 //! Non empty buckets are stored in two slabs: one for counters and one for
 //! histograms. Metrics must be strictly either counters or histograms, and it's

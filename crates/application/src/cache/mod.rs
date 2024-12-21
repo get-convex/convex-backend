@@ -584,7 +584,7 @@ impl<'a> WaitingEntryGuard<'a> {
     }
 }
 
-impl<'a> Drop for WaitingEntryGuard<'a> {
+impl Drop for WaitingEntryGuard<'_> {
     fn drop(&mut self) {
         // Remove the cache entry from the cache if still present.
         if let Some(entry_id) = self.entry_id {

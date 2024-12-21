@@ -32,8 +32,8 @@ use crate::{
 pub const METADATA_PREFIX: &str = "_";
 
 /// Unique name for a table. Tables contain documents referenced by
-/// [`DocumentId`]. Eventually we'll want a layer of indirection here to allow
-/// users to rename their tables.
+/// [`ResolvedDocumentId`]. Eventually we'll want a layer of indirection here to
+/// allow users to rename their tables.
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, derive_more::Display)]
 pub struct TableName(String);
 

@@ -25,7 +25,7 @@ struct JsonOpenedValue<'a, B: Buffer>(&'a OpenedValue<B>)
 where
     B::BufferString: Clone;
 
-impl<'a, B: Buffer> Serialize for JsonOpenedValue<'a, B>
+impl<B: Buffer> Serialize for JsonOpenedValue<'_, B>
 where
     B::BufferString: Clone,
 {
@@ -106,7 +106,7 @@ pub struct JsonOpenedSet<'a, B: Buffer>(&'a OpenedSet<B>)
 where
     B::BufferString: Clone;
 
-impl<'a, B: Buffer> Serialize for JsonOpenedSet<'a, B>
+impl<B: Buffer> Serialize for JsonOpenedSet<'_, B>
 where
     B::BufferString: Clone,
 {
@@ -124,7 +124,7 @@ pub struct JsonOpenedMap<'a, B: Buffer>(&'a OpenedMap<B>)
 where
     B::BufferString: Clone;
 
-impl<'a, B: Buffer> Serialize for JsonOpenedMap<'a, B>
+impl<B: Buffer> Serialize for JsonOpenedMap<'_, B>
 where
     B::BufferString: Clone,
 {
@@ -149,7 +149,7 @@ where
     value: &'a OpenedValue<B>,
 }
 
-impl<'a, B: Buffer> Serialize for JsonOpenedMapPair<'a, B>
+impl<B: Buffer> Serialize for JsonOpenedMapPair<'_, B>
 where
     B::BufferString: Clone,
 {

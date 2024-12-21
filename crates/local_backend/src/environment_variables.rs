@@ -116,7 +116,7 @@ mod tests {
             .header("Content-Type", "application/json")
             .header("Authorization", backend.admin_auth_header.0.encode())
             .body(body)?;
-        backend.expect_success(req).await?;
+        let () = backend.expect_success(req).await?;
         Ok(())
     }
 

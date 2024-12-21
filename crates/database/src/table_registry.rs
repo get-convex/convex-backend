@@ -274,7 +274,7 @@ pub(crate) struct Update<'a> {
     table_update: Option<TableUpdate>,
 }
 
-impl<'a> Update<'a> {
+impl Update<'_> {
     pub(crate) fn apply(self) -> Option<TableUpdate> {
         if let Some(ref table_update) = self.table_update {
             if table_update.activates() {

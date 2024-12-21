@@ -1,7 +1,4 @@
-#![feature(const_mut_refs)]
 #![feature(const_type_name)]
-#![feature(lazy_cell)]
-#![feature(async_closure)]
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(type_alias_impl_trait)]
@@ -10,7 +7,6 @@
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
-#![feature(lint_reasons)]
 
 pub mod bundled_js;
 pub mod client;

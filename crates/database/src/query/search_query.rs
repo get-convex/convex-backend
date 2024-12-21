@@ -166,7 +166,7 @@ impl QueryStream for SearchQuery {
     fn is_approaching_data_limit(&self) -> bool {
         self.results
             .as_ref()
-            .map_or(false, |results| results.is_approaching_data_limit())
+            .is_some_and(|results| results.is_approaching_data_limit())
     }
 
     async fn next<RT: Runtime>(

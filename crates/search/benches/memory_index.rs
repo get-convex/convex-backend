@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 
 use std::{
     collections::{
@@ -102,7 +101,7 @@ impl Dataset {
 
         let mut loaded = BTreeMap::new();
         for dataset in datasets {
-            let f = File::open(&format!("{path}/{dataset}.jsonl"))?;
+            let f = File::open(format!("{path}/{dataset}.jsonl"))?;
             let f = BufReader::new(f);
             let mut documents = vec![];
             for line in f.lines() {

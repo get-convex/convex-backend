@@ -234,7 +234,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
             let table_mapping = self.tx.table_mapping();
             let parent_scheduled_job = parent_scheduled_job
-                .to_resolved(&table_mapping.namespace(self.namespace).number_to_tablet())?;
+                .to_resolved(table_mapping.namespace(self.namespace).number_to_tablet())?;
             if let Some(parent_scheduled_job_state) =
                 self.check_status(parent_scheduled_job).await?
             {

@@ -81,8 +81,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
     ) -> anyhow::Result<ParsedDocument<ExternalDepsPackage>> {
         let id: DeveloperDocumentId = external_deps_package_id.into();
         let document_id = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(TableNamespace::Global)
                 .number_to_tablet(),

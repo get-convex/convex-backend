@@ -286,7 +286,7 @@ impl<'a> JsThreadState<'a> {
                     udf_path: String::from(udf_path),
                     udf_args_json: serde_json::to_string(&serde_json::Value::from(args))?,
                 };
-                self.call(scope, self.run_mutation, args)?;
+                let () = self.call(scope, self.run_mutation, args)?;
                 self.in_progress_mutations.insert(mutation_id, sender);
             },
             JsClientThreadRequest::AddSyncQuery {
@@ -301,7 +301,7 @@ impl<'a> JsThreadState<'a> {
                     name: name.to_string(),
                     udf_args_json: serde_json::to_string(&args_json)?,
                 };
-                self.call(scope, self.add_sync_query, func_args)?;
+                let () = self.call(scope, self.add_sync_query, func_args)?;
                 self.replay_state.add_message(ReplayMessage::AddSyncQuery {
                     id: id.to_string(),
                     name: name.to_string(),
@@ -345,7 +345,7 @@ impl<'a> JsThreadState<'a> {
                     id: id.to_string(),
                     mutation_info_json,
                 };
-                self.call(scope, self.request_sync_mutation, args)?;
+                let () = self.call(scope, self.request_sync_mutation, args)?;
                 self.replay_state.add_message(ReplayMessage::Mutate {
                     id: id.to_string(),
                     mutation_info: value,

@@ -2,7 +2,6 @@
 //! a signal
 
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 #![feature(trait_alias)]
 
 use std::path::PathBuf;

@@ -176,6 +176,9 @@ fn validate_fraction(value: f64, context: &str) -> anyhow::Result<f64> {
     Ok(value)
 }
 
+static DOT_STAR: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(".*").expect(".* is not a valid regex"));
+
 impl TryFrom<SamplingConfigJson> for SamplingConfig {
     type Error = anyhow::Error;
 
@@ -203,7 +206,7 @@ impl TryFrom<SamplingConfigJson> for SamplingConfig {
         }
         by_regex.push((
             None,
-            Regex::new(".*").expect(".* is not a valid regex"),
+            DOT_STAR.clone(),
             validate_fraction(json.default_fraction, "default")?,
         ));
         Ok(SamplingConfig { by_regex })
@@ -238,9 +241,8 @@ impl FromStr for SamplingConfig {
                 let rate: f64 = parts[1].parse().context("Failed to parse sampling rate")?;
                 (regex, rate)
             } else {
-                let regex = Regex::new(".*").expect(".* is not a valid regex");
                 let rate: f64 = parts[0].parse().context("Failed to parse sampling rate")?;
-                (regex, rate)
+                (DOT_STAR.clone(), rate)
             };
             by_regex.push((instance_name, name_regex, rate));
         }

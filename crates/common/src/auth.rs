@@ -51,7 +51,7 @@ where
         .and_then(|url: IssuerUrl| {
             // Check if the input really looks like a URL,
             // to catch mistakes (e.g. putting random tokens in the domain field)
-            if !had_scheme && !url.url().host_str().map_or(false, ends_with_tld) {
+            if !had_scheme && !url.url().host_str().is_some_and(ends_with_tld) {
                 return Err(serde::de::Error::custom(
                     "Does not look like a URL (must have a scheme or end with a top-level domain)",
                 ));

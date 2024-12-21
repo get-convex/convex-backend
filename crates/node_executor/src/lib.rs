@@ -1,4 +1,3 @@
-#![feature(lazy_cell)]
 #![feature(assert_matches)]
 #![feature(never_type)]
 #![feature(let_chains)]

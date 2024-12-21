@@ -25,7 +25,7 @@ use crate::{
     metrics,
 };
 
-impl<'a, 'b, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
+impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, RT, E> {
     pub fn format_traceback(&mut self, exception: v8::Local<v8::Value>) -> anyhow::Result<JsError> {
         // Check if we hit a system error or timeout and can't run any JavaScript now.
         // Abort with a system error here, and we'll (in the best case) pull out
@@ -109,10 +109,10 @@ pub fn extract_source_mapped_error(
 
     // error[error.ConvexErrorSymbol] === true
     let convex_error_symbol = get_property(scope, exception_obj, "ConvexErrorSymbol")?;
-    let is_convex_error = convex_error_symbol.map_or(false, |symbol| {
+    let is_convex_error = convex_error_symbol.is_some_and(|symbol| {
         exception_obj
             .get(scope, symbol)
-            .map_or(false, |v| v.is_true())
+            .is_some_and(|v| v.is_true())
     });
 
     let custom_data = if is_convex_error {

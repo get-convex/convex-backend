@@ -615,7 +615,7 @@ impl<'a, RT: Runtime> ApplicationInitializerEvaluator<'a, RT> {
 }
 
 #[async_trait]
-impl<'a, RT: Runtime> InitializerEvaluator for ApplicationInitializerEvaluator<'a, RT> {
+impl<RT: Runtime> InitializerEvaluator for ApplicationInitializerEvaluator<'_, RT> {
     async fn evaluate(
         &self,
         path: ComponentDefinitionPath,

@@ -1,4 +1,3 @@
-#![feature(lazy_cell)]
 #![feature(let_chains)]
 use std::sync::Arc;
 
