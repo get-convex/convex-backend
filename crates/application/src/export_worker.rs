@@ -313,7 +313,6 @@ impl<RT: Runtime> ExportWorker<RT> {
         F: Fn(String) -> Fut + Send + Copy,
         Fut: Future<Output = anyhow::Result<()>> + Send,
     {
-        tracing::info!("Beginning snapshot export...");
         let storage = &self.storage;
         update_progress("Beginning backup".to_string()).await?;
         let (ts, tables, component_ids_to_paths, by_id_indexes, system_tables, component_tree) = {
@@ -651,6 +650,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         let requestor = export.requestor();
         drop(export); // Drop this to prevent accidentally using stale state
 
+        tracing::info!("Export {id} beginning...");
         let (snapshot_ts, object_key, usage) = {
             let database_ = self.database.clone();
             let export_future = async {
