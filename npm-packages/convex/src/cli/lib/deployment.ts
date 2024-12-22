@@ -146,14 +146,23 @@ export function changesToGitIgnore(existingFile: string | null): string | null {
     return `${ENV_VAR_FILE_PATH}\n`;
   }
   const gitIgnoreLines = existingFile.split("\n");
-  const envVarFileIgnored = gitIgnoreLines.some(
-    (line) =>
-      line === ".env.local" ||
-      line === ".env.*" ||
-      line === ".env*" ||
-      line === "*.local" ||
-      line === ".env*.local",
-  );
+  const envVarFileIgnored = gitIgnoreLines.some((line) => {
+    // Remove any inline comments
+    const trimmedLine = line.split("#")[0].trim();
+
+    // Ignore negated patterns
+    if (trimmedLine.startsWith("!")) return false;
+
+    const envIgnorePatterns = [
+      /^\.env\.local$/,
+      /^\.env\.\*$/,
+      /^\.env\*$/,
+      /^.*\.local$/,
+      /^\.env\*\.local$/,
+    ];
+
+    return envIgnorePatterns.some((pattern) => pattern.test(trimmedLine));
+  });
   if (!envVarFileIgnored) {
     return `${existingFile}\n${ENV_VAR_FILE_PATH}\n`;
   } else {

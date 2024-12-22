@@ -52,17 +52,26 @@ test("env var changes", () => {
 });
 
 test("git ignore changes", () => {
+  // Handle additions
   expect(changesToGitIgnore(null)).toEqual(".env.local\n");
-
   expect(changesToGitIgnore("")).toEqual("\n.env.local\n");
-
   expect(changesToGitIgnore(".env")).toEqual(".env\n.env.local\n");
 
+  // Handle existing
   expect(changesToGitIgnore(".env.local")).toEqual(null);
   expect(changesToGitIgnore(".env.*")).toEqual(null);
   expect(changesToGitIgnore(".env*")).toEqual(null);
 
-  // This is wonky, but will guide the user to solve the problem
+  // Handle inline comments
+  expect(changesToGitIgnore(".env.local # convex env")).toEqual(null);
+
+  // Handle Windows
+  expect(changesToGitIgnore(".env.local\r")).toEqual(null);
+
+  // Handle whitespace
+  expect(changesToGitIgnore(".env.local   ")).toEqual(null);
+
+  // Add .env.local (even if it's negated) to guide the user to solve the problem
   expect(changesToGitIgnore("!.env.local")).toEqual(
     "!.env.local\n.env.local\n",
   );
