@@ -424,7 +424,7 @@ export async function loadPackageJson(
     });
   }
   const packages = {
-    ...(includePeerDeps ? obj.peerDependencies ?? {} : {}),
+    ...(includePeerDeps ? (obj.peerDependencies ?? {}) : {}),
     ...(obj.dependencies ?? {}),
     ...(obj.devDependencies ?? {}),
   };

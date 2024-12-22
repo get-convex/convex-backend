@@ -200,7 +200,7 @@ export const dev = new Command("dev")
       ? parseInt(cmdOptions.partitionId)
       : undefined;
     const configure =
-      cmdOptions.configure === true ? "ask" : cmdOptions.configure ?? null;
+      cmdOptions.configure === true ? "ask" : (cmdOptions.configure ?? null);
     const credentials = await deploymentCredentialsOrConfigure(
       ctx,
       configure,
