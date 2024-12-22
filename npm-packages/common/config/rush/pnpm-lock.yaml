@@ -113,8 +113,8 @@ importers:
         specifier: ^5.20.0
         version: 5.20.0(react-dom@18.3.1)(react@18.3.1)
       '@commander-js/extra-typings':
-        specifier: ^12.1.0
-        version: 12.1.0(commander@11.1.0)
+        specifier: ^11.1.0
+        version: 11.1.0(commander@11.1.0)
       '@eslint/compat':
         specifier: ~1.2.4
         version: 1.2.4(eslint@9.16.0)
@@ -1703,10 +1703,10 @@ packages:
       csstype: 3.1.1
     dev: true
 
-  /@commander-js/extra-typings@12.1.0(commander@11.1.0):
-    resolution: {integrity: sha512-wf/lwQvWAA0goIghcb91dQYpkLBcyhOhQNqG/VgWhnKzgt+UOMvra7EX/2fv70arm5RW+PUHoQHHDa6/p77Eqg==}
+  /@commander-js/extra-typings@11.1.0(commander@11.1.0):
+    resolution: {integrity: sha512-GuvZ38d23H+7Tz2C9DhzCepivsOsky03s5NI+KCy7ke1FNUvsJ2oO47scQ9YaGGhgjgNW5OYYNSADmbjcSoIhw==}
     peerDependencies:
-      commander: ~12.1.0
+      commander: 11.1.x
     dependencies:
       commander: 11.1.0
     dev: true

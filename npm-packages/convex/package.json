@@ -266,7 +266,7 @@
     "@babel/parser": "^7.26.3",
     "@babel/types": "7.26.3",
     "@clerk/clerk-react": "^5.20.0",
-    "@commander-js/extra-typings": "^12.1.0",
+    "@commander-js/extra-typings": "^11.1.0",
     "@eslint/compat": "~1.2.4",
     "@eslint/eslintrc": "~3.2.0",
     "@eslint/js": "~9.16.0",
