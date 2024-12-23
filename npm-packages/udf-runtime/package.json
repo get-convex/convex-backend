@@ -9,7 +9,7 @@
     "zod": "^3.24.0",
     "base64-js": "^1.5.1",
     "web-streams-polyfill": "~3.2.1",
-    "abortcontroller-polyfill": "~1.7.5",
+    "abortcontroller-polyfill": "1.7.6",
     "prettier": "3.4.2",
     "udf-syscall-ffi": "workspace:*"
   },

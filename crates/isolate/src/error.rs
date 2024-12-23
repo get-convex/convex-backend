@@ -97,13 +97,22 @@ pub fn extract_source_mapped_error(
     // Access the `stack` property to ensure `prepareStackTrace` has been called.
     // NOTE if this is the first time accessing `stack`, it will call the op
     // `error/stack` which does a redundant source map lookup.
-    let _stack: v8::Local<v8::String> = get_property(scope, exception_obj, "stack")?
+    let stack: v8::Local<v8::String> = get_property(scope, exception_obj, "stack")?
         .ok_or_else(|| anyhow::anyhow!("Exception was missing the `stack` property"))?
         .try_into()?;
 
-    let frame_data: v8::Local<v8::String> = get_property(scope, exception_obj, "__frameData")?
-        .ok_or_else(|| anyhow::anyhow!("Exception was missing the `__frameData` property"))?
-        .try_into()?;
+    let frame_data = get_property(scope, exception_obj, "__frameData")?
+        .ok_or_else(|| anyhow::anyhow!("Exception was missing the `__frameData` property"))?;
+
+    // Sometimes the frame_data is undefined. What's that about?
+    if frame_data.is_undefined() {
+        anyhow::bail!(
+            "Exception frame data was undefined, stack: {:?}",
+            to_rust_string(scope, &stack)?
+        );
+    }
+
+    let frame_data: v8::Local<v8::String> = frame_data.try_into()?;
     let frame_data = to_rust_string(scope, &frame_data)?;
     let frame_data: Vec<FrameData> = serde_json::from_str(&frame_data)?;
 
