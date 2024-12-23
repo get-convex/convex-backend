@@ -53,10 +53,7 @@ export class NetworkImpl implements Network {
   }
 
   sendMutationToNetwork(mutationInfo: MutationInfo): void {
-    // TODO: internal types aren't working.
-    const { requestId, mutationPromise } = (
-      this.convexClient as any
-    ).enqueueMutation(
+    const { requestId, mutationPromise } = this.convexClient.enqueueMutation(
       getFunctionName(mutationInfo.mutationPath),
       mutationInfo.serverArgs as any,
     );
