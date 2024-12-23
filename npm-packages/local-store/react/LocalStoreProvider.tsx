@@ -11,7 +11,8 @@ import {
   NoopLocalPersistence,
 } from "../browser/localPersistence";
 import { MutationRegistry } from "./mutationRegistry";
-
+import { ConvexReactClient } from "convex/react";
+import { Election } from "../browser/worker/election";
 export const LocalStoreContext = createContext<LocalStoreClient | null>(null);
 
 type LocalStoreProviderProps<SyncSchema extends SchemaDefinition<any, any>> =
@@ -68,4 +69,35 @@ export function useLocalStoreClient(): LocalStoreClient {
     );
   }
   return localStoreClient;
+}
+
+export function createLocalStoreClient(opts: {
+  syncSchema: SchemaDefinition<any, any>;
+  mutationRegistry: MutationRegistry<any>;
+  convexClient: ConvexReactClient;
+  convexUrl: string;
+  persistenceKey: string | null;
+}) {
+  const persistence = opts.persistenceKey
+    ? new Election(opts.persistenceKey, opts.convexUrl)
+    : new NoopLocalPersistence();
+  const logger = new Logger();
+  const mutationMap = opts.mutationRegistry.exportToMutationMap();
+  const coreLocalStore = new CoreSyncEngine(
+    opts.syncSchema,
+    mutationMap,
+    logger,
+  );
+  const driver = new Driver({
+    coreLocalStore,
+    network: new NetworkImpl({ convexClient: opts.convexClient.sync }),
+    localPersistence: persistence ?? new NoopLocalPersistence(),
+    logger,
+  });
+  const localStore = new LocalStoreClient({
+    driver,
+    syncSchema: opts.syncSchema,
+    mutations: mutationMap,
+  });
+  return localStore;
 }
