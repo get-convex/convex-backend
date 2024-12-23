@@ -147,11 +147,12 @@ export function changesToGitIgnore(existingFile: string | null): string | null {
   }
   const gitIgnoreLines = existingFile.split("\n");
   const envVarFileIgnored = gitIgnoreLines.some((line) => {
-    // Remove any inline comments
-    const trimmedLine = line.split("#")[0].trim();
+    if (line.startsWith("#")) return false;
+    if (line.startsWith("!")) return false;
 
-    // Ignore negated patterns
-    if (trimmedLine.startsWith("!")) return false;
+    // .gitignore ignores trailing whitespace, and also we need to remove
+    // the trailing `\r` from Windows-style newline since we split on `\n`.
+    const trimmedLine = line.trimEnd();
 
     const envIgnorePatterns = [
       /^\.env\.local$/,
