@@ -342,35 +342,49 @@ export async function performLogin(
   }
 
   const issuer = overrideAuthUrl ?? "https://auth.convex.dev";
-  const auth0 = await Issuer.discover(issuer);
-  const clientId = overrideAuthClient ?? "HFtA247jp9iNs08NTLIB7JsNPMmRIyfi";
-  const auth0Client = new auth0.Client({
-    client_id: clientId,
-    token_endpoint_auth_method: "none",
-    id_token_signed_response_alg: "RS256",
-  });
-
+  let auth0;
   let accessToken: string;
-  if (overrideAccessToken) {
-    accessToken = overrideAccessToken;
-  } else if (overrideAuthUsername && overrideAuthPassword) {
-    accessToken = await performPasswordAuthentication(
-      ctx,
-      issuer,
-      clientId,
-      overrideAuthUsername,
-      overrideAuthPassword,
-    );
-  } else {
-    accessToken = await performDeviceAuthorization(
-      ctx,
-      auth0Client,
-      open ?? true,
-    );
+  try {
+    auth0 = await Issuer.discover(issuer);
+  } catch {
+    // Couldn't contact https://auth.convex.dev/.well-known/openid-configuration,
+    // proceed with manual auth.
+    accessToken = await promptString(ctx, {
+      message:
+        "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
+    });
+  }
+
+  // typical path
+  if (auth0) {
+    const clientId = overrideAuthClient ?? "HFtA247jp9iNs08NTLIB7JsNPMmRIyfi";
+    const auth0Client = new auth0.Client({
+      client_id: clientId,
+      token_endpoint_auth_method: "none",
+      id_token_signed_response_alg: "RS256",
+    });
+
+    if (overrideAccessToken) {
+      accessToken = overrideAccessToken;
+    } else if (overrideAuthUsername && overrideAuthPassword) {
+      accessToken = await performPasswordAuthentication(
+        ctx,
+        issuer,
+        clientId,
+        overrideAuthUsername,
+        overrideAuthPassword,
+      );
+    } else {
+      accessToken = await performDeviceAuthorization(
+        ctx,
+        auth0Client,
+        open ?? true,
+      );
+    }
   }
 
   if (dumpAccessToken) {
-    logOutput(ctx, `${accessToken}`);
+    logOutput(ctx, `${accessToken!}`);
     return await ctx.crash({
       exitCode: 0,
       errorType: "fatal",
@@ -383,7 +397,7 @@ export async function performLogin(
     deviceName: string;
   }
   const authorizeArgs: AuthorizeArgs = {
-    authnToken: accessToken,
+    authnToken: accessToken!,
     deviceName: deviceName,
   };
   const data = await bigBrainAPI({
