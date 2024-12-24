@@ -64,7 +64,10 @@ use model::{
             FullModuleSource,
             Visibility,
         },
-        user_error::ModuleNotFoundError,
+        user_error::{
+            ModuleNotFoundError,
+            SystemModuleNotFoundError,
+        },
     },
     udf_config::types::UdfConfig,
 };
@@ -350,6 +353,9 @@ impl AnalyzeEnvironment {
                         return Ok(Err(JsError::from_message(format!("{e}"))));
                     }
                     if let Some(e) = e.downcast_ref::<ModuleResolutionError>() {
+                        return Ok(Err(JsError::from_message(format!("{e}"))));
+                    }
+                    if let Some(e) = e.downcast_ref::<SystemModuleNotFoundError>() {
                         return Ok(Err(JsError::from_message(format!("{e}"))));
                     }
                     match e.downcast::<JsError>() {
