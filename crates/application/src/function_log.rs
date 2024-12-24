@@ -1427,8 +1427,8 @@ fn merge_series(
     merge: impl Fn(Option<f64>, Option<f64>) -> Option<f64>,
 ) -> anyhow::Result<Timeseries> {
     anyhow::ensure!(ts2.len() == ts1.len());
-    ts2.iter()
-        .zip(ts1)
+    ts1.iter()
+        .zip(ts2)
         .map(|(&(t1, t1_value), &(t2, t2_value))| {
             anyhow::ensure!(t1 == t2);
             Ok((t1, merge(t1_value, t2_value)))
