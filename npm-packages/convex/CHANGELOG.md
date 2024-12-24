@@ -54,6 +54,10 @@
   `@clerk/nextjs` be sure to follow the Clerk upgrade guides as there are many
   breaking changes.
 
+- Allow non-JavaScript/TypeScript files in the `convex/` directory. Only .js
+  etc. files will be bundled and may define Convex functions points but adding a
+  temporary file like `convex/foo.tmp` will no longer break` the build.
+
 - Fix type for FieldTypeFromFieldPath with optional objects.
 
 - Fix types when a handler returns a promise when using return value validators

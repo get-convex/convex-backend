@@ -332,6 +332,22 @@ export async function doesImportConvexHttpRouter(source: string) {
   }
 }
 
+const ENTRY_POINT_EXTENSIONS = [
+  // ESBuild js loader
+  ".js",
+  ".mjs",
+  ".cjs",
+  // ESBuild ts loader
+  ".ts",
+  ".tsx",
+  ".mts",
+  ".cts",
+  // ESBuild jsx loader
+  ".jsx",
+  // ESBuild supports css, text, json, and more but these file types are not
+  // allowed to define entry points.
+];
+
 export async function entryPoints(
   ctx: Context,
   dir: string,
@@ -370,45 +386,29 @@ export async function entryPoints(
       );
     }
 
-    // Instead of choosing only .ts, .js, etc. we ignore files specifically
-    // so we can add support for them in the future.
     // This should match isEntryPoint in the convex eslint plugin.
-    if (relPath.startsWith("_generated" + path.sep)) {
+    if (!ENTRY_POINT_EXTENSIONS.some((ext) => relPath.endsWith(ext))) {
+      logVerbose(ctx, chalk.yellow(`Skipping non-JS file ${fpath}`));
+    } else if (relPath.startsWith("_generated" + path.sep)) {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (base.startsWith(".")) {
       logVerbose(ctx, chalk.yellow(`Skipping dotfile ${fpath}`));
     } else if (base.startsWith("#")) {
       logVerbose(ctx, chalk.yellow(`Skipping likely emacs tempfile ${fpath}`));
-    } else if (base === "README.md") {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
-    } else if (base === "_generated.ts") {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (base === "schema.ts" || base === "schema.js") {
       logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if ((base.match(/\./g) || []).length > 1) {
+      // `auth.config.ts` and `convex.config.ts` are important not to bundle.
+      // `*.test.ts` `*.spec.ts` are common in developer code.
       logVerbose(
         ctx,
         chalk.yellow(`Skipping ${fpath} that contains multiple dots`),
       );
-    } else if (relPath.endsWith(".config.js")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath}`));
     } else if (relPath.includes(" ")) {
       logVerbose(
         ctx,
         chalk.yellow(`Skipping ${relPath} because it contains a space`),
       );
-    } else if (base.endsWith(".d.ts")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} declaration file`));
-    } else if (base.endsWith(".tsbuildinfo")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} tsbuildinfo file`));
-    } else if (base.endsWith(".json")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} json file`));
-    } else if (base.endsWith(".jsonl")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} jsonl file`));
-    } else if (base.endsWith(".txt")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} txt file`));
-    } else if (base.endsWith(".md")) {
-      logVerbose(ctx, chalk.yellow(`Skipping ${fpath} markdown file`));
     } else {
       logVerbose(ctx, chalk.green(`Preparing ${fpath}`));
       entryPoints.push(fpath);
@@ -416,7 +416,7 @@ export async function entryPoints(
   }
 
   // If using TypeScript, require that at least one line starts with `export` or `import`,
-  // a TypeScript requirement. This prevents confusing type errors described in CX-5067.
+  // a TypeScript requirement. This prevents confusing type errors from empty .ts files.
   const nonEmptyEntryPoints = entryPoints.filter((fpath) => {
     // This check only makes sense for TypeScript files
     if (!fpath.endsWith(".ts") && !fpath.endsWith(".tsx")) {
