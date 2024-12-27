@@ -920,6 +920,10 @@ async fn test_invoke_function_directly(rt: TestRuntime) -> anyhow::Result<()> {
         .pop()
         .unwrap()
         .to_pretty_string_test_only();
-    assert_contains(&log_line, "[WARN] 'Do not call Convex functions directly.");
+    assert_contains(
+        &log_line,
+        "[WARN] 'Convex functions should not directly call other Convex functions. Consider \
+         calling a helper function instead.",
+    );
     Ok(())
 }

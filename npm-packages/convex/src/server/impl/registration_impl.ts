@@ -90,7 +90,7 @@ function dontCallDirectly(
 ) {
   return (ctx: any, args: any) => {
     globalThis.console.warn(
-      "Do not call Convex functions directly. " +
+      "Convex functions should not directly call other Convex functions. Consider calling a helper function instead. " +
         `e.g. \`export const foo = ${funcType}(...); await foo(ctx);\` is not supported. ` +
         "See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code",
     );

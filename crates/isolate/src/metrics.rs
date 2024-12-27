@@ -257,6 +257,26 @@ pub fn op_timer(op_name: &str) -> StatusTimer {
     t
 }
 
+register_convex_counter!(
+    ISOLATE_DIRECT_FUNCTION_CALL_TOTAL,
+    "Number of calls to registered UDFs as js functions"
+);
+fn log_direct_function_call() {
+    log_counter(&ISOLATE_DIRECT_FUNCTION_CALL_TOTAL, 1);
+}
+
+pub fn log_log_line(line: &str) {
+    // We log a console.warn line containing this link when a function is called
+    // directly. These are potentially problematic because it looks like arg and
+    // return values are being validated, and a new isolate is running the UDF,
+    // but actually the plain JS function is being called. If the non-isolated,
+    // non-validated behavior is intended, the helper function should be explicit.
+    if line.contains("https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code") {
+        tracing::warn!("Direct function call detected: '{line}'");
+        log_direct_function_call();
+    }
+}
+
 register_convex_histogram!(
     UDF_SYSCALL_SECONDS,
     "Duration of UDF syscall",
