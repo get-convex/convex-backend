@@ -57,6 +57,7 @@ use http::{
         HeaderName,
         HeaderValue,
         ACCEPT,
+        ACCEPT_LANGUAGE,
         AUTHORIZATION,
         CONTENT_TYPE,
         REFERER,
@@ -1139,12 +1140,15 @@ impl<T: fmt::Display> fmt::Display for LogOptFmt<T> {
 pub fn cli_cors() -> CorsLayer {
     CorsLayer::new()
         .allow_headers(vec![
-            CONTENT_TYPE,
-            AUTHORIZATION,
+            "baggage".parse().unwrap(),
+            "sentry-trace".parse().unwrap(),
             ACCEPT,
+            ACCEPT_LANGUAGE,
+            AUTHORIZATION,
+            CONTENT_TYPE,
+            CONVEX_CLIENT_HEADER,
             REFERER,
             USER_AGENT,
-            CONVEX_CLIENT_HEADER,
         ])
         .allow_credentials(true)
         .allow_methods(vec![

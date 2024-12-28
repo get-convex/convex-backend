@@ -30,8 +30,12 @@ use common::{
 };
 use http::{
     header::{
+        ACCEPT,
+        ACCEPT_LANGUAGE,
         AUTHORIZATION,
         CONTENT_TYPE,
+        REFERER,
+        USER_AGENT,
     },
     request,
     HeaderValue,
@@ -341,7 +345,17 @@ where
 
 pub fn cors() -> CorsLayer {
     CorsLayer::new()
-        .allow_headers(vec![CONTENT_TYPE, "sentry-trace".parse().unwrap(), "baggage".parse().unwrap(), CONVEX_CLIENT_HEADER, AUTHORIZATION])
+        .allow_headers(vec![
+           "baggage".parse().unwrap(),
+           "sentry-trace".parse().unwrap(),
+           ACCEPT,
+           ACCEPT_LANGUAGE,
+           AUTHORIZATION,
+           CONTENT_TYPE,
+           CONVEX_CLIENT_HEADER,
+           REFERER,
+           USER_AGENT,
+        ])
         .allow_credentials(true)
         .allow_methods(vec![
             Method::GET,
