@@ -266,6 +266,13 @@ mod tracing_on {
             )
         };
     }
+
+    #[macro_export]
+    macro_rules! run_instrumented {
+        ($name:ident, $code:block) => {
+            $crate::instrument!($name, async move { $code }).await
+        };
+    }
 }
 #[cfg(feature = "tracy-tracing")]
 pub use tracy_client;
@@ -278,43 +285,9 @@ pub use self::tracing_on::{
 
 #[cfg(not(feature = "tracy-tracing"))]
 mod tracing_off {
-    use std::{
-        ffi::CStr,
-        future::Future,
-        pin::Pin,
-        task::{
-            Context,
-            Poll,
-        },
-    };
-
-    use pin_project::pin_project;
-
     pub fn initialize() {}
 
-    #[pin_project]
-    pub struct InstrumentedFuture<F: Future> {
-        #[pin]
-        inner: F,
-    }
-
     pub struct NoopLocation;
-
-    impl<F: Future> InstrumentedFuture<F> {
-        pub fn new(inner: F, _name: &'static CStr, _loc: &'static NoopLocation) -> Self {
-            Self { inner }
-        }
-    }
-
-    impl<F: Future> Future for InstrumentedFuture<F> {
-        type Output = F::Output;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            let this = self.project();
-            this.inner.poll(cx)
-        }
-    }
-
     pub struct NoopSpan;
 
     #[macro_export]
@@ -341,12 +314,18 @@ mod tracing_off {
             $future
         };
     }
+
+    #[macro_export]
+    macro_rules! run_instrumented {
+        ($name:ident, $code:block) => {
+            $code
+        };
+    }
 }
 
 #[cfg(not(feature = "tracy-tracing"))]
 pub use self::tracing_off::{
     initialize,
-    InstrumentedFuture,
     NoopLocation,
     NoopSpan,
 };

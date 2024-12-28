@@ -135,16 +135,10 @@ pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let gen = quote! {
         #(#attrs)*
         #vis async fn #ident #generics (#inputs) #output {
-            let __instrument_name = ::common::tracing::cstr!(#ident);
-            let __instrument_loc = ::common::span_location!();
-            let future = async move {
+            ::common::run_instrumented!(
+                #ident,
                 #block
-            };
-            ::common::tracing::InstrumentedFuture::new(
-                future,
-                __instrument_name,
-                __instrument_loc,
-            ).await
+            )
         }
     };
     gen.into()
