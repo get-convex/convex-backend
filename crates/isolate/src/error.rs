@@ -1,3 +1,4 @@
+use anyhow::Context;
 use common::{
     errors::{
         FrameData,
@@ -9,6 +10,7 @@ use deno_core::{
     v8,
     ModuleSpecifier,
 };
+use errors::ErrorMetadataAnyhowExt;
 use sourcemap::SourceMap;
 use value::ConvexValue;
 
@@ -69,6 +71,39 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, RT, E> {
             return Ok(None);
         };
         Ok(Some(SourceMap::from_slice(source_map.as_bytes())?))
+    }
+
+    pub fn nicely_show_line_number_on_error(
+        &mut self,
+        name: &ModuleSpecifier,
+        location: v8::Location,
+        e: anyhow::Error,
+    ) -> anyhow::Result<!> {
+        let source_map = self.lookup_source_map(name)?;
+        let line = location.get_line_number();
+        let col = location.get_column_number();
+        let Some(ref source_map) = source_map else {
+            return Err(e.wrap_error_message(|m| format!("{name}:{line}:{col}: {m}")));
+        };
+        let Some(token) = source_map.lookup_token(
+            location.get_line_number() as u32,
+            location.get_column_number() as u32,
+        ) else {
+            return Err(e.wrap_error_message(|m| format!("{name}:{line}:{col}: {m}")));
+        };
+        let (line, col) = token.get_src();
+        let ctx = token
+            .get_source_view()
+            .context("Source View missing?")?
+            .get_line(line)
+            .context("Line missing?")?;
+        Err(e.wrap_error_message(|m| {
+            format!(
+                "{name}:{line}:{col}: {m}\n\n{ctx}\n{}{}",
+                " ".repeat(col as usize),
+                "~".repeat(ctx.len() - col as usize)
+            )
+        }))
     }
 }
 

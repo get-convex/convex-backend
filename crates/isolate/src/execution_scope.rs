@@ -341,7 +341,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 .ok_or_else(|| anyhow!("Unexpected module compilation error"))?;
 
             assert_eq!(module.get_status(), v8::ModuleStatus::Uninstantiated);
-            let mut import_specifiers: Vec<ModuleSpecifier> = vec![];
+            let mut import_specifiers = vec![];
             let module_requests = module.get_module_requests();
             for i in 0..module_requests.length() {
                 let module_request: v8::Local<v8::ModuleRequest> = module_requests
@@ -351,7 +351,9 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 let import_specifier =
                     helpers::to_rust_string(self, &module_request.get_specifier())?;
                 let module_specifier = deno_core::resolve_import(&import_specifier, name.as_str())?;
-                import_specifiers.push(module_specifier);
+                let offset = module_request.get_source_offset();
+                let location = module.source_offset_to_location(offset);
+                import_specifiers.push((module_specifier, location));
             }
             timer.finish();
 
@@ -366,8 +368,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
 
         // Step 3: Recursively load the dependencies. Since we've already registered
         // ourselves, this won't create an infinite loop on import cycles.
-        for import_specifier in import_specifiers {
-            self.register_module(&import_specifier).await?;
+        for (import_specifier, location) in import_specifiers {
+            self.register_module(&import_specifier).await.map_err(|e| {
+                let Err(e) = self.nicely_show_line_number_on_error(name, location, e);
+                e
+            })?;
         }
 
         Ok(id)
@@ -379,7 +384,14 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
     ) -> anyhow::Result<FullModuleSource> {
         let _s = static_span!();
         if module_specifier.scheme() != CONVEX_SCHEME {
-            anyhow::bail!("Unsupported scheme in {}", module_specifier);
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "UnsupportedScheme",
+                format!(
+                    "Unsupported scheme ({}) in {}",
+                    module_specifier.scheme(),
+                    module_specifier
+                ),
+            ));
         }
         if module_specifier.has_authority() || module_specifier.cannot_be_a_base() {
             anyhow::bail!("Module URL {} must be path only", module_specifier);

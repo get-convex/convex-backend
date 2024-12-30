@@ -11,6 +11,7 @@ use common::{
         UdfType,
     },
 };
+use errors::ErrorMetadataAnyhowExt;
 use keybroker::{
     Identity,
     DEV_INSTANCE_NAME,
@@ -398,6 +399,10 @@ async fn test_analyze_developer_errors(rt: TestRuntime) -> anyhow::Result<()> {
             r#"Relative import path "nonexistent" not prefixed with /"#,
         ),
         (
+            "\n\nimport { something } from 'https://bad@scheme.com/module';",
+            r#"convex:/broken.js:2:26: Unsupported scheme (https) in"#,
+        ),
+        (
             "import { something } from './nonexistent';",
             "Couldn't find JavaScript module",
         ),
@@ -431,10 +436,15 @@ async fn test_analyze_developer_errors(rt: TestRuntime) -> anyhow::Result<()> {
             source_map: None,
             environment: ModuleEnvironment::Isolate,
         };
-        let Err(err) = UdfTest::default_with_modules(vec![module], rt.clone()).await? else {
-            anyhow::bail!("No JsError raised for broken source: {}", source);
+        let err = match UdfTest::default_with_modules(vec![module], rt.clone()).await {
+            Ok(Err(js_error)) => js_error.to_string(),
+            Err(e) if e.is_bad_request() => e.to_string(),
+            _ => anyhow::bail!("No JsError raised for broken source: {}", source),
         };
-        assert!(format!("{}", err).contains(expected_error), "{err:?}");
+        assert!(
+            format!("{err}").contains(expected_error),
+            "Uhoh: {err:?} - did not contain {expected_error}"
+        );
     }
     Ok(())
 }
