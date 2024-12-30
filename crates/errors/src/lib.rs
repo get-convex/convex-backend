@@ -422,8 +422,9 @@ impl ErrorMetadata {
             // 1% sampling for OCC/Overloaded/RateLimited, since we only really care about the
             // details if they happen at high volume.
             ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.001))),
-            ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.001))),
             ErrorCode::OCC { .. } => Some((sentry::Level::Warning, Some(0.001))),
+            // we want to see these a bit more than the others above
+            ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.1))),
         }
     }
 
