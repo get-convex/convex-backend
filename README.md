@@ -233,3 +233,18 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
     - `system-udfs/` contains functions used by the Convex system e.g. the CLI
 - `demo/` contains a demo project that showcases the basic functionality of
   Convex using React
+
+## Repository Structure
+
+This section provides a high-level overview of the repository structure, including the main directories and their purposes.
+
+### Main Directories
+
+- `crates/`: Contains Rust crates for various functionalities.
+- `.github/`: Contains GitHub workflows and actions.
+- `demo/`: Contains demo applications showcasing the functionality of Convex.
+
+### Main Entry Points
+
+- `Cargo.toml`: Rust workspace configuration.
+- `README.md`: General information about the project.

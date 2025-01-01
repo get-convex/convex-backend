@@ -23,3 +23,18 @@ with our product plans. We are generally unlikely to take large or fundamental
 changes as community contributions. We think carefully about how our APIs
 contribute to a cohesive product in line with our roadmap, so we cannot promise
 that larger PRs will get the same level of attention.
+
+## Repository Structure
+
+This section provides a high-level overview of the repository structure, including the main directories and their purposes.
+
+### Main Directories
+
+- `crates/`: Contains Rust crates for various functionalities.
+- `.github/`: Contains GitHub workflows and actions.
+- `demo/`: Contains demo applications showcasing the functionality of Convex.
+
+### Main Entry Points
+
+- `Cargo.toml`: Rust workspace configuration.
+- `README.md`: General information about the project.
