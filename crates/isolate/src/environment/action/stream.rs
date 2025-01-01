@@ -1,12 +1,10 @@
 use anyhow::Context;
-use axum::extract::FromRequest;
 use common::runtime::Runtime;
 use errors::ErrorMetadata;
 use futures::{
     stream::BoxStream,
     StreamExt,
 };
-use http::Request;
 
 use super::task_executor::TaskExecutor;
 use crate::environment::action::task::{
@@ -14,6 +12,13 @@ use crate::environment::action::task::{
     FormPartFile,
     TaskResponse,
 };
+
+// The maximum size of a multipart form body is 20 MiB.
+// Matches Response body size limit (HTTP_ACTION_BODY_LIMIT) for simplicity.
+// Multipart forms are parsed in memory (because FormData allows accessing
+// entries in arbitrary order), so this limit protects the server from
+// running out of memory.
+pub const MULTIPART_BODY_LIMIT: u64 = 20 << 20;
 
 impl<RT: Runtime> TaskExecutor<RT> {
     // Sends a stream to javascript by sending TaskResponse::StreamExtend
@@ -60,12 +65,20 @@ impl<RT: Runtime> TaskExecutor<RT> {
         content_type: String,
         request_stream: BoxStream<'static, anyhow::Result<bytes::Bytes>>,
     ) -> anyhow::Result<Vec<FormPart>> {
-        let request = Request::builder()
-            .header("Content-Type", content_type)
-            .body(axum::body::Body::from_stream(request_stream))?;
-        let mut multipart = axum::extract::Multipart::from_request(request, &())
-            .await
-            .map_err(|e| ErrorMetadata::bad_request("InvalidMultiPartForm", e.to_string()))?;
+        // NOTE we use multer instead of axum::extract::Multipart because
+        // of https://github.com/tokio-rs/axum/issues/3131
+        let boundary = multer::parse_boundary(&content_type).with_context(|| {
+            ErrorMetadata::bad_request(
+                "InvalidMultiPartForm",
+                format!("multi-part form invalid boundary: '{}'", content_type),
+            )
+        })?;
+        let mut multipart = multer::Multipart::with_constraints(
+            request_stream,
+            boundary,
+            multer::Constraints::new()
+                .size_limit(multer::SizeLimit::new().whole_stream(MULTIPART_BODY_LIMIT)),
+        );
         let mut results = vec![];
         while let Some(field) = multipart.next_field().await? {
             let name = field

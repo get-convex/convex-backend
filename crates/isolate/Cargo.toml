@@ -48,6 +48,7 @@ metrics = { path = "../metrics" }
 mime = { workspace = true }
 minitrace = { workspace = true }
 model = { path = "../model" }
+multer = { workspace = true }
 must-let = { workspace = true, optional = true }
 p256 = { workspace = true }
 p384 = { workspace = true }
