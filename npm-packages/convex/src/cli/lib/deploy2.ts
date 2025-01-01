@@ -70,7 +70,7 @@ export async function startPush(
     }
   };
   const fetch = deploymentFetch(options.url, request.adminKey, onError);
-  changeSpinner(ctx, "Analyzing and deploying source code...");
+  changeSpinner(ctx, "Analyzing source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
       body: await brotliCompress(ctx, JSON.stringify(request)),
