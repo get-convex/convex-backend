@@ -51,8 +51,8 @@
   [Clerk core 2](https://clerk.com/docs/upgrade-guides/core-2/overview):
   `@clerk/nextjs@5` and `@clerk/nextjs@6` are now known to work to Convex. Docs,
   quickstarts and templates have not yet been updated. If you're upgrading
-  `@clerk/nextjs` be sure to follow the Clerk upgrade guides as there are many
-  breaking changes.
+  `@clerk/nextjs` from v4 or v5 be sure to follow the Clerk upgrade guides as
+  there are many breaking changes.
 
 - Allow non-JavaScript/TypeScript files in the `convex/` directory. Only .js
   etc. files will be bundled and may define Convex functions points but adding a
