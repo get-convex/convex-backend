@@ -80,7 +80,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 .size_limit(multer::SizeLimit::new().whole_stream(MULTIPART_BODY_LIMIT)),
         );
         let mut results = vec![];
-        while let Some(field) = multipart.next_field().await? {
+        while let Some(field) = multipart.next_field().await.map_err(map_multer_error)? {
             let name = field
                 .name()
                 .with_context(|| {
@@ -91,11 +91,16 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 })?
                 .to_string();
             let (file, text) = match field.file_name() {
-                None => (None, Some(field.text().await?)),
+                None => (None, Some(field.text().await.map_err(map_multer_error)?)),
                 Some(file_name) => {
                     let file_name = Some(file_name.to_string());
                     let content_type = field.content_type().map(|c| c.to_string());
-                    let data = field.bytes().await?.to_vec().into();
+                    let data = field
+                        .bytes()
+                        .await
+                        .map_err(map_multer_error)?
+                        .to_vec()
+                        .into();
                     (
                         Some(FormPartFile {
                             content_type,
@@ -109,5 +114,31 @@ impl<RT: Runtime> TaskExecutor<RT> {
             results.push(FormPart { name, text, file });
         }
         Ok(results)
+    }
+}
+
+fn map_multer_error(e: multer::Error) -> anyhow::Error {
+    match &e {
+        // Internal errors.
+        multer::Error::StreamReadFailed(_)
+        | multer::Error::LockFailure
+        | multer::Error::UnknownField { .. } => e.into(),
+        // User errors.
+        multer::Error::StreamSizeExceeded { .. }
+        | multer::Error::FieldSizeExceeded { .. }
+        | multer::Error::IncompleteFieldData { .. }
+        | multer::Error::IncompleteHeaders
+        | multer::Error::ReadHeaderFailed(_)
+        | multer::Error::DecodeHeaderName { .. }
+        | multer::Error::DecodeHeaderValue { .. }
+        | multer::Error::IncompleteStream
+        | multer::Error::NoMultipart
+        | multer::Error::DecodeContentType(_)
+        | multer::Error::NoBoundary => ErrorMetadata::bad_request(
+            "InvalidMultiPartForm",
+            format!("invalid multi-part form: '{}'", e),
+        )
+        .into(),
+        _ => e.into(),
     }
 }
