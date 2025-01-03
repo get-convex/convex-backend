@@ -36,9 +36,9 @@ impl From<ErrorCode> for ErrorCodeProto {
     }
 }
 
-impl From<ErrorCodeProto> for ErrorCode {
-    fn from(code: ErrorCodeProto) -> Self {
-        match code {
+impl ErrorCodeProto {
+    fn into_rust_type(self, occ_info: OccInfoProto) -> ErrorCode {
+        match self {
             ErrorCodeProto::BadRequest => ErrorCode::BadRequest,
             ErrorCodeProto::Unauthenticated => ErrorCode::Unauthenticated,
             ErrorCodeProto::Forbidden => ErrorCode::Forbidden,
@@ -48,9 +48,10 @@ impl From<ErrorCodeProto> for ErrorCode {
             ErrorCodeProto::Overloaded => ErrorCode::Overloaded,
             ErrorCodeProto::RejectedBeforeExecution => ErrorCode::RejectedBeforeExecution,
             ErrorCodeProto::Occ => ErrorCode::OCC {
-                table_name: None,
-                document_id: None,
-                write_source: None,
+                table_name: occ_info.table_name,
+                document_id: occ_info.document_id,
+                write_source: occ_info.write_source,
+                is_system: occ_info.is_system,
             },
             ErrorCodeProto::PaginationLimit => ErrorCode::PaginationLimit,
             ErrorCodeProto::OutOfRetention => ErrorCode::OutOfRetention,
@@ -73,10 +74,12 @@ impl From<ErrorMetadata> for ErrorMetadataProto {
                     table_name,
                     document_id,
                     write_source,
+                    is_system,
                 } => Some(OccInfoProto {
                     table_name,
                     document_id,
                     write_source,
+                    is_system,
                 }),
                 _ => None,
             },
@@ -88,7 +91,8 @@ impl TryFrom<ErrorMetadataProto> for ErrorMetadata {
     type Error = anyhow::Error;
 
     fn try_from(metadata: ErrorMetadataProto) -> anyhow::Result<Self> {
-        let code = ErrorCodeProto::try_from(metadata.code)?.into();
+        let code = ErrorCodeProto::try_from(metadata.code)?
+            .into_rust_type(metadata.occ_info.unwrap_or_default());
         let short_msg = metadata.short_msg.context("Missing `short_msg` field")?;
         let msg = metadata.msg.context("Missing `msg` field")?;
         Ok(Self {

@@ -54,6 +54,7 @@ pub enum ErrorCode {
         table_name: Option<String>,
         document_id: Option<String>,
         write_source: Option<String>,
+        is_system: bool,
     },
     PaginationLimit,
     OutOfRetention,
@@ -250,6 +251,7 @@ impl ErrorMetadata {
                 table_name: None,
                 document_id: None,
                 write_source: None,
+                is_system: true,
             },
             short_msg: OCC_ERROR.into(),
             msg: OCC_ERROR_MSG.into(),
@@ -276,6 +278,7 @@ impl ErrorMetadata {
                 table_name,
                 document_id,
                 write_source,
+                is_system: false,
             },
             short_msg: OCC_ERROR.into(),
             msg: format!(
@@ -422,7 +425,12 @@ impl ErrorMetadata {
             // 1% sampling for OCC/Overloaded/RateLimited, since we only really care about the
             // details if they happen at high volume.
             ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.001))),
-            ErrorCode::OCC { .. } => Some((sentry::Level::Warning, Some(0.001))),
+            ErrorCode::OCC {
+                is_system: false, ..
+            } => Some((sentry::Level::Warning, Some(0.001))),
+            ErrorCode::OCC {
+                is_system: true, ..
+            } => Some((sentry::Level::Warning, None)),
             // we want to see these a bit more than the others above
             ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.1))),
         }
@@ -598,6 +606,7 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
                     table_name,
                     document_id,
                     write_source,
+                    is_system: _,
                 } => Some((
                     table_name.clone(),
                     document_id.clone(),
@@ -836,7 +845,20 @@ mod proptest {
                 ErrorCode::PaginationLimit => {
                     ErrorMetadata::pagination_limit("pagination", "limit")
                 },
-                ErrorCode::OCC { .. } => ErrorMetadata::system_occ(),
+                ErrorCode::OCC {
+                    is_system: true, ..
+                } => ErrorMetadata::system_occ(),
+                ErrorCode::OCC {
+                    is_system: false,
+                    table_name,
+                    document_id,
+                    write_source,
+                } => ErrorMetadata::user_occ(
+                    table_name,
+                    document_id,
+                    write_source,
+                    Some("description".to_string()),
+                ),
                 ErrorCode::OutOfRetention => ErrorMetadata::out_of_retention(),
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),
