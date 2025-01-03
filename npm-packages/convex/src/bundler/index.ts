@@ -131,12 +131,22 @@ async function doEsbuild(
   } catch (e: unknown) {
     // esbuild sometimes throws a build error instead of returning a result
     // containing an array of errors. Syntax errors are one of these cases.
+    let recommendUseNode = false;
     if (isEsbuildBuildError(e)) {
       for (const error of e.errors) {
         if (error.location) {
           const absPath = path.resolve(error.location.file);
           const st = ctx.fs.stat(absPath);
           ctx.fs.registerPath(absPath, st);
+        }
+        if (
+          platform !== "node" &&
+          !recommendUseNode &&
+          error.notes.some((note) =>
+            note.text.includes("Are you trying to bundle for node?"),
+          )
+        ) {
+          recommendUseNode = true;
         }
       }
     }
@@ -145,7 +155,10 @@ async function doEsbuild(
       errorType: "invalid filesystem data",
       // We don't print any error because esbuild already printed
       // all the relevant information.
-      printedMessage: null,
+      printedMessage: recommendUseNode
+        ? `It looks like you are using Node APIs from a file without the "use node" directive.\n` +
+          `See https://docs.convex.dev/functions/runtimes#nodejs-runtime`
+        : null,
     });
   }
 }
