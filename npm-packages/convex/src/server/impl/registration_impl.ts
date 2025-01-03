@@ -457,11 +457,10 @@ export const httpActionGeneric = (
     request: Request,
   ) => Promise<Response>,
 ): PublicHttpAction => {
-  const handler = func as unknown as PublicHttpAction;
-  const q = dontCallDirectly("httpAction", handler) as PublicHttpAction;
+  const q = dontCallDirectly("httpAction", func) as PublicHttpAction;
   assertNotBrowser();
   q.isHttp = true;
-  q.invokeHttpAction = (request) => invokeHttpAction(handler as any, request);
+  q.invokeHttpAction = (request) => invokeHttpAction(func as any, request);
   q._handler = func;
   return q;
 };
