@@ -53,14 +53,18 @@ fn must_be_admin_internal(
     identity: &Identity,
     needs_write_access: bool,
 ) -> anyhow::Result<AdminIdentityPrincipal> {
-    if let Identity::InstanceAdmin(admin_identity) = identity {
-        if needs_write_access && admin_identity.is_read_only() {
-            return Err(read_only_admin_key_error().into());
-        }
-        Ok(admin_identity.principal().clone())
-    } else {
-        Err(bad_admin_key_error(identity.instance_name()).into())
+    let admin_identity = match identity {
+        Identity::InstanceAdmin(admin_identity) => admin_identity,
+        Identity::ActingUser(admin_identity, _user_identity_attributes) => admin_identity,
+        Identity::System(_) | Identity::User(_) | Identity::Unknown => {
+            return Err(bad_admin_key_error(identity.instance_name()).into());
+        },
+    };
+
+    if needs_write_access && admin_identity.is_read_only() {
+        return Err(read_only_admin_key_error().into());
     }
+    Ok(admin_identity.principal().clone())
 }
 
 pub fn must_be_admin_member_with_write_access(identity: &Identity) -> anyhow::Result<MemberId> {

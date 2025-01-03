@@ -13,7 +13,7 @@ import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsProvisionProd,
 } from "./lib/api.js";
-import { runPaginatedQuery } from "./lib/run.js";
+import { runSystemPaginatedQuery } from "./lib/run.js";
 import { parsePositiveInteger } from "./lib/utils/utils.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
@@ -87,14 +87,13 @@ async function listTables(
   deploymentName: string | undefined,
   componentPath: string,
 ) {
-  const tables = (await runPaginatedQuery(
-    ctx,
+  const tables = (await runSystemPaginatedQuery(ctx, {
     deploymentUrl,
     adminKey,
-    "_system/cli/tables",
+    functionName: "_system/cli/tables",
     componentPath,
-    {},
-  )) as { name: string }[];
+    args: {},
+  })) as { name: string }[];
   if (tables.length === 0) {
     logError(
       ctx,
@@ -120,18 +119,17 @@ async function listDocuments(
     componentPath: string;
   },
 ) {
-  const data = (await runPaginatedQuery(
-    ctx,
+  const data = (await runSystemPaginatedQuery(ctx, {
     deploymentUrl,
     adminKey,
-    "_system/cli/tableData",
-    options.componentPath,
-    {
+    functionName: "_system/cli/tableData",
+    componentPath: options.componentPath,
+    args: {
       table: tableName,
       order: options.order ?? "desc",
     },
-    options.limit + 1,
-  )) as Record<string, Value>[];
+    limit: options.limit + 1,
+  })) as Record<string, Value>[];
 
   if (data.length === 0) {
     logError(ctx, "There are no documents in this table.");

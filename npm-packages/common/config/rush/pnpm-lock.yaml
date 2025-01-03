@@ -238,6 +238,9 @@ importers:
       jsdom:
         specifier: ~25.0.1
         version: 25.0.1(bufferutil@4.0.8)(utf-8-validate@5.0.10)
+      json5:
+        specifier: ~2.2.3
+        version: 2.2.3
       jwt-encode:
         specifier: ~1.0.1
         version: 1.0.1

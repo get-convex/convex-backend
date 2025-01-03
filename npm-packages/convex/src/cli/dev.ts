@@ -375,19 +375,18 @@ async function runFunctionInDev(
   functionName: string,
   componentPath: string | undefined,
 ) {
-  await runFunctionAndLog(
-    ctx,
-    credentials.url,
-    credentials.adminKey,
+  await runFunctionAndLog(ctx, {
+    deploymentUrl: credentials.url,
+    adminKey: credentials.adminKey,
     functionName,
-    {},
+    argsString: "{}",
     componentPath,
-    {
+    callbacks: {
       onSuccess: () => {
         logFinishedStep(ctx, `Finished running function "${functionName}"`);
       },
     },
-  );
+  });
 }
 
 function getTableWatch(
@@ -399,13 +398,13 @@ function getTableWatch(
   tableName: string | null,
   componentPath: string | undefined,
 ) {
-  return getFunctionWatch(
-    ctx,
-    credentials,
-    "_system/cli/queryTable",
-    () => (tableName !== null ? { tableName } : null),
+  return getFunctionWatch(ctx, {
+    deploymentUrl: credentials.url,
+    adminKey: credentials.adminKey,
+    parsedFunctionName: "_system/cli/queryTable",
+    getArgs: () => (tableName !== null ? { tableName } : null),
     componentPath,
-  );
+  });
 }
 
 function getDeplymentEnvVarWatch(
@@ -416,42 +415,41 @@ function getDeplymentEnvVarWatch(
   },
   shouldRetryOnDeploymentEnvVarChange: boolean,
 ) {
-  return getFunctionWatch(
-    ctx,
-    credentials,
-    "_system/cli/queryEnvironmentVariables",
-    () => (shouldRetryOnDeploymentEnvVarChange ? {} : null),
-    undefined,
-  );
+  return getFunctionWatch(ctx, {
+    deploymentUrl: credentials.url,
+    adminKey: credentials.adminKey,
+    parsedFunctionName: "_system/cli/queryEnvironmentVariables",
+    getArgs: () => (shouldRetryOnDeploymentEnvVarChange ? {} : null),
+    componentPath: undefined,
+  });
 }
 
 function getFunctionWatch(
   ctx: WatchContext,
-  credentials: {
-    url: string;
+  args: {
+    deploymentUrl: string;
     adminKey: string;
+    parsedFunctionName: string;
+    getArgs: () => Record<string, Value> | null;
+    componentPath: string | undefined;
   },
-  functionName: string,
-  getArgs: () => Record<string, Value> | null,
-  componentPath: string | undefined,
 ) {
   const [stopPromise, stop] = waitUntilCalled();
   return {
     watch: async () => {
-      const args = getArgs();
-      if (args === null) {
+      const functionArgs = args.getArgs();
+      if (functionArgs === null) {
         return waitForever();
       }
       let changes = 0;
-      return subscribe(
-        ctx,
-        credentials.url,
-        credentials.adminKey,
-        functionName,
-        args,
-        componentPath,
-        stopPromise,
-        {
+      return subscribe(ctx, {
+        deploymentUrl: args.deploymentUrl,
+        adminKey: args.adminKey,
+        parsedFunctionName: args.parsedFunctionName,
+        parsedFunctionArgs: functionArgs,
+        componentPath: args.componentPath,
+        until: stopPromise,
+        callbacks: {
           onChange: () => {
             changes++;
             // First bump is just the initial results reporting
@@ -460,7 +458,7 @@ function getFunctionWatch(
             }
           },
         },
-      );
+      });
     },
     stop: () => {
       stop();

@@ -309,6 +309,7 @@
     "inquirer": "^9.1.4",
     "inquirer-search-list": "~1.2.6",
     "jsdom": "~25.0.1",
+    "json5": "~2.2.3",
     "jwt-encode": "~1.0.1",
     "knip": "~5.39.4",
     "napi-wasm": "1.1.3",

@@ -140,15 +140,14 @@ async function waitForStableExportState(
 ): Promise<SnapshotExportState> {
   const [donePromise, onDone] = waitUntilCalled();
   let snapshotExportState: SnapshotExportState;
-  await subscribe(
-    ctx,
+  await subscribe(ctx, {
     deploymentUrl,
     adminKey,
-    "_system/cli/exports:getLatest",
-    {},
-    undefined,
-    donePromise,
-    {
+    parsedFunctionName: "_system/cli/exports:getLatest",
+    parsedFunctionArgs: {},
+    componentPath: undefined,
+    until: donePromise,
+    callbacks: {
       onChange: (value: any) => {
         // NOTE: `value` would only be `null` if there has never been an export
         // requested.
@@ -168,7 +167,7 @@ async function waitForStableExportState(
         }
       },
     },
-  );
+  });
   return snapshotExportState!;
 }
 

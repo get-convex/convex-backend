@@ -378,15 +378,14 @@ export async function waitForStableImportState(
   const [donePromise, onDone] = waitUntilCalled();
   let snapshotImportState: SnapshotImportState;
   let checkpointCount = 0;
-  await subscribe(
-    ctx,
+  await subscribe(ctx, {
     deploymentUrl,
     adminKey,
-    "_system/cli/queryImport",
-    { importId },
-    undefined,
-    donePromise,
-    {
+    parsedFunctionName: "_system/cli/queryImport",
+    parsedFunctionArgs: { importId },
+    componentPath: undefined,
+    until: donePromise,
+    callbacks: {
       onChange: (value: any) => {
         snapshotImportState = value.state;
         switch (snapshotImportState.state) {
@@ -409,7 +408,7 @@ export async function waitForStableImportState(
         }
       },
     },
-  );
+  });
   return snapshotImportState!;
 }
 

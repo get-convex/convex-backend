@@ -5,7 +5,7 @@ import {
   logFinishedStep,
   logVerbose,
 } from "../../../bundler/context.js";
-import { runQuery } from "../run.js";
+import { runSystemQuery } from "../run.js";
 import { deploymentStateDir, saveDeploymentConfig } from "./filePaths.js";
 import {
   ensureBackendBinaryDownloaded,
@@ -141,14 +141,13 @@ async function handleUpgrade(
 
   logVerbose(ctx, "Downloading env vars");
   const deploymentUrl = localDeploymentUrl(args.ports.cloud);
-  const envs = (await runQuery(
-    ctx,
+  const envs = (await runSystemQuery(ctx, {
     deploymentUrl,
-    args.adminKey,
-    "_system/cli/queryEnvironmentVariables",
-    undefined,
-    {},
-  )) as Array<{
+    adminKey: args.adminKey,
+    functionName: "_system/cli/queryEnvironmentVariables",
+    componentPath: undefined,
+    args: {},
+  })) as Array<{
     name: string;
     value: string;
   }>;

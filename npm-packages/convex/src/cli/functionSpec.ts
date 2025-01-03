@@ -4,7 +4,7 @@ import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsWithinCurrentProject,
 } from "./lib/api.js";
-import { runQuery } from "./lib/run.js";
+import { runSystemQuery } from "./lib/run.js";
 import { Command, Option } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 
@@ -30,14 +30,13 @@ export const functionSpec = new Command("function-spec")
         deploymentSelection,
       );
 
-    const functions = (await runQuery(
-      ctx,
+    const functions = (await runSystemQuery(ctx, {
       deploymentUrl,
       adminKey,
-      "_system/cli/modules:apiSpec",
-      undefined,
-      {},
-    )) as any[];
+      functionName: "_system/cli/modules:apiSpec",
+      componentPath: undefined,
+      args: {},
+    })) as any[];
 
     const output = JSON.stringify(
       { url: deploymentUrl, functions: functions },

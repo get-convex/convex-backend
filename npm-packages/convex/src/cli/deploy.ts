@@ -252,14 +252,13 @@ async function deployToNewPreviewDeployment(
   logFinishedStep(ctx, `Deployed Convex functions to ${previewUrl}`);
 
   if (options.previewRun !== undefined) {
-    await runFunctionAndLog(
-      ctx,
-      previewUrl,
-      previewAdminKey,
-      options.previewRun,
-      {},
-      undefined,
-      {
+    await runFunctionAndLog(ctx, {
+      deploymentUrl: previewUrl,
+      adminKey: previewAdminKey,
+      functionName: options.previewRun,
+      argsString: "{}",
+      componentPath: undefined,
+      callbacks: {
         onSuccess: () => {
           logFinishedStep(
             ctx,
@@ -267,7 +266,7 @@ async function deployToNewPreviewDeployment(
           );
         },
       },
-    );
+    });
   }
 }
 

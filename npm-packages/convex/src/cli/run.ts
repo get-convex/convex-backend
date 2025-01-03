@@ -25,6 +25,12 @@ export const run = new Command("run")
     "Watch a query, printing its result if the underlying data changes. Given function must be a query.",
   )
   .option("--push", "Push code to deployment before running the function.")
+  .addOption(
+    new Option(
+      "--identity <identity>",
+      'JSON-formatted UserIdentity object, e.g. \'{ name: "John", address: "0x123" }\'',
+    ),
+  )
   // For backwards compatibility we still support --no-push which is a noop
   .addOption(new Option("--no-push").hideHelp())
   .addDeploymentSelectionOptions(actionDescription("Run the function on"))
@@ -70,8 +76,6 @@ export const run = new Command("run")
 
     await ensureHasConvexDependency(ctx, "run");
 
-    const args = argsString ? JSON.parse(argsString) : {};
-
     if (deploymentType === "prod" && options.push) {
       return await ctx.crash({
         exitCode: 1,
@@ -105,21 +109,21 @@ export const run = new Command("run")
     }
 
     if (options.watch) {
-      return await subscribeAndLog(
-        ctx,
+      return await subscribeAndLog(ctx, {
         deploymentUrl,
         adminKey,
         functionName,
-        args,
-        options.component,
-      );
+        argsString: argsString ?? "{}",
+        componentPath: options.component,
+        identityString: options.identity,
+      });
     }
-    return await runFunctionAndLog(
-      ctx,
+    return await runFunctionAndLog(ctx, {
       deploymentUrl,
       adminKey,
       functionName,
-      args,
-      options.component,
-    );
+      argsString: argsString ?? "{}",
+      componentPath: options.component,
+      identityString: options.identity,
+    });
   });
