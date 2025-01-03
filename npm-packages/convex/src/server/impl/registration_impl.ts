@@ -192,7 +192,7 @@ export const mutationGeneric: MutationBuilder<any, "public"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredMutation<"public", any, any>;
+  ) as (ctx: GenericMutationCtx<any>, args: any) => any;
   const func = dontCallDirectly("mutation", handler) as RegisteredMutation<
     "public",
     any,
@@ -229,7 +229,7 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredMutation<"internal", any, any>;
+  ) as (ctx: GenericMutationCtx<any>, args: any) => any;
   const func = dontCallDirectly(
     "internalMutation",
     handler,
@@ -283,7 +283,7 @@ export const queryGeneric: QueryBuilder<any, "public"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredQuery<"public", any, any>;
+  ) as (ctx: GenericQueryCtx<any>, args: any) => any;
   const func = dontCallDirectly("query", handler) as RegisteredQuery<
     "public",
     any,
@@ -320,7 +320,7 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredQuery<"internal", any, any>;
+  ) as (ctx: GenericQueryCtx<any>, args: any) => any;
   const func = dontCallDirectly("internalQuery", handler) as RegisteredQuery<
     "internal",
     any,
@@ -371,7 +371,7 @@ export const actionGeneric: ActionBuilder<any, "public"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredAction<"public", any, any>;
+  ) as (ctx: GenericActionCtx<any>, args: any) => any;
   const func = dontCallDirectly("action", handler) as RegisteredAction<
     "public",
     any,
@@ -407,7 +407,7 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredAction<"internal", any, any>;
+  ) as (ctx: GenericActionCtx<any>, args: any) => any;
   const func = dontCallDirectly("internalAction", handler) as RegisteredAction<
     "internal",
     any,
