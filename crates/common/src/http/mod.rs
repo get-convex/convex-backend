@@ -485,7 +485,7 @@ impl HttpError {
     }
 
     pub async fn error_message_from_bytes(
-        bytes: &hyper::body::Bytes,
+        bytes: &[u8],
     ) -> anyhow::Result<(Cow<'static, str>, Cow<'static, str>)> {
         let ResponseErrorMessage { code, message } =
             serde_json::from_slice(bytes).context(format!(
