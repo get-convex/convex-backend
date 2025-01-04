@@ -61,7 +61,7 @@ use value::{
 };
 
 use crate::{
-    export_worker::FileStorageZipMetadata,
+    exports::FileStorageZipMetadata,
     snapshot_import::{
         import_error::ImportError,
         parse::ImportUnit,

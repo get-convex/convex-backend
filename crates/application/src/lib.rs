@@ -310,7 +310,7 @@ use vector::{
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
-    export_worker::ExportWorker,
+    exports::worker::ExportWorker,
     function_log::{
         FunctionExecutionLog,
         TableRate,
@@ -331,7 +331,7 @@ pub mod application_function_runner;
 mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
-mod export_worker;
+mod exports;
 pub mod function_log;
 pub mod log_visibility;
 mod metrics;
