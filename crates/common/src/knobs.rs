@@ -1242,3 +1242,38 @@ pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
 /// Conductors that are colocated.
 pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
     LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 16));
+
+/// S3 minimum part size for multipart upload is 5MiB
+const MIN_S3_INTERMEDIATE_PART_SIZE: usize = 5 * (1 << 20);
+/// S3 maximum part size for multipart upload is 5GiB
+const MAX_S3_INTERMEDIATE_PART_SIZE: usize = 5 * (1 << 30);
+
+/// How large to make intermediate S3 multipart upload parts.
+/// i.e. when uploading a large file to S3, we'll split it into parts of this
+/// size. All parts will be at least this size except for the last part.
+/// If the file is created via small chunks, most chunks will be approximately
+/// this size.
+///
+/// Motivation to increase this knob:
+///
+/// - A file may only have 10000 parts, so multiplying this by 10000 gives an
+///   upper bound on the size of uploaded files.
+///
+/// Motivation to decrease this knob:
+///
+/// - We pipeline part uploads with producing chunks of data, but we don't send
+///   the first chunk until we've buffered enough data to fill a part. Thus
+///   larger chunks mean higher latency for uploads.
+pub static TARGET_S3_INTERMEDIATE_PART_SIZE: LazyLock<usize> = LazyLock::new(|| {
+    // Default is 100MiB. 100MiB * 10000 parts = 1TiB total file size.
+    let result = env_config("TARGET_S3_INTERMEDIATE_PART_SIZE", 100 * (1 << 20));
+    assert!(
+        result >= MIN_S3_INTERMEDIATE_PART_SIZE,
+        "S3 only supports part sizes of at least 5MiB"
+    );
+    assert!(
+        result <= MAX_S3_INTERMEDIATE_PART_SIZE,
+        "S3 only supports part sizes up to 5GiB"
+    );
+    result
+});
