@@ -1,8 +1,6 @@
-use std::collections::{
-    BTreeMap,
-    BTreeSet,
-};
+use std::collections::BTreeMap;
 
+use anyhow::Context;
 use bytes::Bytes;
 use common::{
     self,
@@ -244,51 +242,54 @@ where
 {
     let mut zip_snapshot_upload = ZipSnapshotUpload::new(&mut writer).await?;
 
+    // Aim to write things in fast -> slow order in the zip snapshot. This is
+    // helpful, because TableIterator has an overhead proportional to the time
+    // since `snapshot_ts`. We create many TableIterator while constructing a
+    // zip snapshot, so it is helpful to do this.
+
+    // Backup all the tables-tables. These are generally small.
     for (component_id, component_path) in component_ids_to_paths.iter() {
         let namespace: TableNamespace = (*component_id).into();
         let path_prefix = get_export_path_prefix(component_path);
-
-        let tablet_ids: BTreeSet<_> = tables
-            .iter()
-            .filter(|(_, (ns, ..))| *ns == namespace)
-            .map(|(tablet_id, _)| *tablet_id)
-            .collect();
-        let in_component_str = component_path.in_component_str();
-
-        for tablet_id in tablet_ids.iter() {
-            let (_, _, table_name, table_summary) =
-                tables.get(tablet_id).expect("table should have details");
-            let by_id = by_id_indexes
-                .get(tablet_id)
-                .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
-
-            update_progress(format!("Backing up {table_name}{in_component_str}")).await?;
-
-            write_table(
-                worker,
-                &path_prefix,
-                &mut zip_snapshot_upload,
-                snapshot_ts,
-                component_path,
-                tablet_id,
-                table_name.clone(),
-                table_summary.clone(),
-                by_id,
-                &usage,
-            )
-            .await?;
-        }
-    }
-
-    for (component_id, component_path) in component_ids_to_paths {
-        let namespace: TableNamespace = component_id.into();
-        let path_prefix = get_export_path_prefix(&component_path);
         let in_component_str = component_path.in_component_str();
 
         update_progress(format!("Backing up _tables{in_component_str}")).await?;
         write_tables_table(&path_prefix, &mut zip_snapshot_upload, namespace, &tables).await?;
+    }
 
-        if include_storage {
+    // sort tables small to large, and write them to the zip.
+    let mut sorted_tables: Vec<_> = tables.iter().collect();
+    sorted_tables.sort_by_key(|(_, (_, _, _, table_summary))| table_summary.total_size());
+    for (tablet_id, (namespace, _, table_name, table_summary)) in sorted_tables {
+        let component_id: ComponentId = (*namespace).into();
+        let component_path = component_ids_to_paths
+            .get(&component_id)
+            .context("Component missing")?;
+        let path_prefix = get_export_path_prefix(component_path);
+        let by_id = by_id_indexes
+            .get(tablet_id)
+            .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
+        write_table(
+            worker,
+            &path_prefix,
+            &mut zip_snapshot_upload,
+            snapshot_ts,
+            component_path,
+            tablet_id,
+            table_name.clone(),
+            table_summary.clone(),
+            by_id,
+            &usage,
+        )
+        .await?;
+    }
+
+    // Backup the storage tables last - since the upload/download can be slower
+    if include_storage {
+        for (component_id, component_path) in component_ids_to_paths {
+            let namespace: TableNamespace = component_id.into();
+            let path_prefix = get_export_path_prefix(&component_path);
+            let in_component_str = component_path.in_component_str();
             update_progress(format!("Backing up _storage{in_component_str}")).await?;
             write_storage_table(
                 worker,
