@@ -7,6 +7,7 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use common::log_lines::LogLine;
+use errors::ErrorMetadata;
 use futures::{
     select_biased,
     FutureExt,
@@ -86,13 +87,16 @@ impl LocalNodeExecutor {
             .output()
             .await?;
         let version = String::from_utf8_lossy(&cmd.stdout);
-        anyhow::ensure!(
-            version.starts_with("v18."),
-            format!(
-                "Wrong node version {} installed at {}",
-                version, &self.node_path
-            )
-        );
+
+        if !version.starts_with("v18.") {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "DeploymentNotConfiguredForNodeActions",
+                "Deployment is not configured to deploy \"use node\" actions. \
+                 Node.js v18 is not installed. \
+                 Install Node.js 18 with nvm (https://github.com/nvm-sh/nvm) \
+                 to deploy Node.js actions."
+            ))
+        }
         Ok(())
     }
 }
