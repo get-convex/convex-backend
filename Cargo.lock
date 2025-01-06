@@ -206,6 +206,7 @@ dependencies = [
  "openidconnect",
  "parking_lot",
  "pb",
+ "pretty_assertions",
  "proptest",
  "proptest-derive",
  "rand 0.8.5",

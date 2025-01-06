@@ -43,6 +43,7 @@ use model::{
     file_storage::types::FileStorageEntry,
     test_helpers::DbFixturesWithModel,
 };
+use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
 use serde_json::json;
 use storage::{
