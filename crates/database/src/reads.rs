@@ -506,6 +506,7 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
+        knobs::DISABLE_FUZZY_TEXT_SEARCH,
         query::search_value_to_bytes,
         testing::TestIdGenerator,
         types::{
@@ -637,13 +638,15 @@ mod tests {
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
 
-        assert!(read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            // If "word" is a token, it overlaps.
-            "Text containing word and other stuff."
-        )?);
+        if !*DISABLE_FUZZY_TEXT_SEARCH {
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                // If "word" is a token, it overlaps.
+                "Text containing word and other stuff."
+            )?);
+        }
 
         assert!(!read_set_overlaps(
             id,
@@ -690,26 +693,28 @@ mod tests {
             field_path,
             "Text containing word and other stuff."
         )?);
-        assert!(read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            "Text containing shword and other stuff."
-        )?);
-
-        // This would match if prefix is true.
-        assert!(!read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            "Text containing wordddd and other stuff."
-        )?);
         assert!(!read_set_overlaps(
             id,
             &read_set,
             field_path,
             "This text doesn't have the keyword."
         )?);
+        if !*DISABLE_FUZZY_TEXT_SEARCH {
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                "Text containing shword and other stuff."
+            )?);
+
+            // This would match if prefix is true.
+            assert!(!read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                "Text containing wordddd and other stuff."
+            )?);
+        }
 
         Ok(())
     }
@@ -789,13 +794,24 @@ mod tests {
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
 
-        assert!(read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            // If "word.*" is a token, it overlaps.
-            "Text containing wordsythings and other stuff."
-        )?);
+        if *DISABLE_FUZZY_TEXT_SEARCH {
+            // Add a test case here
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                // If "wrd.*" is a token, it overlaps.
+                "Text containing wrdsythings and other stuff."
+            )?);
+        } else {
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                // If "word.*" is a token, it overlaps.
+                "Text containing wordsythings and other stuff."
+            )?);
+        }
 
         assert!(!read_set_overlaps(
             id,
