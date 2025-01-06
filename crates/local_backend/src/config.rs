@@ -37,9 +37,11 @@ pub struct LocalConfig {
     site_proxy_port: u16,
 
     /// Origin of the Convex server
+    #[clap(long, requires = "convex_site")]
     convex_origin: Option<ConvexOrigin>,
 
     /// Origin of the Convex HTTP Actions
+    #[clap(long, requires = "convex_origin")]
     convex_site: Option<ConvexSite>,
 
     #[clap(long)]
