@@ -207,17 +207,8 @@ fn deserialize_issuer_url(original_url: String) -> anyhow::Result<IssuerUrl> {
     };
     if url.starts_with("http://") {
         let parsed_url = IssuerUrl::new(url)?;
-        if parsed_url.url().host_str() == Some("localhost")
-            || parsed_url.url().host_str() == Some("127.0.0.1")
-        {
-            return Ok(parsed_url);
-        } else {
-            anyhow::bail!("Invalid provider domain URL \"{original_url}\": must use HTTPS");
-        }
+        return Ok(parsed_url);
     };
-    if !url.starts_with("https://") {
-        anyhow::bail!("Invalid provider domain URL \"{original_url}\": must use HTTPS");
-    }
     let parsed_url = IssuerUrl::new(url)?;
     // Check if the input really looks like a URL,
     // to catch mistakes (e.g. putting random tokens in the domain field)
