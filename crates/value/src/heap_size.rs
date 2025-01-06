@@ -56,6 +56,9 @@ pub trait HeapSize {
 pub trait ElementsHeapSize {
     /// May iterate `self`
     fn elements_heap_size(&self) -> usize;
+    /// Whether or not `self.clone().elements_heap_size()` might differ from
+    /// `self.elements_heap_size()`
+    const RECALCULATE_AFTER_CLONE: bool = true;
 }
 
 /// Wraps a collection and implements HeapSize in constant time. WithHeapSize
@@ -90,9 +93,13 @@ impl<T: ElementsHeapSize + Clone> Clone for WithHeapSize<T> {
     fn clone(&self) -> Self {
         let inner = self.inner.clone();
         Self {
-            // Recalculate the heap size of the clone, because the cloned values don't necessarily
-            // have the same capacity
-            elements_heap_size: inner.elements_heap_size(),
+            elements_heap_size: if T::RECALCULATE_AFTER_CLONE {
+                // Recalculate the heap size of the clone, because the cloned values don't
+                // necessarily have the same capacity
+                inner.elements_heap_size()
+            } else {
+                self.elements_heap_size
+            },
             inner,
         }
     }
@@ -276,6 +283,8 @@ impl<T: HeapSize> From<WithHeapSize<Vec<T>>> for Vec<T> {
 }
 
 impl<T: HeapSize> ElementsHeapSize for Vector<T> {
+    const RECALCULATE_AFTER_CLONE: bool = false;
+
     fn elements_heap_size(&self) -> usize {
         self.iter().map(|v| v.heap_size()).sum::<usize>()
     }
