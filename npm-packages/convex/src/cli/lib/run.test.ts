@@ -32,6 +32,12 @@ test("parseFunctionName", async () => {
   expect(await parseFunctionName(ctx, "convex/foo/bar", "convex/")).toEqual(
     "foo/bar:default",
   );
+  expect(await parseFunctionName(ctx, "convex/foo/bar.ts", "convex/")).toEqual(
+    "foo/bar:default",
+  );
+  expect(
+    await parseFunctionName(ctx, "convex/foo/bar.ts:baz", "convex/"),
+  ).toEqual("foo/bar:baz");
   expect(await parseFunctionName(ctx, "convex/bar/baz", "convex/")).toEqual(
     "convex/bar/baz:default",
   );

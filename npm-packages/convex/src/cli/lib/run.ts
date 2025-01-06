@@ -138,21 +138,39 @@ export async function parseFunctionName(
   // if there's a directory with the same name as the functions directory nested directly underneath.
   // We'll prefer the `convex/foo/bar:default` version, and check if the file exists, and otherwise treat this as a relative path from the project root.
   const filePath = functionName.split(":")[0];
+  const possibleExtensions = [
+    ".ts",
+    ".js",
+    ".tsx",
+    ".jsx",
+    ".mts",
+    ".mjs",
+    ".cts",
+    ".cjs",
+  ];
+  let hasExtension = false;
+  let normalizedFilePath: string = filePath;
+  for (const extension of possibleExtensions) {
+    if (filePath.endsWith(extension)) {
+      normalizedFilePath = filePath.slice(0, -extension.length);
+      hasExtension = true;
+      break;
+    }
+  }
+
   const exportName = functionName.split(":")[1] ?? "default";
-  const normalizedName = `${filePath}:${exportName}`;
+  const normalizedName = `${normalizedFilePath}:${exportName}`;
 
   // This isn't a relative path from the project root
   if (!filePath.startsWith(functionDirName)) {
     return normalizedName;
   }
 
-  const filePathWithoutPrefix = filePath.slice(functionDirName.length);
+  const filePathWithoutPrefix = normalizedFilePath.slice(
+    functionDirName.length,
+  );
   const functionNameWithoutPrefix = `${filePathWithoutPrefix}:${exportName}`;
 
-  const possibleExtensions = [".ts", ".js", ".tsx", ".jsx"];
-  const hasExtension = possibleExtensions.some((extension) =>
-    filePath.endsWith(extension),
-  );
   if (hasExtension) {
     if (ctx.fs.exists(path.join(functionDirName, filePath))) {
       return normalizedName;
