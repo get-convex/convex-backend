@@ -134,12 +134,10 @@ use crate::{
 enum PersistenceWrite {
     Commit {
         pending_write: PendingWriteHandle,
-
         commit_timer: StatusTimer,
-
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
-
         parent_trace: EncodedSpan,
+        begin_timestamp: RepeatableTimestamp,
     },
     MaxRepeatableTimestamp {
         new_max_repeatable: Timestamp,
@@ -243,11 +241,12 @@ impl<RT: Runtime> Committer<RT> {
                             commit_timer,
                             result,
                             parent_trace,
+                            begin_timestamp,
                         } => {
                             let root = initialize_root_from_parent("Committer::publish_commit", parent_trace);
                             let _guard = root.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
-                            self.publish_commit(pending_write);
+                            self.publish_commit(pending_write, begin_timestamp);
                             let _ = result.send(Ok(commit_ts));
 
                             // When we next get free cycles and there is no ongoing bump,
@@ -674,7 +673,11 @@ impl<RT: Runtime> Committer<RT> {
 
     /// After writing the new rows to persistence, mark the commit as complete
     /// and allow the updated rows to be read by other transactions.
-    fn publish_commit(&mut self, pending_write: PendingWriteHandle) {
+    fn publish_commit(
+        &mut self,
+        pending_write: PendingWriteHandle,
+        begin_timestamp: RepeatableTimestamp,
+    ) {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
@@ -698,15 +701,19 @@ impl<RT: Runtime> Committer<RT> {
 
         let new_snapshot = {
             let timer = metrics::commit_validate_index_write_timer();
-            let mut new_snapshot = snapshot_manager.latest_snapshot();
+            let (snapshot_ts, mut new_snapshot) = snapshot_manager.latest();
 
-            for (_document_id, document_update) in ordered_updates.iter() {
+            for (document_id, document_update) in ordered_updates.iter() {
                 new_snapshot
                     .update(&document_update.unpack(), commit_ts)
-                    .expect(
-                        "Snapshot update was invalid. This update should have already been \
-                         computed before commit successfully",
-                    );
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Snapshot update was invalid. This update should have already been \
+                             computed before commit successfully. begin_ts = {begin_timestamp}. \
+                             snapshot_ts = {snapshot_ts}. commit_ts = {commit_ts}. document_id = \
+                             {document_id}."
+                        )
+                    });
             }
 
             timer.finish();
@@ -753,6 +760,7 @@ impl<RT: Runtime> Committer<RT> {
         let table_mapping = transaction.table_mapping.clone();
         let component_registry = transaction.component_registry.clone();
         let usage_tracking = transaction.usage_tracker.clone();
+        let begin_timestamp = transaction.begin_timestamp;
         let ValidatedCommit {
             index_writes,
             document_writes,
@@ -783,6 +791,7 @@ impl<RT: Runtime> Committer<RT> {
                     commit_timer,
                     result,
                     parent_trace: parent_trace_copy,
+                    begin_timestamp,
                 })
             }
             .in_span(initialize_root_from_parent(
