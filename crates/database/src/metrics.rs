@@ -294,6 +294,11 @@ pub fn write_log_append_timer() -> Timer<VMHistogram> {
     Timer::new(&DATABASE_APPLY_DOCUMENT_STORE_APPEND_SECONDS)
 }
 
+register_convex_counter!(DATABASE_COMMIT_ROWS, "Number of commits to database");
+pub fn commit_rows(num_rows: u64) {
+    log_counter(&DATABASE_COMMIT_ROWS, num_rows);
+}
+
 register_convex_histogram!(
     DATABASE_SUBSCRIPTIONS_UPDATE_SECONDS,
     "Time to advance the SubscriptionManager's log"

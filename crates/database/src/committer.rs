@@ -714,6 +714,7 @@ impl<RT: Runtime> Committer<RT> {
         };
 
         // Write transaction state at the commit ts to the document store.
+        metrics::commit_rows(ordered_updates.len() as u64);
         let timer = metrics::write_log_append_timer();
         self.log.append(
             commit_ts,
