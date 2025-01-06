@@ -151,7 +151,9 @@ impl TableSummaries {
             })?
             .clone();
         if let Some(old_value) = old {
-            table_summary = table_summary.remove(&old_value.value().0)?;
+            table_summary = table_summary
+                .remove(&old_value.value().0)
+                .with_context(|| format!("removing from table {}", document_id.tablet_id))?;
         }
         if let Some(new_value) = new {
             table_summary = table_summary.insert(&new_value.value().0);
