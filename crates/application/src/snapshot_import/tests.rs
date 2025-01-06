@@ -713,6 +713,94 @@ _id,a
 }
 
 #[convex_macro::test_runtime]
+async fn import_replace_all_table_number_mismatch(rt: TestRuntime) -> anyhow::Result<()> {
+    let test_case = |mode: ImportMode, expect_success: bool| {
+        let rt = rt.clone();
+        async move {
+            let app = Application::new_for_tests(&rt).await?;
+            let table_name1: TableName = "table1".parse()?;
+            let table_name2: TableName = "table2".parse()?;
+            let identity = new_admin_id();
+
+            // Create tables
+            let t1_doc = {
+                let mut tx = app.begin(identity.clone()).await?;
+                let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+                let t1_doc = ufm.insert(table_name1, assert_obj!()).await?;
+                ufm.insert(table_name2.clone(), assert_obj!()).await?;
+                app.commit_test(tx).await?;
+                t1_doc
+            };
+
+            // Add table2 to schema, so the importer tries to clear it.
+            let initial_schema = db_schema!("table2" => DocumentSchema::Any);
+            activate_schema(&app, initial_schema).await?;
+
+            // ID is for a table corresponding to table1, but we're writing it into table2
+            let test_csv = format!(
+                r#"
+_id,a
+"{t1_doc}","string"
+"#
+            );
+
+            assert_eq!(
+                TableModel::new(&mut app.begin(identity.clone()).await?).count_user_tables(),
+                2
+            );
+
+            // Import into table2
+            let result = do_import(
+                &app,
+                new_admin_id(),
+                ImportFormat::Csv(table_name2.clone()),
+                mode,
+                ComponentPath::root(),
+                stream_from_str(&test_csv),
+            )
+            .await;
+
+            if expect_success {
+                assert_eq!(result?, 1);
+            } else {
+                result.unwrap_err();
+                return Ok(());
+            }
+
+            let mut tx = app.begin(identity.clone()).await?;
+            assert_eq!(TableModel::new(&mut tx).count_user_tables(), 1);
+            assert_eq!(
+                TableModel::new(&mut tx)
+                    .must_count(TableNamespace::Global, &table_name2)
+                    .await?,
+                1
+            );
+            assert_eq!(
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .get(t1_doc, None)
+                    .await?
+                    .context("Not found")?
+                    .into_value()
+                    .into_value()
+                    .get("a"),
+                Some(&val!("string")),
+            );
+            anyhow::Ok(())
+        }
+    };
+    // Append table1's id into table2 results in conflicting IDs in table2
+    test_case(ImportMode::Append, false).await?;
+    // Replacing table1's id into table2 results in two tables with the same ID.
+    test_case(ImportMode::Replace, false).await?;
+    // Replacing all deletes table2 and replaces table1, so it's good.
+    test_case(ImportMode::ReplaceAll, true).await?;
+    // Require empty fails because table2 is not empty.
+    test_case(ImportMode::RequireEmpty, false).await?;
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn import_zip_flip_table_number(rt: TestRuntime) -> anyhow::Result<()> {
     let app = Application::new_for_tests(&rt).await?;
     let table_name1: TableName = "table1".parse()?;

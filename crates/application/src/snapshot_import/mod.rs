@@ -744,6 +744,25 @@ async fn import_objects<RT: Runtime>(
         to_delete,
     };
 
+    while let Some(num_documents) = import_single_table(
+        database,
+        file_storage,
+        &identity,
+        mode,
+        objects.as_mut(),
+        &mut generated_schemas,
+        &mut table_mapping_for_import,
+        usage.clone(),
+        import_id,
+        requestor.clone(),
+        usage_tracking,
+    )
+    .await?
+    {
+        total_num_documents += num_documents;
+    }
+
+    let mut tx = database.begin(identity.clone()).await?;
     let all_component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
     for (tablet_id, (namespace, _table_number, table_name)) in
         table_mapping_for_import.to_delete.clone().into_iter()
@@ -756,6 +775,15 @@ async fn import_objects<RT: Runtime>(
 
         // Delete if it's not in the schema
         if !schema_tables.contains_key(&table_name) {
+            continue;
+        }
+        // If it was written by the import, don't clear it or delete it.
+        if table_mapping_for_import
+            .table_mapping_in_import
+            .namespace(namespace)
+            .name_exists(&table_name)
+        {
+            table_mapping_for_import.to_delete.remove(&tablet_id);
             continue;
         }
 
@@ -785,24 +813,6 @@ async fn import_objects<RT: Runtime>(
             table_id.table_number,
             table_name.clone(),
         );
-    }
-
-    while let Some(num_documents) = import_single_table(
-        database,
-        file_storage,
-        &identity,
-        mode,
-        objects.as_mut(),
-        &mut generated_schemas,
-        &mut table_mapping_for_import,
-        usage.clone(),
-        import_id,
-        requestor.clone(),
-        usage_tracking,
-    )
-    .await?
-    {
-        total_num_documents += num_documents;
     }
 
     Ok((table_mapping_for_import, total_num_documents))
