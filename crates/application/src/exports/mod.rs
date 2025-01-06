@@ -10,6 +10,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    minitrace_helpers::get_sampled_span,
     runtime::Runtime,
     types::{
         IndexId,
@@ -34,6 +35,8 @@ use futures::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
+use maplit::btreemap;
+use minitrace::future::FutureExt;
 use model::exports::types::{
     ExportFormat,
     ExportRequestor,
@@ -254,7 +257,18 @@ where
         let in_component_str = component_path.in_component_str();
 
         update_progress(format!("Backing up _tables{in_component_str}")).await?;
-        write_tables_table(&path_prefix, &mut zip_snapshot_upload, namespace, &tables).await?;
+        let root = get_sampled_span(
+            &worker.instance_name,
+            "export_worker/write_table",
+            &mut worker.runtime.rng(),
+            btreemap! {
+                "dev.convex.component_path".to_string() => component_path.to_string(),
+                "dev.convex.table_name".to_string() => "_tables".to_string(),
+            },
+        );
+        write_tables_table(&path_prefix, &mut zip_snapshot_upload, namespace, &tables)
+            .in_span(root)
+            .await?;
     }
 
     // sort tables small to large, and write them to the zip.
@@ -269,6 +283,16 @@ where
         let by_id = by_id_indexes
             .get(tablet_id)
             .ok_or_else(|| anyhow::anyhow!("no by_id index for {} found", tablet_id))?;
+
+        let root = get_sampled_span(
+            &worker.instance_name,
+            "export_worker/write_table",
+            &mut worker.runtime.rng(),
+            btreemap! {
+                "dev.convex.component_path".to_string() => component_path.to_string(),
+                "dev.convex.table_name".to_string() => table_name.to_string(),
+            },
+        );
         write_table(
             worker,
             &path_prefix,
@@ -281,6 +305,7 @@ where
             by_id,
             &usage,
         )
+        .in_span(root)
         .await?;
     }
 
@@ -291,6 +316,16 @@ where
             let path_prefix = get_export_path_prefix(&component_path);
             let in_component_str = component_path.in_component_str();
             update_progress(format!("Backing up _storage{in_component_str}")).await?;
+
+            let root = get_sampled_span(
+                &worker.instance_name,
+                "export_worker/write_table",
+                &mut worker.runtime.rng(),
+                btreemap! {
+                    "dev.convex.component_path".to_string() => component_path.to_string(),
+                    "dev.convex.table_name".to_string() => "_storage".to_string(),
+                },
+            );
             write_storage_table(
                 worker,
                 &path_prefix,
@@ -303,6 +338,7 @@ where
                 &usage,
                 requestor,
             )
+            .in_span(root)
             .await?;
         }
     }

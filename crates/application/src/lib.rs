@@ -653,6 +653,7 @@ impl<RT: Runtime> Application<RT> {
             exports_storage.clone(),
             files_storage.clone(),
             database.usage_counter().clone(),
+            instance_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(runtime.spawn("export_worker", export_worker)));
 

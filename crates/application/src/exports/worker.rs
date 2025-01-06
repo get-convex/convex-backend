@@ -61,6 +61,7 @@ pub struct ExportWorker<RT: Runtime> {
     pub(super) file_storage: Arc<dyn Storage>,
     pub(super) backoff: Backoff,
     pub(super) usage_tracking: UsageCounter,
+    pub(super) instance_name: String,
 }
 
 impl<RT: Runtime> ExportWorker<RT> {
@@ -71,6 +72,7 @@ impl<RT: Runtime> ExportWorker<RT> {
         storage: Arc<dyn Storage>,
         file_storage: Arc<dyn Storage>,
         usage_tracking: UsageCounter,
+        instance_name: String,
     ) -> impl Future<Output = ()> + Send {
         let mut worker = Self {
             runtime,
@@ -79,6 +81,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             file_storage,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
             usage_tracking,
+            instance_name,
         };
         async move {
             loop {
@@ -109,6 +112,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             file_storage,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
             usage_tracking: UsageCounter::new(Arc::new(NoOpUsageEventLogger)),
+            instance_name: "carnitas".to_string(),
         }
     }
 
