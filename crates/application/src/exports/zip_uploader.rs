@@ -128,15 +128,11 @@ impl<'a> ZipSnapshotUpload<'a> {
         Ok(())
     }
 
-    pub async fn start_table<T: ShapeConfig>(
+    pub async fn start_table(
         &mut self,
         path_prefix: &str,
         table_name: TableName,
-        generated_schema: GeneratedSchema<T>,
     ) -> anyhow::Result<ZipSnapshotTableUpload<'a, '_>> {
-        self.write_generated_schema(path_prefix, &table_name, generated_schema)
-            .await?;
-
         ZipSnapshotTableUpload::new(&mut self.writer, path_prefix, table_name).await
     }
 
@@ -150,7 +146,7 @@ impl<'a> ZipSnapshotUpload<'a> {
         ZipSnapshotTableUpload::new(&mut self.writer, path_prefix, table_name).await
     }
 
-    async fn write_generated_schema<T: ShapeConfig>(
+    pub async fn write_generated_schema<T: ShapeConfig>(
         &mut self,
         path_prefix: &str,
         table_name: &TableName,

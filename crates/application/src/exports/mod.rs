@@ -194,18 +194,8 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     by_id: &InternalId,
     usage: &FunctionUsageTracker,
 ) -> anyhow::Result<()> {
-    let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
-    if ExportContext::is_ambiguous(table_summary.inferred_type()) {
-        let table_iterator = worker.database.table_iterator(snapshot_ts, 1000, None);
-        let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
-        pin_mut!(stream);
-        while let Some((doc, _ts)) = stream.try_next().await? {
-            generated_schema.insert(doc.value(), doc.developer_id());
-        }
-    }
-
     let mut table_upload = zip_snapshot_upload
-        .start_table(path_prefix, table_name.clone(), generated_schema)
+        .start_table(path_prefix, table_name.clone())
         .await?;
 
     let table_iterator = worker.database.table_iterator(snapshot_ts, 1000, None);
@@ -213,7 +203,12 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     pin_mut!(stream);
 
     // Write documents from stream to table uploads
+    let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
+    let is_ambiguous = ExportContext::is_ambiguous(table_summary.inferred_type());
     while let Some((doc, _ts)) = stream.try_next().await? {
+        if is_ambiguous {
+            generated_schema.insert(doc.value(), doc.developer_id());
+        }
         usage.track_database_egress_size(
             component_path.clone(),
             table_name.to_string(),
@@ -222,7 +217,11 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
         );
         table_upload.write(doc).await?;
     }
+
     table_upload.complete().await?;
+    zip_snapshot_upload
+        .write_generated_schema(path_prefix, &table_name, generated_schema)
+        .await?;
     Ok(())
 }
 
