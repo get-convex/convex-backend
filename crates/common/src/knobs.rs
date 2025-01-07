@@ -1265,8 +1265,10 @@ const MAX_S3_INTERMEDIATE_PART_SIZE: usize = 5 * (1 << 30);
 ///   the first chunk until we've buffered enough data to fill a part. Thus
 ///   larger chunks mean higher latency for uploads.
 pub static TARGET_S3_INTERMEDIATE_PART_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    // Default is 100MiB. 100MiB * 10000 parts = 1TiB total file size.
-    let result = env_config("TARGET_S3_INTERMEDIATE_PART_SIZE", 100 * (1 << 20));
+    // Default is 5MiB. 5MiB * 10000 parts = 50GiB total file size.
+    // TODO(lee) change default to 100MiB once the rest of the code supports larger
+    // values.
+    let result = env_config("TARGET_S3_INTERMEDIATE_PART_SIZE", 5 * (1 << 20));
     assert!(
         result >= MIN_S3_INTERMEDIATE_PART_SIZE,
         "S3 only supports part sizes of at least 5MiB"
