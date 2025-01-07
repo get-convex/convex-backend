@@ -365,6 +365,7 @@ impl DatabaseSnapshot {
             .await
     }
 
+    #[minitrace::trace]
     async fn load_table_documents<D: TryFrom<ConvexObject, Error = anyhow::Error>>(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
@@ -406,6 +407,7 @@ impl DatabaseSnapshot {
         (table_mapping, table_states)
     }
 
+    #[minitrace::trace]
     pub async fn load_table_and_index_metadata(
         persistence_snapshot: &PersistenceSnapshot,
     ) -> anyhow::Result<(
@@ -451,7 +453,8 @@ impl DatabaseSnapshot {
         ))
     }
 
-    pub async fn load_table_registry(
+    #[minitrace::trace]
+    pub fn load_table_registry(
         persistence_snapshot: &PersistenceSnapshot,
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,
@@ -540,6 +543,7 @@ impl DatabaseSnapshot {
         })
     }
 
+    #[minitrace::trace]
     pub async fn load<RT: Runtime>(
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
@@ -586,8 +590,7 @@ impl DatabaseSnapshot {
             table_mapping.clone(),
             table_states,
             &index_registry,
-        )
-        .await?;
+        )?;
 
         let mut schema_docs = BTreeMap::new();
         for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
@@ -1590,6 +1593,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(result)
     }
 
+    #[minitrace::trace]
     pub async fn load_indexes_into_memory(
         &self,
         tables: BTreeSet<TableName>,

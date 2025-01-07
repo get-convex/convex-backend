@@ -105,6 +105,7 @@ impl InMemoryIndexes for BackendInMemoryIndexes {
 }
 
 impl BackendInMemoryIndexes {
+    #[minitrace::trace]
     pub fn bootstrap(
         index_registry: &IndexRegistry,
         index_documents: BTreeMap<ResolvedDocumentId, (Timestamp, ResolvedDocument)>,
@@ -126,6 +127,7 @@ impl BackendInMemoryIndexes {
         Ok(Self { in_memory_indexes })
     }
 
+    #[minitrace::trace]
     pub async fn load_enabled_for_tables(
         &mut self,
         index_registry: &IndexRegistry,
@@ -164,6 +166,7 @@ impl BackendInMemoryIndexes {
         Ok(())
     }
 
+    #[minitrace::trace]
     pub async fn load_enabled(
         &mut self,
         index_registry: &IndexRegistry,
