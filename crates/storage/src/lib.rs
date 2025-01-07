@@ -13,7 +13,6 @@ use std::{
         File,
         OpenOptions,
     },
-    future::Future,
     io::{
         Read,
         Seek,
@@ -52,6 +51,7 @@ use futures::{
         ErrorKind as IoErrorKind,
     },
     pin_mut,
+    ready,
     select_biased,
     stream::{
         self,
@@ -74,12 +74,10 @@ use serde_json::{
 use tempfile::TempDir;
 use tokio::{
     io::AsyncWrite,
-    sync::mpsc::{
-        self,
-        OwnedPermit,
-    },
+    sync::mpsc,
 };
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::PollSender;
 use value::sha256::{
     Sha256,
     Sha256Digest,
@@ -440,10 +438,7 @@ impl Upload for BufferedUpload {
 }
 
 pub struct ChannelWriter {
-    parts: mpsc::Sender<Bytes>,
-    // Hold the future to reserve a permit for the next part.
-    parts_reserve:
-        Option<BoxFuture<'static, Result<OwnedPermit<Bytes>, mpsc::error::SendError<()>>>>,
+    parts: PollSender<Bytes>,
     current_part: Vec<u8>,
     part_size: usize,
 }
@@ -451,8 +446,7 @@ pub struct ChannelWriter {
 impl ChannelWriter {
     pub fn new(sender: mpsc::Sender<Bytes>, part_size: usize) -> Self {
         Self {
-            parts: sender,
-            parts_reserve: None,
+            parts: PollSender::new(sender),
             current_part: Vec::with_capacity(part_size),
             part_size,
         }
@@ -472,24 +466,16 @@ impl AsyncWrite for ChannelWriter {
                 self_.current_part.extend_from_slice(&buf[..n]);
                 return Poll::Ready(Ok(n));
             }
-            let mut permit_future = match self_.parts_reserve.take() {
-                Some(permit_future) => permit_future,
-                None => self_.parts.clone().reserve_owned().boxed(),
-            };
-            let permit = match Future::poll(permit_future.as_mut(), cx) {
-                Poll::Ready(Ok(p)) => p,
-                Poll::Ready(Err(mpsc::error::SendError(..))) => {
-                    let err = Err(IoError::new(IoErrorKind::BrokenPipe, "Channel closed"));
-                    return Poll::Ready(err);
-                },
-                Poll::Pending => {
-                    self_.parts_reserve = Some(permit_future);
-                    return Poll::Pending;
-                },
-            };
+            ready!(self_
+                .parts
+                .poll_reserve(cx)
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed")))?;
             let next_buf = Vec::with_capacity(self_.part_size);
             let buf = mem::replace(&mut self_.current_part, next_buf);
-            permit.send(buf.into());
+            self_
+                .parts
+                .send_item(buf.into())
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed"))?;
         }
     }
 
@@ -501,20 +487,16 @@ impl AsyncWrite for ChannelWriter {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), IoError>> {
         let self_ = self.get_mut();
         if !self_.current_part.is_empty() {
-            tokio::pin! {
-                let permit_future = self_.parts.reserve();
-            }
-            let permit = match Future::poll(permit_future, cx) {
-                Poll::Ready(Ok(p)) => p,
-                Poll::Ready(Err(mpsc::error::SendError(..))) => {
-                    let err = Err(IoError::new(IoErrorKind::BrokenPipe, "Channel closed"));
-                    return Poll::Ready(err);
-                },
-                Poll::Pending => return Poll::Pending,
-            };
+            ready!(self_
+                .parts
+                .poll_reserve(cx)
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed")))?;
             let next_buf = vec![];
             let buf = mem::replace(&mut self_.current_part, next_buf);
-            permit.send(buf.into());
+            self_
+                .parts
+                .send_item(buf.into())
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed"))?;
         }
         Poll::Ready(Ok(()))
     }
