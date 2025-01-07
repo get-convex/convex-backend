@@ -26,6 +26,7 @@
     "@types/object-inspect": "^1.8.1",
     "@types/lodash": "~4.14.191",
     "@types/jest": "^27.0.0",
+    "eslint": "^8.29.0",
     "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
     "eslint-plugin-react": "^7.37.2",
     "jest": "^29.6.0",
