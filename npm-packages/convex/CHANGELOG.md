@@ -54,6 +54,15 @@
   `@clerk/nextjs` from v4 or v5 be sure to follow the Clerk upgrade guides as
   there are many breaking changes.
 
+- Improvements to `npx convex run`:
+
+  - Better argument parsing with JSON5 so `{ name: "sshader" }` parses
+  - support for `--identity` similar to dashboard "acting as user" feature, like
+    `npx convex run --identity '{ name: "sshader" }'`
+  - `npx convex run api.foo.bar` is equivalent to `npx convex run foo:bar`
+  - `npx convex run convex/foo.ts:bar` is equivalent to `npx convex run foo:bar`
+  - `npx convex run convex/foo.ts` is equivalent to `npx convex run foo:default`
+
 - Allow non-JavaScript/TypeScript files in the `convex/` directory. Only .js
   etc. files will be bundled and may define Convex functions points but adding a
   temporary file like `convex/foo.tmp` will no longer break` the build.
