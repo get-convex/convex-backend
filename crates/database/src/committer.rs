@@ -36,6 +36,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
+        DatabaseDocumentUpdate,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
@@ -661,7 +662,15 @@ impl<RT: Runtime> Committer<RT> {
         let timer = metrics::commit_persistence_write_timer();
         let document_writes = document_writes
             .into_iter()
-            .map(|write| (write.commit_ts, write.id, write.write.document))
+            .map(|write| {
+                DatabaseDocumentUpdate {
+                    ts: write.commit_ts,
+                    id: write.id,
+                    value: write.write.document,
+                    // TODO: fill in prev_ts
+                    prev_ts: None,
+                }
+            })
             .collect();
         persistence
             .write(document_writes, index_writes, ConflictStrategy::Error)

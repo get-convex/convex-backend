@@ -23,6 +23,7 @@ use common::{
     index::IndexKey,
     persistence::{
         ConflictStrategy,
+        DatabaseDocumentUpdate,
         NoopRetentionValidator,
         Persistence,
         RepeatablePersistence,
@@ -591,7 +592,14 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
         Some(doc1.clone()),
     );
     ps.write(
-        vec![(Timestamp::must(2), doc1.id_with_table_id(), Some(doc1))],
+        vec![
+            (DatabaseDocumentUpdate {
+                ts: Timestamp::must(2),
+                id: doc1.id_with_table_id(),
+                value: Some(doc1),
+                prev_ts: None,
+            }),
+        ],
         index_updates
             .into_iter()
             .map(|u| (Timestamp::must(2), u))

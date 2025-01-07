@@ -1926,13 +1926,16 @@ mod tests {
         let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
         assert_eq!(
             results,
-            vec![
+            [
                 doc(id2, 2, Some(1))?,
                 doc(id3, 2, Some(2))?,
                 doc(id4, 2, Some(2))?,
                 doc(id5, 5, Some(4))?,
                 doc(id6, 6, Some(5))?,
             ]
+            .into_iter()
+            .map(|update| (update.ts, update.id, update.value))
+            .collect::<Vec<_>>()
         );
 
         Ok(())
@@ -2022,11 +2025,14 @@ mod tests {
         let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
         assert_eq!(
             results,
-            vec![
+            [
                 doc(id1, 10, Some(10))?,
                 doc(id1, 12, Some(12))?,
                 doc(id1, 13, Some(13))?,
             ]
+            .into_iter()
+            .map(|update| (update.ts, update.id, update.value))
+            .collect::<Vec<_>>()
         );
 
         Ok(())

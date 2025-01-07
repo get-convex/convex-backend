@@ -38,6 +38,7 @@ use crate::{
     },
     persistence::{
         ConflictStrategy,
+        DatabaseDocumentUpdate,
         DocumentStream,
         IndexStream,
         Persistence,
@@ -94,21 +95,21 @@ impl Persistence for TestPersistence {
 
     async fn write(
         &self,
-        documents: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
+        documents: Vec<DatabaseDocumentUpdate>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         let mut inner = self.inner.lock();
-        for (ts, id, document) in documents {
+        for update in documents {
             anyhow::ensure!(
                 conflict_strategy == ConflictStrategy::Overwrite
-                    || !inner.log.contains_key(&(ts, id)),
+                    || !inner.log.contains_key(&(update.ts, update.id)),
                 "Unique constraint not satisifed. Failed to write document at ts {} with id {}: \
                  (document, ts) pair already exists",
-                ts,
-                id
+                update.ts,
+                update.id
             );
-            inner.log.insert((ts, id), document);
+            inner.log.insert((update.ts, update.id), update.value);
         }
         inner.is_fresh = false;
         for (ts, update) in indexes {

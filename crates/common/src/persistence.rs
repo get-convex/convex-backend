@@ -161,6 +161,14 @@ impl PersistenceGlobalKey {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct DatabaseDocumentUpdate {
+    pub ts: Timestamp,
+    pub id: InternalDocumentId,
+    pub value: Option<ResolvedDocument>,
+    pub prev_ts: Option<Timestamp>,
+}
+
 #[async_trait]
 pub trait Persistence: Sync + Send + 'static {
     /// Whether the persistence layer is freshely created or not.
@@ -171,7 +179,7 @@ pub trait Persistence: Sync + Send + 'static {
     /// Writes documents and the respective derived indexes.
     async fn write(
         &self,
-        documents: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
+        documents: Vec<DatabaseDocumentUpdate>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;

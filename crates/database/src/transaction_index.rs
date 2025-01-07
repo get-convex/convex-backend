@@ -822,6 +822,7 @@ mod tests {
         persistence::{
             now_ts,
             ConflictStrategy,
+            DatabaseDocumentUpdate,
             Persistence,
             RepeatablePersistence,
         },
@@ -1229,7 +1230,14 @@ mod tests {
             index_registry.update(None, Some(&doc))?;
             let index_updates = index.update(index_registry, ts, None, Some(doc.clone()));
             ps.write(
-                vec![(ts, doc.id_with_table_id(), Some(doc.clone()))],
+                vec![
+                    (DatabaseDocumentUpdate {
+                        ts,
+                        id: doc.id_with_table_id(),
+                        value: Some(doc.clone()),
+                        prev_ts: None,
+                    }),
+                ],
                 index_updates.into_iter().map(|u| (ts, u)).collect(),
                 ConflictStrategy::Error,
             )

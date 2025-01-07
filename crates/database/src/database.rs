@@ -60,6 +60,7 @@ use common::{
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
+        DatabaseDocumentUpdate,
         DocumentStream,
         LatestDocumentStream,
         Persistence,
@@ -1280,7 +1281,15 @@ impl<RT: Runtime> Database<RT> {
         let ts = Timestamp::MIN;
         let document_writes = document_writes
             .into_iter()
-            .map(|(id, doc)| (ts, id.into(), Some(doc)))
+            .map(|(id, doc)| {
+                DatabaseDocumentUpdate {
+                    ts,
+                    id: id.into(),
+                    value: Some(doc),
+                    // TODO: fill in prev_ts
+                    prev_ts: None,
+                }
+            })
             .collect();
         let index_writes = index_writes
             .into_iter()

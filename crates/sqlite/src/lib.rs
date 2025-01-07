@@ -29,6 +29,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
+        DatabaseDocumentUpdate,
         DocumentStream,
         IndexStream,
         Persistence,
@@ -242,7 +243,7 @@ impl Persistence for SqlitePersistence {
 
     async fn write(
         &self,
-        documents: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
+        documents: Vec<DatabaseDocumentUpdate>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
@@ -253,9 +254,9 @@ impl Persistence for SqlitePersistence {
             ConflictStrategy::Overwrite => tx.prepare_cached(INSERT_OVERWRITE_DOCUMENT)?,
         };
 
-        for (ts, document_id, maybe_doc) in documents {
-            let (json_value, deleted) = if let Some(document) = maybe_doc {
-                assert_eq!(document_id, document.id_with_table_id());
+        for update in documents {
+            let (json_value, deleted) = if let Some(document) = update.value {
+                assert_eq!(update.id, document.id_with_table_id());
                 let json_value: serde_json::Value = document.value().0.clone().into();
                 let json_value = serde_json::to_string(&json_value)?;
                 (Some(json_value), 0)
@@ -263,9 +264,9 @@ impl Persistence for SqlitePersistence {
                 (None, 1)
             };
             insert_document_query.execute(params![
-                &document_id.internal_id()[..],
-                &u64::from(ts),
-                &document_id.table().0[..],
+                &update.id.internal_id()[..],
+                &u64::from(update.ts),
+                &update.id.table().0[..],
                 &json_value,
                 &deleted,
             ])?;
