@@ -84,7 +84,7 @@ use value::sha256::{
 };
 
 pub const LOCAL_DIR_MIN_PART_SIZE: usize = 5 * (1 << 20);
-pub const MAX_PART_SIZE: usize = 8 * (1 << 30);
+pub const LOCAL_DIR_MAX_PART_SIZE: usize = 8 * (1 << 30);
 pub const MAX_NUM_PARTS: usize = 10000;
 pub const MAXIMUM_PARALLEL_UPLOADS: usize = 8;
 
@@ -311,24 +311,32 @@ impl<T: Upload> UploadExt for T {
 pub struct BufferedUpload {
     upload: Option<Box<dyn Upload>>,
     buffer: Vec<u8>,
-    min_intermediate_part_size: usize,
+    max_intermediate_part_size: usize,
+    target_intermediate_part_size: usize,
 }
 
 impl BufferedUpload {
     pub async fn new(
         upload: impl Upload + 'static,
         min_intermediate_part_size: usize,
+        max_intermediate_part_size: usize,
     ) -> anyhow::Result<Self> {
         let buffer = Vec::with_capacity(min_intermediate_part_size);
         Ok(Self {
             upload: Some(Box::new(upload)),
             buffer,
-            min_intermediate_part_size,
+            max_intermediate_part_size,
+            target_intermediate_part_size: min_intermediate_part_size,
         })
     }
 
     fn update_buffer_and_get_next(&mut self, data: Bytes) -> Option<Bytes> {
-        Self::_update_buffer_and_get_next(&mut self.buffer, self.min_intermediate_part_size, data)
+        Self::_update_buffer_and_get_next(
+            &mut self.buffer,
+            &mut self.target_intermediate_part_size,
+            self.max_intermediate_part_size,
+            data,
+        )
     }
 
     // Hack around wanting to use this when `upload` is borrowed. Rust can't
@@ -336,16 +344,33 @@ impl BufferedUpload {
     // parts of self.
     fn _update_buffer_and_get_next(
         buffer: &mut Vec<u8>,
-        min_intermediate_part_size: usize,
+        target_intermediate_part_size: &mut usize,
+        max_intermediate_part_size: usize,
         data: Bytes,
     ) -> Option<Bytes> {
         // Fast path, ship the buffer without copying.
-        if buffer.is_empty() && data.len() >= min_intermediate_part_size {
+        if buffer.is_empty()
+            && data.len() >= *target_intermediate_part_size
+            && data.len() <= max_intermediate_part_size
+        {
+            *target_intermediate_part_size = cmp::min(
+                *target_intermediate_part_size * 2,
+                max_intermediate_part_size,
+            );
             return Some(data);
         }
         buffer.extend_from_slice(&data);
-        if buffer.len() >= min_intermediate_part_size {
-            let ready = mem::replace(buffer, Vec::with_capacity(min_intermediate_part_size));
+        if buffer.len() >= *target_intermediate_part_size {
+            *target_intermediate_part_size = cmp::min(
+                *target_intermediate_part_size * 2,
+                max_intermediate_part_size,
+            );
+            let ready = if buffer.len() > max_intermediate_part_size {
+                let remainder = buffer.split_off(max_intermediate_part_size);
+                mem::replace(buffer, remainder)
+            } else {
+                mem::replace(buffer, Vec::with_capacity(*target_intermediate_part_size))
+            };
             Some(ready.into())
         } else {
             None
@@ -390,7 +415,8 @@ impl Upload for BufferedUpload {
                         Ok(buf) => {
                             if let Some(buf) = Self::_update_buffer_and_get_next(
                                 &mut self.buffer,
-                                self.min_intermediate_part_size,
+                                &mut self.target_intermediate_part_size,
+                                self.max_intermediate_part_size,
                                 buf,
                             ) {
                                 tx.send(Ok(buf)).await?;
@@ -907,7 +933,8 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
             file: Some(file),
             num_parts: 0,
         };
-        let upload = BufferedUpload::new(upload, LOCAL_DIR_MIN_PART_SIZE).await?;
+        let upload =
+            BufferedUpload::new(upload, LOCAL_DIR_MIN_PART_SIZE, LOCAL_DIR_MAX_PART_SIZE).await?;
         Ok(Box::new(upload))
     }
 
@@ -1113,7 +1140,7 @@ pub struct LocalDirUpload {
 impl Upload for LocalDirUpload {
     async fn write(&mut self, data: Bytes) -> anyhow::Result<()> {
         anyhow::ensure!(self.num_parts < MAX_NUM_PARTS);
-        anyhow::ensure!(data.len() <= MAX_PART_SIZE);
+        anyhow::ensure!(data.len() <= LOCAL_DIR_MAX_PART_SIZE);
         let file = self
             .file
             .as_mut()
@@ -1180,7 +1207,10 @@ impl Display for StorageUseCase {
 
 #[cfg(test)]
 mod buffered_upload_tests {
-    use std::pin::Pin;
+    use std::{
+        pin::Pin,
+        sync::Arc,
+    };
 
     use async_trait::async_trait;
     use bytes::Bytes;
@@ -1188,8 +1218,13 @@ mod buffered_upload_tests {
     use futures::{
         Stream,
         StreamExt,
+        TryStreamExt,
     };
-    use runtime::prod::ProdRuntime;
+    use parking_lot::Mutex;
+    use runtime::{
+        prod::ProdRuntime,
+        testing::TestRuntime,
+    };
     use tokio::{
         io::AsyncWriteExt,
         sync::mpsc,
@@ -1203,11 +1238,14 @@ mod buffered_upload_tests {
         UploadExt,
     };
 
-    struct NoopUpload;
+    struct NoopUpload {
+        parts: Arc<Mutex<Vec<Bytes>>>,
+    }
 
     #[async_trait]
     impl Upload for NoopUpload {
-        async fn write(&mut self, _data: Bytes) -> anyhow::Result<()> {
+        async fn write(&mut self, data: Bytes) -> anyhow::Result<()> {
+            self.parts.lock().push(data);
             Ok(())
         }
 
@@ -1215,8 +1253,8 @@ mod buffered_upload_tests {
             &'a mut self,
             stream: &mut Pin<Box<dyn Stream<Item = anyhow::Result<Bytes>> + Send + 'a>>,
         ) -> anyhow::Result<()> {
-            while let Some(value) = stream.next().await {
-                self.write(value?).await?;
+            while let Some(value) = stream.try_next().await? {
+                self.write(value).await?;
             }
             Ok(())
         }
@@ -1235,7 +1273,12 @@ mod buffered_upload_tests {
         let (sender, receiver) = mpsc::channel::<Bytes>(1);
         // NOTE: data flows from ChannelWriter -> sender -> receiver -> BufferedUpload
         // -> NoopUpload
-        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(NoopUpload, 100).await?);
+        let parts = Arc::new(Mutex::new(vec![]));
+        let upload = NoopUpload {
+            parts: parts.clone(),
+        };
+        let mut upload: Box<BufferedUpload> =
+            Box::new(BufferedUpload::new(upload, 100, 1000).await?);
         let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
         let mut writer = ChannelWriter::new(sender, 10);
         let write_fut = async move {
@@ -1248,6 +1291,46 @@ mod buffered_upload_tests {
         // `sender` each time it's called, then the uploader will deadlock.
         let _ = futures::try_join!(write_fut, uploader)?;
         let _ = upload.complete().await?;
+        let parts = parts.lock();
+        assert_eq!(
+            *parts,
+            vec![Bytes::from_static(b"abcdefghijklmnopqrstuvwxyz")]
+        );
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_buffered_upload_max_size(_rt: TestRuntime) -> anyhow::Result<()> {
+        let (sender, receiver) = mpsc::channel::<Bytes>(1);
+        let parts = Arc::new(Mutex::new(vec![]));
+        let upload = NoopUpload {
+            parts: parts.clone(),
+        };
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 10, 30).await?);
+        let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
+        // Intentionally test case where we write sizes that don't divide evenly
+        // into the min or max size.
+        let mut writer = ChannelWriter::new(sender, 7);
+        let data =
+            b"abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_";
+        let write_fut = async move {
+            // 80 bytes
+            writer.write_all(data).await?;
+            writer.shutdown().await?;
+            drop(writer); // drop closes sender, allowing uploader to complete
+            anyhow::Ok(())
+        };
+        let _ = futures::try_join!(write_fut, uploader)?;
+        let _ = upload.complete().await?;
+        let parts = parts.lock();
+        let joined_parts: Bytes = parts.iter().flat_map(|p| p.iter().copied()).collect();
+        assert_eq!(joined_parts, Bytes::from_static(data));
+        let lengths: Vec<_> = parts.iter().map(|p| p.len()).collect();
+        // 14 is the first multiple of 7 that's greater than 10
+        // 21 is the first multiple of 7 that's greater than 20
+        // 30 is the maximum size
+        // 15 is the remainder
+        assert_eq!(lengths, vec![14, 21, 30, 15]);
         Ok(())
     }
 }

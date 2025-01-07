@@ -7491,6 +7491,7 @@ dependencies = [
  "futures-async-stream",
  "http 1.1.0",
  "http-body-util",
+ "parking_lot",
  "pb",
  "pin-project",
  "runtime",

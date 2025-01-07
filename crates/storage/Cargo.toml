@@ -37,6 +37,7 @@ value = { path = "../value" }
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
+parking_lot = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
