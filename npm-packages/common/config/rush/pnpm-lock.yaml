@@ -124,6 +124,9 @@ importers:
       '@eslint/js':
         specifier: ~9.16.0
         version: 9.16.0
+      '@octokit/openapi-types':
+        specifier: ~22.2.0
+        version: 22.2.0
       '@sentry/node':
         specifier: ^7.23.0
         version: 7.120.2
@@ -2663,6 +2666,10 @@ packages:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.18.0
+    dev: true
+
+  /@octokit/openapi-types@22.2.0:
+    resolution: {integrity: sha512-QBhVjcUa9W7Wwhm6DBFu6ZZ+1/t/oYxqc2tp81Pi41YNuJinbFRx8B133qVOrAaBbF7D/m0Et6f9/pZt9Rc+tg==}
     dev: true
 
   /@open-draft/deferred-promise@2.2.0:

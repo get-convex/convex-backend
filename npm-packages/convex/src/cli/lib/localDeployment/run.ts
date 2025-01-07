@@ -15,8 +15,11 @@ import { nodeFs } from "../../../bundler/fs.js";
 import detect from "detect-port";
 import { SENTRY_DSN } from "../utils/sentry.js";
 import { createHash } from "crypto";
+import { components } from "@octokit/openapi-types";
 const LOCAL_BACKEND_INSTANCE_SECRET =
   "4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974";
+
+type GitHubRelease = components["schemas"]["release"];
 
 export async function ensureBackendBinaryDownloaded(
   ctx: Context,
@@ -43,24 +46,58 @@ export async function ensureBackendBinaryDownloaded(
   }
 
   logVerbose(ctx, `Ensuring latest backend binary downloaded`);
-  const latest = await fetch(
-    "https://github.com/get-convex/convex-backend/releases/latest",
-    { redirect: "manual" },
-  );
-  if (latest.status !== 302) {
+  let releases: GitHubRelease[] = [];
+  try {
+    releases = (await (
+      await fetch(
+        "https://api.github.com/repos/get-convex/convex-backend/releases",
+      )
+    ).json()) as GitHubRelease[];
+    if (releases.length < 1) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "Found no convex backend releases.",
+        errForSentry: "Found no convex backend releases.",
+      });
+    }
+  } catch (e) {
+    logVerbose(ctx, `${e?.toString()}`);
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to get latest convex backend release",
-      errForSentry: "Failed to get latest convex backend release",
+      printedMessage: "Failed to get latest convex backend releases",
+      errForSentry: "Failed to get latest convex backend releases",
     });
   }
-  const latestUrl = latest.headers.get("location")!;
-  const latestVersion = latestUrl.split("/").pop()!;
+  const targetName = getDownloadPath();
+  const latest = releases[0]!;
+  const latestVersion = latest.tag_name;
   logVerbose(ctx, `Latest version is ${latestVersion}`);
+
+  let versionWithBinary: string;
+  while (true) {
+    const release = releases.shift()!;
+    if (release.assets.find((asset) => asset.name === targetName)) {
+      versionWithBinary = release.tag_name;
+      break;
+    }
+    if (!releases.length) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Failed to find a release that contained ${targetName}.`,
+        errForSentry: `Failed to find a release that contained ${targetName}.`,
+      });
+    }
+    logVerbose(
+      ctx,
+      `Version ${release.tag_name} does not contain a ${targetName}, trying previous version ${releases[0].tag_name}`,
+    );
+  }
   return ensureBackendBinaryDownloaded(ctx, {
     kind: "version",
-    version: latestVersion,
+    version: versionWithBinary,
   });
 }
 
@@ -97,9 +134,15 @@ async function downloadBinary(ctx: Context, version: string): Promise<string> {
       printedMessage: `Unsupported platform ${process.platform} and architecture ${process.arch} for local deployment.`,
     });
   }
-  const response = await fetch(
-    `https://github.com/get-convex/convex-backend/releases/download/${version}/${downloadPath}`,
-  );
+  const url = `https://github.com/get-convex/convex-backend/releases/download/${version}/${downloadPath}`;
+  const response = await fetch(url);
+  if (response.status === 404) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Binary not found at ${url}.`,
+    });
+  }
   logMessage(ctx, "Downloading convex backend");
   if (!ctx.fs.exists(binariesDir())) {
     ctx.fs.mkdir(binariesDir(), { recursive: true });
@@ -288,6 +331,10 @@ export function localDeploymentUrl(cloudPort: number): string {
   return `http://127.0.0.1:${cloudPort}`;
 }
 
+/**
+ * Get the artifact name, composed of the target convex-local-backend and
+ * the Rust "target triple" appropriate for the current machine.
+ **/
 function getDownloadPath() {
   switch (process.platform) {
     case "darwin":
