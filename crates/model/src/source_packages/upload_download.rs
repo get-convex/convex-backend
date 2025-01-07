@@ -74,7 +74,7 @@ struct MetadataJson {
 #[minitrace::trace]
 async fn write_package(
     package: BTreeMap<CanonicalizedModulePath, &ModuleConfig>,
-    mut out: impl AsyncWrite + Sync + Send + Unpin,
+    mut out: impl AsyncWrite + Send + Unpin,
     external_deps_storage_key: Option<ObjectKey>,
 ) -> anyhow::Result<(usize, BTreeMap<CanonicalizedModulePath, PackagedFile>)> {
     let mut writer = ZipFileWriter::new(&mut out);

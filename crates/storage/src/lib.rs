@@ -74,7 +74,10 @@ use serde_json::{
 use tempfile::TempDir;
 use tokio::{
     io::AsyncWrite,
-    sync::mpsc,
+    sync::mpsc::{
+        self,
+        OwnedPermit,
+    },
 };
 use tokio_stream::wrappers::ReceiverStream;
 use value::sha256::{
@@ -438,6 +441,9 @@ impl Upload for BufferedUpload {
 
 pub struct ChannelWriter {
     parts: mpsc::Sender<Bytes>,
+    // Hold the future to reserve a permit for the next part.
+    parts_reserve:
+        Option<BoxFuture<'static, Result<OwnedPermit<Bytes>, mpsc::error::SendError<()>>>>,
     current_part: Vec<u8>,
     part_size: usize,
 }
@@ -446,6 +452,7 @@ impl ChannelWriter {
     pub fn new(sender: mpsc::Sender<Bytes>, part_size: usize) -> Self {
         Self {
             parts: sender,
+            parts_reserve: None,
             current_part: Vec::with_capacity(part_size),
             part_size,
         }
@@ -465,16 +472,20 @@ impl AsyncWrite for ChannelWriter {
                 self_.current_part.extend_from_slice(&buf[..n]);
                 return Poll::Ready(Ok(n));
             }
-            tokio::pin! {
-                let permit_future = self_.parts.reserve();
-            }
-            let permit = match Future::poll(permit_future, cx) {
+            let mut permit_future = match self_.parts_reserve.take() {
+                Some(permit_future) => permit_future,
+                None => self_.parts.clone().reserve_owned().boxed(),
+            };
+            let permit = match Future::poll(permit_future.as_mut(), cx) {
                 Poll::Ready(Ok(p)) => p,
                 Poll::Ready(Err(mpsc::error::SendError(..))) => {
                     let err = Err(IoError::new(IoErrorKind::BrokenPipe, "Channel closed"));
                     return Poll::Ready(err);
                 },
-                Poll::Pending => return Poll::Pending,
+                Poll::Pending => {
+                    self_.parts_reserve = Some(permit_future);
+                    return Poll::Pending;
+                },
             };
             let next_buf = Vec::with_capacity(self_.part_size);
             let buf = mem::replace(&mut self_.current_part, next_buf);
@@ -1182,6 +1193,80 @@ impl Display for StorageUseCase {
             StorageUseCase::Files => write!(f, "files"),
             StorageUseCase::SearchIndexes => write!(f, "search"),
         }
+    }
+}
+
+#[cfg(test)]
+mod buffered_upload_tests {
+    use std::pin::Pin;
+
+    use async_trait::async_trait;
+    use bytes::Bytes;
+    use common::types::ObjectKey;
+    use futures::{
+        Stream,
+        StreamExt,
+    };
+    use runtime::prod::ProdRuntime;
+    use tokio::{
+        io::AsyncWriteExt,
+        sync::mpsc,
+    };
+    use tokio_stream::wrappers::ReceiverStream;
+
+    use crate::{
+        BufferedUpload,
+        ChannelWriter,
+        Upload,
+        UploadExt,
+    };
+
+    struct NoopUpload;
+
+    #[async_trait]
+    impl Upload for NoopUpload {
+        async fn write(&mut self, _data: Bytes) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn try_write_parallel<'a>(
+            &'a mut self,
+            stream: &mut Pin<Box<dyn Stream<Item = anyhow::Result<Bytes>> + Send + 'a>>,
+        ) -> anyhow::Result<()> {
+            while let Some(value) = stream.next().await {
+                self.write(value?).await?;
+            }
+            Ok(())
+        }
+
+        async fn abort(self: Box<Self>) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn complete(self: Box<Self>) -> anyhow::Result<common::types::ObjectKey> {
+            Ok(ObjectKey::try_from("asdf")?)
+        }
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_buffered_upload(_rt: ProdRuntime) -> anyhow::Result<()> {
+        let (sender, receiver) = mpsc::channel::<Bytes>(1);
+        // NOTE: data flows from ChannelWriter -> sender -> receiver -> BufferedUpload
+        // -> NoopUpload
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(NoopUpload, 100).await?);
+        let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
+        let mut writer = ChannelWriter::new(sender, 10);
+        let write_fut = async move {
+            writer.write_all(b"abcdefghijklmnopqrstuvwxyz").await?;
+            writer.shutdown().await?;
+            drop(writer); // drop closes sender, allowing uploader to complete
+            anyhow::Ok(())
+        };
+        // Regression test: if ChannelWriter::poll_write reserves a new permit in
+        // `sender` each time it's called, then the uploader will deadlock.
+        let _ = futures::try_join!(write_fut, uploader)?;
+        let _ = upload.complete().await?;
+        Ok(())
     }
 }
 
