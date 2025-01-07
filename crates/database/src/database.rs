@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     cmp,
     collections::{
         BTreeMap,
@@ -2209,7 +2208,7 @@ pub struct ConflictingRead {
 }
 
 fn occ_write_source_string(
-    source: &Cow<'static, str>,
+    source: &str,
     document_id: String,
     is_same_write_source: bool,
 ) -> String {
@@ -2240,7 +2239,7 @@ impl ConflictingReadWithWriteSource {
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_msg = self.write_source.0.as_ref().map(|write_source| {
+        let occ_msg = self.write_source.0.as_deref().map(|write_source| {
             occ_write_source_string(
                 write_source,
                 self.read.id.to_string(),
@@ -2261,7 +2260,10 @@ impl ConflictingReadWithWriteSource {
             .map(|write_source| format!("{}.\n", write_source))
             .unwrap_or_default();
         let index = format!("{table_name}.{}", self.read.index.descriptor());
-        let msg = format!("{msg}(conflicts with read of system table {index})");
+        let msg = format!(
+            "{msg}(conflicts with read of system table {index} in this writer \"{}\")",
+            current_writer.0.as_deref().unwrap_or("unknownwriter")
+        );
 
         let formatted = if let Some(stack_traces) = self.read.stack_traces {
             format!(

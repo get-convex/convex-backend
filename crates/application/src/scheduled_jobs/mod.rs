@@ -482,7 +482,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             attempts.system_errors += 1;
         }
         let delay = backoff.fail(&mut self.rt.rng());
-        tracing::error!("System error executing job, sleeping {delay:?}");
+        tracing::error!("System error executing job {job_id}, sleeping {delay:?}");
         job.next_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
 
         SchedulerModel::new(&mut tx, namespace)
