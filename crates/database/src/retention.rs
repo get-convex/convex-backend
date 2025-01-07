@@ -1529,6 +1529,13 @@ impl<RT: Runtime> FollowerRetentionManager<RT> {
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Index).await?;
         let min_document_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Document).await?;
+        if *repeatable_ts < min_index_snapshot_ts {
+            anyhow::bail!(snapshot_invalid_error(
+                *repeatable_ts,
+                min_index_snapshot_ts,
+                RetentionType::Index
+            ));
+        }
         let snapshot_bounds = Arc::new(Mutex::new(SnapshotBounds {
             min_index_snapshot_ts: repeatable_ts.prior_ts(min_index_snapshot_ts)?,
             min_document_snapshot_ts: repeatable_ts.prior_ts(min_document_snapshot_ts)?,
