@@ -611,3 +611,11 @@ pub fn module_load_timer(source: &'static str) -> Timer<VMHistogramVec> {
     timer.add_label(MetricLabel::new_const("source", source));
     timer
 }
+
+register_convex_counter!(
+    ISOLATE_OUT_OF_MEMORY_TOTAL,
+    "Number of times isolate ran out of memory during function execution"
+);
+pub fn log_isolate_out_of_memory() {
+    log_counter(&ISOLATE_OUT_OF_MEMORY_TOTAL, 1);
+}

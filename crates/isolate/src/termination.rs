@@ -13,7 +13,10 @@ use errors::ErrorMetadata;
 use parking_lot::Mutex;
 use thiserror::Error;
 
-use crate::isolate::IsolateNotClean;
+use crate::{
+    isolate::IsolateNotClean,
+    metrics::log_isolate_out_of_memory,
+};
 
 #[derive(Debug)]
 pub enum TerminationReason {
@@ -136,6 +139,7 @@ impl IsolateHandle {
                         format!("{}", UserTimeoutError(max_duration)),
                     ))),
                     TerminationReason::OutOfMemory => {
+                        log_isolate_out_of_memory();
                         Ok(Err(JsError::from_message(format!("{OutOfMemoryError}"))))
                     },
                     TerminationReason::UncatchableDeveloperError(e) => Ok(Err(e)),
