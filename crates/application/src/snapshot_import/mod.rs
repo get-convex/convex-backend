@@ -123,7 +123,6 @@ use value::{
 };
 
 use crate::{
-    metrics::log_snapshot_import_age,
     snapshot_import::{
         audit_log::make_audit_log_event,
         confirmation::info_message_for_import,
@@ -132,6 +131,7 @@ use crate::{
             ImportError,
         },
         import_file_storage::import_storage_table,
+        metrics::log_snapshot_import_age,
         parse::{
             parse_objects,
             ImportUnit,
@@ -154,6 +154,7 @@ mod audit_log;
 mod confirmation;
 mod import_error;
 mod import_file_storage;
+mod metrics;
 mod parse;
 mod prepare_component;
 mod progress;

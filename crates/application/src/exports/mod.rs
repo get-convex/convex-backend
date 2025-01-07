@@ -68,6 +68,7 @@ use crate::exports::{
 };
 
 mod export_storage;
+mod metrics;
 #[cfg(test)]
 mod tests;
 pub mod worker;

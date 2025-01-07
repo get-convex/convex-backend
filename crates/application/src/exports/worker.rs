@@ -40,11 +40,11 @@ use usage_tracking::{
 };
 
 use crate::{
-    exports::export_inner,
-    metrics::{
-        export_timer,
-        log_worker_starting,
+    exports::{
+        export_inner,
+        metrics::export_timer,
     },
+    metrics::log_worker_starting,
 };
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);

@@ -21,11 +21,11 @@ use storage::Storage;
 use usage_tracking::UsageCounter;
 
 use crate::{
-    metrics::{
-        log_worker_starting,
-        snapshot_import_timer,
+    metrics::log_worker_starting,
+    snapshot_import::{
+        metrics::snapshot_import_timer,
+        SnapshotImportExecutor,
     },
-    snapshot_import::SnapshotImportExecutor,
 };
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
