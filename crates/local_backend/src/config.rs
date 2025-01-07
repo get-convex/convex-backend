@@ -20,7 +20,7 @@ use url::Url;
 #[derive(Parser, Clone)]
 #[clap(version = &**SERVER_VERSION_STR, author = "Convex, Inc. <no-reply@convex.dev>")]
 pub struct LocalConfig {
-    /// File path for SQLite
+    /// File path for SQLite, the file path; for postgres, a server URL.
     #[clap(default_value = "convex_local_backend.sqlite3")]
     pub db_spec: String,
 

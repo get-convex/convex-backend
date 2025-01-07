@@ -1,0 +1,46 @@
+[package]
+name = "postgres"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+cmd_util = { path = "../../crates/cmd_util" }
+common = { path = "../../crates/common" }
+deadpool-postgres = { workspace = true }
+futures = { workspace = true }
+futures-async-stream = { workspace = true }
+hex = { workspace = true }
+itertools = { workspace = true }
+metrics = { path = "../../crates/metrics" }
+native-tls = { workspace = true }
+postgres-native-tls = { workspace = true }
+prometheus = { workspace = true }
+rand = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tokio-postgres = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+common = { path = "../../crates/common", features = ["testing"] }
+metrics = { path = "../../crates/metrics", features = ["testing"] }
+proptest = { workspace = true }
+tokio = { workspace = true }
+
+[features]
+testing = [
+    "common/testing",
+    "metrics/testing",
+]
+
+[package.metadata.cargo-machete]
+ignored = [
+    # proptest_derive macro depends on proptest
+    "proptest",
+]

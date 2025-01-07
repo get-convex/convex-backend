@@ -34,6 +34,7 @@ criterion = "0.5"
 crossbeam-channel = "0.5"
 csf = "0.1.11"
 cstr = "0.2.11"
+deadpool-postgres = "^0.14.0"
 deno_core = "0.284.0"
 deno_core_icudata = "0.73.0"
 derive_more = "0.99"
@@ -77,6 +78,7 @@ mime = "0.3"
 mime2ext = "0.1.52"
 minitrace = { version = "0.6", features = [ "enable" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
+native-tls = "^0.2.10"
 num_cpus = "1.16.0"
 oauth2 = "4.4.2"
 openidconnect = { git = "https://github.com/get-convex/openidconnect-rs", rev = "eb55e703f0c0585e3ed796f48e3ed9e96b56d31d", features = [ "accept-rfc3339-timestamps" ] }
@@ -87,6 +89,7 @@ pin-project = "1"
 p384 = "0.11.1"
 portpicker = "0.1"
 const-oid = "0.9.6"
+postgres-native-tls = "^0.5"
 pretty_assertions = "1"
 prometheus = { git = "https://github.com/get-convex/rust-prometheus", rev = "061619b6e44ca7f3b94d97346152cab319895929" }
 prometheus-hyper = "0.2.0"
@@ -137,6 +140,7 @@ tld = "2.36.0"
 tokio = { version = "1", features = [ "full" ] }
 tokio-metrics = { version = "0.3.1" }
 tokio-metrics-collector = { version = "0.2.1" }
+tokio-postgres = { version = "0.7.10", features = [ "with-serde_json-1" ] }
 tokio-process-stream = { version = "0.4.0" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.21.0", features = [ "native-tls-vendored" ] }
