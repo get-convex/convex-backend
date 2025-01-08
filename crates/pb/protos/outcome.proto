@@ -49,6 +49,9 @@ message HttpActionOutcome {
   SyscallTrace syscall_trace = 3;
 
   uint64 memory_in_mb = 4;
+
+  optional string path = 5;
+  optional string method = 6;
 }
 
 message SyscallTrace {

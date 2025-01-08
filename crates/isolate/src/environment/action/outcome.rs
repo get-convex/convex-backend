@@ -221,6 +221,8 @@ impl HttpActionOutcome {
             result,
             syscall_trace,
             memory_in_mb,
+            path,
+            method,
         }: HttpActionOutcomeProto,
         http_request: HttpActionRequestHead,
         udf_server_version: Option<Version>,
@@ -236,6 +238,15 @@ impl HttpActionOutcome {
             },
             None => HttpActionResult::Streamed,
         };
+        // TODO: Add `.context()` and remove fallback to `HttpRequestHead`
+        let method = match method {
+            Some(m) => m.parse()?,
+            None => http_request.method.clone().try_into()?,
+        };
+        let path = match path {
+            Some(p) => p,
+            None => http_request.url.clone().to_string(),
+        };
         Ok(Self {
             identity,
             unix_timestamp: unix_timestamp
@@ -244,12 +255,9 @@ impl HttpActionOutcome {
             result,
             syscall_trace: syscall_trace.context("Missing syscall_trace")?.try_into()?,
             memory_in_mb,
-            http_request: http_request.clone(),
+            http_request,
             udf_server_version,
-            route: HttpActionRoute {
-                method: http_request.method.try_into()?,
-                path: http_request.url.to_string(),
-            },
+            route: HttpActionRoute { method, path },
         })
     }
 }
@@ -259,7 +267,7 @@ impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
 
     fn try_from(
         HttpActionOutcome {
-            route: _,
+            route,
             http_request: _,
             identity: _,
             unix_timestamp,
@@ -280,6 +288,8 @@ impl TryFrom<HttpActionOutcome> for HttpActionOutcomeProto {
             result: Some(FunctionResultProto { result }),
             syscall_trace: Some(syscall_trace.try_into()?),
             memory_in_mb,
+            path: Some(route.path.to_string()),
+            method: Some(route.method.to_string()),
         })
     }
 }
