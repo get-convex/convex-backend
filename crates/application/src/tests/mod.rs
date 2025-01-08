@@ -5,6 +5,7 @@ mod cron_jobs;
 mod environment_variables;
 mod mutation;
 mod occ_retries;
+mod query_cache;
 mod returns_validation;
 mod scheduled_jobs;
 mod schema;
