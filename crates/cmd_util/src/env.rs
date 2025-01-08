@@ -106,7 +106,7 @@ where
     layers.push(format_layer);
     let sentry_layer = sentry_tracing::layer()
         .event_filter(|md| match md.level() {
-            &tracing::Level::DEBUG => EventFilter::Ignore,
+            &tracing::Level::DEBUG | &tracing::Level::TRACE => EventFilter::Ignore,
             _ => EventFilter::Breadcrumb,
         })
         .span_filter(|_md| false);
