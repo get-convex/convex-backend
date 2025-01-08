@@ -80,7 +80,10 @@ jobs:
         uses: taiki-e/install-action@cargo-nextest
 
       - name: Build rust tests
-        run: cargo nextest run --no-run --profile ci
+        env:
+          CI_PGUSER: postgres
+          CI_PGPASSWORD: postgres
+        run: cargo nextest run --no-run --profile ci      
 
       - name: Run Rust tests
         run: DISABLE_FUZZY_TEXT_SEARCH=true cargo nextest run --profile ci
