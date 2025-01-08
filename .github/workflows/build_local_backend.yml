@@ -17,6 +17,25 @@ jobs:
   build_and_test:
     name: Build and Test Convex Backend
     runs-on: [self-hosted, aws, x64, xlarge]
+
+    services:
+      # Label used to access service container
+      postgres:
+        # Docker Hub image
+        image: bitnami/postgresql:13
+        # Provide the password for postgres
+        env:
+          POSTGRESQL_PASSWORD: postgres
+          POSTGRESQL_MAX_CONNECTIONS: 500
+          POSTGRESQL_REPLICATION_USE_PASSFILE: no
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5 --name postgres
+        ports:
+          # Maps tcp port 5432 on service container to the host
+          - 5432:5432
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -64,4 +83,7 @@ jobs:
         run: cargo nextest run --no-run --profile ci
 
       - name: Run Rust tests
+        env:
+          CI_PGUSER: postgres
+          CI_PGPASSWORD: postgres
         run: DISABLE_FUZZY_TEXT_SEARCH=true cargo nextest run --profile ci
