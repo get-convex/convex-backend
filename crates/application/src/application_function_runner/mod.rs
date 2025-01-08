@@ -1268,19 +1268,32 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     component: path.component,
                     module_path: path.udf_path.module().clone(),
                 };
-                let module_version = self
-                    .module_cache
-                    .get_module(&mut tx, module_path.clone())
+                let component = path.component;
+                let module_metadata = match ModuleModel::new(&mut tx)
+                    .get_metadata(module_path.clone())
                     .await?
-                    .context("Missing a valid module_version")?;
+                {
+                    Some(r) => r,
+                    None => anyhow::bail!("Missing a valid module_version"),
+                };
+                let source_package = SourcePackageModel::new(&mut tx, component.into())
+                    .get(module_metadata.source_package_id)
+                    .await?;
+                let source_maps_callback = async {
+                    let module_version = self
+                        .module_cache
+                        .get_module_with_metadata(module_metadata, source_package)
+                        .await?;
+                    let mut source_maps = BTreeMap::new();
+                    if let Some(source_map) = module_version.source_map.clone() {
+                        source_maps.insert(module_path.module_path.clone(), source_map);
+                    }
+                    Ok(source_maps)
+                };
                 let _request_guard = self
                     .node_action_limiter
                     .acquire_permit_with_timeout(&self.runtime)
                     .await?;
-                let mut source_maps = BTreeMap::new();
-                if let Some(source_map) = module_version.source_map.clone() {
-                    source_maps.insert(module_path.module_path.clone(), source_map);
-                }
 
                 let source_package_id = module.source_package_id;
                 let source_package = SourcePackageModel::new(&mut tx, component.into())
@@ -1343,7 +1356,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
                 let node_outcome_future = self
                     .node_actions
-                    .execute(request, &source_maps, log_line_sender)
+                    .execute(request, log_line_sender, source_maps_callback)
                     .boxed();
                 let (mut node_outcome_result, log_lines) = run_function_and_collect_log_lines(
                     node_outcome_future,

@@ -181,6 +181,7 @@ impl NodeExecutor for LocalNodeExecutor {
 mod tests {
     use std::{
         collections::BTreeMap,
+        future::Future,
         sync::{
             Arc,
             LazyLock,
@@ -310,15 +311,18 @@ mod tests {
         }
     }
 
+    #[rustfmt::skip]
     async fn execute<RT: Runtime>(
         actions: &Actions<RT>,
         execute_request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
+        source_maps_callback: impl Future<Output = anyhow::Result<
+            BTreeMap<CanonicalizedModulePath, SourceMap>>>
+            + Send,
     ) -> anyhow::Result<(NodeActionOutcome, LogLines)> {
         let (log_line_sender, log_line_receiver) = mpsc::unbounded_channel();
         let execute_future = Box::pin(
             actions
-                .execute(execute_request, source_maps, log_line_sender)
+                .execute(execute_request, log_line_sender, source_maps_callback)
                 .fuse(),
         );
         let (result, log_lines) =
@@ -338,13 +342,16 @@ mod tests {
         )
     }
 
+    async fn empty_source_maps_callback(
+    ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, SourceMap>> {
+        Ok(BTreeMap::new())
+    }
+
     #[convex_macro::prod_rt_test]
     async fn test_success(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-
-        let source_maps = BTreeMap::new();
 
         let numbers: ConvexArray = array![1f64.into(), 7f64.into()]?;
         let args = create_args(assert_obj!("numbers" => ConvexValue::Array(numbers)))?;
@@ -356,7 +363,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
 
@@ -370,7 +377,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logHelloWorldAndReturn7".parse()?,
             array![],
@@ -379,7 +385,7 @@ mod tests {
         let (response, log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
 
@@ -401,7 +407,6 @@ mod tests {
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let identity = UserIdentity::test();
 
-        let source_maps = BTreeMap::new();
         let (response, _log_lines) = execute(
             &actions,
             ExecuteRequest {
@@ -419,7 +424,7 @@ mod tests {
                 context: ExecutionContext::new_for_test(),
                 encoded_parent_trace: None,
             },
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
 
@@ -441,7 +446,6 @@ mod tests {
             rt,
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
 
         let args = create_args(assert_obj!(
             "name" =>  "getCounter.js"
@@ -456,7 +460,7 @@ mod tests {
                 ),
                 source_package,
             ),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
 
@@ -478,7 +482,6 @@ mod tests {
             rt,
         );
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let args = create_args(assert_obj!(
             "name" =>  "getCounter.js"
         ))?;
@@ -492,7 +495,7 @@ mod tests {
                 ),
                 source_package,
             ),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
 
@@ -519,6 +522,7 @@ mod tests {
                 )
             })
             .collect();
+        let source_maps_callback = async { Ok(source_maps) };
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logAndThrowError".parse()?,
             array![],
@@ -527,7 +531,7 @@ mod tests {
         let (response, log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            source_maps_callback,
         )
         .await?;
 
@@ -564,6 +568,7 @@ mod tests {
                 )
             })
             .collect();
+        let source_maps_callback = async { Ok(source_maps) };
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:forgotAwait".parse()?,
             array![],
@@ -572,7 +577,7 @@ mod tests {
         let (response, log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            source_maps_callback,
         )
         .await?;
 
@@ -598,7 +603,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:hello".parse()?,
             array![],
@@ -607,7 +611,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
 
@@ -625,7 +629,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let mut environment_variables = BTreeMap::new();
         environment_variables.insert("TEST_NAME".parse()?, "TEST_VALUE".parse()?);
         let (response, _log_lines) = execute(
@@ -645,7 +648,7 @@ mod tests {
                 context: ExecutionContext::new_for_test(),
                 encoded_parent_trace: None,
             },
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
         assert_eq!(response.result?, ConvexValue::try_from("TEST_VALUE")?);
@@ -658,7 +661,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:sleepAnHour".parse()?,
             array![],
@@ -667,7 +669,7 @@ mod tests {
         let (response, log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
         // This should be hitting the user timeout in executor.ts, not the Node
@@ -693,7 +695,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:partialEscapeSequence".parse()?,
             array![],
@@ -702,7 +703,7 @@ mod tests {
         let err = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await
         .unwrap_err();
@@ -715,7 +716,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:workHardForAnHour".parse()?,
             array![],
@@ -724,7 +724,7 @@ mod tests {
         let (response, log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
         // Since this is a busy loop, we should be hitting the process timeout.
@@ -749,7 +749,6 @@ mod tests {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:deadlock".parse()?,
             array![],
@@ -758,7 +757,7 @@ mod tests {
         let (response, _log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
         assert_eq!(
@@ -973,7 +972,6 @@ export { hello };
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = create_actions(rt);
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
-        let source_maps = BTreeMap::new();
 
         // First, try to execute an action with a syscall that fails. In this case,
         // we'll call into a query where the backend isn't actually running.
@@ -988,7 +986,7 @@ export { hello };
                 ),
                 source_package.clone(),
             ),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
         let syscall_trace = response.syscall_trace;
@@ -1011,7 +1009,7 @@ export { hello };
                 ),
                 source_package,
             ),
-            &source_maps,
+            empty_source_maps_callback(),
         )
         .await?;
         let syscall_trace = response.syscall_trace;

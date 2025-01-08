@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    future::Future,
     path::Path,
     sync::{
         Arc,
@@ -209,11 +210,14 @@ impl<RT: Runtime> Actions<RT> {
         self.executor.shutdown()
     }
 
+    #[rustfmt::skip]
     pub async fn execute(
         &self,
         request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
+        source_maps_callback: impl Future<Output = anyhow::Result<
+            BTreeMap<CanonicalizedModulePath, SourceMap>>>
+            + Send,
     ) -> anyhow::Result<NodeActionOutcome> {
         let path = request.path_and_args.path().clone();
         let timer = node_executor("execute");
@@ -283,7 +287,8 @@ impl<RT: Runtime> Actions<RT> {
                 frames,
                 ..
             } => {
-                let error = construct_js_error(message, name, data, frames, source_maps)?;
+                let source_maps = source_maps_callback.await?;
+                let error = construct_js_error(message, name, data, frames, &source_maps)?;
                 Err(error)
             },
         };
