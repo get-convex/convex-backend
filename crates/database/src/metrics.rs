@@ -345,6 +345,11 @@ pub fn bump_repeatable_ts_timer() -> Timer<VMHistogram> {
     Timer::new(&BUMP_REPEATABLE_TS_SECONDS)
 }
 
+register_convex_histogram!(NEXT_COMMIT_TS_SECONDS, "Time to bump max_repeatable_ts");
+pub fn next_commit_ts_seconds() -> Timer<VMHistogram> {
+    Timer::new(&NEXT_COMMIT_TS_SECONDS)
+}
+
 register_convex_histogram!(
     LATEST_MIN_SNAPSHOT_SECONDS,
     "Time to get latest min_snapshot_ts"

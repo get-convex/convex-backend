@@ -107,6 +107,7 @@ use crate::{
         self,
         bootstrap_update_timer,
         finish_bootstrap_update,
+        next_commit_ts_seconds,
         table_summary_finish_bootstrap_timer,
     },
     reads::ReadSet,
@@ -885,6 +886,7 @@ impl<RT: Runtime> Committer<RT> {
     }
 
     fn next_commit_ts(&mut self) -> anyhow::Result<Timestamp> {
+        let _timer = next_commit_ts_seconds();
         let latest_ts = self.snapshot_manager.read().latest_ts();
         let max = cmp::max(
             latest_ts.succ()?,
