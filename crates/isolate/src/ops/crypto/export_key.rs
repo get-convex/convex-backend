@@ -369,7 +369,7 @@ fn export_key_ec(
                         Ok(ExportKeyResult::JwkPrivateEc {
                             x: bytes_to_b64(x),
                             y: bytes_to_b64(y),
-                            d: bytes_to_b64(&ec_key.to_be_bytes()),
+                            d: bytes_to_b64(&ec_key.to_bytes()),
                         })
                     } else {
                         Err(data_error("expected valid public EC key"))
@@ -388,7 +388,7 @@ fn export_key_ec(
                         Ok(ExportKeyResult::JwkPrivateEc {
                             x: bytes_to_b64(x),
                             y: bytes_to_b64(y),
-                            d: bytes_to_b64(&ec_key.to_be_bytes()),
+                            d: bytes_to_b64(&ec_key.to_bytes()),
                         })
                     } else {
                         Err(data_error("expected valid public EC key"))

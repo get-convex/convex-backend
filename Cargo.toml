@@ -41,9 +41,9 @@ derive_more = "0.99"
 divan = "0.1.14"
 dotenvy = "0.15.7"
 either = "1.9.0"
-elliptic-curve = { version = "0.12.1", features = [ "std", "pem" ] }
+elliptic-curve = { version = "0.13", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
-p256 = { version = "0.11.1", features = [ "ecdh" ] }
+p256 = { version = "0.13", features = [ "ecdh" ] }
 event-listener = "5.3.1"
 flexbuffers = "2"
 float_next_after = "1.0.0"
@@ -86,7 +86,7 @@ parking_lot = { version = "0.12", features = [ "hardware-lock-elision" ] }
 paste = { version = "1.0.12" }
 phf = { version = "0.11.2", features = [ "macros" ] }
 pin-project = "1"
-p384 = "0.11.1"
+p384 = "0.13"
 portpicker = "0.1"
 const-oid = "0.9.6"
 postgres-native-tls = "^0.5"

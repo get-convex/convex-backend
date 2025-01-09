@@ -3,7 +3,6 @@
 
 use deno_core::ToJsBuffer;
 use elliptic_curve::pkcs8::PrivateKeyInfo;
-use p256::pkcs8::der::Decode as _;
 use spki::{
     der::{
         asn1::BitString,
