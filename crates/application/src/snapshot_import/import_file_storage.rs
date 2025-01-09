@@ -48,8 +48,8 @@ use model::{
 use thousands::Separable;
 use usage_tracking::{
     FunctionUsageTracker,
+    StorageCallTracker,
     StorageUsageTracker,
-    UsageCounter,
 };
 use value::{
     id_v6::DeveloperDocumentId,
@@ -79,11 +79,10 @@ pub async fn import_storage_table<RT: Runtime>(
     table_id: TabletIdAndTableNumber,
     component_path: &ComponentPath,
     mut objects: Pin<&mut Peekable<BoxStream<'_, anyhow::Result<ImportUnit>>>>,
-    usage: &dyn StorageUsageTracker,
+    usage: &FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     num_to_skip: u64,
     requestor: ImportRequestor,
-    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<()> {
     let snapshot = database.latest_snapshot()?;
     let namespace = snapshot
@@ -231,7 +230,7 @@ pub async fn import_storage_table<RT: Runtime>(
             content_type,
             entry.sha256,
         );
-        usage_tracking.track_independent_storage_ingress_size(
+        usage.track_storage_ingress_size(
             component_path.clone(),
             requestor.usage_tag().to_string(),
             file_size,

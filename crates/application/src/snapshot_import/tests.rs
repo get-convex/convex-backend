@@ -1139,7 +1139,6 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
-        &app.usage_tracking,
     )
     .await?;
 

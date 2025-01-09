@@ -221,7 +221,7 @@ impl UsageCounter {
         let (should_track_calls, udf_id_type) = match &udf_path {
             UdfIdentifier::Function(path) => (!path.udf_path.is_system(), "function"),
             UdfIdentifier::Http(_) => (true, "http"),
-            UdfIdentifier::Cli(_) => (false, "cli"),
+            UdfIdentifier::SystemJob(_) => (false, "_system_job"),
         };
 
         let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();

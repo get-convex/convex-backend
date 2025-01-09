@@ -33,6 +33,7 @@ use serde_json::json;
 use storage::StorageExt;
 use usage_tracking::{
     FunctionUsageTracker,
+    StorageCallTracker,
     StorageUsageTracker,
 };
 use value::{
@@ -136,7 +137,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
             content_type,
             file_storage_entry.sha256.clone(),
         );
-        worker.usage_tracking.track_independent_storage_egress_size(
+        usage.track_storage_egress_size(
             component_path.clone(),
             requestor.usage_tag().to_string(),
             file_stream.content_length as u64,

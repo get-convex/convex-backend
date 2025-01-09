@@ -108,7 +108,7 @@ impl From<UdfTypeProto> for UdfType {
 pub enum UdfIdentifier {
     Function(CanonicalizedComponentFunctionPath),
     Http(HttpActionRoute),
-    Cli(String),
+    SystemJob(String),
 }
 
 impl UdfIdentifier {
@@ -118,7 +118,7 @@ impl UdfIdentifier {
                 let (component_path, udf_path) = path.clone().into_component_and_udf_path();
                 (component_path.serialize(), udf_path.to_string())
             },
-            UdfIdentifier::Http(_) | UdfIdentifier::Cli(_) => (None, self.to_string()),
+            UdfIdentifier::Http(_) | UdfIdentifier::SystemJob(_) => (None, self.to_string()),
         }
     }
 }
@@ -128,7 +128,7 @@ impl fmt::Display for UdfIdentifier {
         match self {
             UdfIdentifier::Function(path) => write!(f, "{}", path.debug_str()),
             UdfIdentifier::Http(route) => write!(f, "{}", route.path),
-            UdfIdentifier::Cli(command) => write!(f, "_cli/{command}"),
+            UdfIdentifier::SystemJob(command) => write!(f, "_system_job/{command}"),
         }
     }
 }

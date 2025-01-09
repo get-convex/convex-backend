@@ -36,6 +36,7 @@ use storage::Storage;
 use usage_tracking::{
     CallType,
     FunctionUsageTracker,
+    StorageCallTracker,
     UsageCounter,
 };
 
@@ -312,14 +313,14 @@ impl<RT: Runtime> ExportWorker<RT> {
             ExportRequestor::CloudBackup => CallType::CloudBackup,
         };
         // Charge file bandwidth for the upload of the snapshot to exports storage
-        self.usage_tracking.track_independent_storage_ingress_size(
+        usage.track_storage_ingress_size(
             ComponentPath::root(),
             tag.clone(),
             object_attributes.size,
         );
         // Charge database bandwidth accumulated during the export
         self.usage_tracking.track_call(
-            UdfIdentifier::Cli(tag),
+            UdfIdentifier::SystemJob(tag),
             ExecutionId::new(),
             RequestId::new(),
             call_type,

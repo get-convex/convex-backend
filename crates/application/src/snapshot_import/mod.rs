@@ -106,6 +106,7 @@ use thousands::Separable;
 use usage_tracking::{
     CallType,
     FunctionUsageTracker,
+    StorageCallTracker,
     UsageCounter,
 };
 use value::{
@@ -344,13 +345,25 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             usage.clone(),
             Some(snapshot_import.id()),
             snapshot_import.requestor.clone(),
-            &self.usage_tracking,
         )
         .await?;
 
         let audit_log_event =
             make_audit_log_event(&self.database, &table_mapping_for_import, &snapshot_import)
                 .await?;
+
+        let object_attributes = self
+            .snapshot_imports_storage
+            .get_object_attributes(&snapshot_import.object_key)
+            .await?
+            .context("error getting export object attributes from S3")?;
+
+        // Charge file bandwidth for the download of the snapshot from imports storage
+        usage.track_storage_egress_size(
+            ComponentPath::root(),
+            snapshot_import.requestor.usage_tag().to_string(),
+            object_attributes.size,
+        );
 
         self.pause_client.wait("before_finalize_import").await;
         let (ts, _documents_deleted) = finalize_import(
@@ -365,18 +378,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             snapshot_import.requestor.clone(),
         )
         .await?;
-        let object_attributes = self
-            .snapshot_imports_storage
-            .get_object_attributes(&snapshot_import.object_key)
-            .await?
-            .context("error getting export object attributes from S3")?;
-
-        // Charge file bandwidth for the download of the snapshot from imports storage
-        self.usage_tracking.track_independent_storage_egress_size(
-            ComponentPath::root(),
-            snapshot_import.requestor.usage_tag().to_string(),
-            object_attributes.size,
-        );
 
         Ok((ts, total_documents_imported))
     }
@@ -692,7 +693,6 @@ pub async fn clear_tables<RT: Runtime>(
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
-        &application.usage_tracking,
     )
     .await?;
 
@@ -720,7 +720,6 @@ async fn import_objects<RT: Runtime>(
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
-    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<(TableMappingForImport, u64)> {
     pin_mut!(objects);
     let mut generated_schemas = BTreeMap::new();
@@ -756,7 +755,6 @@ async fn import_objects<RT: Runtime>(
         usage.clone(),
         import_id,
         requestor.clone(),
-        usage_tracking,
     )
     .await?
     {
@@ -923,7 +921,7 @@ async fn finalize_import<RT: Runtime>(
     };
     // Charge database bandwidth accumulated during the import
     usage_tracking.track_call(
-        UdfIdentifier::Cli(tag),
+        UdfIdentifier::SystemJob(tag),
         ExecutionId::new(),
         RequestId::new(),
         call_type,
@@ -1033,7 +1031,6 @@ async fn import_single_table<RT: Runtime>(
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
-    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<Option<u64>> {
     while let Some(ImportUnit::GeneratedSchema(component_path, table_name, generated_schema)) =
         objects
@@ -1140,7 +1137,6 @@ async fn import_single_table<RT: Runtime>(
             import_id,
             num_to_skip,
             requestor,
-            usage_tracking,
         )
         .await?;
         return Ok(Some(0));
