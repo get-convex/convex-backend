@@ -67,7 +67,7 @@ runs:
     # this step runs, the cache key used for storing the job outputs will not
     # match the cache key used for restoring.
     - name: Cached load of cargo registry
-      uses: Swatinem/rust-cache@v2.7.3
+      uses: Swatinem/rust-cache@v2.7.5
       with:
         # Only cache the `.cargo` directory; not build artifacts.
         cache-targets: "false"
