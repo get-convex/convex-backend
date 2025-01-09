@@ -150,7 +150,7 @@ tonic-build = "0.12.3"
 tonic-health = "0.12.3"
 tower = { version = "0.4", features = [ "limit", "timeout" ] }
 tower-cookies = "0.10"
-tower-http = { version = "0.5", features = [ "trace", "cors", "decompression-br" ] }
+tower-http = { version = "0.6", features = [ "trace", "cors", "decompression-br" ] }
 tracing = "0.1"
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
