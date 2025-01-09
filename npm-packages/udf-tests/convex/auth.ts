@@ -15,3 +15,16 @@ export const getIdentifier = query(async function ({ auth }) {
   }
   return null;
 });
+
+// If "objects" is empty, returns the current time without reading `ctx.auth`.
+// Then the query can be cached across users.
+// If "objects" is not empty, returns the auth token identifier, which cannot
+// be cached across users.
+export const conditionallyCheckAuth = query(async function (ctx) {
+  const objects = await ctx.db.query("objects").collect();
+  if (objects.length === 0) {
+    return new Date().toString();
+  }
+  const user = await ctx.auth.getUserIdentity();
+  return user?.tokenIdentifier ?? "No user";
+});
