@@ -279,6 +279,7 @@ where
         let component_path = component_ids_to_paths
             .get(&component_id)
             .context("Component missing")?;
+        let in_component_str = component_path.in_component_str();
         let path_prefix = get_export_path_prefix(component_path);
         let by_id = by_id_indexes
             .get(tablet_id)
@@ -293,6 +294,9 @@ where
                 "dev.convex.table_name".to_string() => table_name.to_string(),
             },
         );
+
+        update_progress(format!("Backing up {table_name}{in_component_str}")).await?;
+
         write_table(
             worker,
             &path_prefix,
