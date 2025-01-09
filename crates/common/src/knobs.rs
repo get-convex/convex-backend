@@ -1003,9 +1003,15 @@ pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> = LazyLock::n
 });
 
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
-/// know doesn't delay deploys that are required due to user backends.
+/// knob doesn't delay deploys that are required due to the user pushing new
+/// node actions. Only affects deploys on startup triggered by changes to
+/// backend/node-executor code.
+///
+/// AWS has a rate limit of 15/s on their APIs, so we need this to be roughly
+/// large enough to be on the same scale as N/s where N is the number of
+/// instances with lambdas.
 pub static AWS_LAMBDA_DEPLOY_SPLAY_SECONDS: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 300)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 1800)));
 
 /// The maximum number of requests to send using a single AWS Lambda client.
 /// Empirical tests have shown that AWS servers allows up to 128 concurrent
