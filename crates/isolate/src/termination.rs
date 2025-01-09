@@ -140,6 +140,14 @@ impl IsolateHandle {
                     ))),
                     TerminationReason::OutOfMemory => {
                         log_isolate_out_of_memory();
+                        // We report this error here because otherwise it is only surfaced to users
+                        // since it is a JsError. Reporting to sentry
+                        // enables us to see what instance the request came from.
+                        let error = ErrorMetadata::bad_request(
+                            "IsolateOutOfMemory",
+                            "Isolate ran out of memory during execution", // TODO log request size
+                        );
+                        report_error_sync(&mut error.into());
                         Ok(Err(JsError::from_message(format!("{OutOfMemoryError}"))))
                     },
                     TerminationReason::UncatchableDeveloperError(e) => Ok(Err(e)),
