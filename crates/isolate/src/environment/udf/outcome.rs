@@ -46,6 +46,7 @@ pub struct UdfOutcome {
     pub path: CanonicalizedComponentFunctionPath,
     pub arguments: ConvexArray,
     pub identity: InertIdentity,
+    pub observed_identity: bool,
 
     pub rng_seed: [u8; 32],
     pub observed_rng: bool,
@@ -81,6 +82,7 @@ impl Arbitrary for UdfOutcome {
             any::<bool>(),
             any::<UnixTimestamp>(),
             any::<bool>(),
+            any::<bool>(),
             any::<LogLines>(),
             any::<QueryJournal>(),
             any::<Result<JsonPackedValue, JsError>>(),
@@ -95,6 +97,7 @@ impl Arbitrary for UdfOutcome {
                     observed_rng,
                     unix_timestamp,
                     observed_time,
+                    observed_identity,
                     log_lines,
                     journal,
                     result,
@@ -107,6 +110,7 @@ impl Arbitrary for UdfOutcome {
                     observed_rng,
                     unix_timestamp,
                     observed_time,
+                    observed_identity,
                     log_lines,
                     journal,
                     result,
@@ -138,6 +142,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
             path: _,
             arguments: _,
             identity: _,
+            observed_identity,
             rng_seed,
             observed_rng,
             unix_timestamp,
@@ -164,6 +169,7 @@ impl TryFrom<UdfOutcome> for UdfOutcomeProto {
                 result: Some(result),
             }),
             syscall_trace: Some(syscall_trace.try_into()?),
+            observed_identity: Some(observed_identity),
         })
     }
 }
@@ -192,6 +198,7 @@ impl UdfOutcome {
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
+            observed_identity: false,
         })
     }
 
@@ -205,6 +212,7 @@ impl UdfOutcome {
             journal,
             result,
             syscall_trace,
+            observed_identity,
         }: UdfOutcomeProto,
         path_and_args: ValidatedPathAndArgs,
         identity: InertIdentity,
@@ -245,6 +253,8 @@ impl UdfOutcome {
                 .ok_or_else(|| anyhow::anyhow!("Missing syscall_trace"))?
                 .try_into()?,
             udf_server_version,
+            // TODO(lee): Remove the default once we've pushed all services.
+            observed_identity: observed_identity.unwrap_or(true),
         })
     }
 }

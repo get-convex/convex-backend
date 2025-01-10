@@ -272,6 +272,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     fn context(&self) -> &ExecutionContext;
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
+    fn observe_identity(&self) -> anyhow::Result<()>;
 
     fn persistence_version(&self) -> PersistenceVersion;
     fn is_system(&self) -> bool;
@@ -347,6 +348,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
         self.phase.unix_timestamp()
+    }
+
+    fn observe_identity(&self) -> anyhow::Result<()> {
+        self.phase.observe_identity()
     }
 
     fn persistence_version(&self) -> PersistenceVersion {
@@ -734,6 +739,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
     #[convex_macro::instrument_future]
     async fn get_user_identity(provider: &mut P, _args: JsonValue) -> anyhow::Result<JsonValue> {
+        provider.observe_identity()?;
         // TODO: Somehow make the Transaction aware of the dependency on the user.
         let tx = provider.tx()?;
         let user_identity = tx.user_identity();

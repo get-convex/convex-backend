@@ -133,7 +133,7 @@ impl fmt::Display for UdfIdentifier {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
 pub enum AllowedVisibility {
     PublicOnly,
     All,

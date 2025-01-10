@@ -223,6 +223,7 @@ enum UdfPhase {
         rng: ChaCha12Rng,
         observed_time: bool,
         observed_rng: bool,
+        observed_identity: bool,
     },
     Finalized,
 }
@@ -442,18 +443,20 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
             rng: ChaCha12Rng::from_seed(self.execution_time_seed.rng_seed),
             observed_time: false,
             observed_rng: false,
+            observed_identity: false,
         };
         Ok(())
     }
 
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome> {
-        let (observed_time, observed_rng) = match self.phase {
-            UdfPhase::Importing { .. } => (false, false),
+        let (observed_time, observed_rng, observed_identity) = match self.phase {
+            UdfPhase::Importing { .. } => (false, false, false),
             UdfPhase::Executing {
                 observed_time,
                 observed_rng,
+                observed_identity,
                 ..
-            } => (observed_time, observed_rng),
+            } => (observed_time, observed_rng, observed_identity),
             UdfPhase::Finalized => {
                 anyhow::bail!("Phase was already finalized")
             },
@@ -463,6 +466,7 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         Ok(EnvironmentOutcome {
             observed_rng,
             observed_time,
+            observed_identity,
         })
     }
 
@@ -548,6 +552,7 @@ async fn run_request<RT: Runtime>(
             path: path.for_logging(),
             arguments,
             identity: tx.inert_identity(),
+            observed_identity: false,
             rng_seed: execution_time_seed.rng_seed,
             observed_rng: false,
             unix_timestamp: execution_time_seed.unix_timestamp,
@@ -690,6 +695,7 @@ async fn run_request<RT: Runtime>(
         path: path.for_logging(),
         arguments,
         identity: provider.tx.inert_identity(),
+        observed_identity: outcome.observed_identity,
         rng_seed: execution_time_seed.rng_seed,
         observed_rng: outcome.observed_rng,
         unix_timestamp: execution_time_seed.unix_timestamp,
@@ -866,6 +872,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.unix_timestamp)
+    }
+
+    fn observe_identity(&self) -> anyhow::Result<()> {
+        todo!()
     }
 
     fn persistence_version(&self) -> PersistenceVersion {

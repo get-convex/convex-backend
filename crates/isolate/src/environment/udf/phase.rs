@@ -94,6 +94,7 @@ enum UdfPreloaded {
         observed_rng_during_execution: bool,
         unix_timestamp: Option<UnixTimestamp>,
         observed_time_during_execution: AtomicBool,
+        observed_identity_during_execution: AtomicBool,
         env_vars: Option<PreloadedEnvironmentVariables>,
         component: ComponentId,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
@@ -175,6 +176,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             observed_rng_during_execution: false,
             unix_timestamp,
             observed_time_during_execution: AtomicBool::new(false),
+            observed_identity_during_execution: AtomicBool::new(false),
             env_vars,
             component,
             component_arguments: component_args,
@@ -405,6 +407,18 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(unix_timestamp)
     }
 
+    pub fn observe_identity(&self) -> anyhow::Result<()> {
+        let UdfPreloaded::Ready {
+            ref observed_identity_during_execution,
+            ..
+        } = self.preloaded
+        else {
+            anyhow::bail!("Phase not initialized");
+        };
+        observed_identity_during_execution.store(true, Ordering::SeqCst);
+        Ok(())
+    }
+
     pub fn observed_rng(&self) -> bool {
         match self.preloaded {
             UdfPreloaded::Ready {
@@ -421,6 +435,16 @@ impl<RT: Runtime> UdfPhase<RT> {
                 ref observed_time_during_execution,
                 ..
             } => observed_time_during_execution.load(Ordering::SeqCst),
+            UdfPreloaded::Created => false,
+        }
+    }
+
+    pub fn observed_identity(&self) -> bool {
+        match self.preloaded {
+            UdfPreloaded::Ready {
+                ref observed_identity_during_execution,
+                ..
+            } => observed_identity_during_execution.load(Ordering::SeqCst),
             UdfPreloaded::Created => false,
         }
     }

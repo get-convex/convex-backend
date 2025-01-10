@@ -101,6 +101,10 @@ async fn test_query_cache(rt: TestRuntime) -> anyhow::Result<()> {
 
     // The query gets the current time, but the result is cached so the results
     // should match.
+    // It's a bit weird to be using Date.now() to test this, since we just want
+    // to know that the query was cached. The purpose is to assert that the
+    // function is not re-executing. If it were re-executing, the Date.now()
+    // would be different.
     assert_eq!(result1, result2);
 
     Ok(())
@@ -129,6 +133,57 @@ async fn test_query_cache_data_invalidation(rt: TestRuntime) -> anyhow::Result<(
     )
     .await?;
     assert_ne!(result1, result2);
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_cache_time_invalidation(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+
+    let time_result1 = run_query(
+        &application,
+        "basic:readTimeMs",
+        json!({}),
+        Identity::system(),
+        false,
+    )
+    .await?;
+    let do_nothing_result1 = run_query(
+        &application,
+        "basic:doNothing",
+        json!({}),
+        Identity::system(),
+        false,
+    )
+    .await?;
+    rt.advance_time(Duration::from_mins(20)).await;
+
+    // Write a new object to bump timestamps.
+    // It doesn't have to succeed; it'll still bump the timestamp.
+    let _ = insert_object(&application).await;
+
+    // After 20 minutes, the time query is not cached anymore.
+    let time_result2 = run_query(
+        &application,
+        "basic:readTimeMs",
+        json!({}),
+        Identity::system(),
+        false,
+    )
+    .await?;
+    assert_ne!(time_result1, time_result2);
+    // The doNothing query is still cached.
+    let do_nothing_result2 = run_query(
+        &application,
+        "basic:doNothing",
+        json!({}),
+        Identity::system(),
+        true,
+    )
+    .await?;
+    assert_eq!(do_nothing_result1, do_nothing_result2);
 
     Ok(())
 }
@@ -245,17 +300,18 @@ async fn test_query_cache_without_checking_auth(rt: TestRuntime) -> anyhow::Resu
     )
     .await?;
     rt.advance_time(Duration::from_secs(1)).await;
-    // TODO(lee) The query doesn't read ctx.auth, so should be cached even across
-    // identities, but it's not.
+    // The query doesn't read ctx.auth, so it's cached across identities.
     let result2 = run_query(
         &application,
         "basic:readTimeMs",
         json!({}),
         Identity::system(),
-        false,
+        true,
     )
     .await?;
-    assert_ne!(result1, result2);
+    // Result is the same because the query doesn't re-execute and get a new
+    // Date.now().
+    assert_eq!(result1, result2);
 
     Ok(())
 }
@@ -275,19 +331,20 @@ async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow
     )
     .await?;
     rt.advance_time(Duration::from_secs(1)).await;
-    // TODO(lee) The query should be cached across identities, but it's not.
+    // The query is cached across identities.
     let result2 = run_query(
         &application,
         "auth:conditionallyCheckAuth",
         json!({}),
         Identity::system(),
-        false,
+        true,
     )
     .await?;
-    assert_ne!(result1, result2);
+    assert_eq!(result1, result2);
 
     insert_object(&application).await?;
 
+    // Now that there's an object, the query checks auth.
     let result3 = run_query(
         &application,
         "auth:conditionallyCheckAuth",
@@ -306,6 +363,7 @@ async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow
     .await?;
     assert_ne!(result1, result3);
     assert_ne!(result1, result4);
+    assert_ne!(result3, result4); // different auth
 
     Ok(())
 }

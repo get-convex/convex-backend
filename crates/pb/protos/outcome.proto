@@ -29,6 +29,8 @@ message UdfOutcome {
 
   common.FunctionResult result = 7;
   SyscallTrace syscall_trace = 8;
+
+  optional bool observed_identity = 10;
 }
 
 message ActionOutcome {
