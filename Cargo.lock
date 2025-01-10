@@ -3753,6 +3753,7 @@ dependencies = [
  "runtime",
  "search",
  "semver 1.0.23",
+ "sentry",
  "serde",
  "serde_bytes",
  "serde_json",

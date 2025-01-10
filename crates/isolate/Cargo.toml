@@ -67,6 +67,7 @@ rsa = { workspace = true }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
 semver = { workspace = true }
+sentry = { workspace = true }
 serde = { workspace = true }
 serde_bytes = { workspace = true }
 serde_json = { workspace = true }

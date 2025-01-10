@@ -72,24 +72,19 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
             pause_client: Some(Arc::new(tokio::sync::Mutex::new(pause_client))),
         }
     }
-}
 
-#[async_trait(?Send)]
-impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
-    #[minitrace::trace]
-    async fn handle_request(
+    async fn handle_request_inner(
         &self,
         isolate: &mut Isolate<RT>,
         isolate_clean: &mut bool,
         Request {
             client_id,
             inner,
-            pause_client,
+            pause_client: _,
             parent_trace: _,
         }: Request<RT>,
         heap_stats: SharedIsolateHeapStats,
     ) -> String {
-        pause_client.wait(PAUSE_REQUEST).await;
         match inner {
             RequestType::Udf {
                 request,
@@ -328,6 +323,31 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
                 "EvaluateComponentInitializer".to_string()
             },
         }
+    }
+}
+
+#[async_trait(?Send)]
+impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
+    #[minitrace::trace]
+    async fn handle_request(
+        &self,
+        isolate: &mut Isolate<RT>,
+        isolate_clean: &mut bool,
+        request: Request<RT>,
+        heap_stats: SharedIsolateHeapStats,
+    ) -> String {
+        request.pause_client.wait(PAUSE_REQUEST).await;
+        let client_id = request.client_id.clone();
+        // Set the scope to be tagged with the client_id just for the duration of
+        // handling the request. It would be nice to get sentry::with_scope to work, but
+        // it uses a synchronous callback and we need `report_error` in the future to
+        // have the client_id tag.
+        sentry::configure_scope(|scope| scope.set_tag("client_id", client_id));
+        let result = self
+            .handle_request_inner(isolate, isolate_clean, request, heap_stats)
+            .await;
+        sentry::configure_scope(|scope| scope.remove_tag("client_id"));
+        result
     }
 
     fn config(&self) -> &IsolateConfig {
