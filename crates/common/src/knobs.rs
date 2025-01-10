@@ -920,7 +920,7 @@ pub static ARCHIVE_FETCH_TIMEOUT_SECONDS: LazyLock<Duration> =
 /// The total number of modules across all versions that will be held in memory
 /// at once.
 pub static MODULE_CACHE_MAX_SIZE_BYTES: LazyLock<u64> =
-    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 250_000_000));
+    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 100_000_000));
 
 /// The maximum number of concurrent module fetches we'll allow.
 pub static MODULE_CACHE_MAX_CONCURRENCY: LazyLock<usize> =
