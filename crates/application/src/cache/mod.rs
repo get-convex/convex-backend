@@ -118,10 +118,10 @@ impl InstanceId {
 }
 
 /// A cache key representing a specific query request, before it runs.
-/// It may have more specific information than a `CacheKey`, because multiple
-/// query requests may be served by the same cache entry.
-/// e.g. if a query does not check `ctx.auth`, then `TargetCacheKey`
-/// contains the identity, but `CacheKey` does not.
+/// It may have more specific information than a `StoredCacheKey`, because
+/// multiple query requests may be served by the same cache entry.
+/// e.g. if a query does not check `ctx.auth`, then `RequestedCacheKey`
+/// contains the identity, but `StoredCacheKey` does not.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct RequestedCacheKey {
     instance: InstanceId,
