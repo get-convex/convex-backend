@@ -1392,7 +1392,7 @@ impl SharedIsolateHeapStats {
         Self(Arc::new(Mutex::new(IsolateHeapStats::default())))
     }
 
-    fn get(&self) -> IsolateHeapStats {
+    pub(crate) fn get(&self) -> IsolateHeapStats {
         *self.0.lock()
     }
 

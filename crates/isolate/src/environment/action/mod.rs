@@ -326,6 +326,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         anyhow::ensure!(component_function_path.component == self.phase.component());
         let udf_path = &component_function_path.udf_path;
 
+        let heap_stats = self.heap_stats.clone();
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
@@ -349,7 +350,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )
         .await;
         // Override the returned result if we hit a termination error.
-        let termination_error = handle.take_termination_error();
+        let termination_error = handle.take_termination_error(Some(heap_stats.get()));
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -623,6 +624,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ) -> anyhow::Result<ActionOutcome> {
         let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
+        let heap_stats = self.heap_stats.clone();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
@@ -650,7 +652,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_context.scope.perform_microtask_checkpoint();
         *isolate_clean = true;
 
-        match handle.take_termination_error() {
+        match handle.take_termination_error(Some(heap_stats.get())) {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
                 result = Ok(Err(e));
@@ -1095,6 +1097,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                                 Ok(chunk) => {
                                     let done = chunk.is_none();
                                     scope.extend_stream(stream_id, chunk, done)?;
+                                    // If done, add the total accumulated size to the isolate handle inner.
                                 },
                                 Err(e) => scope.error_stream(stream_id, e)?,
                             };

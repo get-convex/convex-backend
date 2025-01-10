@@ -102,7 +102,7 @@ impl JsClientThread {
         }
         tracing::info!("JsThread shutting down...");
         drop(isolate_context);
-        handle.take_termination_error()??;
+        handle.take_termination_error(None)??;
         Ok(())
     }
 }

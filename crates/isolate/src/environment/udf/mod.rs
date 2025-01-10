@@ -383,6 +383,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // system-generated input.
         let rng_seed = self.rt.rng().gen();
         let unix_timestamp = self.rt.unix_timestamp();
+        let heap_stats = self.heap_stats.clone();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
@@ -405,7 +406,8 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         *isolate_clean = true;
 
         // Override the returned result if we hit a termination error.
-        match handle.take_termination_error() {
+        let termination_error = handle.take_termination_error(Some(heap_stats.get()));
+        match termination_error {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
                 result = Ok(Err(e));

@@ -292,7 +292,7 @@ impl AppDefinitionEvaluator {
 
         isolate_context.scope.perform_microtask_checkpoint();
         drop(isolate_context);
-        handle.take_termination_error()??;
+        handle.take_termination_error(None)??;
 
         Ok(result)
     }
@@ -435,7 +435,7 @@ impl ComponentInitializerEvaluator {
 
         isolate_context.scope.perform_microtask_checkpoint();
         drop(isolate_context);
-        handle.take_termination_error()??;
+        handle.take_termination_error(None)??;
 
         Ok(result)
     }

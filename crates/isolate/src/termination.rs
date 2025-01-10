@@ -16,6 +16,7 @@ use thiserror::Error;
 use crate::{
     isolate::IsolateNotClean,
     metrics::log_isolate_out_of_memory,
+    IsolateHeapStats,
 };
 
 #[derive(Debug)]
@@ -115,7 +116,10 @@ impl IsolateHandle {
         Ok(())
     }
 
-    pub fn take_termination_error(&self) -> anyhow::Result<Result<(), JsError>> {
+    pub fn take_termination_error(
+        &self,
+        heap_stats: Option<IsolateHeapStats>,
+    ) -> anyhow::Result<Result<(), JsError>> {
         let mut inner = self.inner.lock();
         match &mut inner.reason {
             None => Ok(Ok(())),
@@ -145,7 +149,10 @@ impl IsolateHandle {
                         // enables us to see what instance the request came from.
                         let error = ErrorMetadata::bad_request(
                             "IsolateOutOfMemory",
-                            "Isolate ran out of memory during execution", // TODO log request size
+                            format!(
+                                "Isolate ran out of memory during execution with heap stats: \
+                                 {heap_stats:?}"
+                            ),
                         );
                         report_error_sync(&mut error.into());
                         Ok(Err(JsError::from_message(format!("{OutOfMemoryError}"))))
