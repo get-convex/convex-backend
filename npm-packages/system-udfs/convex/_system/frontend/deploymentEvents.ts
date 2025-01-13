@@ -11,7 +11,12 @@ export const lastPushEvent = queryPrivateSystem({
   handler: async function ({ db }): Promise<PushConfigEvent | null> {
     const lastPushEvent = await db
       .query("_deployment_audit_log")
-      .filter((q) => q.eq(q.field("action"), "push_config"))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("action"), "push_config"),
+          q.eq(q.field("action"), "push_config_with_components"),
+        ),
+      )
       .order("desc")
       .first();
 
