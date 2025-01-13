@@ -11,6 +11,7 @@ use common::{
 };
 use futures::FutureExt;
 use sync_types::CanonicalizedUdfPath;
+use tracing::Instrument;
 
 use crate::{
     client::{
@@ -342,9 +343,12 @@ impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
         // handling the request. It would be nice to get sentry::with_scope to work, but
         // it uses a synchronous callback and we need `report_error` in the future to
         // have the client_id tag.
-        sentry::configure_scope(|scope| scope.set_tag("client_id", client_id));
+        sentry::configure_scope(|scope| scope.set_tag("client_id", client_id.clone()));
+        // Also add the tag to tracing so it shows up in DataDog logs.
+        let span = tracing::info_span!("isolate_worker_handle_request", instance_name = client_id);
         let result = self
             .handle_request_inner(isolate, isolate_clean, request, heap_stats)
+            .instrument(span)
             .await;
         sentry::configure_scope(|scope| scope.remove_tag("client_id"));
         result
