@@ -31,7 +31,7 @@ const DAYS_OF_WEEK = [
   "thursday",
   "friday",
   "saturday",
-];
+] as const;
 type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
 /** @public */
 export type WeeklySchedule = {
