@@ -17,3 +17,6 @@ ignored = [
     "cfg_if",
     "tonic_build",
 ]
+
+[lints]
+workspace = true

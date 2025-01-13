@@ -49,3 +49,21 @@ native-tls-vendored = [ "tokio-tungstenite/native-tls-vendored" ]
 rustls-tls-native-roots = [ "tokio-tungstenite/rustls-tls-native-roots" ]
 rustls-tls-webpki-roots = [ "tokio-tungstenite/rustls-tls-webpki-roots" ]
 testing = [ "convex_sync_types/testing", "proptest", "proptest-derive", "parking_lot" ]
+
+[lints.rust]
+unused_extern_crates = "warn"
+
+[lints.clippy]
+await_holding_lock = "warn"
+await_holding_refcell_ref = "warn"
+large_enum_variant = "allow"
+manual_map = "allow"
+new_without_default = "allow"
+op_ref = "allow"
+ptr_arg = "allow"
+single_match = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+upper_case_acronyms = "allow"
+useless_format = "allow"
+useless_vec = "allow"

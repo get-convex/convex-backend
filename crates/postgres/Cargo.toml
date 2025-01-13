@@ -34,13 +34,13 @@ proptest = { workspace = true }
 tokio = { workspace = true }
 
 [features]
-testing = [
-    "common/testing",
-    "metrics/testing",
-]
+testing = ["common/testing", "metrics/testing"]
 
 [package.metadata.cargo-machete]
 ignored = [
     # proptest_derive macro depends on proptest
     "proptest",
 ]
+
+[lints]
+workspace = true

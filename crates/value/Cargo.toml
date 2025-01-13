@@ -62,3 +62,6 @@ testing = [
 [[bench]]
 name = "document_id"
 harness = false
+
+[lints]
+workspace = true

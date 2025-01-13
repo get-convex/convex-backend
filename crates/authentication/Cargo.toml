@@ -45,3 +45,6 @@ testing = [
     "keybroker/testing",
     "metrics/testing",
 ]
+
+[lints]
+workspace = true

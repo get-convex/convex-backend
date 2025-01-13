@@ -90,3 +90,6 @@ usage_tracking = { path = "../../crates/usage_tracking", features = [
 ] }
 value = { path = "../../crates/value", features = ["testing"] }
 vector = { path = "../../crates/vector", features = ["testing"] }
+
+[lints]
+workspace = true

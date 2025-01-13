@@ -126,3 +126,6 @@ testing = [
     "value/testing",
     "vector/testing",
 ]
+
+[lints]
+workspace = true

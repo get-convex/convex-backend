@@ -122,3 +122,6 @@ testing = [
     "value/testing",
     "tokio/test-util",
 ]
+
+[lints]
+workspace = true

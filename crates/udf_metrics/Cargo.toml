@@ -20,3 +20,6 @@ imbl_slab = { path = "../imbl_slab" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+
+[lints]
+workspace = true

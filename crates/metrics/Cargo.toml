@@ -21,4 +21,7 @@ tracing = { workspace = true }
 testing = []
 
 [package.metadata.cargo-machete]
-ignored = ["vergen"]  # Build dependencies not understood
+ignored = ["vergen"] # Build dependencies not understood
+
+[lints]
+workspace = true

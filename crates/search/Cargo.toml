@@ -85,3 +85,6 @@ testing = [
 [[bench]]
 name = "memory_index"
 harness = false
+
+[lints]
+workspace = true

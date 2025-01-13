@@ -58,3 +58,6 @@ testing = [
     "proptest",
     "proptest-derive",
 ]
+
+[lints]
+workspace = true

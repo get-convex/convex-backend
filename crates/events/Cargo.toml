@@ -31,7 +31,7 @@ testing = [
 ]
 
 [package.metadata.cargo-machete]
-ignored = [
-    "proptest",
-    "proptest-derive",
-]
+ignored = ["proptest", "proptest-derive"]
+
+[lints]
+workspace = true

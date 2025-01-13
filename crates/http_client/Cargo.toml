@@ -24,3 +24,6 @@ metrics = { path = "../metrics", features = ["testing"] }
 tokio = { workspace = true }
 
 [features]
+
+[lints]
+workspace = true

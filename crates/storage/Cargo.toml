@@ -42,8 +42,7 @@ runtime = { path = "../runtime", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
 [features]
-testing = [
-    "common/testing",
-    "runtime/testing",
-    "value/testing",
-]
+testing = ["common/testing", "runtime/testing", "value/testing"]
+
+[lints]
+workspace = true

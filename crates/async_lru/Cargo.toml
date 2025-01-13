@@ -28,3 +28,6 @@ rand = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 tokio = { workspace = true }
 value = { path = "../value", features = ["testing"] }
+
+[lints]
+workspace = true

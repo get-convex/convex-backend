@@ -43,3 +43,6 @@ testing = [
 [[bench]]
 name = "index_registry"
 harness = false
+
+[lints]
+workspace = true

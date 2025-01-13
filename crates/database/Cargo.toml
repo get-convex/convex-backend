@@ -104,3 +104,6 @@ testing = [
 
 [package.metadata.cargo-udeps.ignore]
 development = ["criterion"] # udeps can't tell this is used by benchmarks
+
+[lints]
+workspace = true

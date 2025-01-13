@@ -26,11 +26,11 @@ proptest = { workspace = true }
 value = { path = "../value", features = ["testing"] }
 
 [features]
-testing = [
-    "proptest",
-    "value/testing",
-]
+testing = ["proptest", "value/testing"]
 
 [[bench]]
 name = "packed_value"
 harness = false
+
+[lints]
+workspace = true

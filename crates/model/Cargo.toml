@@ -80,3 +80,6 @@ testing = [
     "storage/testing",
     "value/testing",
 ]
+
+[lints]
+workspace = true

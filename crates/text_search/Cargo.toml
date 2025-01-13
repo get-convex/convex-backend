@@ -29,9 +29,7 @@ proptest = { workspace = true }
 value = { path = "../value", features = ["testing"] }
 
 [features]
-testing = [
-    "common/testing",
-    "metrics/testing",
-    "proptest",
-    "value/testing"
-]
+testing = ["common/testing", "metrics/testing", "proptest", "value/testing"]
+
+[lints]
+workspace = true

@@ -71,3 +71,6 @@ testing = [
     "value/testing",
 ]
 tracy-tracing = ["common/tracy-tracing"]
+
+[lints]
+workspace = true

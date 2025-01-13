@@ -145,3 +145,6 @@ ignored = [
     # Generated code depends on phf
     "phf",
 ]
+
+[lints]
+workspace = true

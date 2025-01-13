@@ -34,3 +34,6 @@ ignored = [
     # Build dependencies not understood
     "pb_build",
 ]
+
+[lints]
+workspace = true
