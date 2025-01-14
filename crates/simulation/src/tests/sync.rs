@@ -140,7 +140,6 @@ async fn test_sync(rt: TestRuntime) -> anyhow::Result<()> {
     .await
 }
 
-#[ignore] // Test disabled due to ENG-8227
 #[convex_macro::test_runtime]
 async fn test_new_sync_query_after_disconnect(rt: TestRuntime) -> anyhow::Result<()> {
     SimulationTest::run(
@@ -153,14 +152,14 @@ async fn test_new_sync_query_after_disconnect(rt: TestRuntime) -> anyhow::Result
             t.server
                 .mutation("misc:init".parse()?, assert_obj!())
                 .await??;
-            t.server
-                .mutation("conversations:create".parse()?, assert_obj!("emoji" => "a"))
-                .await??;
 
             let client = &t.js_clients[0];
             let subscription_id = client
                 .add_sync_query("getConversations", assert_obj!())
                 .await?;
+            t.server
+                .mutation("conversations:create".parse()?, assert_obj!("emoji" => "a"))
+                .await??;
             let ts = t.server.latest_timestamp().await?;
             client.wait_for_server_ts(ts).await?;
 
