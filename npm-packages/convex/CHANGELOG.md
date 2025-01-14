@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.18.0
 
 - Warn on direct Convex function call. This adds a console.warn whenever a
   Convex Function (mutation, query, action, internalMutation, etc.) is called
@@ -80,13 +80,6 @@
 ## 1.17.3
 
 - Fetch a new JWT from Clerk when using Clerk components to change the active
-  orgId or orgRole in React on the client. Any auth provider can implement this
-  by returning a new `getToken` function from the `useAuth` hook passed into
-  `ConvexProviderWithAuth`.
-
-## 1.17.3
-
-- Fetch a new JWT from Clerk when using CLerk components to change the active
   orgId or orgRole in React on the client. Any auth provider can implement this
   by returning a new `getToken` function from the `useAuth` hook passed into
   `ConvexProviderWithAuth`.
