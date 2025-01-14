@@ -1202,6 +1202,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
+name = "clusters"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "url",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4225,6 +4235,7 @@ dependencies = [
  "axum-extra",
  "base64 0.13.1",
  "clap",
+ "clusters",
  "cmd_util",
  "common",
  "convex_macro",
@@ -4246,9 +4257,11 @@ dependencies = [
  "metrics",
  "minitrace",
  "model",
+ "mysql",
  "node_executor",
  "parking_lot",
  "portpicker",
+ "postgres",
  "rand 0.8.5",
  "runtime",
  "search",

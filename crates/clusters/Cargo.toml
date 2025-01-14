@@ -1,0 +1,15 @@
+[package]
+name = "clusters"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+common = { path = "../../crates/common" }
+url = { workspace = true }
+
+[lints]
+workspace = true

@@ -18,6 +18,7 @@ axum = { workspace = true }
 axum-extra = { workspace = true }
 base64 = { workspace = true }
 clap = { workspace = true }
+clusters = { path = "../../crates/clusters" }
 cmd_util = { path = "../../crates/cmd_util" }
 common = { path = "../common" }
 database = { path = "../database" }
@@ -37,8 +38,10 @@ maplit = { workspace = true }
 metrics = { path = "../metrics" }
 minitrace = { workspace = true }
 model = { path = "../model" }
+mysql = { path = "../mysql" }
 node_executor = { path = "../node_executor" }
 parking_lot = { workspace = true }
+postgres = { path = "../postgres" }
 rand = { workspace = true }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
@@ -78,8 +81,10 @@ isolate = { path = "../../crates/isolate", features = ["testing"] }
 keybroker = { path = "../../crates/keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
+mysql = { path = "../mysql", features = ["testing"] }
 node_executor = { path = "../node_executor", features = ["testing"] }
 portpicker = { workspace = true }
+postgres = { path = "../postgres", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }

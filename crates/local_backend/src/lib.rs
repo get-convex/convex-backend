@@ -85,6 +85,7 @@ pub mod http_actions;
 pub mod logs;
 pub mod node_action_callbacks;
 pub mod parse;
+pub mod persistence;
 pub mod proxy;
 pub mod public_api;
 pub mod router;
@@ -94,7 +95,6 @@ pub mod snapshot_export;
 pub mod snapshot_import;
 pub mod storage;
 pub mod subs;
-
 #[cfg(test)]
 mod test_helpers;
 
