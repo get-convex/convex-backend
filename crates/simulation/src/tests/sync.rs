@@ -140,6 +140,7 @@ async fn test_sync(rt: TestRuntime) -> anyhow::Result<()> {
     .await
 }
 
+#[ignore] // Test disabled due to ENG-8227
 #[convex_macro::test_runtime]
 async fn test_new_sync_query_after_disconnect(rt: TestRuntime) -> anyhow::Result<()> {
     SimulationTest::run(

@@ -77,6 +77,11 @@ use database::{
     Transaction,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
 };
+use database_globals::{
+    DatabaseGlobalsModel,
+    DatabaseGlobalsTable,
+    DATABASE_VERSION,
+};
 use environment_variables::ENVIRONMENT_VARIABLES_INDEX_BY_NAME;
 use exports::EXPORTS_BY_STATE_AND_TS_INDEX;
 use file_storage::FILE_STORAGE_ID_INDEX;
@@ -125,6 +130,7 @@ pub mod backend_state;
 pub mod components;
 pub mod config;
 pub mod cron_jobs;
+pub mod database_globals;
 pub mod deployment_audit_log;
 pub mod environment_variables;
 pub mod exports;
@@ -151,6 +157,7 @@ enum DefaultTableNumber {
     Exports = 4,
     UdfConfig = 6,
     Auth = 7,
+    DatabaseGlobals = 8,
     Modules = 9,
     SourcePackages = 12,
     EnvironmentVariables = 13,
@@ -189,6 +196,7 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::Exports => &ExportsTable,
             DefaultTableNumber::UdfConfig => &UdfConfigTable,
             DefaultTableNumber::Auth => &AuthTable,
+            DefaultTableNumber::DatabaseGlobals => &DatabaseGlobalsTable,
             DefaultTableNumber::Modules => &ModulesTable,
             DefaultTableNumber::SourcePackages => &SourcePackagesTable,
             DefaultTableNumber::EnvironmentVariables => &EnvironmentVariablesTable,
@@ -268,6 +276,13 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
             // ergonomic this way instead of having initialize have <RT> generics
             if table.table_name() == BackendStateTable.table_name() {
                 BackendStateModel::new(&mut tx).initialize().await?;
+            }
+            if table.table_name() == DatabaseGlobalsTable.table_name() {
+                // This is a bit ugly to put here for initialization, but it's a bit more
+                // ergonomic this way instead of having initialize have <RT> generics
+                DatabaseGlobalsModel::new(&mut tx)
+                    .initialize(DATABASE_VERSION)
+                    .await?;
             }
         }
     }
@@ -380,6 +395,7 @@ pub async fn initialize_application_system_table<RT: Runtime>(
 
 pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
     let mut system_tables: Vec<&'static dyn SystemTable> = vec![
+        &DatabaseGlobalsTable,
         &DeploymentAuditLogsTable,
         &EnvironmentVariablesTable,
         &AuthTable,
