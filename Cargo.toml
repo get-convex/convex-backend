@@ -40,6 +40,7 @@ deno_core_icudata = "0.73.0"
 derive_more = "0.99"
 divan = "0.1.14"
 dotenvy = "0.15.7"
+dynfmt = "0.1.5"
 either = "1.9.0"
 elliptic-curve = { version = "0.13", features = [ "std", "pem" ] }
 encoding_rs = "0.8.32"
@@ -78,6 +79,7 @@ mime = "0.3"
 mime2ext = "0.1.52"
 minitrace = { version = "0.6", features = [ "enable" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
+mysql_async = { git = "https://github.com/get-convex/mysql_async", rev = "44138cf6422504dc60691957ba3026e3297ab77e" }
 native-tls = "^0.2.10"
 num_cpus = "1.16.0"
 oauth2 = "4.4.2"
