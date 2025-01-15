@@ -36,6 +36,21 @@ jobs:
           # Maps tcp port 5432 on service container to the host
           - 5432:5432
 
+      mysql:
+        # Docker Hub image
+        image: mysql:8.4.1-oracle@sha256:a7dc4a4e07a9c5d53c0cf36b5b4e8a1b3bb677cb0d544256a0581114a93ddf0f
+        # Provide the password for mysql
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 1
+          MYSQL_ROOT_PASSWORD: ""
+        # Set health checks to wait until mysql has started
+        options: >-
+          --health-cmd "mysqladmin ping" --health-interval 10s --health-timeout
+          5s --health-retries 5
+        ports:
+          # Maps tcp port 3306 on service container to the host
+          - 3306:3306
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
