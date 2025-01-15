@@ -181,11 +181,6 @@ export async function fetchAction<Action extends FunctionReference<"action">>(
 }
 
 function setupClient(options: NextjsOptions) {
-  if ("url" in options && options.url === undefined) {
-    throw new Error(
-      "`url` property passed to convex/nextjs function but is undefined. Is an environment variable not set? If this is intended remove 'url' from the preloadQuery options.",
-    );
-  }
   const client = new ConvexHttpClient(
     getConvexUrl(options.url, options.skipConvexDeploymentUrlCheck ?? false),
   );

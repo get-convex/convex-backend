@@ -19,17 +19,6 @@ describe("env setup", () => {
       "Environment variable NEXT_PUBLIC_CONVEX_URL is not set.",
     );
   });
-  test("requires url override to be present", async () => {
-    await expect(
-      preloadQuery(
-        anyApi.myQuery.default,
-        {},
-        { url: process.env.ENVAR_THAT_NEVER_EXISTS },
-      ),
-    ).rejects.toThrow(
-      "`url` property passed to convex/nextjs function but is undefined. Is an environment variable not set? If this is intended remove 'url' from the preloadQuery options.",
-    );
-  });
 });
 
 describe("preloadQuery and usePreloadedQuery", () => {
