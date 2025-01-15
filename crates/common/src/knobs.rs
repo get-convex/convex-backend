@@ -1241,14 +1241,6 @@ pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
 pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
     LazyLock::new(|| env_config("DISABLE_FUZZY_TEXT_SEARCH", false));
 
-/// How many instances a Conductor will try to simultaneously load (on startup,
-/// or when it discovers new instances) Going too high means that the Conductor
-/// may be unable to serve requests for already-loaded instances in a timely
-/// manner, or that we may exhaust CPU on the physical host and affect other
-/// Conductors that are colocated.
-pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 16));
-
 /// The maximum number of bytes to buffer in an multipart upload.
 /// There may be stricter limits imposed by the storage provider, but this is
 /// the target max size for the buffer to protect against memory exhaustion.
