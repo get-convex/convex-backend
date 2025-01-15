@@ -13,5 +13,8 @@
     "esbuild": "0.23.0",
     "vitest": "~1.6.0",
     "@vitest/browser": "~2.1.8"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0"
   }
 }
