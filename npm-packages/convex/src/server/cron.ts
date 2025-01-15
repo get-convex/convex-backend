@@ -31,7 +31,7 @@ const DAYS_OF_WEEK = [
   "thursday",
   "friday",
   "saturday",
-];
+] as const;
 type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
 /** @public */
 export type WeeklySchedule = {
@@ -200,10 +200,10 @@ function validatedDayOfMonth(n: number) {
 }
 
 function validatedDayOfWeek(s: string) {
-  if (typeof s !== "string" || !DAYS_OF_WEEK.includes(s)) {
+  if (!DAYS_OF_WEEK.includes(s as DayOfWeek)) {
     throw new Error('Day of week must be a string like "monday".');
   }
-  return s;
+  return s as DayOfWeek;
 }
 
 function validatedHourOfDay(n: number) {
