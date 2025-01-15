@@ -224,6 +224,9 @@ impl<RT: Runtime> Committer<RT> {
 
         let mut root_span = None;
         // Keep a monotonically increasing id to keep track of honeycomb traces
+        // Each commit_id tracks a single write to persistence, from the time the commit
+        // message is received until the time the commit has been published. We skip
+        // read-only transactions or commits that fail to validate.
         let mut commit_id = 0;
         // Keep track of the commit_id that is currently being traced.
         let mut span_commit_id = None;
@@ -323,27 +326,31 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         }) => {
-                            // Skip read-only transactions.
-                            if transaction.is_readonly() {
-                                let _ = result.send(Ok(*transaction.begin_timestamp));
-                            } else {
-                                let root_span = root_span.get_or_insert_with(|| {
-                                   span_commit_id = Some(commit_id);
-                                   Span::root("commit", SpanContext::random())
-                                });
-                                let _span =
-                                    Span::enter_with_parent("start_commit", root_span);
-                                let root = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
-                                    .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
-                                let _guard = root.set_local_parent();
-                                drop(queue_timer);
-                                self.start_commit(transaction,
-                                   result,
-                                   write_source,
-                                   parent_trace,
-                                   commit_id,
-                                   root_span);
-                                commit_id += 1;
+                            let root_span_ref = root_span.get_or_insert_with(|| {
+                                span_commit_id = Some(commit_id);
+                                Span::root("commit", SpanContext::random())
+                            });
+                            let _span =
+                                Span::enter_with_parent("start_commit", root_span_ref);
+                            let root = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
+                                .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
+                            let _guard = root.set_local_parent();
+                            drop(queue_timer);
+                            if let Some(persistence_write_future) = self.start_commit(transaction,
+                                result,
+                                write_source,
+                                parent_trace,
+                                commit_id,
+                                root_span_ref) {
+                                    self.persistence_writes.push_back(persistence_write_future);
+                                    commit_id += 1;
+                            } else if span_commit_id == Some(commit_id) {
+                                // If the span_commit_id is the same as the commit_id, that means we created a root span in this block
+                                // and it didn't get incremented, so it's not a write to persistence and we should not trace it.
+                                // We also need to reset the span_commit_id and root_span.
+                                root_span_ref.cancel();
+                                root_span = None;
+                                span_commit_id = None;
                             }
                         },
                         #[cfg(any(test, feature = "testing"))]
@@ -819,6 +826,8 @@ impl<RT: Runtime> Committer<RT> {
     }
 
     #[minitrace::trace]
+    /// Returns a future to add to the pending_writes queue, if the commit
+    /// should be written.
     fn start_commit(
         &mut self,
         transaction: FinalTransaction,
@@ -827,7 +836,12 @@ impl<RT: Runtime> Committer<RT> {
         parent_trace: EncodedSpan,
         commit_id: usize,
         root_span: &Span,
-    ) {
+    ) -> Option<BoxFuture<'static, anyhow::Result<PersistenceWrite>>> {
+        // Skip read-only transactions.
+        if transaction.is_readonly() {
+            let _ = result.send(Ok(*transaction.begin_timestamp));
+            return None;
+        }
         let commit_timer = metrics::commit_timer();
         metrics::log_write_tx(&transaction);
 
@@ -843,7 +857,7 @@ impl<RT: Runtime> Committer<RT> {
             Ok(v) => v,
             Err(e) => {
                 let _ = result.send(Err(e));
-                return;
+                return None;
             },
         };
 
@@ -855,7 +869,7 @@ impl<RT: Runtime> Committer<RT> {
             parent_trace.clone(),
         );
         let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
-        self.persistence_writes.push_back(
+        Some(
             async move {
                 Self::track_commit(
                     usage_tracking,
@@ -876,7 +890,7 @@ impl<RT: Runtime> Committer<RT> {
             }
             .in_span(outer_span)
             .boxed(),
-        );
+        )
     }
 
     #[minitrace::trace]

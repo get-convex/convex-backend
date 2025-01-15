@@ -11,6 +11,7 @@ mod metrics;
 #[cfg(test)]
 mod tests;
 use std::{
+    borrow::Cow,
     cmp,
     collections::{
         BTreeMap,
@@ -44,6 +45,7 @@ use common::{
         ResolvedDocument,
     },
     errors::lease_lost_error,
+    heap_size::HeapSize,
     index::{
         IndexEntry,
         IndexKeyBytes,
@@ -260,12 +262,30 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(documents.len() <= MAX_INSERT_SIZE);
-        anyhow::ensure!(documents.iter().all(|update| {
+        let mut write_size = 0;
+        for update in &documents {
             match &update.value {
-                Some(doc) => update.id == doc.id_with_table_id(),
-                None => true,
+                Some(doc) => {
+                    anyhow::ensure!(update.id == doc.id_with_table_id());
+                    write_size += doc.heap_size();
+                },
+                None => {},
             }
-        }));
+        }
+        metrics::log_write_bytes(write_size);
+        metrics::log_write_documents(documents.len());
+        Event::add_to_local_parent("write_to_persistence_size", || {
+            [
+                (
+                    Cow::Borrowed("num_documents"),
+                    Cow::Owned(documents.len().to_string()),
+                ),
+                (
+                    Cow::Borrowed("write_size"),
+                    Cow::Owned(write_size.to_string()),
+                ),
+            ]
+        });
 
         // True, the below might end up failing and not changing anything.
         self.newly_created.store(false, SeqCst);

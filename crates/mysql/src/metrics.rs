@@ -1,6 +1,7 @@
 use common::pool_stats::ConnectionPoolStats;
 use metrics::{
     log_counter_with_labels,
+    log_distribution,
     log_distribution_with_labels,
     register_convex_counter,
     register_convex_gauge,
@@ -347,6 +348,19 @@ pub fn insert_index_chunk_timer(cluster_name: &str) -> StatusTimer {
     let mut timer = StatusTimer::new(&MYSQL_INSERT_INDEX_CHUNK_SECONDS);
     timer.add_label(cluster_name_label(cluster_name));
     timer
+}
+
+register_convex_histogram!(MYSQL_WRITE_BYTES, "Number of bytes written in MySQL writes");
+pub fn log_write_bytes(size: usize) {
+    log_distribution(&MYSQL_WRITE_BYTES, size as f64);
+}
+
+register_convex_histogram!(
+    MYSQL_WRITE_DOCUMENTS,
+    "Number of documents written in MySQL writes",
+);
+pub fn log_write_documents(size: usize) {
+    log_distribution(&MYSQL_WRITE_DOCUMENTS, size as f64);
 }
 
 register_convex_histogram!(
