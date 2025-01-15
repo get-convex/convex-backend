@@ -66,6 +66,7 @@ use metrics::{
     log_plan_peer_timeout,
     log_plan_ready,
     log_plan_wait,
+    log_query_bandwidth_bytes,
     log_success,
     log_validate_refresh_failed,
     log_validate_system_time_in_the_future,
@@ -303,8 +304,12 @@ impl<RT: Runtime> CacheManager<RT> {
             )
             .await;
         match &result {
-            Ok((_, is_cache_hit)) => {
-                succeed_get_timer(timer, *is_cache_hit);
+            Ok((query_return, is_cache_hit)) => {
+                succeed_get_timer(
+                    timer,
+                    *is_cache_hit,
+                    query_return.journal.end_cursor.is_some(),
+                );
             },
             Err(e) => {
                 timer.finish_with(e.metric_status_label_value());
@@ -417,6 +422,16 @@ impl<RT: Runtime> CacheManager<RT> {
 
             // Step 5: Log some stuff and return.
             log_success(num_attempts);
+            let usage_stats = usage_tracker.clone().gather_user_stats();
+            let database_bandwidth_bytes = usage_stats
+                .database_egress_size
+                .iter()
+                .map(|(_, size)| size)
+                .sum();
+            log_query_bandwidth_bytes(
+                cache_result.outcome.journal.end_cursor.is_some(),
+                database_bandwidth_bytes,
+            );
             self.udf_execution.log_query(
                 &cache_result.outcome,
                 table_stats,
