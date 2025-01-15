@@ -1239,7 +1239,7 @@ pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
 
 /// Disable fuzzy matches on text search results
 pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
-    LazyLock::new(|| env_config("DISABLE_FUZZY_TEXT_SEARCH", false));
+    LazyLock::new(|| env_config("DISABLE_FUZZY_TEXT_SEARCH", true));
 
 /// The maximum number of bytes to buffer in an multipart upload.
 /// There may be stricter limits imposed by the storage provider, but this is
