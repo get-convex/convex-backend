@@ -1,7 +1,6 @@
 //! Code for interacting with our metrics logging
 #![feature(iter_intersperse)]
 #![feature(try_blocks)]
-#![feature(min_specialization)]
 #![feature(type_alias_impl_trait)]
 #![feature(impl_trait_in_assoc_type)]
 
