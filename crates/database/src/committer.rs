@@ -27,6 +27,7 @@ use common::{
     errors::recapture_stacktrace,
     knobs::{
         COMMITTER_QUEUE_SIZE,
+        COMMIT_TRACE_THRESHOLD,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
     },
@@ -140,12 +141,23 @@ enum PersistenceWrite {
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         parent_trace: EncodedSpan,
         begin_timestamp: RepeatableTimestamp,
+        commit_id: usize,
     },
     MaxRepeatableTimestamp {
         new_max_repeatable: Timestamp,
         timer: Timer<VMHistogram>,
         result: oneshot::Sender<Timestamp>,
+        commit_id: usize,
     },
+}
+
+impl PersistenceWrite {
+    fn commit_id(&self) -> usize {
+        match self {
+            Self::Commit { commit_id, .. } => *commit_id,
+            Self::MaxRepeatableTimestamp { commit_id, .. } => *commit_id,
+        }
+    }
 }
 
 pub struct Committer<RT: Runtime> {
@@ -209,6 +221,12 @@ impl<RT: Runtime> Committer<RT> {
         // None means a bump is ongoing. Avoid parallel bumps in case they
         // commit out of order and regress the repeatable timestamp.
         let mut next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY);
+
+        let mut root_span = None;
+        // Keep a monotonically increasing id to keep track of honeycomb traces
+        let mut commit_id = 0;
+        // Keep track of the commit_id that is currently being traced.
+        let mut span_commit_id = None;
         loop {
             let bump_fut = if let Some(wait) = &next_bump_wait {
                 Either::Left(
@@ -220,11 +238,17 @@ impl<RT: Runtime> Committer<RT> {
             };
             select_biased! {
                 _ = bump_fut.fuse() => {
+                    let root_span = root_span.get_or_insert_with(|| {
+                        span_commit_id = Some(commit_id);
+                        Span::root("bump_max_repeatable", SpanContext::random())
+                    });
+                    let _span =  Span::enter_with_parent("queue_bump_max_repeatable", root_span);
                     // Advance the repeatable read timestamp so non-leaders can
                     // establish a recent repeatable snapshot.
                     next_bump_wait = None;
                     let (tx, _rx) = oneshot::channel();
-                    self.bump_max_repeatable_ts(tx);
+                    self.bump_max_repeatable_ts(tx, commit_id, root_span);
+                    commit_id += 1;
                     last_bumped_repeatable_ts = self.runtime.monotonic_now();
                 }
                 result = self.persistence_writes.select_next_some() => {
@@ -237,6 +261,7 @@ impl<RT: Runtime> Committer<RT> {
                             return;
                         },
                     };
+                    let pending_commit_id = pending_commit.commit_id();
                     match pending_commit {
                         PersistenceWrite::Commit {
                             pending_write,
@@ -244,7 +269,9 @@ impl<RT: Runtime> Committer<RT> {
                             result,
                             parent_trace,
                             begin_timestamp,
+                            ..
                         } => {
+                            let _span = root_span.as_ref().map(|root| Span::enter_with_parent("publish_commit", root));
                             let root = initialize_root_from_parent("Committer::publish_commit", parent_trace);
                             let _guard = root.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
@@ -262,12 +289,25 @@ impl<RT: Runtime> Committer<RT> {
                             new_max_repeatable,
                             timer,
                             result,
+                            ..
                         } => {
+                            let _span = root_span.as_ref().map(|root| Span::enter_with_parent("publish_max_repeatable_ts", root));
                             self.publish_max_repeatable_ts(new_max_repeatable);
                             next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY);
                             let _ = result.send(new_max_repeatable);
                             drop(timer);
                         },
+                    }
+                    // Report the trace if it is longer than the threshold
+                    if let Some(id) = span_commit_id && id == pending_commit_id {
+                        if let Some(mut span) = root_span.take() {
+                            if span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
+                                tracing::debug!("Not sending span to honeycomb because it is below the threshold");
+                                span.cancel();
+                            } else {
+                                tracing::debug!("Sending trace to honeycomb");
+                            }
+                        }
                     }
                 }
                 maybe_message = rx.recv().fuse() => {
@@ -283,15 +323,34 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         }) => {
-                            let root = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
-                                .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
-                            let _guard = root.set_local_parent();
-                            drop(queue_timer);
-                            self.start_commit(transaction, result, write_source, parent_trace);
+                            // Skip read-only transactions.
+                            if transaction.is_readonly() {
+                                let _ = result.send(Ok(*transaction.begin_timestamp));
+                            } else {
+                                let root_span = root_span.get_or_insert_with(|| {
+                                   span_commit_id = Some(commit_id);
+                                   Span::root("commit", SpanContext::random())
+                                });
+                                let _span =
+                                    Span::enter_with_parent("start_commit", root_span);
+                                let root = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
+                                    .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
+                                let _guard = root.set_local_parent();
+                                drop(queue_timer);
+                                self.start_commit(transaction,
+                                   result,
+                                   write_source,
+                                   parent_trace,
+                                   commit_id,
+                                   root_span);
+                                commit_id += 1;
+                            }
                         },
                         #[cfg(any(test, feature = "testing"))]
                         Some(CommitterMessage::BumpMaxRepeatableTs { result }) => {
-                            self.bump_max_repeatable_ts(result);
+                            let span = Span::noop();
+                            self.bump_max_repeatable_ts(result, commit_id, &span);
+                            commit_id += 1;
                         },
                         Some(CommitterMessage::FinishTextAndVectorBootstrap {
                             bootstrapped_indexes,
@@ -496,7 +555,12 @@ impl<RT: Runtime> Committer<RT> {
         Ok(())
     }
 
-    fn bump_max_repeatable_ts(&mut self, result: oneshot::Sender<Timestamp>) {
+    fn bump_max_repeatable_ts(
+        &mut self,
+        result: oneshot::Sender<Timestamp>,
+        commit_id: usize,
+        root_span: &Span,
+    ) {
         let timer = metrics::bump_repeatable_ts_timer();
         // next_max_repeatable_ts bumps the last_assigned_ts, so all future commits on
         // this committer will be after new_max_repeatable.
@@ -504,8 +568,10 @@ impl<RT: Runtime> Committer<RT> {
             .next_max_repeatable_ts()
             .expect("new_max_repeatable should exist");
         let persistence = self.persistence.clone();
+        let outer_span = Span::enter_with_parent("outer_bump_max_repeatable_ts", root_span);
         self.persistence_writes.push_back(
             async move {
+                let _span = Span::enter_with_parent("inner_bump_max_repeatable_ts", &outer_span);
                 // The MaxRepeatableTimestamp persistence global ensures all future
                 // commits on future leaders will be after new_max_repeatable, and followers
                 // can know this timestamp is repeatable.
@@ -519,6 +585,7 @@ impl<RT: Runtime> Committer<RT> {
                     new_max_repeatable,
                     timer,
                     result,
+                    commit_id,
                 })
             }
             .boxed(),
@@ -758,12 +825,9 @@ impl<RT: Runtime> Committer<RT> {
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         write_source: WriteSource,
         parent_trace: EncodedSpan,
+        commit_id: usize,
+        root_span: &Span,
     ) {
-        // Quit early for read-only transactions.
-        if transaction.is_readonly() {
-            let _ = result.send(Ok(*transaction.begin_timestamp));
-            return;
-        }
         let commit_timer = metrics::commit_timer();
         metrics::log_write_tx(&transaction);
 
@@ -786,6 +850,11 @@ impl<RT: Runtime> Committer<RT> {
         // necessary because this value is moved
         let parent_trace_copy = parent_trace.clone();
         let persistence = self.persistence.clone();
+        let request_span = initialize_root_from_parent(
+            "Committer::persistence_writes_future",
+            parent_trace.clone(),
+        );
+        let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
         self.persistence_writes.push_back(
             async move {
                 Self::track_commit(
@@ -802,12 +871,10 @@ impl<RT: Runtime> Committer<RT> {
                     result,
                     parent_trace: parent_trace_copy,
                     begin_timestamp,
+                    commit_id,
                 })
             }
-            .in_span(initialize_root_from_parent(
-                "Committer::persistence_writes_future",
-                parent_trace.clone(),
-            ))
+            .in_span(outer_span)
             .boxed(),
         );
     }

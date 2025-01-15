@@ -1253,3 +1253,8 @@ pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
 /// Defaults to 100MiB.
 pub static STORAGE_MAX_INTERMEDIATE_PART_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("STORAGE_MAX_INTERMEDIATE_PART_SIZE", 100 * (1 << 20)));
+
+/// Minimum number of milliseconds a commit needs to take to send traces to
+/// honeycomb.
+pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("COMMIT_TRACE_THRESHOLD", 250)));
