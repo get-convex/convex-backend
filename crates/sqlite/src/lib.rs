@@ -550,6 +550,8 @@ CREATE TABLE IF NOT EXISTS documents (
     json_value TEXT NULL,
     deleted INTEGER NOT NULL,
 
+    prev_ts INTEGER,
+
     PRIMARY KEY (ts, table_id, id)
 );
 CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON documents (table_id, id, ts);
@@ -619,8 +621,10 @@ fn load_document_row(
 
 const GET_PERSISTENCE_GLOBAL: &str = "SELECT json_value FROM persistence_globals WHERE key = ?";
 
-const INSERT_DOCUMENT: &str = "INSERT INTO documents VALUES (?, ?, ?, ?, ?)";
-const INSERT_OVERWRITE_DOCUMENT: &str = "INSERT OR REPLACE INTO documents VALUES (?, ?, ?, ?, ?)";
+const INSERT_DOCUMENT: &str =
+    "INSERT INTO documents (id, ts, table_id, json_value, deleted) VALUES (?, ?, ?, ?, ?)";
+const INSERT_OVERWRITE_DOCUMENT: &str = "INSERT OR REPLACE INTO documents (id, ts, table_id, \
+                                         json_value, deleted) VALUES (?, ?, ?, ?, ?)";
 const INSERT_INDEX: &str = "INSERT INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const INSERT_OVERWRITE_INDEX: &str = "INSERT OR REPLACE INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const WRITE_PERSISTENCE_GLOBAL: &str = "INSERT OR REPLACE INTO persistence_globals VALUES (?, ?)";

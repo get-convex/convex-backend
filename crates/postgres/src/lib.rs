@@ -1167,6 +1167,8 @@ const INIT_SQL: &str = r#"
             json_value BYTEA NOT NULL,
             deleted BOOLEAN DEFAULT false,
 
+            prev_ts BIGINT,
+
             PRIMARY KEY (ts, table_id, id)
         );
         CREATE INDEX IF NOT EXISTS documents_by_table_and_id ON documents (

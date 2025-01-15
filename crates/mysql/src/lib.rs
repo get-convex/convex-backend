@@ -1169,6 +1169,8 @@ const INIT_SQL: &str = r#"
             json_value LONGBLOB NOT NULL,
             deleted BOOLEAN DEFAULT false,
 
+            prev_ts BIGINT,
+
             PRIMARY KEY (ts, table_id, id),
             INDEX documents_by_table_and_id (table_id, id, ts)
         ) ROW_FORMAT=DYNAMIC;
