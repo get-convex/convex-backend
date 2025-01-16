@@ -393,8 +393,24 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 ),
             ));
         }
-        if module_specifier.has_authority() || module_specifier.cannot_be_a_base() {
-            anyhow::bail!("Module URL {} must be path only", module_specifier);
+        if module_specifier.has_authority() {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "UnsupportedAuthority",
+                format!(
+                    "Module URL {} must not have an authority. Has {}",
+                    module_specifier,
+                    module_specifier.authority()
+                ),
+            ));
+        }
+        if module_specifier.cannot_be_a_base() {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "CannotBeABase",
+                format!(
+                    "Module URL {} is a cannot-be-a-base URL which is disallowed.",
+                    module_specifier
+                ),
+            ));
         }
         let module_path = module_specifier
             .path()
