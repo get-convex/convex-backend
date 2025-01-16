@@ -211,7 +211,7 @@ impl SchemaEnvironment {
         // the next request starts, the isolate may panic.
         drop(isolate_context);
 
-        handle.take_termination_error(None)??;
+        handle.take_termination_error(None, "schema")??;
         result
     }
 

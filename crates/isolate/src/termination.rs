@@ -119,6 +119,8 @@ impl IsolateHandle {
     pub fn take_termination_error(
         &self,
         heap_stats: Option<IsolateHeapStats>,
+        // The isolate environment and function path (if applicable)
+        source: &str,
     ) -> anyhow::Result<Result<(), JsError>> {
         let mut inner = self.inner.lock();
         match &mut inner.reason {
@@ -151,7 +153,7 @@ impl IsolateHandle {
                             "IsolateOutOfMemory",
                             format!(
                                 "Isolate ran out of memory during execution with heap stats: \
-                                 {heap_stats:?}"
+                                 {heap_stats:?} in {source:?}"
                             ),
                         );
                         report_error_sync(&mut error.into());

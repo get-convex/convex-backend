@@ -299,7 +299,7 @@ impl AnalyzeEnvironment {
         drop(isolate_context);
 
         // Suppress the original error if the isolate was forcibly terminated.
-        if let Err(e) = handle.take_termination_error(None)? {
+        if let Err(e) = handle.take_termination_error(None, "analyze")? {
             return Ok(Err(e));
         }
         result

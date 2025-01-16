@@ -350,7 +350,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )
         .await;
         // Override the returned result if we hit a termination error.
-        let termination_error = handle.take_termination_error(Some(heap_stats.get()));
+        let termination_error = handle
+            .take_termination_error(Some(heap_stats.get()), &format!("http action: {udf_path}"));
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -652,7 +653,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_context.scope.perform_microtask_checkpoint();
         *isolate_clean = true;
 
-        match handle.take_termination_error(Some(heap_stats.get())) {
+        match handle.take_termination_error(
+            Some(heap_stats.get()),
+            &format!(
+                "{:?}",
+                request_params.path_and_args.path().clone().for_logging()
+            ),
+        ) {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
                 result = Ok(Err(e));
