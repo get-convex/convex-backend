@@ -25,6 +25,7 @@ use common::{
         Resource,
     },
     errors::JsError,
+    pause::PauseClient,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -109,6 +110,7 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
+use usage_tracking::FunctionUsageTracker;
 use value::{
     identifier::Identifier,
     DeveloperDocumentId,
@@ -192,19 +194,12 @@ impl<RT: Runtime> Application<RT> {
         let ctx = TypecheckContext::new(&evaluated_components, &initializer_evaluator);
         let app = ctx.instantiate_root().await?;
 
-        let schema_change = {
-            let mut tx = self.begin(Identity::system()).await?;
-            let schema_change = ComponentConfigModel::new(&mut tx)
-                .start_component_schema_changes(&app, &evaluated_components)
-                .await?;
-            if !dry_run {
-                self.commit(tx, WriteSource::new("start_push")).await?;
-                self.database
-                    .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
-                    .await?;
-            }
-            schema_change
-        };
+        let schema_change = self
+            ._handle_schema_change_in_start_push(&app, &evaluated_components, dry_run)
+            .await?;
+        self.database
+            .load_indexes_into_memory(btreeset! { SCHEMAS_TABLE.clone() })
+            .await?;
 
         // TODO(ENG-7533): Clean up exports from the start push response when we've
         // updated clients to use `functions` directly.
@@ -228,6 +223,40 @@ impl<RT: Runtime> Application<RT> {
             schema_change,
         };
         Ok(resp)
+    }
+
+    async fn _handle_schema_change_in_start_push(
+        &self,
+        app: &CheckedComponent,
+        evaluated_components: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
+        dry_run: bool,
+    ) -> anyhow::Result<SchemaChange> {
+        if dry_run {
+            let mut tx = self.begin(Identity::system()).await?;
+            let schema_change = ComponentConfigModel::new(&mut tx)
+                .start_component_schema_changes(app, evaluated_components)
+                .await?;
+            return Ok(schema_change);
+        }
+
+        let (_ts, schema_change) = self
+            .execute_with_occ_retries(
+                Identity::system(),
+                FunctionUsageTracker::new(),
+                PauseClient::new(),
+                WriteSource::new("start_push"),
+                |tx| {
+                    async move {
+                        let schema_change = ComponentConfigModel::new(tx)
+                            .start_component_schema_changes(app, evaluated_components)
+                            .await?;
+                        Ok(schema_change)
+                    }
+                    .into()
+                },
+            )
+            .await?;
+        Ok(schema_change)
     }
 
     #[minitrace::trace]
