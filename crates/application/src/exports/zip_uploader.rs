@@ -15,9 +15,8 @@ use common::{
     types::TableName,
 };
 use futures::{
-    stream::BoxStream,
+    pin_mut,
     AsyncWriteExt,
-    TryStreamExt,
 };
 use serde_json::{
     json,
@@ -28,6 +27,7 @@ use shape_inference::{
     ShapeConfig,
 };
 use storage::ChannelWriter;
+use tokio::io::AsyncBufRead;
 use value::export::ValueFormat;
 
 static AFTER_DOCUMENTS_CLEAN: Bytes = Bytes::from_static("\n".as_bytes());
@@ -96,35 +96,22 @@ impl<'a> ZipSnapshotUpload<'a> {
         let writer = ZipFileWriter::new(out);
         let mut zip_snapshot_upload = Self { writer };
         zip_snapshot_upload
-            .write_full_file(format!("README.md"), README_MD_CONTENTS)
+            .stream_full_file("README.md".to_owned(), README_MD_CONTENTS.as_bytes())
             .await?;
         Ok(zip_snapshot_upload)
-    }
-
-    async fn write_full_file(&mut self, path: String, contents: &str) -> anyhow::Result<()> {
-        let builder = ZipEntryBuilder::new(path, Compression::Deflate)
-            .unix_permissions(ZIP_ENTRY_PERMISSIONS);
-        let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
-        entry_writer
-            .compat_mut_write()
-            .write_all(contents.as_bytes())
-            .await?;
-        entry_writer.close().await?;
-        Ok(())
     }
 
     #[minitrace::trace]
     pub async fn stream_full_file(
         &mut self,
         path: String,
-        mut contents: BoxStream<'_, std::io::Result<Bytes>>,
+        contents: impl AsyncBufRead,
     ) -> anyhow::Result<()> {
         let builder = ZipEntryBuilder::new(path, Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
-        while let Some(chunk) = contents.try_next().await? {
-            entry_writer.compat_mut_write().write_all(&chunk).await?;
-        }
+        pin_mut!(contents);
+        tokio::io::copy_buf(&mut contents, &mut entry_writer).await?;
         entry_writer.close().await?;
         Ok(())
     }
