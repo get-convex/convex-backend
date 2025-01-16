@@ -27,6 +27,7 @@ derive_more = { workspace = true }
 enum-iterator = { workspace = true }
 errors = { path = "../errors" }
 event-listener = { workspace = true }
+flate2 = { workspace = true }                                                 # enable the zlib-ng feature
 float_next_after = { workspace = true }
 fnv = { workspace = true }
 futures = { workspace = true }

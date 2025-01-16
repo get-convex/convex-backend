@@ -51,6 +51,7 @@ float_next_after = "1.0.0"
 fnv = "1.0.7"
 fxhash = "0.2.1"
 spki = "0.7.3"
+flate2 = { version = "1", features = [ "zlib-ng" ] }
 futures = "0.3"
 futures-async-stream = "0.2.11"
 futures-util = "0.3.30"
