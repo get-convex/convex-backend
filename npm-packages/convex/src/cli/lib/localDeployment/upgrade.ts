@@ -203,7 +203,10 @@ async function handleUpgrade(
 
   logVerbose(ctx, "Importing the env vars");
   if (envs.length > 0) {
-    const fetch = deploymentFetch(deploymentUrl, args.adminKey);
+    const fetch = deploymentFetch(ctx, {
+      deploymentUrl,
+      adminKey: args.adminKey,
+    });
     try {
       await fetch("/api/update_environment_variables", {
         body: JSON.stringify({ changes: envs }),

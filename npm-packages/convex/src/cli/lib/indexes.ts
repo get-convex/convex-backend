@@ -65,7 +65,10 @@ export async function pushSchema(
   changeSpinner(ctx, "Checking for index or schema changes...");
 
   let data: PrepareSchemaResponse;
-  const fetch = deploymentFetch(origin, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: origin,
+    adminKey,
+  });
   try {
     const res = await fetch("/api/prepare_schema", {
       method: "POST",
@@ -97,7 +100,10 @@ async function waitForReadySchema(
   schemaId: string,
 ): Promise<SchemaState> {
   const path = `api/schema_state/${schemaId}`;
-  const depFetch = deploymentFetch(origin, adminKey);
+  const depFetch = deploymentFetch(ctx, {
+    deploymentUrl: origin,
+    adminKey,
+  });
   const fetch = async () => {
     try {
       const resp = await depFetch(path, { method: "GET" });

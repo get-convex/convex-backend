@@ -28,7 +28,12 @@ export async function watchLogs(
 
   for (;;) {
     try {
-      const { entries, newCursor } = await pollUdfLog(cursorMs, url, adminKey);
+      const { entries, newCursor } = await pollUdfLog(
+        ctx,
+        cursorMs,
+        url,
+        adminKey,
+      );
       cursorMs = newCursor;
       numFailures = 0;
       // The first execution, we just want to fetch the current head cursor so we don't send stale
@@ -92,11 +97,15 @@ type UdfExecutionResponse = {
 };
 
 async function pollUdfLog(
+  ctx: Context,
   cursor: number,
   url: string,
   adminKey: string,
 ): Promise<{ entries: UdfExecutionResponse[]; newCursor: number }> {
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: url,
+    adminKey,
+  });
   const response = await fetch(`/api/stream_function_logs?cursor=${cursor}`, {
     method: "GET",
   });

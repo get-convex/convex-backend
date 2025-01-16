@@ -177,7 +177,10 @@ async function callUpdateEnvironmentVariables(
       ctx,
       deploymentSelection,
     );
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: url,
+    adminKey,
+  });
   try {
     await fetch("/api/update_environment_variables", {
       body: JSON.stringify({ changes }),

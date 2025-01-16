@@ -581,7 +581,10 @@ export async function pullConfig(
   origin: string,
   adminKey: string,
 ): Promise<ConfigWithModuleHashes> {
-  const fetch = deploymentFetch(origin, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: origin,
+    adminKey,
+  });
 
   changeSpinner(ctx, "Downloading current deployment state...");
   try {
@@ -711,7 +714,10 @@ export async function pushConfig(
     pushMetrics,
     bundledModuleInfos,
   );
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: url,
+    adminKey,
+  });
   try {
     if (config.nodeDependencies.length > 0) {
       changeSpinner(

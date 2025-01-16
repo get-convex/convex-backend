@@ -459,7 +459,10 @@ export async function confirmImport(
   },
 ) {
   const { importId, adminKey, deploymentUrl } = args;
-  const fetch = deploymentFetch(deploymentUrl, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl,
+    adminKey,
+  });
   const performUrl = `/api/perform_import`;
   try {
     await fetch(performUrl, {
@@ -488,7 +491,10 @@ export async function uploadForImport(
   },
 ) {
   const { deploymentUrl, adminKey, filePath } = args;
-  const fetch = deploymentFetch(deploymentUrl, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl,
+    adminKey,
+  });
 
   const data = ctx.fs.createReadStream(filePath, {
     highWaterMark: CHUNK_SIZE,

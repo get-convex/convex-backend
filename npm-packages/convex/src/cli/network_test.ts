@@ -255,7 +255,7 @@ async function checkHttpOnce(
   try {
     // Be sure to use the same `deploymentFetch` we use elsewhere so we're actually
     // getting coverage of our network stack.
-    const fetch = bareDeploymentFetch(url);
+    const fetch = bareDeploymentFetch(ctx, { deploymentUrl: url });
     const instanceNameUrl = new URL("/instance_name", url);
     const resp = await fetch(instanceNameUrl.toString(), {
       redirect: allowRedirects ? "follow" : "manual",
@@ -290,11 +290,14 @@ async function checkHttpOnce(
 async function checkEcho(ctx: Context, url: string, size: number) {
   try {
     const start = performance.now();
-    const fetch = bareDeploymentFetch(url, (err) => {
-      logFailure(
-        ctx,
-        chalk.red(`FAIL: echo ${formatSize(size)} (${err}), retrying...`),
-      );
+    const fetch = bareDeploymentFetch(ctx, {
+      deploymentUrl: url,
+      onError: (err) => {
+        logFailure(
+          ctx,
+          chalk.red(`FAIL: echo ${formatSize(size)} (${err}), retrying...`),
+        );
+      },
     });
     const echoUrl = new URL(`/echo`, url);
     const data = crypto.randomBytes(size);

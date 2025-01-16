@@ -69,7 +69,11 @@ export async function startPush(
       );
     }
   };
-  const fetch = deploymentFetch(options.url, request.adminKey, onError);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: options.url,
+    adminKey: request.adminKey,
+    onError,
+  });
   changeSpinner(ctx, "Analyzing source code...");
   try {
     const response = await fetch("/api/deploy2/start_push", {
@@ -129,7 +133,10 @@ export async function waitForSchema(
     dryRun: boolean;
   },
 ) {
-  const fetch = deploymentFetch(options.url, options.adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: options.url,
+    adminKey: options.adminKey,
+  });
 
   changeSpinner(
     ctx,
@@ -231,7 +238,10 @@ export async function finishPush(
   },
 ): Promise<FinishPushDiff> {
   changeSpinner(ctx, "Finalizing push...");
-  const fetch = deploymentFetch(options.url, options.adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: options.url,
+    adminKey: options.adminKey,
+  });
   const request = {
     adminKey: options.adminKey,
     startPush,
@@ -269,7 +279,10 @@ export async function reportPushCompleted(
   url: string,
   reporter: Reporter,
 ) {
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: url,
+    adminKey,
+  });
   try {
     const response = await fetch("/api/deploy2/report_push_completed", {
       body: JSON.stringify({
