@@ -211,9 +211,7 @@ export async function downloadSnapshotExport(
   },
 ): Promise<{ filePath: string }> {
   const inputPath = args.inputPath;
-  const exportUrl = `/api/export/zip/${args.snapshotExportTs.toString()}?adminKey=${encodeURIComponent(
-    args.adminKey,
-  )}`;
+  const exportUrl = `/api/export/zip/${args.snapshotExportTs.toString()}`;
   const fetch = deploymentFetch(args.deploymentUrl, args.adminKey);
   let response: Response;
   try {

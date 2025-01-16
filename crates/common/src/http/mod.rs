@@ -1109,13 +1109,26 @@ async fn log_middleware(
         return Ok(resp);
     }
 
+    let path_and_query_str = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(path);
+
+    let uri_for_logging = match uri.query() {
+        None => path_and_query_str,
+        Some(query) => {
+            if query.contains("adminKey=") {
+                // Remove the entire query string to avoid logging the admin key
+                path
+            } else {
+                path_and_query_str
+            }
+        },
+    };
     tracing::info!(
         target: "convex-cloud-http",
         "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:.3}ms",
         site_id,
         LogOptFmt(remote_addr),
         method,
-        uri,
+        uri_for_logging,
         version,
         resp.status().as_u16(),
         LogOptFmt(referer),
