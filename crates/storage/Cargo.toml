@@ -23,6 +23,7 @@ futures = { workspace = true }
 futures-async-stream = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
+minitrace = { workspace = true }
 pb = { path = "../pb" }
 pin-project = { workspace = true }
 runtime = { path = "../runtime", optional = true }
