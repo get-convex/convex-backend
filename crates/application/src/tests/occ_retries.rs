@@ -67,15 +67,18 @@ async fn test_occ_fails(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     application.commit_test(tx).await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_tx_loop_start"]);
+    let (pause, pause_client) = PauseController::new();
+    let hold_guard = pause.hold("retry_tx_loop_start");
     let fut1 = test_replace_with_retries(&application, pause_client, id, "value".try_into()?);
 
     let fut2 = async {
+        let mut hold_guard = hold_guard;
         for _i in 0..MAX_OCC_FAILURES {
-            let mut guard = pause
-                .wait_for_blocked("retry_tx_loop_start")
+            let guard = hold_guard
+                .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
+            hold_guard = pause.hold("retry_tx_loop_start");
             let mut tx = application.begin(identity.clone()).await?;
             test_replace_tx(&mut tx, id, "value2".try_into()?).await?;
             application.commit_test(tx).await?;
@@ -101,15 +104,18 @@ async fn test_occ_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     application.commit_test(tx).await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_tx_loop_start"]);
+    let (pause, pause_client) = PauseController::new();
+    let hold_guard = pause.hold("retry_tx_loop_start");
     let fut1 = test_replace_with_retries(&application, pause_client, id, "value".try_into()?);
 
     let fut2 = async {
+        let mut hold_guard = hold_guard;
         for i in 0..MAX_OCC_FAILURES {
-            let mut guard = pause
-                .wait_for_blocked("retry_tx_loop_start")
+            let guard = hold_guard
+                .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
+            hold_guard = pause.hold("retry_tx_loop_start");
             if i < MAX_OCC_FAILURES - 1 {
                 let mut tx = application.begin(identity.clone()).await?;
                 test_replace_tx(&mut tx, id, "value2".try_into()?).await?;

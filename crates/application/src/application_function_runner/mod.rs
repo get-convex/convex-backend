@@ -949,7 +949,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 context.clone(),
             );
             log_occ_retries(backoff.failures() as usize);
-            pause_client.close("retry_mutation_loop_start");
             return Ok(result);
         }
     }

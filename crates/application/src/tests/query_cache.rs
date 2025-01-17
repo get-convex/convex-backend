@@ -6,7 +6,10 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    pause::PauseClient,
+    pause::{
+        PauseClient,
+        PauseController,
+    },
     types::FunctionCaller,
     RequestId,
 };
@@ -24,7 +27,10 @@ use serde_json::{
 use value::ConvexValue;
 
 use crate::{
-    test_helpers::ApplicationTestExt,
+    test_helpers::{
+        ApplicationFixtureArgs,
+        ApplicationTestExt,
+    },
     Application,
 };
 
@@ -312,6 +318,100 @@ async fn test_query_cache_without_checking_auth(rt: TestRuntime) -> anyhow::Resu
     // Result is the same because the query doesn't re-execute and get a new
     // Date.now().
     assert_eq!(result1, result2);
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_cache_unauthed_race(rt: TestRuntime) -> anyhow::Result<()> {
+    let (pause_controller, pause_client) = PauseController::new();
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs {
+            function_runner_pause_client: pause_client,
+            ..Default::default()
+        },
+    )
+    .await?;
+    application.load_udf_tests_modules().await?;
+
+    // Run the same query as different users, in parallel.
+    // In this case we don't know that the query doesn't check auth, so
+    // neither request waits for the other.
+    // To make sure they run in parallel, run each query up until they try
+    // to run a function, which is after they have checked the cache and decided
+    // that it's a cache miss.
+    let mut first_query = Box::pin(run_query(
+        &application,
+        "basic:listAllObjects",
+        json!({}),
+        Identity::user(UserIdentity::test()),
+        false,
+    ));
+    let first_hold_guard = pause_controller.hold("run_function");
+    let first_pause_guard = tokio::select! {
+        _ = &mut first_query => {
+            panic!("First query completed before pause");
+        }
+        pause_guard = first_hold_guard.wait_for_blocked() => {
+            pause_guard.unwrap()
+        }
+    };
+    let second_hold_guard = pause_controller.hold("run_function");
+    let mut second_query = Box::pin(run_query(
+        &application,
+        "basic:listAllObjects",
+        json!({}),
+        Identity::system(),
+        false,
+    ));
+    let second_pause_guard = tokio::select! {
+        _ = &mut second_query => {
+            panic!("Second query completed before pause");
+        }
+        pause_guard = second_hold_guard.wait_for_blocked() => {
+            pause_guard.unwrap()
+        }
+    };
+    first_pause_guard.unpause();
+    first_query.await?;
+    second_pause_guard.unpause();
+    second_query.await?;
+
+    // Insert an object to invalidate the cache.
+    // Then run both queries again in parallel.
+    // In this case we can guess that the query doesn't check auth, so
+    // the second request should wait for the first.
+    // But we don't do that yet. TODO(lee): fix this.
+    insert_object(&application).await?;
+
+    // Rerun queries in parallel
+    let mut first_query = Box::pin(run_query(
+        &application,
+        "basic:listAllObjects",
+        json!({}),
+        Identity::user(UserIdentity::test()),
+        false,
+    ));
+    let first_hold_guard = pause_controller.hold("run_function");
+    let first_pause_guard = tokio::select! {
+        _ = &mut first_query => {
+            panic!("First query completed before pause");
+        }
+        pause_guard = first_hold_guard.wait_for_blocked() => {
+            pause_guard.unwrap()
+        }
+    };
+    run_query(
+        &application,
+        "basic:listAllObjects",
+        json!({}),
+        Identity::system(),
+        false,
+    )
+    .await?;
+    first_pause_guard.unpause();
+    first_query.await?;
 
     Ok(())
 }

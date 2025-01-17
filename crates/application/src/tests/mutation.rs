@@ -107,14 +107,17 @@ async fn test_mutation_occ_fail(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
     application.load_udf_tests_modules().await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_mutation_loop_start"]);
+    let (pause, pause_client) = PauseController::new();
+    let hold_guard = pause.hold("retry_mutation_loop_start");
     let fut1 = insert_and_count(&application, pause_client);
     let fut2 = async {
+        let mut hold_guard = hold_guard;
         for i in 0..*UDF_EXECUTOR_OCC_MAX_RETRIES + 1 {
-            let mut guard = pause
-                .wait_for_blocked("retry_mutation_loop_start")
+            let guard = hold_guard
+                .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
+            hold_guard = pause.hold("retry_mutation_loop_start");
 
             // Do an entire mutation while we're paused - to create an OCC conflict on
             // the original insertion.
@@ -186,14 +189,17 @@ async fn test_mutation_occ_success(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
     application.load_udf_tests_modules().await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_mutation_loop_start"]);
+    let (pause, pause_client) = PauseController::new();
+    let hold_guard = pause.hold("retry_mutation_loop_start");
     let fut1 = insert_and_count(&application, pause_client);
     let fut2 = async {
+        let mut hold_guard = hold_guard;
         for i in 0..*UDF_EXECUTOR_OCC_MAX_RETRIES + 1 {
-            let mut guard = pause
-                .wait_for_blocked("retry_mutation_loop_start")
+            let guard = hold_guard
+                .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
+            hold_guard = pause.hold("retry_mutation_loop_start");
 
             // N-1 retries, Nth one allow it to succeed
             if i < *UDF_EXECUTOR_OCC_MAX_RETRIES {
@@ -268,11 +274,12 @@ async fn test_multiple_inserts_dont_occ(rt: TestRuntime) -> anyhow::Result<()> {
     // Insert an object to create the table (otherwise it'll OCC on table creation).
     insert_object(&application, PauseClient::new()).await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_mutation_loop_start"]);
+    let (pause, pause_client) = PauseController::new();
+    let hold_guard = pause.hold("retry_mutation_loop_start");
     let fut1 = insert_object(&application, pause_client);
     let fut2 = async {
-        let mut guard = pause
-            .wait_for_blocked("retry_mutation_loop_start")
+        let guard = hold_guard
+            .wait_for_blocked()
             .await
             .context("Didn't hit breakpoint?")?;
 

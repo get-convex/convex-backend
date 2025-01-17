@@ -224,6 +224,7 @@ pub async fn make_app(
             },
             database.clone(),
             fetch_client,
+            PauseClient::new(),
         )
         .await?,
     );

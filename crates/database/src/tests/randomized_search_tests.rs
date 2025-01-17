@@ -1051,11 +1051,9 @@ async fn search_fails_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()>
 #[convex_macro::test_runtime]
 async fn search_works_after_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
     let scenario = Scenario::new(rt.clone()).await?;
-    let (mut pause_controller, pause_client) =
-        PauseController::new(vec![FINISHED_BOOTSTRAP_UPDATES]);
-    let mut wait_for_blocked = pause_controller
-        .wait_for_blocked(FINISHED_BOOTSTRAP_UPDATES)
-        .boxed();
+    let (pause_controller, pause_client) = PauseController::new();
+    let hold_guard = pause_controller.hold(FINISHED_BOOTSTRAP_UPDATES);
+    let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let mut handle = scenario
         .database
         .start_search_and_vector_bootstrap(pause_client);
@@ -1064,7 +1062,7 @@ async fn search_works_after_bootstrapping(rt: TestRuntime) -> anyhow::Result<()>
     select_biased! {
                 _ = bootstrap_fut => { panic!("bootstrap completed before pause");},
                 pause_guard = wait_for_blocked.as_mut().fuse() => {
-                    if let Some(mut pause_guard) = pause_guard {
+                    if let Some(pause_guard) = pause_guard {
                         scenario.insert("rakeeb \t\nwuz here", "test").await?;
                         pause_guard.unpause();
                     }

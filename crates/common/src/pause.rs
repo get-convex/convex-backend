@@ -7,6 +7,7 @@ mod test_pause {
     };
 
     use parking_lot::Mutex;
+    use tokio::sync::oneshot;
 
     use super::Fault;
     use crate::sync::{
@@ -17,7 +18,7 @@ mod test_pause {
 
     #[derive(Default, Clone)]
     pub struct PauseClient {
-        channels: Arc<Mutex<BTreeMap<&'static str, RendezvousReceiver<Fault>>>>,
+        channels: Arc<Mutex<BTreeMap<&'static str, RendezvousReceiver<oneshot::Receiver<Fault>>>>>,
     }
 
     impl PauseClient {
@@ -39,73 +40,83 @@ mod test_pause {
                     return Fault::Noop;
                 },
             };
-            tracing::info!("Waiting on {label}");
+            tracing::info!("PauseClient waiting on {label}");
             // Start waiting on the channel to signal to the controller that we're paused.
-            if rendezvous.recv().await.is_none() {
+            let Some(rx) = rendezvous.recv().await else {
                 tracing::info!("Rendezvous disconnected for {label:?}, continuing...");
                 return Fault::Noop;
-            }
-            tracing::info!("PauseController successfully paused {label}");
-            // Wait for the controller to give us another value.
-            let Some(fault) = rendezvous.recv().await else {
-                tracing::info!("Rendezvous disconnected after pause for {label:?}, continuing...");
-                return Fault::Noop;
             };
-            tracing::info!("PauseController successfully unpaused {label}");
-            self.channels.lock().insert(label, rendezvous);
+            tracing::info!("PauseClient successfully paused {label}");
+            // Wait for the controller to give us another value.
+            let fault = rx.await.unwrap_or_else(|_| {
+                tracing::info!("Rendezvous disconnected after pause for {label:?}, continuing...");
+                Fault::Noop
+            });
+            tracing::info!("PauseClient successfully unpaused {label}");
             fault
-        }
-
-        pub fn close(&self, label: &'static str) {
-            if let Some(rendezvous) = self.channels.lock().remove(&label) {
-                rendezvous.close();
-            }
         }
     }
 
     pub struct PauseController {
-        channels: BTreeMap<&'static str, RendezvousSender<Fault>>,
+        client: PauseClient,
     }
 
-    pub struct PauseGuard<'a> {
-        controller: &'a mut PauseController,
+    #[must_use]
+    pub struct HoldGuard {
         label: &'static str,
-        unpaused: bool,
+        sender: RendezvousSender<oneshot::Receiver<Fault>>,
+    }
+
+    impl HoldGuard {
+        /// Wait for the tested code to hit the named breakpoint, returning a
+        /// `PauseGuard` if it's blocked. If the tested code has exited
+        /// or manually closed the breakpoint, return `None`.
+        pub async fn wait_for_blocked(mut self) -> Option<PauseGuard> {
+            tracing::info!("PauseController waiting for {}", self.label);
+            let (tx, rx) = oneshot::channel();
+            if self.sender.send(rx).await.is_err() {
+                tracing::info!("Waiter closed for {}", self.label);
+                return None;
+            }
+            tracing::info!("PauseController paused {}", self.label);
+            Some(PauseGuard {
+                sender: Some(tx),
+                label: self.label,
+                fault: Fault::Noop,
+            })
+        }
+    }
+
+    pub struct PauseGuard {
+        sender: Option<oneshot::Sender<Fault>>,
+        label: &'static str,
         fault: Fault,
     }
 
-    impl PauseGuard<'_> {
+    impl PauseGuard {
         pub fn inject_error(&mut self, error: anyhow::Error) {
             self.fault = Fault::Error(error);
         }
 
         /// Allow the tested code to resume.
-        pub fn unpause(&mut self) {
-            if self.unpaused {
-                return;
-            }
-            self.unpaused = true;
-            let rendezvous = match self.controller.channels.get_mut(&self.label) {
-                Some(r) => r,
-                None => {
-                    tracing::info!("Tried to unpause waiter who's gone away: {:?}", self.label);
-                    self.controller.channels.remove(&self.label);
-                    return;
-                },
-            };
+        pub fn unpause(mut self) {
+            tracing::info!("PauseController unpausing {}", self.label);
             let fault = mem::take(&mut self.fault);
-            if let Err(e) = rendezvous.try_send(fault) {
-                tracing::info!("Failed to unpause waiter: {e:?}");
-                self.controller.channels.remove(&self.label);
+            if let Some(sender) = self.sender.take() {
+                if sender.send(fault).is_err() {
+                    tracing::info!("Failed to unpause waiter");
+                }
             }
         }
     }
 
-    impl Drop for PauseGuard<'_> {
+    impl Drop for PauseGuard {
         fn drop(&mut self) {
-            if !self.unpaused {
+            if let Some(sender) = self.sender.take() {
                 tracing::info!("Unpausing waiter for {:?} on unclean drop", self.label);
-                self.unpause();
+                if sender.send(mem::take(&mut self.fault)).is_err() {
+                    tracing::info!("Failed to unpause waiter");
+                }
             }
         }
     }
@@ -113,55 +124,31 @@ mod test_pause {
     /// Create a `PauseController` with a list of named breakpoints in a test,
     /// and then install the returned `PauseClient` in your tested code.
     impl PauseController {
-        pub fn new(labels: impl IntoIterator<Item = &'static str>) -> (Self, PauseClient) {
-            let mut controller = Self {
-                channels: BTreeMap::new(),
-            };
+        pub fn new() -> (Self, PauseClient) {
             let client = PauseClient {
                 channels: Default::default(),
             };
-            for label in labels {
-                // Use a "rendezvous" channel of zero capacity to hand off control between the
-                // controller and tested code. For example, the controller will block on sending
-                // to the channel until the tested code is ready to receive the
-                // breakpoint. Then, the controller will regain execution until
-                // it hands it back to the test by unpausing it.
-                let (tx, rx) = rendezvous();
-                controller.channels.insert(label, tx);
-                client.channels.lock().insert(label, rx);
-            }
+            let controller = Self {
+                client: client.clone(),
+            };
             (controller, client)
         }
 
-        /// Wait for the tested code to hit the named breakpoint, returning a
-        /// `PauseGuard` if it's blocked. If the tested code has exited
-        /// or manually closed the breakpoint, return `None`.
-        pub async fn wait_for_blocked(&mut self, label: &'static str) -> Option<PauseGuard<'_>> {
-            let rendezvous = match self.channels.get_mut(&label) {
-                Some(r) => r,
-                None => {
-                    tracing::info!("Waiting on unregistered label: {label:?}");
-                    return None;
-                },
-            };
-            if rendezvous.send(Fault::Noop).await.is_err() {
-                tracing::info!("Waiter closed for {label:?}");
-                self.channels.remove(&label);
-                return None;
+        pub fn hold(&self, label: &'static str) -> HoldGuard {
+            let (tx, rx) = rendezvous();
+            if self.client.channels.lock().insert(label, rx).is_some() {
+                panic!("Already holding {label}");
             }
-            Some(PauseGuard {
-                controller: self,
-                label,
-                unpaused: false,
-                fault: Fault::Noop,
-            })
+            HoldGuard { label, sender: tx }
         }
     }
 }
 #[cfg(any(test, feature = "testing"))]
 pub use self::test_pause::{
+    HoldGuard,
     PauseClient,
     PauseController,
+    PauseGuard,
 };
 
 #[derive(Default)]

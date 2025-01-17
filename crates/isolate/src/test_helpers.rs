@@ -35,8 +35,8 @@ use common::{
     log_lines::LogLines,
     minitrace_helpers::EncodedSpan,
     pause::{
+        HoldGuard,
         PauseClient,
-        PauseController,
     },
     persistence::Persistence,
     query_journal::QueryJournal,
@@ -148,7 +148,6 @@ use crate::{
         SharedIsolateHeapStats,
         UdfCallback,
         UdfRequest,
-        PAUSE_RECREATE_CLIENT,
     },
     concurrency_limiter::ConcurrencyLimiter,
     environment::{
@@ -1500,10 +1499,10 @@ impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
 pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWorker<RT>>(
     rt: RT,
     worker: W,
-    mut pause: PauseController,
+    hold_guard: HoldGuard,
 ) -> anyhow::Result<()> {
     initialize_v8();
-    let mut wait_for_blocked = pause.wait_for_blocked(PAUSE_RECREATE_CLIENT).boxed();
+    let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let heap_stats = SharedIsolateHeapStats::new();
     let (work_sender, work_receiver) = mpsc::channel(1);
     let _handle = rt
@@ -1536,7 +1535,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
             request");
         },
                 pause_guard = wait_for_blocked.as_mut().fuse() => {
-                    if let Some(mut pause_guard) = pause_guard {
+                    if let Some(pause_guard) = pause_guard {
                         drop(done_receiver);
                         pause_guard.unpause();
                         drop(wait_for_blocked);
@@ -1551,10 +1550,10 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
 pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: IsolateWorker<RT>>(
     rt: RT,
     worker: W,
-    mut pause: PauseController,
+    hold_guard: HoldGuard,
 ) -> anyhow::Result<()> {
     initialize_v8();
-    let mut wait_for_blocked = pause.wait_for_blocked(PAUSE_RECREATE_CLIENT).boxed();
+    let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let heap_stats = SharedIsolateHeapStats::new();
     let (work_sender, work_receiver) = mpsc::channel(1);
     let _handle = rt

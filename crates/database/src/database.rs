@@ -1361,57 +1361,52 @@ impl<RT: Runtime> Database<RT> {
         F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         let write_source = write_source.into();
-        let result = {
-            let mut error = None;
-            while backoff.failures() < max_failures {
-                let mut tx = self
-                    .begin_with_usage(identity.clone(), usage.clone())
+        let mut error = None;
+        while backoff.failures() < max_failures {
+            let mut tx = self
+                .begin_with_usage(identity.clone(), usage.clone())
+                .await?;
+            pause_client.wait("retry_tx_loop_start").await;
+            let start = Instant::now();
+            let result = async {
+                let t = f(&mut tx).0.await?;
+                let func_end_time = Instant::now();
+                let ts = self
+                    .commit_with_write_source(tx, write_source.clone())
                     .await?;
-                pause_client.wait("retry_tx_loop_start").await;
-                let start = Instant::now();
-                let result = async {
-                    let t = f(&mut tx).0.await?;
-                    let func_end_time = Instant::now();
-                    let ts = self
-                        .commit_with_write_source(tx, write_source.clone())
-                        .await?;
-                    let commit_end_time = Instant::now();
-                    Ok((ts, t, func_end_time, commit_end_time))
-                }
-                .await;
-                let total_duration = Instant::now() - start;
-                match result {
-                    Err(e) => {
-                        if is_retriable(&e) {
-                            let delay = backoff.fail(&mut self.runtime.rng());
-                            tracing::warn!("Retrying transaction after error: {}", e);
-                            self.runtime.wait(delay).await;
-                            error = Some(e);
-                            continue;
-                        } else {
-                            return Err(e);
-                        }
-                    },
-                    Ok((ts, t, func_end_time, commit_end_time)) => {
-                        return Ok((
-                            ts,
-                            t,
-                            OccRetryStats {
-                                retries: backoff.failures(),
-                                total_duration,
-                                duration: func_end_time - start,
-                                commit_duration: commit_end_time - func_end_time,
-                            },
-                        ))
-                    },
-                }
+                let commit_end_time = Instant::now();
+                Ok((ts, t, func_end_time, commit_end_time))
             }
-            let error =
-                error.unwrap_or_else(|| anyhow::anyhow!("Error was not returned from commit"));
-            Err(error)
-        };
-        pause_client.close("retry_tx_loop_start");
-        result
+            .await;
+            let total_duration = Instant::now() - start;
+            match result {
+                Err(e) => {
+                    if is_retriable(&e) {
+                        let delay = backoff.fail(&mut self.runtime.rng());
+                        tracing::warn!("Retrying transaction after error: {}", e);
+                        self.runtime.wait(delay).await;
+                        error = Some(e);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                },
+                Ok((ts, t, func_end_time, commit_end_time)) => {
+                    return Ok((
+                        ts,
+                        t,
+                        OccRetryStats {
+                            retries: backoff.failures(),
+                            total_duration,
+                            duration: func_end_time - start,
+                            commit_duration: commit_end_time - func_end_time,
+                        },
+                    ))
+                },
+            }
+        }
+        let error = error.unwrap_or_else(|| anyhow::anyhow!("Error was not returned from commit"));
+        Err(error)
     }
 
     pub async fn execute_with_occ_retries<'a, T, F>(

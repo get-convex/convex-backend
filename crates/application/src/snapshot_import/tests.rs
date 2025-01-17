@@ -471,7 +471,7 @@ Interrupting `npx convex import` will not cancel it."#
 // Hard to control timing in race test with background job moving state forward.
 #[convex_macro::test_runtime]
 async fn import_races_with_schema_update(rt: TestRuntime) -> anyhow::Result<()> {
-    let (mut pause_controller, pause_client) = PauseController::new(vec!["before_finalize_import"]);
+    let (pause_controller, pause_client) = PauseController::new();
     let app = Application::new_for_tests_with_args(
         &rt,
         ApplicationFixtureArgs {
@@ -497,14 +497,17 @@ a
     );
 
     activate_schema(&app, initial_schema).await?;
+
+    let hold_guard = pause_controller.hold("before_finalize_import");
+
     let mut import_fut = run_csv_import(&app, table_name, test_csv).boxed();
 
     select! {
         r = import_fut.as_mut().fuse() => {
             anyhow::bail!("import finished before pausing: {r:?}");
         },
-        pause_guard = pause_controller.wait_for_blocked("before_finalize_import").fuse() => {
-            let mut pause_guard = pause_guard.unwrap();
+        pause_guard = hold_guard.wait_for_blocked().fuse() => {
+            let pause_guard = pause_guard.unwrap();
             let mismatch_schema = db_schema!(
                 table_name => DocumentSchema::Union(
                     vec![

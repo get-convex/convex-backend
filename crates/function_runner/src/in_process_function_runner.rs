@@ -22,6 +22,7 @@ use common::{
     execution_context::ExecutionContext,
     http::fetch::FetchClient,
     log_lines::LogLine,
+    pause::PauseClient,
     persistence::PersistenceReader,
     runtime::{
         Runtime,
@@ -99,6 +100,8 @@ pub struct InProcessFunctionRunner<RT: Runtime> {
     // and ApplicationFunctionRunner.
     action_callbacks: Arc<RwLock<Option<Weak<dyn ActionCallbacks>>>>,
     fetch_client: Arc<dyn FetchClient>,
+
+    pause_client: PauseClient,
 }
 
 impl<RT: Runtime> InProcessFunctionRunner<RT> {
@@ -111,6 +114,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
         storage: InstanceStorage,
         database: Database<RT>,
         fetch_client: Arc<dyn FetchClient>,
+        pause_client: PauseClient,
     ) -> anyhow::Result<Self> {
         // InProcessFunrun is single tenant and thus can use the full capacity.
         let max_percent_per_client = 100;
@@ -124,6 +128,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
             database,
             action_callbacks: Arc::new(RwLock::new(None)),
             fetch_client,
+            pause_client,
         })
     }
 }
@@ -148,6 +153,8 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         FunctionOutcome,
         FunctionUsageStats,
     )> {
+        self.pause_client.wait("run_function").await;
+
         let snapshot = self.database.snapshot(ts)?;
         let table_count_snapshot = Arc::new(snapshot.table_summaries);
         let text_index_snapshot = Arc::new(TextIndexManagerSnapshot::new(

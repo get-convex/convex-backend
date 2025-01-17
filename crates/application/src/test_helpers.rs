@@ -113,11 +113,7 @@ use crate::{
         StartPushRequest,
     },
     log_visibility::AllowLogging,
-    scheduled_jobs::{
-        ScheduledJobExecutor,
-        SCHEDULED_JOB_COMMITTING,
-        SCHEDULED_JOB_EXECUTED,
-    },
+    scheduled_jobs::ScheduledJobExecutor,
     Application,
 };
 
@@ -129,22 +125,13 @@ pub struct ApplicationFixtureArgs {
     pub tp: Option<TestPersistence>,
     pub snapshot_import_pause_client: Option<PauseClient>,
     pub scheduled_jobs_pause_client: PauseClient,
+    pub function_runner_pause_client: PauseClient,
     pub event_logger: Option<Arc<dyn UsageEventLogger>>,
 }
 
 impl ApplicationFixtureArgs {
     pub fn with_scheduled_jobs_pause_client() -> (Self, PauseController) {
-        let (pause_controller, pause_client) = PauseController::new(vec![SCHEDULED_JOB_EXECUTED]);
-        let args = ApplicationFixtureArgs {
-            scheduled_jobs_pause_client: pause_client,
-            ..Default::default()
-        };
-        (args, pause_controller)
-    }
-
-    pub fn with_scheduled_jobs_fault_client() -> (Self, PauseController) {
-        let (pause_controller, pause_client) =
-            PauseController::new(vec![SCHEDULED_JOB_COMMITTING, SCHEDULED_JOB_EXECUTED]);
+        let (pause_controller, pause_client) = PauseController::new();
         let args = ApplicationFixtureArgs {
             scheduled_jobs_pause_client: pause_client,
             ..Default::default()
@@ -263,6 +250,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 },
                 database.clone(),
                 fetch_client,
+                args.function_runner_pause_client,
             )
             .await?,
         );

@@ -263,7 +263,7 @@ impl VectorFixtures {
     }
 
     pub async fn run_compaction_during_flush(&self) -> anyhow::Result<()> {
-        let (mut pause, pause_client) = PauseController::new([FLUSH_RUNNING_LABEL]);
+        let (pause, pause_client) = PauseController::new();
         let mut flusher = new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
@@ -275,10 +275,11 @@ impl VectorFixtures {
             8,
             Some(pause_client),
         );
+        let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
         let flush = flusher.step();
         let compactor = self.new_compactor().await?;
         let compact_during_flush = async move {
-            if let Some(mut pause_guard) = pause.wait_for_blocked(FLUSH_RUNNING_LABEL).await {
+            if let Some(pause_guard) = hold_guard.wait_for_blocked().await {
                 compactor.step().await?;
                 pause_guard.unpause();
             };

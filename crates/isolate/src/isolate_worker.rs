@@ -388,10 +388,11 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let isolate_config = IsolateConfig::default();
-        let (pause, pause_client) = PauseController::new([PAUSE_RECREATE_CLIENT]);
+        let (pause, pause_client) = PauseController::new();
+        let hold_guard = pause.hold(PAUSE_RECREATE_CLIENT);
         let worker =
             FunctionRunnerIsolateWorker::new_for_tests(rt.clone(), isolate_config, pause_client);
-        test_isolate_recreated_with_client_change(rt, worker, pause).await
+        test_isolate_recreated_with_client_change(rt, worker, hold_guard).await
     }
 
     #[convex_macro::test_runtime]
@@ -399,9 +400,10 @@ mod tests {
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
         let isolate_config = IsolateConfig::default();
-        let (pause, pause_client) = PauseController::new([PAUSE_RECREATE_CLIENT]);
+        let (pause, pause_client) = PauseController::new();
+        let hold_guard = pause.hold(PAUSE_RECREATE_CLIENT);
         let worker =
             FunctionRunnerIsolateWorker::new_for_tests(rt.clone(), isolate_config, pause_client);
-        test_isolate_not_recreated_with_same_client(rt, worker, pause).await
+        test_isolate_not_recreated_with_same_client(rt, worker, hold_guard).await
     }
 }

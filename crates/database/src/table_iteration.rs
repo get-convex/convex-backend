@@ -262,7 +262,6 @@ impl TableIterator {
                 break;
             }
         }
-        self.pause_client.close("before_index_page");
     }
 
     /// A document may be skipped if:
@@ -569,6 +568,7 @@ mod tests {
         TestDriver,
         TestRuntime,
     };
+    use tokio::sync::oneshot;
     use value::{
         assert_obj,
         assert_val,
@@ -683,7 +683,8 @@ mod tests {
             .unwrap();
         database.commit(tx).await?;
 
-        let (mut pause, pause_client) = PauseController::new(["before_index_page"]);
+        let (pause, pause_client) = PauseController::new();
+        let hold_guard = pause.hold("before_index_page");
         let snapshot_ts = database.now_ts_for_reads();
         let iterator = database.table_iterator(snapshot_ts, 2, Some(pause_client));
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
@@ -691,13 +692,19 @@ mod tests {
             iterator.stream_documents_in_table(tablet_id, by_id_metadata.id().internal_id(), None);
         let table_name_ = table_name.clone();
         let database_ = database.clone();
+
+        let (stream_done_tx, mut stream_done_rx) = oneshot::channel();
         let test_driver = async move {
+            let mut hold_guard = hold_guard;
             for update_batch in update_batches {
                 // Run the backfill process until it hits our breakpoint.
-                let mut pause_guard = match pause.wait_for_blocked("before_index_page").await {
-                    Some(g) => g,
-                    // If the worker has finished processing index pages, stop agitating.
-                    None => break,
+                let pause_guard = tokio::select! {
+                    _ = &mut stream_done_rx => break,
+                    pause_guard = hold_guard.wait_for_blocked() => match pause_guard {
+                        Some(pause_guard) => pause_guard,
+                        // If the worker has finished processing index pages, stop agitating.
+                        None => break,
+                    },
                 };
 
                 // Agitate by doing a concurrent update while the worker is blocked.
@@ -739,6 +746,7 @@ mod tests {
                     // to make the commit visible to TableIterator.
                     database_.bump_max_repeatable_ts().await?;
                 }
+                hold_guard = pause.hold("before_index_page");
                 // Continue the worker.
                 pause_guard.unpause();
             }
@@ -755,6 +763,7 @@ mod tests {
                 prev_doc_id = Some(revision.id());
                 actual.insert(revision.id(), revision.to_developer());
             }
+            let _ = stream_done_tx.send(());
             Ok(actual)
         };
 

@@ -693,14 +693,13 @@ mod tests {
     async fn get_when_canceled_during_calculate_returns_value(
         rt: TestRuntime,
     ) -> anyhow::Result<()> {
-        let (mut pause, pause_client) = PauseController::new([PAUSE_DURING_GENERATE_VALUE_LABEL]);
+        let (pause, pause_client) = PauseController::new();
         let cache = AsyncLru::new_for_tests(rt, 1, "label", Some(pause_client));
+        let hold_guard = pause.hold(PAUSE_DURING_GENERATE_VALUE_LABEL);
         let mut first = cache
             .get("key", GenerateRandomValue::generate_value("key").boxed())
             .boxed();
-        let mut wait_for_blocked = pause
-            .wait_for_blocked(PAUSE_DURING_GENERATE_VALUE_LABEL)
-            .boxed();
+        let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
         loop {
             select! {
                 _ = first.as_mut().fuse() => {
@@ -709,7 +708,7 @@ mod tests {
                     anyhow::bail!("get finished first?!");
                 }
                 pause_guard = wait_for_blocked.as_mut().fuse() => {
-                    if let Some(mut pause_guard) = pause_guard {
+                    if let Some(pause_guard) = pause_guard {
                         // Cancel the first request in the middle of calculating.
                         drop(first);
                         // Unblock (not technically required).
