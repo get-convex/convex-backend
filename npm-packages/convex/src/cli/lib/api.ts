@@ -49,7 +49,6 @@ export async function createProject(
     // TODO: Consider allowing projects with no deployments, or consider switching
     // to provisioning prod on creation.
     deploymentType: "dev",
-    backendVersionOverride: process.env.CONVEX_BACKEND_VERSION_OVERRIDE,
     partitionId,
   };
   const data = await bigBrainAPI({
