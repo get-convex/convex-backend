@@ -263,6 +263,17 @@ pub fn get_connection_timer(cluster_name: &str) -> CancelableTimer {
 }
 
 register_convex_histogram!(
+    MYSQL_BEGIN_TRANSACTION_SECONDS,
+    "Time to get a connection",
+    &[STATUS_LABEL[0], "cluster_name"]
+);
+pub fn begin_transaction_timer(cluster_name: &str) -> StatusTimer {
+    let mut timer = StatusTimer::new(&MYSQL_BEGIN_TRANSACTION_SECONDS);
+    timer.add_label(cluster_name_label(cluster_name));
+    timer
+}
+
+register_convex_histogram!(
     MYSQL_CONNECTION_LIFETIME_SECONDS,
     "Time a mysql connection was used for",
     &["name", "cluster_name"]

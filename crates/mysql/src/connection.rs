@@ -57,6 +57,7 @@ use tokio::time::sleep;
 use url::Url;
 
 use crate::metrics::{
+    begin_transaction_timer,
     connection_lifetime_timer,
     get_connection_timer,
     log_execute,
@@ -342,10 +343,16 @@ impl MySqlConnection<'_> {
     }
 
     #[minitrace::trace]
-    pub async fn transaction(&mut self) -> anyhow::Result<MySqlTransaction<'_>> {
+    pub async fn transaction(
+        &mut self,
+        db_cluster_name: &str,
+    ) -> anyhow::Result<MySqlTransaction<'_>> {
+        let timer = begin_transaction_timer(db_cluster_name);
         log_transaction(self.labels.clone());
+        let inner = with_timeout(self.conn.start_transaction(TxOpts::new())).await?;
+        timer.finish();
         Ok(MySqlTransaction {
-            inner: with_timeout(self.conn.start_transaction(TxOpts::new())).await?,
+            inner,
             use_prepared_statements: self.use_prepared_statements,
             db_name: self.db_name,
             labels: &self.labels,

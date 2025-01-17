@@ -107,6 +107,7 @@ struct SmartChunkIter<'a, T: ApproxSize> {
 impl<'a, T: ApproxSize> Iterator for SmartChunkIter<'a, T> {
     type Item = &'a [T];
 
+    /// Returns the next item and its size in bytes
     fn next(&mut self) -> Option<Self::Item> {
         if self.items.is_empty() {
             return None;
@@ -120,7 +121,7 @@ impl<'a, T: ApproxSize> Iterator for SmartChunkIter<'a, T> {
             }
             len += 1;
         }
-        let chunk_size = if len <= self.max_dynamic_size {
+        let chunk_length = if len <= self.max_dynamic_size {
             len
         } else if len >= self.max_chunk_size {
             self.max_chunk_size
@@ -128,8 +129,8 @@ impl<'a, T: ApproxSize> Iterator for SmartChunkIter<'a, T> {
             // Round down to power of 2.
             1 << (len.ilog2() as usize)
         };
-        let next_chunk = &self.items[0..chunk_size];
-        self.items = &self.items[chunk_size..];
+        let next_chunk = &self.items[0..chunk_length];
+        self.items = &self.items[chunk_length..];
         Some(next_chunk)
     }
 }

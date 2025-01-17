@@ -38,7 +38,10 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
-use chunks::smart_chunk_sizes;
+use chunks::{
+    smart_chunk_sizes,
+    ApproxSize,
+};
 use common::{
     document::{
         InternalId,
@@ -297,6 +300,8 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                         // First, process all of the full document chunks.
                         let mut document_chunks = smart_chunks(&documents);
                         for chunk in &mut document_chunks {
+                            let chunk_bytes: usize =
+                                chunk.iter().map(|item| item.approx_size()).sum();
                             let insert_chunk_query = match conflict_strategy {
                                 ConflictStrategy::Error => insert_document_chunk(chunk.len()),
                                 ConflictStrategy::Overwrite => {
@@ -318,14 +323,33 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                                 tx.exec_drop(insert_chunk_query, insert_document_chunk)
                                     .await?;
                                 timer.finish();
+                                Event::add_to_local_parent("document_smart_chunks", || {
+                                    [
+                                        (
+                                            Cow::Borrowed("chunk_length"),
+                                            Cow::Owned(chunk.len().to_string()),
+                                        ),
+                                        (
+                                            Cow::Borrowed("chunk_bytes"),
+                                            Cow::Owned(chunk_bytes.to_string()),
+                                        ),
+                                    ]
+                                });
                                 Ok::<_, anyhow::Error>(())
                             };
-                            future.await?;
+                            future
+                                .in_span(Span::enter_with_local_parent(format!(
+                                    "{}::document_chunk_write",
+                                    full_name!()
+                                )))
+                                .await?;
                         }
 
                         let index_vec = indexes.into_iter().collect_vec();
                         let mut index_chunks = smart_chunks(&index_vec);
                         for chunk in &mut index_chunks {
+                            let chunk_bytes: usize =
+                                chunk.iter().map(|item| item.approx_size()).sum();
                             let insert_chunk_query = insert_index_chunk(chunk.len());
                             let insert_overwrite_chunk_query =
                                 insert_overwrite_index_chunk(chunk.len());
@@ -344,9 +368,26 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                                 tx.exec_drop(insert_index_chunk, insert_index_chunk_params)
                                     .await?;
                                 timer.finish();
+                                Event::add_to_local_parent("index_smart_chunks", || {
+                                    [
+                                        (
+                                            Cow::Borrowed("chunk_length"),
+                                            Cow::Owned(chunk.len().to_string()),
+                                        ),
+                                        (
+                                            Cow::Borrowed("chunk_bytes"),
+                                            Cow::Owned(chunk_bytes.to_string()),
+                                        ),
+                                    ]
+                                });
                                 Ok::<_, anyhow::Error>(())
                             };
-                            future.await?;
+                            future
+                                .in_span(Span::enter_with_local_parent(format!(
+                                    "{}::index_chunk_write",
+                                    full_name!()
+                                )))
+                                .await?;
                         }
                     }
                     Ok(())
@@ -1084,11 +1125,15 @@ impl<RT: Runtime> Lease<RT> {
         ) -> Pin<Box<dyn Future<Output = anyhow::Result<T>> + Send + 'b>>,
     {
         let mut client = self.pool.acquire("transact", &self.db_name).await?;
-        let mut tx = client.transaction().await?;
+        let mut tx = client.transaction(&self.db_name).await?;
 
         let timer = metrics::lease_precond_timer(self.pool.cluster_name());
         let rows: Option<Row> = tx
             .exec_first(LEASE_PRECOND, vec![mysql_async::Value::Int(self.lease_ts)])
+            .in_span(Span::enter_with_local_parent(format!(
+                "{}::lease_precondition",
+                full_name!()
+            )))
             .await?;
         if rows.is_none() {
             anyhow::bail!(lease_lost_error());
