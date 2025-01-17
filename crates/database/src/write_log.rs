@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{
+        btree_map,
         BTreeMap,
         VecDeque,
     },
@@ -78,6 +79,8 @@ impl PackedDocumentUpdate {
         }
     }
 }
+
+pub type IterWrites<'a> = btree_map::Iter<'a, ResolvedDocumentId, PackedDocumentUpdate>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WriteSource(pub(crate) Option<Cow<'static, str>>);
@@ -231,11 +234,13 @@ impl WriteLog {
         }
     }
 
+    // Runtime: O((log n) + k) where n is total length of the write log and k is
+    // the number of elements in the returned iterator.
     fn iter(
         &self,
         from: Timestamp,
         to: Timestamp,
-    ) -> anyhow::Result<Vector<(Timestamp, Writes, WriteSource)>> {
+    ) -> anyhow::Result<impl Iterator<Item = (&Timestamp, IterWrites<'_>, &WriteSource)> + '_> {
         anyhow::ensure!(
             from > self.purged_ts,
             anyhow::anyhow!(
@@ -248,22 +253,21 @@ impl WriteLog {
             Ok(i) => i,
             Err(i) => i,
         };
-        let end = match self.by_ts.binary_search_by_key(&to, |&(ts, ..)| ts) {
-            Ok(i) => i,
-            Err(i) => {
-                if let Some(i) = i.checked_sub(1) {
-                    i
-                } else {
-                    return Ok(Vector::new());
-                }
-            },
-        };
-        let vector = if end + 1 < self.by_ts.len() {
-            Vector::from(self.by_ts.clone()).slice(start..end + 1)
+        let focus = if self.by_ts.is_empty() {
+            // split_at and narrow don't work if the vector is empty
+            self.by_ts.focus() // empty
+        } else if self.by_ts.len() == start {
+            // narrow doesn't work if start is at the end
+            self.by_ts.focus().split_at(0).0 // empty
         } else {
-            Vector::from(self.by_ts.clone()).slice(start..)
+            // This is what we want in all cases, but `narrow` has weird bounds
+            // checks.
+            self.by_ts.focus().narrow(start..)
         };
-        Ok(vector)
+        let iter = focus.into_iter();
+        Ok(iter
+            .take_while(move |(t, ..)| *t <= to)
+            .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source)))
     }
 
     #[minitrace::trace]
@@ -275,10 +279,7 @@ impl WriteLog {
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
         block_in_place(|| {
             let log_range = self.iter(reads_ts.succ()?, ts)?;
-            let iterator = log_range
-                .iter()
-                .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source));
-            Ok(reads.writes_overlap(iterator, self.persistence_version))
+            Ok(reads.writes_overlap(log_range, self.persistence_version))
         })
     }
 
@@ -358,12 +359,12 @@ impl LogOwner {
 
     pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
     where
-        for<'a> F: FnMut(Timestamp, Writes),
+        for<'a> F: FnMut(Timestamp, IterWrites<'a>),
     {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
             for (ts, writes, _) in snapshot.iter(from, to)? {
-                f(ts, writes);
+                f(*ts, writes);
             }
             Ok(())
         })
@@ -567,8 +568,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1001), Timestamp::must(1010))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1002..=1010)
                 .step_by(2)
@@ -579,8 +579,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1004), Timestamp::must(1008))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1004..=1008)
                 .step_by(2)
@@ -591,8 +590,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1004), Timestamp::must(1020))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1004..=1010)
                 .step_by(2)
@@ -616,8 +614,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1005), Timestamp::must(1010))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1006..=1010)
                 .step_by(2)
