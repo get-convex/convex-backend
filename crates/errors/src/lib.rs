@@ -290,6 +290,14 @@ impl ErrorMetadata {
         }
     }
 
+    pub fn service_unavailable() -> Self {
+        Self {
+            code: ErrorCode::Overloaded,
+            short_msg: "ServiceUnavailable".into(),
+            msg: "Service temporarily unavailable".into(),
+        }
+    }
+
     /// Out of Retention
     ///
     /// An error we produce if executing a read at a point that has been removed
