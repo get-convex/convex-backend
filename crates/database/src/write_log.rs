@@ -155,7 +155,9 @@ impl WriteLogManager {
     fn append(&mut self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
-        self.log.by_ts.push_back((ts, writes, write_source));
+        self.log
+            .by_ts
+            .push_back(Arc::new((ts, writes, write_source)));
 
         self.notify_waiters();
     }
@@ -188,7 +190,7 @@ impl WriteLogManager {
         let target_ts = current_ts
             .sub(*WRITE_LOG_MAX_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
-        while let Some((ts, ..)) = self.log.by_ts.front() {
+        while let Some((ts, ..)) = self.log.by_ts.front().map(|entry| &**entry) {
             let ts = *ts;
 
             // We never trim past max_ts, even if the size of the write log
@@ -213,7 +215,7 @@ impl WriteLogManager {
 /// they may trigger subscriptions.
 #[derive(Clone)]
 struct WriteLog {
-    by_ts: WithHeapSize<Vector<(Timestamp, Writes, WriteSource)>>,
+    by_ts: WithHeapSize<Vector<Arc<(Timestamp, Writes, WriteSource)>>>,
     purged_ts: Timestamp,
     persistence_version: PersistenceVersion,
 }
@@ -229,7 +231,7 @@ impl WriteLog {
 
     fn max_ts(&self) -> Timestamp {
         match self.by_ts.back() {
-            Some((ts, ..)) => *ts,
+            Some(entry) => entry.0,
             None => self.purged_ts,
         }
     }
@@ -249,7 +251,7 @@ impl WriteLog {
             )
             .context(ErrorMetadata::out_of_retention())
         );
-        let start = match self.by_ts.binary_search_by_key(&from, |&(ts, ..)| ts) {
+        let start = match self.by_ts.binary_search_by_key(&from, |entry| entry.0) {
             Ok(i) => i,
             Err(i) => i,
         };
@@ -266,6 +268,7 @@ impl WriteLog {
         };
         let iter = focus.into_iter();
         Ok(iter
+            .map(|entry| &**entry)
             .take_while(move |(t, ..)| *t <= to)
             .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source)))
     }

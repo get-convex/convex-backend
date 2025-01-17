@@ -23,6 +23,7 @@ use std::{
         RangeBounds,
     },
     ptr::NonNull,
+    sync::Arc,
 };
 
 use imbl::Vector;
@@ -440,6 +441,14 @@ impl<T: HeapSize, U: HeapSize, V: HeapSize> HeapSize for (T, U, V) {
     #[inline]
     fn heap_size(&self) -> usize {
         self.0.heap_size() + self.1.heap_size() + self.2.heap_size()
+    }
+}
+
+impl<T: HeapSize> HeapSize for Arc<T> {
+    #[inline]
+    fn heap_size(&self) -> usize {
+        // this is not entirely correct in the presence of sharing
+        T::heap_size(&**self)
     }
 }
 
