@@ -199,7 +199,7 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
         .start_table(path_prefix, table_name.clone())
         .await?;
 
-    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000, None);
+    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
     pin_mut!(stream);
 

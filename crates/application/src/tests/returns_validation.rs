@@ -4,7 +4,6 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    pause::PauseClient,
     types::FunctionCaller,
     RequestId,
 };
@@ -42,7 +41,6 @@ async fn run_zero_arg_mutation(
             Identity::user(UserIdentity::test()),
             None,
             FunctionCaller::HttpEndpoint,
-            PauseClient::new(),
         )
         .await
 }

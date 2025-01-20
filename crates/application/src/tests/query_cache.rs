@@ -6,10 +6,7 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    pause::{
-        PauseClient,
-        PauseController,
-    },
+    pause::PauseController,
     types::FunctionCaller,
     RequestId,
 };
@@ -27,10 +24,7 @@ use serde_json::{
 use value::ConvexValue;
 
 use crate::{
-    test_helpers::{
-        ApplicationFixtureArgs,
-        ApplicationTestExt,
-    },
+    test_helpers::ApplicationTestExt,
     Application,
 };
 
@@ -75,7 +69,6 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },
-            PauseClient::new(),
         )
         .await??;
     Ok(result.value)
@@ -323,16 +316,11 @@ async fn test_query_cache_without_checking_auth(rt: TestRuntime) -> anyhow::Resu
 }
 
 #[convex_macro::test_runtime]
-async fn test_query_cache_unauthed_race(rt: TestRuntime) -> anyhow::Result<()> {
-    let (pause_controller, pause_client) = PauseController::new();
-    let application = Application::new_for_tests_with_args(
-        &rt,
-        ApplicationFixtureArgs {
-            function_runner_pause_client: pause_client,
-            ..Default::default()
-        },
-    )
-    .await?;
+async fn test_query_cache_unauthed_race(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
     // Run the same query as different users, in parallel.

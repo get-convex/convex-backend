@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-#[cfg(any(test, feature = "testing"))]
-use common::pause::PauseClient;
 use common::{
     knobs::SEARCH_INDEX_SIZE_SOFT_LIMIT,
     persistence::PersistenceReader,
@@ -65,8 +63,6 @@ pub(crate) struct FlusherBuilder<RT: Runtime> {
     segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
     limits: SearchIndexLimits,
     writer: SearchIndexMetadataWriter<RT, TextSearchIndex>,
-    #[cfg(any(test, feature = "testing"))]
-    pause_client: Option<PauseClient>,
 }
 
 impl<RT: Runtime> FlusherBuilder<RT> {
@@ -89,8 +85,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
                 index_size_soft_limit: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
                 incremental_multipart_threshold_bytes: *SEARCH_INDEX_SIZE_SOFT_LIMIT,
             },
-            #[cfg(any(test, feature = "testing"))]
-            pause_client: None,
         }
     }
 
@@ -129,8 +123,6 @@ impl<RT: Runtime> FlusherBuilder<RT> {
                 search_storage: self.storage.clone(),
                 segment_term_metadata_fetcher: self.segment_term_metadata_fetcher.clone(),
             },
-            #[cfg(any(test, feature = "testing"))]
-            self.pause_client,
         )
     }
 }

@@ -7,7 +7,6 @@ use std::{
 use common::{
     backoff::Backoff,
     errors::report_error,
-    pause::PauseClient,
     runtime::Runtime,
 };
 use database::Database;
@@ -40,7 +39,6 @@ impl SnapshotImportWorker {
         snapshot_imports_storage: Arc<dyn Storage>,
         file_storage: FileStorage<RT>,
         usage_tracking: UsageCounter,
-        pause_client: PauseClient,
     ) -> impl Future<Output = ()> + Send {
         let mut worker = SnapshotImportExecutor {
             runtime,
@@ -48,7 +46,6 @@ impl SnapshotImportWorker {
             snapshot_imports_storage,
             file_storage,
             usage_tracking,
-            pause_client,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
         };
         async move {

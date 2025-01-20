@@ -34,10 +34,7 @@ use common::{
     },
     log_lines::LogLines,
     minitrace_helpers::EncodedSpan,
-    pause::{
-        HoldGuard,
-        PauseClient,
-    },
+    pause::HoldGuard,
     persistence::Persistence,
     query_journal::QueryJournal,
     runtime::{
@@ -296,7 +293,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             },
         )
         .await?;
-        let mut handle = database.start_search_and_vector_bootstrap(PauseClient::new());
+        let mut handle = database.start_search_and_vector_bootstrap();
         handle.join().await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
         let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
@@ -1445,7 +1442,6 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
 pub async fn bogus_udf_request<RT: Runtime>(
     db: &Database<RT>,
     client_id: &str,
-    pause_client: Option<PauseClient>,
     sender: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
 ) -> anyhow::Result<Request<RT>> {
     let tx = db.begin_system().await?;
@@ -1472,7 +1468,6 @@ pub async fn bogus_udf_request<RT: Runtime>(
     Ok(Request {
         client_id: client_id.to_string(),
         inner,
-        pause_client: pause_client.unwrap_or_default(),
         parent_trace: EncodedSpan::empty(),
     })
 }
@@ -1510,7 +1505,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "carnitas", None, sender).await?;
+    let request = bogus_udf_request(&db, "carnitas", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     // First request should not recreate isolate.
@@ -1525,7 +1520,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
     // Second request with different client_id should recreate isolate.
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "alpastor", None, sender).await?;
+    let request = bogus_udf_request(&db, "alpastor", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     loop {
@@ -1561,7 +1556,7 @@ pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: Isolate
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "carnitas", None, sender).await?;
+    let request = bogus_udf_request(&db, "carnitas", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     // First request should not recreate isolate.
@@ -1576,7 +1571,7 @@ pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: Isolate
     // Second request with the same client_id should not recreate isolate.
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "carnitas", None, sender).await?;
+    let request = bogus_udf_request(&db, "carnitas", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     select! {

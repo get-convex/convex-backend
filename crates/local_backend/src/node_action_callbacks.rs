@@ -35,7 +35,6 @@ use common::{
         initialize_root_from_parent,
         EncodedSpan,
     },
-    pause::PauseClient,
     runtime::UnixTimestamp,
     types::{
         FunctionCaller,
@@ -184,7 +183,6 @@ pub async fn internal_mutation_post(
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
             },
-            PauseClient::new(),
         )
         .await?;
     if req.format.is_some() {

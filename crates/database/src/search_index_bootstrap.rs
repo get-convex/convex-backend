@@ -24,7 +24,6 @@ use common::{
     document::ParsedDocument,
     errors::report_error,
     knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
-    pause::PauseClient,
     persistence::{
         RepeatablePersistence,
         TimestampRange,
@@ -94,7 +93,6 @@ pub struct SearchIndexBootstrapWorker<RT: Runtime> {
     table_mapping: NamespacedTableMapping,
     committer_client: CommitterClient,
     backoff: Backoff,
-    pause_client: PauseClient,
 }
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
@@ -455,7 +453,6 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
         persistence: RepeatablePersistence,
         table_mapping: NamespacedTableMapping,
         committer_client: CommitterClient,
-        pause_client: PauseClient,
     ) -> Self {
         Self {
             runtime,
@@ -464,7 +461,6 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
             persistence,
             committer_client,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
-            pause_client,
         }
     }
 
@@ -501,7 +497,8 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
 
     async fn run(&mut self) -> anyhow::Result<()> {
         let bootstrapped_indexes = self.bootstrap().await?;
-        self.pause_client.wait(FINISHED_BOOTSTRAP_UPDATES).await;
+        let pause_client = self.runtime.pause_client();
+        pause_client.wait(FINISHED_BOOTSTRAP_UPDATES).await;
         self.committer_client
             .finish_search_and_vector_bootstrap(
                 bootstrapped_indexes,

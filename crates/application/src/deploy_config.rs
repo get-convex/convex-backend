@@ -25,7 +25,6 @@ use common::{
         Resource,
     },
     errors::JsError,
-    pause::PauseClient,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -243,7 +242,6 @@ impl<RT: Runtime> Application<RT> {
             .execute_with_occ_retries(
                 Identity::system(),
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 WriteSource::new("start_push"),
                 |tx| {
                     async move {

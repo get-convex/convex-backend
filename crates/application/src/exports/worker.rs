@@ -11,7 +11,6 @@ use common::{
     document::ParsedDocument,
     errors::report_error,
     execution_context::ExecutionId,
-    pause::PauseClient,
     runtime::Runtime,
     types::UdfIdentifier,
     RequestId,
@@ -208,7 +207,6 @@ impl<RT: Runtime> ExportWorker<RT> {
                         .execute_with_occ_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
-                            PauseClient::new(),
                             "export_worker_update_progress",
                             move |tx| {
                                 let msg = msg.clone();
@@ -272,7 +270,6 @@ impl<RT: Runtime> ExportWorker<RT> {
             .execute_with_occ_retries(
                 Identity::system(),
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "export_worker_mark_complete",
                 |tx| {
                     let object_key = object_key.clone();

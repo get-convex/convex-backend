@@ -33,7 +33,6 @@ use common::{
         TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
-    pause::PauseClient,
     runtime::Runtime,
     types::{
         FullyQualifiedObjectKey,
@@ -174,7 +173,6 @@ struct SnapshotImportExecutor<RT: Runtime> {
     file_storage: FileStorage<RT>,
     usage_tracking: UsageCounter,
     backoff: Backoff,
-    pause_client: PauseClient,
 }
 
 impl<RT: Runtime> SnapshotImportExecutor<RT> {
@@ -192,7 +190,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     .execute_with_overloaded_retries(
                         Identity::system(),
                         FunctionUsageTracker::new(),
-                        PauseClient::new(),
                         "snapshot_import_waiting_for_confirmation",
                         |tx| {
                             async {
@@ -220,7 +217,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                         .execute_with_overloaded_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
-                            PauseClient::new(),
                             "snapshot_import_fail",
                             |tx| {
                                 async {
@@ -257,7 +253,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     .execute_with_overloaded_retries(
                         Identity::system(),
                         FunctionUsageTracker::new(),
-                        PauseClient::new(),
                         "snapshop_import_complete",
                         |tx| {
                             async {
@@ -280,7 +275,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                         .execute_with_overloaded_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
-                            PauseClient::new(),
                             "snapshot_import_fail",
                             |tx| {
                                 async {
@@ -365,7 +359,8 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             object_attributes.size,
         );
 
-        self.pause_client.wait("before_finalize_import").await;
+        let pause_client = self.runtime.pause_client();
+        pause_client.wait("before_finalize_import").await;
         let (ts, _documents_deleted) = finalize_import(
             &self.database,
             &self.usage_tracking,
@@ -447,7 +442,6 @@ pub async fn start_stored_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_store_uploaded",
             |tx| {
                 async {
@@ -482,7 +476,6 @@ pub async fn perform_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_perform",
             |tx| {
                 async {
@@ -515,7 +508,6 @@ pub async fn cancel_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_cancel",
             |tx| {
                 async {
@@ -876,7 +868,6 @@ async fn finalize_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_finalize",
             |tx| {
                 async {
@@ -1263,7 +1254,6 @@ async fn insert_import_objects<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity.clone(),
             usage,
-            PauseClient::new(),
             "snapshot_import_insert_objects",
             |tx| {
                 async {
@@ -1368,7 +1358,6 @@ async fn prepare_table_for_import<RT: Runtime>(
             .execute_with_overloaded_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "snapshot_import_prepare_table",
                 |tx| {
                     async {
@@ -1438,7 +1427,6 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity.clone(),
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_enable_indexes",
             |tx| {
                 async {

@@ -66,7 +66,6 @@ use common::{
     log_lines::LogLines,
     log_streaming::LogSender,
     paths::FieldPath,
-    pause::PauseClient,
     persistence::Persistence,
     query_journal::QueryJournal,
     runtime::{
@@ -554,8 +553,6 @@ impl<RT: Runtime> Application<RT> {
         node_actions: Actions<RT>,
         log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
-        snapshot_import_pause_client: PauseClient,
-        scheduled_jobs_pause_client: PauseClient,
         app_auth: Arc<ApplicationAuth>,
         cache: QueryCache,
     ) -> anyhow::Result<Self> {
@@ -588,9 +585,8 @@ impl<RT: Runtime> Application<RT> {
             segment_term_metadata_fetcher,
         );
         let search_worker = Arc::new(Mutex::new(search_worker));
-        let search_and_vector_bootstrap_worker = Arc::new(Mutex::new(
-            database.start_search_and_vector_bootstrap(PauseClient::new()),
-        ));
+        let search_and_vector_bootstrap_worker =
+            Arc::new(Mutex::new(database.start_search_and_vector_bootstrap()));
         let table_summary_worker =
             TableSummaryWorker::start(runtime.clone(), database.clone(), persistence.clone());
         let schema_worker = Arc::new(Mutex::new(runtime.spawn(
@@ -633,7 +629,6 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             runner.clone(),
             function_log.clone(),
-            scheduled_jobs_pause_client,
         );
 
         let cron_job_executor_fut = CronJobExecutor::start(
@@ -663,7 +658,6 @@ impl<RT: Runtime> Application<RT> {
             snapshot_imports_storage.clone(),
             file_storage.clone(),
             database.usage_counter().clone(),
-            snapshot_import_pause_client,
         );
         let snapshot_import_worker = Arc::new(Mutex::new(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
@@ -996,7 +990,6 @@ impl<RT: Runtime> Application<RT> {
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        pause_client: PauseClient,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         identity.ensure_can_run_function(UdfType::Mutation)?;
         let block_logging = self
@@ -1016,7 +1009,6 @@ impl<RT: Runtime> Application<RT> {
                 identity,
                 mutation_identifier,
                 caller,
-                pause_client,
             )
             .await
         {
@@ -1258,7 +1250,6 @@ impl<RT: Runtime> Application<RT> {
                     identity,
                     None,
                     caller,
-                    PauseClient::new(),
                 )
                 .await
                 .map(|res| {
@@ -2817,7 +2808,6 @@ impl<RT: Runtime> Application<RT> {
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
-            PauseClient::new(),
             write_source,
             f,
         )
@@ -2841,7 +2831,6 @@ impl<RT: Runtime> Application<RT> {
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
-            PauseClient::new(),
             write_source,
             f,
         )
@@ -2851,7 +2840,6 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_with_audit_log_events_and_occ_retries_with_pause_client<'a, F, T>(
         &self,
         identity: Identity,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(T, OccRetryStats)>
@@ -2865,13 +2853,9 @@ impl<RT: Runtime> Application<RT> {
     {
         let db = self.database.clone();
         let (ts, (t, events), stats) = db
-            .execute_with_occ_retries(
-                identity,
-                FunctionUsageTracker::new(),
-                pause_client,
-                write_source,
-                |tx| Self::insert_deployment_audit_log_events(tx, &f).into(),
-            )
+            .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
+                Self::insert_deployment_audit_log_events(tx, &f).into()
+            })
             .await?;
         // Send deployment audit logs
         // TODO CX-5139 Remove this when audit logs are being processed in LogManager.
@@ -2890,7 +2874,6 @@ impl<RT: Runtime> Application<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T)>
@@ -2900,7 +2883,7 @@ impl<RT: Runtime> Application<RT> {
         F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         self.database
-            .execute_with_occ_retries(identity, usage, pause_client, write_source, f)
+            .execute_with_occ_retries(identity, usage, write_source, f)
             .await
             .map(|(ts, t, _)| (ts, t))
     }

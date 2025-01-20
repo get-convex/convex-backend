@@ -14,7 +14,6 @@ use common::{
         PublicFunctionPath,
     },
     http::ResolvedHostname,
-    pause::PauseClient,
     runtime::Runtime,
     types::{
         AllowedVisibility,
@@ -355,7 +354,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             identity,
             mutation_identifier,
             caller,
-            PauseClient::new(),
         )
         .await
     }
@@ -381,7 +379,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             identity,
             mutation_identifier,
             caller,
-            PauseClient::new(),
         )
         .await
     }

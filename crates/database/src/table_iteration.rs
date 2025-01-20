@@ -18,7 +18,6 @@ use common::{
     },
     interval::Interval,
     knobs::DOCUMENTS_IN_MEMORY,
-    pause::PauseClient,
     persistence::{
         new_static_repeatable_recent,
         PersistenceReader,
@@ -30,6 +29,7 @@ use common::{
         CursorPosition,
         Order,
     },
+    runtime::Runtime,
     try_chunks::TryChunksExt,
     types::{
         IndexId,
@@ -88,28 +88,27 @@ fn cursor_has_walked(cursor: Option<&CursorPosition>, key: &IndexKeyBytes) -> bo
     }
 }
 
-pub struct TableIterator {
+pub struct TableIterator<RT: Runtime> {
+    runtime: RT,
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     page_size: usize,
-    pause_client: PauseClient,
     snapshot_ts: RepeatableTimestamp,
 }
 
-impl TableIterator {
+impl<RT: Runtime> TableIterator<RT> {
     pub fn new(
+        runtime: RT,
         snapshot_ts: RepeatableTimestamp,
         persistence: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
         page_size: usize,
-        pause_client: Option<PauseClient>,
     ) -> Self {
-        let pause_client = pause_client.unwrap_or_default();
         Self {
+            runtime,
             persistence,
             retention_validator,
             page_size,
-            pause_client,
             snapshot_ts,
         }
     }
@@ -171,7 +170,8 @@ impl TableIterator {
         let mut skipped_keys = IterationDocuments::default();
 
         loop {
-            self.pause_client.wait("before_index_page").await;
+            let pause_client = self.runtime.pause_client();
+            pause_client.wait("before_index_page").await;
             let page_start = cursor.index_key.clone();
             let (page, new_end_ts) = self.fetch_page(index_id, tablet_id, &mut cursor).await?;
             anyhow::ensure!(*new_end_ts >= end_ts);
@@ -638,7 +638,7 @@ mod tests {
                 .enabled_index_metadata(TableNamespace::test_user(), &by_id)?
                 .unwrap();
             database.commit(tx).await?;
-            let iterator = database.table_iterator(database.now_ts_for_reads(), 2, None);
+            let iterator = database.table_iterator(database.now_ts_for_reads(), 2);
             let tablet_id = table_mapping.id(&table_name)?.tablet_id;
             let revision_stream = iterator.stream_documents_in_table(
                 tablet_id,
@@ -662,6 +662,7 @@ mod tests {
         table_name: TableName,
         initial: Vec<ConvexObject>,
         update_batches: Vec<Vec<Update>>,
+        pause: PauseController,
     ) -> anyhow::Result<()> {
         let database = new_test_database(runtime.clone()).await;
         let mut objects = BTreeMap::new();
@@ -683,10 +684,9 @@ mod tests {
             .unwrap();
         database.commit(tx).await?;
 
-        let (pause, pause_client) = PauseController::new();
         let hold_guard = pause.hold("before_index_page");
         let snapshot_ts = database.now_ts_for_reads();
-        let iterator = database.table_iterator(snapshot_ts, 2, Some(pause_client));
+        let iterator = database.table_iterator(snapshot_ts, 2);
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revision_stream =
             iterator.stream_documents_in_table(tablet_id, by_id_metadata.id().internal_id(), None);
@@ -776,12 +776,13 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn test_deleted(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_deleted(rt: TestRuntime, pause: PauseController) -> anyhow::Result<()> {
         racing_commits_test(
             rt,
             "A".parse()?,
             vec![assert_obj!()],
             vec![vec![Update::Delete { index: 0 }]],
+            pause,
         )
         .await
     }
@@ -842,7 +843,7 @@ mod tests {
         database.commit(tx).await?;
         database.bump_max_repeatable_ts().await?;
 
-        let iterator = database.table_iterator(snapshot_ts, 1, None);
+        let iterator = database.table_iterator(snapshot_ts, 1);
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revisions: Vec<_> = iterator
             .stream_documents_in_table_by_index(tablet_id, by_k_id, index_fields, None)
@@ -878,9 +879,10 @@ mod tests {
             initial in small_user_objects(),
             update_batches in racing_updates(),
         ) {
-            let td = TestDriver::new();
+            let (pause, pause_client) = PauseController::new();
+            let td = TestDriver::new_with_pause_client(pause_client);
             td.run_until(
-                racing_commits_test(td.rt(), table_name, initial, update_batches),
+                racing_commits_test(td.rt(), table_name, initial, update_batches, pause),
             ).unwrap();
         }
 

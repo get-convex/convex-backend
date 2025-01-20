@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-#[cfg(any(test, feature = "testing"))]
-use common::pause::PauseClient;
 use common::{
     knobs::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
@@ -43,7 +41,6 @@ pub async fn backfill_vector_indexes<RT: Runtime>(
         /* index_size_soft_limit= */ 0,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-        None,
     );
     flusher.step().await?;
     Ok(())
@@ -59,7 +56,6 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
     index_size_soft_limit: usize,
     full_scan_segment_max_kb: usize,
     incremental_multipart_threshold_bytes: usize,
-    pause_client: Option<PauseClient>,
 ) -> VectorIndexFlusher<RT> {
     use search::metrics::SearchType;
     let writer = SearchIndexMetadataWriter::new(
@@ -84,7 +80,6 @@ pub(crate) fn new_vector_flusher_for_tests<RT: Runtime>(
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: full_scan_segment_max_kb,
         },
-        pause_client,
     )
 }
 
@@ -108,8 +103,6 @@ pub(crate) fn new_vector_flusher<RT: Runtime>(
         BuildVectorIndexArgs {
             full_scan_threshold_bytes: *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         },
-        #[cfg(any(test, feature = "testing"))]
-        None,
     )
 }
 
@@ -132,6 +125,7 @@ mod tests {
             MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             VECTOR_INDEX_SIZE_SOFT_LIMIT,
         },
+        pause::PauseController,
         persistence::PersistenceReader,
         runtime::Runtime,
         types::{
@@ -196,7 +190,6 @@ mod tests {
             soft_limit,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-            None,
         ))
     }
 
@@ -435,7 +428,10 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn backfilled_concurrent_compaction_and_flush(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn backfilled_concurrent_compaction_and_flush(
+        rt: TestRuntime,
+        pause: PauseController,
+    ) -> anyhow::Result<()> {
         let config = CompactionConfig::default();
         let min_compaction_segments = config.min_compaction_segments;
         let config = CompactionConfig {
@@ -475,7 +471,7 @@ mod tests {
 
         // Run the compactor / flusher concurrently in a way where the compactor
         // wins the race.
-        fixtures.run_compaction_during_flush().await?;
+        fixtures.run_compaction_during_flush(pause).await?;
 
         // Verify we propagate the new deletes to the compacted segment and retain our
         // new segment.
@@ -500,6 +496,7 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn incremental_index_backfill_concurrent_compaction_and_flush(
         rt: TestRuntime,
+        pause: PauseController,
     ) -> anyhow::Result<()> {
         let config = CompactionConfig::default();
         let min_compaction_segments = config.min_compaction_segments;
@@ -525,7 +522,7 @@ mod tests {
 
         // For last iteration, run the compactor / flusher concurrently in a way where
         // the compactor wins the race.
-        fixtures.run_compaction_during_flush().await?;
+        fixtures.run_compaction_during_flush(pause).await?;
 
         // There should be 2 segments left: the compacted segment and the new segment
         // from flush
@@ -544,6 +541,7 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn concurrent_compaction_and_flush_new_segment_propagates_deletes(
         rt: TestRuntime,
+        pause: PauseController,
     ) -> anyhow::Result<()> {
         let config = CompactionConfig::default();
         let min_compaction_segments = config.min_compaction_segments;
@@ -582,7 +580,7 @@ mod tests {
 
         // Run the compactor / flusher concurrently in a way where the compactor
         // wins the race.
-        fixtures.run_compaction_during_flush().await?;
+        fixtures.run_compaction_during_flush(pause).await?;
 
         // Verify we propagate the new deletes to the compacted segment and retain our
         // new segment.
@@ -607,6 +605,7 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn concurrent_compaction_and_flush_no_new_segment_propagates_updates_and_deletes(
         rt: TestRuntime,
+        pause: PauseController,
     ) -> anyhow::Result<()> {
         let config = CompactionConfig::default();
         let min_compaction_segments = config.min_compaction_segments;
@@ -658,7 +657,7 @@ mod tests {
         }
         fixtures.db.commit(tx).await?;
 
-        fixtures.run_compaction_during_flush().await?;
+        fixtures.run_compaction_during_flush(pause).await?;
 
         let segments = fixtures.get_segments_metadata(index_name).await?;
         assert_eq!(1, segments.len());

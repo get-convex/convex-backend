@@ -67,6 +67,7 @@ use value::heap_size::HeapSize;
 use crate::{
     errors::recapture_stacktrace,
     is_canceled::IsCanceled,
+    pause::PauseClient,
     types::Timestamp,
 };
 
@@ -234,6 +235,8 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     fn generate_timestamp(&self) -> anyhow::Result<Timestamp> {
         Timestamp::try_from(self.system_time())
     }
+
+    fn pause_client(&self) -> PauseClient;
 }
 
 /// Abstraction over a unix timestamp. Internally it stores a Duration since the

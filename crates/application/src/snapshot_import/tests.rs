@@ -109,10 +109,7 @@ use crate::{
         ImportFormat,
         ImportMode,
     },
-    test_helpers::{
-        ApplicationFixtureArgs,
-        ApplicationTestExt,
-    },
+    test_helpers::ApplicationTestExt,
     Application,
 };
 
@@ -470,16 +467,11 @@ Interrupting `npx convex import` will not cancel it."#
 
 // Hard to control timing in race test with background job moving state forward.
 #[convex_macro::test_runtime]
-async fn import_races_with_schema_update(rt: TestRuntime) -> anyhow::Result<()> {
-    let (pause_controller, pause_client) = PauseController::new();
-    let app = Application::new_for_tests_with_args(
-        &rt,
-        ApplicationFixtureArgs {
-            snapshot_import_pause_client: Some(pause_client),
-            ..Default::default()
-        },
-    )
-    .await?;
+async fn import_races_with_schema_update(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
     let table_name = "table1";
     let test_csv = r#"
 a

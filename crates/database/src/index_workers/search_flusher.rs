@@ -13,8 +13,6 @@ use std::{
 };
 
 use anyhow::Context;
-#[cfg(any(test, feature = "testing"))]
-use common::pause::PauseClient;
 use common::{
     knobs::{
         DATABASE_WORKERS_MAX_CHECKPOINT_AGE,
@@ -87,15 +85,12 @@ use crate::{
     Token,
 };
 
-#[cfg(any(test, feature = "testing"))]
 pub(crate) const FLUSH_RUNNING_LABEL: &str = "flush_running";
 
 pub struct SearchFlusher<RT: Runtime, T: SearchIndex> {
     params: Params<RT, T>,
     writer: SearchIndexMetadataWriter<RT, T>,
     _config: PhantomData<T>,
-    #[cfg(any(test, feature = "testing"))]
-    pause_client: Option<PauseClient>,
 }
 
 impl<RT: Runtime, T: SearchIndex> Deref for SearchFlusher<RT, T> {
@@ -145,7 +140,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         limits: SearchIndexLimits,
         writer: SearchIndexMetadataWriter<RT, T>,
         build_args: T::BuildIndexArgs,
-        #[cfg(any(test, feature = "testing"))] pause_client: Option<PauseClient>,
     ) -> Self {
         Self {
             params: Params {
@@ -158,8 +152,6 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             },
             writer,
             _config: PhantomData,
-            #[cfg(any(test, feature = "testing"))]
-            pause_client,
         }
     }
 
@@ -184,10 +176,8 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             tracing::info!("{num_to_build} {index_type} indexes to build");
         }
 
-        #[cfg(any(test, feature = "testing"))]
-        if let Some(pause_client) = &mut self.pause_client {
-            pause_client.wait(FLUSH_RUNNING_LABEL).await;
-        }
+        let pause_client = self.database.runtime().pause_client();
+        pause_client.wait(FLUSH_RUNNING_LABEL).await;
 
         for job in to_build {
             task::consume_budget().await;
@@ -524,7 +514,7 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
             } => {
                 let documents = params
                     .database
-                    .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE, None)
+                    .table_iterator(backfill_snapshot_ts, *VECTOR_INDEX_WORKER_PAGE_SIZE)
                     .stream_documents_in_table(*index_name.table(), by_id, cursor)
                     .boxed()
                     .scan(0_u64, |total_size, res| {

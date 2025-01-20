@@ -1049,14 +1049,14 @@ async fn search_fails_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()>
 /// Test that search works after bootstrapping has finished when there are
 /// writes in between bootstrap ts and the commit ts.
 #[convex_macro::test_runtime]
-async fn search_works_after_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+async fn search_works_after_bootstrapping(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
     let scenario = Scenario::new(rt.clone()).await?;
-    let (pause_controller, pause_client) = PauseController::new();
     let hold_guard = pause_controller.hold(FINISHED_BOOTSTRAP_UPDATES);
     let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
-    let mut handle = scenario
-        .database
-        .start_search_and_vector_bootstrap(pause_client);
+    let mut handle = scenario.database.start_search_and_vector_bootstrap();
     let bootstrap_fut = handle.join().fuse();
     pin_mut!(bootstrap_fut);
     select_biased! {

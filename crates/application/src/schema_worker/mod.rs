@@ -160,7 +160,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             )?;
 
             for table_name in tables_to_check {
-                let table_iterator = self.database.table_iterator(ts, 1000, None);
+                let table_iterator = self.database.table_iterator(ts, 1000);
                 let tablet_id = table_mapping.name_to_tablet()(table_name.clone())?;
                 let stream = table_iterator.stream_documents_in_table(
                     tablet_id,

@@ -43,6 +43,7 @@ use super::{
     Runtime,
     SpawnHandle,
 };
+use crate::pause::PauseClient;
 
 pub static CONVEX_EPOCH: LazyLock<SystemTime> =
     LazyLock::new(|| SystemTime::UNIX_EPOCH + Duration::from_secs(1620198000)); // May 5th, 2021 :)
@@ -50,6 +51,7 @@ pub static CONVEX_EPOCH: LazyLock<SystemTime> =
 pub struct TestDriver {
     tokio_runtime: Option<tokio::runtime::Runtime>,
     state: Arc<Mutex<TestRuntimeState>>,
+    pause_client: PauseClient,
 }
 
 impl TestDriver {
@@ -58,6 +60,14 @@ impl TestDriver {
     }
 
     pub fn new_with_seed(seed: u64) -> Self {
+        Self::new_with_config(seed, PauseClient::new())
+    }
+
+    pub fn new_with_pause_client(pause_client: PauseClient) -> Self {
+        Self::new_with_config(0, pause_client)
+    }
+
+    pub fn new_with_config(seed: u64, pause_client: PauseClient) -> Self {
         let tokio_seed = RngSeed::from_bytes(&seed.to_le_bytes());
         let tokio_runtime = Builder::new_current_thread()
             .enable_time()
@@ -74,6 +84,7 @@ impl TestDriver {
         Self {
             tokio_runtime: Some(tokio_runtime),
             state: Arc::new(Mutex::new(TestRuntimeState { rng, creation_time })),
+            pause_client,
         }
     }
 
@@ -86,6 +97,7 @@ impl TestDriver {
                 .handle()
                 .clone(),
             state: Arc::downgrade(&self.state),
+            pause_client: self.pause_client.clone(),
         }
     }
 
@@ -116,6 +128,7 @@ struct TestRuntimeState {
 pub struct TestRuntime {
     tokio_handle: tokio::runtime::Handle,
     state: Weak<Mutex<TestRuntimeState>>,
+    pause_client: PauseClient,
 }
 
 impl TestRuntime {
@@ -176,6 +189,10 @@ impl Runtime for TestRuntime {
 
     fn rng(&self) -> Box<dyn RngCore> {
         Box::new(TestRng { rt: self.clone() })
+    }
+
+    fn pause_client(&self) -> PauseClient {
+        self.pause_client.clone()
     }
 }
 

@@ -33,7 +33,6 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     log_streaming::NoopLogSender,
-    pause::PauseClient,
     persistence::Persistence,
     types::{
         ConvexOrigin,
@@ -224,7 +223,6 @@ pub async fn make_app(
             },
             database.clone(),
             fetch_client,
-            PauseClient::new(),
         )
         .await?,
     );
@@ -249,8 +247,6 @@ pub async fn make_app(
         actions,
         Arc::new(NoopLogSender),
         Arc::new(AllowLogging),
-        PauseClient::new(),
-        PauseClient::new(),
         Arc::new(ApplicationAuth::new(
             key_broker.clone(),
             Arc::new(NullAccessTokenAuth),

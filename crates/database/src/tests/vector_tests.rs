@@ -24,7 +24,6 @@ use common::{
         MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         VECTOR_INDEX_SIZE_SOFT_LIMIT,
     },
-    pause::PauseClient,
     persistence::PersistenceReader,
     runtime::Runtime,
     types::{
@@ -134,7 +133,7 @@ impl<RT: Runtime> Scenario<RT> {
             },
         )
         .await?;
-        let mut handle = db.start_search_and_vector_bootstrap(PauseClient::new());
+        let mut handle = db.start_search_and_vector_bootstrap();
         handle.join().await?;
 
         let self_ = Self {
@@ -777,7 +776,6 @@ async fn test_index_backfill_is_incremental(rt: TestRuntime) -> anyhow::Result<(
         *VECTOR_INDEX_SIZE_SOFT_LIMIT,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         incremental_index_size,
-        None,
     );
 
     let mut backfill_ts = None;
@@ -862,7 +860,6 @@ async fn test_incremental_backfill_with_compaction(rt: TestRuntime) -> anyhow::R
         *VECTOR_INDEX_SIZE_SOFT_LIMIT,
         *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
         incremental_index_size,
-        None,
     );
 
     for _ in 0..num_parts {

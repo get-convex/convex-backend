@@ -52,7 +52,6 @@ use common::{
         LogLines,
     },
     minitrace_helpers::EncodedSpan,
-    pause::PauseClient,
     query_journal::QueryJournal,
     runtime::{
         Runtime,
@@ -724,7 +723,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let timer = mutation_timer();
         let result = self
@@ -735,7 +733,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 identity,
                 mutation_identifier,
                 caller,
-                pause_client,
             )
             .await;
         match &result {
@@ -755,7 +752,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -788,6 +784,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .database
                 .begin_with_usage(identity.clone(), usage_tracker.clone())
                 .await?;
+            let pause_client = self.runtime.pause_client();
             pause_client.wait("retry_mutation_loop_start").await;
             let identity = tx.inert_identity();
 
@@ -1888,7 +1885,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
-                PauseClient::new(),
             )
             .await
             .map(|r| match r {
@@ -1969,7 +1965,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_storage_store_file_entry",
                 |tx| {
                     async {
@@ -2001,7 +1996,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_storage_delete",
                 |tx| {
                     async {
@@ -2032,7 +2026,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_schedule_job",
                 |tx| {
                     let path = scheduled_path.clone();
@@ -2071,7 +2064,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_cancel_job",
                 |tx| {
                     async {

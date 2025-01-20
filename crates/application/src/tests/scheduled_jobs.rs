@@ -12,7 +12,7 @@ use common::{
     execution_context::ExecutionContext,
     pause::{
         HoldGuard,
-        PauseClient,
+        PauseController,
     },
     runtime::Runtime,
     types::FunctionCaller,
@@ -50,7 +50,6 @@ use crate::{
         SCHEDULED_JOB_EXECUTED,
     },
     test_helpers::{
-        ApplicationFixtureArgs,
         ApplicationTestExt,
         OBJECTS_TABLE,
         OBJECTS_TABLE_COMPONENT,
@@ -99,9 +98,11 @@ async fn wait_for_scheduled_job_execution(hold_guard: HoldGuard) {
 }
 
 #[convex_macro::test_runtime]
-async fn test_scheduled_jobs_success(rt: TestRuntime) -> anyhow::Result<()> {
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
-    let application = Application::new_for_tests_with_args(&rt, args).await?;
+async fn test_scheduled_jobs_success(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
     let hold_guard = pause_controller.hold(SCHEDULED_JOB_EXECUTED);
@@ -181,10 +182,12 @@ async fn test_scheduled_jobs_race_condition(rt: TestRuntime) -> anyhow::Result<(
 }
 
 #[convex_macro::test_runtime]
-async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_scheduled_jobs_garbage_collection(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
     std::env::set_var("SCHEDULED_JOB_RETENTION", "30");
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
-    let application = Application::new_for_tests_with_args(&rt, args).await?;
+    let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
     let hold_guard = pause_controller.hold(SCHEDULED_JOB_EXECUTED);
@@ -223,15 +226,21 @@ async fn test_scheduled_jobs_garbage_collection(rt: TestRuntime) -> anyhow::Resu
 }
 
 #[convex_macro::test_runtime]
-async fn test_pause_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
-    test_scheduled_jobs_helper(rt, BackendState::Paused).await?;
+async fn test_pause_scheduled_jobs(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    test_scheduled_jobs_helper(rt, BackendState::Paused, pause_controller).await?;
 
     Ok(())
 }
 
 #[convex_macro::test_runtime]
-async fn test_disable_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
-    test_scheduled_jobs_helper(rt, BackendState::Disabled).await?;
+async fn test_disable_scheduled_jobs(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    test_scheduled_jobs_helper(rt, BackendState::Disabled, pause_controller).await?;
 
     Ok(())
 }
@@ -240,9 +249,9 @@ async fn test_disable_scheduled_jobs(rt: TestRuntime) -> anyhow::Result<()> {
 async fn test_scheduled_jobs_helper(
     rt: TestRuntime,
     backend_state: BackendState,
+    pause_controller: PauseController,
 ) -> anyhow::Result<()> {
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
-    let application = Application::new_for_tests_with_args(&rt, args).await?;
+    let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
     let scheduled_job_executed_hold_guard = pause_controller.hold(SCHEDULED_JOB_EXECUTED);
@@ -315,7 +324,6 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             FunctionCaller::Action {
                 parent_scheduled_job,
             },
-            PauseClient::new(),
         )
         .await??;
 
@@ -346,9 +354,11 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
 }
 
 #[convex_macro::test_runtime]
-async fn test_scheduled_job_retry(rt: TestRuntime) -> anyhow::Result<()> {
-    let (args, pause_controller) = ApplicationFixtureArgs::with_scheduled_jobs_pause_client();
-    let application = Application::new_for_tests_with_args(&rt, args).await?;
+async fn test_scheduled_job_retry(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
 
     let attempt_commit = pause_controller.hold(SCHEDULED_JOB_COMMITTING);

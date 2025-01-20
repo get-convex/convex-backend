@@ -5,8 +5,6 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(any(test, feature = "testing"))]
-use common::pause::PauseClient;
 use common::{
     document::ResolvedDocument,
     persistence::{
@@ -304,11 +302,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
     }
 
     #[cfg(any(test, feature = "testing"))]
-    pub async fn compute_snapshot(
-        &self,
-        pause_client: Option<PauseClient>,
-        page_size: usize,
-    ) -> anyhow::Result<TableSummarySnapshot> {
+    pub async fn compute_snapshot(&self, page_size: usize) -> anyhow::Result<TableSummarySnapshot> {
         let mut tx = self.database.begin(Identity::system()).await?;
         let start_ts = tx.begin_timestamp();
         let table_mapping = tx.table_mapping().clone();
@@ -317,12 +311,12 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
 
         let snapshot_ts = self.database.now_ts_for_reads();
 
-        let pause_client = pause_client.unwrap_or_default();
+        let pause_client = self.database.runtime().pause_client();
         pause_client.wait("table_summary_snapshot_picked").await;
         let database = self.database.clone();
         Self::collect_snapshot(
             *start_ts,
-            move || database.table_iterator(snapshot_ts, page_size, None),
+            move || database.table_iterator(snapshot_ts, page_size),
             &table_mapping,
             &by_id_indexes,
         )
@@ -333,7 +327,7 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
         // table_iterator, table_mapping, and by_id_indexes should all be
         // computed at the same snapshot.
         snapshot_ts: Timestamp,
-        table_iterator: impl Fn() -> TableIterator,
+        table_iterator: impl Fn() -> TableIterator<RT>,
         table_mapping: &TableMapping,
         by_id_indexes: &BTreeMap<TabletId, IndexId>,
     ) -> anyhow::Result<TableSummarySnapshot> {
@@ -379,7 +373,8 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
     async fn compute(&self, bootstrap_kind: BootstrapKind) -> anyhow::Result<TableSummarySnapshot> {
         let reader = self.persistence.reader();
         let upper_bound = self.database.now_ts_for_reads();
-        let (new_snapshot, _) = bootstrap::<RT>(
+        let (new_snapshot, _) = bootstrap(
+            self.database.runtime().clone(),
             reader,
             self.retention_validator.clone(),
             upper_bound,
@@ -421,6 +416,7 @@ pub fn table_summary_bootstrapping_error(msg: Option<&'static str>) -> anyhow::E
 /// * The new table summary snapshot
 /// * The number of log entries processed
 pub async fn bootstrap<RT: Runtime>(
+    runtime: RT,
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     target_ts: RepeatableTimestamp,
@@ -432,11 +428,16 @@ pub async fn bootstrap<RT: Runtime>(
         BootstrapKind::FromCheckpoint => TableSummarySnapshot::load(persistence.as_ref()).await?,
     };
     let recent_ts = new_static_repeatable_recent(persistence.as_ref()).await?;
-    let (table_mapping, _, index_registry, ..) = DatabaseSnapshot::load_table_and_index_metadata(
-        &RepeatablePersistence::new(persistence.clone(), recent_ts, retention_validator.clone())
+    let (table_mapping, _, index_registry, ..) =
+        DatabaseSnapshot::<RT>::load_table_and_index_metadata(
+            &RepeatablePersistence::new(
+                persistence.clone(),
+                recent_ts,
+                retention_validator.clone(),
+            )
             .read_snapshot(recent_ts)?,
-    )
-    .await?;
+        )
+        .await?;
     let (base_snapshot, base_snapshot_ts) = match stored_snapshot {
         Some(base) => base,
         None => {
@@ -445,11 +446,11 @@ pub async fn bootstrap<RT: Runtime>(
                 *recent_ts,
                 || {
                     TableIterator::new(
+                        runtime.clone(),
                         recent_ts,
                         persistence.clone(),
                         retention_validator.clone(),
                         1000,
-                        None,
                     )
                 },
                 &table_mapping,
@@ -656,6 +657,7 @@ mod tests {
         // Bootstrap at ts2 by walking by_id, and write the snapshot that later
         // test cases will use.
         let (snapshot, _) = bootstrap::<TestRuntime>(
+            rt.clone(),
             persistence.reader(),
             rv.clone(),
             ts2,
@@ -670,7 +672,8 @@ mod tests {
         write_snapshot(persistence.as_ref(), &snapshot).await?;
 
         // Bootstrap at ts2 by reading the snapshot and returning it.
-        let (snapshot, walked) = bootstrap::<TestRuntime>(
+        let (snapshot, walked) = bootstrap(
+            rt.clone(),
             persistence.reader(),
             rv.clone(),
             ts2,
@@ -685,7 +688,8 @@ mod tests {
         assert_eq!(snapshot.ts, *ts2);
 
         // Bootstrap at ts3 by reading the snapshot and walking forwards.
-        let (snapshot, walked) = bootstrap::<TestRuntime>(
+        let (snapshot, walked) = bootstrap(
+            rt.clone(),
             persistence.reader(),
             rv.clone(),
             ts3,
@@ -700,7 +704,8 @@ mod tests {
         assert_eq!(snapshot.ts, *ts3);
 
         // Bootstrap at ts1 by reading the snapshot and walking backwards.
-        let (snapshot, walked) = bootstrap::<TestRuntime>(
+        let (snapshot, walked) = bootstrap(
+            rt.clone(),
             persistence.reader(),
             rv.clone(),
             ts1,
@@ -715,7 +720,8 @@ mod tests {
         assert_eq!(snapshot.ts, *ts1);
 
         // Bootstrap from scratch at ts3 by walking by_id.
-        let (snapshot, _) = bootstrap::<TestRuntime>(
+        let (snapshot, _) = bootstrap(
+            rt.clone(),
             persistence.reader(),
             rv.clone(),
             ts3,
@@ -778,7 +784,7 @@ mod tests {
                 database,
                 Arc::new(NoopRetentionValidator),
             );
-            let computed = writer.compute_snapshot(None, 2).await?;
+            let computed = writer.compute_snapshot(2).await?;
 
             if !is_empty {
                 let table_id = table_mapping
@@ -827,7 +833,7 @@ mod tests {
                 database,
                 Arc::new(NoopRetentionValidator),
             );
-            let computed = writer.compute_snapshot(None, 2).await?;
+            let computed = writer.compute_snapshot(2).await?;
 
             for (table_name, values) in &values {
                 if !values.is_empty() {

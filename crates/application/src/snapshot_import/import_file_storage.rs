@@ -16,7 +16,6 @@ use common::{
         PeekableExt,
         TryPeekableExt,
     },
-    pause::PauseClient,
     runtime::Runtime,
     types::StorageUuid,
 };
@@ -185,7 +184,6 @@ pub async fn import_storage_table<RT: Runtime>(
             .execute_with_overloaded_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "snapshot_import_storage_table",
                 |tx| {
                     async {

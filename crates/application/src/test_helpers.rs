@@ -27,10 +27,6 @@ use common::{
         UDF_CACHE_MAX_SIZE,
     },
     log_streaming::NoopLogSender,
-    pause::{
-        PauseClient,
-        PauseController,
-    },
     persistence::Persistence,
     runtime::Runtime,
     testing::TestPersistence,
@@ -123,22 +119,10 @@ pub static OBJECTS_TABLE_COMPONENT: ComponentId = ComponentId::test_user();
 #[derive(Default)]
 pub struct ApplicationFixtureArgs {
     pub tp: Option<TestPersistence>,
-    pub snapshot_import_pause_client: Option<PauseClient>,
-    pub scheduled_jobs_pause_client: PauseClient,
-    pub function_runner_pause_client: PauseClient,
     pub event_logger: Option<Arc<dyn UsageEventLogger>>,
 }
 
 impl ApplicationFixtureArgs {
-    pub fn with_scheduled_jobs_pause_client() -> (Self, PauseController) {
-        let (pause_controller, pause_client) = PauseController::new();
-        let args = ApplicationFixtureArgs {
-            scheduled_jobs_pause_client: pause_client,
-            ..Default::default()
-        };
-        (args, pause_controller)
-    }
-
     pub fn with_event_logger(event_logger: Arc<dyn UsageEventLogger>) -> Self {
         Self {
             event_logger: Some(event_logger),
@@ -199,7 +183,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let searcher = Arc::new(search::searcher::SearcherStub {});
         let segment_term_metadata_fetcher = Arc::new(search::searcher::SearcherStub {});
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
-        let snapshot_import_pause_client = args.snapshot_import_pause_client.unwrap_or_default();
         let database = Database::load(
             Arc::new(persistence.clone()),
             rt.clone(),
@@ -250,7 +233,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 },
                 database.clone(),
                 fetch_client,
-                args.function_runner_pause_client,
             )
             .await?,
         );
@@ -294,8 +276,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             actions,
             Arc::new(NoopLogSender),
             Arc::new(AllowLogging),
-            snapshot_import_pause_client,
-            args.scheduled_jobs_pause_client,
             Arc::new(ApplicationAuth::new(
                 kb.clone(),
                 Arc::new(NullAccessTokenAuth),

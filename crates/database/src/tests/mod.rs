@@ -29,7 +29,6 @@ use common::{
     },
     maybe_val,
     object_validator,
-    pause::PauseClient,
     persistence::{
         NoopRetentionValidator,
         Persistence,
@@ -1913,7 +1912,8 @@ async fn test_index_write(rt: TestRuntime) -> anyhow::Result<()> {
         retention_validator.clone(),
         rt.clone(),
     );
-    let database_snapshot = DatabaseSnapshot::load::<TestRuntime>(
+    let database_snapshot = DatabaseSnapshot::load(
+        rt.clone(),
         tp.reader(),
         unchecked_repeatable_ts(ts),
         retention_validator,
@@ -2077,7 +2077,6 @@ async fn test_retries(rt: TestRuntime) -> anyhow::Result<()> {
     db.execute_with_occ_retries(
         Identity::system(),
         FunctionUsageTracker::new(),
-        PauseClient::new(),
         WriteSource::unknown(),
         |tx| insert(tx).into(),
     )
@@ -2121,7 +2120,6 @@ async fn test_retries_includes_f(rt: TestRuntime) -> anyhow::Result<()> {
         Backoff::new(Duration::from_secs(0), Duration::from_millis(10)),
         FunctionUsageTracker::new(),
         |e: &anyhow::Error| e.is_overloaded(),
-        PauseClient::new(),
         WriteSource::unknown(),
         |tx| overloaded(tx, receiver.clone()).into(),
     )
@@ -2139,7 +2137,6 @@ async fn test_retries_includes_f(rt: TestRuntime) -> anyhow::Result<()> {
             Backoff::new(Duration::from_secs(0), Duration::from_millis(10)),
             FunctionUsageTracker::new(),
             |e: &anyhow::Error| e.is_overloaded(),
-            PauseClient::new(),
             WriteSource::unknown(),
             |tx| overloaded(tx, receiver.clone()).into(),
         )

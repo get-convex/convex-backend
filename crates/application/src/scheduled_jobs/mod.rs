@@ -33,10 +33,7 @@ use common::{
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     minitrace_helpers::get_sampled_span,
-    pause::{
-        Fault,
-        PauseClient,
-    },
+    pause::Fault,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -118,7 +115,6 @@ impl ScheduledJobRunner {
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
-        pause_client: PauseClient,
     ) -> Self {
         let executor_fut = ScheduledJobExecutor::start(
             rt.clone(),
@@ -126,7 +122,6 @@ impl ScheduledJobRunner {
             database.clone(),
             runner,
             function_log,
-            pause_client,
         );
         let executor = Arc::new(Mutex::new(rt.spawn("scheduled_job_executor", executor_fut)));
 
@@ -148,7 +143,6 @@ impl ScheduledJobRunner {
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
-    pause_client: PauseClient,
 }
 
 impl<RT: Runtime> Deref for ScheduledJobExecutor<RT> {
@@ -166,7 +160,6 @@ pub struct ScheduledJobContext<RT: Runtime> {
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
-    pause_client: PauseClient,
 }
 
 /// This roughly matches tokio's permits that it uses as part of cooperative
@@ -182,7 +175,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
-        pause_client: PauseClient,
     ) -> impl Future<Output = ()> + Send {
         let mut executor = Self {
             context: ScheduledJobContext {
@@ -191,9 +183,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 database,
                 runner,
                 function_log,
-                pause_client: pause_client.clone(),
             },
-            pause_client,
         };
         async move {
             let mut backoff =
@@ -222,9 +212,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 database,
                 runner,
                 function_log,
-                pause_client: PauseClient::new(),
             },
-            pause_client: PauseClient::new(),
         }
     }
 
@@ -245,6 +233,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
     async fn run(&mut self, backoff: &mut Backoff) -> anyhow::Result<()> {
         tracing::info!("Starting scheduled job executor");
+        let pause_client = self.context.rt.pause_client();
         let (job_finished_tx, mut job_finished_rx) =
             mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
         let mut running_job_ids = HashSet::new();
@@ -293,7 +282,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             select_biased! {
                 job_id = job_finished_rx.recv().fuse() => {
                     if let Some(job_id) = job_id {
-                        self.pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
+                        pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
                         running_job_ids.remove(&job_id);
                     } else {
                         anyhow::bail!("Job results channel closed, this is unexpected!");
@@ -645,6 +634,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let identity = tx.inert_identity();
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         let path = job.path.clone();
+        let pause_client = self.rt.pause_client();
 
         let udf_args = job.udf_args()?;
         let result = self
@@ -674,7 +664,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             SchedulerModel::new(&mut tx, namespace)
                 .complete(job_id, ScheduledJobState::Success)
                 .await?;
-            if let Fault::Error(e) = self.pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
+            if let Fault::Error(e) = pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
                 tracing::info!("Injected error before committing mutation");
                 return Err(e);
             };

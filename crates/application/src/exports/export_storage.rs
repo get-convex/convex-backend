@@ -71,7 +71,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     let mut table_upload = zip_snapshot_upload
         .start_system_table(path_prefix, FILE_STORAGE_VIRTUAL_TABLE.clone())
         .await?;
-    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000, None);
+    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
     pin_mut!(stream);
     while let Some((doc, _ts)) = stream.try_next().await? {
@@ -95,7 +95,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     }
     table_upload.complete().await?;
 
-    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000, None);
+    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
     pin_mut!(stream);
     while let Some((doc, _ts)) = stream.try_next().await? {

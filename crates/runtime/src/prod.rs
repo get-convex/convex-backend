@@ -18,6 +18,7 @@ use common::{
         RUNTIME_STACK_SIZE,
         RUNTIME_WORKER_THREADS,
     },
+    pause::PauseClient,
     runtime::{
         JoinError,
         Runtime,
@@ -249,5 +250,9 @@ impl Runtime for ProdRuntime {
         // platform, to be > statistically strong and unpredictable (meaning a
         // cryptographically secure PRNG). (Source: https://docs.rs/rand/latest/rand/rngs/struct.StdRng.html)
         Box::new(rand::thread_rng())
+    }
+
+    fn pause_client(&self) -> PauseClient {
+        PauseClient::new()
     }
 }

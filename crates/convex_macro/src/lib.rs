@@ -83,6 +83,33 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let Some(FnArg::Typed(_)) = args.first() else {
         panic!("#[test_runtime] requires `{name}` to have `rt: TestRuntime` as the first arg");
     };
+    let is_pauseable = if let Some(arg1) = args.get(1) {
+        assert!(
+            matches!(arg1, FnArg::Typed(pat) if matches!(&*pat.ty, syn::Type::Path(p) if p.path.is_ident("PauseController")))
+        );
+        true
+    } else {
+        false
+    };
+    let run_test = if is_pauseable {
+        quote! {
+            let (__pause_controller, __pause_client) = ::common::pause::PauseController::new();
+            let mut __test_driver = ::runtime::testing::TestDriver::new_with_pause_client(
+                __pause_client
+            );
+            let rt = __test_driver.rt();
+            let test_future = #name(rt, __pause_controller);
+            __test_driver.run_until(test_future)
+        }
+    } else {
+        quote! {
+            let mut __test_driver = ::runtime::testing::TestDriver::new();
+            let rt = __test_driver.rt();
+            let test_future = #name(rt);
+            __test_driver.run_until(test_future)
+        }
+    };
+
     let attrs = ast.attrs.iter();
     let gen = quote! {
         #[test]
@@ -94,10 +121,7 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 *::common::knobs::RUNTIME_STACK_SIZE);
             let handler = builder
                 .spawn(|| {
-                    let mut __test_driver = ::runtime::testing::TestDriver::new();
-                    let rt = __test_driver.rt();
-                    let test_future = #name(rt);
-                    __test_driver.run_until(test_future)
+                    #run_test
                 })
                 .unwrap();
             handler.join().unwrap()

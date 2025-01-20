@@ -493,7 +493,8 @@ impl<RT: Runtime> Committer<RT> {
         // checkpointed a TableSummarySnapshot.
         // Walk any changes since the last checkpoint, and update the snapshot manager
         // with the new TableSummarySnapshot.
-        let bootstrap_result = table_summary::bootstrap::<RT>(
+        let bootstrap_result = table_summary::bootstrap(
+            self.runtime.clone(),
             self.persistence.reader(),
             self.retention_validator.clone(),
             latest_ts,

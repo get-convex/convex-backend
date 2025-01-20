@@ -10,8 +10,6 @@ use std::{
 
 use ::metrics::StatusTimer;
 use async_broadcast::Receiver as BroadcastReceiver;
-#[cfg(test)]
-use common::pause::PauseClient;
 use common::{
     codel_queue::{
         new_codel_queue_async,
@@ -56,7 +54,6 @@ use crate::metrics::{
     log_async_lru_size,
 };
 
-#[cfg(test)]
 const PAUSE_DURING_GENERATE_VALUE_LABEL: &str = "generate_value";
 
 /// A write through cache with support for cancelation.
@@ -76,15 +73,10 @@ const PAUSE_DURING_GENERATE_VALUE_LABEL: &str = "generate_value";
 /// cost is that we have to spawn more value calculating threads and that the
 /// desired concurrency of the cache may not match that of the caller.
 pub struct AsyncLru<RT: Runtime, Key, Value> {
+    runtime: RT,
     inner: Arc<Mutex<Inner<RT, Key, Value>>>,
     label: &'static str,
     handle: Arc<Box<dyn SpawnHandle>>,
-    // This tokio Mutex is safe only because it's stripped out of production
-    // builds. We shouldn't use tokio locks for prod code (see
-    // https://github.com/rust-lang/rust/issues/104883 for background and
-    // https://github.com/get-convex/convex/pull/19307 for an alternative).
-    #[cfg(test)]
-    pause_client: Option<Arc<tokio::sync::Mutex<PauseClient>>>,
 }
 
 pub type SingleValueGenerator<Value> = BoxFuture<'static, anyhow::Result<Value>>;
@@ -93,10 +85,9 @@ pub type ValueGenerator<Key, Value> = BoxFuture<'static, HashMap<Key, anyhow::Re
 impl<RT: Runtime, Key, Value> Clone for AsyncLru<RT, Key, Value> {
     fn clone(&self) -> Self {
         Self {
+            runtime: self.runtime.clone(),
             inner: self.inner.clone(),
             label: self.label,
-            #[cfg(test)]
-            pause_client: self.pause_client.clone(),
             handle: self.handle.clone(),
         }
     }
@@ -222,27 +213,14 @@ impl<
     /// concurrency - The number of values that can be concurrently generated.
     /// This should be set based on system values.
     pub fn new(rt: RT, max_size: u64, concurrency: usize, label: &'static str) -> Self {
-        Self::_new(
-            rt,
-            LruCache::unbounded(),
-            max_size,
-            concurrency,
-            label,
-            #[cfg(test)]
-            None,
-        )
+        Self::_new(rt, LruCache::unbounded(), max_size, concurrency, label)
     }
 
     #[cfg(test)]
     #[allow(unused)]
-    fn new_for_tests(
-        rt: RT,
-        max_size: u64,
-        label: &'static str,
-        pause_client: Option<PauseClient>,
-    ) -> Self {
+    fn new_for_tests(rt: RT, max_size: u64, label: &'static str) -> Self {
         let lru = LruCache::unbounded();
-        Self::_new(rt, lru, max_size, 1, label, pause_client)
+        Self::_new(rt, lru, max_size, 1, label)
     }
 
     fn _new(
@@ -251,7 +229,6 @@ impl<
         max_size: u64,
         concurrency: usize,
         label: &'static str,
-        #[cfg(test)] pause_client: Option<PauseClient>,
     ) -> Self {
         let (tx, rx) = new_codel_queue_async(rt.clone(), 200);
         let inner = Inner::new(cache, max_size, label, tx);
@@ -260,12 +237,10 @@ impl<
             Self::value_generating_worker_thread(rt.clone(), rx, inner.clone(), concurrency),
         );
         Self {
+            runtime: rt.clone(),
             inner,
             label,
             handle: Arc::new(handle),
-            #[cfg(test)]
-            pause_client: pause_client
-                .map(|pause_client| Arc::new(tokio::sync::Mutex::new(pause_client))),
         }
     }
 
@@ -389,18 +364,14 @@ impl<
         key: &Key,
         value_generator: ValueGenerator<Key, Value>,
     ) -> anyhow::Result<Arc<Value>> {
+        let pause_client = self.runtime.pause_client();
         let status = self.get_sync(key, value_generator)?;
         tracing::debug!("Getting key {key:?} with status {status}");
         match status {
             Status::Ready(value) => Ok(value),
             Status::Waiting(rx) => Ok(Self::wait_for_value(key, rx).await?),
             Status::Kickoff(rx, timer) => {
-                #[cfg(test)]
-                if let Some(pause_client) = &mut self.pause_client.clone() {
-                    let pause_client = pause_client.lock().await;
-                    pause_client.wait(PAUSE_DURING_GENERATE_VALUE_LABEL).await;
-                    drop(pause_client);
-                }
+                pause_client.wait(PAUSE_DURING_GENERATE_VALUE_LABEL).await;
                 let result = Self::wait_for_value(key, rx).await?;
                 timer.finish();
                 Ok(result)
@@ -692,9 +663,9 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn get_when_canceled_during_calculate_returns_value(
         rt: TestRuntime,
+        pause: PauseController,
     ) -> anyhow::Result<()> {
-        let (pause, pause_client) = PauseController::new();
-        let cache = AsyncLru::new_for_tests(rt, 1, "label", Some(pause_client));
+        let cache = AsyncLru::new_for_tests(rt, 1, "label");
         let hold_guard = pause.hold(PAUSE_DURING_GENERATE_VALUE_LABEL);
         let mut first = cache
             .get("key", GenerateRandomValue::generate_value("key").boxed())
@@ -730,13 +701,13 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn size_is_zero_initially(rt: TestRuntime) {
-        let cache: AsyncLru<TestRuntime, &str, u32> = AsyncLru::new_for_tests(rt, 1, "label", None);
+        let cache: AsyncLru<TestRuntime, &str, u32> = AsyncLru::new_for_tests(rt, 1, "label");
         assert_eq!(0, cache.size());
     }
 
     #[convex_macro::test_runtime]
     async fn size_increases_on_put(rt: TestRuntime) -> anyhow::Result<()> {
-        let cache = AsyncLru::new_for_tests(rt, 2, "label", None);
+        let cache = AsyncLru::new_for_tests(rt, 2, "label");
         cache
             .get("key1", GenerateRandomValue::generate_value("key1").boxed())
             .await?;
@@ -750,7 +721,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn size_with_custom_size_increases_on_put(rt: TestRuntime) -> anyhow::Result<()> {
-        let cache = AsyncLru::new_for_tests(rt, 4, "label", None);
+        let cache = AsyncLru::new_for_tests(rt, 4, "label");
         cache
             .get("key1", GenerateSizeTwoValue::generate_value("key1").boxed())
             .await?;
@@ -764,7 +735,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn size_does_not_increase_on_get(rt: TestRuntime) -> anyhow::Result<()> {
-        let cache = AsyncLru::new_for_tests(rt, 1, "label", None);
+        let cache = AsyncLru::new_for_tests(rt, 1, "label");
         cache
             .get("key", GenerateRandomValue::generate_value("key").boxed())
             .await?;
@@ -777,7 +748,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn size_with_custom_size_does_not_increase_on_get(rt: TestRuntime) -> anyhow::Result<()> {
-        let cache = AsyncLru::new_for_tests(rt, 2, "label", None);
+        let cache = AsyncLru::new_for_tests(rt, 2, "label");
         cache
             .get("key", GenerateSizeTwoValue::generate_value("key").boxed())
             .await?;
@@ -790,7 +761,7 @@ mod tests {
 
     #[convex_macro::test_runtime]
     async fn size_when_value_size_changes_is_consistent(rt: TestRuntime) -> anyhow::Result<()> {
-        let cache = AsyncLru::new_for_tests(rt, 1, "label", None);
+        let cache = AsyncLru::new_for_tests(rt, 1, "label");
         let value = cache
             .get(
                 "key",

@@ -57,7 +57,6 @@ use common::{
         initialize_root_from_parent,
         EncodedSpan,
     },
-    pause::PauseClient,
     query_journal::QueryJournal,
     runtime::{
         shutdown_and_join,
@@ -177,7 +176,6 @@ use crate::{
 // active permits more frequently than that.
 const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
 
-#[cfg(any(test, feature = "testing"))]
 pub const PAUSE_RECREATE_CLIENT: &str = "recreate_client";
 pub const PAUSE_REQUEST: &str = "pause_request";
 pub const NO_AVAILABLE_WORKERS: &str = "There are no available workers to process the request";
@@ -408,7 +406,6 @@ pub struct EnvironmentData<RT: Runtime> {
 pub struct Request<RT: Runtime> {
     pub client_id: String,
     pub inner: RequestType<RT>,
-    pub pause_client: PauseClient,
     pub parent_trace: EncodedSpan,
 }
 
@@ -417,7 +414,6 @@ impl<RT: Runtime> Request<RT> {
         Self {
             client_id,
             inner,
-            pause_client: PauseClient::new(),
             parent_trace,
         }
     }
@@ -1443,12 +1439,8 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     if last_client_id.get_or_insert_with(|| {
                         req.client_id.clone()
                     }) != &req.client_id {
-                        #[cfg(any(test, feature = "testing"))]
-                        if let Some(pause_client) = &mut self.pause_client() {
-                            let pause_client = pause_client.lock().await;
-                            pause_client.wait(PAUSE_RECREATE_CLIENT).await;
-                            drop(pause_client);
-                        }
+                        let pause_client = self.rt().pause_client();
+                        pause_client.wait(PAUSE_RECREATE_CLIENT).await;
                         tracing::debug!("Restarting isolate due to client change, previous: {:?}, new: {:?}", last_client_id, req.client_id);
                         metrics::log_recreate_isolate("client_id_changed");
                         drop(isolate);
@@ -1498,8 +1490,6 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
 
     fn config(&self) -> &IsolateConfig;
     fn rt(&self) -> RT;
-    #[cfg(any(test, feature = "testing"))]
-    fn pause_client(&self) -> Option<Arc<tokio::sync::Mutex<PauseClient>>>;
 }
 
 pub(crate) fn should_recreate_isolate<RT: Runtime>(
@@ -1564,21 +1554,23 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn test_scheduler_workers_limit_requests(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_scheduler_workers_limit_requests(
+        rt: TestRuntime,
+        pause1: PauseController,
+    ) -> anyhow::Result<()> {
         initialize_v8();
         let function_runner_core = IsolateClient::new(rt.clone(), 100, 1, None)?;
-        let (pause1, pause_client1) = PauseController::new();
         let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
         let client1 = "client1";
         let hold_guard = pause1.hold(PAUSE_REQUEST);
         let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client1, Some(pause_client1), sender).await?;
+        let request = bogus_udf_request(&db, client1, sender).await?;
         function_runner_core.send_request(request)?;
         // Pausing a request while being executed should make the next request be
         // rejected because there are no available workers.
         let _guard = hold_guard.wait_for_blocked().await.unwrap();
         let (sender, rx2) = oneshot::channel();
-        let request2 = bogus_udf_request(&db, client1, None, sender).await?;
+        let request2 = bogus_udf_request(&db, client1, sender).await?;
         function_runner_core.send_request(request2)?;
         let response = IsolateClient::<TestRuntime>::receive_response(rx2).await?;
         let err = response.unwrap_err();
@@ -1590,43 +1582,45 @@ mod tests {
     #[convex_macro::test_runtime]
     async fn test_scheduler_does_not_throttle_different_clients(
         rt: TestRuntime,
+        pause1: PauseController,
     ) -> anyhow::Result<()> {
         initialize_v8();
         let function_runner_core = IsolateClient::new(rt.clone(), 50, 2, None)?;
-        let (pause1, pause_client1) = PauseController::new();
         let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let client1 = "client1";
         let hold_guard = pause1.hold(PAUSE_REQUEST);
         let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client1, Some(pause_client1), sender).await?;
+        let request = bogus_udf_request(&db, client1, sender).await?;
         function_runner_core.send_request(request)?;
         // Pausing a request should not affect the next one because we have 2 workers
         // and 2 requests from different clients.
         let _guard = hold_guard.wait_for_blocked().await.unwrap();
         let (sender, rx2) = oneshot::channel();
         let client2 = "client2";
-        let request2 = bogus_udf_request(&db, client2, None, sender).await?;
+        let request2 = bogus_udf_request(&db, client2, sender).await?;
         function_runner_core.send_request(request2)?;
         IsolateClient::<TestRuntime>::receive_response(rx2).await??;
         Ok(())
     }
 
     #[convex_macro::test_runtime]
-    async fn test_scheduler_throttles_same_client(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_scheduler_throttles_same_client(
+        rt: TestRuntime,
+        pause1: PauseController,
+    ) -> anyhow::Result<()> {
         initialize_v8();
         let function_runner_core = IsolateClient::new(rt.clone(), 50, 2, None)?;
-        let (pause1, pause_client1) = PauseController::new();
         let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let client = "client";
         let hold_guard = pause1.hold(PAUSE_REQUEST);
         let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client, Some(pause_client1), sender).await?;
+        let request = bogus_udf_request(&db, client, sender).await?;
         function_runner_core.send_request(request)?;
         // Pausing the first request and sending a second should make the second fail
         // because there's only one worker left and it is reserved for other clients.
         let _guard = hold_guard.wait_for_blocked().await.unwrap();
         let (sender, rx2) = oneshot::channel();
-        let request2 = bogus_udf_request(&db, client, None, sender).await?;
+        let request2 = bogus_udf_request(&db, client, sender).await?;
         function_runner_core.send_request(request2)?;
         let response = IsolateClient::<TestRuntime>::receive_response(rx2).await?;
         let err = response.unwrap_err();

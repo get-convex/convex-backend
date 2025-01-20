@@ -55,7 +55,6 @@ use common::{
     },
     interval::Interval,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
-    pause::PauseClient,
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
@@ -286,7 +285,8 @@ struct ListSnapshotTableIteratorCacheEntry {
 }
 
 #[derive(Clone)]
-pub struct DatabaseSnapshot {
+pub struct DatabaseSnapshot<RT: Runtime> {
+    runtime: RT,
     ts: RepeatableTimestamp,
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
@@ -339,7 +339,7 @@ pub struct BootstrapMetadata {
     pub index_tablet_id: TabletId,
 }
 
-impl DatabaseSnapshot {
+impl<RT: Runtime> DatabaseSnapshot<RT> {
     pub async fn max_ts(reader: &dyn PersistenceReader) -> anyhow::Result<Timestamp> {
         reader
             .max_ts()
@@ -469,13 +469,13 @@ impl DatabaseSnapshot {
         Ok(table_registry)
     }
 
-    pub fn table_iterator(&self) -> TableIterator {
+    pub fn table_iterator(&self) -> TableIterator<RT> {
         TableIterator::new(
+            self.runtime.clone(),
             self.timestamp(),
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
             1000,
-            None,
         )
     }
 
@@ -544,7 +544,8 @@ impl DatabaseSnapshot {
     }
 
     #[minitrace::trace]
-    pub async fn load<RT: Runtime>(
+    pub async fn load(
+        runtime: RT,
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
@@ -620,6 +621,7 @@ impl DatabaseSnapshot {
         .await?;
         let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         Ok(Self {
+            runtime,
             ts: persistence_snapshot.timestamp(),
             bootstrap_metadata,
             snapshot: Snapshot {
@@ -647,9 +649,10 @@ impl DatabaseSnapshot {
     /// But for tools like `db-info` or `db-verifier`, we want the table
     /// summaries to be loaded (and can't rely on TableSummaryWorker +
     /// committer in these services).
-    pub async fn load_table_summaries<RT: Runtime>(&mut self) -> anyhow::Result<()> {
+    pub async fn load_table_summaries(&mut self) -> anyhow::Result<()> {
         tracing::info!("Bootstrapping table summaries...");
-        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap::<RT>(
+        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap(
+            self.runtime.clone(),
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
             self.ts,
@@ -810,7 +813,7 @@ impl<RT: Runtime> Database<RT> {
 
         // Get the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
-        let original_max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
+        let original_max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
 
         let follower_retention_manager = FollowerRetentionManager::new_with_repeatable_ts(
             runtime.clone(),
@@ -819,19 +822,21 @@ impl<RT: Runtime> Database<RT> {
         )
         .await?;
 
-        let db_snapshot = DatabaseSnapshot::load::<RT>(
+        let db_snapshot = DatabaseSnapshot::load(
+            runtime.clone(),
             reader.clone(),
             snapshot_ts,
             Arc::new(follower_retention_manager.clone()),
         )
         .await?;
-        let max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
+        let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
         anyhow::ensure!(
             original_max_ts == max_ts,
             "race while loading DatabaseSnapshot: max ts {original_max_ts} at start, {max_ts} at \
              end",
         );
         let DatabaseSnapshot {
+            runtime: _,
             bootstrap_metadata,
             persistence_snapshot: _,
             ts,
@@ -902,11 +907,8 @@ impl<RT: Runtime> Database<RT> {
         tracing::info!("Set search storage to {search_storage:?}");
     }
 
-    pub fn start_search_and_vector_bootstrap(
-        &self,
-        pause_client: PauseClient,
-    ) -> Box<dyn SpawnHandle> {
-        let worker = self.new_search_and_vector_bootstrap_worker(pause_client);
+    pub fn start_search_and_vector_bootstrap(&self) -> Box<dyn SpawnHandle> {
+        let worker = self.new_search_and_vector_bootstrap_worker();
         self.runtime
             .spawn("search_and_vector_bootstrap", async move {
                 worker.start().await
@@ -921,13 +923,10 @@ impl<RT: Runtime> Database<RT> {
     pub fn new_search_and_vector_bootstrap_worker_for_testing(
         &self,
     ) -> SearchIndexBootstrapWorker<RT> {
-        self.new_search_and_vector_bootstrap_worker(PauseClient::new())
+        self.new_search_and_vector_bootstrap_worker()
     }
 
-    fn new_search_and_vector_bootstrap_worker(
-        &self,
-        pause_client: PauseClient,
-    ) -> SearchIndexBootstrapWorker<RT> {
+    fn new_search_and_vector_bootstrap_worker(&self) -> SearchIndexBootstrapWorker<RT> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let vector_persistence =
             RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
@@ -938,7 +937,6 @@ impl<RT: Runtime> Database<RT> {
             vector_persistence,
             table_mapping,
             self.committer.clone(),
-            pause_client,
         )
     }
 
@@ -993,16 +991,15 @@ impl<RT: Runtime> Database<RT> {
         &self,
         snapshot_ts: RepeatableTimestamp,
         page_size: usize,
-        pause_client: Option<PauseClient>,
-    ) -> TableIterator {
+    ) -> TableIterator<RT> {
         let retention_validator = self.retention_validator();
         let persistence = self.reader.clone();
         TableIterator::new(
+            self.runtime.clone(),
             snapshot_ts,
             persistence,
             retention_validator,
             page_size,
-            pause_client,
         )
     }
 
@@ -1021,7 +1018,7 @@ impl<RT: Runtime> Database<RT> {
         self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<TableMapping> {
-        let table_iterator = self.table_iterator(ts, 100, None);
+        let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let tables_tablet_id = snapshot
             .table_registry
@@ -1065,7 +1062,7 @@ impl<RT: Runtime> Database<RT> {
         self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
-        let table_iterator = self.table_iterator(ts, 100, None);
+        let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let index_tablet_id = snapshot.index_registry.index_table();
         let index_by_id = snapshot
@@ -1100,7 +1097,7 @@ impl<RT: Runtime> Database<RT> {
         self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<BTreeMap<ComponentId, ComponentPath>> {
-        let table_iterator = self.table_iterator(ts, 100, None);
+        let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let component_tablet_id = snapshot
             .table_registry
@@ -1351,7 +1348,6 @@ impl<RT: Runtime> Database<RT> {
         mut backoff: Backoff,
         usage: FunctionUsageTracker,
         is_retriable: R,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1366,6 +1362,7 @@ impl<RT: Runtime> Database<RT> {
             let mut tx = self
                 .begin_with_usage(identity.clone(), usage.clone())
                 .await?;
+            let pause_client = self.runtime.pause_client();
             pause_client.wait("retry_tx_loop_start").await;
             let start = Instant::now();
             let result = async {
@@ -1413,7 +1410,6 @@ impl<RT: Runtime> Database<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1429,7 +1425,6 @@ impl<RT: Runtime> Database<RT> {
             backoff,
             usage,
             is_retriable,
-            pause_client,
             write_source,
             f,
         )
@@ -1444,7 +1439,6 @@ impl<RT: Runtime> Database<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1460,7 +1454,6 @@ impl<RT: Runtime> Database<RT> {
             backoff,
             usage,
             is_retriable,
-            pause_client,
             write_source,
             f,
         )
@@ -1837,7 +1830,7 @@ impl<RT: Runtime> Database<RT> {
                 let (_, ds) = cached.take().unwrap();
                 ds
             } else {
-                let table_iterator = self.table_iterator(snapshot, 100, None);
+                let table_iterator = self.table_iterator(snapshot, 100);
                 table_iterator
                     .stream_documents_in_table(tablet_id, by_id, resolved_cursor)
                     .boxed()

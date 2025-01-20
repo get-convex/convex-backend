@@ -720,11 +720,11 @@ impl<RT: Runtime> IndexWriter<RT> {
         tablet_id: TabletId,
     ) -> anyhow::Result<()> {
         let table_iterator = TableIterator::new(
+            self.runtime.clone(),
             snapshot_ts,
             self.reader.clone(),
             self.retention_validator.clone(),
             *INDEX_BACKFILL_CHUNK_SIZE,
-            None,
         );
 
         let by_id = index_registry.must_get_by_id(tablet_id)?.id();
