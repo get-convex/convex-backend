@@ -164,13 +164,19 @@ impl RequestedCacheKey {
     fn get_cache_entry<'a>(
         &'a self,
         cache: &'a mut LruCache<StoredCacheKey, CacheEntry>,
+        stored_key_hint: Option<&'_ StoredCacheKey>,
     ) -> (Option<&'a CacheEntry>, StoredCacheKey) {
         for key in self._possible_cache_keys() {
             if cache.contains(&key) {
                 return (Some(cache.get(&key).unwrap()), key);
             }
         }
-        (None, self.precise_cache_key())
+        if let Some(stored_key_hint) = stored_key_hint {
+            assert!(self._possible_cache_keys().contains(stored_key_hint));
+            (None, stored_key_hint.clone())
+        } else {
+            (None, self.precise_cache_key())
+        }
     }
 
     fn cache_key_after_execution(&self, outcome: &UdfOutcome) -> StoredCacheKey {
@@ -341,6 +347,14 @@ impl<RT: Runtime> CacheManager<RT> {
             allowed_visibility: caller.allowed_visibility(),
         };
         let context = ExecutionContext::new(request_id, &caller);
+        // If the query exists at some cache key, but the cached entry is invalid,
+        // create a Waiting entry at that key, even if it's not the most precise for the
+        // request. e.g. if the query was cached with identity:None, create a
+        // Waiting entry with identity:None so other queries with other
+        // identities will wait for us to finish. This requires keeping
+        // `stored_key_hint` across iterations, since finding an invalid key
+        // removes it from the cache and continues the loop.
+        let mut stored_key_hint = None;
 
         let mut num_attempts = 0;
         'top: loop {
@@ -360,6 +374,7 @@ impl<RT: Runtime> CacheManager<RT> {
             // wait on someone else to run a UDF, or run the UDF ourselves.
             let maybe_op = self.cache.plan_cache_op(
                 &requested_key,
+                stored_key_hint.as_ref(),
                 start,
                 now,
                 &identity,
@@ -370,6 +385,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 Some(op_key) => op_key,
                 None => continue 'top,
             };
+            stored_key_hint = Some(stored_key.clone());
 
             // Create a waiting entry in order to guarantee the waiting entry always
             // get cleaned up if the current future returns an error or gets dropped.
@@ -393,7 +409,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 CacheOp::Go { .. } => false,
             };
             let (result, table_stats) = match self
-                .perform_cache_op(&stored_key, op, usage_tracker.clone())
+                .perform_cache_op(&requested_key, &stored_key, op, usage_tracker.clone())
                 .await?
             {
                 Some(r) => r,
@@ -460,10 +476,13 @@ impl<RT: Runtime> CacheManager<RT> {
     #[minitrace::trace]
     async fn perform_cache_op(
         &self,
+        requested_key: &RequestedCacheKey,
         key: &StoredCacheKey,
         op: CacheOp<'_>,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<Option<(CacheResult, BTreeMap<TableName, TableStats>)>> {
+        let pause_client = self.rt.pause_client();
+        pause_client.wait("perform_cache_op").await;
         let r = match op {
             CacheOp::Ready { result } => {
                 if result.outcome.result.is_err() {
@@ -586,8 +605,13 @@ impl<RT: Runtime> CacheManager<RT> {
                     original_ts: *ts,
                     token,
                 };
-                if result.outcome.result.is_ok() {
+                if result.outcome.result.is_ok()
+                    && *key == requested_key.cache_key_after_execution(&result.outcome)
+                {
                     let _: Result<_, _> = sender.try_broadcast(result.clone());
+                } else {
+                    // Send an error to receivers so any waiting peers will retry.
+                    drop(sender);
                 }
                 log_perform_go(result.outcome.result.is_ok());
                 (result, table_stats)
@@ -718,6 +742,7 @@ impl QueryCache {
     fn plan_cache_op<'a>(
         &self,
         key: &'a RequestedCacheKey,
+        stored_key_hint: Option<&'_ StoredCacheKey>,
         start: tokio::time::Instant,
         now: tokio::time::Instant,
         identity: &'a Identity,
@@ -747,7 +772,7 @@ impl QueryCache {
             }
         };
         let mut inner = self.inner.lock();
-        let (entry, stored_key) = key.get_cache_entry(&mut inner.cache);
+        let (entry, stored_key) = key.get_cache_entry(&mut inner.cache, stored_key_hint);
         let op = match entry {
             Some(CacheEntry::Ready(r)) => {
                 if ts < r.original_ts {

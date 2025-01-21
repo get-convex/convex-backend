@@ -21,7 +21,10 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::ConvexValue;
+use value::{
+    val,
+    ConvexValue,
+};
 
 use crate::{
     test_helpers::ApplicationTestExt,
@@ -399,8 +402,7 @@ async fn test_query_cache_unauthed_race(
     // Insert an object to invalidate the cache.
     // Then run both queries again in parallel.
     // In this case we can guess that the query doesn't check auth, so
-    // the second request should wait for the first.
-    // But we don't do that yet. TODO(lee): fix this.
+    // the second request should wait for the first and use the cached value.
     insert_object(&application).await?;
 
     // Rerun queries in parallel
@@ -420,16 +422,28 @@ async fn test_query_cache_unauthed_race(
             pause_guard.unwrap()
         }
     };
-    run_query(
+    let mut second_query = Box::pin(run_query(
         &application,
         "basic:listAllObjects",
         json!({}),
         Identity::system(),
-        false,
-    )
-    .await?;
+        true, // cache hit
+    ));
+    // The second one never gets to run_function, so use perform_cache_op instead
+    // to pause it when it's waiting for the first query to finish.
+    let second_hold_guard = pause_controller.hold("perform_cache_op");
+    let second_pause_guard = tokio::select! {
+        _ = &mut second_query => {
+            panic!("Second query completed before pause");
+        }
+        pause_guard = second_hold_guard.wait_for_blocked() => {
+            pause_guard.unwrap()
+        }
+    };
     first_pause_guard.unpause();
     first_query.await?;
+    second_pause_guard.unpause();
+    second_query.await?;
 
     Ok(())
 }
@@ -482,6 +496,75 @@ async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow
     assert_ne!(result1, result3);
     assert_ne!(result1, result4);
     assert_ne!(result3, result4); // different auth
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_query_cache_conditional_auth_check_race(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+
+    // Run query as one user.
+    run_query(
+        &application,
+        "auth:conditionallyCheckAuth",
+        json!({}),
+        Identity::user(UserIdentity::test()),
+        false,
+    )
+    .await?;
+
+    // Insert an object to make the query check auth.
+    // Then run two queries in parallel, for different users.
+    // We guess that the queries don't check auth, so one waits for the other.
+    // But the queries actually do check auth, so the second one re-executes
+    // after waiting.
+    insert_object(&application).await?;
+
+    // Run queries in parallel
+    let mut first_query = Box::pin(run_query(
+        &application,
+        "auth:conditionallyCheckAuth",
+        json!({}),
+        Identity::user(UserIdentity::test()),
+        false,
+    ));
+    let first_hold_guard = pause_controller.hold("run_function");
+    let first_pause_guard = tokio::select! {
+        _ = &mut first_query => {
+            panic!("First query completed before pause");
+        }
+        pause_guard = first_hold_guard.wait_for_blocked() => {
+            pause_guard.unwrap()
+        }
+    };
+    let mut second_query = Box::pin(run_query(
+        &application,
+        "auth:conditionallyCheckAuth",
+        json!({}),
+        Identity::system(),
+        false, // cache miss
+    ));
+    // Pause the second query when it's waiting for the first query to finish.
+    let second_hold_guard = pause_controller.hold("perform_cache_op");
+    let second_pause_guard = tokio::select! {
+        _ = &mut second_query => {
+            panic!("Second query completed before pause");
+        }
+        pause_guard = second_hold_guard.wait_for_blocked() => {
+            pause_guard.unwrap()
+        }
+    };
+    first_pause_guard.unpause();
+    let result1 = first_query.await?;
+    assert_eq!(result1, val!("https://testauth.fake.domain|testauth|123"));
+    second_pause_guard.unpause();
+    let result2 = second_query.await?;
+    assert_eq!(result2, val!("No user"));
 
     Ok(())
 }
