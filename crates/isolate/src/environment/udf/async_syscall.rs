@@ -533,8 +533,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let (mut tx, outcome) = self
             .udf_callback
             .execute_udf(
-                // TODO: Remove this `client_id` once we do isolate2.
-                "component".to_string(),
+                self.client_id.clone(),
                 udf_type,
                 path_and_args,
                 EnvironmentData {

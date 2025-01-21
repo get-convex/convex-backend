@@ -79,6 +79,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     request,
                     reactor_depth,
                     udf_callback,
+                    client_id.clone(),
                 );
                 let r = environment
                     .run(

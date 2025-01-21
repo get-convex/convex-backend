@@ -181,6 +181,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     arguments: ConvexArray,
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
+    client_id: String,
 
     phase: UdfPhase<RT>,
     file_storage: TransactionalFileStorage<RT>,
@@ -331,6 +332,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }: UdfRequest<RT>,
         reactor_depth: usize,
         udf_callback: Box<dyn UdfCallback<RT>>,
+        client_id: String,
     ) -> Self {
         let persistence_version = transaction.persistence_version();
         let (path, arguments, udf_server_version) = path_and_args.consume();
@@ -367,6 +369,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
             reactor_depth,
             udf_callback,
+            client_id,
         }
     }
 
