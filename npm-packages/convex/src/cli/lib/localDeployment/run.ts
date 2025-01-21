@@ -16,6 +16,7 @@ import detect from "detect-port";
 import { SENTRY_DSN } from "../utils/sentry.js";
 import { createHash } from "crypto";
 import { components } from "@octokit/openapi-types";
+import { recursivelyDelete } from "../fsUtils.js";
 const LOCAL_BACKEND_INSTANCE_SECRET =
   "4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974";
 
@@ -118,10 +119,10 @@ async function checkForExistingDownload(
   const p = executablePath(version);
   if (!ctx.fs.exists(p)) {
     // This directory isn't what we expected. Remove it.
-    ctx.fs.rmdir(destDir);
+    recursivelyDelete(ctx, destDir, { force: true });
     return null;
   }
-  await promisify(child_process.exec)(`chmod +x ${p}`);
+  await makeExecutable(p);
   return p;
 }
 
@@ -160,9 +161,18 @@ async function downloadBinary(ctx: Context, version: string): Promise<string> {
   zip.extractAllTo(versionDir, true);
   logVerbose(ctx, "Extracted from zip file");
   const p = executablePath(version);
-  await promisify(child_process.exec)(`chmod +x ${p}`);
+  await makeExecutable(p);
   logVerbose(ctx, "Marked as executable");
   return p;
+}
+
+async function makeExecutable(p: string) {
+  switch (process.platform) {
+    case "darwin":
+    case "linux": {
+      await promisify(child_process.exec)(`chmod +x ${p}`);
+    }
+  }
 }
 
 export async function runLocalBackend(
@@ -214,6 +224,13 @@ export async function runLocalBackend(
         ctx,
         `Local backend exited with code ${code}, full command \`${commandStr}\``,
       );
+      // STATUS_DLL_NOT_FOUND
+      if (code === 3221225781) {
+        logVerbose(
+          ctx,
+          "Local backend exited because shared libraries are missing. These may include libraries installed via 'Microsoft Visual C++ Redistributable for Visual Studio.'",
+        );
+      }
     });
   const cleanupHandle = ctx.registerCleanup(async () => {
     logVerbose(ctx, `Stopping local backend on port ${ports.cloud}`);
