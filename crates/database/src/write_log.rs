@@ -31,7 +31,10 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::Future;
-use imbl::Vector;
+use imbl::{
+    vector,
+    Vector,
+};
 use parking_lot::Mutex;
 use tokio::sync::oneshot;
 use value::heap_size::{
@@ -255,17 +258,7 @@ impl WriteLog {
             Ok(i) => i,
             Err(i) => i,
         };
-        let focus = if self.by_ts.is_empty() {
-            // split_at and narrow don't work if the vector is empty
-            self.by_ts.focus() // empty
-        } else if self.by_ts.len() == start {
-            // narrow doesn't work if start is at the end
-            self.by_ts.focus().split_at(0).0 // empty
-        } else {
-            // This is what we want in all cases, but `narrow` has weird bounds
-            // checks.
-            self.by_ts.focus().narrow(start..)
-        };
+        let focus = focus_after(self.by_ts.focus(), start);
         let iter = focus.into_iter();
         Ok(iter
             .map(|entry| &**entry)
@@ -303,6 +296,19 @@ impl WriteLog {
             },
         };
         Ok(result)
+    }
+}
+
+// TODO: use .narrow(start..) once https://github.com/jneem/imbl/pull/89 is released
+fn focus_after<T>(focus: vector::Focus<'_, T>, start: usize) -> vector::Focus<'_, T> {
+    if focus.is_empty() {
+        // split_at and narrow don't work if the vector is empty
+        focus
+    } else if focus.len() == start {
+        // narrow doesn't work if start is at the end
+        focus.split_at(0).0
+    } else {
+        focus.narrow(start..)
     }
 }
 
