@@ -286,6 +286,36 @@ async fn test_query_cache_auth_invalidation(rt: TestRuntime) -> anyhow::Result<(
 }
 
 #[convex_macro::test_runtime]
+async fn test_query_cache_error_not_cached(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_udf_tests_modules().await?;
+
+    // Run query that throws an error first time
+    let error1 = run_query(
+        &application,
+        "custom_errors:queryThrows",
+        json!({}),
+        Identity::system(),
+        false,
+    )
+    .await;
+    assert!(error1.is_err(), "Expected first query to throw an error");
+
+    // Run same query again - should throw error again and not be cached
+    let error2 = run_query(
+        &application,
+        "custom_errors:queryThrows",
+        json!({}),
+        Identity::system(),
+        false,
+    )
+    .await;
+    assert!(error2.is_err(), "Expected second query to throw an error");
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_query_cache_without_checking_auth(rt: TestRuntime) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
