@@ -65,6 +65,7 @@ pub mod runtime;
 pub mod schemas;
 pub mod sha256;
 pub mod shapes;
+pub mod shutdown;
 pub mod sync;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

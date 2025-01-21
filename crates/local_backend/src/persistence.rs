@@ -7,6 +7,7 @@ use clusters::{
 use common::{
     knobs::DATABASE_USE_PREPARED_STATEMENTS,
     persistence::Persistence,
+    shutdown::ShutdownSignal,
 };
 use mysql::{
     ConvexMySqlPool,
@@ -26,6 +27,7 @@ pub async fn connect_persistence(
     do_not_require_ssl: bool,
     instance_name: &str,
     runtime: ProdRuntime,
+    shutdown_signal: ShutdownSignal,
 ) -> anyhow::Result<Arc<dyn Persistence>> {
     let require_ssl = !do_not_require_ssl;
     let persistence: Arc<dyn Persistence> = match db {
@@ -64,6 +66,7 @@ pub async fn connect_persistence(
                     )?),
                     args.db_name,
                     options,
+                    shutdown_signal,
                 )
                 .await?,
             )

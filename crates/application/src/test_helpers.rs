@@ -29,6 +29,7 @@ use common::{
     log_streaming::NoopLogSender,
     persistence::Persistence,
     runtime::Runtime,
+    shutdown::ShutdownSignal,
     testing::TestPersistence,
     types::{
         ConvexOrigin,
@@ -38,7 +39,6 @@ use common::{
 use database::{
     Database,
     SchemaModel,
-    ShutdownSignal,
     Transaction,
 };
 use events::usage::{

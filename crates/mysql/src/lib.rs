@@ -80,6 +80,7 @@ use common::{
     query::Order,
     runtime::Runtime,
     sha256::Sha256,
+    shutdown::ShutdownSignal,
     types::{
         DatabaseIndexUpdate,
         DatabaseIndexValue,
@@ -160,6 +161,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
         pool: Arc<ConvexMySqlPool<RT>>,
         db_name: String,
         options: MySqlOptions,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> Result<Self, ConnectError> {
         let newly_created = {
             let mut client = pool.acquire("init_sql", &db_name).await?;
@@ -189,7 +191,7 @@ impl<RT: Runtime> MySqlPersistence<RT> {
             return Err(ConnectError::ReadOnly);
         }
 
-        let lease = Lease::acquire(pool.clone(), db_name.clone()).await?;
+        let lease = Lease::acquire(pool.clone(), db_name.clone(), lease_lost_shutdown).await?;
         Ok(Self {
             newly_created: newly_created.into(),
             lease,
@@ -1078,12 +1080,17 @@ struct Lease<RT: Runtime> {
     pool: Arc<ConvexMySqlPool<RT>>,
     db_name: String,
     lease_ts: i64,
+    lease_lost_shutdown: ShutdownSignal,
 }
 
 impl<RT: Runtime> Lease<RT> {
     /// Acquire a lease. Makes other lease-holders get `LeaseLostError` when
     /// they commit.
-    async fn acquire(pool: Arc<ConvexMySqlPool<RT>>, db_name: String) -> anyhow::Result<Self> {
+    async fn acquire(
+        pool: Arc<ConvexMySqlPool<RT>>,
+        db_name: String,
+        lease_lost_shutdown: ShutdownSignal,
+    ) -> anyhow::Result<Self> {
         let timer = metrics::lease_acquire_timer(pool.cluster_name());
         let mut client = pool.acquire("lease_acquire", &db_name).await?;
         let ts = SystemTime::now()
@@ -1106,6 +1113,7 @@ impl<RT: Runtime> Lease<RT> {
             db_name,
             pool,
             lease_ts: ts,
+            lease_lost_shutdown,
         })
     }
 
@@ -1136,6 +1144,7 @@ impl<RT: Runtime> Lease<RT> {
             )))
             .await?;
         if rows.is_none() {
+            self.lease_lost_shutdown.signal(lease_lost_error());
             anyhow::bail!(lease_lost_error());
         }
         timer.finish();

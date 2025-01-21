@@ -9,9 +9,9 @@ use common::{
     errors::MainError,
     http::ConvexHttpService,
     runtime::Runtime,
+    shutdown::ShutdownSignal,
     version::SERVER_VERSION_STR,
 };
-use database::ShutdownSignal;
 use futures::{
     future::{
         self,
@@ -93,6 +93,7 @@ async fn run_server(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result
 async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result<()> {
     // Used to receive fatal errors from the database or /preempt endpoint.
     let (preempt_tx, mut preempt_rx) = async_broadcast::broadcast(1);
+    let preempt_signal = ShutdownSignal::new(preempt_tx.clone(), config.name());
     // Use to signal to the http service to stop.
     let (shutdown_tx, shutdown_rx) = async_broadcast::broadcast(1);
     let persistence = connect_persistence(
@@ -101,6 +102,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         config.do_not_require_ssl,
         &config.name(),
         runtime.clone(),
+        preempt_signal.clone(),
     )
     .await?;
     let st = make_app(
@@ -108,7 +110,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
         config.clone(),
         persistence,
         shutdown_rx.clone(),
-        ShutdownSignal::new(preempt_tx.clone(), config.name()),
+        preempt_signal.clone(),
     )
     .await?;
     let router = router(st.clone());

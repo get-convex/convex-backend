@@ -78,6 +78,7 @@ use common::{
         SpawnHandle,
     },
     sha256::Sha256,
+    shutdown::ShutdownSignal,
     sync::split_rw_lock::{
         new_split_rw_lock,
         Reader,
@@ -138,7 +139,6 @@ use crate::{
         retention_delete_timer,
     },
     snapshot_manager::SnapshotManager,
-    ShutdownSignal,
 };
 
 #[derive(Debug, Clone, Copy)]

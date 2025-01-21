@@ -11,10 +11,10 @@ use common::{
         HttpError,
         NoopRouteMapper,
     },
+    shutdown::ShutdownSignal,
     testing::TestPersistence,
     types::MemberId,
 };
-use database::ShutdownSignal;
 use http::{
     Request,
     StatusCode,

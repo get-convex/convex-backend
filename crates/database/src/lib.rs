@@ -143,8 +143,6 @@ pub use self::{
         DatabaseSnapshot,
         DocumentDeltas,
         OccRetryStats,
-        ShutdownMessage,
-        ShutdownSignal,
         SnapshotPage,
         StreamingExportTableFilter,
         MAX_OCC_FAILURES,

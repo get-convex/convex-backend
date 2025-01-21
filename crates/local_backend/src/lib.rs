@@ -34,16 +34,14 @@ use common::{
     },
     log_streaming::NoopLogSender,
     persistence::Persistence,
+    shutdown::ShutdownSignal,
     types::{
         ConvexOrigin,
         ConvexSite,
     },
 };
 use config::LocalConfig;
-use database::{
-    Database,
-    ShutdownSignal,
-};
+use database::Database;
 use events::usage::NoOpUsageEventLogger;
 use file_storage::{
     FileStorage,

@@ -18,6 +18,7 @@ use common::{
         Persistence,
     },
     run_persistence_test_suite,
+    shutdown::ShutdownSignal,
     testing::{
         self,
         persistence_test_suite,
@@ -59,6 +60,7 @@ run_persistence_test_suite!(
             version: PersistenceVersion::V5,
             use_prepared_statements: true,
         },
+        ShutdownSignal::panic(),
     )
     .await?,
     MySqlPersistence::new(
@@ -73,11 +75,13 @@ run_persistence_test_suite!(
             version: PersistenceVersion::V5,
             use_prepared_statements: true,
         },
+        ShutdownSignal::panic(),
     )
     .await?
 );
 
 mod raw_statements {
+
     use super::*;
 
     run_persistence_test_suite!(
@@ -95,6 +99,7 @@ mod raw_statements {
                 version: PersistenceVersion::V5,
                 use_prepared_statements: true,
             },
+            ShutdownSignal::panic()
         )
         .await?,
         MySqlPersistence::new(
@@ -109,6 +114,7 @@ mod raw_statements {
                 version: PersistenceVersion::V5,
                 use_prepared_statements: true,
             },
+            ShutdownSignal::panic(),
         )
         .await?
     );
@@ -130,6 +136,7 @@ async fn test_loading_locally() -> anyhow::Result<()> {
         )?),
         opts.db_name,
         options,
+        ShutdownSignal::panic(),
     )
     .await?; // need coverage on false too.
 
@@ -177,6 +184,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
         )?),
         opts.db_name,
         options,
+        ShutdownSignal::panic(),
     )
     .await?;
 
@@ -239,6 +247,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
             )?),
             opts.db_name.clone(),
             options,
+            ShutdownSignal::no_op(),
         )
         .await?,
     );
@@ -280,6 +289,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
             )?),
             opts.db_name,
             options,
+            ShutdownSignal::no_op(),
         )
         .await?,
     );
@@ -340,6 +350,7 @@ async fn test_table_count() -> anyhow::Result<()> {
         )?),
         opts.db_name,
         options,
+        ShutdownSignal::panic(),
     )
     .await?;
 

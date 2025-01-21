@@ -3,6 +3,7 @@ use std::sync::Arc;
 use common::{
     persistence::Persistence,
     runtime::Runtime,
+    shutdown::ShutdownSignal,
     testing::TestPersistence,
     virtual_system_mapping::VirtualSystemMapping,
 };
@@ -22,7 +23,6 @@ use storage::{
 use crate::{
     text_index_worker::BuildTextIndexArgs,
     Database,
-    ShutdownSignal,
     Transaction,
 };
 

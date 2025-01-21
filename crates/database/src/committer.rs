@@ -49,6 +49,7 @@ use common::{
         Runtime,
         SpawnHandle,
     },
+    shutdown::ShutdownSignal,
     sync::split_rw_lock::{
         Reader,
         Writer,
@@ -100,10 +101,7 @@ use vector::DocInVectorIndex;
 
 use crate::{
     bootstrap_model::defaults::BootstrapTableIds,
-    database::{
-        ConflictingReadWithWriteSource,
-        ShutdownSignal,
-    },
+    database::ConflictingReadWithWriteSource,
     metrics::{
         self,
         bootstrap_update_timer,
