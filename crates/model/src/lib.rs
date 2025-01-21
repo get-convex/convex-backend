@@ -136,6 +136,8 @@ pub mod environment_variables;
 pub mod exports;
 pub mod external_packages;
 pub mod file_storage;
+mod metrics;
+pub mod migrations;
 pub mod modules;
 pub mod scheduled_jobs;
 pub mod session_requests;
