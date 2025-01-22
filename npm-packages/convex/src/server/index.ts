@@ -63,6 +63,7 @@ export type {
   GenericVectorIndexConfig,
   GenericTableVectorIndexes,
   FieldTypeFromFieldPath,
+  FieldTypeFromFieldPathInner,
   GenericTableInfo,
   DocumentByInfo,
   FieldPaths,

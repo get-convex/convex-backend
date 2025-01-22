@@ -104,6 +104,22 @@ type ValueFromUnion<T, Key, Default> = T extends T
 export type FieldTypeFromFieldPath<
   Document extends GenericDocument,
   FieldPath extends string,
+> =
+  FieldTypeFromFieldPathInner<Document, FieldPath> extends Value | undefined
+    ? FieldTypeFromFieldPathInner<Document, FieldPath>
+    : Value | undefined;
+
+/**
+ * The inner type of {@link FieldTypeFromFieldPath}.
+ *
+ * It's wrapped in a helper to coerce the type to `Value | undefined` since some
+ * versions of TypeScript fail to infer this type correctly.
+ *
+ * @public
+ */
+export type FieldTypeFromFieldPathInner<
+  Document extends GenericDocument,
+  FieldPath extends string,
 > = FieldPath extends `${infer First}.${infer Second}`
   ? ValueFromUnion<
       Document,
