@@ -20,6 +20,7 @@ use common::{
     knobs::DOCUMENTS_IN_MEMORY,
     persistence::{
         new_static_repeatable_recent,
+        DocumentLogEntry,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -310,9 +311,9 @@ impl<RT: Runtime> TableIterator<RT> {
             .try_chunks2(self.page_size);
         pin_mut!(documents);
         while let Some(chunk) = documents.try_next().await? {
-            for (_, id, _) in chunk {
-                if id.table() == tablet_id {
-                    yield id;
+            for entry in chunk {
+                if entry.id.table() == tablet_id {
+                    yield entry.id;
                 }
             }
         }
@@ -405,7 +406,12 @@ impl<RT: Runtime> TableIterator<RT> {
             // Yield in the same order as the input, skipping duplicates and
             // missing documents.
             for id in chunk {
-                if let Some((revision_ts, Some(revision))) = old_revisions.remove(&(id, ts_succ)) {
+                if let Some(DocumentLogEntry {
+                    ts: revision_ts,
+                    value: Some(revision),
+                    ..
+                }) = old_revisions.remove(&(id, ts_succ))
+                {
                     yield (revision, revision_ts);
                 };
             }

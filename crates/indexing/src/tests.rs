@@ -23,7 +23,7 @@ use common::{
     index::IndexKey,
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         NoopRetentionValidator,
         Persistence,
         RepeatablePersistence,
@@ -593,7 +593,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     );
     ps.write(
         vec![
-            (DatabaseDocumentUpdate {
+            (DocumentLogEntry {
                 ts: Timestamp::must(2),
                 id: doc1.id_with_table_id(),
                 value: Some(doc1),

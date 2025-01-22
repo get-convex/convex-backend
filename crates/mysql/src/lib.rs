@@ -67,7 +67,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         DocumentStream,
         IndexStream,
         Persistence,
@@ -262,7 +262,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
     #[minitrace::trace]
     async fn write(
         &self,
-        documents: Vec<DatabaseDocumentUpdate>,
+        documents: Vec<DocumentLogEntry>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
@@ -317,6 +317,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                                     update.ts,
                                     update.id,
                                     update.value.clone(),
+                                    update.prev_ts,
                                 );
                             }
                             let future = async {
@@ -534,15 +535,25 @@ impl<RT: Runtime> MySqlReader<RT> {
     fn row_to_document(
         &self,
         row: Row,
-    ) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
-        let (ts, id, doc) = self.row_to_document_inner(row)?;
-        Ok((ts, id, doc))
+    ) -> anyhow::Result<(
+        Timestamp,
+        InternalDocumentId,
+        Option<ResolvedDocument>,
+        Option<Timestamp>,
+    )> {
+        let (ts, id, doc, prev_ts) = self.row_to_document_inner(row)?;
+        Ok((ts, id, doc, prev_ts))
     }
 
     fn row_to_document_inner(
         &self,
         row: Row,
-    ) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
+    ) -> anyhow::Result<(
+        Timestamp,
+        InternalDocumentId,
+        Option<ResolvedDocument>,
+        Option<Timestamp>,
+    )> {
         let bytes: Vec<u8> = row.get(0).unwrap();
         let internal_id = InternalId::try_from(bytes)?;
         let ts: i64 = row.get(1).unwrap();
@@ -558,12 +569,14 @@ impl<RT: Runtime> MySqlReader<RT> {
         } else {
             None
         };
-        Ok((ts, document_id, document))
+        let prev_ts: Option<i64> = row.get(5).unwrap();
+        let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
+        Ok((ts, document_id, document, prev_ts))
     }
 
     #[allow(clippy::needless_lifetimes)]
     #[try_stream(
-        ok = (Timestamp, InternalDocumentId, Option<ResolvedDocument>),
+        ok = DocumentLogEntry,
         error = anyhow::Error,
     )]
     async fn _load_documents(
@@ -616,7 +629,7 @@ impl<RT: Runtime> MySqlReader<RT> {
             futures::pin_mut!(row_stream);
 
             while let Some(row) = row_stream.try_next().await? {
-                let (ts, document_id, document) = self.row_to_document(row)?;
+                let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
                 rows_loaded += 1;
                 last_ts = ts;
                 last_tablet_id_param = internal_id_param(document_id.table().0);
@@ -628,7 +641,12 @@ impl<RT: Runtime> MySqlReader<RT> {
                     num_skipped_by_table += 1;
                     continue;
                 } else {
-                    yield (ts, document_id, document);
+                    yield DocumentLogEntry {
+                        ts,
+                        id: document_id,
+                        value: document,
+                        prev_ts,
+                    }
                 }
             }
             if rows_loaded < page_size {
@@ -945,9 +963,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    > {
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let timer = metrics::prev_revisions_timer(self.read_pool.cluster_name());
 
         let mut client = self
@@ -978,11 +994,21 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         }
         let mut min_ts = Timestamp::MAX;
         for row in results.into_iter() {
-            let ts: i64 = row.get(5).unwrap();
+            let ts: i64 = row.get(6).unwrap();
             let ts = Timestamp::try_from(ts)?;
-            let (prev_ts, id, maybe_doc) = self.row_to_document(row)?;
+            let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
             min_ts = cmp::min(ts, min_ts);
-            anyhow::ensure!(result.insert((id, ts), (prev_ts, maybe_doc)).is_none());
+            anyhow::ensure!(result
+                .insert(
+                    (id, ts),
+                    DocumentLogEntry {
+                        ts: prev_ts,
+                        id,
+                        value: maybe_doc,
+                        prev_ts: prev_prev_ts,
+                    }
+                )
+                .is_none());
             log_prev_revisions_row_read(self.read_pool.cluster_name());
         }
 
@@ -1169,6 +1195,7 @@ fn document_params(
     ts: Timestamp,
     id: InternalDocumentId,
     maybe_doc: Option<ResolvedDocument>,
+    prev_ts: Option<Timestamp>,
 ) -> Vec<mysql_async::Value> {
     let (json_value, deleted) = match maybe_doc {
         Some(document) => (document.value().0.clone().into(), false),
@@ -1180,6 +1207,7 @@ fn document_params(
     query.push(internal_id_param(id.table().0).into());
     query.push(json_value.into());
     query.push(deleted.into());
+    query.push(prev_ts.map(i64::from).into());
     query
 }
 
@@ -1295,7 +1323,7 @@ const INIT_SQL: &str = r#"
         ) ROW_FORMAT=DYNAMIC;"#;
 /// Load a page of documents, where timestamps are bounded by [$1, $2),
 /// and ($3, $4, $5) is the (ts, table_id, id) from the last document read.
-const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"SELECT id, ts, table_id, json_value, deleted
+const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"SELECT id, ts, table_id, json_value, deleted, prev_ts
     FROM @db_name.documents
     FORCE INDEX FOR ORDER BY (PRIMARY)
     WHERE ts >= ?
@@ -1305,7 +1333,7 @@ const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"SELECT id, ts, table_id, json_value, d
     LIMIT ?
 "#;
 
-const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"SELECT id, ts, table_id, json_value, deleted
+const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"SELECT id, ts, table_id, json_value, deleted, prev_ts
     FROM @db_name.documents
     FORCE INDEX FOR ORDER BY (PRIMARY)
     WHERE ts >= ?
@@ -1319,11 +1347,11 @@ static INSERT_DOCUMENT_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLoc
     smart_chunk_sizes()
         .map(|chunk_size| {
             let values = (1..=chunk_size)
-                .map(|_| format!("(?, ?, ?, ?, ?)"))
+                .map(|_| format!("(?, ?, ?, ?, ?, ?)"))
                 .join(", ");
             let query = format!(
                 r#"INSERT INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted)
+    (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES {values}"#
             );
             (chunk_size, query)
@@ -1340,11 +1368,11 @@ static INSERT_OVERWRITE_DOCUMENT_CHUNK_QUERIES: LazyLock<HashMap<usize, String>>
         smart_chunk_sizes()
             .map(|chunk_size| {
                 let values = (1..=chunk_size)
-                    .map(|_| format!("(?, ?, ?, ?, ?)"))
+                    .map(|_| format!("(?, ?, ?, ?, ?, ?)"))
                     .join(", ");
                 let query = format!(
                     r#"REPLACE INTO @db_name.documents
-    (id, ts, table_id, json_value, deleted)
+    (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES {values}"#
                 );
                 (chunk_size, query)
@@ -1603,7 +1631,7 @@ static PREV_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(
     smart_chunk_sizes()
         .map(|chunk_size| {
             let select = r#"
-SELECT id, ts, table_id, json_value, deleted, ? as query_ts
+SELECT id, ts, table_id, json_value, deleted, prev_ts, ? as query_ts
 FROM @db_name.documents FORCE INDEX FOR ORDER BY (documents_by_table_and_id)
 WHERE table_id = ? AND id = ? and ts < ?
 ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
@@ -1613,7 +1641,10 @@ ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
                 .join(", ");
             let union_all = (1..=chunk_size)
                 .map(|i| {
-                    format!("(SELECT id, ts, table_id, json_value, deleted, query_ts FROM q{i})")
+                    format!(
+                        "(SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM \
+                         q{i})"
+                    )
                 })
                 .join(" UNION ALL ");
             (chunk_size, format!("WITH {queries} {union_all}"))

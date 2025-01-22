@@ -20,6 +20,7 @@ use common::{
         VECTOR_INDEX_WORKER_PAGE_SIZE,
     },
     persistence::{
+        DocumentLogEntry,
         PersistenceReader,
         RepeatablePersistence,
         TimestampRange,
@@ -547,7 +548,14 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         }
                         future::ready(Some(res))
                     })
-                    .map_ok(|(doc, ts)| (ts, doc.id_with_table_id(), Some(doc)))
+                    .map_ok(|(doc, ts)| DocumentLogEntry {
+                        ts,
+                        id: doc.id_with_table_id(),
+                        value: Some(doc),
+                        // TODO: fill in prev_ts
+                        // this should be threaded from `stream_documents_in_table`
+                        prev_ts: None,
+                    })
                     .boxed();
                 (documents, previous_segments)
             },

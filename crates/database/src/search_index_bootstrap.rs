@@ -436,12 +436,12 @@ pub fn stream_revision_pairs_for_indexes<'a>(
 ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
     let document_stream = persistence
         .load_documents(range, Order::Asc)
-        .try_filter(|(_, id, _)| {
-            let is_in_indexed_table = tables_with_indexes.contains(&id.table());
+        .try_filter(|entry| {
+            let is_in_indexed_table = tables_with_indexes.contains(&entry.id.table());
             if !is_in_indexed_table {
                 log_document_skipped();
             }
-            future::ready(tables_with_indexes.contains(&id.table()))
+            future::ready(tables_with_indexes.contains(&entry.id.table()))
         });
     stream_revision_pairs(document_stream, persistence)
 }

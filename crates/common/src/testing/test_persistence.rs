@@ -38,7 +38,7 @@ use crate::{
     },
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         DocumentStream,
         IndexStream,
         Persistence,
@@ -95,7 +95,7 @@ impl Persistence for TestPersistence {
 
     async fn write(
         &self,
-        documents: Vec<DatabaseDocumentUpdate>,
+        documents: Vec<DocumentLogEntry>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
@@ -109,7 +109,9 @@ impl Persistence for TestPersistence {
                 update.ts,
                 update.id
             );
-            inner.log.insert((update.ts, update.id), update.value);
+            inner
+                .log
+                .insert((update.ts, update.id), (update.value, update.prev_ts));
         }
         inner.is_fresh = false;
         for (ts, update) in indexes {
@@ -224,10 +226,15 @@ impl PersistenceReader for TestPersistence {
 
         let iter = log
             .into_iter()
-            .map(|((ts, id), doc)| (ts, id, doc))
-            .filter(move |(ts, ..)| range.contains(*ts))
+            .map(|((ts, id), (value, prev_ts))| DocumentLogEntry {
+                ts,
+                id,
+                value,
+                prev_ts,
+            })
+            .filter(move |entry| range.contains(entry.ts))
             // Mimic the sort in Postgres that is by internal id.
-            .sorted_by_key(|(ts, id, _)| (*ts, id.internal_id()))
+            .sorted_by_key(|entry| (entry.ts, entry.id.internal_id()))
             .map(Ok);
         match order {
             Order::Asc => stream::iter(iter).boxed(),
@@ -239,9 +246,7 @@ impl PersistenceReader for TestPersistence {
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
         _retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    > {
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let inner = self.inner.lock();
         let result = ids
             .into_iter()
@@ -251,7 +256,17 @@ impl PersistenceReader for TestPersistence {
                     .iter()
                     .filter(|((log_ts, log_id), _)| log_id == &id && log_ts < &ts)
                     .max_by_key(|(log_ts, _)| *log_ts)
-                    .map(|((log_ts, _), doc)| ((id, ts), (*log_ts, doc.clone())))
+                    .map(|((log_ts, _), (doc, prev_ts))| {
+                        (
+                            (id, ts),
+                            DocumentLogEntry {
+                                id,
+                                ts: *log_ts,
+                                value: doc.clone(),
+                                prev_ts: *prev_ts,
+                            },
+                        )
+                    })
             })
             .collect();
         Ok(result)
@@ -365,7 +380,7 @@ impl PersistenceReader for TestPersistence {
 struct Inner {
     is_fresh: bool,
     is_read_only: bool,
-    log: BTreeMap<(Timestamp, InternalDocumentId), Option<ResolvedDocument>>,
+    log: BTreeMap<(Timestamp, InternalDocumentId), (Option<ResolvedDocument>, Option<Timestamp>)>,
     index: BTreeMap<IndexId, BTreeMap<(IndexKeyBytes, Timestamp), DatabaseIndexValue>>,
     persistence_globals: BTreeMap<PersistenceGlobalKey, JsonValue>,
 }
@@ -381,6 +396,7 @@ impl Inner {
             .get(&(ts, doc_id))
             .cloned()
             .ok_or_else(|| anyhow::anyhow!("Dangling index reference"))?
+            .0
             .ok_or_else(|| anyhow::anyhow!("Index reference to deleted document"))
     }
 }

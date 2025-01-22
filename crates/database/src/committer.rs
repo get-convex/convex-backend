@@ -37,7 +37,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
@@ -737,7 +737,7 @@ impl<RT: Runtime> Committer<RT> {
         let document_writes = document_writes
             .into_iter()
             .map(|write| {
-                DatabaseDocumentUpdate {
+                DocumentLogEntry {
                     ts: write.commit_ts,
                     id: write.id,
                     value: write.write.document,
@@ -1142,7 +1142,12 @@ impl CommitterClient {
             let mut previous_revisions_of_ids = repeatable_persistence
                 .previous_revisions(generated_ids_with_ts)
                 .await?;
-            if let Some(((document_id, _), (_, maybe_doc))) = previous_revisions_of_ids.pop_first()
+            if let Some((
+                (document_id, _),
+                DocumentLogEntry {
+                    value: maybe_doc, ..
+                },
+            )) = previous_revisions_of_ids.pop_first()
             {
                 let display_id = generated_ids
                     .iter()

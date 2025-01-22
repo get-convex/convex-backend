@@ -822,7 +822,7 @@ mod tests {
         persistence::{
             now_ts,
             ConflictStrategy,
-            DatabaseDocumentUpdate,
+            DocumentLogEntry,
             Persistence,
             RepeatablePersistence,
         },
@@ -1231,7 +1231,7 @@ mod tests {
             let index_updates = index.update(index_registry, ts, None, Some(doc.clone()));
             ps.write(
                 vec![
-                    (DatabaseDocumentUpdate {
+                    (DocumentLogEntry {
                         ts,
                         id: doc.id_with_table_id(),
                         value: Some(doc.clone()),

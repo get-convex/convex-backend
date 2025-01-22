@@ -225,13 +225,13 @@ impl SearchIndex for TextSearchIndex {
             // scratch so we don't need to look up previous revisions. We know there are no deletes.
             MultipartBuildType::IncrementalComplete { .. } => documents
                 .map(|result| {
-                    let (ts, id, maybe_doc) = result?;
-                    anyhow::ensure!(maybe_doc.is_some(), "Document must exist");
+                    let entry = result?;
+                    anyhow::ensure!(entry.value.is_some(), "Document must exist");
                     Ok(RevisionPair {
-                        id,
+                        id: entry.id,
                         rev: DocumentRevision {
-                            ts,
-                            document: maybe_doc,
+                            ts: entry.ts,
+                            document: entry.value,
                         },
                         prev_rev: None,
                     })

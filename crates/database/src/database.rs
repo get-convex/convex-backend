@@ -58,7 +58,7 @@ use common::{
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         DocumentStream,
         LatestDocumentStream,
         Persistence,
@@ -1236,14 +1236,11 @@ impl<RT: Runtime> Database<RT> {
         let ts = Timestamp::MIN;
         let document_writes = document_writes
             .into_iter()
-            .map(|(id, doc)| {
-                DatabaseDocumentUpdate {
-                    ts,
-                    id: id.into(),
-                    value: Some(doc),
-                    // TODO: fill in prev_ts
-                    prev_ts: None,
-                }
+            .map(|(id, doc)| DocumentLogEntry {
+                ts,
+                id: id.into(),
+                value: Some(doc),
+                prev_ts: None, // these are all freshly created documents
             })
             .collect();
         let index_writes = index_writes
@@ -1643,7 +1640,12 @@ impl<RT: Runtime> Database<RT> {
         // should request another page.
         let mut has_more = false;
         let mut rows_read = 0;
-        while let Some((ts, id, maybe_doc)) = match document_stream.try_next().await {
+        while let Some(DocumentLogEntry {
+            ts,
+            id,
+            value: maybe_doc,
+            ..
+        }) = match document_stream.try_next().await {
             Ok::<_, Error>(doc) => doc,
             Err(e) if e.is_out_of_retention() => {
                 // Throws a user error if the documents window is out of retention

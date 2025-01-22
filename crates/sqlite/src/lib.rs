@@ -29,7 +29,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         DocumentStream,
         IndexStream,
         Persistence,
@@ -243,7 +243,7 @@ impl Persistence for SqlitePersistence {
 
     async fn write(
         &self,
-        documents: Vec<DatabaseDocumentUpdate>,
+        documents: Vec<DocumentLogEntry>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
@@ -269,6 +269,7 @@ impl Persistence for SqlitePersistence {
                 &update.id.table().0[..],
                 &json_value,
                 &deleted,
+                &update.prev_ts.map(u64::from),
             ])?;
         }
         drop(insert_document_query);
@@ -433,9 +434,9 @@ impl PersistenceReader for SqlitePersistence {
             let load_docs_query = load_docs(range, order);
             let mut stmt = connection.prepare(load_docs_query.as_str())?;
 
-            let mut triples = vec![];
+            let mut entries = vec![];
             for row in stmt.query_map([], load_document_row)? {
-                let (id, ts, table, json_value, deleted) = row?;
+                let (id, ts, table, json_value, deleted, prev_ts) = row?;
                 let id = InternalId::try_from(id)?;
                 let ts = Timestamp::try_from(ts)?;
                 let table = TabletId(table.try_into()?);
@@ -451,9 +452,15 @@ impl PersistenceReader for SqlitePersistence {
                 } else {
                     None
                 };
-                triples.push(Ok((ts, document_id, document)))
+                let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
+                entries.push(Ok(DocumentLogEntry {
+                    ts,
+                    id: document_id,
+                    value: document,
+                    prev_ts,
+                }));
             }
-            triples
+            entries
         };
         // load_documents isn't async so we have to validate snapshot as part of the
         // stream.
@@ -469,9 +476,7 @@ impl PersistenceReader for SqlitePersistence {
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    > {
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let mut out = BTreeMap::new();
         let mut min_ts = Timestamp::MAX;
         {
@@ -482,7 +487,7 @@ impl PersistenceReader for SqlitePersistence {
                 let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
                 let mut row_iter = stmt.query_map(params, load_document_row)?;
                 if let Some(row) = row_iter.next() {
-                    let (id, prev_ts, table, json_value, deleted) = row?;
+                    let (id, prev_ts, table, json_value, deleted, prev_prev_ts) = row?;
                     let id = InternalId::try_from(id)?;
                     let table = TabletId(table.try_into()?);
                     let prev_ts = Timestamp::try_from(prev_ts)?;
@@ -498,8 +503,17 @@ impl PersistenceReader for SqlitePersistence {
                     } else {
                         None
                     };
+                    let prev_prev_ts = prev_prev_ts.map(Timestamp::try_from).transpose()?;
                     min_ts = cmp::min(ts, min_ts);
-                    out.insert((document_id, ts), (prev_ts, document));
+                    out.insert(
+                        (document_id, ts),
+                        DocumentLogEntry {
+                            ts: prev_ts,
+                            id: document_id,
+                            value: document,
+                            prev_ts: prev_prev_ts,
+                        },
+                    );
                 }
             }
         }
@@ -597,7 +611,7 @@ fn load_docs(range: TimestampRange, order: Order) -> String {
     };
     format!(
         r#"
-SELECT id, ts, table_id, json_value, deleted
+SELECT id, ts, table_id, json_value, deleted, prev_ts
 FROM documents
 WHERE ts >= {} AND ts < {}
 {}
@@ -610,21 +624,22 @@ WHERE ts >= {} AND ts < {}
 
 fn load_document_row(
     row: &Row<'_>,
-) -> rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool)> {
+) -> rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool, Option<u64>)> {
     let id = row.get::<_, Vec<u8>>(0)?;
     let ts = row.get::<_, u64>(1)?;
     let table: Vec<u8> = row.get(2)?;
     let json_value: Option<String> = row.get(3)?;
     let deleted = row.get::<_, u32>(4)? != 0;
-    Ok((id, ts, table, json_value, deleted))
+    let prev_ts: Option<u64> = row.get(5)?;
+    Ok((id, ts, table, json_value, deleted, prev_ts))
 }
 
 const GET_PERSISTENCE_GLOBAL: &str = "SELECT json_value FROM persistence_globals WHERE key = ?";
 
-const INSERT_DOCUMENT: &str =
-    "INSERT INTO documents (id, ts, table_id, json_value, deleted) VALUES (?, ?, ?, ?, ?)";
+const INSERT_DOCUMENT: &str = "INSERT INTO documents (id, ts, table_id, json_value, deleted, \
+                               prev_ts) VALUES (?, ?, ?, ?, ?, ?)";
 const INSERT_OVERWRITE_DOCUMENT: &str = "INSERT OR REPLACE INTO documents (id, ts, table_id, \
-                                         json_value, deleted) VALUES (?, ?, ?, ?, ?)";
+                                         json_value, deleted, prev_ts) VALUES (?, ?, ?, ?, ?, ?)";
 const INSERT_INDEX: &str = "INSERT INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const INSERT_OVERWRITE_INDEX: &str = "INSERT OR REPLACE INTO indexes VALUES (?, ?, ?, ?, ?, ?)";
 const WRITE_PERSISTENCE_GLOBAL: &str = "INSERT OR REPLACE INTO persistence_globals VALUES (?, ?)";
@@ -641,7 +656,7 @@ const SET_READ_ONLY: &str = "INSERT INTO read_only (id) VALUES (1)";
 const UNSET_READ_ONLY: &str = "DELETE FROM read_only WHERE id = 1";
 
 const PREV_REV_QUERY: &str = r#"
-SELECT id, ts, table_id, json_value, deleted
+SELECT id, ts, table_id, json_value, deleted, prev_ts
 FROM documents
 WHERE
     table_id = $1 AND

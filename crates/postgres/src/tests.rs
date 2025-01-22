@@ -14,7 +14,7 @@ use common::{
     obj,
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         Persistence,
     },
     run_persistence_test_suite,
@@ -77,10 +77,10 @@ async fn test_loading_locally() -> anyhow::Result<()> {
     let mut num_loaded = 0;
     let mut size_loaded = 0;
     let mut max_ts = None;
-    while let Some((ts, _, maybe_doc)) = document_stream.try_next().await? {
-        max_ts = cmp::max(max_ts, Some(ts));
+    while let Some(entry) = document_stream.try_next().await? {
+        max_ts = cmp::max(max_ts, Some(entry.ts));
         num_loaded += 1;
-        if let Some(doc) = maybe_doc {
+        if let Some(doc) = entry.value {
             size_loaded += doc.value().size();
         }
     }
@@ -112,8 +112,8 @@ async fn test_writing_locally() -> anyhow::Result<()> {
     {
         let reader = persistence.reader();
         let mut document_stream = reader.load_all_documents();
-        while let Some((ts, ..)) = document_stream.try_next().await? {
-            max_ts = cmp::max(max_ts, Some(ts));
+        while let Some(entry) = document_stream.try_next().await? {
+            max_ts = cmp::max(max_ts, Some(entry.ts));
         }
     }
     let mut next_ts = max_ts
@@ -129,7 +129,7 @@ async fn test_writing_locally() -> anyhow::Result<()> {
 
         let document = testing::generate::<ResolvedDocument>()
             .replace_value(obj!("buf" => ConvexValue::try_from(buf.clone())?)?)?;
-        batch.push(DatabaseDocumentUpdate {
+        batch.push(DocumentLogEntry {
             ts,
             id: document.id_with_table_id(),
             value: Some(document),
@@ -169,7 +169,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     // Holding lease -- can write.
     p1.write(
         vec![
-            (DatabaseDocumentUpdate {
+            (DocumentLogEntry {
                 ts: Timestamp::must(1),
                 id: doc.id_with_table_id(),
                 value: Some(doc.clone()),
@@ -191,7 +191,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     // New Persistence can write.
     p2.write(
         vec![
-            (DatabaseDocumentUpdate {
+            (DocumentLogEntry {
                 ts: Timestamp::must(2),
                 id: doc.id_with_table_id(),
                 value: None,
@@ -213,7 +213,7 @@ async fn test_lease_preempt() -> anyhow::Result<()> {
     let result = p1
         .write(
             vec![
-                (DatabaseDocumentUpdate {
+                (DocumentLogEntry {
                     ts: Timestamp::must(3),
                     id: doc.id_with_table_id(),
                     value: Some(doc.clone()),

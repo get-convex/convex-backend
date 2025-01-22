@@ -57,7 +57,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
-        DatabaseDocumentUpdate,
+        DocumentLogEntry,
         DocumentStream,
         IndexStream,
         Persistence,
@@ -224,7 +224,7 @@ impl Persistence for PostgresPersistence {
 
     async fn write(
         &self,
-        documents: Vec<DatabaseDocumentUpdate>,
+        documents: Vec<DocumentLogEntry>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()> {
@@ -282,7 +282,12 @@ impl Persistence for PostgresPersistence {
                         for chunk in &mut document_chunks {
                             let mut params = Vec::with_capacity(chunk.len() * NUM_DOCUMENT_PARAMS);
                             for update in chunk {
-                                params.extend(document_params(update.ts, update.id, &update.value));
+                                params.extend(document_params(
+                                    update.ts,
+                                    update.id,
+                                    &update.value,
+                                    update.prev_ts,
+                                ));
                             }
                             let future = async {
                                 let timer = metrics::insert_document_chunk_timer();
@@ -295,7 +300,12 @@ impl Persistence for PostgresPersistence {
 
                         // After we've inserted all the full document chunks, drain the remainder.
                         for update in document_chunks.remainder() {
-                            let params = document_params(update.ts, update.id, &update.value);
+                            let params = document_params(
+                                update.ts,
+                                update.id,
+                                &update.value,
+                                update.prev_ts,
+                            );
                             let future = async {
                                 let timer = metrics::insert_one_document_timer();
                                 tx.execute_raw(&insert_document, params).await?;
@@ -486,15 +496,25 @@ impl PostgresReader {
     fn row_to_document(
         &self,
         row: Row,
-    ) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
-        let (ts, id, doc) = self.row_to_document_inner(row)?;
-        Ok((ts, id, doc))
+    ) -> anyhow::Result<(
+        Timestamp,
+        InternalDocumentId,
+        Option<ResolvedDocument>,
+        Option<Timestamp>,
+    )> {
+        let (ts, id, doc, prev_ts) = self.row_to_document_inner(row)?;
+        Ok((ts, id, doc, prev_ts))
     }
 
     fn row_to_document_inner(
         &self,
         row: Row,
-    ) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
+    ) -> anyhow::Result<(
+        Timestamp,
+        InternalDocumentId,
+        Option<ResolvedDocument>,
+        Option<Timestamp>,
+    )> {
         let bytes: Vec<u8> = row.get(0);
         let internal_id = InternalId::try_from(bytes)?;
         let ts: i64 = row.get(1);
@@ -515,13 +535,15 @@ impl PostgresReader {
         } else {
             None
         };
+        let prev_ts: Option<i64> = row.get(5);
+        let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
 
-        Ok((ts, document_id, document))
+        Ok((ts, document_id, document, prev_ts))
     }
 
     #[allow(clippy::needless_lifetimes)]
     #[try_stream(
-        ok = (Timestamp, InternalDocumentId, Option<ResolvedDocument>),
+        ok = DocumentLogEntry,
         error = anyhow::Error,
     )]
     async fn _load_documents(
@@ -565,13 +587,18 @@ impl PostgresReader {
             futures::pin_mut!(row_stream);
 
             while let Some(row) = row_stream.try_next().await? {
-                let (ts, document_id, document) = self.row_to_document(row)?;
+                let (ts, document_id, document, prev_ts) = self.row_to_document(row)?;
                 rows_loaded += 1;
                 last_ts = ts;
                 last_tablet_id_param = Param::TableId(document_id.table());
                 last_id_param = internal_doc_id_param(document_id);
                 num_returned += 1;
-                yield (ts, document_id, document);
+                yield DocumentLogEntry {
+                    ts,
+                    id: document_id,
+                    value: document,
+                    prev_ts,
+                };
             }
             if rows_loaded < page_size {
                 break;
@@ -867,9 +894,7 @@ impl PersistenceReader for PostgresReader {
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    > {
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         let timer = metrics::prev_revisions_timer();
 
         let client = self.read_pool.get_connection("previous_revisions").await?;
@@ -911,11 +936,21 @@ impl PersistenceReader for PostgresReader {
         while let Some(row_stream) = result_stream.try_next().await? {
             futures::pin_mut!(row_stream);
             while let Some(row) = row_stream.try_next().await? {
-                let ts: i64 = row.get(5);
+                let ts: i64 = row.get(6);
                 let ts = Timestamp::try_from(ts)?;
-                let (prev_ts, id, maybe_doc) = self.row_to_document(row)?;
+                let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
                 min_ts = cmp::min(ts, min_ts);
-                anyhow::ensure!(result.insert((id, ts), (prev_ts, maybe_doc)).is_none());
+                anyhow::ensure!(result
+                    .insert(
+                        (id, ts),
+                        DocumentLogEntry {
+                            ts: prev_ts,
+                            id,
+                            value: maybe_doc,
+                            prev_ts: prev_prev_ts,
+                        }
+                    )
+                    .is_none());
             }
         }
 
@@ -1057,6 +1092,7 @@ fn document_params(
     ts: Timestamp,
     id: InternalDocumentId,
     maybe_document: &Option<ResolvedDocument>,
+    prev_ts: Option<Timestamp>,
 ) -> [Param; NUM_DOCUMENT_PARAMS] {
     let (json_value, deleted) = match maybe_document {
         Some(doc) => (JsonValue::from(doc.value().clone().into_value()), false),
@@ -1069,6 +1105,10 @@ fn document_params(
         Param::TableId(id.table()),
         Param::JsonValue(json_value),
         Param::Deleted(deleted),
+        match prev_ts {
+            Some(prev_ts) => Param::Ts(i64::from(prev_ts)),
+            None => Param::None,
+        },
     ]
 }
 
@@ -1235,7 +1275,7 @@ const LOAD_DOCS_BY_TS_PAGE_ASC: &str = r#"
     Set(enable_material OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT id, ts, table_id, json_value, deleted
+SELECT id, ts, table_id, json_value, deleted, prev_ts
     FROM documents
     WHERE ts >= $1
     AND ts < $2
@@ -1254,7 +1294,7 @@ const LOAD_DOCS_BY_TS_PAGE_DESC: &str = r#"
     Set(enable_material OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT id, ts, table_id, json_value, deleted
+SELECT id, ts, table_id, json_value, deleted, prev_ts
     FROM documents
     WHERE ts >= $1
     AND ts < $2
@@ -1264,41 +1304,41 @@ SELECT id, ts, table_id, json_value, deleted
 "#;
 
 const INSERT_DOCUMENT: &str = r#"INSERT INTO documents
-    (id, ts, table_id, json_value, deleted)
-    VALUES ($1, $2, $3, $4, $5)
+    (id, ts, table_id, json_value, deleted, prev_ts)
+    VALUES ($1, $2, $3, $4, $5, $6)
 "#;
 
 const INSERT_OVERWRITE_DOCUMENT: &str = r#"INSERT INTO documents
-    (id, ts, table_id, json_value, deleted)
-    VALUES ($1, $2, $3, $4, $5)
+    (id, ts, table_id, json_value, deleted, prev_ts)
+    VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (id, ts, table_id) DO UPDATE
     SET deleted = excluded.deleted, json_value = excluded.json_value
 "#;
 
 const INSERT_DOCUMENT_CHUNK: &str = r#"INSERT INTO documents
-    (id, ts, table_id, json_value, deleted)
+    (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES
-        ($1, $2, $3, $4, $5),
-        ($6, $7, $8, $9, $10),
-        ($11, $12, $13, $14, $15),
-        ($16, $17, $18, $19, $20),
-        ($21, $22, $23, $24, $25),
-        ($26, $27, $28, $29, $30),
-        ($31, $32, $33, $34, $35),
-        ($36, $37, $38, $39, $40)
+        ($1, $2, $3, $4, $5, $6),
+        ($7, $8, $9, $10, $11, $12),
+        ($13, $14, $15, $16, $17, $18),
+        ($19, $20, $21, $22, $23, $24),
+        ($25, $26, $27, $28, $29, $30),
+        ($31, $32, $33, $34, $35, $36),
+        ($37, $38, $39, $40, $41, $42),
+        ($43, $44, $45, $46, $47, $48)
 "#;
 
 const INSERT_OVERWRITE_DOCUMENT_CHUNK: &str = r#"INSERT INTO documents
-    (id, ts, table_id, json_value, deleted)
+    (id, ts, table_id, json_value, deleted, prev_ts)
     VALUES
-        ($1, $2, $3, $4, $5),
-        ($6, $7, $8, $9, $10),
-        ($11, $12, $13, $14, $15),
-        ($16, $17, $18, $19, $20),
-        ($21, $22, $23, $24, $25),
-        ($26, $27, $28, $29, $30),
-        ($31, $32, $33, $34, $35),
-        ($36, $37, $38, $39, $40)
+        ($1, $2, $3, $4, $5, $6),
+        ($7, $8, $9, $10, $11, $12),
+        ($13, $14, $15, $16, $17, $18),
+        ($19, $20, $21, $22, $23, $24),
+        ($25, $26, $27, $28, $29, $30),
+        ($31, $32, $33, $34, $35, $36),
+        ($37, $38, $39, $40, $41, $42),
+        ($43, $44, $45, $46, $47, $48)
     ON CONFLICT (id, ts, table_id) DO UPDATE
     SET deleted = excluded.deleted, json_value = excluded.json_value
 "#;
@@ -1425,7 +1465,7 @@ const WRITE_PERSISTENCE_GLOBAL: &str = r#"INSERT INTO persistence_globals
 const GET_PERSISTENCE_GLOBAL: &str = "SELECT json_value FROM persistence_globals WHERE key = $1";
 
 const CHUNK_SIZE: usize = 8;
-const NUM_DOCUMENT_PARAMS: usize = 5;
+const NUM_DOCUMENT_PARAMS: usize = 6;
 const NUM_INDEX_PARAMS: usize = 8;
 const MAX_INSERT_SIZE: usize = 16384;
 static PIPELINE_QUERIES: LazyLock<usize> = LazyLock::new(|| env_config("PIPELINE_QUERIES", 16));
@@ -1609,22 +1649,22 @@ const PREV_REV_CHUNK: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 WITH
-    q1 AS (SELECT id, ts, table_id, json_value, deleted, $3::BIGINT as query_ts FROM documents WHERE table_id = $1 AND id = $2 and ts < $3 ORDER BY ts DESC LIMIT 1),
-    q2 AS (SELECT id, ts, table_id, json_value, deleted, $6::BIGINT as query_ts FROM documents WHERE table_id = $4 AND id = $5 and ts < $6 ORDER BY ts DESC LIMIT 1),
-    q3 AS (SELECT id, ts, table_id, json_value, deleted, $9::BIGINT as query_ts FROM documents WHERE table_id = $7 AND id = $8 and ts < $9 ORDER BY ts DESC LIMIT 1),
-    q4 AS (SELECT id, ts, table_id, json_value, deleted, $12::BIGINT as query_ts FROM documents WHERE table_id = $10 AND id = $11 and ts < $12 ORDER BY ts DESC LIMIT 1),
-    q5 AS (SELECT id, ts, table_id, json_value, deleted, $15::BIGINT as query_ts FROM documents WHERE table_id = $13 AND id = $14 and ts < $15 ORDER BY ts DESC LIMIT 1),
-    q6 AS (SELECT id, ts, table_id, json_value, deleted, $18::BIGINT as query_ts FROM documents WHERE table_id = $16 AND id = $17 and ts < $18 ORDER BY ts DESC LIMIT 1),
-    q7 AS (SELECT id, ts, table_id, json_value, deleted, $21::BIGINT as query_ts FROM documents WHERE table_id = $19 AND id = $20 and ts < $21 ORDER BY ts DESC LIMIT 1),
-    q8 AS (SELECT id, ts, table_id, json_value, deleted, $24::BIGINT as query_ts FROM documents WHERE table_id = $22 AND id = $23 and ts < $24 ORDER BY ts DESC LIMIT 1)
-SELECT id, ts, table_id, json_value, deleted, query_ts FROM q1
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q2
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q3
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q4
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q5
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q6
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q7
-UNION ALL SELECT id, ts, table_id, json_value, deleted, query_ts FROM q8;
+    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts FROM documents WHERE table_id = $1 AND id = $2 and ts < $3 ORDER BY ts DESC LIMIT 1),
+    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $6::BIGINT as query_ts FROM documents WHERE table_id = $4 AND id = $5 and ts < $6 ORDER BY ts DESC LIMIT 1),
+    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $9::BIGINT as query_ts FROM documents WHERE table_id = $7 AND id = $8 and ts < $9 ORDER BY ts DESC LIMIT 1),
+    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM documents WHERE table_id = $10 AND id = $11 and ts < $12 ORDER BY ts DESC LIMIT 1),
+    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $15::BIGINT as query_ts FROM documents WHERE table_id = $13 AND id = $14 and ts < $15 ORDER BY ts DESC LIMIT 1),
+    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $18::BIGINT as query_ts FROM documents WHERE table_id = $16 AND id = $17 and ts < $18 ORDER BY ts DESC LIMIT 1),
+    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $21::BIGINT as query_ts FROM documents WHERE table_id = $19 AND id = $20 and ts < $21 ORDER BY ts DESC LIMIT 1),
+    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM documents WHERE table_id = $22 AND id = $23 and ts < $24 ORDER BY ts DESC LIMIT 1)
+SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q1
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q2
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q3
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q4
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q5
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q6
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q7
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q8;
 "#;
 
 const PREV_REV: &str = r#"
@@ -1637,7 +1677,7 @@ const PREV_REV: &str = r#"
     Set(enable_material OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT id, ts, table_id, json_value, deleted, $3::BIGINT as query_ts
+SELECT id, ts, table_id, json_value, deleted, prev_ts, $3::BIGINT as query_ts
 FROM documents
 WHERE
     table_id = $1 AND

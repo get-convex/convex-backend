@@ -8,7 +8,7 @@ use common::{
         MYSQL_MAX_CHUNK_BYTES,
         MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE,
     },
-    persistence::DatabaseDocumentUpdate,
+    persistence::DocumentLogEntry,
     types::{
         DatabaseIndexUpdate,
         Timestamp,
@@ -59,7 +59,7 @@ impl<T: ApproxSize, U: ApproxSize, V: ApproxSize> ApproxSize for (T, U, V) {
     }
 }
 
-impl ApproxSize for DatabaseDocumentUpdate {
+impl ApproxSize for DocumentLogEntry {
     fn approx_size(&self) -> usize {
         self.ts.approx_size()
             + self.id.approx_size()

@@ -50,7 +50,13 @@ use crate::{
     },
 };
 
-pub type DocumentLogEntry = (Timestamp, InternalDocumentId, Option<ResolvedDocument>);
+#[derive(Debug, Clone, PartialEq)]
+pub struct DocumentLogEntry {
+    pub ts: Timestamp,
+    pub id: InternalDocumentId,
+    pub value: Option<ResolvedDocument>,
+    pub prev_ts: Option<Timestamp>,
+}
 
 pub type DocumentStream<'a> = BoxStream<'a, anyhow::Result<DocumentLogEntry>>;
 
@@ -161,14 +167,6 @@ impl PersistenceGlobalKey {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct DatabaseDocumentUpdate {
-    pub ts: Timestamp,
-    pub id: InternalDocumentId,
-    pub value: Option<ResolvedDocument>,
-    pub prev_ts: Option<Timestamp>,
-}
-
 #[async_trait]
 pub trait Persistence: Sync + Send + 'static {
     /// Whether the persistence layer is freshely created or not.
@@ -179,7 +177,7 @@ pub trait Persistence: Sync + Send + 'static {
     /// Writes documents and the respective derived indexes.
     async fn write(
         &self,
-        documents: Vec<DatabaseDocumentUpdate>,
+        documents: Vec<DocumentLogEntry>,
         indexes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
         conflict_strategy: ConflictStrategy,
     ) -> anyhow::Result<()>;
@@ -338,7 +336,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> DocumentStream<'_> {
         self.load_documents(range, order, page_size, retention_validator)
-            .try_filter(move |(_, doc_id, _)| future::ready(doc_id.table() == tablet_id))
+            .try_filter(move |doc| future::ready(doc.id.table() == tablet_id))
             .boxed()
     }
 
@@ -352,9 +350,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    >;
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>>;
 
     /// Loads documentIds with respective timestamps that match the
     /// index query criteria.
@@ -431,7 +427,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         let max_repeatable =
             self.get_persistence_global(PersistenceGlobalKey::MaxRepeatableTimestamp);
         let (max_committed, max_repeatable) = try_join!(stream.try_next(), max_repeatable)?;
-        let max_committed_ts = max_committed.map(|(ts, ..)| ts);
+        let max_committed_ts = max_committed.map(|entry| entry.ts);
         let max_repeatable_ts = max_repeatable.map(Timestamp::try_from).transpose()?;
         let max_ts = cmp::max(max_committed_ts, max_repeatable_ts); // note None < Some
         Ok(max_ts)
@@ -525,7 +521,7 @@ impl RepeatablePersistence {
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             self.retention_validator.clone(),
         );
-        Box::pin(stream.try_filter(|(ts, ..)| future::ready(*ts <= *self.upper_bound)))
+        Box::pin(stream.try_filter(|entry| future::ready(entry.ts <= *self.upper_bound)))
     }
 
     /// Same as `load_documents` but doesn't use the `RetentionValidator` from
@@ -543,15 +539,13 @@ impl RepeatablePersistence {
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             retention_validator,
         );
-        Box::pin(stream.try_filter(|(ts, ..)| future::ready(*ts <= *self.upper_bound)))
+        Box::pin(stream.try_filter(|entry| future::ready(entry.ts <= *self.upper_bound)))
     }
 
     pub async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    > {
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         for (_, ts) in &ids {
             // Reading documents <ts, so ts-1 needs to be repeatable.
             anyhow::ensure!(*ts <= self.upper_bound.succ()?);
@@ -566,9 +560,7 @@ impl RepeatablePersistence {
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<
-        BTreeMap<(InternalDocumentId, Timestamp), (Timestamp, Option<ResolvedDocument>)>,
-    > {
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
         for (_, ts) in &ids {
             // Reading documents <ts, so ts-1 needs to be repeatable.
             anyhow::ensure!(*ts <= self.upper_bound.succ()?);

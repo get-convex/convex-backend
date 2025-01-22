@@ -62,6 +62,7 @@ use common::{
     },
     persistence::{
         new_static_repeatable_recent,
+        DocumentLogEntry,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -560,14 +561,26 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
                 // the document was deleted or its index key changed.
+                // TODO: use prev_ts when available
                 let prev_revs = reader_
-                    .previous_revisions(chunk.iter().map(|(ts, id, _)| (*id, *ts)).collect())
+                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
                     .await?;
-                for (ts, id, maybe_doc) in chunk {
+                for DocumentLogEntry {
+                    ts,
+                    id,
+                    value: maybe_doc,
+                    ..
+                } in chunk
+                {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction, with no index rows.
-                    let Some((prev_rev_ts, maybe_prev_rev)) = prev_revs.get(&(id, ts)) else {
+                    let Some(DocumentLogEntry {
+                        ts: prev_rev_ts,
+                        value: maybe_prev_rev,
+                        ..
+                    }) = prev_revs.get(&(id, ts))
+                    else {
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
                     };
@@ -774,15 +787,26 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // outside of the document retention window.
                 let prev_revs = reader_
                     .previous_revisions_with_validator(
-                        chunk.iter().map(|(ts, id, _)| (*id, *ts)).collect(),
+                        chunk.iter().map(|entry| (entry.id, entry.ts)).collect(),
                         Arc::new(NoopRetentionValidator),
                     )
                     .await?;
-                for (ts, id, maybe_doc) in chunk {
+                for DocumentLogEntry {
+                    ts,
+                    id,
+                    value: maybe_doc,
+                    ..
+                } in chunk
+                {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction.
-                    let Some((prev_rev_ts, maybe_prev_rev)) = prev_revs.get(&(id, ts)) else {
+                    let Some(DocumentLogEntry {
+                        ts: prev_rev_ts,
+                        value: maybe_prev_rev,
+                        ..
+                    }) = prev_revs.get(&(id, ts))
+                    else {
                         if maybe_doc.is_none() {
                             anyhow::ensure!(
                                 ts <= Timestamp::try_from(
@@ -1407,8 +1431,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             retention_validator,
         );
-        while let Some((_, _, maybe_doc)) = document_stream.try_next().await? {
-            Self::accumulate_index_document(maybe_doc, all_indexes, index_table_id)?;
+        while let Some(entry) = document_stream.try_next().await? {
+            Self::accumulate_index_document(entry.value, all_indexes, index_table_id)?;
         }
         *cursor = latest_ts;
         Ok(())
@@ -1933,16 +1957,13 @@ mod tests {
         let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
         assert_eq!(
             results,
-            [
+            vec![
                 doc(id2, 2, Some(1))?,
                 doc(id3, 2, Some(2))?,
                 doc(id4, 2, Some(2))?,
                 doc(id5, 5, Some(4))?,
                 doc(id6, 6, Some(5))?,
             ]
-            .into_iter()
-            .map(|update| (update.ts, update.id, update.value))
-            .collect::<Vec<_>>()
         );
 
         Ok(())
@@ -2032,14 +2053,11 @@ mod tests {
         let results: Vec<_> = stream.try_collect::<Vec<_>>().await?.into_iter().collect();
         assert_eq!(
             results,
-            [
+            vec![
                 doc(id1, 10, Some(10))?,
                 doc(id1, 12, Some(12))?,
                 doc(id1, 13, Some(13))?,
             ]
-            .into_iter()
-            .map(|update| (update.ts, update.id, update.value))
-            .collect::<Vec<_>>()
         );
 
         Ok(())
