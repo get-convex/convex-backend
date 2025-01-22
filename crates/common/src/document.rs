@@ -28,6 +28,7 @@ use packed_value::{
 };
 use pb::common::{
     DocumentUpdate as DocumentUpdateProto,
+    DocumentUpdateWithPrevTs as DocumentUpdateWithPrevTsProto,
     ResolvedDocument as ResolvedDocumentProto,
 };
 #[cfg(any(test, feature = "testing"))]
@@ -588,16 +589,89 @@ impl ResolvedDocument {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct DocumentUpdateWithPrevTs {
+    pub id: ResolvedDocumentId,
+    /// The old document and its timestamp in the document log.
+    /// The timestamp will become the update's `prev_ts`.
+    // TODO: make the timestamp non-optional after everything has pushed
+    pub old_document: Option<(ResolvedDocument, Option<Timestamp>)>,
+    pub new_document: Option<ResolvedDocument>,
+}
+
+impl DocumentUpdateWithPrevTs {
+    /// Checks if two DocumentUpdates are almost equal, ignoring the case where
+    /// one has a missing old timestamp
+    // TODO: remove this once the old timestamp is non-optional
+    pub fn eq_ignoring_none_old_ts(&self, other: &DocumentUpdateWithPrevTs) -> bool {
+        self.id == other.id
+            && self.old_document.as_ref().map(|(d, _)| d)
+                == other.old_document.as_ref().map(|(d, _)| d)
+            && self
+                .old_document
+                .as_ref()
+                .map(|(_, ts)| ts)
+                .zip(other.old_document.as_ref().map(|(_, ts)| ts))
+                .is_none_or(|(a, b)| a == b)
+            && self.new_document == other.new_document
+    }
+}
+
+impl HeapSize for DocumentUpdateWithPrevTs {
+    fn heap_size(&self) -> usize {
+        self.old_document.heap_size() + self.new_document.heap_size()
+    }
+}
+
+impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        DocumentUpdateWithPrevTs {
+            id,
+            old_document,
+            new_document,
+        }: DocumentUpdateWithPrevTs,
+    ) -> anyhow::Result<Self> {
+        let (old_document, old_ts) = old_document.unzip();
+        Ok(Self {
+            id: Some(id.into()),
+            old_document: old_document.map(|d| d.try_into()).transpose()?,
+            old_ts: old_ts.flatten().map(|ts| ts.into()),
+            new_document: new_document.map(|d| d.try_into()).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<DocumentUpdateWithPrevTsProto> for DocumentUpdateWithPrevTs {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        DocumentUpdateWithPrevTsProto {
+            id,
+            old_document,
+            old_ts,
+            new_document,
+        }: DocumentUpdateWithPrevTsProto,
+    ) -> anyhow::Result<Self> {
+        let id = id
+            .context("Document updates missing document id")?
+            .try_into()?;
+        Ok(Self {
+            id,
+            old_document: old_document
+                .map(|d| anyhow::Ok((d.try_into()?, old_ts.map(Timestamp::try_from).transpose()?)))
+                .transpose()?,
+            new_document: new_document.map(|d| d.try_into()).transpose()?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct DocumentUpdate {
     pub id: ResolvedDocumentId,
     pub old_document: Option<ResolvedDocument>,
     pub new_document: Option<ResolvedDocument>,
-}
-
-impl HeapSize for DocumentUpdate {
-    fn heap_size(&self) -> usize {
-        self.old_document.heap_size() + self.new_document.heap_size()
-    }
 }
 
 impl TryFrom<DocumentUpdate> for DocumentUpdateProto {
@@ -636,6 +710,51 @@ impl TryFrom<DocumentUpdateProto> for DocumentUpdate {
             old_document: old_document.map(|d| d.try_into()).transpose()?,
             new_document: new_document.map(|d| d.try_into()).transpose()?,
         })
+    }
+}
+
+impl From<DocumentUpdateWithPrevTs> for DocumentUpdate {
+    fn from(update: DocumentUpdateWithPrevTs) -> Self {
+        Self {
+            id: update.id,
+            old_document: update.old_document.map(|(d, _)| d),
+            new_document: update.new_document,
+        }
+    }
+}
+
+/// Either a [`DocumentUpdate`] or a [`DocumentUpdateWithPrevTs`]
+pub trait DocumentUpdateRef {
+    fn id(&self) -> ResolvedDocumentId;
+    fn old_document(&self) -> Option<&ResolvedDocument>;
+    fn new_document(&self) -> Option<&ResolvedDocument>;
+}
+
+impl DocumentUpdateRef for DocumentUpdateWithPrevTs {
+    fn id(&self) -> ResolvedDocumentId {
+        self.id
+    }
+
+    fn old_document(&self) -> Option<&ResolvedDocument> {
+        self.old_document.as_ref().map(|(d, _)| d)
+    }
+
+    fn new_document(&self) -> Option<&ResolvedDocument> {
+        self.new_document.as_ref()
+    }
+}
+
+impl DocumentUpdateRef for DocumentUpdate {
+    fn id(&self) -> ResolvedDocumentId {
+        self.id
+    }
+
+    fn old_document(&self) -> Option<&ResolvedDocument> {
+        self.old_document.as_ref()
+    }
+
+    fn new_document(&self) -> Option<&ResolvedDocument> {
+        self.new_document.as_ref()
     }
 }
 
@@ -899,6 +1018,7 @@ mod tests {
 
     use super::{
         DocumentUpdateProto,
+        DocumentUpdateWithPrevTsProto,
         ResolvedDocumentProto,
     };
     use crate::{
@@ -906,6 +1026,7 @@ mod tests {
         document::{
             CreationTime,
             DocumentUpdate,
+            DocumentUpdateWithPrevTs,
             ResolvedDocument,
         },
         paths::FieldPath,
@@ -951,7 +1072,13 @@ mod tests {
 
 
         #[test]
-        fn test_document_update_proto_roundtrips(left in any::<DocumentUpdate>()) {
+        fn test_document_update_proto_roundtrips(left in any::<DocumentUpdateWithPrevTs>()) {
+            assert_roundtrips::<DocumentUpdateWithPrevTs, DocumentUpdateWithPrevTsProto>(left);
+        }
+
+
+        #[test]
+        fn test_index_document_update_proto_roundtrips(left in any::<DocumentUpdate>()) {
             assert_roundtrips::<DocumentUpdate, DocumentUpdateProto>(left);
         }
     }

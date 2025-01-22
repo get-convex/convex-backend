@@ -45,6 +45,13 @@ message DocumentUpdate {
     ResolvedDocument new_document = 2;
 }
 
+message DocumentUpdateWithPrevTs {
+    ResolvedDocumentId id = 3;
+    ResolvedDocument old_document = 1;
+    optional uint64 old_ts = 4;
+    ResolvedDocument new_document = 2;
+}
+
 message TabletIdAndTableNumber {
     optional bytes table_id = 1;
     optional uint32 table_number = 2;

@@ -187,7 +187,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
             .table_mapping()
             .tablet_namespace(table_id.tablet_id)?;
 
-        let existing_doc = self.tx.get(id).await?;
+        let existing_doc = self.tx.get_with_ts(id).await?;
 
         let creation_time_field = FieldName::from(CREATION_TIME_FIELD.clone());
         let creation_time = if let Some(ConvexValue::Float64(f)) = value.get(&creation_time_field) {
@@ -236,7 +236,7 @@ impl<'a, RT: Runtime> ImportFacingModel<'a, RT> {
         }
 
         let id = ResolvedDocumentId::new(table_id.tablet_id, developer_id);
-        let existing_doc = self.tx.get(id).await?;
+        let existing_doc = self.tx.get_with_ts(id).await?;
 
         self.tx.apply_validated_write(id, existing_doc, None)?;
 

@@ -515,6 +515,7 @@ mod tests {
         assert_obj,
         document::{
             CreationTime,
+            DocumentUpdate,
             ResolvedDocument,
         },
         index::IndexKey,
@@ -545,7 +546,6 @@ mod tests {
             TransactionReadSet,
         },
         write_log::{
-            DocumentUpdate,
             PackedDocumentUpdate,
             WriteLogManager,
             WriteSource,

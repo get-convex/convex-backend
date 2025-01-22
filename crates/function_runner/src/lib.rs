@@ -18,7 +18,7 @@ use common::{
         ComponentName,
         Resource,
     },
-    document::DocumentUpdate,
+    document::DocumentUpdateWithPrevTs,
     errors::JsError,
     execution_context::ExecutionContext,
     log_lines::LogLine,
@@ -215,7 +215,7 @@ impl From<TransactionReadSet> for FunctionReads {
 #[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
 #[derive(Clone, Default)]
 pub struct FunctionWrites {
-    pub updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
+    pub updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -225,7 +225,7 @@ impl proptest::arbitrary::Arbitrary for FunctionWrites {
     type Strategy = impl Strategy<Value = FunctionWrites>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        proptest::collection::vec(proptest::prelude::any::<DocumentUpdate>(), 0..4)
+        proptest::collection::vec(proptest::prelude::any::<DocumentUpdateWithPrevTs>(), 0..4)
             .prop_map(|updates| Self {
                 updates: updates.into_iter().map(|u| (u.id, u)).collect(),
             })

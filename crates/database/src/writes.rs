@@ -15,7 +15,7 @@ use common::{
         TABLE_ID_FIELD_PATH,
     },
     document::{
-        DocumentUpdate,
+        DocumentUpdateWithPrevTs,
         ResolvedDocument,
     },
     index::IndexKey,
@@ -32,6 +32,7 @@ use common::{
     types::{
         IndexDescriptor,
         TabletIndexName,
+        WriteTimestamp,
     },
     value::{
         ResolvedDocumentId,
@@ -167,7 +168,7 @@ impl<W: PendingWrites> NestedWrites<W> {
 /// The write set for a transaction, maintained by `TransactionState`
 #[derive(Debug, Clone, PartialEq)]
 pub struct Writes {
-    updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
+    updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
 
     // Fields below can be recomputed from `updates`.
 
@@ -207,20 +208,17 @@ impl Writes {
         is_system_document: bool,
         reads: &mut TransactionReadSet,
         document_id: ResolvedDocumentId,
-        document_update: DocumentUpdate,
+        old_document: Option<(ResolvedDocument, Option<WriteTimestamp>)>,
+        new_document: Option<ResolvedDocument>,
     ) -> anyhow::Result<()> {
-        if document_update.old_document.is_none() {
+        if old_document.is_none() {
             anyhow::ensure!(!self.updates.contains_key(&document_id), "Duplicate insert");
             self.register_new_id(reads, document_id)?;
         }
         Self::record_reads_for_write(bootstrap_tables, reads, document_id.tablet_id)?;
 
         let id_size = document_id.size();
-        let value_size = document_update
-            .new_document
-            .as_ref()
-            .map(|d| d.value().size())
-            .unwrap_or(0);
+        let value_size = new_document.as_ref().map(|d| d.value().size()).unwrap_or(0);
 
         let tx_size = if is_system_document {
             &mut self.system_tx_size
@@ -276,14 +274,41 @@ impl Writes {
         };
 
         if let Some(old_update) = self.updates.get_mut(&document_id) {
+            let (old_document, old_document_ts) = old_document.unzip();
             anyhow::ensure!(
-                old_update.new_document == document_update.old_document,
+                old_update.new_document == old_document,
                 "Inconsistent update: The old update's new document does not match the new \
                  document's old update"
             );
-            old_update.new_document = document_update.new_document;
+            anyhow::ensure!(
+                [None, Some(WriteTimestamp::Pending)].contains(&old_document_ts.flatten()),
+                "Inconsistent update: The new document's old update timestamp should be Pending \
+                 but is {:?}",
+                old_document_ts
+            );
+            old_update.new_document = new_document;
         } else {
-            self.updates.insert(document_id, document_update);
+            self.updates.insert(
+                document_id,
+                DocumentUpdateWithPrevTs {
+                    id: document_id,
+                    old_document: match old_document {
+                        Some((d, ts)) => Some((
+                            d,
+                            ts.map(|ts| match ts {
+                                WriteTimestamp::Committed(ts) => Ok(ts),
+                                WriteTimestamp::Pending => anyhow::bail!(
+                                    "Old document timestamp is Pending, but there is no pending \
+                                     write"
+                                ),
+                            })
+                            .transpose()?,
+                        )),
+                        None => None,
+                    },
+                    new_document,
+                },
+            );
         }
 
         Ok(())
@@ -380,17 +405,19 @@ impl Writes {
     }
 
     /// Iterate over the coalesced writes (so no `DocumentId` appears twice).
-    pub fn coalesced_writes(&self) -> impl Iterator<Item = (&ResolvedDocumentId, &DocumentUpdate)> {
+    pub fn coalesced_writes(
+        &self,
+    ) -> impl Iterator<Item = (&ResolvedDocumentId, &DocumentUpdateWithPrevTs)> {
         self.updates.iter()
     }
 
     pub fn into_coalesced_writes(
         self,
-    ) -> impl Iterator<Item = (ResolvedDocumentId, DocumentUpdate)> {
+    ) -> impl Iterator<Item = (ResolvedDocumentId, DocumentUpdateWithPrevTs)> {
         self.updates.into_iter()
     }
 
-    pub fn into_updates(self) -> OrdMap<ResolvedDocumentId, DocumentUpdate> {
+    pub fn into_updates(self) -> OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs> {
         self.updates
     }
 
@@ -416,7 +443,7 @@ mod tests {
         },
         document::{
             CreationTime,
-            DocumentUpdate,
+            DocumentUpdateWithPrevTs,
             PackedDocument,
             ResolvedDocument,
         },
@@ -425,6 +452,7 @@ mod tests {
             IndexDescriptor,
             PersistenceVersion,
             TabletIndexName,
+            WriteTimestamp,
         },
     };
     use maplit::btreeset;
@@ -580,11 +608,8 @@ mod tests {
             false,
             &mut reads,
             id,
-            DocumentUpdate {
-                id,
-                old_document: None,
-                new_document: Some(document),
-            },
+            None,
+            Some(document),
         )?;
         assert_eq!(writes.generated_ids(), btreeset! {id});
         Ok(())
@@ -608,11 +633,11 @@ mod tests {
             false,
             &mut reads,
             id,
-            DocumentUpdate {
-                id,
-                old_document: Some(old_document.clone()),
-                new_document: Some(new_document.clone()),
-            },
+            Some((
+                old_document.clone(),
+                Some(WriteTimestamp::Committed(Timestamp::must(123))),
+            )),
+            Some(new_document.clone()),
         )?;
         let newer_document = ResolvedDocument::new(
             id,
@@ -624,11 +649,8 @@ mod tests {
             false,
             &mut reads,
             id,
-            DocumentUpdate {
-                id,
-                old_document: Some(new_document),
-                new_document: Some(newer_document.clone()),
-            },
+            Some((new_document, Some(WriteTimestamp::Pending))),
+            Some(newer_document.clone()),
         )?;
 
         assert_eq!(writes.updates.len(), 1);
@@ -636,9 +658,9 @@ mod tests {
             writes.updates.get_min().unwrap(),
             &(
                 id,
-                DocumentUpdate {
+                DocumentUpdateWithPrevTs {
                     id,
-                    old_document: Some(old_document),
+                    old_document: Some((old_document, Some(Timestamp::must(123)))),
                     new_document: Some(newer_document),
                 }
             )

@@ -31,7 +31,7 @@ use common::{
     },
     document::{
         CreationTime,
-        DocumentUpdate,
+        DocumentUpdateWithPrevTs,
         ResolvedDocument,
     },
     identity::InertIdentity,
@@ -381,7 +381,9 @@ impl<RT: Runtime> Transaction<RT> {
         let mut biggest_document_id = None;
         let mut max_nesting = 0;
         let mut most_nested_document_id = None;
-        for (document_id, DocumentUpdate { new_document, .. }) in self.writes.coalesced_writes() {
+        for (document_id, DocumentUpdateWithPrevTs { new_document, .. }) in
+            self.writes.coalesced_writes()
+        {
             let (size, nesting) = new_document
                 .as_ref()
                 .map(|document| (document.value().size(), document.value().nesting()))
@@ -425,7 +427,7 @@ impl<RT: Runtime> Transaction<RT> {
         num_intervals: usize,
         user_tx_size: crate::reads::TransactionReadSize,
         system_tx_size: crate::reads::TransactionReadSize,
-        updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
+        updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
         rows_read_by_tablet: BTreeMap<TabletId, u64>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(
@@ -452,7 +454,7 @@ impl<RT: Runtime> Transaction<RT> {
     // In most scenarios this transaction will have no writes.
     pub fn merge_writes(
         &mut self,
-        updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
+        updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
     ) -> anyhow::Result<()> {
         let existing_updates = self.writes().as_flat()?.clone().into_updates();
 
@@ -472,7 +474,7 @@ impl<RT: Runtime> Transaction<RT> {
             // already written to in this transaction.
             if let Some(existing_update) = existing_updates.get(&id) {
                 anyhow::ensure!(
-                    existing_update == &update,
+                    existing_update.eq_ignoring_none_old_ts(&update),
                     "Conflicting updates for document {id}"
                 );
                 preserved_update_count += 1;
@@ -488,7 +490,13 @@ impl<RT: Runtime> Transaction<RT> {
                     self.next_creation_time.increment()?;
                 }
             }
-            self.apply_validated_write(id, update.old_document, update.new_document)?;
+            self.apply_validated_write_maybe_old_ts(
+                id,
+                update
+                    .old_document
+                    .map(|(d, ts)| (d, ts.map(WriteTimestamp::Committed))),
+                update.new_document,
+            )?;
         }
         assert_eq!(
             preserved_update_count,
@@ -536,7 +544,7 @@ impl<RT: Runtime> Transaction<RT> {
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
         let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
 
-        let (old_document, _) =
+        let (old_document, old_ts) =
             self.get_inner(id, table_name.clone())
                 .await?
                 .context(ErrorMetadata::bad_request(
@@ -554,7 +562,7 @@ impl<RT: Runtime> Transaction<RT> {
             .enforce(&new_document)
             .await?;
 
-        self.apply_validated_write(id, Some(old_document), Some(new_document.clone()))?;
+        self.apply_validated_write(id, Some((old_document, old_ts)), Some(new_document.clone()))?;
         Ok(new_document)
     }
 
@@ -577,7 +585,7 @@ impl<RT: Runtime> Transaction<RT> {
 
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
         let namespace = self.table_mapping().tablet_namespace(id.tablet_id)?;
-        let (old_document, _) =
+        let (old_document, old_ts) =
             self.get_inner(id, table_name)
                 .await?
                 .context(ErrorMetadata::bad_request(
@@ -594,7 +602,7 @@ impl<RT: Runtime> Transaction<RT> {
 
         self.apply_validated_write(
             new_document.id(),
-            Some(old_document),
+            Some((old_document, old_ts)),
             Some(new_document.clone()),
         )?;
         Ok(new_document)
@@ -608,7 +616,7 @@ impl<RT: Runtime> Transaction<RT> {
         task::consume_budget().await;
 
         let table_name = self.table_mapping().tablet_name(id.tablet_id)?;
-        let (document, _) =
+        let (document, ts) =
             self.get_inner(id, table_name)
                 .await?
                 .context(ErrorMetadata::bad_request(
@@ -616,7 +624,7 @@ impl<RT: Runtime> Transaction<RT> {
                     format!("Delete on nonexistent document ID {id}"),
                 ))?;
 
-        self.apply_validated_write(document.id(), Some(document.clone()), None)?;
+        self.apply_validated_write(document.id(), Some((document.clone(), ts)), None)?;
         Ok(document)
     }
 
@@ -925,7 +933,22 @@ impl<RT: Runtime> Transaction<RT> {
     pub(crate) fn apply_validated_write(
         &mut self,
         id: ResolvedDocumentId,
-        old_document: Option<ResolvedDocument>,
+        old_document_and_ts: Option<(ResolvedDocument, WriteTimestamp)>,
+        new_document: Option<ResolvedDocument>,
+    ) -> anyhow::Result<()> {
+        self.apply_validated_write_maybe_old_ts(
+            id,
+            old_document_and_ts.map(|(d, ts)| (d, Some(ts))),
+            new_document,
+        )
+    }
+
+    // TODO: make WriteTimestamp non-optional and merge with
+    // `apply_validated_write`
+    pub(crate) fn apply_validated_write_maybe_old_ts(
+        &mut self,
+        id: ResolvedDocumentId,
+        old_document_and_ts: Option<(ResolvedDocument, Option<WriteTimestamp>)>,
         new_document: Option<ResolvedDocument>,
     ) -> anyhow::Result<()> {
         // Implement something like two-phase commit between the index and the document
@@ -934,30 +957,31 @@ impl<RT: Runtime> Transaction<RT> {
         // point so that the Transaction is never in an inconsistent state.
         let is_system_document = self.table_mapping().is_system_tablet(id.tablet_id);
         let bootstrap_tables = self.bootstrap_tables();
+        let old_document = old_document_and_ts.as_ref().map(|(doc, _)| doc);
         let index_update = self
             .index
-            .begin_update(old_document.clone(), new_document.clone())?;
+            .begin_update(old_document.cloned(), new_document.clone())?;
         let schema_update = self.schema_registry.begin_update(
             self.metadata.table_mapping(),
             id,
-            old_document.as_ref(),
+            old_document,
             new_document.as_ref(),
         )?;
         let component_update = self.component_registry.begin_update(
             self.metadata.table_mapping(),
             id,
-            old_document.as_ref(),
+            old_document,
             new_document.as_ref(),
         )?;
         let metadata_update = self.metadata.begin_update(
             index_update.registry(),
             id,
-            old_document.as_ref().map(|d| d.value().deref()),
+            old_document.map(|d| d.value().deref()),
             new_document.as_ref().map(|d| d.value().deref()),
         )?;
         let stats = self.stats.entry(id.tablet_id).or_default();
         let mut delta = 0;
-        match (old_document.as_ref(), new_document.as_ref()) {
+        match (old_document, new_document.as_ref()) {
             (None, None) => {
                 stats.rows_deleted += 1;
                 stats.rows_created += 1;
@@ -983,11 +1007,8 @@ impl<RT: Runtime> Transaction<RT> {
             is_system_document,
             &mut self.reads,
             id,
-            DocumentUpdate {
-                id,
-                old_document,
-                new_document,
-            },
+            old_document_and_ts,
+            new_document,
         )?;
         stats.rows_written += 1;
 

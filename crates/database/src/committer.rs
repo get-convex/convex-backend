@@ -20,7 +20,7 @@ use common::{
         ComponentPath,
     },
     document::{
-        DocumentUpdate,
+        DocumentUpdateWithPrevTs,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -657,7 +657,7 @@ impl<RT: Runtime> Committer<RT> {
             commit_ts,
             ordered_updates
                 .into_iter()
-                .map(|(id, update)| (id, PackedDocumentUpdate::pack(update)))
+                .map(|(id, update)| (id, PackedDocumentUpdate::pack(update.into())))
                 .collect(),
             write_source,
         );
@@ -673,7 +673,7 @@ impl<RT: Runtime> Committer<RT> {
     fn compute_writes(
         &self,
         commit_ts: Timestamp,
-        ordered_updates: &Vec<(ResolvedDocumentId, DocumentUpdate)>,
+        ordered_updates: &Vec<(ResolvedDocumentId, DocumentUpdateWithPrevTs)>,
     ) -> anyhow::Result<(
         Vec<ValidatedDocumentWrite>,
         BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -696,6 +696,10 @@ impl<RT: Runtime> Committer<RT> {
                     document: document_update.new_document.clone(),
                 },
                 doc_in_vector_index,
+                prev_ts: document_update
+                    .old_document
+                    .as_ref()
+                    .and_then(|&(_, ts)| ts),
             });
         }
         let index_writes = index_writes
@@ -736,14 +740,11 @@ impl<RT: Runtime> Committer<RT> {
         let timer = metrics::commit_persistence_write_timer();
         let document_writes = document_writes
             .into_iter()
-            .map(|write| {
-                DocumentLogEntry {
-                    ts: write.commit_ts,
-                    id: write.id,
-                    value: write.write.document,
-                    // TODO: fill in prev_ts
-                    prev_ts: None,
-                }
+            .map(|write| DocumentLogEntry {
+                ts: write.commit_ts,
+                id: write.id,
+                value: write.write.document,
+                prev_ts: write.prev_ts,
             })
             .collect();
         persistence
@@ -999,6 +1000,7 @@ struct ValidatedDocumentWrite {
     id: InternalDocumentId,
     write: DocumentWrite,
     doc_in_vector_index: DocInVectorIndex,
+    prev_ts: Option<Timestamp>,
 }
 
 #[derive(Clone)]

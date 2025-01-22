@@ -12,7 +12,7 @@ use common::{
         ComponentPath,
     },
     document::{
-        DocumentUpdate,
+        DocumentUpdateRef,
         ResolvedDocument,
     },
     knobs::MAX_TRANSACTION_WINDOW,
@@ -211,13 +211,13 @@ pub struct Snapshot {
 impl Snapshot {
     pub(crate) fn update(
         &mut self,
-        document_update: &DocumentUpdate,
+        document_update: &impl DocumentUpdateRef,
         commit_ts: Timestamp,
     ) -> anyhow::Result<(Vec<DatabaseIndexUpdate>, DocInVectorIndex)> {
         block_in_place(|| {
-            let removal = document_update.old_document.as_ref();
-            let insertion = document_update.new_document.as_ref();
-            let document_id = document_update.id;
+            let removal = document_update.old_document();
+            let insertion = document_update.new_document();
+            let document_id = document_update.id();
             let table_update = self
                 .table_registry
                 .update(
