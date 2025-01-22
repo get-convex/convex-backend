@@ -565,7 +565,7 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
   };
 }
 
-export async function bigBrainAPI({
+export async function bigBrainAPI<T = any>({
   ctx,
   method,
   url,
@@ -575,7 +575,7 @@ export async function bigBrainAPI({
   method: string;
   url: string;
   data?: any;
-}): Promise<any> {
+}): Promise<T> {
   const dataString =
     data === undefined
       ? undefined
