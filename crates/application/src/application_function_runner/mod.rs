@@ -343,6 +343,8 @@ impl<RT: Runtime> FunctionRouter<RT> {
         http_action_metadata: HttpActionMetadata,
         context: ExecutionContext,
     ) -> anyhow::Result<HttpActionOutcome> {
+        // All http actions are run in the isolate environment.
+        let timer = function_total_timer(ModuleEnvironment::Isolate, UdfType::HttpAction);
         let (_, outcome) = self
             .function_runner_execute(
                 tx,
@@ -357,6 +359,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         let FunctionOutcome::HttpAction(outcome) = outcome else {
             anyhow::bail!("Calling an http action returned an invalid outcome")
         };
+        timer.finish();
         Ok(outcome)
     }
 
