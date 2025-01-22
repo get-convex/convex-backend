@@ -1,6 +1,6 @@
 ---
 title: "Best Practices"
-sidebar_position: 50
+sidebar_position: 400
 toc_max_heading_level: 2
 ---
 
@@ -60,7 +60,7 @@ Search for `.filter` in your Convex codebase — a regex like `\.filter\(\(?q`
 will probably find all the ones on database queries.
 
 Decide whether they should be replaced with a `.withIndex` condition — per
-[this section](/docs/production/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
+[this section](/docs/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
 if you are filtering over a large (1000+) or potentially unbounded number of
 documents, you should use an index. If not using a `.withIndex` /
 `.withSearchIndex` condition, consider replacing them with a filter in code for
@@ -303,14 +303,14 @@ should have very short functions that mostly just call into `convex/model`.
 Organizing your code this way makes several of the refactors mentioned in this
 list easier to do.
 
-See the [TypeScript page](/docs/production/best-practices/typescript.mdx) for
+See the [TypeScript page](/docs/understanding/best-practices/typescript.mdx) for
 useful types.
 
 ### Example
 
 **❌** This example overuses `ctx.runQuery` and `ctx.runMutation`, which is
 discussed more in the
-[Avoid sequential `ctx.runMutation` / `ctx.runQuery` from actions](/docs/production/best-practices/best-practices.mdx#avoid-sequential-ctx-runmutation-ctx-runquery-from-actions)
+[Avoid sequential `ctx.runMutation` / `ctx.runQuery` from actions](/docs/understanding/best-practices/best-practices.mdx#avoid-sequential-ctx-runmutation-ctx-runquery-from-actions)
 section.
 
 <TSAndJSSnippet

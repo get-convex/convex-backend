@@ -1,0 +1,175 @@
+---
+title: "Dev workflow"
+hidden: false
+sidebar_position: 200
+---
+
+Let's walk through everything that needs to happen from first creating a project
+to launching your app in production.
+
+This doc assumes you are working building an app with Convex and React and you
+already have a basic React app already up and running. You can always follow one
+of our [quickstarts](/docs/quickstarts.mdx) to get up and running quickly.
+
+## Installing and running Convex
+
+You install Convex adding the npm dependency to your app:
+
+```sh
+npm i convex
+```
+
+Then you create your Convex project and start backend dev loop:
+
+```sh
+npx convex dev
+```
+
+The first time you run the `npx convex dev` command you'll be asked to:
+
+1. Create an account if it doesn't exist
+1. Create a new Convex project if it doesn't exist
+1. Provision a new personal development deployment for this project for you
+   1. Deployment details will automatically be added to your `.env.local` file
+      so future runs of `npx convex dev` will know what dev deployment to
+      connect to.
+   1. A `convex/` folder will be created (if it doesn't exist), where you'll
+      write your Convex backend functions.
+
+<div className="center-image" style={{ maxWidth: "149px" }}>
+  ![Convex directory in your app](/img/convex-directory.png)
+</div>
+
+## Developing your app
+
+Keep the `npx convex dev` command running while you're working on your Convex
+app. This continuously pushes backend code written in the `convex/` folder to
+your dev server. It also keeps the necessary TypeScript types up-to-date as you
+write your backend code.
+
+You can then add new new server functions to your Convex backend:
+
+```typescript title="convex/tasks.ts"
+import { query } from "./_generated/server";
+import { v } from "convex/values";
+
+// Return the last 100 tasks in a given task list.
+export const getTaskList = query({
+  args: { taskListId: v.id("taskLists") },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db
+      .query("tasks")
+      .withIndex("taskListId", (q) => q.eq("taskListId", args.taskListId))
+      .order("desc")
+      .take(100);
+    return tasks;
+  },
+});
+```
+
+When you write and save this code in your editor, several things happen:
+
+1. The `npx convex dev` command uploads the contents of your `convex/` directory
+   to your dev deployment.
+1. Your Convex dev deployment analyzes your code and finds all Convex functions.
+   In this example, it determines that `tasks.getTaskList` is a public query
+   function.
+1. The `npx convex dev` command updates generated TypeScript code in the
+   `convex/_generated` directory to provide end to end type safety for your
+   functions.
+
+<Admonition type="tip">
+  Check in everything in your `convex/_generated/` directory. This it ensures
+  that your code immediately type checks and runs without having to first run
+  `npx convex dev`. It's particularly useful for non backend developers on your
+  team to write frontend code that type checks against the deployed server
+  functions.
+</Admonition>
+
+Once this is done you can use your new server function in your frontend:
+
+```typescript title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.tasks.getTaskList);
+  return data ?? "Loading...";
+}
+```
+
+If you have other configuration like schemas, crons, or auth in your `convex/`
+folder, Convex ensures that they are applied and enforced on your backend.
+
+## Convex dashboard
+
+The [Convex dashboard](/docs/dashboard/deployments/deployments.md) will be a
+trusty helper throughout your dev, debug and deploy workflow in Convex.
+
+### Logs
+
+Since Convex functions are TypeScript functions you can always use the standard
+`console.log` and `console.time` functions to debug your apps.
+
+Logs from your functions show up
+[in your dashboard](/docs/dashboard/deployments/logs.md).
+
+![Logs Dashboard Page](/screenshots/logs.png)
+
+### Health, Data, Functions and more
+
+- [Health](/docs/dashboard/deployments/health.md) - provides invaluable
+  information on how your app is performing in production, with deep insights on
+  how your Convex queries are doing.
+- [Data](/docs/dashboard/deployments/data.md) - gives you a complete data
+  browser to spot check your data.
+- [Functions](/docs/dashboard/deployments/functions.md) - gives you stats and
+  run functions to debug them.
+
+There is a lot more to to the dashboard. Be sure to click around or
+[check out the docs](/docs/dashboard.md).
+
+## Deploying your app
+
+So far you've been working on your app against your personal dev deployment for
+the current project.
+
+All projects have one production deployment. It has separate data and has a
+separate push process from personal dev deployments, which allows you and your
+teammates to work on new features using personal dev deployments without
+disrupting your app running in production.
+
+To push your code to your production deployment for your project you run the
+deploy command:
+
+```sh
+npx convex deploy
+```
+
+<Admonition type="info">
+  If you're running this command for the first time, it will automatically
+  provision the prod deployment for your project.
+</Admonition>
+
+### Setting up your deployment pipeline
+
+It's rare to run `npx convex deploy` directly. Most production applications run
+an automated workflow that runs tests and deploys your backend and frontend
+together.
+
+You can see detailed deployment and frontend configuration instructions in the
+[Hosting and Deployment](/docs/production/hosting/hosting.mdx) doc. For most
+React meta-frameworks Convex
+[automatically sets the correct environment variable](/docs/production/hosting/vercel.mdx#how-it-works)
+to connect to the production deployment.
+
+## Up next
+
+You now know the basics of how Convex works and fits in your app. Go head and
+explore the docs further to learn more about the specific features you want to
+use.
+
+Whenever you're ready be sure the read the
+[Best Practices](/docs/understanding/best-practices/best-practices.mdx), and
+then the [Zen of Convex](/docs/understanding/zen.mdx) once you are ready to
+"think in Convex."

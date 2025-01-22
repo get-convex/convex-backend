@@ -140,7 +140,7 @@ TypeScript will check that the type annotation matches what the called query or
 mutation returns, so you don't lose any type safety.
 
 In this trivial example the return type of the query was `null`. See the
-[TypeScript](/docs/production/best-practices/typescript.mdx#type-annotating-server-side-helpers)
+[TypeScript](/docs/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)
 page for other types which might be helpful when annotating the result.
 
 </Details>
@@ -267,7 +267,7 @@ other, your app may slow down significantly.
 [Node.js environment](/docs/functions/runtimes.mdx). If you want to call an
 action from another action that's in the same runtime, which is the normal case,
 the best way to do this is to pull the code you want to call into a TypeScript
-[helper function](/docs/production/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
+[helper function](/docs/understanding/best-practices/best-practices.mdx#use-helper-functions-to-write-shared-code)
 and call the helper instead.
 
 ### Avoid `await ctx.runMutation` / `await ctx.runQuery`

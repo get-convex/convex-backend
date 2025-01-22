@@ -15,7 +15,7 @@ return the expected types of return values.
 
 **This is important for security!** Without argument validation, a malicious
 user can call your public functions with unexpected arguments and cause
-surprising results. [TypeScript](/production/best-practices/typescript) alone
+surprising results. [TypeScript](/understanding/best-practices/typescript) alone
 won't help because TypeScript types aren't present at runtime. We recommend
 adding argument validation for all public functions in production apps. For
 non-public functions that are not called by clients, we recommend
@@ -39,7 +39,7 @@ return value validation, use the `returns` property in this object:
 />
 
 If you define your function with an argument validator, there is no need to
-include [TypeScript](/docs/production/best-practices/typescript.mdx) type
+include [TypeScript](/docs/understanding/best-practices/typescript.mdx) type
 annotations! The type of your function will be inferred automatically.
 Similarly, if you define a return value validator, the return type of your
 function will be inferred from the validator, and TypeScript will check that it

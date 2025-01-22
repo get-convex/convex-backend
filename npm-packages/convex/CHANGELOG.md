@@ -38,7 +38,7 @@
      gain isolation and atomicity because it runs as a subtransaction.
 
   See
-  https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code
+  https://docs.convex.dev/understanding/best-practices/#use-helper-functions-to-write-shared-code
   for more.
 
   Filter to warnings in the convex dashboard logs to see if you're using this

@@ -35,7 +35,7 @@
 /tutorial/reactor                   /tutorial
 /tutorial/next                      /tutorial
 /tutorial/welcome-to-convex         /tutorial
-/typescript                         /production/best-practices/typescript
+/typescript                         /understanding/best-practices/typescript
 /understanding                                       /
 /understanding/convex-fundamentals/                  /
 /understanding/convex-fundamentals/client-libraries  /client/react/react
@@ -61,6 +61,8 @@
 /using/data-modeling                /database/document-ids
 /using/database-queries             /database/reading-data
 /using/document-ids                 /database/document-ids
+/production/best-practices/typescript            /understanding/best-practices/typescript
+/production/best-practices                       /understanding/best-practices
 /using/environment-variables                     /production/environment-variables
 /production/hosting/environment-variables        /production/environment-variables
 /production/log-streams                          /production/integrations/log-streams/

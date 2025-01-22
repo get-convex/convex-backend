@@ -601,6 +601,21 @@ ul.menu__list {
   font-weight: 400;
 }
 
+/* Understanding is special, it forwards to an internal page. Remove all this when we ban section pages. */
+.convex-sidebar-understand .menu__list-item-collapsible--active {
+  background: var(--ifm-background-color);
+}
+
+.convex-sidebar-understand .menu__list-item-collapsible--active:hover {
+  background: var(--ifm-menu-color-background-hover);
+}
+
+.convex-sidebar-understand
+  .menu__list-item-collapsible--active
+  > .menu__link--active {
+  font-weight: 400;
+}
+
 /* Sidebar dividers */
 .convex-menu-divider {
   margin: 1rem 0.625rem;
@@ -658,7 +673,7 @@ html[data-theme="dark"] .convex-menu-header {
   --convex-icon: url("../../static/img/sidebar-icons/lightning-bolt.svg");
 }
 
-.convex-sidebar-zen {
+.convex-sidebar-understand {
   --convex-icon: url("../../static/img/sidebar-icons/med.svg");
 }
 
