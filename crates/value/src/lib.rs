@@ -80,6 +80,7 @@ pub use crate::{
         float::JsonFloat,
         integer::JsonInteger,
         json_deserialize,
+        json_packed_value::JsonPackedValue,
         json_serialize,
         object::convex_object_json_serializer,
     },

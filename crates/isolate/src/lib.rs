@@ -16,7 +16,6 @@ pub mod error;
 mod execution_scope;
 pub mod helpers;
 mod http;
-mod http_action;
 mod is_instance_of_error;
 pub mod isolate;
 pub mod isolate2;
@@ -33,15 +32,11 @@ mod timeout;
 
 #[cfg(any(test, feature = "testing"))]
 pub mod test_helpers;
-#[cfg(any(test, feature = "testing"))]
-pub use self::http_action::HttpActionResponse;
 pub use self::{
     client::{
         ActionCallbacks,
         ActionRequest,
         ActionRequestParams,
-        EvaluateAppDefinitionsResult,
-        FunctionResult,
         IsolateClient,
         IsolateConfig,
         UdfCallback,
@@ -50,48 +45,12 @@ pub use self::{
         ConcurrencyLimiter,
         ConcurrencyPermit,
     },
-    environment::{
-        action::{
-            outcome::{
-                ActionOutcome,
-                HttpActionOutcome,
-            },
-            HttpActionResult,
-        },
-        auth_config::AuthConfig,
-        helpers::{
-            validation::{
-                validate_schedule_args,
-                ValidatedHttpPath,
-                ValidatedPathAndArgs,
-            },
-            FunctionOutcome,
-            JsonPackedValue,
-            SyscallStats,
-            SyscallTrace,
-        },
-        udf::{
-            outcome::UdfOutcome,
-            CONVEX_ORIGIN,
-            CONVEX_SITE,
-        },
-    },
     execution_scope::ExecutionScope,
     helpers::{
         deserialize_udf_custom_error,
         deserialize_udf_result,
         format_uncaught_error,
-        parse_udf_args,
-        serialize_udf_args,
         UdfArgsJson,
-    },
-    http_action::{
-        HttpActionRequest,
-        HttpActionRequestHead,
-        HttpActionResponseHead,
-        HttpActionResponsePart,
-        HttpActionResponseStreamer,
-        HTTP_ACTION_BODY_LIMIT,
     },
     isolate::IsolateHeapStats,
     metrics::{

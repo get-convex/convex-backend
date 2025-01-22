@@ -38,19 +38,21 @@ use serde_json::{
     Value as JsonValue,
 };
 use tokio::sync::mpsc;
+use udf::{
+    HttpActionRequest,
+    HttpActionRequestHead,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+};
 use url::Url;
 use value::ConvexValue;
 
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
-    http_action::HttpActionRequest,
     test_helpers::{
         UdfTest,
         UdfTestConfig,
     },
-    HttpActionRequestHead,
-    HttpActionResponseStreamer,
-    HttpActionResult,
     IsolateConfig,
 };
 

@@ -7,6 +7,7 @@ use common::{
 use futures::FutureExt;
 use sync_types::CanonicalizedUdfPath;
 use tracing::Instrument;
+use udf::HttpActionResult;
 
 use crate::{
     client::{
@@ -34,7 +35,6 @@ use crate::{
         service_request_timer,
         RequestStatus,
     },
-    HttpActionResult,
     IsolateConfig,
 };
 #[derive(Clone)]

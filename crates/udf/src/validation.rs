@@ -57,14 +57,16 @@ use value::{
     heap_size::HeapSize,
     ConvexArray,
     ConvexValue,
+    JsonPackedValue,
     NamespacedTableMapping,
 };
 
 use crate::{
-    helpers::validate_udf_args_size,
-    parse_udf_args,
+    helpers::{
+        parse_udf_args,
+        validate_udf_args_size,
+    },
     ActionOutcome,
-    JsonPackedValue,
     SyscallTrace,
     UdfOutcome,
 };
@@ -694,7 +696,7 @@ mod test {
     use cmd_util::env::env_config;
     use proptest::prelude::*;
 
-    use crate::{
+    use super::{
         ValidatedHttpPath,
         ValidatedPathAndArgs,
     };

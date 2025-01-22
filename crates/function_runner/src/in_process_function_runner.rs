@@ -12,6 +12,7 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
+    auth::AuthConfig,
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     components::{
         ComponentDefinitionPath,
@@ -40,12 +41,7 @@ use database::{
     Database,
     TextIndexManagerSnapshot,
 };
-use isolate::{
-    ActionCallbacks,
-    AuthConfig,
-    EvaluateAppDefinitionsResult,
-    FunctionOutcome,
-};
+use isolate::ActionCallbacks;
 use keybroker::{
     Identity,
     InstanceSecret,
@@ -69,6 +65,10 @@ use sync_types::{
     Timestamp,
 };
 use tokio::sync::mpsc;
+use udf::{
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+};
 use usage_tracking::FunctionUsageStats;
 use value::identifier::Identifier;
 

@@ -82,6 +82,14 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use udf::{
+    validation::{
+        validate_schedule_args,
+        ValidatedPathAndArgs,
+    },
+    FunctionOutcome,
+    UdfOutcome,
+};
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
@@ -98,7 +106,6 @@ use crate::{
         helpers::{
             parse_version,
             syscall_error::clone_error_for_batch,
-            validation::validate_schedule_args,
             with_argument_error,
             ArgName,
         },
@@ -106,9 +113,6 @@ use crate::{
     helpers::UdfArgsJson,
     isolate2::client::QueryId,
     metrics::async_syscall_timer,
-    FunctionOutcome,
-    UdfOutcome,
-    ValidatedPathAndArgs,
 };
 
 pub struct PendingSyscall {

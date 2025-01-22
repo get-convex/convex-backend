@@ -33,6 +33,7 @@ runtime = { path = "../runtime" }
 storage = { path = "../storage" }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 tokio = { workspace = true }
+udf = { path = "../udf" }
 usage_tracking = { path = "../usage_tracking" }
 value = { path = "../value" }
 
@@ -50,6 +51,7 @@ proptest = { workspace = true }
 proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
+udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
@@ -67,6 +69,7 @@ testing = [
     "proptest-derive",
     "runtime/testing",
     "storage/testing",
+    "udf/testing",
     "usage_tracking/testing",
     "value/testing",
 ]

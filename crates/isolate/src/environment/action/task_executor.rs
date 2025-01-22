@@ -39,6 +39,7 @@ use model::config::module_loader::ModuleLoader;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
 use tokio::sync::mpsc;
+use udf::SyscallTrace;
 use usage_tracking::FunctionUsageTracker;
 
 use crate::{
@@ -53,7 +54,6 @@ use crate::{
             },
             task_order::TaskOrder,
         },
-        helpers::SyscallTrace,
         AsyncOpRequest,
     },
     ActionCallbacks,

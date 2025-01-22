@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
+    auth::AuthConfig,
     backoff::Backoff,
     bootstrap_model::components::{
         definition::ComponentDefinitionMetadata,
@@ -97,24 +98,7 @@ use futures::{
     select_biased,
     FutureExt,
 };
-use isolate::{
-    environment::helpers::validation::{
-        ValidatedActionOutcome,
-        ValidatedUdfOutcome,
-    },
-    parse_udf_args,
-    validate_schedule_args,
-    ActionCallbacks,
-    ActionOutcome,
-    AuthConfig,
-    EvaluateAppDefinitionsResult,
-    FunctionOutcome,
-    FunctionResult,
-    HttpActionOutcome,
-    JsonPackedValue,
-    UdfOutcome,
-    ValidatedPathAndArgs,
-};
+use isolate::ActionCallbacks;
 use keybroker::{
     Identity,
     KeyBroker,
@@ -174,6 +158,21 @@ use serde_json::Value as JsonValue;
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
 use tokio::sync::mpsc;
+use udf::{
+    helpers::parse_udf_args,
+    validation::{
+        validate_schedule_args,
+        ValidatedActionOutcome,
+        ValidatedPathAndArgs,
+        ValidatedUdfOutcome,
+    },
+    ActionOutcome,
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+    FunctionResult,
+    HttpActionOutcome,
+    UdfOutcome,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -182,6 +181,7 @@ use usage_tracking::{
 use value::{
     id_v6::DeveloperDocumentId,
     identifier::Identifier,
+    JsonPackedValue,
     TableNamespace,
 };
 use vector::{

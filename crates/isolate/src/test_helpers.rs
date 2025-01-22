@@ -120,6 +120,27 @@ use tokio::sync::{
     mpsc,
     oneshot,
 };
+use udf::{
+    environment::{
+        CONVEX_ORIGIN,
+        CONVEX_SITE,
+    },
+    helpers::parse_udf_args,
+    validation::{
+        validate_schedule_args,
+        ValidatedHttpPath,
+        ValidatedPathAndArgs,
+    },
+    ActionOutcome,
+    FunctionOutcome,
+    FunctionResult,
+    HttpActionRequest,
+    HttpActionResponse,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+    UdfOutcome,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -133,7 +154,6 @@ use vector::{
     VectorSearch,
 };
 
-use super::FunctionResult;
 use crate::{
     bundled_js::UDF_TEST_BUNDLE_PATH,
     client::{
@@ -147,34 +167,14 @@ use crate::{
         UdfRequest,
     },
     concurrency_limiter::ConcurrencyLimiter,
-    environment::{
-        action::outcome::ActionOutcome,
-        helpers::{
-            validation::ValidatedHttpPath,
-            FunctionOutcome,
-        },
-        udf::outcome::UdfOutcome,
-    },
-    http_action::{
-        HttpActionRequest,
-        HttpActionResponsePart,
-        HttpActionResponseStreamer,
-    },
     isolate2::runner::{
         run_isolate_v2_udf,
         SeedData,
     },
     metrics::queue_timer,
-    parse_udf_args,
-    validate_schedule_args,
     ActionCallbacks,
-    HttpActionResponse,
-    HttpActionResult,
     IsolateClient,
     IsolateConfig,
-    ValidatedPathAndArgs,
-    CONVEX_ORIGIN,
-    CONVEX_SITE,
 };
 
 #[derive(Debug, Deserialize)]

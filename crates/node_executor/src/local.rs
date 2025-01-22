@@ -208,10 +208,7 @@ mod tests {
     };
     use errors::ErrorMetadataAnyhowExt;
     use futures::FutureExt;
-    use isolate::{
-        test_helpers::TEST_SOURCE,
-        ValidatedPathAndArgs,
-    };
+    use isolate::test_helpers::TEST_SOURCE;
     use keybroker::{
         testing::TestUserIdentity,
         UserIdentity,
@@ -244,6 +241,7 @@ mod tests {
         ModulePath,
     };
     use tokio::sync::mpsc;
+    use udf::validation::ValidatedPathAndArgs;
     use value::{
         array,
         id_v6::DeveloperDocumentId,

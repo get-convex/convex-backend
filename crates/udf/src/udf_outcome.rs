@@ -30,14 +30,12 @@ use serde_json::Value as JsonValue;
 use value::{
     heap_size::HeapSize,
     ConvexValue,
+    JsonPackedValue,
 };
 
 use crate::{
-    environment::helpers::{
-        JsonPackedValue,
-        SyscallTrace,
-    },
-    ValidatedPathAndArgs,
+    validation::ValidatedPathAndArgs,
+    SyscallTrace,
 };
 
 #[derive(Debug, Clone)]

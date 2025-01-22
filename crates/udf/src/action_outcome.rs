@@ -25,19 +25,28 @@ use pb::{
 use proptest::prelude::*;
 use semver::Version;
 use serde_json::Value as JsonValue;
-use value::ConvexValue;
+use value::{
+    ConvexValue,
+    JsonPackedValue,
+};
 
-use super::HttpActionResult;
 #[cfg(any(test, feature = "testing"))]
 use crate::HttpActionRequest;
 use crate::{
-    environment::helpers::{
-        JsonPackedValue,
-        SyscallTrace,
-    },
-    http_action::HttpActionRequestHead,
-    ValidatedPathAndArgs,
+    validation::ValidatedPathAndArgs,
+    HttpActionRequestHead,
+    SyscallTrace,
 };
+
+#[derive(Debug, Clone)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, PartialEq)
+)]
+pub enum HttpActionResult {
+    Streamed,
+    Error(JsError),
+}
 
 #[derive(Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]

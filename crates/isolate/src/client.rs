@@ -15,6 +15,7 @@ use std::{
 use ::metrics::Timer;
 use async_trait::async_trait;
 use common::{
+    auth::AuthConfig,
     bootstrap_model::components::{
         definition::ComponentDefinitionMetadata,
         handles::FunctionHandle,
@@ -123,10 +124,6 @@ use model::{
     udf_config::types::UdfConfig,
 };
 use parking_lot::Mutex;
-use pb::common::{
-    function_result::Result as FunctionResultTypeProto,
-    FunctionResult as FunctionResultProto,
-};
 use prometheus::VMHistogram;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedModulePath;
@@ -134,27 +131,27 @@ use tokio::sync::{
     mpsc,
     oneshot,
 };
+use udf::{
+    validation::{
+        ValidatedHttpPath,
+        ValidatedPathAndArgs,
+    },
+    ActionOutcome,
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+    FunctionResult,
+    HttpActionOutcome,
+    HttpActionResponseStreamer,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
     identifier::Identifier,
-    ConvexValue,
 };
 use vector::PublicVectorSearchQueryResult;
 
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
-    environment::{
-        auth_config::AuthConfig,
-        helpers::validation::{
-            ValidatedHttpPath,
-            ValidatedPathAndArgs,
-        },
-    },
-    http_action::{
-        self,
-        HttpActionResponseStreamer,
-    },
     isolate::{
         Isolate,
         IsolateHeapStats,
@@ -167,9 +164,6 @@ use crate::{
         log_worker_stolen,
         queue_timer,
     },
-    ActionOutcome,
-    FunctionOutcome,
-    HttpActionOutcome,
 };
 
 // We gather prometheus stats every 30 seconds, so we should make sure we log
@@ -223,49 +217,6 @@ impl Default for IsolateConfig {
             max_user_timeout: None,
             limiter: ConcurrencyLimiter::unlimited(),
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq,)
-)]
-pub struct FunctionResult {
-    pub result: Result<ConvexValue, JsError>,
-}
-
-impl TryFrom<FunctionResultProto> for FunctionResult {
-    type Error = anyhow::Error;
-
-    fn try_from(result: FunctionResultProto) -> anyhow::Result<Self> {
-        let result = match result.result {
-            Some(FunctionResultTypeProto::JsonPackedValue(value)) => {
-                let json: JsonValue = serde_json::from_str(&value)?;
-                let value = ConvexValue::try_from(json)?;
-                Ok(value)
-            },
-            Some(FunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
-            None => anyhow::bail!("Missing result"),
-        };
-        Ok(FunctionResult { result })
-    }
-}
-
-impl TryFrom<FunctionResult> for FunctionResultProto {
-    type Error = anyhow::Error;
-
-    fn try_from(result: FunctionResult) -> anyhow::Result<Self> {
-        let result = match result.result {
-            Ok(value) => {
-                let json = JsonValue::from(value);
-                FunctionResultTypeProto::JsonPackedValue(serde_json::to_string(&json)?)
-            },
-            Err(js_error) => FunctionResultTypeProto::JsError(js_error.try_into()?),
-        };
-        Ok(FunctionResultProto {
-            result: Some(result),
-        })
     }
 }
 
@@ -376,7 +327,7 @@ pub struct UdfRequest<RT: Runtime> {
 pub struct HttpActionRequest<RT: Runtime> {
     pub http_module_path: ValidatedHttpPath,
     pub routed_path: RoutedHttpPath,
-    pub http_request: http_action::HttpActionRequest,
+    pub http_request: udf::HttpActionRequest,
     pub transaction: Transaction<RT>,
     pub identity: Identity,
     pub context: ExecutionContext,
@@ -418,9 +369,6 @@ impl<RT: Runtime> Request<RT> {
         }
     }
 }
-
-pub type EvaluateAppDefinitionsResult =
-    BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>;
 
 pub enum RequestType<RT: Runtime> {
     Udf {
@@ -801,7 +749,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         &self,
         http_module_path: ValidatedHttpPath,
         routed_path: RoutedHttpPath,
-        http_request: http_action::HttpActionRequest,
+        http_request: udf::HttpActionRequest,
         identity: Identity,
         action_callbacks: Arc<dyn ActionCallbacks>,
         fetch_client: Arc<dyn FetchClient>,

@@ -48,11 +48,6 @@ use futures::{
     select_biased,
     FutureExt,
 };
-use isolate::{
-    FunctionOutcome,
-    UdfOutcome,
-    ValidatedPathAndArgs,
-};
 use keybroker::Identity;
 use lru::LruCache;
 use metrics::{
@@ -76,6 +71,11 @@ use metrics::{
     GoReason,
 };
 use parking_lot::Mutex;
+use udf::{
+    validation::ValidatedPathAndArgs,
+    FunctionOutcome,
+    UdfOutcome,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
@@ -1000,7 +1000,6 @@ mod tests {
         types::AllowedVisibility,
     };
     use database::Token;
-    use isolate::UdfOutcome;
     use proptest::{
         prelude::{
             Arbitrary,
@@ -1015,6 +1014,7 @@ mod tests {
         Timestamp,
     };
     use tokio::time::Instant;
+    use udf::UdfOutcome;
     use value::{
         ConvexArray,
         ConvexValue,

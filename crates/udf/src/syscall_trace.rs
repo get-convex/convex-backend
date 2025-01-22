@@ -16,7 +16,7 @@ use value::heap_size::{
     WithHeapSize,
 };
 
-use super::syscall_stats::SyscallStats;
+use crate::SyscallStats;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]

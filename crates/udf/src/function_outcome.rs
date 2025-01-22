@@ -6,21 +6,20 @@ use pb::outcome::{
 };
 
 use crate::{
-    environment::{
-        action::outcome::{
-            ActionOutcome,
-            HttpActionOutcome,
-        },
-        udf::outcome::UdfOutcome,
+    validation::{
+        ValidatedHttpPath,
+        ValidatedPathAndArgs,
     },
+    ActionOutcome,
+    HttpActionOutcome,
     HttpActionRequestHead,
-    ValidatedHttpPath,
-    ValidatedPathAndArgs,
+    UdfOutcome,
 };
 
-/// A `UdfOutcome` represents a successful execution of a developer's function
-/// by our V8 layer before it has had its returns validator run. It slightly
-/// differs from `UdfExecution`, which is what we store in memory for logs.
+/// A `FunctionOutcome` represents a successful execution of a developer's
+/// function by our V8 layer before it has had its returns validator run. It
+/// slightly differs from `UdfExecution`, which is what we store in memory for
+/// logs.
 #[derive(Clone)]
 #[cfg_attr(any(test, feature = "testing"), derive(Debug))]
 pub enum FunctionOutcome {

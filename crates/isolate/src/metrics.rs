@@ -31,14 +31,14 @@ use prometheus::{
     VMHistogramVec,
 };
 use sync_types::CanonicalizedUdfPath;
-
-use crate::{
-    environment::udf::outcome::UdfOutcome,
+use udf::{
     ActionOutcome,
     FunctionOutcome,
     HttpActionOutcome,
-    IsolateHeapStats,
+    UdfOutcome,
 };
+
+use crate::IsolateHeapStats;
 
 register_convex_histogram!(
     UDF_EXECUTE_SECONDS,
@@ -92,8 +92,8 @@ pub fn is_developer_ok(outcome: &FunctionOutcome) -> bool {
         FunctionOutcome::HttpAction(HttpActionOutcome { result, .. }) => match result {
             // The developer might hit errors after beginning to stream the response that wouldn't
             // be captured here
-            crate::HttpActionResult::Streamed => true,
-            crate::HttpActionResult::Error(_) => false,
+            udf::HttpActionResult::Streamed => true,
+            udf::HttpActionResult::Error(_) => false,
         },
     }
 }

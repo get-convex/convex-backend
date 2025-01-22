@@ -1,0 +1,63 @@
+[package]
+name = "udf"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+bytes = { workspace = true }
+common = { path = "../common" }
+database = { path = "../database" }
+errors = { path = "../errors" }
+futures = { workspace = true }
+headers = { workspace = true }
+http = { workspace = true }
+humansize = { workspace = true }
+keybroker = { path = "../keybroker" }
+mime = { workspace = true }
+minitrace = { workspace = true }
+model = { path = "../model" }
+pb = { path = "../pb" }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+proptest-http = { workspace = true, optional = true }
+rand = { workspace = true }
+semver = { workspace = true }
+serde_json = { workspace = true }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+tokio = { workspace = true }
+url = { workspace = true }
+value = { path = "../value" }
+
+[features]
+testing = [
+    "common/testing",
+    "dep:proptest",
+    "dep:proptest-derive",
+    "dep:proptest-http",
+    "value/testing",
+    "sync_types/testing",
+    "database/testing",
+    "errors/testing",
+    "keybroker/testing",
+    "model/testing",
+]
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+cmd_util = { path = "../cmd_util" }
+common = { path = "../common", features = ["testing"] }
+database = { path = "../database", features = ["testing"] }
+errors = { path = "../errors", features = ["testing"] }
+keybroker = { path = "../keybroker", features = ["testing"] }
+model = { path = "../model", features = ["testing"] }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+proptest-http = { workspace = true }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types", features = [
+    "testing",
+] }
+value = { path = "../value", features = ["testing"] }

@@ -30,15 +30,13 @@ use model::{
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use sync_types::CanonicalizedUdfPath;
+use udf::validation::ValidatedPathAndArgs;
 use value::{
     ConvexArray,
     TableNamespace,
 };
 
-use crate::{
-    test_helpers::UdfTest,
-    ValidatedPathAndArgs,
-};
+use crate::test_helpers::UdfTest;
 
 #[convex_macro::test_runtime]
 async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {

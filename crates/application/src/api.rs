@@ -43,10 +43,6 @@ use headers::{
     ContentLength,
     ContentType,
 };
-use isolate::{
-    HttpActionRequest,
-    HttpActionResponseStreamer,
-};
 use keybroker::Identity;
 use model::{
     file_storage::FileStorageId,
@@ -57,6 +53,10 @@ use sync_types::{
     AuthenticationToken,
     SerializedQueryJournal,
     Timestamp,
+};
+use udf::{
+    HttpActionRequest,
+    HttpActionResponseStreamer,
 };
 use value::{
     sha256::Sha256Digest,

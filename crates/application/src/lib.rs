@@ -27,7 +27,10 @@ use authentication::{
 };
 use bytes::Bytes;
 use common::{
-    auth::AuthInfo,
+    auth::{
+        AuthConfig,
+        AuthInfo,
+    },
     bootstrap_model::{
         components::handles::FunctionHandle,
         index::{
@@ -141,15 +144,6 @@ use headers::{
 use http_client::{
     cached_http_client_for,
     ClientPurpose,
-};
-use isolate::{
-    parse_udf_args,
-    AuthConfig,
-    HttpActionRequest,
-    HttpActionResponseStreamer,
-    HttpActionResult,
-    CONVEX_ORIGIN,
-    CONVEX_SITE,
 };
 use keybroker::{
     Identity,
@@ -282,6 +276,16 @@ use tokio::{
         Semaphore,
     },
     task::JoinSet,
+};
+use udf::{
+    environment::{
+        CONVEX_ORIGIN,
+        CONVEX_SITE,
+    },
+    helpers::parse_udf_args,
+    HttpActionRequest,
+    HttpActionResponseStreamer,
+    HttpActionResult,
 };
 use udf_metrics::{
     MetricsWindow,

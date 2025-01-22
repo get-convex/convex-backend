@@ -69,6 +69,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tracing = { workspace = true }
+udf = { path = "../udf" }
 udf_metrics = { path = "../udf_metrics" }
 url = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
@@ -98,6 +99,7 @@ runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 shape_inference = { path = "../shape_inference", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
+udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../../crates/usage_tracking", features = [
     "testing",
 ] }
@@ -123,6 +125,7 @@ testing = [
     "search/testing",
     "storage/testing",
     "shape_inference/testing",
+    "udf/testing",
     "usage_tracking/testing",
     "value/testing",
     "vector/testing",

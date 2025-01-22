@@ -62,6 +62,7 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tungstenite = { workspace = true }
+udf = { path = "../udf" }
 url = { workspace = true }
 urlencoding = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
@@ -90,6 +91,7 @@ search = { path = "../search", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 sync = { path = "../sync", features = ["testing"] }
 tokio-tungstenite = { workspace = true }
+udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../../crates/usage_tracking", features = [
     "testing",
 ] }

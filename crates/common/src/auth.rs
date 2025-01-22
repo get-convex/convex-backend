@@ -107,6 +107,16 @@ impl proptest::arbitrary::Arbitrary for AuthInfo {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthConfig {
+    pub providers: Vec<AuthInfo>,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::auth::AuthInfo;

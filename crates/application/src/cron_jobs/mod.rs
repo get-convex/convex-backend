@@ -55,7 +55,6 @@ use futures::{
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
-use isolate::JsonPackedValue;
 use keybroker::Identity;
 use minitrace::future::FutureExt as _;
 use model::{
@@ -79,6 +78,7 @@ use sync_types::Timestamp;
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
 use value::{
+    JsonPackedValue,
     ResolvedDocumentId,
     TableNamespace,
 };

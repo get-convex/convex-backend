@@ -25,18 +25,16 @@ use keybroker::Identity;
 use must_let::must_let;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
+use udf::UdfOutcome;
 use value::{
     assert_val,
     id_v6::DeveloperDocumentId,
     ConvexObject,
 };
 
-use crate::{
-    test_helpers::{
-        UdfTest,
-        UdfTestType,
-    },
-    UdfOutcome,
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
 };
 
 async fn add_index<RT: Runtime, P: Persistence>(t: &UdfTest<RT, P>) -> anyhow::Result<()> {

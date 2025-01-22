@@ -44,7 +44,6 @@ use database::{
     SCHEMAS_TABLE,
 };
 use errors::ErrorMetadata;
-use isolate::EvaluateAppDefinitionsResult;
 use keybroker::Identity;
 use maplit::btreeset;
 use minitrace::{
@@ -109,6 +108,7 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
+use udf::EvaluateAppDefinitionsResult;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     identifier::Identifier,

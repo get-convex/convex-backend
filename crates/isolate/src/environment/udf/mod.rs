@@ -21,18 +21,19 @@ use model::{
         user_error::FunctionNotFoundError,
     },
 };
+use udf::{
+    helpers::serialize_udf_args,
+    FunctionOutcome,
+    SyscallTrace,
+};
 pub mod async_syscall;
 
-pub mod outcome;
 mod phase;
 pub mod syscall;
 use std::{
     cmp::Ordering,
     collections::VecDeque,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -87,11 +88,13 @@ use keybroker::KeyBroker;
 use rand::Rng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use udf::UdfOutcome;
 use value::{
     heap_size::{
         HeapSize,
         WithHeapSize,
     },
+    JsonPackedValue,
     NamespacedTableMapping,
     Size,
     TableMappingValue,
@@ -106,7 +109,6 @@ use self::{
         PendingSyscall,
         QueryManager,
     },
-    outcome::UdfOutcome,
     phase::UdfPhase,
     syscall::syscall_impl,
 };
@@ -130,9 +132,6 @@ use crate::{
         helpers::{
             module_loader::module_specifier_from_path,
             resolve_promise,
-            FunctionOutcome,
-            JsonPackedValue,
-            SyscallTrace,
             MAX_LOG_LINES,
         },
         udf::async_syscall::DatabaseSyscallsV1,
@@ -142,7 +141,6 @@ use crate::{
     helpers::{
         self,
         deserialize_udf_result,
-        serialize_udf_args,
     },
     isolate::{
         Isolate,
@@ -160,18 +158,6 @@ use crate::{
         Timeout,
     },
 };
-
-pub static CONVEX_ORIGIN: LazyLock<EnvVarName> = LazyLock::new(|| {
-    "CONVEX_CLOUD_URL"
-        .parse()
-        .expect("CONVEX_CLOUD_URL should be a valid EnvVarName")
-});
-
-pub static CONVEX_SITE: LazyLock<EnvVarName> = LazyLock::new(|| {
-    "CONVEX_SITE_URL"
-        .parse()
-        .expect("CONVEX_SITE_URL should be a valid EnvVarName")
-});
 
 pub struct DatabaseUdfEnvironment<RT: Runtime> {
     rt: RT,

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::anyhow;
 use common::{
-    auth::AuthInfo,
+    auth::AuthConfig,
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
@@ -35,7 +35,6 @@ use model::{
 };
 use rand_chacha::ChaCha12Rng;
 use regex::Regex;
-use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use value::{
     NamespacedTableMapping,
@@ -66,16 +65,6 @@ pub struct AuthConfigEnvironment {
     auth_config_bundle: ModuleSource,
     source_map: Option<SourceMap>,
     environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-}
-
-#[derive(Debug, Deserialize)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, Clone, PartialEq)
-)]
-#[serde(rename_all = "camelCase")]
-pub struct AuthConfig {
-    pub providers: Vec<AuthInfo>,
 }
 
 impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {

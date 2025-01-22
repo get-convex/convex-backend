@@ -38,10 +38,6 @@ use isolate::{
     deserialize_udf_custom_error,
     deserialize_udf_result,
     format_uncaught_error,
-    serialize_udf_args,
-    SyscallStats,
-    SyscallTrace,
-    ValidatedPathAndArgs,
 };
 use model::{
     environment_variables::types::{
@@ -80,6 +76,12 @@ use sync_types::{
     UserIdentityAttributes,
 };
 use tokio::sync::mpsc;
+use udf::{
+    helpers::serialize_udf_args,
+    validation::ValidatedPathAndArgs,
+    SyscallStats,
+    SyscallTrace,
+};
 use value::{
     base64,
     heap_size::WithHeapSize,

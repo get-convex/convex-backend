@@ -24,7 +24,6 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadata;
-use isolate::parse_udf_args;
 use keybroker::Identity;
 use model::{
     backend_state::{
@@ -39,6 +38,7 @@ use model::{
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
+use udf::helpers::parse_udf_args;
 use value::{
     ResolvedDocumentId,
     TableNamespace,

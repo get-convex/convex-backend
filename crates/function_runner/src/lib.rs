@@ -11,6 +11,7 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
+    auth::AuthConfig,
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     components::{
         ComponentDefinitionPath,
@@ -40,12 +41,7 @@ use database::{
     Writes,
 };
 use imbl::OrdMap;
-use isolate::{
-    ActionCallbacks,
-    AuthConfig,
-    EvaluateAppDefinitionsResult,
-    FunctionOutcome,
-};
+use isolate::ActionCallbacks;
 use keybroker::Identity;
 use model::{
     config::types::ModuleConfig,
@@ -71,6 +67,10 @@ use sync_types::{
     Timestamp,
 };
 use tokio::sync::mpsc;
+use udf::{
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     identifier::Identifier,

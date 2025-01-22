@@ -81,6 +81,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }
+udf = { path = "../udf" }
 url = { workspace = true }
 usage_tracking = { path = "../usage_tracking" }
 uuid = { workspace = true }
@@ -114,6 +115,7 @@ runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 shape_inference = { path = "../shape_inference", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
+udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 vector = { path = "../vector", features = ["testing"] }
@@ -137,6 +139,7 @@ testing = [
     "usage_tracking/testing",
     "value/testing",
     "vector/testing",
+    "udf/testing",
 ]
 tracy-tracing = ["common/tracy-tracing"]
 

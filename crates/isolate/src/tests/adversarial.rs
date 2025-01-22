@@ -35,6 +35,7 @@ use runtime::{
     testing::TestRuntime,
 };
 use sync_types::CanonicalizedUdfPath;
+use udf::validation::ValidatedPathAndArgs;
 use value::{
     assert_val,
     ConvexBytes,
@@ -50,7 +51,6 @@ use crate::{
     },
     tests::logging::nested_function_udf_test,
     IsolateConfig,
-    ValidatedPathAndArgs,
 };
 
 static MAX_ISOLATE_WORKERS: usize = 1;

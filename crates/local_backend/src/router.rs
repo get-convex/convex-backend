@@ -42,7 +42,6 @@ use http::{
     Method,
     StatusCode,
 };
-use isolate::HTTP_ACTION_BODY_LIMIT;
 use metrics::SERVER_VERSION_STR;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -52,6 +51,7 @@ use tower_http::{
     },
     decompression::RequestDecompressionLayer,
 };
+use udf::HTTP_ACTION_BODY_LIMIT;
 
 use crate::{
     app_metrics::{

@@ -240,6 +240,7 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "tracing",
+ "udf",
  "udf_metrics",
  "url",
  "usage_tracking",
@@ -2754,6 +2755,7 @@ dependencies = [
  "runtime",
  "storage",
  "tokio",
+ "udf",
  "usage_tracking",
  "value",
 ]
@@ -3982,6 +3984,7 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tracing",
+ "udf",
  "url",
  "usage_tracking",
  "uuid",
@@ -4296,6 +4299,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "tungstenite",
+ "udf",
  "url",
  "urlencoding",
  "usage_tracking",
@@ -4958,6 +4962,7 @@ dependencies = [
  "tokio",
  "tokio-process-stream",
  "tracing",
+ "udf",
  "value",
 ]
 
@@ -8835,6 +8840,37 @@ name = "typenum"
 version = "1.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ff0bf0c66b8238c6f3b578df37d0b7848e55df8577b3f74f92a69acceeb825"
+
+[[package]]
+name = "udf"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "cmd_util",
+ "common",
+ "convex_sync_types",
+ "database",
+ "errors",
+ "futures",
+ "headers",
+ "http 1.1.0",
+ "humansize",
+ "keybroker",
+ "mime",
+ "minitrace",
+ "model",
+ "pb",
+ "proptest",
+ "proptest-derive",
+ "proptest-http",
+ "rand 0.8.5",
+ "semver 1.0.23",
+ "serde_json",
+ "tokio",
+ "url",
+ "value",
+]
 
 [[package]]
 name = "udf_metrics"

@@ -10,6 +10,7 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
+    auth::AuthConfig,
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     components::{
         ComponentDefinitionPath,
@@ -54,15 +55,8 @@ use futures::FutureExt;
 use isolate::{
     client::EnvironmentData,
     ActionCallbacks,
-    AuthConfig,
-    EvaluateAppDefinitionsResult,
-    FunctionOutcome,
-    HttpActionRequest as HttpActionRequestInner,
-    HttpActionResponseStreamer,
     IsolateClient,
     UdfCallback,
-    ValidatedHttpPath,
-    ValidatedPathAndArgs,
 };
 use keybroker::{
     Identity,
@@ -91,6 +85,16 @@ use sync_types::{
     Timestamp,
 };
 use tokio::sync::mpsc;
+use udf::{
+    validation::{
+        ValidatedHttpPath,
+        ValidatedPathAndArgs,
+    },
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+    HttpActionRequest as HttpActionRequestInner,
+    HttpActionResponseStreamer,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,

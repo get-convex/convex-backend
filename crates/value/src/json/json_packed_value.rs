@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
-use common::value::{
-    ConvexValue,
-    Size,
-};
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use serde_json::Value as JsonValue;
-use value::heap_size::HeapSize;
+
+use crate::{
+    heap_size::HeapSize,
+    ConvexValue,
+    Size,
+};
 
 #[derive(Clone, Debug)]
 #[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]

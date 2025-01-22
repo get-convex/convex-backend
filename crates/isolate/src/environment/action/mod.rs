@@ -1,6 +1,5 @@
 mod async_syscall;
 mod fetch;
-pub mod outcome;
 mod phase;
 mod storage;
 mod stream;
@@ -84,9 +83,24 @@ use sync_types::{
     ModulePath,
 };
 use tokio::sync::mpsc;
+use udf::{
+    helpers::serialize_udf_args,
+    validation::ValidatedHttpPath,
+    ActionOutcome,
+    HttpActionOutcome,
+    HttpActionRequest,
+    HttpActionRequestHead,
+    HttpActionResponseHead,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+    SyscallTrace,
+    HTTP_ACTION_BODY_LIMIT,
+};
 use value::{
     heap_size::HeapSize,
     ConvexArray,
+    JsonPackedValue,
     NamespacedTableMapping,
     Size,
     TableMappingValue,
@@ -100,10 +114,6 @@ pub use self::{
     },
 };
 use self::{
-    outcome::{
-        ActionOutcome,
-        HttpActionOutcome,
-    },
     phase::ActionPhase,
     task::{
         TaskId,
@@ -130,9 +140,6 @@ use crate::{
             module_loader::module_specifier_from_path,
             resolve_promise,
             resolve_promise_allow_all_errors,
-            validation::ValidatedHttpPath,
-            JsonPackedValue,
-            SyscallTrace,
             MAX_LOG_LINES,
         },
         AsyncOpRequest,
@@ -142,17 +149,10 @@ use crate::{
     helpers::{
         self,
         deserialize_udf_result,
-        serialize_udf_args,
     },
     http::{
         HttpRequestV8,
         HttpResponseV8,
-    },
-    http_action::{
-        HttpActionRequest,
-        HttpActionResponseHead,
-        HttpActionResponsePart,
-        HttpActionResponseStreamer,
     },
     isolate::{
         Isolate,
@@ -178,19 +178,7 @@ use crate::{
         Timeout,
     },
     ActionCallbacks,
-    HttpActionRequestHead,
-    HTTP_ACTION_BODY_LIMIT,
 };
-
-#[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
-pub enum HttpActionResult {
-    Streamed,
-    Error(JsError),
-}
 
 // `CollectResult` starts off as a future that is forever pending,
 // so it never triggers the `select_biased!` until we are actually

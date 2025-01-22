@@ -56,8 +56,15 @@ use http::{
     Method,
     StatusCode,
 };
-use isolate::{
-    environment::helpers::validation::{
+use itertools::Itertools;
+use parking_lot::Mutex;
+use serde_json::{
+    json,
+    Value as JsonValue,
+};
+use tokio::sync::oneshot;
+use udf::{
+    validation::{
         ValidatedActionOutcome,
         ValidatedUdfOutcome,
     },
@@ -66,13 +73,6 @@ use isolate::{
     SyscallTrace,
     UdfOutcome,
 };
-use itertools::Itertools;
-use parking_lot::Mutex;
-use serde_json::{
-    json,
-    Value as JsonValue,
-};
-use tokio::sync::oneshot;
 use udf_metrics::{
     CounterBucket,
     MetricName,
@@ -923,7 +923,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             http_request,
             identity,
             self.rt.unix_timestamp(),
-            isolate::HttpActionResult::Error(js_err.clone()),
+            udf::HttpActionResult::Error(js_err.clone()),
             None,
             None,
         );

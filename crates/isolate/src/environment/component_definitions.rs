@@ -47,6 +47,7 @@ use model::{
 };
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use udf::EvaluateAppDefinitionsResult;
 use value::{
     base64,
     identifier::Identifier,
@@ -61,7 +62,6 @@ use super::{
     IsolateEnvironment,
 };
 use crate::{
-    client::EvaluateAppDefinitionsResult,
     concurrency_limiter::ConcurrencyPermit,
     environment::helpers::syscall_error::{
         syscall_description_for_error,
