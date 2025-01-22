@@ -1,6 +1,11 @@
 # Redirects from what the browser requests to what we serve
 # THIS LIST IS NOT ALPHABETICAL! It mostly is, but order matters for wildcards.
-/ai                                 /search 
+/ai                                 /search
+/api/interfaces/server.DatabaseWriter   /api/interfaces/server.GenericDatabaseWriter
+/api/interfaces/server.DatabaseReader   /api/interfaces/server.GenericDatabaseReader
+/api/interfaces/browser.ClientOptions   /api/modules/browser#convexclientoptions
+/api/interfaces/server.ActionCtx    /generated-api/server#actionctx
+/api/classes/values.GenericId       /api/modules/values#genericid
 /database/import-export/airbyte     /database/import-export/streaming
 /database/indexes                   /database/reading-data/indexes
 /database/indexes/indexes-and-query-perf            /database/reading-data/indexes/indexes-and-query-perf
