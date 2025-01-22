@@ -72,6 +72,7 @@ use common::{
     persistence::Persistence,
     query_journal::QueryJournal,
     runtime::{
+        shutdown_and_join,
         Runtime,
         SpawnHandle,
         UnixTimestamp,
@@ -202,6 +203,7 @@ use model::{
         types::FileStorageEntry,
         FileStorageId,
     },
+    migrations::MigrationWorker,
     modules::{
         module_versions::{
             AnalyzedModule,
@@ -492,6 +494,7 @@ pub struct Application<RT: Runtime> {
     snapshot_import_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     export_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     log_sender: Arc<dyn LogSender>,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
@@ -526,6 +529,7 @@ impl<RT: Runtime> Clone for Application<RT> {
             snapshot_import_worker: self.snapshot_import_worker.clone(),
             export_worker: self.export_worker.clone(),
             system_table_cleanup_worker: self.system_table_cleanup_worker.clone(),
+            migration_worker: self.migration_worker.clone(),
             log_sender: self.log_sender.clone(),
             log_visibility: self.log_visibility.clone(),
             module_cache: self.module_cache.clone(),
@@ -667,6 +671,16 @@ impl<RT: Runtime> Application<RT> {
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
         ));
 
+        let migration_worker = MigrationWorker::new(
+            runtime.clone(),
+            persistence.clone(),
+            database.clone(),
+            modules_storage.clone(),
+        );
+        let migration_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("migration_worker", migration_worker.go()),
+        )));
+
         Ok(Self {
             runtime,
             database,
@@ -692,6 +706,7 @@ impl<RT: Runtime> Application<RT> {
             export_worker,
             snapshot_import_worker,
             system_table_cleanup_worker,
+            migration_worker,
             log_sender,
             log_visibility,
             module_cache,
@@ -2960,6 +2975,10 @@ impl<RT: Runtime> Application<RT> {
         self.scheduled_job_runner.shutdown();
         self.cron_job_executor.lock().shutdown();
         self.database.shutdown().await?;
+        let migration_worker = self.migration_worker.lock().take();
+        if let Some(migration_worker) = migration_worker {
+            shutdown_and_join(migration_worker).await?;
+        }
         tracing::info!("Application shut down");
         Ok(())
     }
