@@ -209,6 +209,40 @@ export async function runLocalBackend(
     path.join(deploymentDir, "convex_local_storage"),
     path.join(deploymentDir, "convex_local_backend.sqlite3"),
   ];
+
+  // Check that binary works by running with --help
+  try {
+    const result = child_process.spawnSync(args.binaryPath, [
+      ...commandArgs,
+      "--help",
+    ]);
+    if (result.status === 3221225781) {
+      const message =
+        "Local backend exited because shared libraries are missing. These may include libraries installed via 'Microsoft Visual C++ Redistributable for Visual Studio.'";
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: message,
+        errForSentry: message,
+      });
+    } else if (result.status !== 0) {
+      const message = `Failed to run backend binary, exit code ${result.status}, error: ${result.stderr.toString()}`;
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: message,
+        errForSentry: message,
+      });
+    }
+  } catch (e) {
+    const message = `Failed to run backend binary: ${(e as any).toString()}`;
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: message,
+      errForSentry: message,
+    });
+  }
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
   logVerbose(ctx, `Starting local backend: \`${commandStr}\``);
   const p = child_process
@@ -224,13 +258,6 @@ export async function runLocalBackend(
         ctx,
         `Local backend exited with code ${code}, full command \`${commandStr}\``,
       );
-      // STATUS_DLL_NOT_FOUND
-      if (code === 3221225781) {
-        logVerbose(
-          ctx,
-          "Local backend exited because shared libraries are missing. These may include libraries installed via 'Microsoft Visual C++ Redistributable for Visual Studio.'",
-        );
-      }
     });
   const cleanupHandle = ctx.registerCleanup(async () => {
     logVerbose(ctx, `Stopping local backend on port ${ports.cloud}`);
@@ -273,8 +300,10 @@ export async function ensureBackendRunning(
             errorType: "fatal",
             printedMessage: `A different local backend ${text} is running on selected port ${args.cloudPort}`,
           });
+        } else {
+          // The backend is running!
+          return;
         }
-        break;
       } else {
         await new Promise((resolve) => setTimeout(resolve, 500));
         timeElapsedSecs += 0.5;
@@ -284,6 +313,12 @@ export async function ensureBackendRunning(
       timeElapsedSecs += 0.5;
     }
   }
+  const message = `Local backend did not start on port ${args.cloudPort} within ${args.maxTimeSecs} seconds.`;
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "fatal",
+    printedMessage: message,
+  });
 }
 
 export async function ensureBackendStopped(

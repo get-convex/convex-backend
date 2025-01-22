@@ -175,7 +175,7 @@ async function handleUpgrade(
     });
   }
   await downloadSnapshotExport(ctx, {
-    snapshotExportTs: snaphsotExportState.complete_ts,
+    snapshotExportTs: snaphsotExportState.start_ts,
     inputPath: exportPath,
     adminKey: args.adminKey,
     deploymentUrl,
