@@ -1,0 +1,185 @@
+---
+title: iOS Swift Quickstart
+sidebar_label: iOS Swift
+description: "Add Convex to an iOS Swift project"
+hide_table_of_contents: true
+sidebar_position: 600
+---
+
+Learn how to query data from Convex in an application targeting iOS and MacOS
+devices built with Swift and SwiftUI.
+
+This quickstart assumes that you have a Mac with Xcode, node and npm installed.
+If you don’t have those tools, take time to install them first.
+
+<StepByStep>
+  <Step title="Create a new iOS app in Xcode">
+    1. Click *Create New Project*
+    2. Select iOS App and click *Next*
+    3. Name your project something like “ConvexQuickstart”
+    4. Ensure Language is set to Swift and User Interface is SwiftUI
+    5. Click *Next*
+    
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_step_1.png" alt="Create new iOS project" width={600} />
+    </p>
+  </Step>
+
+  <Step title="Configure dependencies">
+    1. Click on the top-level ConvexQuickstart app container in the project
+      navigator on the left
+    2.  Click on ConvexQuickstart under the PROJECT heading
+    3.  Click the Package Dependencies tab
+    4.  Click the + button (See Screenshot)
+    5.  Paste
+        ```
+        https://github.com/get-convex/convex-swift
+        ```
+        into the search box and press enter
+    6.  When the `convex-swift` package loads, click the *Add Package* button
+    7.  In the *Package Products* dialog, select ConvexQuickstart in the 
+        *Add to Target* dropdown
+    8.  Click the Add Package button
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_step_2.png" alt="Add Convex dependency to package" width={600} />
+    </p>
+
+  </Step>
+  <br/>
+  <Step title="Install the Convex backend">
+    Open a terminal and `cd` to the directory for the Xcode project you
+    created. Run the following commands to install the Convex client and
+    server library.
+
+    ```bash
+    npm init -y
+    npm install convex
+    ```
+
+  </Step>
+
+  <Step title="Start Convex">
+    Start a Convex dev deployment. Follow the command line instructions to
+    create a new project.
+
+    ```bash
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="Create sample data for your database">
+    Create a new `sampleData.jsonl` file in your Swift project directory with
+    these contents
+
+    ```json
+    {"text": "Buy groceries", "isCompleted": true}
+    {"text": "Go for a swim", "isCompleted": true}
+    {"text": "Integrate Convex", "isCompleted": false}
+    ```
+
+  </Step>
+
+  <Step title="Add the sample data to a table called `tasks` in your database">
+    Open another terminal tab by pressing ⌘+T which should open in your Swift
+    project directory and run
+
+    ```bash
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="Expose a database query">
+    Create a `tasks.ts` file in the `convex/` directory within your Swift
+    project with the following contents
+
+    ```tsx
+    import { query } from "./_generated/server";
+
+    export const get = query({
+      args: {},
+      handler: async (ctx) => {
+        return await ctx.db.query("tasks").collect();
+      },
+    });
+    ```
+
+  </Step>
+
+  <Step title="Create a Swift struct">
+    Back in Xcode, create a `struct` at the bottom of the `ContentView` file to
+    match the sample data
+
+    ```swift
+    // We're using the name Todo instead of Task to avoid clashing with
+    // Swift's builtin Task type.
+    struct Todo: Decodable {
+      let _id: String
+      let text: String
+      let isCompleted: Bool
+    }
+    ```
+
+  </Step>
+
+  <Step title="Connect the app to your backend">
+   1. Get the deployment URL of your dev server
+      with `cat .env.local | grep CONVEX_URL`
+   2. Create a `ConvexClient` instance near the top of the file, just above the
+      `ContentView` struct
+
+    ```swift
+    import SwiftUI
+    import ConvexMobile
+
+    // highlight-next-line
+    let convex = ConvexClient(deploymentUrl: "YOUR_CONVEX_URL")
+
+    struct ContentView: View {
+    ...
+    ```
+
+  </Step>
+
+  <Step title="Create your UI">
+
+    Replace the default `ContentView` with the following code that will
+    refresh the list of todo items whenever the backend data changes.
+
+    ```swift
+    struct ContentView: View {
+      @State private var todos: [Todo] = []
+
+      var body: some View {
+        List {
+          ForEach(todos, id: \._id) { todo in
+            Text(todo.text)
+          }
+        }.task {
+          for await todos: [Todo] in convex.subscribe(to: "tasks:get")
+            .replaceError(with: []).values
+          {
+            self.todos = todos
+          }
+        }.padding()
+      }
+    }
+    ```
+
+  </Step>
+
+  <Step title="Run the app">
+    1. Press ⌘+R or click *Product → Run*
+    2. You can also try adding, updating or
+    deleting documents in your `tasks` table at `dashboard.convex.dev` - the app
+    will update with the changes in real-time.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/swift_qs_final.png" alt="App preview" width={400} />
+    </p>
+
+  </Step>
+
+</StepByStep>

@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.*", "../src/package.json"],
+  "compilerOptions": {
+    "outDir": "./dist/commonjs"
+  }
+}

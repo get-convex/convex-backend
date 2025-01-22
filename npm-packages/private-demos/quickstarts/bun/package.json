@@ -1,0 +1,14 @@
+{
+  "name": "bun-demo",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "convex": "^1.10.0"
+  }
+}

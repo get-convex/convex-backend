@@ -1,0 +1,138 @@
+---
+title: "Data Import"
+sidebar_label: "Data Import"
+description: "Import data into Convex"
+sidebar_position: 169
+---
+
+You can import data into Convex from a local file using the command line.
+
+```sh
+npx convex import
+```
+
+<BetaAdmonition feature="Data import" verb="is" />
+
+Use `--help` to see all options. The most common flows are described here.
+
+## Single table import
+
+```sh
+npx convex import --table <tableName> <path>
+```
+
+Import a CSV, JSON, or JSONLines file into a Convex table.
+
+- `.csv` files must have a header, and each row's entries are interpreted either
+  as a (floating point) number or a string.
+- `.jsonl` files must have a JSON object per line.
+- `.json` files must be an array of JSON objects.
+  - JSON arrays have a size limit of 8MiB. To import more data, use CSV or
+    JSONLines. You can convert json to jsonl with a command like
+    `jq -c '.[]' data.json > data.jsonl`
+
+Imports into a table with existing data will fail by default, but you can
+specify `--append` to append the imported rows to the table or `--replace` to
+replace existing data in the table with your import.
+
+The default is to import into your dev deployment. Use `--prod` to import to
+your production deployment or `--preview-name` to import into a preview
+deployment.
+
+## Restore data from a backup ZIP file
+
+```sh
+npx convex import <path>.zip
+```
+
+Import from a [Backup](/database/backup-restore) into a Convex deployment, where
+the backup is a ZIP file that has been downloaded on the dashboard. Documents
+will retain their `_id` and `_creationTime` fields so references between tables
+are maintained.
+
+Imports where tables have existing data will fail by default, but you can
+specify `--replace` to replace existing data in tables mentioned in the ZIP
+file.
+
+## Use cases
+
+1. Seed dev deployments with sample data.
+
+```sh
+# full backup - exported from prod or another dev deployment.
+npx convex import seed_data.zip
+
+# Import single table from jsonl/csv
+npx convex import --table <table name> data.jsonl
+```
+
+2. Restore a deployment from a [backup](/database/backup-restore)
+   programmatically. Download a backup, and restore from this backup if needed.
+
+```sh
+npx convex import --prod --replace backup.zip
+```
+
+3. Seed preview deployments with sample data, exported from prod, dev, or
+   another preview deployment. Example for Vercel, seeding data from
+   `seed_data.zip` committed in the root of the repo.
+
+```sh
+npx convex deploy --cmd 'npm run build' &&
+if [ "$VERCEL_ENV" == "preview" ]; then
+npx convex import --preview-name "$VERCEL_GIT_COMMIT_REF" seed_data.zip;
+fi
+```
+
+4. Clear a table efficiently with an empty import.
+
+```sh
+touch empty_file.jsonl
+npx convex import --replace --table <tableNameToClear> empty_file.jsonl
+```
+
+## Features
+
+- Data import is the only way to create documents with pre-existing `_id` and
+  `_creationTime` fields.
+  - The `_id` field must match Convex's ID format.
+  - If `_id` or `_creationTime` are not provided, new values are chosen during
+    import.
+- Data import creates and replaces tables atomically (except when using
+  `--append`).
+  - Queries and mutations will not view intermediate states where partial data
+    is imported.
+  - Indexes and schemas will work on the new data without needing time for
+    re-backfilling or re-validating.
+- Data import only affects tables that are mentioned in the import, either by
+  `--table` or as entries in the ZIP file.
+- While JSON and JSONLines can import arbitrary JSON values, ZIP imports can
+  additionally import other Convex values: Int64, Bytes, etc. Types are
+  preserved in the ZIP file through the `generated_schema.jsonl` file.
+- Data import of ZIP files that include [file storage](/file-storage) import the
+  files and preserve [`_storage`](/docs/database/advanced/system-tables.mdx)
+  documents, including their `_id`, `_creationTime`, and `contentType` fields.
+
+## Warnings
+
+- [Streaming Export](/docs/production/integrations/streaming-import-export.md)
+  (Fivetran or Airbyte) does not handle data imports or backup restorations,
+  similar to table deletion and creation and some schema changes. We recommend
+  resetting streaming export sync after a restore or a data import.
+- Avoid changing the ZIP file between downloading it from Data Export and
+  importing it with `npx convex import`. Some manual changes of the ZIP file may
+  be possible, but remain undocumented. Please share your use case and check
+  with the Convex team in [Discord](https://convex.dev/community).
+- Data import is not always supported when importing into a deployment that was
+  created before Convex version 1.7.
+  - The import may work, especially when importing a ZIP backup from a
+    deployment created around the same time as the target deployment. As a
+    special case, you can always restore from backups from its own deployment.
+  - Reach out in [Discord](https://convex.dev/community) if you encounter
+    issues, as there may be a workaround.
+
+Data import uses database bandwidth to write all documents, and file bandwidth
+if the export includes file storage. You can observe this bandwidth in the
+[usage dashboard](https://dashboard.convex.dev/team/settings/usage) as function
+name `_cli/import` and associated cost in the
+[limits docs](/production/state/limits#database).

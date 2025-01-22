@@ -1,0 +1,19 @@
+{
+  "name": "node-demo",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "dotenv": "^16.4.7",
+    "ws": "8.18.0",
+    "tsx": "~4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "typescript": "~5.0.3"
+  }
+}

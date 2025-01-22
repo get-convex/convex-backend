@@ -1,0 +1,142 @@
+---
+title: "Convex Docs"
+slug: "home"
+hide_table_of_contents: true
+---
+
+import TutorialGraphic from "@site/static/img/tutorial-graphic.svg";
+import { QuickstartsList } from "@site/src/QuickstartsList.tsx";
+import { YouTubeList } from "@site/src/YouTubeLink.tsx";
+
+<span className="convex-hero">
+  Convex is an all-in-one backend platform with thoughtful, product-centric
+  APIs.
+</span>
+<span className="convex-hero">
+  Use [TypeScript](production/best-practices/typescript) to write [queries as
+  code](functions/query-functions) that are [automatically
+  cached](realtime#automatic-caching) and [realtime](realtime), with an acid
+  compliant [relational database](database).
+</span>
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    icon: <TutorialGraphic height={40} />,
+    href: "/tutorial",
+    docId: "tutorial/index",
+    label: "Learn Convex by creating a chat app",
+  }}
+/>
+
+## Quickstarts
+
+Quickly get up and running with your favorite frontend tooling or language:
+
+<QuickstartsList />
+
+## Why Convex?
+
+<YouTubeList
+  items={[
+    {
+      src: "https://www.youtube.com/embed/Xjud1weG4z8?si=OMMfKzK_Dp8RgmgM",
+      label: "Backends Should be Designed for Product Developers",
+    },
+    {
+      src: "https://www.youtube.com/embed/UVvd7BF99-4?si=Z9_pLHMnpL9kaduE",
+      label: "Intro to Convex",
+    },
+    {
+      src: "https://www.youtube.com/embed/V6En7UO4Ui0?si=kcj1aftxV-tqe9Q-",
+      label: "Supercharging your app with a reactive backend",
+    },
+
+    {
+      src: "https://www.youtube.com/embed/O_HXVAMPEbc?si=qtA8nLyGjGUsXVkL",
+      label: "Why I use Convex over Supabase as my BaaS",
+    },
+
+]} />
+
+Read the team's Perspectives on [Stack](https://stack.convex.dev):
+
+<DocCardList
+  items={[
+    {
+      type: "link",
+      href: "https://stack.convex.dev/convex-vs-relational-databases",
+      label: "Convex vs Relational Databases",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/convex-vs-firebase",
+      label: "Convex vs Firebase",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/not-sql",
+      label: "It's not you, it's SQL",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/how-convex-works",
+      label: "How Convex Works",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/the-software-defined-database",
+      label: "The Software-Defined Database",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/Perspectives",
+      label: "Convex Perspectives",
+    },
+  ]}
+/>
+
+## Learn Convex
+
+<YouTubeList
+  items={[
+    {
+      src: "https://www.youtube.com/embed/vaQZYRSiimI?si=JLfdVVs3QkCLTZwc",
+      label: "A quick start guide for using Convex with Next.js",
+    },
+    {
+      src: "https://www.youtube.com/embed/0OaDyjB9Ib8?si=V5_9FN3UieZmnOM5",
+      label: "Fullstack Notion Clone: Next.js 13, React, Convex, Tailwind",
+    },
+    {
+      src: "https://www.youtube.com/embed/zfAb95tJvZQ?si=PaiBxNxCO0s2BuEZ",
+      label: "Build and Deploy a Saas Podcast Platform in Next.js",
+    },
+    {
+      src: "https://www.youtube.com/embed/Vjtn9pWAZDI?si=of21uqly5laJQJAs",
+      label: "Building a Subscription Based SaaS with Stripe",
+    },
+
+]} />
+
+See more walkthroughs and patterns on [Stack](https://stack.convex.dev)
+
+<DocCardList
+  items={[
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/AI",
+      label: "Build AI Apps",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/Patterns",
+      label: "Convex Patterns",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/Walkthroughs",
+      label: "Convex Walkthroughs",
+    },
+  ]}
+/>

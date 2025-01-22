@@ -1,0 +1,79 @@
+{
+  "name": "@convex-dev/ratelimiter",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc --project ./esm.json && echo '{\\n  \"type\": \"module\"\\n}' > dist/esm/package.json",
+    "build:cjs": "tsc --project ./commonjs.json && echo '{\\n  \"type\": \"commonjs\"\\n}' > dist/esm/package.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "dev": "convex dev",
+    "prepare": "npm run build",
+    "prepack": "node node10stubs.mjs",
+    "postpack": "node node10stubs.mjs --cleanup"
+  },
+  "files": [
+    "dist",
+    "src",
+    "frontend"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "@convex-dev/component-source": "./src/client.ts",
+        "types": "./dist/esm/client.d.ts",
+        "default": "./dist/esm/client.js"
+      },
+      "require": {
+        "@convex-dev/component-source": "./src/client.ts",
+        "types": "./dist/commonjs/client.d.ts",
+        "default": "./dist/commonjs/client.js"
+      }
+    },
+    "./frontend": {
+      "import": {
+        "@convex-dev/component-source": "./src/frontend/index.ts",
+        "types": "./dist/esm/frontend.d.ts",
+        "default": "./dist/esm/frontend.js"
+      },
+      "require": {
+        "@convex-dev/component-source": "./src/frontend/index.ts",
+        "types": "./dist/commonjs/frontend.d.ts",
+        "default": "./dist/commonjs/frontend.js"
+      }
+    },
+    "./convex.config.js": {
+      "import": {
+        "@convex-dev/component-source": "./src/ratelimiter/convex.config.ts",
+        "types": "./dist/esm/ratelimiter/convex.config.d.ts",
+        "default": "./dist/esm/ratelimiter/convex.config.js"
+      },
+      "require": {
+        "@convex-dev/component-source": "./src/ratelimiter/convex.config.ts",
+        "types": "./dist/commonjs/ratelimiter/convex.config.d.ts",
+        "default": "./dist/commonjs/ratelimiter/convex.config.js"
+      }
+    }
+  },
+  "dependencies": {
+    "convex": "workspace:*"
+  },
+  "dependenciesMeta": {
+    "convex": {
+      "injected": true
+    }
+  },
+  "devDependencies": {
+    "@convex-dev/eslint-plugin": "workspace:*",
+    "@eslint/js": "~9.16.0",
+    "@types/node": "^18.17.0",
+    "prettier": "3.4.2",
+    "typescript": "~5.0.3",
+    "typescript-eslint": "~8.17.0"
+  },
+  "main": "./dist/commonjs/client.js",
+  "types": "./dist/commonjs/client.d.ts",
+  "module": "./dist/esm/client.js"
+}

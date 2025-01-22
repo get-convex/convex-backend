@@ -1,0 +1,159 @@
+---
+title: Runtimes
+sidebar_position: 80
+---
+
+# Runtimes
+
+Convex functions can run in two runtimes:
+
+- Default [Convex runtime](#default-convex-runtime)
+- Opt-in [Node.js runtime](#nodejs-runtime)
+
+## Default Convex runtime
+
+All Convex backend functions are written in JavaScript or TypeScript. By default
+all functions run in a custom JavaScript runtime very similar to the
+[Cloudflare Workers runtime](https://blog.cloudflare.com/cloud-computing-without-containers/)
+with access to most
+[web standard globals](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects).
+
+The default runtime has many advantages including:
+
+- **No cold starts**. The runtime is always up, and ready to handle any function
+  at a moments notice.
+- **Latest web JavaScript standards**. The runtime is based on V8 that also
+  powers Google Chrome. This ensures it provides an interface very similar to
+  your frontend code, allowing further simplification to your code.
+- **Low overhead access to your data**. The runtime is designed to have low
+  overhead access to your data via query & mutation functions, allowing you to
+  access your database via a simple
+  [JavaScript interface](/docs/database/reading-data/reading-data.mdx).
+
+<Details summary="Supported APIs">
+
+The default runtime supports most npm libraries that work in the browser,
+[Deno](https://deno.com/), and
+[Cloudflare workers](https://developers.cloudflare.com/workers/). If your
+library isn't supported, you can use an action with the
+[Node.js runtime](#nodejs-runtime), or reach out in
+[Discord](https://convex.dev/community). We are improving support all the time.
+
+### Network APIs
+
+- [Blob](https://developer.mozilla.org/en-US/docs/Web/API/Blob)
+- [Event](https://developer.mozilla.org/en-US/docs/Web/API/Event)
+- [EventTarget](https://developer.mozilla.org/en-US/docs/Web/API/EventTarget)
+- [fetch](https://developer.mozilla.org/en-US/docs/Web/API/fetch) — in
+  [Actions](#actions) only
+- [File](https://developer.mozilla.org/en-US/docs/Web/API/File)
+- [FormData](https://developer.mozilla.org/en-US/docs/Web/API/FormData)
+- [Headers](https://developer.mozilla.org/en-US/docs/Web/API/Headers)
+- [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request)
+- [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response)
+
+### Encoding APIs
+
+- [TextDecoder](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder)
+- [TextEncoder](https://developer.mozilla.org/en-US/docs/Web/API/TextEncoder)
+- [atob](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/atob)
+- [btoa](https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/btoa)
+
+### Web Stream APIs
+
+- [ReadableStream](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream)
+- [ReadableStreamBYOBReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamBYOBReader)
+- [ReadableStreamDefaultReader](https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader)
+- [TransformStream](https://developer.mozilla.org/en-US/docs/Web/API/TransformStream)
+- [WritableStream](https://developer.mozilla.org/en-US/docs/Web/API/WritableStream)
+- [WritableStreamDefaultWriter](https://developer.mozilla.org/en-US/docs/Web/API/WritableStreamDefaultWriter)
+
+### Web Crypto APIs
+
+- [crypto](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API)
+- [CryptoKey](https://developer.mozilla.org/en-US/docs/Web/API/CryptoKey)
+- [SubtleCrypto](https://developer.mozilla.org/en-US/docs/Web/API/SubtleCrypto)
+
+</Details>
+
+### Restrictions on queries and mutations
+
+Query and mutation functions are further **restricted by the runtime to be
+[deterministic](https://en.wikipedia.org/wiki/Deterministic_algorithm)**. This
+allows Convex to automatically retry them by the system as necessary.
+
+Determinism means that no matter how many times your function is run, as long as
+it is given the same arguments, it will have identical side effects and return
+the same value.
+
+You don't have to think all that much about maintaining these properties of
+determinism when you write your Convex functions. Convex will provide helpful
+error messages as you go, so you can't *accidentally* do something forbidden.
+
+#### Using randomness and time in queries and mutations
+
+Convex provides a "seeded" strong pseudo-random number generator
+at `Math.random()` so that it can guarantee the determinism of your function.
+The random number generator's seed is an implicit parameter to your function.
+Multiple calls to `Math.random()` in one function call will return different
+random values. Note that Convex does not reevaluate the Javascript modules on
+every function run, so a call to `Math.random()` stored in a global variable
+will not change between function runs.
+
+To ensure the logic within your function is reproducible, the system time used
+globally (outside of any function) is "frozen" at deploy time, while the system
+time during Convex function execution is "frozen" when the function
+begins. `Date.now()` will return the same result for the entirety of your
+function's execution. For example,
+
+```javascript
+const globalRand = Math.random(); // `globalRand` does not change between runs.
+const globalNow = Date.now(); // `globalNow` is the time when Convex functions were deployed.
+
+export const updateSomething = mutation({
+  handler: () => {
+    const now1 = Date.now(); // `now1` is the time when the function execution started.
+    const rand1 = Math.random(); // `rand1` has a new value for each function run.
+    // implementation
+    const now2 = Date.now(); // `now2` === `now1`
+    const rand2 = Math.random(); // `rand1` !== `rand2`
+  },
+});
+```
+
+### Actions
+
+Actions are unrestricted by the same rules of determinism as query and mutation
+functions. Notably actions are allowed to call third-party HTTP endpoints via
+the browser-standard
+[`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) function.
+
+By default actions also run in Convex’s custom JavaScript runtime with all of
+its advantages including no cold starts and a browser-like API environment. They
+can also live in the same file as your query and mutation functions.
+
+## Node.js runtime
+
+Some JavaScript and TypeScript libraries use features that are not included in
+the default Convex runtime. This is why Convex actions provide an escape hatch
+to [Node.js 18](https://nodejs.org/en/about) via the `"use node"` directive at
+the top of a file that contains your action.
+[Learn more](/docs/functions/actions.mdx#choosing-the-runtime-use-node).
+
+Use of the Node.js environment is restricted to **action functions only**. If
+you want to use a library designed for Node.js and interact with the Convex
+database, you need to call the Node.js library from an action, and use
+[`runQuery`](/docs/functions/actions.mdx#action-context) or
+[`runMutation`](/docs/functions/actions.mdx#action-context) helper to call a
+query or mutation.
+
+Every `.ts` and `.js` file in the convex directory
+[is bundled](/docs/functions/bundling.mdx) either for the default Convex
+JavaScript runtime or Node.js, along with any code it imports.
+
+Files with the `"use node"` directive should not contain any Convex queries or
+mutations since they cannot be run in the Node.js runtime. Additionally, files
+without the `"use node"` directive should not import any files with the
+`"use node"` directive. Files that contain no Convex functions, like a
+`convex/utils.ts` file, also need the "use node" directive if they use
+Node.js-specific libraries.

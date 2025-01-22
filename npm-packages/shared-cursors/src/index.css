@@ -1,0 +1,84 @@
+@import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
+
+main {
+  width: min(800px, 95vw);
+  margin: 0 auto;
+}
+
+/* pairs of animations for simple canceling */
+.just-sent1 {
+  animation-duration: 1s;
+  animation-name: fadeout1;
+  animation-timing-function: ease-out;
+}
+
+.just-sent2 {
+  animation-duration: 1s;
+  animation-name: fadeout2;
+  animation-timing-function: ease-out;
+}
+
+@keyframes fadeout1 {
+  from {
+    background-color: black;
+  }
+  to {
+    background-color: floralwhite;
+  }
+}
+@keyframes fadeout2 {
+  from {
+    background-color: black;
+  }
+  to {
+    background-color: floralwhite;
+  }
+}
+
+.just-received1 {
+  animation-duration: 30s;
+  animation-name: goodbad2;
+  animation-timing-function: ease-out;
+  background-color: silver;
+}
+.just-received2 {
+  animation-duration: 30s;
+  animation-name: goodbad1;
+  animation-timing-function: ease-out;
+  background-color: silver;
+}
+
+@keyframes goodbad1 {
+  from {
+    background-color: green;
+  }
+  5% {
+    background-color: gold;
+  }
+  30% {
+    background-color: red;
+  }
+  60% {
+    background-color: brown;
+  }
+  to {
+    background-color: silver;
+  }
+}
+@keyframes goodbad2 {
+  from {
+    background-color: green;
+  }
+  5% {
+    background-color: gold;
+  }
+  30% {
+    background-color: red;
+  }
+  60% {
+    background-color: brown;
+  }
+  to {
+    background-color: silver;
+  }
+}

@@ -1,0 +1,55 @@
+set fallback := true
+set shell := ["bash", "-uc"]
+set positional-arguments
+
+_default:
+    @just --list
+
+# Run with `RUST_LOG=info` to get backend logs too
+# Use to run tests locally (includes build steps)
+test *ARGS:
+    #!/usr/bin/env bash
+    just rush build -t .
+    cargo build -p backend_harness --bin backend-harness \
+    -p backend --bin backend -p usher --bin usher \
+    -p funrun --bin funrun
+    export DEPLOYMENT_URL="http://carnitas.local.convex.cloud:8002"
+    export SITE_URL="http://carnitas.local.convex.site:8002"
+    just _test backend-debug "$@"
+
+# Run with `RUST_LOG=info` to get backend logs too
+# Run open source tests locally (includes build steps)
+test-open-source *ARGS:
+    #!/usr/bin/env bash
+    just rush build -t .
+    cargo build -p backend_harness --bin backend-harness
+    cargo build -p local_backend --bin convex-local-backend
+    just _test open-source-debug "$@"
+
+test-conductor *ARGS:
+    #!/usr/bin/env bash
+    just rush build -t .
+    cargo build -p backend_harness --bin backend-harness \
+    -p usher --bin usher \
+    -p backend --bin conductor \
+    -p funrun --bin funrun
+    just _test-conductor "$@"
+
+_test-conductor *ARGS:
+    #!/usr/bin/env bash
+    export DEPLOYMENT_URL="http://carnitas.local.convex.cloud:8002"
+    export SITE_URL="http://carnitas.local.convex.site:8002"
+    just _test conductor-debug "$@"
+
+# Run tests without building the NPM packages or binaries
+_test *ARGS:
+    #!/usr/bin/env bash
+    export DISABLE_FUZZY_TEXT_SEARCH=true
+    export ACTIONS_USER_TIMEOUT_SECS=20
+    export DATABASE_UDF_SYSTEM_TIMEOUT_SECONDS=30
+    export DATABASE_UDF_USER_TIMEOUT_SECONDS=10
+    export MIN_NPM_VERSION_FOR_STRING_IDS="0.0.0"
+    export CONVEX_TRACE_FILE="1"  # log to a file
+    export RUST_LOG=${RUST_LOG:-0}
+    echo "Additional logs are available in npm-packages/js-integration-tests/*.log"
+    UDF_USE_FUNRUN=true ../../target/debug/backend-harness --provisioner "$1" --package-dir . -- npm run test-integration -- "${@:2}"

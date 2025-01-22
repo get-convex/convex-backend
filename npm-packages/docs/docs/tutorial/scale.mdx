@@ -1,0 +1,84 @@
+---
+title: "Convex Tutorial: Scaling Your App"
+sidebar_label: "3. Scaling your app"
+slug: "scale"
+sidebar_position: 300
+hide_table_of_contents: true
+---
+
+import ComponentsIcon from "@site/static/img/sidebar-icons/components.svg";
+
+# Convex Tutorial: Scaling your app
+
+Convex was designed from the ground up for scale. In the previous section we
+already talked about how keeping your actions small and most of your logic in
+queries and mutations are crucial to building fast scalable backends.
+
+Let's talk about a few other ways to keep your app fast and scalable.
+
+## Indexed queries
+
+Indexes tell the database to create a lookup structure to make it really fast to
+filter data. If, in our chat app we wanted to build a way to look up `messages`
+from just one user, we'd tell Convex to index the `user` field in the `messages`
+table and write the query with the `withIndex` syntax.
+
+[Learn how to use indexes](/docs/database/reading-data/indexes/indexes.md).
+
+## Too many writes on the same document
+
+Let's say you decide to show a counter in your app. You may write a mutation
+that reads a number field, adds 1, and updates the same field in the database.
+At some point, this pattern may cause an
+[optimistic concurrency control conflict](/error#1). That means that the
+database isn't able to handle updating the document that fast. All databases
+have trouble with this sort of pattern.
+
+There are a [few ways to deal with this](/error#remediation), including building
+something called a sharded counter...
+
+But before you go learn advanced scaling techniques on your own, there is a
+better way with Convex components.
+
+## Scaling best practices with Convex Components
+
+In the case of the counter above, the Convex team has already built a
+[scalable counter](https://www.convex.dev/components/sharded-counter) Convex
+component for you to use.
+
+Convex components are installed in your Convex backend as an npm library. They
+are sandboxed, so they can't read your app's tables or call your app's functions
+unless explicitly provided.
+
+As you build more complicated features like AI agent
+[workflows](https://www.convex.dev/components/workflow),
+[leaderboards](https://www.convex.dev/components/aggregate),
+[feature flags](https://www.convex.dev/components/launchdarkly) or
+[rate limiters](https://www.convex.dev/components/rate-limiter), you may find
+that there is already a Convex component that solves this problem.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    icon: <ComponentsIcon height={40} />,
+    href: "https://www.convex.dev/components",
+    label: "Components directory",
+  }}
+/>
+
+## Wrap up
+
+We've covered a lot of ground in this tutorial. We started by
+[building a chat app](/docs/tutorial/index.mdx) with queries, mutations and the
+database that form the fundamental building blocks of the Convex sync engine. We
+then called an [external API](/docs/tutorial/actions.mdx) from our backend,
+using the scheduler to coordinate the work. Finally, we learned that
+[Convex components](https://www.convex.dev/components) give you scaling best
+practices in neat packages.
+
+If you are looking for more tips, read our
+[best practices](/docs/production/best-practices/best-practices.mdx) and join
+the [community](https://www.convex.dev/community).
+
+Convex enables you to build your MVP fast and then scale to new heights. Many
+great products have already done so. You're in good company.

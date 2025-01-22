@@ -1,0 +1,81 @@
+---
+title: "Writing Data"
+sidebar_position: 4
+---
+
+import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataInsert.ts";
+import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
+import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
+import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+
+[Mutations](/docs/functions/mutation-functions.mdx) can insert, update, and
+remove data from database tables.
+
+## Inserting new documents
+
+You can create new documents in the database with the
+[`db.insert`](/api/interfaces/server.GenericDatabaseWriter#insert) method:
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={insertExample}
+  sourceJS={insertExample}
+  highlightPatterns={["db.insert"]}
+/>
+
+The second argument to `db.insert` is a JavaScript object with data for the new
+document.
+
+The same types of values that can be passed into and returned from
+[queries](/docs/functions/query-functions.mdx) and
+[mutations](/docs/functions/mutation-functions.mdx) can be written into the
+database. See [Data Types](/docs/database/types.md) for the full list of
+supported types.
+
+The `insert` method returns a globally unique ID for the newly inserted
+document.
+
+## Updating existing documents
+
+Given an existing document ID the document can be updated using the following
+methods:
+
+1. The [`db.patch`](/api/interfaces/server.GenericDatabaseWriter#patch) method
+   will patch an existing document, shallow merging it with the given partial
+   document. New fields are added. Existing fields are overwritten. Fields set
+   to `undefined` are removed.
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={patchExample}
+  sourceJS={patchExample}
+  highlightPatterns={["db.patch"]}
+/>
+
+2. The [`db.replace`](/api/interfaces/server.GenericDatabaseWriter#replace)
+   method will replace the existing document entirely, potentially removing
+   existing fields:
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={replaceExample}
+  sourceJS={replaceExample}
+  highlightPatterns={["db.replace"]}
+/>
+
+## Deleting documents
+
+Given an existing document ID the document can be removed from the table with
+the [`db.delete`](/api/interfaces/server.GenericDatabaseWriter#delete) method.
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={deleteExample}
+  sourceJS={deleteExample}
+  highlightPatterns={["db.delete"]}
+/>
+
+## Write performance and limits
+
+To prevent accidental writes of large amounts of records, queries and mutations
+enforce limits detailed [here](/docs/production/state/limits.mdx#transactions).

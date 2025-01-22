@@ -1,0 +1,188 @@
+---
+title: "Using Convex with Vercel"
+sidebar_label: "Vercel"
+description: "Host your frontend on Vercel and your backend on Convex."
+sidebar_position: 10
+---
+
+Hosting your Convex app on Vercel allows you to automatically re-deploy both
+your backend and your frontend whenever you push your code.
+
+## Deploying to Vercel
+
+This guide assumes you already have a working React app with Convex. If not
+follow the [Convex React Quickstart](/docs/quickstart/react.mdx) first. Then:
+
+<StepByStep>
+  <Step title="Create a Vercel account">    
+    If you haven't done so, create a [Vercel](https://vercel.com) account. This is
+    free for small projects and should take less than a minute to set up.
+
+    <></>
+
+  </Step>
+  <Step title="Link your project on Vercel">
+    Create a Vercel project at https://vercel.com/new and link it to the
+    source code repository for your project on GitHub or other Git platform.
+
+    ![Vercel import project](/screenshots/vercel_import.png)
+
+  </Step>
+  <Step title="Override the Build command">
+    Override the "Build command" to be
+    `npx convex deploy --cmd 'npm run build'`.
+
+    If your project lives in a subdirectory of your repository you'll
+    also need to change _Root Directory_ above accordingly.
+
+    ![Vercel build settings](/screenshots/vercel_build_command.png)
+
+  </Step>
+
+  <Step title="Set up the CONVEX_DEPLOY_KEY environment variable">
+    On your [Convex Dashboard](https://dashboard.convex.dev/)
+    go to your project's _Settings_ page. Click the _Generate Production Deploy Key_ button to generate a **Production** deploy key.
+    Then click the copy button to copy the key.
+
+    In Vercel, click _Environment Variables_.
+    Create an environment variable named `CONVEX_DEPLOY_KEY` and paste
+    in your deploy key. Under _Environment_, uncheck all except _Production_ and click _Save_.
+
+    ![Vercel environment variable CONVEX_DEPLOY_KEY](/screenshots/vercel_prod_deploy_key.png)
+
+  </Step>
+  <Step title="Deploy your site">
+    Now click the _Deploy_ button and your work here is done!
+
+    <></>
+
+  </Step>
+
+</StepByStep>
+
+Vercel will automatically publish your site to an URL like
+`https://<site-name>.vercel.app`, shown on the page after deploying. Every time
+you push to your Git repository, Vercel will automatically deploy your Convex
+functions and publish your site changes.
+
+<Admonition type="info" title="Using a Custom Domain?">
+  If you're using a custom domain to serve your Convex functions, you'll need
+  additional configuration. See [Custom
+  Domains](/docs/production/hosting/custom.mdx#hosting-with-a-custom-domain) for
+  more information.
+</Admonition>
+
+### How it works
+
+In Vercel, we overrode the _Build Command_ to be
+`npx convex deploy --cmd 'npm run build'`.
+
+`npx convex deploy` will read `CONVEX_DEPLOY_KEY` from the environment and use
+it to set the `CONVEX_URL` (or similarly named) environment variable to point to
+your **production** deployment.
+
+Your frontend framework of choice invoked by `npm run build` will read the
+`CONVEX_URL` (or similarly named) environment variable to point your deployed
+site (via `ConvexReactClient`) at your **production** deployment.
+
+Finally, `npx convex deploy` will push your Convex functions to your production
+deployment.
+
+Now, your production deployment has your newest functions and your app is
+configured to connect to it.
+
+You can use `--cmd-url-env-var-name` to customize the variable name used by your
+frontend code if the `deploy` command cannot infer it, like
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### Authentication
+
+You will want to configure your [authentication](/docs/auth.mdx) provider
+(Clerk, Auth0 or other) to accept your production URL. Note that Clerk does not
+support `https://<site-name>.vercel.app`, so you'll have to configure a custom
+domain.
+
+## Preview Deployments
+
+Vercel Preview Deployments allow you to preview changes to your app before
+they're merged in. In order to preview both changes to frontend code and Convex
+functions, you can set up
+[Convex preview deployments](/docs/production/hosting/preview-deployments.mdx).
+
+This will create a fresh Convex backend for each preview and leave your
+production and development deployments unaffected.
+
+This assumes you have already followed the steps in
+[Deploying to Vercel](#deploying-to-vercel) above.
+
+<StepByStep>
+  <Step title="Set up the CONVEX_DEPLOY_KEY environment variable">
+    On your [Convex Dashboard](https://dashboard.convex.dev/)
+    go to your project's _Settings_ page. Click the _Generate Preview Deploy Key_ button to generate a **Preview** deploy key.
+    Then click the copy button to copy the key.
+
+    In Vercel, click _Environment Variables_.
+    Create an environment variable named `CONVEX_DEPLOY_KEY` and paste
+    in your deploy key. Under _Environment_, uncheck all except _Preview_ and click _Save_.
+
+    <div className="screenshot-border">
+      ![Vercel environment variable CONVEX_DEPLOY_KEY](/screenshots/vercel_preview_deploy_key.png)
+    </div>
+
+  </Step>
+  <Step title="(optional) Set up default environment variables">
+    If your app depends on certain Convex environment variables, you can set up [default
+    environment variables](/docs/production/environment-variables.mdx#project-environment-variable-defaults) for preview and development deployments in your project.
+    <div className="screenshot-border">
+      ![Project Default Environment Variables](/screenshots/project_default_environment_variables.png)
+    </div>
+  </Step>
+
+<Step title="(optional) Run a function to set up initial data">
+  Vercel Preview Deployments run against fresh Convex backends, which do not share data
+  with development or production Convex deployments. You can call a Convex
+  function to set up data by adding `--preview-run 'functionName'` to the `npx
+  convex deploy` command. This function will only be run for preview deployments, and will be ignored
+  when deploying to production.
+
+```sh title="Vercel > Settings > Build & Development settings > Build Command"
+npx convex deploy --cmd 'npm run build' --preview-run 'functionName'
+```
+
+</Step>
+
+  <Step title="Now test out creating a PR and generating a Preview Deployment!">
+
+    You can find the Convex deployment for your branch in the Convex dashboard.
+    <div className="screenshot-border">
+      ![Preview Deployment in Deployment Picker](/screenshots/preview_deployment_deployment_picker.png)
+    </div>
+
+  </Step>
+
+</StepByStep>
+
+### How it works
+
+For Preview Deployments, `npx convex deploy` will read `CONVEX_DEPLOY_KEY` from
+the environment, and use it to create a Convex deployment associated with the
+Git branch name for the Vercel Preview Deployment. It will set the `CONVEX_URL`
+(or similarly named) environment variable to point to the new Convex deployment.
+
+Your frontend framework of choice invoked by `npm run build` will read the
+`CONVEX_URL` environment variable and point your deployed site (via
+`ConvexReactClient`) at the Convex preview deployment.
+
+Finally, `npx convex deploy` will push your Convex functions to the preview
+deployment and run the `--preview-run` function (if provided). This deployment
+has separate functions, data, crons and all other configuration from any other
+deployments.
+
+`npx convex deploy` will infer the Git branch name for Vercel, Netlify, GitHub,
+and GitLab environments, but the `--preview-create` option can be used to
+customize the name associated with the newly created deployment.
+
+Production deployments will work exactly the same as before.

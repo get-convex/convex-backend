@@ -1,0 +1,530 @@
+---
+title: "Best Practices"
+sidebar_position: 50
+toc_max_heading_level: 2
+---
+
+import BestPracticesTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
+import HelperFunctionsTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+This is a list of best practices and common anti-patterns around using Convex.
+We recommend going through this list before broadly releasing your app to
+production. You may choose to try using all of these best practices from the
+start, or you may wait until you've gotten major parts of your app working
+before going through and adopting the best practices here.
+
+## Await all Promises
+
+### Why?
+
+Convex functions use async / await. If you don't await all your promises (e.g.
+`await ctx.scheduler.runAfter`, `await ctx.db.patch`), you may run into
+unexpected behavior (e.g. failing to schedule a function) or miss handling
+errors.
+
+### How?
+
+We recommend the
+[no-floating-promises](https://typescript-eslint.io/rules/no-floating-promises/)
+eslint rule with TypeScript.
+
+## Avoid `.filter` on database queries
+
+### Why?
+
+Filtering in code instead of using the `.filter` syntax has the same
+performance, and is generally easier code to write. Conditions in `.withIndex`
+or `.withSearchIndex` are more efficient than `.filter` or filtering in code, so
+almost all uses of `.filter` should either be replaced with a `.withIndex` or
+`.withSearchIndex` condition, or written as TypeScript code.
+
+Read through the
+[indexes documentation](/docs/database/reading-data/indexes/indexes-and-query-perf.md)
+for an overview of how to define indexes and how they work.
+
+### Examples
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="filter"
+/>
+
+### How?
+
+Search for `.filter` in your Convex codebase — a regex like `\.filter\(\(?q`
+will probably find all the ones on database queries.
+
+Decide whether they should be replaced with a `.withIndex` condition — per
+[this section](/docs/production/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results),
+if you are filtering over a large (1000+) or potentially unbounded number of
+documents, you should use an index. If not using a `.withIndex` /
+`.withSearchIndex` condition, consider replacing them with a filter in code for
+more readability and flexibility.
+
+See [this article](https://stack.convex.dev/complex-filters-in-convex) for more
+strategies for filtering.
+
+### Exceptions
+
+Using `.filter` on a paginated query (`.paginate`) has advantages over filtering
+in code. The paginated query will return the number of documents requested,
+including the `.filter` condition, so filtering in code afterwards can result in
+a smaller page or even an empty page. Using `.withIndex` on a paginated query
+will still be more efficient than a `.filter`.
+
+## Only use `.collect` with a small number of results
+
+### Why?
+
+All results returned from `.collect` count towards database bandwidth (even ones
+filtered out by `.filter`). It also means that if any document in the result
+changes, the query will re-run or the mutation will hit a conflict.
+
+If there's a chance the number of results is large (say 1000+ documents), you
+should use an index to filter the results further before calling `.collect`, or
+find some other way to avoid loading all the documents such as using pagination,
+denormalizing data, or changing the product feature.
+
+### Example
+
+**Using an index:**
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="collectIndex"
+/>
+
+**Using pagination:**
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="collectPaginate"
+/>
+
+**Using a limit or denormalizing:**
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="collectCount"
+/>
+
+### How?
+
+Search for `.collect` in your Convex codebase (a regex like `\.collect\(` will
+probably find these). And think through whether the number of results is small.
+This function health page in the dashboard can also help surface these.
+
+The [aggregate component](https://www.npmjs.com/package/@convex-dev/aggregate)
+or [database triggers](https://stack.convex.dev/triggers) can be helpful
+patterns for denormalizing data.
+
+### Exceptions
+
+If you're doing something that requires loading a large number of documents
+(e.g. performing a migration, making a summary), you may want to use an action
+to load them in batches via separate queries / mutations.
+
+## Check for redundant indexes
+
+### Why?
+
+Indexes like `by_foo` and `by_foo_and_bar` are usually redundant (you only need
+`by_foo_and_bar`). Reducing the number of indexes saves on database storage and
+reduces the overhead of writing to the table.
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="redundantIndexes"
+  replacements={[[/\sOMIT_ME.*/g, ""]]}
+/>
+
+### How?
+
+Look through your indexes, either in your `schema.ts` file or in the dashboard,
+and look for any indexes where one is a prefix of another.
+
+### Exceptions
+
+`.index("by_foo", ["foo"])` is really an index on the properties `foo` and
+`_creationTime`, while `.index("by_foo_and_bar", ["foo", "bar"])` is an index on
+the properties `foo`, `bar`, and `_creationTime`. If you have queries that need
+to be sorted by `foo` and then `_creationTime`, then you need both indexes.
+
+For example, `.index("by_channel", ["channel"])` on a table of messages can be
+used to query for the most recent messages in a channel, but
+`.index("by_channel_and_author", ["channel", "author"])` could not be used for
+this since it would first sort the messages by `author`.
+
+## Use argument validators for all public functions
+
+### Why?
+
+Public functions can be called by anyone, including potentially malicious
+attackers trying to break your app.
+[Argument validators](/docs/functions/validation.mdx) (as well as return value
+validators) help ensure you're getting the traffic you expect.
+
+### Example
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="validation"
+  replacements={[[/_OMIT_[0-9]+/g, ""]]}
+/>
+
+### How?
+
+Search for `query`, `mutation`, and `action` in your Convex codebase, and ensure
+that all of them have argument validators (and optionally return value
+validators). If you have `httpAction`s, you may want to use something like `zod`
+to validate that the HTTP request is the shape you expect.
+
+## Use some form of access control for all public functions
+
+### Why?
+
+Public functions can be called by anyone, including potentially malicious
+attackers trying to break your app. If portions of your app should only be
+accessible when the user is signed in, make sure all these Convex functions
+check that `ctx.auth.getUserIdentity()` is set.
+
+You may also have specific checks, like only loading messages that were sent to
+or from the current user, which you'll want to apply in every relevant public
+function.
+
+Favoring more granular functions like `setTeamOwner` over `updateTeam` allows
+more granular checks for which users can do what.
+
+Access control checks should either use `ctx.auth.getUserIdentity()` or a
+function argument that is unguessable (e.g. a UUID, or a Convex ID, provided
+that this ID is never exposed to any client but the one user). In particular,
+don't use a function argument which could be spoofed (e.g. email) for access
+control checks.
+
+### Example
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="accessControl"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+### How?
+
+Search for `query`, `mutation`, `action`, and `httpAction` in your Convex
+codebase, and ensure that all of them have some form of access control.
+[Custom functions](https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/README.md#custom-functions)
+like
+[`authenticatedQuery`](https://stack.convex.dev/custom-functions#modifying-the-ctx-argument-to-a-server-function-for-user-auth)
+can be helpful.
+
+Some apps use Row Level Security (RLS) to check access to each document
+automatically whenever it's loaded, as described in
+[this article](https://stack.convex.dev/row-level-security). Alternatively, you
+can check access in each Convex function instead of checking access for each
+document.
+
+Helper functions for common checks and common operations can also be useful --
+e.g. `isTeamMember`, `isTeamAdmin`, `loadTeam` (which throws if the current user
+does not have access to the team).
+
+## Only schedule and `ctx.run*` internal functions
+
+### Why?
+
+Public functions can be called by anyone, including potentially malicious
+attackers trying to break your app, and should be carefully audited to ensure
+they can't be used maliciously. Functions that are only called within Convex can
+be marked as internal, and relax these checks since Convex will ensure that
+internal functions can only be called within Convex.
+
+### How?
+
+Search for `ctx.runQuery`, `ctx.runMutation`, and `ctx.runAction` in your Convex
+codebase. Also search for `ctx.scheduler` and check the `crons.ts` file. Ensure
+all of these use `internal.foo.bar` functions instead of `api.foo.bar`
+functions.
+
+If you have code you want to share between a public Convex function and an
+internal Convex function, create a helper function that can be called from both.
+The public function will likely have additional access control checks.
+
+Alternatively, make sure that `api` from `_generated/api.ts` is never used in
+your Convex functions directory.
+
+### Examples
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="internal"
+  replacements={[
+    [/_OMIT_[0-9]+/g, ""],
+    [
+      "// REPLACE_WITH_MUTATION_CTX_IMPORT",
+      "import { MutationCtx } from './_generated/server';",
+    ],
+  ]}
+/>
+
+## Use helper functions to write shared code
+
+### Why?
+
+Most logic should be written as plain TypeScript functions, with the `query`,
+`mutation`, and `action` wrapper functions being a thin wrapper around one or
+more helper function.
+
+Concretely, most of your code should live in a directory like `convex/model`,
+and your public API, which is defined with `query`, `mutation`, and `action`,
+should have very short functions that mostly just call into `convex/model`.
+
+Organizing your code this way makes several of the refactors mentioned in this
+list easier to do.
+
+See the [TypeScript page](/docs/production/best-practices/typescript.mdx) for
+useful types.
+
+### Example
+
+**❌** This example overuses `ctx.runQuery` and `ctx.runMutation`, which is
+discussed more in the
+[Avoid sequential `ctx.runMutation` / `ctx.runQuery` from actions](/docs/production/best-practices/best-practices.mdx#avoid-sequential-ctx-runmutation-ctx-runquery-from-actions)
+section.
+
+<TSAndJSSnippet
+  title="convex/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersWrong"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsWrong"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+**✅** Most of the code here is now in the `convex/model` directory. The API for
+this application is in `convex/conversations.ts`, which contains very little
+code itself.
+
+<TSAndJSSnippet
+  title="convex/model/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersCorrect"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+  prefix={`import { QueryCtx } from '../_generated/server';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsModelCorrect"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+  prefix={`import { QueryCtx, MutationCtx } from '../_generated/server';\nimport * as Users from './users';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsApiCorrect"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+  prefix={`import * as Conversations from './model/conversations';\n`}
+/>
+
+## Use `runAction` only when using a different runtime
+
+### Why?
+
+Calling `runAction` has more overhead than calling a plain TypeScript function.
+It counts as an extra function call with its own memory and CPU usage, while the
+parent action is doing nothing except waiting for the result. Therefore,
+`runAction` should almost always be replaced with calling a plain TypeScript
+function. However, if you want to call code that requires Node.js from a
+function in the Convex runtime (e.g. using a library that requires Node.js),
+then you can use `runAction` to call the Node.js code.
+
+### Example
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runAction"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeModel"
+  prefix={`import { ActionCtx } from '../_generated/server';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeAction"
+  prefix={`import * as Scrape from './model/scrape';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+### How?
+
+Search for `runAction` in your Convex codebase, and see if the function it calls
+uses the same runtime as the parent function. If so, replace the `runAction`
+with a plain TypeScript function. You may want to structure your functions so
+the Node.js functions are in a separate directory so it's easier to spot these.
+
+## Avoid sequential `ctx.runMutation` / `ctx.runQuery` calls from actions
+
+### Why?
+
+Each `ctx.runMutation` or `ctx.runQuery` runs in its own transaction, which
+means if they're called separately, they may not be consistent with each other.
+If instead we call a single `ctx.runQuery` or `ctx.runMutation`, we're
+guaranteed that the results we get are consistent.
+
+### How?
+
+Audit your calls to `ctx.runQuery` and `ctx.runMutation` in actions. If you see
+multiple in a row with no other code between them, replace them with a single
+`ctx.runQuery` or `ctx.runMutation` that handles both things. Refactoring your
+code to use helper functions will make this easier.
+
+### Example: Queries
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runQueryWrong"
+/>
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runQueryCorrect"
+  prefix={`import * as Teams from './model/teams';\nimport * as Users from './model/users';\n`}
+/>
+
+### Example: Loops
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationWrong"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationCorrect"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+### Exceptions
+
+If you're intentionally trying to process more data than fits in a single
+transaction, like running a migration or aggregating data, then it makes sense
+to have multiple sequential `ctx.runMutation` / `ctx.runQuery` calls.
+
+Multiple `ctx.runQuery` / `ctx.runMutation` calls are often necessary because
+the action does a side effect in between them. For example, reading some data,
+feeding it to an external service, and then writing the result back to the
+database.
+
+## Use `ctx.runQuery` and `ctx.runMutation` sparingly in queries and mutations
+
+### Why?
+
+While these queries and mutations run in the same transaction, and will give
+consistent results, they have extra overhead compared to plain TypeScript
+functions. Wanting a TypeScript helper function is much more common than needing
+`ctx.runQuery` or `ctx.runMutation`.
+
+### How?
+
+Audit your calls to `ctx.runQuery` and `ctx.runMutation` in queries and
+mutations. Unless one of the exceptions below applies, replace them with a plain
+TypeScript function.
+
+### Exceptions
+
+- If you're using components, these require `ctx.runQuery` or `ctx.runMutation`.
+- If you want partial rollback on an error, you will want `ctx.runMutation`
+  instead of a plain TypeScript function.
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="partialRollback"
+/>

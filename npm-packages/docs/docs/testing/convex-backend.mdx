@@ -1,0 +1,44 @@
+---
+title: Testing Local Backend
+sidebar_label: Local Backend
+sidebar_position: 200
+---
+
+Alternatively to [`convex-test`](/docs/testing/convex-test.mdx) you can test
+your functions using the
+[open-source version of the Convex backend](https://github.com/get-convex/convex-backend).
+
+## Getting Started
+
+Follow [this guide](https://stack.convex.dev/testing-with-local-oss-backend) for
+the instructions.
+
+Compared to `convex-test`, which uses a JS mock of the backend, running your
+tests against the real backend has these advantages:
+
+- Your tests will run against the same code as your Convex production (as long
+  you keep the local backend up-to-date).
+- Limits on argument, data, query sizes are enforced.
+- You can bootstrap a large test dataset from a data import.
+- You can test your client code in combination with your backend logic.
+
+## Limitations
+
+Note that testing against the local backend also has some drawbacks:
+
+- It requires setting up the local backend, which is more involved.
+- No control over time and any scheduled functions will run as scheduled.
+- Crons will also run unless disabled via
+  [`IS_TEST`](https://stack.convex.dev/testing-with-local-oss-backend#setting-up-a-local-backend).
+- No way to mock `fetch` calls.
+- No way to mock dependencies or parts of the codebase.
+- No way to control randomness (tests may not be deterministic).
+- No way to set environment variable values from within tests.
+
+To test your functions in JS with a mocked Convex backend, check out
+[convex-test](/docs/testing/convex-test.mdx).
+
+## CI
+
+See [Continuous Integration](/docs/testing/ci.mdx) to run your tests on a shared
+remote machine.

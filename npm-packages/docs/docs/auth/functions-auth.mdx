@@ -1,0 +1,65 @@
+---
+title: "Auth in Functions"
+sidebar_label: "Functions"
+sidebar_position: 40
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctions.ts";
+import FieldsTS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
+import FieldsJS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFieldsJS.js";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+_If you're using Convex Auth, see the
+[authorization doc](https://labs.convex.dev/auth/authz#use-authentication-state-in-backend-functions)._
+
+Within a Convex [function](/docs/functions.mdx), you can access information
+about the currently logged-in user by using the
+[`auth`](/api/interfaces/server.Auth) property of the
+[`QueryCtx`](/api/interfaces/server.GenericQueryCtx),
+[`MutationCtx`](/api/interfaces/server.GenericMutationCtx), or
+[`ActionCtx`](/api/modules/server#actionctx) object:
+
+<TSAndJSSnippet
+  sourceTS={Example}
+  sourceJS={Example}
+  title="convex/myFunctions.ts"
+/>
+
+## User identity fields
+
+The [UserIdentity](/api/interfaces/server.UserIdentity) object returned by
+`getUserIdentity` is guaranteed to have `tokenIdentifier`, `subject` and
+`issuer` fields. Which other fields it will include depends on the identity
+provider used and the configuration of JWT tokens and
+[OpenID scopes](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
+
+`tokenIdentifier` is a combination of `subject` and `issuer` to ensure
+uniqueness even when multiple providers are used.
+
+If you followed one of our integrations with Clerk or Auth0 at least the
+following fields will be present: `familyName`, `givenName`, `nickname`,
+`pictureUrl`, `updatedAt`, `email`, `emailVerified`. See their corresponding
+standard definition in the
+[OpenID docs](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims).
+
+<TSAndJSSnippet
+  sourceTS={FieldsTS}
+  sourceJS={FieldsJS}
+  title="convex/myFunctions.ts"
+/>
+
+### Clerk claims configuration
+
+If you're using Clerk, the fields returned by `getUserIdentity` are determined
+by your JWT template's _Claims_ config. If you've set custom claims, they will
+be returned by `getUserIdentity` as well.
+
+## HTTP Actions
+
+You can also access the user identity from an HTTP action
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity), by
+calling your endpoint with an `Authorization` header including a JWT token:
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+
+<StackPosts query="authentication functions" />

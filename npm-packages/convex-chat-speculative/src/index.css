@@ -1,0 +1,10 @@
+@import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
+
+main {
+  width: min(800px, 95vw);
+  margin: 0 auto;
+}
+
+.list-group-item:hover {
+  background: #f8f9fa;
+}

@@ -1,0 +1,24 @@
+{
+  "name": "convex-chat-speculative",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "rm -rf dist && tsc && vite build",
+    "clean": "",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "bootstrap": "^5.0.2",
+    "convex": "workspace:*",
+    "prettier": "3.4.2",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "~5.0.3",
+    "vite": "5.2.14"
+  }
+}

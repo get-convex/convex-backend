@@ -1,0 +1,35 @@
+---
+title: "Script Tag"
+sidebar_position: 100
+---
+
+Sometimes you just want to get your data on a web page: no installing packages,
+no build steps, no TypeScript. Subscribing to queries deployed to an existing
+Convex deployment from a script tag is simple.
+
+import simpleHtml from "!!raw-loader!@site/../demos/html/simple.html";
+import typedHtml from "!!raw-loader!@site/../demos/html/typed-example.html";
+import script from "!!raw-loader!@site/../demos/html/script.js";
+
+<Snippet
+  source={simpleHtml}
+  title="index.html"
+  replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]}
+/>
+
+VSCode doesn't support TypeScript autocompletion in HTML files so for types and
+better autocompletion you can split your code out into a script file:
+
+<Snippet
+  source={typedHtml}
+  title="index.html"
+  replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]}
+/>
+<Snippet
+  source={script}
+  title="script.js"
+  replacements={[[/https?:\/\/localhost:8000/g, "CONVEX_URL_GOES_HERE"]]}
+/>
+
+See the [Script Tag Quickstart](/docs/quickstart/script-tag.mdx) for
+instructions for setting up a new Convex project.

@@ -1,0 +1,30 @@
+<!doctype html>
+<form>
+  <input placeholder="type here" />
+</form>
+<div class="messages"></div>
+
+<script src="https://unpkg.com/convex@1.3.1/dist/browser.bundle.js"></script>
+<script>
+  const CONVEX_URL = "http://localhost:8000";
+  const client = new convex.ConvexClient(CONVEX_URL);
+
+  client.onUpdate("messages:list", {}, (messages) => {
+    const container = document.querySelector(".messages");
+    container.innerHTML = "";
+    for (const message of messages.reverse()) {
+      const li = document.createElement("li");
+      li.textContent = `${message.author}: ${message.body}`;
+      container.appendChild(li);
+    }
+  });
+
+  document.querySelector("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    client.mutation("messages:send", {
+      body: e.target.querySelector("input").value,
+      author: "me",
+    });
+    e.target.querySelector("input").value = "";
+  });
+</script>

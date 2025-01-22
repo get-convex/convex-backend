@@ -1,0 +1,76 @@
+{
+  "name": "@convex-dev/react-query",
+  "version": "0.0.0-alpha.8",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:db dev:frontend",
+    "dev:db": "convex dev",
+    "dev:frontend": "vite --open --clearScreen false",
+    "build": "tshy",
+    "lint": "eslint",
+    "preview": "vite preview",
+    "test:types": "tsc --noEmit",
+    "prepare": "tshy"
+  },
+  "files": [
+    "dist",
+    "src/index.ts",
+    "LICENSE"
+  ],
+  "tshy": {
+    "dialects": [
+      "esm",
+      "commonjs"
+    ],
+    "exports": {
+      ".": "./src/index.ts",
+      "./package.json": "./package.json"
+    },
+    "exclude": [
+      "src/example.tsx",
+      "src/**/*.test.ts"
+    ],
+    "selfLink": false
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "convex": "^1.18.2"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.62.0",
+    "convex": "workspace:*",
+    "@tanstack/eslint-plugin-query": "^5.59.7",
+    "@tanstack/react-query-devtools": "^5.62.0",
+    "@types/node": "^18.17.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "axios": "^1.6.8",
+    "eslint": "^8.29.0",
+    "eslint-config-prettier": "^9.1.0",
+    "npm-run-all": "^4.1.5",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "tshy": "^2.0.0",
+    "typescript": "~5.0.3",
+    "vite": "5.2.14",
+    "vitest": "~1.6.0"
+  },
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "module": "./dist/esm/index.js",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts"
+}

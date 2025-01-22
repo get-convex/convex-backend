@@ -1,0 +1,34 @@
+{
+  "name": "scenario-runner",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build": "rm -rf dist && tsc && esbuild index.ts --bundle --sourcemap --outfile=dist/scenario-runner.js --platform=node --log-level=warning",
+    "start": "node dist/scenario-runner.js",
+    "lint": "eslint convex --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "bin": "dist/scenario-runner.mjs",
+  "dependencies": {
+    "@sentry/node": "^7.23.0",
+    "@sentry/tracing": "^7.23.0",
+    "random-words": "1.2.1",
+    "langchain": "^0.0.182-rc.0",
+    "tiktoken": "^1.0.10",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "@types/react": "^18.0.0",
+    "@types/ws": "^8.5.13",
+    "commander": "^11.1.0",
+    "convex": "workspace:*",
+    "esbuild": "0.23.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "typescript": "~5.0.3",
+    "ws": "8.18.0",
+    "eslint": "^8.29.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@commander-js/extra-typings": "^11.1.0"
+  }
+}

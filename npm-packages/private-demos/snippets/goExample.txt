@@ -1,0 +1,28 @@
+type Link struct {
+	Short    string // the "foo" part of http://go/foo
+	Long     string // the target URL or text/template pattern to run
+	Created  time.Time
+	LastEdit time.Time // when the link was last edited
+	Owner    string    // user@domain
+}
+
+func (c *ConvexDB) Load(short string) (*Link, error) { 
+  request := *convex.NewRequestLoadLoadOne(*convex.NewRequestLoadLoadOneArgs(short, c.token))
+  resp, httpRes, err := c.client.QueryAPI.ApiRunLoadLoadOnePost(context.Background()).RequestLoadLoadOne(request).Execute()
+  validationErr := validateResponse(httpRes.StatusCode, err, resp.Status) if
+  validationErr != nil { return nil, validationErr }
+
+  linkDoc := resp.Value.Get()
+  if linkDoc == nil {
+    err := fs.ErrNotExist
+    return nil, err
+  }
+  link := Link{
+    Short:    linkDoc.Short,
+    Long:     linkDoc.Long,
+    Created:  time.Unix(int64(linkDoc.Created), 0),
+    LastEdit: time.Unix(int64(linkDoc.LastEdit), 0),
+    Owner:    linkDoc.Owner,
+  }
+
+  return &link, nil
