@@ -6,19 +6,15 @@
 </picture>
 </p>
 
-**Most Convex developers should be using the
-[managed hosted product](https://www.convex.dev/plans).** The hosted product
-includes a generous free tier and provides a seamless, reliable, cost-effective
-platform that allows you to focus on building your application without worrying
-about infrastructure.
+** [Convex managed hosted product](https://www.convex.dev/plans).** The hosted
+product includes a generous free tier and provides a seamless, reliable,
+cost-effective platform that allows you to focus on building your application
+without worrying about infrastructure.
 
-**This repository is the wild west open source version.** It's the same code
-used in the hosted Convex product but runs on a single machine and doesn't
-include the scale-out services, replicated database backend, production
-dashboard, or operational tooling. You are welcome to use this code to run your
-application, either for local testing or in production, but you are on your own
-managing it and ensuring the system is reliable and secure. In particular you
-should ensure you have strong competency with regards to:
+You are welcome to use this code to run your application, either for local
+testing or in production, but you are on your own managing it and ensuring the
+system is reliable and secure. In particular you should ensure you have strong
+competency with regards to:
 
 - Hosting
 - Traffic routing
@@ -31,8 +27,7 @@ No official support is provided for the open source version of Convex but
 community support is available in the `#open-source` channel in the
 [Convex Discord](https://discord.gg/convex).
 
-Development of the Convex backend is led by the Convex team and we are not
-actively soliciting any major contributions from the community. We of course
+Development of the Convex backend is led by the Convex team. We
 [welcome bug fixes](./CONTRIBUTING.md) and
 [love receiving feedback](https://discord.gg/convex). We keep this repository
 synced with any internal development work within a handful of days.
