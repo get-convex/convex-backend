@@ -43,6 +43,7 @@ const AUDIT_LOG_ACTIONS = [
   "configurePeriodicBackup",
   "disablePeriodicBackup",
   "disableTeamExceedingSpendingLimits",
+  "setSpendingLimit",
 ] as const;
 
 const actionOptions: Option<AuditLogAction | "all_actions">[] = [

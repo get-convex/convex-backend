@@ -478,6 +478,34 @@ function EntryAction({
         </span>
       );
     }
+    case "setSpendingLimit": {
+      if (!metadata.current?.threshold) {
+        captureMessage(`Found malformed metadata for ${action}`);
+        return <UnhandledAction action={action} />;
+      }
+      if (!metadata.previous?.threshold) {
+        return (
+          <span>
+            set a spending limit of{" "}
+            <span className="font-semibold">
+              ${metadata.current.threshold / 100}
+            </span>
+          </span>
+        );
+      }
+      return (
+        <span>
+          updated the spending limit from{" "}
+          <span className="font-semibold">
+            ${metadata.previous.threshold / 100}
+          </span>{" "}
+          to{" "}
+          <span className="font-semibold">
+            ${metadata.current.threshold / 100}
+          </span>
+        </span>
+      );
+    }
     default:
       // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
       const notAllowed: never = action;
