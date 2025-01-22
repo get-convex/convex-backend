@@ -257,7 +257,10 @@ pub trait Upload: Send + Sync {
     async fn abort(self: Box<Self>) -> anyhow::Result<()>;
 
     /// Completes the multipart object.
-    async fn complete(self: Box<Self>) -> anyhow::Result<ObjectKey>;
+    ///
+    /// If `digest` is provided, it should be the sha256 checksum of the entire
+    /// uploaded object.
+    async fn complete(self: Box<Self>, digest: Option<Sha256Digest>) -> anyhow::Result<ObjectKey>;
 }
 
 /// Helper functions for working with uploads for functions that have generic
@@ -308,25 +311,25 @@ impl<T: Upload> UploadExt for T {
 
 #[must_use]
 pub struct BufferedUpload {
-    upload: Option<Box<dyn Upload>>,
+    upload: Box<dyn Upload>,
     buffer: Vec<u8>,
     max_intermediate_part_size: usize,
     target_intermediate_part_size: usize,
 }
 
 impl BufferedUpload {
-    pub async fn new(
+    pub fn new(
         upload: impl Upload + 'static,
         min_intermediate_part_size: usize,
         max_intermediate_part_size: usize,
-    ) -> anyhow::Result<Self> {
+    ) -> Self {
         let buffer = Vec::with_capacity(min_intermediate_part_size);
-        Ok(Self {
-            upload: Some(Box::new(upload)),
+        Self {
+            upload: Box::new(upload),
             buffer,
             max_intermediate_part_size,
             target_intermediate_part_size: min_intermediate_part_size,
-        })
+        }
     }
 
     fn update_buffer_and_get_next(&mut self, data: Bytes) -> Option<Bytes> {
@@ -381,12 +384,7 @@ impl BufferedUpload {
 impl Upload for BufferedUpload {
     async fn write(&mut self, data: Bytes) -> anyhow::Result<()> {
         if let Some(buf) = self.update_buffer_and_get_next(data) {
-            // self.upload is only ever taken just before drop
-            self.upload
-                .as_mut()
-                .expect("upload must be set")
-                .write(buf)
-                .await?;
+            self.upload.write(buf).await?;
         }
         Ok(())
     }
@@ -399,12 +397,7 @@ impl Upload for BufferedUpload {
         let (tx, rx) = mpsc::channel(MAXIMUM_PARALLEL_UPLOADS / 2);
 
         let mut boxed_rx = ReceiverStream::new(rx).boxed();
-        let mut upload = self
-            .upload
-            .as_mut()
-            .expect("upload must be set")
-            .try_write_parallel(&mut boxed_rx)
-            .fuse();
+        let mut upload = self.upload.try_write_parallel(&mut boxed_rx).fuse();
 
         let buffer_bytes = async {
             let result: anyhow::Result<()> = try {
@@ -445,20 +438,20 @@ impl Upload for BufferedUpload {
     }
 
     async fn abort(mut self: Box<Self>) -> anyhow::Result<()> {
-        // self.upload is only ever taken just before drop
-        self.upload
-            .take()
-            .expect("upload must be set")
-            .abort()
-            .await
+        self.upload.abort().await
     }
 
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
-        let ready = mem::take(&mut self.buffer);
-        // self.upload is only ever taken just before drop
-        let mut upload = self.upload.take().expect("upload must be set");
+    async fn complete(
+        mut self: Box<Self>,
+        digest: Option<Sha256Digest>,
+    ) -> anyhow::Result<ObjectKey> {
+        let Self {
+            buffer: ready,
+            mut upload,
+            ..
+        } = *self;
         upload.write(ready.into()).await?;
-        upload.complete().await
+        upload.complete(digest).await
     }
 }
 
@@ -935,8 +928,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
             file: Some(file),
             num_parts: 0,
         };
-        let upload =
-            BufferedUpload::new(upload, LOCAL_DIR_MIN_PART_SIZE, LOCAL_DIR_MAX_PART_SIZE).await?;
+        let upload = BufferedUpload::new(upload, LOCAL_DIR_MIN_PART_SIZE, LOCAL_DIR_MAX_PART_SIZE);
         Ok(Box::new(upload))
     }
 
@@ -1171,11 +1163,15 @@ impl Upload for LocalDirUpload {
         Ok(())
     }
 
-    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
+    async fn complete(
+        mut self: Box<Self>,
+        _digest: Option<Sha256Digest>,
+    ) -> anyhow::Result<ObjectKey> {
         let object_key = self.object_key;
 
         let file = self.file.take().context("Completing inactive file")?;
         file.sync_all()?;
+        // TODO: verify the digest?
         Ok(object_key)
     }
 }
@@ -1232,6 +1228,7 @@ mod buffered_upload_tests {
         sync::mpsc,
     };
     use tokio_stream::wrappers::ReceiverStream;
+    use value::sha256::Sha256Digest;
 
     use crate::{
         BufferedUpload,
@@ -1265,7 +1262,10 @@ mod buffered_upload_tests {
             Ok(())
         }
 
-        async fn complete(self: Box<Self>) -> anyhow::Result<common::types::ObjectKey> {
+        async fn complete(
+            self: Box<Self>,
+            _: Option<Sha256Digest>,
+        ) -> anyhow::Result<common::types::ObjectKey> {
             Ok(ObjectKey::try_from("asdf")?)
         }
     }
@@ -1279,8 +1279,7 @@ mod buffered_upload_tests {
         let upload = NoopUpload {
             parts: parts.clone(),
         };
-        let mut upload: Box<BufferedUpload> =
-            Box::new(BufferedUpload::new(upload, 100, 1000).await?);
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 100, 1000));
         let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
         let mut writer = ChannelWriter::new(sender, 10);
         let write_fut = async move {
@@ -1292,7 +1291,7 @@ mod buffered_upload_tests {
         // Regression test: if ChannelWriter::poll_write reserves a new permit in
         // `sender` each time it's called, then the uploader will deadlock.
         let _ = futures::try_join!(write_fut, uploader)?;
-        let _ = upload.complete().await?;
+        let _ = upload.complete(None).await?;
         let parts = parts.lock();
         assert_eq!(
             *parts,
@@ -1308,7 +1307,7 @@ mod buffered_upload_tests {
         let upload = NoopUpload {
             parts: parts.clone(),
         };
-        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 10, 30).await?);
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 10, 30));
         let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
         // Intentionally test case where we write sizes that don't divide evenly
         // into the min or max size.
@@ -1323,7 +1322,7 @@ mod buffered_upload_tests {
             anyhow::Ok(())
         };
         let _ = futures::try_join!(write_fut, uploader)?;
-        let _ = upload.complete().await?;
+        let _ = upload.complete(None).await?;
         let parts = parts.lock();
         let joined_parts: Bytes = parts.iter().flat_map(|p| p.iter().copied()).collect();
         assert_eq!(joined_parts, Bytes::from_static(data));
@@ -1373,7 +1372,7 @@ mod local_storage_tests {
             .write(vec![1; LOCAL_DIR_MIN_PART_SIZE].into())
             .await?;
         test_upload.write(vec![2, 3, 4].into()).await?;
-        let _object_key = test_upload.complete().await?;
+        let _object_key = test_upload.complete(None).await?;
         Ok(())
     }
 
@@ -1385,7 +1384,7 @@ mod local_storage_tests {
             .write(vec![1; LOCAL_DIR_MIN_PART_SIZE].into())
             .await?;
         test_upload.write(vec![2, 3, 4].into()).await?;
-        let _object_key = test_upload.complete().await?;
+        let _object_key = test_upload.complete(None).await?;
         Ok(())
     }
 
@@ -1405,7 +1404,7 @@ mod local_storage_tests {
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
         let mut upload = storage.start_upload().await?;
         upload.write(Bytes::from_static(b"pinna park")).await?;
-        let key = upload.complete().await?;
+        let key = upload.complete(None).await?;
 
         // Get via .get()
         let contents = storage
@@ -1436,7 +1435,7 @@ mod local_storage_tests {
         let length = prefix_length + suffix_length;
         test_upload.write(vec![1; prefix_length].into()).await?;
         test_upload.write(vec![2; suffix_length].into()).await?;
-        let object_key = test_upload.complete().await?;
+        let object_key = test_upload.complete(None).await?;
 
         let stream = storage.get(&object_key).await?.unwrap();
         assert_eq!(stream.content_length, length as i64);
@@ -1472,7 +1471,7 @@ mod local_storage_tests {
         test_upload
             .write(vec![0, 1, 2, 3, 4, 5, 6, 7, 8].into())
             .await?;
-        let object_key = test_upload.complete().await?;
+        let object_key = test_upload.complete(None).await?;
         let disconnected_stream = stream::iter(vec![
             Ok(vec![1, 2, 3].into()),
             Err(futures::io::Error::new(
@@ -1500,7 +1499,7 @@ mod local_storage_tests {
     async fn test_storage_delete(rt: TestRuntime) -> anyhow::Result<()> {
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
         let test_upload = storage.start_upload().await?;
-        let object_key = test_upload.complete().await?;
+        let object_key = test_upload.complete(None).await?;
         assert!(storage.get(&object_key).await?.is_some());
         storage.delete_object(&object_key).await?;
         assert!(storage.get(&object_key).await?.is_none());

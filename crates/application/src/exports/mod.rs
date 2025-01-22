@@ -145,8 +145,8 @@ where
                 requestor,
                 update_progress,
             );
-            let (_, ()) = try_join!(uploader, zipper)?;
-            let zip_object_key = upload.complete().await?;
+            let ((_size, digest), ()) = try_join!(uploader, zipper)?;
+            let zip_object_key = upload.complete(Some(digest)).await?;
             Ok((*ts, zip_object_key, usage))
         },
     }

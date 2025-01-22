@@ -28,6 +28,7 @@ use common::{
 };
 use futures::{
     pin_mut,
+    StreamExt,
     TryStreamExt,
 };
 use storage::{
@@ -283,7 +284,8 @@ pub async fn upload_single_file<R: AsyncBufRead + Unpin>(
     let timer = metrics::upload_archive_timer(upload_type);
     let (sender, receiver) = mpsc::channel::<Bytes>(1);
     let mut upload = storage.start_upload().await?;
-    let uploader = upload.write_parallel(ReceiverStream::new(receiver));
+    let uploader =
+        upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok).boxed());
     let writer = ChannelWriter::new(sender, 5 * (1 << 20));
     // FragmentedVectorSegment files are tarballs already. Compression provides a
     // relatively small improvement in file size. Extracting a zip and then a
@@ -295,8 +297,8 @@ pub async fn upload_single_file<R: AsyncBufRead + Unpin>(
         SingleFileFormat::ZIP
     };
     let archiver = write_single_file(reader, filename, writer, file_type);
-    tokio::try_join!(archiver, uploader)?;
-    let key = upload.complete().await?;
+    let ((), (_size, digest)) = tokio::try_join!(archiver, uploader)?;
+    let key = upload.complete(Some(digest)).await?;
     timer.finish();
     Ok(key)
 }
@@ -335,11 +337,12 @@ pub async fn upload_index_archive_from_path<P: AsRef<Path>>(
     let timer = metrics::upload_archive_timer(upload_type);
     let (sender, receiver) = mpsc::channel::<Bytes>(1);
     let mut upload = storage.start_upload().await?;
-    let uploader = upload.write_parallel(ReceiverStream::new(receiver));
+    let uploader =
+        upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok).boxed());
     let writer = ChannelWriter::new(sender, 5 * (1 << 20));
     let archiver = write_index_archive(directory, writer);
-    let ((), ()) = futures::try_join!(archiver, uploader)?;
-    let key = upload.complete().await?;
+    let ((), (_size, digest)) = futures::try_join!(archiver, uploader)?;
+    let key = upload.complete(Some(digest)).await?;
     timer.finish();
     Ok(key)
 }
