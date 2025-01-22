@@ -147,7 +147,7 @@ tokio-postgres = { version = "0.7.10", features = [ "with-serde_json-1" ] }
 tokio-process-stream = { version = "0.4.0" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
 tokio-tungstenite = { version = "0.21.0", features = [ "native-tls-vendored" ] }
-tokio-util = { version = "0.7.13", features = [ "io" ] }
+tokio-util = { version = "0.7.13", features = [ "io", "rt" ] }
 tonic = { version = "0.12.3", features = [ "gzip" ] }
 tonic-build = "0.12.3"
 tonic-health = "0.12.3"

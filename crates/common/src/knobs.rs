@@ -1253,3 +1253,10 @@ pub static STORAGE_MAX_INTERMEDIATE_PART_SIZE: LazyLock<usize> =
 /// honeycomb.
 pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_millis(env_config("COMMIT_TRACE_THRESHOLD", 250)));
+
+/// How many instances a Conductor will try to simultaneously load (on startup,
+/// or when it discovers new instances) Going too high means that the Conductor
+/// may be unable to serve requests for already-loaded instances in a timely
+/// manner, or that we may exhaust CPU on the physical host
+pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 6));
