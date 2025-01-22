@@ -62,13 +62,20 @@ export const dev = new Command("dev")
   .addOption(
     new Option(
       "--configure [choice]",
-      "Ignore existing configuration and configure new or existing project",
+      "Ignore existing configuration and configure new or existing project, interactively or set by --team <team_slug> and --project <project_slug>",
     ).choices(["new", "existing"] as const),
   )
-  .option("--team <team_slug>", "The team you'd like to use for this project")
-  .option(
-    "--project <project_slug>",
-    "The name of the project you'd like to configure",
+  .addOption(
+    new Option(
+      "--team <team_slug>",
+      "The team you'd like to use for this project",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--project <project_slug>",
+      "The name of the project you'd like to configure",
+    ).hideHelp(),
   )
   .option(
     "--once",
@@ -150,6 +157,16 @@ export const dev = new Command("dev")
         errorType: "fatal",
         printedMessage: "`--debug-bundle-path` can only be used with `--once`.",
       });
+    }
+
+    if (cmdOptions.configure === undefined) {
+      if (cmdOptions.team || cmdOptions.project)
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "`--team and --project can can only be used with `--configure`.",
+        });
     }
 
     const localOptions: {
