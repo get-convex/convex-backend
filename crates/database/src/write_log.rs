@@ -266,7 +266,7 @@ impl WriteLog {
             .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source)))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn is_stale(
         &self,
         reads: &ReadSet,
@@ -386,7 +386,7 @@ pub struct LogReader {
 }
 
 impl LogReader {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| snapshot.refresh_token(token, ts))

@@ -39,6 +39,10 @@ use common::{
         JsError,
     },
     execution_context::ExecutionContext,
+    fastrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     http::{
         fetch::FetchClient,
         RoutedHttpPath,
@@ -54,10 +58,6 @@ use common::{
         V8_THREADS,
     },
     log_lines::LogLine,
-    minitrace_helpers::{
-        initialize_root_from_parent,
-        EncodedSpan,
-    },
     query_journal::QueryJournal,
     runtime::{
         shutdown_and_join,
@@ -85,6 +85,10 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::{
+    func_path,
+    future::FutureExt as _,
+};
 use file_storage::TransactionalFileStorage;
 use futures::{
     select,
@@ -98,10 +102,6 @@ use futures::{
 use keybroker::{
     Identity,
     KeyBroker,
-};
-use minitrace::{
-    full_name,
-    future::FutureExt as _,
 };
 use model::{
     config::{
@@ -660,7 +660,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         total
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn execute_udf(
         &self,
         udf_type: UdfType,
@@ -698,7 +698,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         Ok((tx, outcome))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn execute_action(
         &self,
         path_and_args: ValidatedPathAndArgs,
@@ -744,7 +744,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     /// Execute an HTTP action.
     /// HTTP actions can run other UDFs, so they take in a ActionCallbacks from
     /// the application layer. This creates a transient reference cycle.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn execute_http_action(
         &self,
         http_module_path: ValidatedHttpPath,
@@ -795,7 +795,7 @@ impl<RT: Runtime> IsolateClient<RT> {
     }
 
     /// Analyze a set of user-defined modules.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -832,7 +832,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
@@ -877,7 +877,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_component_initializer(
         &self,
         evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
@@ -912,7 +912,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_schema(
         &self,
         schema_bundle: ModuleSource,
@@ -945,7 +945,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_auth_config(
         &self,
         auth_config_bundle: ModuleSource,
@@ -1380,7 +1380,7 @@ pub trait IsolateWorker<RT: Runtime>: Clone + Send + 'static {
                     let Some((req, done, done_token)) = req else {
                         return;
                     };
-                    let root = initialize_root_from_parent(full_name!(),req.parent_trace.clone());
+                    let root = initialize_root_from_parent(func_path!(),req.parent_trace.clone());
                     // If we receive a request from a different client (i.e. a different backend),
                     // recreate the isolate. We don't allow an isolate to be reused
                     // across clients for security isolation.

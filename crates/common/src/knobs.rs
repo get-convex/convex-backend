@@ -20,7 +20,7 @@ use std::{
 
 use cmd_util::env::env_config;
 
-use crate::minitrace_helpers::SamplingConfig;
+use crate::fastrace_helpers::SamplingConfig;
 
 /// This exists solely to allow knobs to have separate defaults for local
 /// execution and prod (running in Nomad). Don't export this outside of
@@ -1164,12 +1164,12 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 /// overrides, which take precedence over the default fraction.
 ///
 /// When in doubt, write out a test case to verify the behavior in
-/// minitrace_helpers.rs.
+/// fastrace_helpers.rs.
 ///
 /// It's often easiest to craft the JSON in a repl (e.g. node, browser console),
 /// and then stringify it at the end.
 ///
-/// See `minitrace_helpers.rs` for more examples
+/// See `fastrace_helpers.rs` for more examples
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new(|| {
     env_config(
         "REQUEST_TRACE_SAMPLE_CONFIG",

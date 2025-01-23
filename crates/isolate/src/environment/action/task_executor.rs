@@ -13,9 +13,9 @@ use common::{
         Resource,
     },
     execution_context::ExecutionContext,
+    fastrace_helpers::initialize_root_from_parent,
     http::fetch::FetchClient,
     knobs::MAX_CONCURRENT_ACTION_OPS,
-    minitrace_helpers::initialize_root_from_parent,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -23,6 +23,7 @@ use common::{
     sync::spsc,
 };
 use errors::ErrorMetadata;
+use fastrace::future::FutureExt as _;
 use file_storage::TransactionalFileStorage;
 use futures::{
     select_biased,
@@ -34,7 +35,6 @@ use keybroker::{
     Identity,
     KeyBroker,
 };
-use minitrace::future::FutureExt as MinitraceFutureExt;
 use model::config::module_loader::ModuleLoader;
 use parking_lot::Mutex;
 use serde_json::Value as JsonValue;
@@ -118,7 +118,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_async_task(self, task_request: TaskRequest) -> TaskId {
         let task_id = task_request.task_id;
         let variant = match task_request.variant {

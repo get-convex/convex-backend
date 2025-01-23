@@ -19,6 +19,7 @@ bytesize = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 imbl = { workspace = true }
 imbl_slab = { path = "../imbl_slab" }
@@ -27,7 +28,6 @@ itertools = { workspace = true }
 levenshtein_automata = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 pb = { path = "../pb" }
 prometheus = { workspace = true }
 proptest = { workspace = true, optional = true }

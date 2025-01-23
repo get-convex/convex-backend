@@ -151,7 +151,7 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
     }
 }
 
-#[minitrace::trace(properties = { "udf_type": "http_action"})]
+#[fastrace::trace(properties = { "udf_type": "http_action"})]
 #[debug_handler]
 pub async fn http_any_method(
     State(st): State<RouterState>,

@@ -81,7 +81,7 @@ impl TokenMatchAggregator {
 
     // Returns whether the match was inserted. If false, the heap was full
     // and the match was worse than the current worse one.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn insert(&mut self, m: TokenMatch) -> bool {
         let existing_term = self.term_counts.get_mut(&m.term);
         if let Some(count) = existing_term {

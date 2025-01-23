@@ -313,7 +313,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
 
     /// Get the absolute path for the directory referenced by a given key.
     /// Fetches the archive from storage if it doesn't already exist on disk.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -326,7 +326,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         result
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get_single_file(
         &self,
         search_storage: Arc<dyn Storage>,

@@ -94,7 +94,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Self { tx }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply_component_definitions_diff(
         &mut self,
         new_definitions: &BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>,
@@ -188,7 +188,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn create_component_definition(
         &mut self,
         definition: ComponentDefinitionMetadata,
@@ -201,7 +201,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Ok((id.into(), diff))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn modify_component_definition(
         &mut self,
         existing: &ParsedDocument<ComponentDefinitionMetadata>,
@@ -214,7 +214,7 @@ impl<'a, RT: Runtime> ComponentDefinitionConfigModel<'a, RT> {
         Ok(diff)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn delete_component_definition(
         &mut self,
         existing: &ParsedDocument<ComponentDefinitionMetadata>,
@@ -257,7 +257,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Self { tx }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn start_component_schema_changes(
         &mut self,
         app: &CheckedComponent,
@@ -341,7 +341,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn initialize_component_namespace(
         &mut self,
         is_root: bool,
@@ -400,7 +400,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             .transpose()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply_component_tree_diff(
         &mut self,
         app: &CheckedComponent,
@@ -505,7 +505,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         Ok(diffs)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn create_component(
         &mut self,
         id: DeveloperDocumentId,
@@ -571,7 +571,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn modify_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
@@ -644,7 +644,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn unmount_component(
         &mut self,
         existing: &ParsedDocument<ComponentMetadata>,
@@ -681,7 +681,7 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn delete_component(&mut self, component_id: ComponentId) -> anyhow::Result<()> {
         if component_id.is_root() {
             anyhow::bail!("Cannot delete root component");

@@ -5,12 +5,12 @@ use common::{
     },
     execution_context::ExecutionContext,
 };
+use fastrace::Event;
 use futures::{
     future::BoxFuture,
     select_biased,
     FutureExt,
 };
-use minitrace::Event;
 use model::{
     environment_variables::types::{
         EnvVarName,
@@ -298,7 +298,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 }
 
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn new(
         rt: RT,
         EnvironmentData {
@@ -359,7 +359,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run(
         mut self,
         client_id: String,
@@ -482,7 +482,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     #[convex_macro::instrument_future]
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_inner(
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         cancellation: BoxFuture<'_, ()>,

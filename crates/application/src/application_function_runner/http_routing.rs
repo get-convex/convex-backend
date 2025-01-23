@@ -61,7 +61,7 @@ use super::ApplicationFunctionRunner;
 use crate::function_log::HttpActionStatusCode;
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_http_action(
         &self,
         request_id: RequestId,

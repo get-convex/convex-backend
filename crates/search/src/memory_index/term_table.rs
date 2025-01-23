@@ -138,7 +138,7 @@ impl TermTable {
             })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn visit_top_terms_for_query(
         &self,
         token_ord: u32,

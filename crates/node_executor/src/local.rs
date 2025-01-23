@@ -193,11 +193,11 @@ mod tests {
     use common::{
         assert_obj,
         execution_context::ExecutionContext,
+        fastrace_helpers::EncodedSpan,
         log_lines::{
             run_function_and_collect_log_lines,
             LogLines,
         },
-        minitrace_helpers::EncodedSpan,
         runtime::Runtime,
         types::{
             ModuleEnvironment,

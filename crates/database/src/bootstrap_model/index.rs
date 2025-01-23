@@ -270,7 +270,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     ///
     /// This method merges the two halves to give a "full" index diff when the
     /// index changes have been prepared but not committed.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get_full_index_diff(
         &mut self,
         namespace: TableNamespace,
@@ -306,7 +306,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
 
     // This method assumes it's being called in apply_config, or at least after
     // indexes have been added and backfilled.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply(
         &mut self,
         namespace: TableNamespace,
@@ -534,7 +534,7 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
     /// Inserts new and updated mutated indexes so they can be backfilled.
     /// Returns the complete index diff, even though only the additions are
     /// immediately applied (the rest will be applied in apply_config)
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn prepare_new_and_mutated_indexes(
         &mut self,
         namespace: TableNamespace,

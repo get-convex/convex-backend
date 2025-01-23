@@ -25,15 +25,15 @@ use common::{
         ResolvedDocument,
     },
     errors::recapture_stacktrace,
+    fastrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     knobs::{
         COMMITTER_QUEUE_SIZE,
         COMMIT_TRACE_THRESHOLD,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
-    },
-    minitrace_helpers::{
-        initialize_root_from_parent,
-        EncodedSpan,
     },
     persistence::{
         ConflictStrategy,
@@ -67,6 +67,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::prelude::*;
 use futures::{
     future::{
         BoxFuture,
@@ -79,7 +80,6 @@ use futures::{
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
-use minitrace::prelude::*;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use tokio::sync::{
@@ -614,7 +614,7 @@ impl<RT: Runtime> Committer<RT> {
     /// First, check that it's valid to apply this transaction in-memory. If it
     /// passes validation, we can rebase the transaction to a new timestamp
     /// if other transactions have committed.
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn validate_commit(
         &mut self,
         transaction: FinalTransaction,
@@ -731,7 +731,7 @@ impl<RT: Runtime> Committer<RT> {
     /// transaction must be published and made visible. If we are unsure whether
     /// the write went through, we crash the process and recover from whatever
     /// has been written to persistence.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn write_to_persistence(
         persistence: Arc<dyn Persistence>,
         index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -825,7 +825,7 @@ impl<RT: Runtime> Committer<RT> {
         apply_timer.finish();
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     /// Returns a future to add to the pending_writes queue, if the commit
     /// should be written.
     fn start_commit(
@@ -893,7 +893,7 @@ impl<RT: Runtime> Committer<RT> {
         )
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn track_commit(
         usage_tracker: FunctionUsageTracker,
         index_writes: &BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -1066,7 +1066,7 @@ impl CommitterClient {
         self._commit(transaction, write_source).boxed()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _commit<RT: Runtime>(
         &self,
         transaction: Transaction<RT>,

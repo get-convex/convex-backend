@@ -21,13 +21,13 @@ use common::{
         JsError,
     },
     execution_context::ExecutionContext,
+    fastrace_helpers::get_sampled_span,
     identity::InertIdentity,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     log_lines::LogLines,
-    minitrace_helpers::get_sampled_span,
     query::{
         IndexRange,
         Order,
@@ -47,6 +47,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadataAnyhowExt;
+use fastrace::future::FutureExt as _;
 use futures::{
     future::Either,
     select_biased,
@@ -56,7 +57,6 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use keybroker::Identity;
-use minitrace::future::FutureExt as _;
 use model::{
     backend_state::BackendStateModel,
     cron_jobs::{

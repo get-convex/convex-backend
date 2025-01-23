@@ -25,16 +25,16 @@ use common::{
         ExecutionContext,
         ExecutionId,
     },
+    fastrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     http::{
         extract::Json,
         ExtractClientVersion,
         HttpResponseError,
     },
     knobs::ACTION_USER_TIMEOUT,
-    minitrace_helpers::{
-        initialize_root_from_parent,
-        EncodedSpan,
-    },
     runtime::UnixTimestamp,
     types::{
         FunctionCaller,
@@ -43,13 +43,13 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadata;
+use fastrace::future::FutureExt;
 use http::HeaderMap;
 use isolate::{
     ActionCallbacks,
     UdfArgsJson,
 };
 use keybroker::Identity;
-use minitrace::future::FutureExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -96,7 +96,7 @@ pub struct NodeCallbackUdfPostRequest {
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into mutations)
-#[minitrace::trace]
+#[fastrace::trace]
 #[debug_handler]
 pub async fn internal_query_post(
     State(st): State<LocalAppState>,
@@ -150,7 +150,7 @@ pub async fn internal_query_post(
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into mutations)
-#[minitrace::trace]
+#[fastrace::trace]
 #[debug_handler]
 pub async fn internal_mutation_post(
     State(st): State<LocalAppState>,
@@ -208,7 +208,7 @@ pub async fn internal_mutation_post(
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into actions)
-#[minitrace::trace]
+#[fastrace::trace]
 #[debug_handler]
 pub async fn internal_action_post(
     State(st): State<LocalAppState>,

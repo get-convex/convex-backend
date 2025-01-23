@@ -196,7 +196,7 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
 }
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT, E> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn new(
         scope: &'a mut v8::HandleScope<'b>,
         handle: IsolateHandle,

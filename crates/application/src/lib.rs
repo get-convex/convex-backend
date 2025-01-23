@@ -127,6 +127,12 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::{
+    collector::SpanContext,
+    func_path,
+    future::FutureExt,
+    Span,
+};
 use file_storage::{
     FileRangeStream,
     FileStorage,
@@ -151,12 +157,6 @@ use keybroker::{
     KeyBroker,
 };
 use maplit::btreemap;
-use minitrace::{
-    collector::SpanContext,
-    full_name,
-    future::FutureExt,
-    Span,
-};
 use model::{
     auth::AuthInfoModel,
     backend_state::BackendStateModel,
@@ -747,7 +747,7 @@ impl<RT: Runtime> Application<RT> {
         self.instance_name.clone()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn begin(&self, identity: Identity) -> anyhow::Result<Transaction<RT>> {
         self.database.begin(identity).await
     }
@@ -757,7 +757,7 @@ impl<RT: Runtime> Application<RT> {
         self.commit(transaction, "test").await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn commit(
         &self,
         transaction: Transaction<RT>,
@@ -768,7 +768,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
         self.database.subscribe(token).await
     }
@@ -777,7 +777,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.usage_counter().clone()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn document_deltas(
         &self,
         identity: Identity,
@@ -810,7 +810,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn list_snapshot(
         &self,
         identity: Identity,
@@ -927,7 +927,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn read_only_udf_at_ts(
         &self,
         request_id: RequestId,
@@ -999,7 +999,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(redacted_query_return)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn mutation_udf(
         &self,
         request_id: RequestId,
@@ -1063,7 +1063,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn action_udf(
         &self,
         request_id: RequestId,
@@ -1087,7 +1087,7 @@ impl<RT: Runtime> Application<RT> {
         let runner: Arc<ApplicationFunctionRunner<RT>> = self.runner.clone();
         let request_id_ = request_id.clone();
         let span = SpanContext::current_local_parent()
-            .map(|ctx| Span::root(format!("{}::actions_future", full_name!()), ctx))
+            .map(|ctx| Span::root(format!("{}::actions_future", func_path!()), ctx))
             .unwrap_or(Span::noop());
         let run_action = async move {
             runner
@@ -1129,7 +1129,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn http_action_udf(
         &self,
         request_id: RequestId,
@@ -1153,7 +1153,7 @@ impl<RT: Runtime> Application<RT> {
         let (tx, rx) = oneshot::channel();
         let runner = self.runner.clone();
         let span = SpanContext::current_local_parent()
-            .map(|ctx| Span::root(format!("{}::http_actions_future", full_name!()), ctx))
+            .map(|ctx| Span::root(format!("{}::http_actions_future", func_path!()), ctx))
             .unwrap_or(Span::noop());
         let response_streamer_ = response_streamer.clone();
         self.runtime.spawn("run_http_action", async move {
@@ -1648,7 +1648,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(schema)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get_evaluated_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
@@ -1735,7 +1735,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply_config_with_retries(
         &self,
         identity: Identity,
@@ -1750,7 +1750,7 @@ impl<RT: Runtime> Application<RT> {
         .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _apply_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
         tx: &mut Transaction<RT>,
@@ -1808,7 +1808,7 @@ impl<RT: Runtime> Application<RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze_modules_with_auth_config(
         &self,
         udf_config: UdfConfig,
@@ -2051,7 +2051,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(object_key)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn upload_package(
         &self,
         modules: &Vec<ModuleConfig>,
@@ -2273,7 +2273,7 @@ impl<RT: Runtime> Application<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn build_external_node_deps(
         &self,
         deps: Vec<NodeDependency>,
@@ -2310,7 +2310,7 @@ impl<RT: Runtime> Application<RT> {
         Ok((id, pkg))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _upload_external_deps_package(
         &self,
         external_deps_package: ExternalDepsPackage,

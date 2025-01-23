@@ -199,7 +199,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S>
     }
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub async fn validate_run_function_result(
     udf_type: UdfType,
     ts: Timestamp,
@@ -290,7 +290,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     // NOTE: The caller of this is responsible of checking retention by calling
     // `validate_function_runner_result`. If the retention check fails, we should
     // ignore any results or errors returned by this method.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_function_no_retention_check(
         &self,
         run_request_args: RunRequestArgs,
@@ -310,7 +310,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_function_no_retention_check_inner(
         &self,
         RunRequestArgs {
@@ -495,7 +495,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
@@ -528,7 +528,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_component_initializer(
         &self,
         evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
@@ -550,7 +550,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_schema(
         &self,
         schema_bundle: ModuleSource,
@@ -570,7 +570,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_auth_config(
         &self,
         auth_config_bundle: ModuleSource,

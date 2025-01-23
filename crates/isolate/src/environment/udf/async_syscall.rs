@@ -470,7 +470,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
@@ -635,7 +635,7 @@ pub struct DatabaseSyscallsV1<RT: Runtime, P: AsyncSyscallProvider<RT>> {
 impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     /// Runs a batch of syscalls, each of which can succeed or fail
     /// independently. The returned vec is the same length as the batch.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_async_syscall_batch(
         provider: &mut P,
         batch: AsyncSyscallBatch,
@@ -941,7 +941,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(JsonValue::Null)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn insert(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -971,7 +971,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(json!({ "_id": id_str }))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn shallow_merge(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -1003,7 +1003,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(document.into_value().0.into())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn replace(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -1035,7 +1035,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(document.into_value().0.into())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn query_batch(
         provider: &mut P,
@@ -1202,13 +1202,13 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         results.into_values().collect()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn query_page(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         DatabaseSyscallsShared::query_page(provider, args).await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn remove(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -1439,7 +1439,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn query_page(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]

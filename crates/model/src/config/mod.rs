@@ -65,7 +65,7 @@ impl<'a, RT: Runtime> ConfigModel<'a, RT> {
         Self { tx, component }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply(
         &mut self,
         config: ConfigMetadata,

@@ -14,12 +14,12 @@ async-trait = { workspace = true }
 common = { path = "../../crates/common" }
 dynfmt = { workspace = true }
 errors = { path = "../../crates/errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 hex = { workspace = true }
 itertools = { workspace = true }
 metrics = { path = "../../crates/metrics" }
-minitrace = { workspace = true }
 mysql_async = { workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true }

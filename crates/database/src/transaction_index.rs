@@ -256,7 +256,7 @@ impl TransactionIndex {
         results
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn search(
         &mut self,
         reads: &mut TransactionReadSet,
@@ -415,7 +415,7 @@ impl TransactionIndex {
             .context("batch_key missing")?
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn preload_index_range(
         &mut self,
         reads: &mut TransactionReadSet,
@@ -751,7 +751,7 @@ impl TextIndexManagerSnapshot {
             .clone()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn search_with_compiled_query(
         &self,
         index: &Index,

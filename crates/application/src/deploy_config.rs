@@ -44,12 +44,12 @@ use database::{
     SCHEMAS_TABLE,
 };
 use errors::ErrorMetadata;
-use keybroker::Identity;
-use maplit::btreeset;
-use minitrace::{
-    future::FutureExt as MinitraceFutureExt,
+use fastrace::{
+    future::FutureExt as _,
     Span,
 };
+use keybroker::Identity;
+use maplit::btreeset;
 use model::{
     auth::{
         types::AuthDiff,
@@ -120,7 +120,7 @@ use value::{
 use crate::Application;
 
 impl<RT: Runtime> Application<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn start_push(
         &self,
         config: &ProjectConfig,
@@ -257,7 +257,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(schema_change)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn evaluate_components(
         &self,
         config: &ProjectConfig,
@@ -396,7 +396,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(evaluated_components)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
@@ -414,7 +414,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn wait_for_schema(
         &self,
         identity: Identity,
@@ -435,13 +435,13 @@ impl<RT: Runtime> Application<RT> {
             tokio::select! {
                 _ = subscription.wait_for_invalidation() => {},
                 _ = self.runtime.wait(deadline - now)
-                    .in_span(minitrace::Span::enter_with_local_parent("wait_for_deadline"))
+                    .in_span(fastrace::Span::enter_with_local_parent("wait_for_deadline"))
                  => {},
             }
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn load_component_schema_status(
         &self,
         identity: &Identity,
@@ -524,7 +524,7 @@ impl<RT: Runtime> Application<RT> {
         Ok((status, token))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn finish_push(
         &self,
         identity: Identity,

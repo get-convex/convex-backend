@@ -21,6 +21,7 @@ use common::{
         JsError,
     },
     execution_context::ExecutionContext,
+    fastrace_helpers::get_sampled_span,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
@@ -32,7 +33,6 @@ use common::{
         SCHEDULED_JOB_RETENTION,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
-    minitrace_helpers::get_sampled_span,
     pause::Fault,
     query::{
         IndexRange,
@@ -60,6 +60,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::future::FutureExt as _;
 use futures::{
     future::Either,
     select_biased,
@@ -69,7 +70,6 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use keybroker::Identity;
-use minitrace::future::FutureExt as _;
 use model::{
     backend_state::BackendStateModel,
     modules::ModuleModel,

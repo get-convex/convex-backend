@@ -192,6 +192,7 @@ dependencies = [
  "either",
  "errors",
  "events",
+ "fastrace",
  "file_storage",
  "float_next_after",
  "function_runner",
@@ -209,7 +210,6 @@ dependencies = [
  "maplit",
  "metrics",
  "mime2ext",
- "minitrace",
  "model",
  "must-let",
  "node_executor",
@@ -404,10 +404,10 @@ dependencies = [
  "common",
  "convex_macro",
  "errors",
+ "fastrace",
  "futures",
  "lru 0.12.0",
  "metrics",
- "minitrace",
  "parking_lot",
  "rand 0.8.5",
  "runtime",
@@ -975,12 +975,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cache-padded"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "981520c98f422fcc584dc1a95c334e6953900b9106bc47a9839b81790009eb21"
-
-[[package]]
 name = "camino"
 version = "1.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1294,6 +1288,7 @@ dependencies = [
  "enum-iterator",
  "errors",
  "event-listener 5.3.1",
+ "fastrace",
  "flate2",
  "float_next_after",
  "fnv",
@@ -1313,7 +1308,6 @@ dependencies = [
  "maplit",
  "metrics",
  "mime",
- "minitrace",
  "must-let",
  "openidconnect",
  "packed_value",
@@ -1948,6 +1942,7 @@ dependencies = [
  "derive_more",
  "errors",
  "events",
+ "fastrace",
  "futures",
  "futures-async-stream",
  "governor",
@@ -1958,7 +1953,6 @@ dependencies = [
  "keybroker",
  "maplit",
  "metrics",
- "minitrace",
  "must-let",
  "parking_lot",
  "pb",
@@ -2491,6 +2485,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastrace"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5787c4baf9b6add08d3cbd45e818e1fdee548bf875f2ed15d8f1b65df24d3119"
+dependencies = [
+ "fastrace-macro",
+ "minstant",
+ "once_cell",
+ "parking_lot",
+ "pin-project",
+ "rand 0.8.5",
+ "rtrb",
+]
+
+[[package]]
+name = "fastrace-macro"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3141a07a966757217b75f231f59359ee7336170938644ecca7528fe4b3399e3b"
+dependencies = [
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.95",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2739,6 +2760,7 @@ dependencies = [
  "convex_sync_types",
  "database",
  "errors",
+ "fastrace",
  "file_storage",
  "futures",
  "imbl",
@@ -2746,7 +2768,6 @@ dependencies = [
  "isolate",
  "keybroker",
  "metrics",
- "minitrace",
  "model",
  "parking_lot",
  "prometheus",
@@ -3774,11 +3795,11 @@ dependencies = [
  "convex_macro",
  "divan",
  "errors",
+ "fastrace",
  "futures",
  "imbl",
  "itertools 0.13.0",
  "metrics",
- "minitrace",
  "must-let",
  "runtime",
  "tracing",
@@ -3936,6 +3957,7 @@ dependencies = [
  "elliptic-curve",
  "encoding_rs",
  "errors",
+ "fastrace",
  "file_storage",
  "futures",
  "headers",
@@ -3948,7 +3970,6 @@ dependencies = [
  "maplit",
  "metrics",
  "mime",
- "minitrace",
  "model",
  "multer",
  "must-let",
@@ -4261,6 +4282,7 @@ dependencies = [
  "either",
  "errors",
  "events",
+ "fastrace",
  "file_storage",
  "function_runner",
  "futures",
@@ -4272,7 +4294,6 @@ dependencies = [
  "keybroker",
  "maplit",
  "metrics",
- "minitrace",
  "model",
  "mysql",
  "node_executor",
@@ -4616,33 +4637,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minitrace"
-version = "0.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "197d538cd69839d49a593c8c72df44291b0ea3296ecc0c85529002c53c8fbc6f"
-dependencies = [
- "minitrace-macro",
- "minstant",
- "once_cell",
- "parking_lot",
- "pin-project",
- "rand 0.8.5",
- "rtrb",
-]
-
-[[package]]
-name = "minitrace-macro"
-version = "0.6.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14efd4b574325fcb981bce1ac700b9ccf071ec2eb94f7a6a6b583a84f228ba47"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4690,13 +4684,13 @@ dependencies = [
  "database",
  "derive_more",
  "errors",
+ "fastrace",
  "futures",
  "futures-async-stream",
  "humansize",
  "keybroker",
  "maplit",
  "metrics",
- "minitrace",
  "openidconnect",
  "pb",
  "proptest",
@@ -4793,12 +4787,12 @@ dependencies = [
  "common",
  "dynfmt",
  "errors",
+ "fastrace",
  "futures",
  "futures-async-stream",
  "hex",
  "itertools 0.13.0",
  "metrics",
- "minitrace",
  "mysql_async",
  "prometheus",
  "rand 0.8.5",
@@ -4944,6 +4938,7 @@ dependencies = [
  "convex_macro",
  "convex_sync_types",
  "errors",
+ "fastrace",
  "futures",
  "home",
  "http 1.1.0",
@@ -4951,7 +4946,6 @@ dependencies = [
  "keybroker",
  "maplit",
  "metrics",
- "minitrace",
  "model",
  "runtime",
  "serde",
@@ -5573,22 +5567,22 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.12"
+version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad29a609b6bcd67fee905812e544992d216af9d755757c05ed2d0e15a74c6ecc"
+checksum = "1e2ec53ad785f4d35dac0adea7f7dc6f1bb277ad84a680c7afefeae05d1f5916"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.12"
+version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "069bdb1e05adc7a8990dce9cc75370895fbe4e3d58b9b73bf1aee56359344a55"
+checksum = "d56a66c0c55993aa927429d0f8a0abfd74f084e4d9c192cffed01e418d83eefb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.95",
 ]
 
 [[package]]
@@ -5822,6 +5816,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "version_check",
+]
+
+[[package]]
+name = "proc-macro-error-attr2"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96de42df36bb9bba5542fe9f1a054b8cc87e172759a1868aa05c1f3acc89dfc5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
+name = "proc-macro-error2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11ec05c52be0a07b08061f7dd003e7d7092e0472bc731b4af7bb1ef876109802"
+dependencies = [
+ "proc-macro-error-attr2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.95",
 ]
 
 [[package]]
@@ -6588,12 +6604,9 @@ dependencies = [
 
 [[package]]
 name = "rtrb"
-version = "0.2.3"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99e704dd104faf2326a320140f70f0b736d607c1caa1b1748a6c568a79819109"
-dependencies = [
- "cache-padded",
-]
+checksum = "ad8388ea1a9e0ea807e442e8263a699e7edcb320ecbcd21b4fa8ff859acce3ba"
 
 [[package]]
 name = "runtime"
@@ -6942,6 +6955,7 @@ dependencies = [
  "convex_macro",
  "divan",
  "errors",
+ "fastrace",
  "futures",
  "imbl",
  "imbl_slab",
@@ -6950,7 +6964,6 @@ dependencies = [
  "levenshtein_automata",
  "maplit",
  "metrics",
- "minitrace",
  "pb",
  "prometheus",
  "proptest",
@@ -7743,11 +7756,11 @@ dependencies = [
  "common",
  "convex_macro",
  "derive_more",
+ "fastrace",
  "futures",
  "futures-async-stream",
  "http 1.1.0",
  "http-body-util",
- "minitrace",
  "parking_lot",
  "pb",
  "pin-project",
@@ -7899,12 +7912,12 @@ dependencies = [
  "convex_macro",
  "convex_sync_types",
  "errors",
+ "fastrace",
  "futures",
  "isolate",
  "keybroker",
  "maplit",
  "metrics",
- "minitrace",
  "model",
  "must-let",
  "parking_lot",
@@ -8197,9 +8210,9 @@ dependencies = [
  "byteorder",
  "cmd_util",
  "common",
+ "fastrace",
  "maplit",
  "metrics",
- "minitrace",
  "proptest",
  "sucds",
  "tantivy",
@@ -8854,13 +8867,13 @@ dependencies = [
  "convex_sync_types",
  "database",
  "errors",
+ "fastrace",
  "futures",
  "headers",
  "http 1.1.0",
  "humansize",
  "keybroker",
  "mime",
- "minitrace",
  "model",
  "pb",
  "proptest",

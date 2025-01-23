@@ -28,12 +28,12 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
+    fastrace_helpers::EncodedSpan,
     http::{
         fetch::ProxiedFetchClient,
         RoutedHttpPath,
     },
     log_lines::LogLines,
-    minitrace_helpers::EncodedSpan,
     pause::HoldGuard,
     persistence::Persistence,
     query_journal::QueryJournal,

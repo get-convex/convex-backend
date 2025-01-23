@@ -101,7 +101,7 @@ impl<'a> ZipSnapshotUpload<'a> {
         Ok(zip_snapshot_upload)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn stream_full_file(
         &mut self,
         path: String,

@@ -100,6 +100,7 @@ use connection::{
     MySqlConnection,
     MySqlTransaction,
 };
+use fastrace::prelude::*;
 use futures::{
     pin_mut,
     stream::{
@@ -114,7 +115,6 @@ use itertools::{
     Itertools,
 };
 use metrics::write_persistence_global_timer;
-use minitrace::prelude::*;
 use mysql_async::Row;
 use serde_json::Value as JsonValue;
 
@@ -259,7 +259,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn write(
         &self,
         documents: Vec<DocumentLogEntry>,
@@ -343,7 +343,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                             future
                                 .in_span(Span::enter_with_local_parent(format!(
                                     "{}::document_chunk_write",
-                                    full_name!()
+                                    func_path!()
                                 )))
                                 .await?;
                         }
@@ -388,7 +388,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                             future
                                 .in_span(Span::enter_with_local_parent(format!(
                                     "{}::index_chunk_write",
-                                    full_name!()
+                                    func_path!()
                                 )))
                                 .await?;
                         }
@@ -1151,7 +1151,7 @@ impl<RT: Runtime> Lease<RT> {
     /// and any in-memory state then resynced because of any changes that
     /// might've been made to the database state while the lease was not
     /// held.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn transact<F, T>(&self, f: F) -> anyhow::Result<T>
     where
         F: for<'b> FnOnce(
@@ -1166,7 +1166,7 @@ impl<RT: Runtime> Lease<RT> {
             .exec_first(LEASE_PRECOND, vec![mysql_async::Value::Int(self.lease_ts)])
             .in_span(Span::enter_with_local_parent(format!(
                 "{}::lease_precondition",
-                full_name!()
+                func_path!()
             )))
             .await?;
         if rows.is_none() {
@@ -1178,7 +1178,7 @@ impl<RT: Runtime> Lease<RT> {
         let result = f(&mut tx)
             .in_span(Span::enter_with_local_parent(format!(
                 "{}::execute_function",
-                full_name!()
+                func_path!()
             )))
             .await?;
 

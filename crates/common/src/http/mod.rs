@@ -47,6 +47,11 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::{
+    future::FutureExt as _,
+    prelude::SpanContext,
+    Span,
+};
 use futures::{
     stream::BoxStream,
     Stream,
@@ -71,11 +76,6 @@ use http::{
 };
 use http_body_util::BodyExt;
 use itertools::Itertools;
-use minitrace::{
-    future::FutureExt as _,
-    prelude::SpanContext,
-    Span,
-};
 use prometheus::{
     PullingGauge,
     TextEncoder,

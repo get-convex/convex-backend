@@ -78,7 +78,7 @@ lru = "0.12.0"
 maplit = "1"
 mime = "0.3"
 mime2ext = "0.1.52"
-minitrace = { version = "0.6", features = [ "enable" ] }
+fastrace = { version = "0.7", features = [ "enable" ] }
 must-let = { git = "https://github.com/sujayakar/must-let", rev = "5b487d78db235e396e61dd03ce261ced0eafff9d" }
 mysql_async = { git = "https://github.com/get-convex/mysql_async", rev = "44138cf6422504dc60691957ba3026e3297ab77e" }
 native-tls = "^0.2.10"

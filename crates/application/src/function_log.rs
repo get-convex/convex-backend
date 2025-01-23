@@ -579,7 +579,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         Ok(())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn _log_query(
         &self,
         outcome: &UdfOutcome,

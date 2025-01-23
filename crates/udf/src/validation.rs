@@ -262,7 +262,7 @@ impl ValidatedPathAndArgs {
     /// Do argument validation and get returns validator without retrieving
     /// the analyze result twice.
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn new_with_returns_validator<RT: Runtime>(
         allowed_visibility: AllowedVisibility,
         tx: &mut Transaction<RT>,

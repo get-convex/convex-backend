@@ -9,10 +9,10 @@ anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 common = { path = "../common" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 lru = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 parking_lot = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }

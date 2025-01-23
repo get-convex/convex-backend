@@ -54,7 +54,7 @@ pub struct RequestZipExport {
     pub component: Option<String>,
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub async fn request_zip_export(
     State(st): State<LocalAppState>,
     ExtractIdentity(identity): ExtractIdentity,

@@ -35,6 +35,7 @@ derive_more = { workspace = true }
 elliptic-curve = { workspace = true }
 encoding_rs = { workspace = true }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 file_storage = { path = "../file_storage" }
 futures = { workspace = true }
 headers = { workspace = true }
@@ -46,7 +47,6 @@ keybroker = { path = "../keybroker" }
 maplit = { workspace = true, optional = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
-minitrace = { workspace = true }
 model = { path = "../model" }
 multer = { workspace = true }
 must-let = { workspace = true, optional = true }

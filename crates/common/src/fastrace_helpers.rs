@@ -9,11 +9,11 @@ use std::{
 };
 
 use anyhow::Context;
-use fnv::FnvHasher;
-use minitrace::{
+use fastrace::{
     collector::SpanContext,
     Span,
 };
+use fnv::FnvHasher;
 use parking_lot::Mutex;
 use rand::Rng;
 use regex::Regex;
@@ -262,7 +262,7 @@ pub fn initialize_root_from_parent(span_name: &str, encoded_parent: EncodedSpan)
 
 #[cfg(test)]
 mod tests {
-    use crate::minitrace_helpers::SamplingConfig;
+    use crate::fastrace_helpers::SamplingConfig;
 
     #[test]
     fn test_parse_sampling_config() -> anyhow::Result<()> {

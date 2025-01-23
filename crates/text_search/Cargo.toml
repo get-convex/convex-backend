@@ -12,9 +12,9 @@ doctest = false
 anyhow = { workspace = true }
 byteorder = { workspace = true }
 common = { path = "../common" }
+fastrace = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 proptest = { workspace = true, optional = true }
 sucds = { workspace = true }
 tantivy = { workspace = true }

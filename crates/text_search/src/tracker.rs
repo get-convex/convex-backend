@@ -168,7 +168,7 @@ impl TryFrom<FieldTermMetadata> for Option<DeletedTermsTable> {
     }
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub fn load_alive_bitset(path: &Path) -> anyhow::Result<AliveBitSet> {
     let _timer = load_alive_bitset_timer();
     let mut file = File::open(path)?;
@@ -194,7 +194,7 @@ impl StaticDeletionTracker {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn load_deleted_terms(
         file_len: usize,
         mut reader: impl Read,
@@ -320,7 +320,7 @@ impl SearchMemoryIdTracker {
         self.0.by_convex_id.len()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn write<P: AsRef<Path>>(mut self, id_tracker_path: P) -> anyhow::Result<()> {
         let mut out = BufWriter::new(File::create(id_tracker_path)?);
         self.0.write_id_tracker(&mut out)?;
@@ -477,7 +477,7 @@ impl MemoryDeletionTracker {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn load(alive_bitset_path: &Path, deleted_terms_path: &Path) -> anyhow::Result<Self> {
         let alive_bitset_reader = BufReader::new(File::open(alive_bitset_path)?);
         let alive_bitset = BitSet::deserialize(alive_bitset_reader)?;
@@ -528,7 +528,7 @@ impl MemoryDeletionTracker {
         Ok(())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn write(
         self,
         mut alive_bitset: impl Write,

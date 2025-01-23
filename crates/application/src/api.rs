@@ -585,7 +585,7 @@ impl SubscriptionTrait for ApplicationSubscription {
         self.inner.wait_for_invalidation().map(Ok).boxed()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<bool> {
         if new_ts < self.initial_ts {
             // new_ts is before the initial subscription timestamp.

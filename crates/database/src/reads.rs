@@ -179,7 +179,7 @@ impl ReadSet {
     /// If a write transaction intersects, it will be retried to maintain
     /// serializability. If a subscription intersects, it will be rerun and the
     /// result sent to all clients.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn writes_overlap<'a>(
         &self,
         updates: impl Iterator<

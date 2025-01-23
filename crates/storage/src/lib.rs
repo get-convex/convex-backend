@@ -632,7 +632,7 @@ impl StorageExt for Arc<dyn Storage> {
         }))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn get_small_range_with_retries(
         &self,
         key: &ObjectKey,

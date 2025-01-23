@@ -19,11 +19,11 @@ use derive_more::{
     Add,
     AddAssign,
 };
+use fastrace::Event;
 use humansize::{
     FormatSize,
     BINARY,
 };
-use minitrace::Event;
 use value::heap_size::WithHeapSize;
 
 use crate::{

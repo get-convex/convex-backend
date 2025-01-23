@@ -33,9 +33,9 @@ use common::{
         ComponentPath,
         ExportPath,
     },
+    fastrace_helpers::get_sampled_span,
     http::ResolvedHostname,
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
-    minitrace_helpers::get_sampled_span,
     runtime::{
         Runtime,
         WithTimeout,
@@ -49,6 +49,7 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadata;
+use fastrace::prelude::*;
 use futures::{
     future::{
         self,
@@ -67,7 +68,6 @@ use futures::{
 };
 use keybroker::Identity;
 use maplit::btreemap;
-use minitrace::prelude::*;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
     ClientMessage,

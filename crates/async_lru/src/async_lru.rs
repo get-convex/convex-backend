@@ -27,17 +27,17 @@ use common::{
     },
     types::IndexId,
 };
+use fastrace::{
+    collector::SpanContext,
+    future::FutureExt as _,
+    Span,
+};
 use futures::{
     future::BoxFuture,
     FutureExt,
     StreamExt,
 };
 use lru::LruCache;
-use minitrace::{
-    collector::SpanContext,
-    future::FutureExt as _,
-    Span,
-};
 use parking_lot::Mutex;
 use value::{
     TableMapping,
@@ -379,7 +379,7 @@ impl<
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn get_sync(
         &self,
         key: &Key,

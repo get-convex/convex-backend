@@ -24,6 +24,7 @@ database = { path = "../database" }
 either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
+fastrace = { workspace = true }
 file_storage = { path = "../file_storage" }
 float_next_after = { workspace = true }
 function_runner = { path = "../function_runner" }
@@ -41,7 +42,6 @@ lru = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
 mime2ext = { workspace = true }
-minitrace = { workspace = true }
 model = { path = "../model" }
 node_executor = { path = "../../crates/node_executor" }
 num_cpus = { workspace = true }

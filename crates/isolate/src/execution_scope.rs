@@ -288,7 +288,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
         Ok(Ok(module))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn eval_module(
         &mut self,
         name: &ModuleSpecifier,

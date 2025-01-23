@@ -16,6 +16,7 @@ common = { path = "../common" }
 convex_macro = { path = "../convex_macro" }
 database = { path = "../database" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 file_storage = { path = "../file_storage" }
 futures = { workspace = true }
 imbl = { workspace = true }
@@ -23,7 +24,6 @@ indexing = { path = "../indexing" }
 isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 model = { path = "../model" }
 parking_lot = { workspace = true }
 prometheus = { workspace = true }

@@ -96,7 +96,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         Self::new(tx, TableNamespace::test_user())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply(
         &mut self,
         schema_id: Option<ResolvedDocumentId>,
@@ -128,7 +128,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         Ok((schema_diff, next_schema))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn enforce(&mut self, document: &ResolvedDocument) -> anyhow::Result<()> {
         let schema_table_mapping = self.tx.table_mapping().namespace(self.namespace);
         if schema_table_mapping.is_system_tablet(document.id().tablet_id) {
@@ -224,7 +224,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         self.tx.get_schema_by_state(self.namespace, state)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn submit_pending(
         &mut self,
         schema: DatabaseSchema,

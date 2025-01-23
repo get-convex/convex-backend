@@ -291,7 +291,7 @@ pub async fn push_config(
     Ok(Json(EmptyResponse {}))
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub async fn push_config_handler(
     application: &Application<ProdRuntime>,
     config: ConfigJson,

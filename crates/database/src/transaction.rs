@@ -419,7 +419,7 @@ impl<RT: Runtime> Transaction<RT> {
     }
 
     /// Applies the reads and writes from FunctionRunner to the Transaction.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn apply_function_runner_tx(
         &mut self,
         begin_timestamp: Timestamp,
@@ -516,7 +516,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(self.get_with_ts(id).await?.map(|(doc, _)| doc))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn get_with_ts(
         &mut self,
@@ -628,7 +628,7 @@ impl<RT: Runtime> Transaction<RT> {
         Ok(document)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn count(
         &mut self,
@@ -644,7 +644,7 @@ impl<RT: Runtime> Transaction<RT> {
         TableModel::new(self).count(namespace, system_table).await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn must_count(
         &mut self,

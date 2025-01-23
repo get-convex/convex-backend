@@ -24,7 +24,7 @@ impl<'a, RT: Runtime> VirtualTable<'a, RT> {
         Self { tx }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get(
         &mut self,
         namespace: TableNamespace,

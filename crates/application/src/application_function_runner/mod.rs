@@ -34,6 +34,7 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
+    fastrace_helpers::EncodedSpan,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
@@ -52,7 +53,6 @@ use common::{
         LogLine,
         LogLines,
     },
-    minitrace_helpers::EncodedSpan,
     query_journal::QueryJournal,
     runtime::{
         Runtime,
@@ -277,7 +277,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 }
 
 impl<RT: Runtime> FunctionRouter<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn execute_query_or_mutation(
         &self,
         tx: Transaction<RT>,
@@ -307,7 +307,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         Ok((tx, outcome))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn execute_action(
         &self,
         tx: Transaction<RT>,
@@ -335,7 +335,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         Ok(outcome)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn execute_http_action(
         &self,
         tx: Transaction<RT>,
@@ -365,7 +365,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 
     // Execute using the function runner. Can be used for v8 udfs other than http
     // actions.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn function_runner_execute(
         &self,
         mut tx: Transaction<RT>,
@@ -717,7 +717,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs a mutations and retries on OCC errors.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn retry_mutation(
         &self,
         request_id: RequestId,
@@ -746,7 +746,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs a mutations and retries on OCC errors.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _retry_mutation(
         &self,
         request_id: RequestId,
@@ -987,7 +987,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs the mutation once without any logging.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_mutation_inner(
         &self,
         mut tx: Transaction<RT>,
@@ -1048,7 +1048,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok((tx, outcome))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_action(
         &self,
         request_id: RequestId,
@@ -1114,7 +1114,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     /// Runs the actions without logging to the UDF log. It is the caller
     /// responsibility to log to the UDF log.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_action_no_udf_log(
         &self,
         path: PublicFunctionPath,
@@ -1147,7 +1147,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs the action without any logging.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_action_inner(
         &self,
         path: PublicFunctionPath,
@@ -1447,7 +1447,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn build_deps(
         &self,
         deps: Vec<NodeDependency>,
@@ -1471,7 +1471,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         )
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
@@ -1491,7 +1491,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_component_initializer(
         &self,
         evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
@@ -1506,7 +1506,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -1614,7 +1614,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(Ok(result))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn validate_cron_jobs(
         &self,
         modules: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
@@ -1700,7 +1700,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         self.node_actions.enable()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_query_at_ts(
         &self,
         request_id: RequestId,
@@ -1733,7 +1733,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         result
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_query_at_ts_inner(
         &self,
         request_id: RequestId,
@@ -1776,7 +1776,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn check_mutation_status(
         &self,
         tx: &mut Transaction<RT>,
@@ -1803,7 +1803,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(Some(result))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn write_mutation_status(
         &self,
         tx: &mut Transaction<RT>,
@@ -1844,7 +1844,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_query(
         &self,
         identity: Identity,
@@ -1870,7 +1870,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         Ok(FunctionResult { result })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_mutation(
         &self,
         identity: Identity,
@@ -1897,7 +1897,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         Ok(FunctionResult { result })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_action(
         &self,
         identity: Identity,

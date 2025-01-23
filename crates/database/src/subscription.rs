@@ -27,8 +27,8 @@ use common::{
         Timestamp,
     },
 };
+use fastrace::future::FutureExt as _;
 use indexing::interval::IntervalMap;
-use minitrace::future::FutureExt as MinitraceFutureExt;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
@@ -400,7 +400,7 @@ impl Subscription {
 
     pub fn wait_for_invalidation(&self) -> impl Future<Output = ()> {
         let mut valid = self.valid.clone();
-        let span = minitrace::Span::enter_with_local_parent("wait_for_invalidation");
+        let span = fastrace::Span::enter_with_local_parent("wait_for_invalidation");
         async move {
             let _: Result<_, _> = valid
                 .wait_for(|state| matches!(state, SubscriptionState::Invalid))

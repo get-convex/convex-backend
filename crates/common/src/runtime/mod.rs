@@ -21,6 +21,12 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use fastrace::{
+    collector::SpanContext,
+    func_path,
+    future::FutureExt as _,
+    Span,
+};
 use futures::{
     future::{
         BoxFuture,
@@ -43,12 +49,6 @@ use governor::{
     Quota,
 };
 use metrics::CONVEX_METRICS_REGISTRY;
-use minitrace::{
-    collector::SpanContext,
-    full_name,
-    future::FutureExt as MinitraceFutureExt,
-    Span,
-};
 use parking_lot::Mutex;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
@@ -129,7 +129,7 @@ pub async fn try_join_buffered<
     assert_send(
         stream::iter(tasks.map(|task| {
             let span = SpanContext::current_local_parent()
-                .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
+                .map(|ctx| Span::root(format!("{}::{name}", func_path!()), ctx))
                 .unwrap_or(Span::noop());
             assert_send(try_join(name, assert_send(task), span))
         }))
@@ -160,7 +160,7 @@ pub async fn try_join_buffer_unordered<
     assert_send(
         stream::iter(tasks.map(|task| {
             let span = SpanContext::current_local_parent()
-                .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
+                .map(|ctx| Span::root(format!("{}::{name}", func_path!()), ctx))
                 .unwrap_or(Span::noop());
             try_join(name, task, span)
         }))

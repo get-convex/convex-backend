@@ -28,6 +28,7 @@ derive_more = { workspace = true }
 enum-iterator = { workspace = true }
 errors = { path = "../errors" }
 event-listener = { workspace = true }
+fastrace = { workspace = true }
 flate2 = { workspace = true }                                                 # enable the zlib-ng feature
 float_next_after = { workspace = true }
 fnv = { workspace = true }
@@ -46,7 +47,6 @@ itertools = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
 mime = { workspace = true }
-minitrace = { workspace = true }
 openidconnect = { workspace = true }
 packed_value = { path = "../packed_value" }
 parking_lot = { workspace = true }

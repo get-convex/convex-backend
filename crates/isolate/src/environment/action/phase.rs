@@ -128,7 +128,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn initialize(
         &mut self,
         timeout: &mut Timeout<RT>,

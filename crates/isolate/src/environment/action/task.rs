@@ -2,7 +2,7 @@
 //! async syscalls or async ops.
 
 use common::{
-    minitrace_helpers::EncodedSpan,
+    fastrace_helpers::EncodedSpan,
     runtime::UnixTimestamp,
 };
 use deno_core::{

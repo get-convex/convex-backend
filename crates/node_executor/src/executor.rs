@@ -301,7 +301,7 @@ impl<RT: Runtime> Actions<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn build_deps(
         &self,
         request: BuildDepsRequest,
@@ -380,7 +380,7 @@ impl<RT: Runtime> Actions<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze(
         &self,
         request: AnalyzeRequest,

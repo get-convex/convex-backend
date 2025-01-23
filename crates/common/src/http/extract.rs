@@ -15,11 +15,11 @@ use axum::{
 };
 use bytes::Bytes;
 use errors::ErrorMetadata;
-use http::HeaderMap;
-use minitrace::{
+use fastrace::{
     future::FutureExt,
     Span,
 };
+use http::HeaderMap;
 use serde::{
     de::DeserializeOwned,
     Serialize,

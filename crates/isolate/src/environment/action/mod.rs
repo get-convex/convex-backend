@@ -19,6 +19,7 @@ use common::{
     components::ComponentId,
     errors::JsError,
     execution_context::ExecutionContext,
+    fastrace_helpers::EncodedSpan,
     http::{
         fetch::FetchClient,
         RoutedHttpPath,
@@ -34,7 +35,6 @@ use common::{
         LogLine,
         SystemLogMetadata,
     },
-    minitrace_helpers::EncodedSpan,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -293,7 +293,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_http_action(
         mut self,
         client_id: String,
@@ -382,7 +382,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(outcome)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
         client_id: Arc<String>,
@@ -602,7 +602,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .expect("TaskExecutor went away?");
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_action(
         mut self,
         client_id: String,
@@ -679,7 +679,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(outcome)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_action_inner(
         client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
@@ -789,7 +789,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         result.ok_or_else(|| anyhow::anyhow!("`run_inner` did not populate a result"))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn lookup_route(
         scope: &mut ExecutionScope<RT, Self>,
         router: &v8::Local<v8::Object>,
@@ -922,7 +922,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ///
     /// Errors from collecting the result will be surfaced via
     /// `get_result_stream` -> `handle_result_part`
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_inner<'a, 'b: 'a, T, S>(
         client_id: Arc<String>,
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,

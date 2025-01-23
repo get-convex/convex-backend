@@ -10,13 +10,13 @@ bytes = { workspace = true }
 common = { path = "../common" }
 database = { path = "../database" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 headers = { workspace = true }
 http = { workspace = true }
 humansize = { workspace = true }
 keybroker = { path = "../keybroker" }
 mime = { workspace = true }
-minitrace = { workspace = true }
 model = { path = "../model" }
 pb = { path = "../pb" }
 proptest = { workspace = true, optional = true }

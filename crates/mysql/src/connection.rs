@@ -234,7 +234,7 @@ pub(crate) struct MySqlConnection<'a> {
 
 impl MySqlConnection<'_> {
     /// Executes multiple statements, separated by semicolons.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn execute_many(&mut self, query: &'static str) -> anyhow::Result<()> {
         log_execute(self.labels.clone());
         let statement = format_mysql_text_protocol(self.db_name, query, vec![], &self.labels)?;
@@ -243,7 +243,7 @@ impl MySqlConnection<'_> {
     }
 
     /// Run a readonly query that returns one or zero results.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn query_optional(
         &mut self,
         statement: &'static str,
@@ -266,7 +266,7 @@ impl MySqlConnection<'_> {
     }
 
     /// Run a readonly query that returns a stream of results.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn query_stream(
         &mut self,
         statement: &'static str,
@@ -320,7 +320,7 @@ impl MySqlConnection<'_> {
     }
 
     /// Execute a SQL statement, returning the number of rows affected.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn exec_iter(
         &mut self,
         statement: &'static str,
@@ -342,7 +342,7 @@ impl MySqlConnection<'_> {
         Ok(affected_rows)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn transaction(
         &mut self,
         db_cluster_name: &str,
@@ -484,7 +484,7 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn acquire<'a>(
         &self,
         name: &'static str,

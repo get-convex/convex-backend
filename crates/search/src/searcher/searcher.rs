@@ -441,7 +441,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
 
 #[async_trait]
 impl<RT: Runtime> Searcher for SearcherImpl<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn query_tokens(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -457,7 +457,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(resp)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn query_bm25_stats(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -472,7 +472,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(resp)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn query_posting_lists(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -487,7 +487,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
         Ok(resp)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_text_compaction(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -509,7 +509,7 @@ impl<RT: Runtime> Searcher for SearcherImpl<RT> {
 
 #[async_trait]
 impl<RT: Runtime> SegmentTermMetadataFetcher for SearcherImpl<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn fetch_term_ordinals(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -636,7 +636,7 @@ impl<RT: Runtime> VectorSearcher for SearcherImpl<RT> {
 }
 
 impl<RT: Runtime> SearcherImpl<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn query_tokens_impl(
         text_segment: Arc<TextSegment>,
         queries: Vec<TokenQuery>,
@@ -717,7 +717,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn visit_top_terms_for_query(
         segment: &SegmentReader,
         deletion_tracker: &StaticDeletionTracker,
@@ -802,7 +802,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         Ok(())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn query_bm25_stats_impl(
         text_segment: Arc<TextSegment>,
         terms: Vec<Term>,
@@ -881,7 +881,7 @@ impl<RT: Runtime> SearcherImpl<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn query_posting_lists_impl(
         text_segment: Arc<TextSegment>,
         query: PostingListQuery,

@@ -130,7 +130,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
 
 #[async_trait]
 impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_function(
         &self,
         udf_type: UdfType,
@@ -206,7 +206,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         result
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -223,7 +223,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
@@ -244,7 +244,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn evaluate_component_initializer(
         &self,
         evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
@@ -265,7 +265,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn evaluate_schema(
         &self,
         schema_bundle: ModuleSource,
@@ -284,7 +284,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn evaluate_auth_config(
         &self,
         auth_config_bundle: ModuleSource,

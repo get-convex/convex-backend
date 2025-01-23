@@ -366,7 +366,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn load_table_documents<D: TryFrom<ConvexObject, Error = anyhow::Error>>(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
@@ -408,7 +408,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         (table_mapping, table_states)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn load_table_and_index_metadata(
         persistence_snapshot: &PersistenceSnapshot,
     ) -> anyhow::Result<(
@@ -454,7 +454,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn load_table_registry(
         persistence_snapshot: &PersistenceSnapshot,
         table_mapping: TableMapping,
@@ -544,7 +544,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn load(
         runtime: RT,
         persistence: Arc<dyn PersistenceReader>,
@@ -747,7 +747,7 @@ impl Default for StreamingExportTableFilter {
 }
 
 impl<RT: Runtime> Database<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn load(
         mut persistence: Arc<dyn Persistence>,
         runtime: RT,
@@ -959,7 +959,7 @@ impl<RT: Runtime> Database<RT> {
         )
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn snapshot_table_mapping(
         &self,
         ts: RepeatableTimestamp,
@@ -969,7 +969,7 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn compute_snapshot_table_mapping(
         self,
         ts: RepeatableTimestamp,
@@ -1003,7 +1003,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(table_mapping)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn snapshot_by_id_indexes(
         &self,
         ts: RepeatableTimestamp,
@@ -1013,7 +1013,7 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn compute_snapshot_by_id_indexes(
         self,
         ts: RepeatableTimestamp,
@@ -1516,7 +1516,7 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn commit_with_write_source(
         &self,
         transaction: Transaction<RT>,
@@ -1534,7 +1534,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn load_indexes_into_memory(
         &self,
         tables: BTreeSet<TableName>,
@@ -1600,7 +1600,7 @@ impl<RT: Runtime> Database<RT> {
         true
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn document_deltas(
         &self,
         identity: Identity,
@@ -1705,7 +1705,7 @@ impl<RT: Runtime> Database<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn list_snapshot(
         &self,
         identity: Identity,

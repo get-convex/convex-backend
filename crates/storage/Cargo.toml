@@ -19,11 +19,11 @@ axum = { workspace = true }
 bytes = { workspace = true }
 common = { path = "../common" }
 derive_more = { workspace = true }
+fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
-minitrace = { workspace = true }
 pb = { path = "../pb" }
 pin-project = { workspace = true }
 runtime = { path = "../runtime", optional = true }

@@ -303,7 +303,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
 
 #[async_trait(?Send)]
 impl<RT: Runtime> IsolateWorker<RT> for FunctionRunnerIsolateWorker<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn handle_request(
         &self,
         isolate: &mut Isolate<RT>,

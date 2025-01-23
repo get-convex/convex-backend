@@ -235,7 +235,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
 }
 
 impl AnalyzeEnvironment {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze<RT: Runtime>(
         client_id: String,
         isolate: &mut Isolate<RT>,
@@ -445,7 +445,7 @@ fn make_str_val<'s>(
     Ok(v8_str_val)
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 fn parse_args_validator<'s, RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
     function: v8::Local<v8::Object>,
@@ -506,7 +506,7 @@ fn parse_args_validator<'s, RT: Runtime>(
     Ok(Ok(args))
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 fn parse_returns_validator<'s, RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
     function: v8::Local<v8::Object>,
@@ -568,7 +568,7 @@ fn parse_returns_validator<'s, RT: Runtime>(
     };
     Ok(Ok(returns))
 }
-#[minitrace::trace]
+#[fastrace::trace]
 fn udf_analyze<RT: Runtime>(
     scope: &mut ExecutionScope<RT, AnalyzeEnvironment>,
     module: &v8::Local<v8::Module>,

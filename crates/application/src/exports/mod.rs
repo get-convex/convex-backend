@@ -10,7 +10,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
-    minitrace_helpers::get_sampled_span,
+    fastrace_helpers::get_sampled_span,
     runtime::Runtime,
     types::{
         IndexId,
@@ -25,6 +25,7 @@ use database::{
     TableSummary,
     COMPONENTS_TABLE,
 };
+use fastrace::future::FutureExt;
 use futures::{
     pin_mut,
     try_join,
@@ -36,7 +37,6 @@ use futures::{
 use itertools::Itertools;
 use keybroker::Identity;
 use maplit::btreemap;
-use minitrace::future::FutureExt;
 use model::exports::types::{
     ExportFormat,
     ExportRequestor,
