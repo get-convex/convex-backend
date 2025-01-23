@@ -54,7 +54,8 @@
     "@types/node": "^18.17.0",
     "@docusaurus/theme-classic": "~2.4.3",
     "prettier": "3.4.2",
-    "tailwind-merge": "^1.14.0"
+    "tailwind-merge": "^1.14.0",
+    "postcss-nested": "~7.0.2"
   },
   "browserslist": {
     "production": [

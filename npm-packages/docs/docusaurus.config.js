@@ -323,6 +323,7 @@ const config = {
         configurePostCss(postcssOptions) {
           postcssOptions.plugins.push(require("tailwindcss"));
           postcssOptions.plugins.push(require("autoprefixer"));
+          postcssOptions.plugins.push(require("postcss-nested"));
           return postcssOptions;
         },
       };

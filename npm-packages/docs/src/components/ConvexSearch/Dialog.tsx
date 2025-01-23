@@ -54,6 +54,37 @@ const Dialog = ({ open, onClose }: Props) => {
     onClose();
   }, [onClose]);
 
+  const handleAskAI = () => {
+    handleClose();
+
+    setTimeout(() => {
+      const textarea: HTMLTextAreaElement = document.querySelector(
+        'textarea[placeholder*="Ask me a question about Convex"]',
+      );
+
+      if (textarea) {
+        // Sets the input value.
+        textarea.value = query;
+
+        // Unfortunately, calling `change` on the textarea directly doesn't work
+        // and the submit button stays disabled. Here we find React's internal
+        // event handler and trigger a synthetic event to simulate user typing.
+        const reactKey = Object.keys(textarea).find((key) =>
+          key.startsWith("__reactProps$"),
+        );
+        if (reactKey) {
+          const props = textarea[reactKey];
+          if (props.onChange) {
+            props.onChange({
+              currentTarget: textarea,
+              type: "change",
+            });
+          }
+        }
+      }
+    }, 100); // Gives the Kapa dialog time to appear.
+  };
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -94,7 +125,7 @@ const Dialog = ({ open, onClose }: Props) => {
         </div>
         {query !== "" && (
           <>
-            <AskAI onClick={handleClose} />
+            <AskAI onClick={handleAskAI} />
             <Results query={debouncedQuery} />
             <KeyboardLegend />
           </>
