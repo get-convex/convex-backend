@@ -41,6 +41,13 @@ _test-conductor *ARGS:
     export SITE_URL="http://carnitas.local.convex.site:8002"
     just _test conductor-debug "$@"
 
+test-self-hosted *ARGS:
+    #!/usr/bin/env bash
+    just rush build -t .
+    cargo build -p backend_harness --bin backend-harness
+    just _test self-hosted-backend "$@"
+    docker ps -q --filter ancestor=convex-backend | xargs -r docker stop
+
 # Run tests without building the NPM packages or binaries
 _test *ARGS:
     #!/usr/bin/env bash
