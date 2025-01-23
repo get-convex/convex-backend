@@ -21,7 +21,7 @@
     "lint:fix": "next lint --fix --max-warnings 0 --dir src/"
   },
   "dependencies": {
-    "@floating-ui/react": "^0.26.9",
+    "@floating-ui/react": "^0.27.0",
     "@fontsource-variable/inter": "5.0.3",
     "@headlessui/react": "1.7.17",
     "@heroicons/react": "2.1.1",
