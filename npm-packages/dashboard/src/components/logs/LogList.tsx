@@ -16,6 +16,7 @@ import {
   DeploymentAuditLogEvent,
   InfiniteScrollList,
   TextInput,
+  CopyTextButton,
 } from "dashboard-common";
 import {
   Fragment,
@@ -29,7 +30,6 @@ import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useDebounce, useMeasure, usePrevious } from "react-use";
 import { Transition, Dialog } from "@headlessui/react";
 import isEqual from "lodash/isEqual";
-import { CopyTextButton } from "elements/CopyTextButton";
 import difference from "lodash/difference";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
 import { DeploymentEventListItem } from "./DeploymentEventListItem";

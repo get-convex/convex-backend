@@ -1,7 +1,5 @@
+import { FunctionsView } from "../features/functions/components/FunctionsView";
+
 export default function Functions() {
-  return (
-    <div className="flex h-screen flex-col items-center justify-center font-semibold">
-      Functions
-    </div>
-  );
+  return <FunctionsView />;
 }

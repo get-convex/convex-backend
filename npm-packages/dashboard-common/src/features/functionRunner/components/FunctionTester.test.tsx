@@ -1,17 +1,9 @@
 import { Module } from "system-udfs/convex/_system/frontend/common";
 import {
-  displayNameToIdentifier,
   modulesToModuleFunctions,
-  findFunction,
-} from "dashboard-common";
-
-jest.mock("api/roles", () => ({
-  useHasProjectAdminPermissions: jest.fn(),
-}));
-jest.mock("api/profile", () => {});
-jest.mock("api/teams", () => {});
-jest.mock("api/projects", () => {});
-jest.mock("api/deployments", () => {});
+  displayNameToIdentifier,
+} from "../../../lib/functions/FunctionsProvider";
+import { findFunction } from "../lib/functionRunner";
 
 describe("FunctionTester", () => {
   it("finds function with default export + folder with same name", () => {

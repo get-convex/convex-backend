@@ -1,6 +1,5 @@
-import { ReadonlyCode, Modal } from "dashboard-common";
+import { SourceMissingPanel, ReadonlyCode, Modal } from "dashboard-common";
 import Link from "next/link";
-import { SourceMissingPanel } from "elements/SourceMissingPanel";
 
 type Props = {
   onClose: () => void;

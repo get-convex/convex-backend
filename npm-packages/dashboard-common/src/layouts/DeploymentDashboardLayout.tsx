@@ -19,6 +19,7 @@ import { useCollapseSidebarState } from "../lib/useCollapseSidebarState";
 import { PulseIcon } from "../elements/icons";
 import { Sidebar } from "../elements/Sidebar";
 import { FunctionRunnerWrapper } from "../features/functionRunner/components/FunctionRunnerWrapper";
+import { FunctionsProvider } from "../lib/functions/FunctionsProvider";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -105,39 +106,41 @@ export function DeploymentDashboardLayout({
   ];
 
   return (
-    <div className="flex h-full grow flex-col overflow-y-hidden">
-      <PauseBanner />
-      <div className="flex h-full flex-col sm:flex-row">
-        <Sidebar
-          collapsed={!!collapsed}
-          setCollapsed={setCollapsed}
-          items={sidebarItems}
-        />
-        <div
-          className={classNames(
-            "flex w-full grow overflow-x-hidden",
-            !isGlobalRunnerVertical && "flex-col",
-          )}
-        >
-          {/* If the function runner is fully expanded, hide the content */}
-          <div
-            className={
-              isRunnerExpanded
-                ? "h-0 w-0"
-                : "h-full w-full overflow-x-auto scrollbar"
-            }
-          >
-            {children}
-          </div>
-          <FunctionRunnerWrapper
-            setIsVertical={setIsGlobalRunnerVertical}
-            isVertical={!!isGlobalRunnerVertical}
-            isExpanded={isRunnerExpanded}
-            setIsExpanded={setIsRunnerExpanded}
+    <FunctionsProvider>
+      <div className="flex h-full grow flex-col overflow-y-hidden">
+        <PauseBanner />
+        <div className="flex h-full flex-col sm:flex-row">
+          <Sidebar
+            collapsed={!!collapsed}
+            setCollapsed={setCollapsed}
+            items={sidebarItems}
           />
+          <div
+            className={classNames(
+              "flex w-full grow overflow-x-hidden",
+              !isGlobalRunnerVertical && "flex-col",
+            )}
+          >
+            {/* If the function runner is fully expanded, hide the content */}
+            <div
+              className={
+                isRunnerExpanded
+                  ? "h-0 w-0"
+                  : "h-full w-full overflow-x-auto scrollbar"
+              }
+            >
+              {children}
+            </div>
+            <FunctionRunnerWrapper
+              setIsVertical={setIsGlobalRunnerVertical}
+              isVertical={!!isGlobalRunnerVertical}
+              isExpanded={isRunnerExpanded}
+              setIsExpanded={setIsRunnerExpanded}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </FunctionsProvider>
   );
 }
 

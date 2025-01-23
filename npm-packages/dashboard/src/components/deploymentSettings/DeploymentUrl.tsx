@@ -4,8 +4,7 @@ import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { CopyTextButton } from "elements/CopyTextButton";
-import { useDeploymentUrl } from "dashboard-common";
+import { CopyTextButton, useDeploymentUrl } from "dashboard-common";
 
 // dev/prod sometimes isn't initially loaded.
 // Optimize for no flash on prod.

@@ -5,11 +5,11 @@ import {
   Callout,
   Modal,
   TextInput,
+  CopyTextButton,
 } from "dashboard-common";
 import { useState } from "react";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
-import { CopyTextButton } from "elements/CopyTextButton";
 import startCase from "lodash/startCase";
 
 export type DeployKeyGenerationDisabledReason =

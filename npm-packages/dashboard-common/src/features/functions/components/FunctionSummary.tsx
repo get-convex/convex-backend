@@ -1,23 +1,19 @@
 import { PlayIcon } from "@radix-ui/react-icons";
-import {
-  ProductionEditsConfirmationDialog,
-  Button,
-  Loading,
-  ModuleFunction,
-  useShowGlobalRunner,
-} from "dashboard-common";
-import { FunctionRunnerDisabledWhilePaused } from "components/functions/FunctionRunnerDisabledWhilePaused";
 import { useQuery } from "convex/react";
-import { useCurrentDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
-import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import classNames from "classnames";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { lt } from "semver";
 import udfs from "udfs";
-import { CopyTextButton } from "elements/CopyTextButton";
 import { UdfType } from "system-udfs/convex/_system/frontend/common";
+import { CopyTextButton } from "../../../elements/CopyTextButton";
+import { FunctionRunnerDisabledWhilePaused } from "./FunctionRunnerDisabledWhilePaused";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useShowGlobalRunner } from "../../functionRunner/lib/functionRunner";
+import { ModuleFunction } from "../../../lib/functions/types";
+import { Loading } from "../../../elements/Loading";
+import { ProductionEditsConfirmationDialog } from "../../../elements/ProductionEditsConfirmationDialog";
+import { Button } from "../../../elements/Button";
 
 export function FunctionSummary({
   currentOpenFunction,
@@ -33,6 +29,12 @@ export function FunctionSummary({
 
   const npmPackageVersion = useQuery(udfs.getVersion.default);
   const versionTooOld = !!npmPackageVersion && lt(npmPackageVersion, "0.13.0");
+
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useIsDeploymentPaused,
+  } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
   const isProd = deployment?.deploymentType === "prod";

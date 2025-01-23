@@ -1,9 +1,12 @@
-import { ReadonlyCode, Loading, ModuleFunction, Sheet } from "dashboard-common";
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useMount } from "react-use";
-import { useSourceCode } from "hooks/deploymentApi";
-import { SourceMissingPanel } from "elements/SourceMissingPanel";
+import { Sheet } from "../../../elements/Sheet";
+import { Loading } from "../../../elements/Loading";
+import { ReadonlyCode } from "../../../elements/ReadonlyCode";
+import { useSourceCode } from "../../../lib/functions/useSourceCode";
+import { SourceMissingPanel } from "../../../elements/SourceMissingPanel";
+import type { ModuleFunction } from "../../../lib/functions/types";
 
 export function FileEditor({
   moduleFunction,

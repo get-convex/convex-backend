@@ -1,18 +1,16 @@
 import React from "react";
-import {
-  FunctionIcon,
-  sidebarLinkClassNames,
-  Button,
-  Tooltip,
-  ModuleFunction,
-  useCurrentOpenFunction,
-  useLogDeploymentEvent,
-  useCurrentGloballyOpenFunction,
-} from "dashboard-common";
 import { LockClosedIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { cn } from "lib/cn";
 import { Disclosure } from "@headlessui/react";
+import { ModuleFunction } from "../../../lib/functions/types";
+import { useCurrentOpenFunction } from "../../../lib/functions/FunctionsProvider";
+import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
+import { useCurrentGloballyOpenFunction } from "../../functionRunner/lib/functionRunner";
+import { FunctionIcon } from "../../../elements/icons";
+import { Tooltip } from "../../../elements/Tooltip";
+import { Button } from "../../../elements/Button";
+import { sidebarLinkClassNames } from "../../../elements/Sidebar";
 
 export function FunctionItem({
   item,

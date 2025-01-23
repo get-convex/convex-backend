@@ -1,6 +1,5 @@
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
 import {
-  FunctionsProvider,
   WaitForDeploymentApi,
   DeploymentDashboardLayout as CommonDeploymentDashboardLayout,
 } from "dashboard-common";
@@ -61,14 +60,12 @@ function CurrentDeploymentDashboardLayoutWhenLoggedIn({
 
   return (
     <WaitForDeploymentApi>
-      <FunctionsProvider>
-        <GoogleAnalytics />
-        <LaunchDarklyWithDeployment>
-          <CommonDeploymentDashboardLayout auditLogsEnabled={auditLogsEnabled}>
-            {children}
-          </CommonDeploymentDashboardLayout>
-        </LaunchDarklyWithDeployment>
-      </FunctionsProvider>
+      <GoogleAnalytics />
+      <LaunchDarklyWithDeployment>
+        <CommonDeploymentDashboardLayout auditLogsEnabled={auditLogsEnabled}>
+          {children}
+        </CommonDeploymentDashboardLayout>
+      </LaunchDarklyWithDeployment>
     </WaitForDeploymentApi>
   );
 }

@@ -1,13 +1,14 @@
 import { screen, render } from "@testing-library/react";
 import { useRouter } from "next/router";
 import userEvent from "@testing-library/user-event";
-import { DeploymentInfoContext, FunctionsContext } from "dashboard-common";
 import { useMemo } from "react";
 import { deploymentInfo } from "pages/_app";
 import { useTableFilters } from "../../lib/useTableFilters";
 import { useToolPopup } from "../../lib/useToolPopup";
 import { useAuthorizeProdEdits } from "../../lib/useAuthorizeProdEdits";
 import { DataToolbar, DataToolbarProps } from "./DataToolbar";
+import { DeploymentInfoContext } from "../../../../lib/deploymentContext";
+import { FunctionsContext } from "../../../../lib/functions/FunctionsProvider";
 
 jest.mock("convex/react", () => ({
   useQuery: jest.fn(),

@@ -5,8 +5,8 @@ import {
   TimestampDistance,
   Callout,
   ConfirmationDialog,
+  CopyTextButton,
 } from "dashboard-common";
-import { CopyTextButton } from "elements/CopyTextButton";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { TeamAccessTokenResponse } from "generatedApi";
 import { useCurrentTeam, useTeamMembers } from "api/teams";

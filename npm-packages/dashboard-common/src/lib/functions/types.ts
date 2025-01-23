@@ -1,10 +1,7 @@
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import {
-  Module,
   UdfType,
   Visibility,
-  CronJobLog,
-  CronJobWithLastRun,
 } from "system-udfs/convex/_system/frontend/common";
 
 export interface FileTreeItem {
@@ -39,10 +36,3 @@ export interface Folder extends FileTreeItem {
 }
 
 export type FileOrFolder = File | Folder;
-
-export type CronJobsContextType = {
-  cronsModule: Module | undefined;
-  cronJobs: CronJobWithLastRun[] | undefined;
-  loading: boolean;
-  cronJobRuns: CronJobLog[] | undefined;
-};

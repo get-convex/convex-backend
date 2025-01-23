@@ -1,9 +1,8 @@
 import Link from "next/link";
 import React from "react";
-import { Sheet } from "dashboard-common";
+import { CopyTextButton, Sheet } from "dashboard-common";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { CopyTextButton } from "elements/CopyTextButton";
 
 export function AuthConfig() {
   const authProviders = useQuery(udfs.listAuthProviders.default);

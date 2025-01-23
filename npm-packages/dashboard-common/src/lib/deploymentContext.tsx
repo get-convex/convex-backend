@@ -45,6 +45,7 @@ export type DeploymentInfo = (
       }
     | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
+  useIsDeploymentPaused(): boolean | undefined;
   projectsURI: string;
   deploymentsURI: string;
 };

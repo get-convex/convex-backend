@@ -1,15 +1,17 @@
+import { format } from "date-fns";
 import {
-  calcBuckets,
   useDeploymentAuthHeader,
   useDeploymentUrl,
-  useCurrentOpenFunction,
-  cacheHitPercentage,
-  latencyPercentiles,
+} from "../../../lib/deploymentApi";
+import { SingleGraph } from "./SingleGraph";
+import { useCurrentOpenFunction } from "../../../lib/functions/FunctionsProvider";
+import {
   UdfMetric,
   udfRate,
-} from "dashboard-common";
-import { format } from "date-fns";
-import { SingleGraph } from "./SingleGraph";
+  cacheHitPercentage,
+  latencyPercentiles,
+} from "../../../lib/appMetrics";
+import { calcBuckets } from "../../../lib/charts/buckets";
 
 export function PerformanceGraphs() {
   const currentOpenFunction = useCurrentOpenFunction();

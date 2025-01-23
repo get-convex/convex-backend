@@ -1,9 +1,13 @@
 export * from "./lib/utils";
-export * from "./lib/charts/types";
-export * from "./lib/functions/types";
-export * from "./lib/functions/FunctionsProvider";
+export {
+  useCurrentOpenFunction,
+  useModuleFunctions,
+  itemIdentifier,
+} from "./lib/functions/FunctionsProvider";
+export type { ModuleFunction } from "./lib/functions/types";
 export * from "./lib/functions/generateFileTree";
 export * from "./lib/functions/useListModules";
+export * from "./lib/functions/useSourceCode";
 export * from "./lib/deploymentApi";
 export * from "./lib/appMetrics";
 export * from "./lib/deploymentContext";
@@ -24,6 +28,7 @@ export * from "./lib/createContextHook";
 export * from "./lib/format";
 export * from "./lib/mockConvexReactClient";
 export * from "./elements/Sidebar";
+export * from "./elements/CopyTextButton";
 export * from "./elements/Button";
 export * from "./elements/Modal";
 export * from "./elements/Tooltip";
@@ -54,6 +59,7 @@ export * from "./elements/SchedulerStatus";
 export * from "./elements/LogOutput";
 export * from "./elements/LogLevel";
 export * from "./elements/NentSwitcher";
+export * from "./elements/SourceMissingPanel";
 export * from "./elements/ObjectEditor/ObjectEditor";
 export * from "./elements/ObjectEditor/ast/walkAst";
 export * from "./elements/ReadonlyCode";
@@ -65,7 +71,7 @@ export * from "./elements/TextInput";
 export * from "./elements/icons";
 export * from "./layouts/SidebarDetailLayout";
 export * from "./layouts/DeploymentDashboardLayout";
-export * from "./features/functionRunner/lib/functionRunner";
 export * from "./features/health/components/Health";
 export * from "./features/health/components/DeploymentTimes";
 export * from "./features/data/components/Data";
+export * from "./features/functions/components/FunctionsView";

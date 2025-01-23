@@ -1,11 +1,11 @@
+import { ChangeEvent, useRef } from "react";
+import classNames from "classnames";
 import {
   useFunctionSearchTerm,
   useRootEntries,
-  NentSwitcher,
-} from "dashboard-common";
-import { ChangeEvent, useRef } from "react";
-import classNames from "classnames";
+} from "../../../lib/functions/FunctionsProvider";
 import { FileTree } from "./FileTree";
+import { NentSwitcher } from "../../../elements/NentSwitcher";
 
 export function DirectorySidebar({
   onChangeFunction,

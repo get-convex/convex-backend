@@ -1,7 +1,8 @@
 import { Disclosure } from "@headlessui/react";
 import { CodeIcon } from "@radix-ui/react-icons";
-import { File, useCurrentOpenFunction } from "dashboard-common";
+import type { File } from "../../../lib/functions/types";
 import { DirectoryItem, FunctionItem } from "./FunctionItem";
+import { useCurrentOpenFunction } from "../../../lib/functions/FunctionsProvider";
 
 export function FileItem({
   file,

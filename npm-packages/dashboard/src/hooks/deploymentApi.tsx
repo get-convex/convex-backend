@@ -9,7 +9,6 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
-import useSWR, { BareFetcher } from "swr";
 import {
   displayName,
   DeploymentApiProviderProps,
@@ -18,13 +17,10 @@ import {
   DeploymentInfoContext,
   DeploymentInfo,
   useNents,
-  deploymentAuthMiddleware,
   useAdminKey,
   useDeploymentAuthHeader,
-  useDeploymentIsDisconnected,
   useDeploymentUrl,
   toast,
-  deploymentFetch,
 } from "dashboard-common";
 import {
   CompletedExport,
@@ -39,6 +35,7 @@ import { useCurrentProject } from "api/projects";
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useCurrentUsageBanner } from "components/header/UsageBanner";
+import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { useAccessToken } from "./useServerSideData";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
@@ -76,6 +73,7 @@ export function DeploymentInfoProvider({
         useCurrentDeployment,
         useTeamMembers,
         useHasProjectAdminPermissions,
+        useIsDeploymentPaused,
         projectsURI,
         deploymentsURI,
       });
@@ -471,26 +469,6 @@ export function useChangeDeploymentState(): (
       toast("success", `Deployment is now ${newState}`);
     }
   };
-}
-
-export function useSourceCode(path: string) {
-  const { selectedNent } = useNents();
-  const componentQuery = selectedNent ? `&component=${selectedNent.id}` : "";
-  const isDisconnected = useDeploymentIsDisconnected();
-  const fetcher: BareFetcher = deploymentFetch;
-  const { data, error } = useSWR(
-    isDisconnected
-      ? null
-      : `/api/get_source_code?path=${path}${componentQuery}`,
-    fetcher,
-    {
-      use: [deploymentAuthMiddleware],
-    },
-  );
-  if (error) {
-    throw error;
-  }
-  return data as string | null | undefined;
 }
 
 export function useCancelImport(): (

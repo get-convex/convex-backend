@@ -11,7 +11,8 @@ import {
   WaitForDeploymentApi,
 } from "index";
 import { ThemeProvider } from "next-themes";
-import { FunctionsProvider } from "../lib/functions/FunctionsProvider";
+import { useQuery } from "convex/react";
+import udfs from "udfs";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -26,13 +27,11 @@ export default function App({ Component, pageProps }: AppProps) {
         <DeploymentInfoProvider>
           <DeploymentApiProvider deploymentOverride="local">
             <WaitForDeploymentApi>
-              <FunctionsProvider>
-                <div className="flex h-screen flex-col">
-                  <DeploymentDashboardLayout>
-                    <Component {...pageProps} />
-                  </DeploymentDashboardLayout>
-                </div>
-              </FunctionsProvider>
+              <div className="flex h-screen flex-col">
+                <DeploymentDashboardLayout>
+                  <Component {...pageProps} />
+                </DeploymentDashboardLayout>
+              </div>
             </WaitForDeploymentApi>
           </DeploymentApiProvider>
         </DeploymentInfoProvider>
@@ -60,6 +59,10 @@ export const deploymentInfo: DeploymentInfo = {
     kind: "local",
   }),
   useHasProjectAdminPermissions: () => true,
+  useIsDeploymentPaused: () => {
+    const deploymentState = useQuery(udfs.deploymentState.deploymentState);
+    return deploymentState?.state === "paused";
+  },
   projectsURI: "/",
   deploymentsURI: "/",
 };

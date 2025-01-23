@@ -1,12 +1,12 @@
+import React from "react";
 import {
-  ChartData,
   useDeploymentAuthHeader,
   useDeploymentUrl,
-} from "dashboard-common";
-import React from "react";
+} from "../../../lib/deploymentApi";
 import { ChartModal } from "../../../elements/ChartModal";
 import { calcBuckets } from "../../../lib/charts/buckets";
 import { TableMetric, tableRate } from "../../../lib/appMetrics";
+import { ChartData } from "../../../lib/charts/types";
 
 const useChartData =
   (
