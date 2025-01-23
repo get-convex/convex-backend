@@ -39,6 +39,8 @@ import { useAccessToken } from "hooks/useServerSideData";
 import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
 import { DeploymentAccessTokenList } from "components/deploymentSettings/DeploymentAccessTokenList";
 import { CustomDomains } from "components/deploymentSettings/CustomDomains";
+import { TransferProject } from "components/projects/TransferProject";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -55,6 +57,7 @@ function ProjectSettings() {
   const project = useCurrentProject();
   const entitlements = useTeamEntitlements(team?.id);
   const hasAdminPermissions = useHasProjectAdminPermissions(project?.id);
+  const { projectTransfer } = useLaunchDarkly();
 
   return (
     <>
@@ -63,50 +66,55 @@ function ProjectSettings() {
           <title>Project Settings | {project.name} | Convex Dashboard</title>
         )}
       </Head>
-      <div className="m-auto flex h-full max-w-[60rem] grow flex-col gap-6 p-6">
-        <h2>Project Settings</h2>
-        {team && project ? (
-          <ProjectForm
-            team={team}
-            project={project}
-            hasAdminPermissions={hasAdminPermissions}
-          />
-        ) : (
-          <Loading className="h-[50rem]" fullHeight={false} />
-        )}
-        <MemberProjectRoles />
-        {team && project && (
-          <Sheet>
-            <h3 className="mb-4">Project Usage</h3>
-            <p className="text-sm">
-              View this project's usage and limits on{" "}
-              <Link
-                className="text-content-link hover:underline dark:underline"
-                href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
-              >
-                this team's usage page
-              </Link>
-              .
-            </p>
-          </Sheet>
-        )}
-        {team && entitlements && (
-          <CustomDomains
-            team={team}
-            hasEntitlement={entitlements.customDomainsEnabled ?? false}
-          />
-        )}
-        {project && (
-          <GenerateDeployKey
-            project={project}
-            hasAdminPermissions={hasAdminPermissions}
-          />
-        )}
-        <DefaultEnvironmentVariables />
-        {team && project && !project?.isDemo && (
-          <LostAccess teamSlug={team.slug} projectSlug={project.slug} />
-        )}
-        <DeleteProject />
+      <div className="m-auto flex max-w-[60rem] grow flex-col px-6 pb-6">
+        <h2 className="sticky top-0 z-10 bg-background-primary py-6">
+          Project Settings
+        </h2>
+        <div className="flex flex-col gap-6">
+          {team && project ? (
+            <ProjectForm
+              team={team}
+              project={project}
+              hasAdminPermissions={hasAdminPermissions}
+            />
+          ) : (
+            <Loading className="h-[50rem]" fullHeight={false} />
+          )}
+          <MemberProjectRoles />
+          {team && project && (
+            <Sheet>
+              <h3 className="mb-4">Project Usage</h3>
+              <p className="text-sm">
+                View this project's usage and limits on{" "}
+                <Link
+                  className="text-content-link hover:underline dark:underline"
+                  href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
+                >
+                  this team's usage page
+                </Link>
+                .
+              </p>
+            </Sheet>
+          )}
+          {team && entitlements && (
+            <CustomDomains
+              team={team}
+              hasEntitlement={entitlements.customDomainsEnabled ?? false}
+            />
+          )}
+          {project && (
+            <GenerateDeployKey
+              project={project}
+              hasAdminPermissions={hasAdminPermissions}
+            />
+          )}
+          <DefaultEnvironmentVariables />
+          {team && project && !project?.isDemo && (
+            <LostAccess teamSlug={team.slug} projectSlug={project.slug} />
+          )}
+          {projectTransfer && <TransferProject />}
+          <DeleteProject />
+        </div>
       </div>
     </>
   );
@@ -148,7 +156,6 @@ function DeleteProject() {
         <Button
           variant="danger"
           onClick={() => setShowDeleteModal(!showDeleteModal)}
-          className="float-right"
           icon={<TrashIcon />}
           disabled={!hasAdminPermissions}
           tip={

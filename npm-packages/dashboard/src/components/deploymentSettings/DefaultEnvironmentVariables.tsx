@@ -33,7 +33,7 @@ export function DefaultEnvironmentVariables() {
     <Sheet className="flex flex-col gap-4 text-sm">
       <h3>Default Environment Variables</h3>
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-content-primary">
+        <p className="max-w-prose text-sm text-content-primary">
           These values will be used when creating new{" "}
           <DeploymentType deploymentType="dev" /> and{" "}
           <DeploymentType deploymentType="preview" /> deployments. Changing
@@ -48,7 +48,7 @@ export function DefaultEnvironmentVariables() {
             Learn more
           </Link>
         </p>
-        <p className="text-sm text-content-primary">
+        <p className="max-w-prose text-sm text-content-primary">
           The environment variables for an existing deployment can be viewed and
           managed from the deployment settings.
         </p>

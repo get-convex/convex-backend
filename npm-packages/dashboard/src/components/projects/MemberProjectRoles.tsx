@@ -55,8 +55,7 @@ export function MemberProjectRoles() {
         </Button>
       </div>
       <p>These team members have administrative access to this project. </p>
-      <p>
-        {" "}
+      <p className="max-w-prose">
         All other team members may create dev and preview deployments, and have
         read-only access to production data.{" "}
         <Link

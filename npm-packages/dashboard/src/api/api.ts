@@ -14,7 +14,8 @@ import type { paths as BigBrainPaths } from "generatedApi";
 import { SWRConfiguration } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
+import { usePrevious } from "react-use";
 import { getGoogleAnalyticsClientId } from "../hooks/fetching";
 
 export const client = createClient<BigBrainPaths>({
@@ -49,11 +50,27 @@ export function useBBQuery<QueryPath extends Path<"get">>(
     params: { path: pathParams },
     headers,
   };
+  const paused =
+    !accessToken || (pathParams && Object.values(pathParams).some((p) => !p));
+  const previousPaused = usePrevious(paused);
+  const mutate = useMutate();
+
+  useEffect(() => {
+    previousPaused &&
+      !paused &&
+      void mutate(
+        [
+          path,
+          // @ts-expect-error TODO: Figure out how to type this.
+          { params: { path: pathParams } },
+        ],
+        undefined,
+      );
+  }, [paused, mutate, path, pathParams, previousPaused]);
 
   return useQuery(path, requestOptions, {
     keepPreviousData: true,
-    isPaused: () =>
-      !accessToken || (pathParams && Object.values(pathParams).some((p) => !p)),
+    isPaused: () => paused,
     ...swrOptions,
   });
 }

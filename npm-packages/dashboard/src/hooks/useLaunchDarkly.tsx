@@ -7,6 +7,7 @@ const flagDefaults = {
   dataPageInactivityTime: -1,
   localDeployments: false,
   askAi: false,
+  projectTransfer: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

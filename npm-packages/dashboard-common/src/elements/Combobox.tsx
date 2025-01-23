@@ -26,11 +26,13 @@ export function Combobox<T>({
   unknownLabel = () => "Unknown option",
   labelHidden = true,
   processFilterOption = (option: string) => option,
+  placeholder = "Select an option",
 }: {
-  label: string;
+  label: React.ReactNode;
   labelHidden?: boolean;
   className?: string;
   options: Readonly<Option<T>[]>;
+  placeholder?: string;
   searchPlaceholder?: string;
   disableSearch?: boolean;
   // "full" only works if the options dropdown
@@ -110,6 +112,9 @@ export function Combobox<T>({
                         {selectedOption && unknownLabel(selectedOption)}
                       </span>
                     )
+                  )}
+                  {!selectedOptionData && (
+                    <span className="text-content-tertiary">{placeholder}</span>
                   )}
                 </div>
                 <CaretSortIcon

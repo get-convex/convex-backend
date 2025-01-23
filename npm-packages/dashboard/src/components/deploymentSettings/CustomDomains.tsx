@@ -70,13 +70,13 @@ export function CustomDomains({
       <div className="flex flex-col gap-4">
         <div>
           <h3 className="mb-2">Custom Domains</h3>
-          <p>
+          <p className="max-w-prose">
             Add a custom domain to your Production Convex deployment. Domains
             for the Convex API (your queries, mutations, and actions) and your
-            HTTP actions are configured separately.{" "}
+            HTTP actions are configured separately.
           </p>
-          {proCallout}
         </div>
+        {proCallout}
         {(hasEntitlement || (vanityDomains && vanityDomains.length > 0)) && (
           <div>
             {deployment ? (
