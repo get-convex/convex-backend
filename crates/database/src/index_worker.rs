@@ -38,6 +38,7 @@ use common::{
     },
     persistence::{
         ConflictStrategy,
+        LatestDocument,
         Persistence,
         PersistenceReader,
         RepeatablePersistence,
@@ -737,7 +738,11 @@ impl<RT: Runtime> IndexWriter<RT> {
         while !stream.is_done() {
             let mut chunk = BTreeSet::new();
             while chunk.len() < *INDEX_BACKFILL_CHUNK_SIZE {
-                let (document, ts) = match stream.try_next().await? {
+                let LatestDocument {
+                    ts,
+                    value: document,
+                    ..
+                } = match stream.try_next().await? {
                     Some(d) => d,
                     None => break,
                 };

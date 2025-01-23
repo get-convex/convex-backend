@@ -11,6 +11,7 @@ use common::{
         ComponentPath,
     },
     fastrace_helpers::get_sampled_span,
+    persistence::LatestDocument,
     runtime::Runtime,
     types::{
         IndexId,
@@ -206,7 +207,7 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
     // Write documents from stream to table uploads
     let mut generated_schema = GeneratedSchema::new(table_summary.inferred_type().into());
     let is_ambiguous = ExportContext::is_ambiguous(table_summary.inferred_type());
-    while let Some((doc, _ts)) = stream.try_next().await? {
+    while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         if is_ambiguous {
             generated_schema.insert(doc.value(), doc.developer_id());
         }

@@ -5,6 +5,7 @@ use common::{
     self,
     components::ComponentPath,
     document::ParsedDocument,
+    persistence::LatestDocument,
     runtime::Runtime,
     types::{
         IndexId,
@@ -74,7 +75,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
     pin_mut!(stream);
-    while let Some((doc, _ts)) = stream.try_next().await? {
+    while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
         let virtual_storage_id = file_storage_entry.id().developer_id;
         let creation_time = f64::from(
@@ -98,7 +99,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
     pin_mut!(stream);
-    while let Some((doc, _ts)) = stream.try_next().await? {
+    while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
         let virtual_storage_id = file_storage_entry.id().developer_id;
         // Add an extension, which isn't necessary for anything and might be incorrect,

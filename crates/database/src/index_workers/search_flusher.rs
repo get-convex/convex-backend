@@ -523,10 +523,10 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                             is_backfill_complete = false;
                             return future::ready(None);
                         }
-                        let updated_cursor = if let Ok((doc, _)) = &res {
-                            let size = T::estimate_document_size(&qdrant_schema, doc);
+                        let updated_cursor = if let Ok(rev) = &res {
+                            let size = T::estimate_document_size(&qdrant_schema, &rev.value);
                             *total_size += size;
-                            Some(doc.id())
+                            Some(rev.value.id())
                         } else {
                             None
                         };
@@ -548,13 +548,11 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
                         }
                         future::ready(Some(res))
                     })
-                    .map_ok(|(doc, ts)| DocumentLogEntry {
-                        ts,
-                        id: doc.id_with_table_id(),
-                        value: Some(doc),
-                        // TODO: fill in prev_ts
-                        // this should be threaded from `stream_documents_in_table`
-                        prev_ts: None,
+                    .map_ok(|rev| DocumentLogEntry {
+                        ts: rev.ts,
+                        id: rev.value.id_with_table_id(),
+                        value: Some(rev.value),
+                        prev_ts: rev.prev_ts,
                     })
                     .boxed();
                 (documents, previous_segments)

@@ -6,9 +6,9 @@ use std::{
 };
 
 use common::{
-    document::ResolvedDocument,
     persistence::{
         new_static_repeatable_recent,
+        LatestDocument,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
@@ -348,12 +348,12 @@ impl<RT: Runtime> TableSummaryWriter<RT> {
     }
 
     pub async fn collect_table_revisions(
-        revision_stream: impl Stream<Item = anyhow::Result<(ResolvedDocument, Timestamp)>>,
+        revision_stream: impl Stream<Item = anyhow::Result<LatestDocument>>,
     ) -> anyhow::Result<TableSummary> {
         futures::pin_mut!(revision_stream);
         let mut summary = TableSummary::empty();
-        while let Some((document, _ts)) = revision_stream.try_next().await? {
-            summary = summary.insert(document.value());
+        while let Some(rev) = revision_stream.try_next().await? {
+            summary = summary.insert(rev.value.value());
             let num_values = summary.inferred_type.num_values();
             if num_values % 10000 == 0 {
                 tracing::info!("Collecting table summary with {num_values} documents")

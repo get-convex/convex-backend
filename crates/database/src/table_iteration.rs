@@ -21,6 +21,7 @@ use common::{
     persistence::{
         new_static_repeatable_recent,
         DocumentLogEntry,
+        LatestDocument,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -114,7 +115,7 @@ impl<RT: Runtime> TableIterator<RT> {
         }
     }
 
-    #[try_stream(ok = (ResolvedDocument, Timestamp), error = anyhow::Error)]
+    #[try_stream(ok = LatestDocument, error = anyhow::Error)]
     pub async fn stream_documents_in_table(
         self,
         tablet_id: TabletId,
@@ -128,8 +129,8 @@ impl<RT: Runtime> TableIterator<RT> {
             cursor.map(|id| CursorPosition::After(IndexKey::new(vec![], id.into()).into_bytes())),
         );
         pin_mut!(stream);
-        while let Some((_, ts, doc)) = stream.try_next().await? {
-            yield (doc, ts);
+        while let Some((_, rev)) = stream.try_next().await? {
+            yield rev;
         }
     }
 
@@ -148,7 +149,7 @@ impl<RT: Runtime> TableIterator<RT> {
     /// Consider a document that exists in the index at snapshot_ts.
     /// Either it has changed since snapshot_ts, in which case (2) will find
     /// it, or it has not, in which case (1) will find it.
-    #[try_stream(ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
+    #[try_stream(ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
     pub async fn stream_documents_in_table_by_index(
         self,
         tablet_id: TabletId,
@@ -185,8 +186,10 @@ impl<RT: Runtime> TableIterator<RT> {
             // documents log to generate skipped_keys.
             let page: BTreeMap<_, _> = page
                 .into_iter()
-                .filter(|(_, ts, _)| *ts <= *self.snapshot_ts)
-                .map(|(index_key, ts, doc)| (index_key, (ts, IterationDocument::Full(doc))))
+                .filter(|(_, rev)| rev.ts <= *self.snapshot_ts)
+                .map(|(index_key, LatestDocument { ts, value, prev_ts })| {
+                    (index_key, (ts, IterationDocument::Full { value, prev_ts }))
+                })
                 .collect();
 
             // 2. Find any keys for documents that were skipped by this
@@ -248,14 +251,14 @@ impl<RT: Runtime> TableIterator<RT> {
             );
 
             let mut merged_page_docs = self.reload_revisions_at_snapshot_ts(merged_page);
-            while let Some((key, ts, doc)) = merged_page_docs.try_next().await? {
+            while let Some((key, rev)) = merged_page_docs.try_next().await? {
                 // The caller will likely consume the documents in a CPU-intensive loop,
                 // and `merged_page_docs.try_next().await` will often be Ready
                 // immediately, so it won't yield.
                 // Make sure we yield to not starve other tokio tasks.
                 tokio::task::consume_budget().await;
 
-                yield (key, ts, doc);
+                yield (key, rev);
             }
             if matches!(page_end, CursorPosition::End) {
                 // If we are done, all skipped_keys would be put in this final page.
@@ -285,12 +288,13 @@ impl<RT: Runtime> TableIterator<RT> {
         let skipped_revs = self.walk_document_log(tablet_id, start_ts, end_ts);
         let revisions_at_snapshot = self.load_revisions_at_snapshot_ts(skipped_revs);
         pin_mut!(revisions_at_snapshot);
-        while let Some((doc, ts)) = revisions_at_snapshot.try_next().await? {
-            let index_key = doc
+        while let Some(rev) = revisions_at_snapshot.try_next().await? {
+            let index_key = rev
+                .value
                 .index_key(indexed_fields, persistence_version)
                 .into_bytes();
             if !cursor_has_walked(lower_bound, &index_key) {
-                output.insert(index_key, ts, doc);
+                output.insert(index_key, rev.ts, rev.value, rev.prev_ts);
             }
         }
         Ok(())
@@ -349,10 +353,7 @@ impl<RT: Runtime> TableIterator<RT> {
         index_id: IndexId,
         tablet_id: TabletId,
         cursor: &mut TableScanCursor,
-    ) -> anyhow::Result<(
-        Vec<(IndexKeyBytes, Timestamp, ResolvedDocument)>,
-        RepeatableTimestamp,
-    )> {
+    ) -> anyhow::Result<(Vec<(IndexKeyBytes, LatestDocument)>, RepeatableTimestamp)> {
         let ts = self.new_ts().await?;
         let repeatable_persistence = RepeatablePersistence::new(
             self.persistence.clone(),
@@ -379,7 +380,7 @@ impl<RT: Runtime> TableIterator<RT> {
     /// Load the revisions of documents visible at `self.snapshot_ts`.
     /// Documents are yielded in the same order as input, skipping duplicates
     /// and documents that didn't exist at the snapshot.
-    #[try_stream(ok = (ResolvedDocument, Timestamp), error = anyhow::Error)]
+    #[try_stream(ok = LatestDocument, error = anyhow::Error)]
     async fn load_revisions_at_snapshot_ts<'a>(
         &'a self,
         ids: impl Stream<Item = anyhow::Result<InternalDocumentId>> + 'a,
@@ -408,17 +409,22 @@ impl<RT: Runtime> TableIterator<RT> {
             for id in chunk {
                 if let Some(DocumentLogEntry {
                     ts: revision_ts,
-                    value: Some(revision),
+                    value: Some(value),
+                    prev_ts,
                     ..
                 }) = old_revisions.remove(&(id, ts_succ))
                 {
-                    yield (revision, revision_ts);
+                    yield LatestDocument {
+                        ts: revision_ts,
+                        value,
+                        prev_ts,
+                    };
                 };
             }
         }
     }
 
-    #[try_stream(boxed, ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
+    #[try_stream(boxed, ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
     async fn load_index_entries_at_snapshot_ts(
         &self,
         entries: Vec<(InternalDocumentId, IndexKeyBytes)>,
@@ -427,28 +433,28 @@ impl<RT: Runtime> TableIterator<RT> {
         let mut key_by_id: BTreeMap<_, _> = entries.into_iter().collect();
         let revisions = self.load_revisions_at_snapshot_ts(stream::iter(ids.into_iter().map(Ok)));
         pin_mut!(revisions);
-        while let Some((doc, ts)) = revisions.try_next().await? {
+        while let Some(rev) = revisions.try_next().await? {
             let key = key_by_id
-                .remove(&doc.id_with_table_id())
+                .remove(&rev.value.id_with_table_id())
                 .context("key_by_id missing")?;
-            yield (key, ts, doc);
+            yield (key, rev);
         }
     }
 
     /// Like `load_revisions_at_snapshot_ts` but doesn't need to fetch
     /// if the IterationDocument has the Full document.
-    #[try_stream(boxed, ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
+    #[try_stream(boxed, ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
     async fn reload_revisions_at_snapshot_ts(&self, documents: IterationDocuments) {
         let mut current_batch = Vec::new();
         for (key, (ts, doc)) in documents.into_iter() {
             match doc {
-                IterationDocument::Full(doc) => {
+                IterationDocument::Full { value, prev_ts } => {
                     let mut flush = self.load_index_entries_at_snapshot_ts(current_batch);
-                    while let Some((key, ts, doc)) = flush.try_next().await? {
-                        yield (key, ts, doc);
+                    while let Some((key, rev)) = flush.try_next().await? {
+                        yield (key, rev);
                     }
                     current_batch = Vec::new();
-                    yield (key, ts, doc);
+                    yield (key, LatestDocument { ts, value, prev_ts });
                 },
                 IterationDocument::Id(id) => {
                     current_batch.push((id, key));
@@ -456,22 +462,25 @@ impl<RT: Runtime> TableIterator<RT> {
             }
         }
         let mut flush = self.load_index_entries_at_snapshot_ts(current_batch);
-        while let Some((key, ts, doc)) = flush.try_next().await? {
-            yield (key, ts, doc);
+        while let Some((key, rev)) = flush.try_next().await? {
+            yield (key, rev);
         }
     }
 }
 
 #[derive(Debug)]
 enum IterationDocument {
-    Full(ResolvedDocument),
+    Full {
+        value: ResolvedDocument,
+        prev_ts: Option<Timestamp>,
+    },
     Id(InternalDocumentId),
 }
 
 impl IterationDocument {
     fn internal_id(&self) -> InternalId {
         match self {
-            Self::Full(doc) => doc.internal_id(),
+            Self::Full { value, .. } => value.internal_id(),
             Self::Id(id) => id.internal_id(),
         }
     }
@@ -490,16 +499,30 @@ impl IterationDocuments {
         Self {
             count_full: docs
                 .values()
-                .filter(|(_, doc)| matches!(doc, IterationDocument::Full(_)))
+                .filter(|(_, doc)| matches!(doc, IterationDocument::Full { .. }))
                 .count(),
             docs,
         }
     }
 
-    fn insert(&mut self, index_key: IndexKeyBytes, ts: Timestamp, doc: ResolvedDocument) {
+    fn insert(
+        &mut self,
+        index_key: IndexKeyBytes,
+        ts: Timestamp,
+        doc: ResolvedDocument,
+        prev_ts: Option<Timestamp>,
+    ) {
         if self.count_full < *DOCUMENTS_IN_MEMORY {
-            self.docs
-                .insert(index_key, (ts, IterationDocument::Full(doc)));
+            self.docs.insert(
+                index_key,
+                (
+                    ts,
+                    IterationDocument::Full {
+                        value: doc,
+                        prev_ts,
+                    },
+                ),
+            );
             self.count_full += 1;
         } else {
             self.docs.insert(
@@ -514,7 +537,7 @@ impl IterationDocuments {
         index_key: &IndexKeyBytes,
     ) -> Option<(IndexKeyBytes, (Timestamp, IterationDocument))> {
         let removed = self.docs.remove_entry(index_key);
-        if let Some((_, (_, IterationDocument::Full(_)))) = &removed {
+        if let Some((_, (_, IterationDocument::Full { .. }))) = &removed {
             self.count_full -= 1;
         }
         removed
@@ -653,8 +676,8 @@ mod tests {
             );
             futures::pin_mut!(revision_stream);
             let mut actual = BTreeSet::new();
-            while let Some((revision, _)) = revision_stream.try_next().await? {
-                actual.insert(revision.id().internal_id());
+            while let Some(revision) = revision_stream.try_next().await? {
+                actual.insert(revision.value.id().internal_id());
             }
             assert_eq!(expected, actual);
             Ok::<_, anyhow::Error>(())
@@ -763,11 +786,11 @@ mod tests {
             futures::pin_mut!(revision_stream);
             let mut actual = BTreeMap::new();
             let mut prev_doc_id = None;
-            while let Some((revision, ts)) = revision_stream.try_next().await? {
-                assert!(ts <= *snapshot_ts);
-                assert!(prev_doc_id < Some(revision.id()));
-                prev_doc_id = Some(revision.id());
-                actual.insert(revision.id(), revision.to_developer());
+            while let Some(rev) = revision_stream.try_next().await? {
+                assert!(rev.ts <= *snapshot_ts);
+                assert!(prev_doc_id < Some(rev.value.id()));
+                prev_doc_id = Some(rev.value.id());
+                actual.insert(rev.value.id(), rev.value.to_developer());
             }
             let _ = stream_done_tx.send(());
             Ok(actual)
@@ -858,7 +881,7 @@ mod tests {
         assert_eq!(revisions.len(), 2);
         let k_values: Vec<_> = revisions
             .iter()
-            .map(|(_, _, doc)| doc.value().get("k").unwrap().clone())
+            .map(|(_, rev)| rev.value.value().get("k").unwrap().clone())
             .collect();
         assert_eq!(k_values, vec![assert_val!("m"), assert_val!("z")]);
 

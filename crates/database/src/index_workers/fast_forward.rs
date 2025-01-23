@@ -289,7 +289,7 @@ pub async fn load_metadata_fast_forward_ts(
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .map(|(_, _, doc)| doc)
+        .map(|(_, rev)| rev.value)
         .collect();
     let fast_forward_ts = if !results.is_empty() {
         let mut doc = ParsedDocument::<IndexWorkerMetadataRecord>::try_from(results.remove(0))?;

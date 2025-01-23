@@ -208,10 +208,10 @@ impl BackendInMemoryIndexes {
         let mut num_keys: usize = 0;
         let mut total_size: usize = 0;
         let mut index_map = DatabaseIndexMap::new_at(*snapshot.timestamp());
-        for (key, ts, doc) in entries.into_iter() {
+        for (key, rev) in entries.into_iter() {
             num_keys += 1;
-            total_size += doc.value().size();
-            index_map.insert(key, ts, doc);
+            total_size += rev.value.value().size();
+            index_map.insert(key, rev.ts, rev.value);
         }
 
         self.in_memory_indexes.insert(index.id(), index_map);
@@ -602,11 +602,11 @@ impl DatabaseIndexSnapshot {
                         range_request.order,
                         range_request.max_size,
                     );
-                    while let Some((key, ts, doc)) =
+                    while let Some((key, rev)) =
                         instrument!(b"Persistence::try_next", stream.try_next()).await?
                     {
-                        cache_miss_results.push((ts, doc.clone()));
-                        results.push((key, ts, doc));
+                        cache_miss_results.push((rev.ts, rev.value.clone()));
+                        results.push((key, rev.ts, rev.value));
                         if results.len() >= range_request.max_size {
                             break;
                         }

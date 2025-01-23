@@ -32,6 +32,7 @@ use common::{
         DocumentLogEntry,
         DocumentStream,
         IndexStream,
+        LatestDocument,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
@@ -126,7 +127,7 @@ impl SqlitePersistence {
         read_timestamp: Timestamp,
         interval: &Interval,
         order: Order,
-    ) -> anyhow::Result<Vec<anyhow::Result<(IndexKeyBytes, Timestamp, ResolvedDocument)>>> {
+    ) -> anyhow::Result<Vec<anyhow::Result<(IndexKeyBytes, LatestDocument)>>> {
         let interval = interval.clone();
         let index_id = &index_id[..];
         let read_timestamp: u64 = read_timestamp.into();
@@ -157,7 +158,7 @@ impl SqlitePersistence {
         };
         let query = format!(
             r#"
-SELECT B.key, B.ts, B.document_id, C.table_id, C.json_value
+SELECT B.key, B.ts, B.document_id, C.table_id, C.json_value, C.prev_ts
 FROM (
     SELECT index_id, key, MAX(ts) as max_ts
     FROM indexes
@@ -185,12 +186,15 @@ ORDER BY B.key {order}
             let document_id = row.get::<_, Vec<u8>>(2)?;
             let table: Option<Vec<u8>> = row.get(3)?;
             let json_value: Option<String> = row.get(4)?;
+            let prev_ts: Option<Timestamp> = row
+                .get::<_, Option<u64>>(5)?
+                .map(|ts| Timestamp::try_from(ts).expect("prev_ts out of bounds"));
 
-            Ok((key, ts, document_id, table, json_value))
+            Ok((key, ts, document_id, table, json_value, prev_ts))
         })?;
         let mut triples = vec![];
         for row in row_iter {
-            let (key, ts, document_id, table, json_value) = row?;
+            let (key, ts, document_id, table, json_value, prev_ts) = row?;
             let table = table.ok_or_else(|| {
                 anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
             })?;
@@ -202,7 +206,14 @@ ORDER BY B.key {order}
             let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
             let value: ConvexValue = json_value.try_into()?;
             let document = ResolvedDocument::from_database(tablet_id, value)?;
-            triples.push(Ok((key, ts, document)));
+            triples.push(Ok((
+                key,
+                LatestDocument {
+                    ts,
+                    value: document,
+                    prev_ts,
+                },
+            )));
         }
         Ok(triples)
     }

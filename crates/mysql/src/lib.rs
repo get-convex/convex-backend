@@ -70,6 +70,7 @@ use common::{
         DocumentLogEntry,
         DocumentStream,
         IndexStream,
+        LatestDocument,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
@@ -662,7 +663,7 @@ impl<RT: Runtime> MySqlReader<RT> {
     }
 
     #[allow(clippy::needless_lifetimes)]
-    #[try_stream(ok = (IndexKeyBytes, Timestamp, ResolvedDocument), error = anyhow::Error)]
+    #[try_stream(ok = (IndexKeyBytes, LatestDocument), error = anyhow::Error)]
     async fn _index_scan(
         &self,
         index_id: IndexId,
@@ -682,14 +683,24 @@ impl<RT: Runtime> MySqlReader<RT> {
             retention_validator,
         );
         pin_mut!(scan);
-        while let Some((key, ts, value)) = scan.try_next().await? {
+        while let Some((key, ts, value, prev_ts)) = scan.try_next().await? {
             let document = ResolvedDocument::from_database(tablet_id, value)?;
-            yield (key, ts, document);
+            yield (
+                key,
+                LatestDocument {
+                    ts,
+                    value: document,
+                    prev_ts,
+                },
+            );
         }
     }
 
     #[allow(clippy::needless_lifetimes)]
-    #[try_stream(ok = (IndexKeyBytes, Timestamp, ConvexValue), error = anyhow::Error)]
+    #[try_stream(
+        ok = (IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>),
+        error = anyhow::Error
+    )]
     async fn _index_scan_inner(
         &self,
         index_id: IndexId,
@@ -714,7 +725,8 @@ impl<RT: Runtime> MySqlReader<RT> {
         // need them in (key_prefix, key_suffix order). key_suffix is not part of the
         // primary key so we do the sort here. If see any record with maximum length
         // prefix, we should buffer it until we reach a different prefix.
-        let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, ConvexValue)> = Vec::new();
+        let mut result_buffer: Vec<(IndexKeyBytes, Timestamp, ConvexValue, Option<Timestamp>)> =
+            Vec::new();
         let mut has_more = true;
         while has_more {
             let page = {
@@ -764,10 +776,10 @@ impl<RT: Runtime> MySqlReader<RT> {
                             // We have exhausted all results that share the same key prefix
                             // we can sort and yield the buffered results.
                             result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-                            for (key, ts, doc) in order.apply(result_buffer.drain(..)) {
+                            for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
                                 if interval.contains(&key) {
                                     stats.rows_returned += 1;
-                                    to_yield.push((key, ts, doc));
+                                    to_yield.push((key, ts, doc, prev_ts));
                                 } else {
                                     stats.rows_skipped_out_of_range += 1;
                                 }
@@ -812,18 +824,21 @@ impl<RT: Runtime> MySqlReader<RT> {
                     );
                     let value: ConvexValue = json_value.try_into()?;
 
+                    let prev_ts: Option<i64> = row.get(9).unwrap();
+                    let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
+
                     if key.len() < MAX_INDEX_KEY_PREFIX_LEN {
                         assert!(result_buffer.is_empty());
                         if interval.contains(&key) {
                             stats.rows_returned += 1;
-                            to_yield.push((IndexKeyBytes(key), ts, value));
+                            to_yield.push((IndexKeyBytes(key), ts, value, prev_ts));
                         } else {
                             stats.rows_skipped_out_of_range += 1;
                         }
                     } else {
                         // There might be other records with the same key_prefix that
                         // are ordered before this result. Buffer it.
-                        result_buffer.push((IndexKeyBytes(key), ts, value));
+                        result_buffer.push((IndexKeyBytes(key), ts, value, prev_ts));
                         stats.max_rows_buffered =
                             cmp::max(result_buffer.len(), stats.max_rows_buffered);
                     }
@@ -832,10 +847,10 @@ impl<RT: Runtime> MySqlReader<RT> {
                 if batch_rows < batch_size {
                     // Yield any remaining values.
                     result_buffer.sort_by(|a, b| a.0.cmp(&b.0));
-                    for (key, ts, doc) in order.apply(result_buffer.drain(..)) {
+                    for (key, ts, doc, prev_ts) in order.apply(result_buffer.drain(..)) {
                         if interval.contains(&key) {
                             stats.rows_returned += 1;
-                            to_yield.push((key, ts, doc));
+                            to_yield.push((key, ts, doc, prev_ts));
                         } else {
                             stats.rows_skipped_out_of_range += 1;
                         }
@@ -1597,7 +1612,7 @@ static INDEX_QUERIES: LazyLock<HashMap<(BoundType, BoundType, Order), String>> =
             };
             let query = format!(
                 r#"
-SELECT I2.index_id, I2.key_prefix, I2.key_sha256, I2.key_suffix, I2.ts, I2.deleted, I2.document_id, D.table_id, D.json_value FROM
+SELECT I2.index_id, I2.key_prefix, I2.key_sha256, I2.key_suffix, I2.ts, I2.deleted, I2.document_id, D.table_id, D.json_value, D.prev_ts FROM
 (
     SELECT
         I1.index_id, I1.key_prefix, I1.key_sha256, I1.key_suffix, I1.ts,

@@ -41,6 +41,7 @@ use crate::{
         DocumentLogEntry,
         DocumentStream,
         IndexStream,
+        LatestDocument,
         Persistence,
         PersistenceGlobalKey,
         PersistenceReader,
@@ -354,11 +355,11 @@ impl PersistenceReader for TestPersistence {
             Order::Desc => {},
         };
 
-        let results: Vec<anyhow::Result<(IndexKeyBytes, Timestamp, ResolvedDocument)>> = results
+        let results: Vec<anyhow::Result<(IndexKeyBytes, LatestDocument)>> = results
             .into_iter()
             .map(|(k, ts, doc_id)| -> anyhow::Result<_> {
-                let doc = lock.lookup(doc_id.into(), ts)?;
-                Ok((k, ts, doc))
+                let (value, prev_ts) = lock.lookup(doc_id.into(), ts)?;
+                Ok((k, LatestDocument { ts, value, prev_ts }))
             })
             .collect();
 
@@ -391,13 +392,16 @@ impl Inner {
         &self,
         doc_id: InternalDocumentId,
         ts: Timestamp,
-    ) -> anyhow::Result<ResolvedDocument> {
-        self.log
+    ) -> anyhow::Result<(ResolvedDocument, Option<Timestamp>)> {
+        let (value, prev_ts) = self
+            .log
             .get(&(ts, doc_id))
             .cloned()
-            .ok_or_else(|| anyhow::anyhow!("Dangling index reference"))?
-            .0
-            .ok_or_else(|| anyhow::anyhow!("Index reference to deleted document"))
+            .ok_or_else(|| anyhow::anyhow!("Dangling index reference"))?;
+        Ok((
+            value.ok_or_else(|| anyhow::anyhow!("Index reference to deleted document"))?,
+            prev_ts,
+        ))
     }
 }
 

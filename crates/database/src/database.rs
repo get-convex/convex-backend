@@ -60,6 +60,7 @@ use common::{
         ConflictStrategy,
         DocumentLogEntry,
         DocumentStream,
+        LatestDocument,
         LatestDocumentStream,
         Persistence,
         PersistenceGlobalKey,
@@ -271,7 +272,7 @@ pub struct Database<RT: Runtime> {
         Mutex<
             Option<(
                 ListSnapshotTableIteratorCacheEntry,
-                BoxStream<'static, anyhow::Result<(ResolvedDocument, Timestamp)>>,
+                BoxStream<'static, anyhow::Result<LatestDocument>>,
             )>,
         >,
     >,
@@ -361,7 +362,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 Order::Asc,
                 usize::MAX,
             )
-            .map_ok(|(_, ts, doc)| (doc.id(), (ts, doc)))
+            .map_ok(|(_, rev)| (rev.value.id(), (rev.ts, rev.value)))
             .try_collect()
             .await
     }
@@ -495,11 +496,12 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
                 IndexedFields::creation_time(),
                 None,
             );
-            stream.map_ok(|(_, ts, document)| (ts, document)).boxed()
+            stream.map_ok(|(_, rev)| rev).boxed()
         } else {
             let table_by_id = self.index_registry().must_get_by_id(tablet_id)?.id();
-            let stream = table_iterator.stream_documents_in_table(tablet_id, table_by_id, None);
-            stream.map_ok(|(document, ts)| (ts, document)).boxed()
+            table_iterator
+                .stream_documents_in_table(tablet_id, table_by_id, None)
+                .boxed()
         };
         Ok(stream)
     }
@@ -989,8 +991,8 @@ impl<RT: Runtime> Database<RT> {
         let stream = table_iterator.stream_documents_in_table(tables_tablet_id, tables_by_id, None);
         pin_mut!(stream);
         let mut table_mapping = TableMapping::new();
-        while let Some((table_doc, _)) = stream.try_next().await? {
-            let table_doc: ParsedDocument<TableMetadata> = table_doc.try_into()?;
+        while let Some(table_doc) = stream.try_next().await? {
+            let table_doc: ParsedDocument<TableMetadata> = table_doc.value.try_into()?;
             if table_doc.is_active() {
                 table_mapping.insert(
                     TabletId(table_doc.id().internal_id()),
@@ -1028,8 +1030,8 @@ impl<RT: Runtime> Database<RT> {
         let stream = table_iterator.stream_documents_in_table(index_tablet_id, index_by_id, None);
         pin_mut!(stream);
         let mut by_id_indexes = BTreeMap::new();
-        while let Some((index_doc, _)) = stream.try_next().await? {
-            let index_doc = TabletIndexMetadata::from_document(index_doc)?;
+        while let Some(index_doc) = stream.try_next().await? {
+            let index_doc = TabletIndexMetadata::from_document(index_doc.value)?;
             if index_doc.name.is_by_id() {
                 by_id_indexes.insert(*index_doc.name.table(), index_doc.id().internal_id());
             }
@@ -1069,8 +1071,9 @@ impl<RT: Runtime> Database<RT> {
             table_iterator.stream_documents_in_table(component_tablet_id, component_by_id, None);
         pin_mut!(stream);
         let mut component_docs = Vec::new();
-        while let Some((component_doc, _)) = stream.try_next().await? {
-            let component_doc: ParsedDocument<ComponentMetadata> = component_doc.try_into()?;
+        while let Some(component_doc) = stream.try_next().await? {
+            let component_doc: ParsedDocument<ComponentMetadata> =
+                component_doc.value.try_into()?;
             component_docs.push(component_doc);
         }
         let component_registry =
@@ -1800,7 +1803,7 @@ impl<RT: Runtime> Database<RT> {
         // documents accumulated in (ts, id) order to return.
         let mut documents = vec![];
         let mut rows_read = 0;
-        while let Some((doc, ts)) = document_stream.try_next().await? {
+        while let Some(LatestDocument { ts, value: doc, .. }) = document_stream.try_next().await? {
             rows_read += 1;
             let id = doc.id();
             let table_name = table_mapping.tablet_name(id.tablet_id)?;

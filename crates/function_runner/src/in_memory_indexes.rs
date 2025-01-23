@@ -173,7 +173,7 @@ async fn load_index(
             Order::Asc,
             usize::MAX,
         )
-        .map_ok(|(key, ts, doc)| (key.0, (ts, PackedDocument::pack(doc))))
+        .map_ok(|(key, rev)| (key.0, (rev.ts, PackedDocument::pack(rev.value))))
         .try_collect()
         .await?;
     log_funrun_index_load_rows(index_map.len() as u64, &table_name, &instance_name);

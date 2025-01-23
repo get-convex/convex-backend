@@ -8,6 +8,7 @@ use common::{
     backoff::Backoff,
     bootstrap_model::schema::SchemaState,
     errors::report_error,
+    persistence::LatestDocument,
     runtime::Runtime,
     schemas::DatabaseSchema,
     types::{
@@ -171,7 +172,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
                 );
 
                 pin_mut!(stream);
-                while let Some((doc, _ts)) = stream.try_next().await? {
+                while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
                     let table_name = table_mapping.tablet_name(doc.id().tablet_id)?;
                     log_document_validated();
                     log_document_bytes(doc.size());

@@ -52,6 +52,7 @@ use crate::{
     persistence::{
         ConflictStrategy,
         DocumentLogEntry,
+        LatestDocument,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -876,7 +877,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
         .collect::<Vec<_>>()
         .await;
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].2, doc1);
+    assert_eq!(results[0].1.value, doc1);
 
     // Query index2 should give us the second document.
     let results = p
@@ -897,7 +898,7 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
         .collect::<Vec<_>>()
         .await;
     assert_eq!(results.len(), 1);
-    assert_eq!(results[0].2, doc2);
+    assert_eq!(results[0].1.value, doc2);
 
     Ok(())
 }
@@ -981,7 +982,17 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             assert_obj!("value" => expected_value),
         )?;
         let key = doc.index_key(&fields, p.reader().version()).into_bytes();
-        assert_eq!(results, vec![(key, ts, doc)]);
+        assert_eq!(
+            results,
+            vec![(
+                key,
+                LatestDocument {
+                    ts,
+                    value: doc,
+                    prev_ts: None
+                }
+            )]
+        );
     }
 
     Ok(())
@@ -1071,8 +1082,11 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                     .map(|k| {
                         (
                             k.clone().into_bytes(),
-                            ts,
-                            keys_to_doc.get(&k).unwrap().clone(),
+                            LatestDocument {
+                                ts,
+                                value: keys_to_doc.get(&k).unwrap().clone(),
+                                prev_ts: None,
+                            },
                         )
                     })
                     .collect();
@@ -1134,10 +1148,14 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
                     is_system_index: false,
                 },
             ));
-            index_to_results
-                .entry(index_id)
-                .or_default()
-                .push((key.into_bytes(), ts, doc));
+            index_to_results.entry(index_id).or_default().push((
+                key.into_bytes(),
+                LatestDocument {
+                    ts,
+                    value: doc,
+                    prev_ts: None,
+                },
+            ));
         }
     }
 
@@ -1334,7 +1352,7 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
             .try_collect::<Vec<_>>()
             .await?
             .into_iter()
-            .map(|(_, _, doc)| (doc))
+            .map(|(_, rev)| rev.value)
             .collect();
         assert_eq!(results, documents);
     }
@@ -1647,7 +1665,7 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
         .try_collect::<Vec<_>>()
         .await?
         .into_iter()
-        .map(|(_, ts, doc)| (doc.id(), i64::from(ts)))
+        .map(|(_, rev)| (rev.value.id(), i64::from(rev.ts)))
         .collect();
     assert_eq!(results, vec![(id3, 5), (id4, 6), (id5, 7), (id1, 3)]);
 

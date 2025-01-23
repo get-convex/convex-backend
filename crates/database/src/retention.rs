@@ -288,10 +288,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 usize::MAX,
             );
             let mut indexes = BTreeMap::new();
-            while let Some((_, _, index_doc)) = meta_index_scan.try_next().await? {
-                let table_id = index_doc.id().tablet_id;
+            while let Some((_, rev)) = meta_index_scan.try_next().await? {
+                let table_id = rev.value.id().tablet_id;
                 index_table_id = Some(table_id);
-                Self::accumulate_index_document(Some(index_doc), &mut indexes, table_id)?;
+                Self::accumulate_index_document(Some(rev.value), &mut indexes, table_id)?;
             }
             indexes
         };
@@ -1870,7 +1870,7 @@ mod tests {
             .try_collect::<Vec<_>>()
             .await?
             .into_iter()
-            .map(|(_, ts, doc)| (doc.id(), i64::from(ts)))
+            .map(|(_, rev)| (rev.value.id(), i64::from(rev.ts)))
             .collect();
         assert_eq!(results, vec![(id3, 5), (id4, 6), (id5, 7), (id1, 3)]);
 

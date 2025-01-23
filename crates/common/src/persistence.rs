@@ -63,10 +63,17 @@ pub type DocumentStream<'a> = BoxStream<'a, anyhow::Result<DocumentLogEntry>>;
 pub type DocumentRevisionStream<'a> = BoxStream<'a, anyhow::Result<RevisionPair>>;
 
 /// No tombstones included
-pub type LatestDocumentStream<'a> = BoxStream<'a, anyhow::Result<(Timestamp, ResolvedDocument)>>;
+pub type LatestDocumentStream<'a> = BoxStream<'a, anyhow::Result<LatestDocument>>;
 
-pub type IndexStream<'a> =
-    BoxStream<'a, anyhow::Result<(IndexKeyBytes, Timestamp, ResolvedDocument)>>;
+pub type IndexStream<'a> = BoxStream<'a, anyhow::Result<(IndexKeyBytes, LatestDocument)>>;
+
+/// A `DocumentLogEntry` that is not a tombstone.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LatestDocument {
+    pub ts: Timestamp,
+    pub value: ResolvedDocument,
+    pub prev_ts: Option<Timestamp>,
+}
 
 /// Indicates how write conflicts should be handled.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -383,7 +390,7 @@ pub trait PersistenceReader: Send + Sync + 'static {
         read_timestamp: Timestamp,
         key: IndexKey,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<Option<(Timestamp, ResolvedDocument)>> {
+    ) -> anyhow::Result<Option<LatestDocument>> {
         let mut stream = self.index_scan(
             index_id,
             tablet_id,
@@ -394,13 +401,13 @@ pub trait PersistenceReader: Send + Sync + 'static {
             retention_validator,
         );
         match stream.try_next().await? {
-            Some((key, ts, doc)) => {
+            Some((key, rev)) => {
                 anyhow::ensure!(
                     stream.try_next().await?.is_none(),
                     "Got multiple values for key {:?}",
                     key
                 );
-                Ok(Some((ts, doc)))
+                Ok(Some(rev))
             },
             None => Ok(None),
         }
@@ -649,7 +656,7 @@ impl PersistenceSnapshot {
         index_id: IndexId,
         tablet_id: TabletId,
         key: IndexKey,
-    ) -> anyhow::Result<Option<(Timestamp, ResolvedDocument)>> {
+    ) -> anyhow::Result<Option<LatestDocument>> {
         let result = self
             .reader
             .index_get(
