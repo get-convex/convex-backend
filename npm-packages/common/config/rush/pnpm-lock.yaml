@@ -1991,8 +1991,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-helpers:
-        specifier: 0.1.50
-        version: 0.1.50(convex@..+convex)(react@18.3.1)(zod@3.24.1)
+        specifier: 0.1.67
+        version: 0.1.67(convex@..+convex)(react@18.3.1)(zod@3.24.1)
       prettier:
         specifier: 3.4.2
         version: 3.4.2
@@ -2507,8 +2507,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-helpers:
-        specifier: 0.1.50
-        version: 0.1.50(convex@..+convex)(react@18.3.1)(zod@3.24.1)
+        specifier: 0.1.67
+        version: 0.1.67(convex@..+convex)(react@18.3.1)(zod@3.24.1)
       prettier:
         specifier: 3.4.2
         version: 3.4.2
@@ -3050,8 +3050,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       convex-helpers:
-        specifier: 0.1.50
-        version: 0.1.50(convex@..+convex)(react@18.3.1)(zod@3.24.1)
+        specifier: 0.1.67
+        version: 0.1.67(convex@..+convex)(react@19.0.0)(zod@3.24.1)
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -11620,12 +11620,13 @@ packages:
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
-  convex-helpers@0.1.50:
-    resolution: {integrity: sha512-Fr5AExZwBEIlMmSa/fiJjxrGP6TwjnEvU+uGUo7ZLRLrWmvs0fjFAUoOxEO9shKDf1Wwl2hMl7M06Bqcb90+1w==}
+  convex-helpers@0.1.67:
+    resolution: {integrity: sha512-nnb0W2FYKbqJt00UH6raZ/J0A1+CbcFdqmFJTDvvSR1P4RhwBj1TBzS3/B1G1nMYebX3gguSwOWfO0s2rcB/wg==}
+    hasBin: true
     peerDependencies:
       convex: ^1.13.0
       hono: ^4.0.5
-      react: ^17.0.2 || ^18.0.0
+      react: ^17.0.2 || ^18.0.0 || ^19.0.0
       zod: ^3.22.4
     peerDependenciesMeta:
       hono:
@@ -32146,11 +32147,18 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.50(convex@..+convex)(react@18.3.1)(zod@3.24.1):
+  convex-helpers@0.1.67(convex@..+convex)(react@18.3.1)(zod@3.24.1):
     dependencies:
       convex: link:../../convex
     optionalDependencies:
       react: 18.3.1
+      zod: 3.24.1
+
+  convex-helpers@0.1.67(convex@..+convex)(react@19.0.0)(zod@3.24.1):
+    dependencies:
+      convex: link:../../convex
+    optionalDependencies:
+      react: 19.0.0
       zod: 3.24.1
 
   convex@1.16.0-alpha.2(@auth0/auth0-react@2.2.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.21.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
