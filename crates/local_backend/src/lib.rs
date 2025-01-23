@@ -34,6 +34,7 @@ use common::{
     },
     log_streaming::NoopLogSender,
     persistence::Persistence,
+    runtime::Runtime,
     shutdown::ShutdownSignal,
     types::{
         ConvexOrigin,
@@ -72,6 +73,7 @@ pub mod admin;
 mod app_metrics;
 mod args_structs;
 pub mod authentication;
+pub mod beacon;
 pub mod config;
 pub mod custom_headers;
 pub mod dashboard;
@@ -255,6 +257,15 @@ pub async fn make_app(
 
     let origin = config.convex_origin_url();
     let instance_name = config.name().clone();
+
+    // Start the beacon coroutine to help Convex improve the self-hosted product.
+    // This sends anonymous usage metrics like database version to help us
+    // understand how self-hosted instances are being used. You can opt in by
+    // setting CONVEX_ENABLE_BEACON=1
+    if std::env::var("CONVEX_ENABLE_BEACON").is_ok_and(|v| v == "1") {
+        let beacon_future = beacon::start_beacon(runtime.clone(), database.clone());
+        runtime.spawn("beacon_worker", beacon_future);
+    }
 
     let app_state = LocalAppState {
         origin,
