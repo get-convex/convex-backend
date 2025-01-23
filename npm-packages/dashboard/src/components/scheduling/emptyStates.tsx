@@ -1,6 +1,9 @@
 import { StopwatchIcon } from "@radix-ui/react-icons";
-import { EmptySection } from "elements/EmptySection";
-import { useCurrentOpenFunction, displayName } from "dashboard-common";
+import {
+  EmptySection,
+  useCurrentOpenFunction,
+  displayName,
+} from "dashboard-common";
 
 export function NoScheduledJobs() {
   return (

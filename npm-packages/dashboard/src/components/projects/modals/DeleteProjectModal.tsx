@@ -3,8 +3,9 @@ import {
   Callout,
   WaitForDeploymentApi,
   LoadingTransition,
+  ConfirmationDialog,
+  Checkbox,
 } from "dashboard-common";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useDeleteProject } from "api/projects";
@@ -14,7 +15,6 @@ import { ProjectDetails, Team } from "generatedApi";
 import udfs from "udfs";
 import { useUsageTeamDailyCallsByTag } from "hooks/usageMetrics";
 import { isoDateString } from "elements/UsagePeriodSelector";
-import { Checkbox } from "elements/Checkbox";
 import { useState } from "react";
 import {
   DeploymentInfoProvider,

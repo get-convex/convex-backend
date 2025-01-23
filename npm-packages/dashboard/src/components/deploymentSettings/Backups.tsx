@@ -7,10 +7,10 @@ import {
   Sheet,
   Callout,
   LocalDevCallout,
+  Checkbox,
+  TextInput,
 } from "dashboard-common";
-import { Checkbox } from "elements/Checkbox";
 import { Popover } from "elements/Popover";
-import { TextInput } from "elements/TextInput";
 import {
   useDisablePeriodicBackup,
   useGetPeriodicBackupConfig,

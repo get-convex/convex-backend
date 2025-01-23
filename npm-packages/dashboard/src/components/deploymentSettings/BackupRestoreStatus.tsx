@@ -3,8 +3,8 @@ import {
   TimestampDistance,
   formatNumberCompact,
   Callout,
+  Modal,
 } from "dashboard-common";
-import { Modal } from "elements/Modal";
 import { useQuery } from "convex/react";
 import { useConfirmImport } from "hooks/deploymentApi";
 import { useEffect, useState } from "react";

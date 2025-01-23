@@ -10,7 +10,7 @@ export default function Page() {
           <div className="flex min-h-0 grow">{children}</div>
         )}
         PageWrapper={({ children }) => (
-          <div className="shrink-0 grow overflow-y-auto px-6 scrollbar">
+          <div className="max-w-full shrink-0 grow overflow-y-auto px-6 scrollbar">
             {children}
           </div>
         )}

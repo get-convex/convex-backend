@@ -1,6 +1,6 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import { functionIdentifierValue, UdfLog } from "dashboard-common";
+import { UdfLog, functionIdentifierValue } from "dashboard-common";
 import { LogListItem } from "./LogListItem";
 
 describe("LogListItem render benchmark", () => {

@@ -14,9 +14,9 @@ import {
   Combobox,
   Button,
   integrationUsingLegacyFormat,
+  TextInput,
 } from "dashboard-common";
 import { useState } from "react";
-import { TextInput } from "elements/TextInput";
 import { useCreateAxiomSink } from "../../hooks/deploymentApi";
 
 const axiomValidationSchema = Yup.object().shape({

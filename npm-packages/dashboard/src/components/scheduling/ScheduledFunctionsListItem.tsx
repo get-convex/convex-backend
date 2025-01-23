@@ -10,16 +10,17 @@ import {
   functionIdentifierValue,
   prettier,
   useCopy,
+  ConfirmationDialog,
+  Menu,
+  MenuItem,
+  DetailPanel,
 } from "dashboard-common";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
-import { DetailPanel } from "elements/DetailPanel";
 import { JSONValue, jsonToConvex } from "convex/values";
 import { useCurrentDeployment } from "api/deployments";
 import { useCancelJob } from "hooks/deploymentApi";
 import Link from "next/link";
 import { memo, useState } from "react";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
-import { Menu, MenuItem } from "elements/Menu";
 import { areEqual } from "react-window";
 
 type JobItemProps = {

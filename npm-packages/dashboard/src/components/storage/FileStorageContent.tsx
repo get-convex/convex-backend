@@ -19,14 +19,14 @@ import {
   formatBytes,
   useCopy,
   Sheet,
+  ConfirmationDialog,
+  EmptySection,
+  Checkbox,
 } from "dashboard-common";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
-import { EmptySection } from "elements/EmptySection";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import Link from "next/link";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import udfs from "udfs";
-import { Checkbox } from "elements/Checkbox";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { FileMetadata } from "system-udfs/convex/_system/frontend/fileStorageV2";
 import Image from "next/image";

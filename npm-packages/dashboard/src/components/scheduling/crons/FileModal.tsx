@@ -1,6 +1,5 @@
-import { ReadonlyCode } from "dashboard-common";
+import { ReadonlyCode, Modal } from "dashboard-common";
 import Link from "next/link";
-import { Modal } from "elements/Modal";
 import { SourceMissingPanel } from "elements/SourceMissingPanel";
 
 type Props = {

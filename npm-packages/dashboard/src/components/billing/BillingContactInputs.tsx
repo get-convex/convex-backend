@@ -1,4 +1,4 @@
-import { TextInput } from "elements/TextInput";
+import { TextInput } from "dashboard-common";
 import { useFormik } from "formik";
 import { BillingContactResponse, CreateSubscriptionArgs } from "generatedApi";
 

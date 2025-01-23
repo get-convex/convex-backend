@@ -1,5 +1,4 @@
-import { InfiniteScrollList } from "elements/InfiniteScrollList";
-import { ModuleFunction } from "dashboard-common";
+import { InfiniteScrollList, ModuleFunction } from "dashboard-common";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import { NoScheduledJobs, NoScheduledJobsForFunction } from "./emptyStates";
 import {

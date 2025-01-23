@@ -12,8 +12,8 @@ import {
   useLogs,
   NENT_APP_PLACEHOLDER,
   useDeploymentAuditLogs,
+  TextInput,
 } from "dashboard-common";
-import { TextInput } from "elements/TextInput";
 import { useDebounce, usePrevious } from "react-use";
 import isEqual from "lodash/isEqual";
 import { LogList } from "./LogList";

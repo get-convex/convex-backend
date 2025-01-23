@@ -1,12 +1,16 @@
 import React, { ReactNode, useRef } from "react";
-import { PageContent, Button, Tooltip } from "dashboard-common";
+import {
+  PageContent,
+  Button,
+  Tooltip,
+  useIsOverflowing,
+} from "dashboard-common";
 import {
   SettingsSidebar,
   SettingsPageKind,
 } from "components/deploymentSettings/SettingsSidebar";
 import { HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { useCurrentDeployment } from "api/deployments";
-import { useIsOverflowing } from "hooks/useIsOverflowing";
 import { Popover } from "elements/Popover";
 import { useMeasure } from "react-use";
 

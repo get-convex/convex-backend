@@ -5,8 +5,7 @@ import { endOfToday, parse, startOfDay, format } from "date-fns";
 import { useRouter } from "next/router";
 import * as React from "react";
 import { DateRange } from "react-day-picker";
-import { Button } from "dashboard-common";
-import { Calendar } from "./Calendar";
+import { Button, Calendar } from "dashboard-common";
 import { Popover } from "./Popover";
 
 export function DateRangePicker({

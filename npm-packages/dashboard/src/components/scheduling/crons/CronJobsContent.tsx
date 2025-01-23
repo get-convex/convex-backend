@@ -21,8 +21,8 @@ import {
   useFunctionUrl,
   PageContent,
   Sheet,
+  EmptySection,
 } from "dashboard-common";
-import { EmptySection } from "elements/EmptySection";
 import { useCronJobs } from "data/Functions/CronsProvider";
 import Link from "next/link";
 import { useRouter } from "next/router";

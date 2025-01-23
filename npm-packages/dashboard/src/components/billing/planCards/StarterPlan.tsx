@@ -1,9 +1,13 @@
-import { Button, Tooltip, formatDate } from "dashboard-common";
+import {
+  Button,
+  Tooltip,
+  formatDate,
+  ConfirmationDialog,
+  Checkbox,
+} from "dashboard-common";
 import { useState } from "react";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import Link from "next/link";
 import { useCancelSubscription } from "api/billing";
-import { Checkbox } from "elements/Checkbox";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
 import { PlanCard } from "./PlanCard";

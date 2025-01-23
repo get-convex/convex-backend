@@ -1,4 +1,4 @@
-import "../src/styles/globals.css";
+import "../../dashboard-common/src/styles/globals.css";
 import { Preview } from "@storybook/react";
 import themeDecorator from "./themeDecorator";
 

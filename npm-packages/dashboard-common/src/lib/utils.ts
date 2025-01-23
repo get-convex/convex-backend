@@ -4,6 +4,7 @@ import { toast as sonnerToast } from "sonner";
 import * as IdEncoding from "id-encoding";
 import { NextRouter } from "next/router";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { captureMessage } from "@sentry/nextjs";
 
 export async function copyTextToClipboard(text: string) {
   if ("clipboard" in navigator) {
@@ -100,3 +101,13 @@ export function documentHref(
     },
   };
 }
+
+export const reportHttpError = (
+  method: string,
+  url: string,
+  error: { code: string; message: string },
+) => {
+  captureMessage(
+    `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+  );
+};

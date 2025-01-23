@@ -9,6 +9,10 @@ const customJestConfig = {
   testEnvironment: "jest-environment-jsdom",
   setupFilesAfterEnv: ["<rootDir>/setupTests.ts"],
   testPathIgnorePatterns: ["e2e"],
+  moduleNameMapper: {
+    "react-dnd": "<rootDir>/__mocks__/fileMock.js",
+    "react-dnd-scrolling": "<rootDir>/__mocks__/fileMock.js",
+  },
 };
 
 const config = createJestConfig(customJestConfig);

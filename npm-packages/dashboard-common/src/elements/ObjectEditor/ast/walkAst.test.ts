@@ -1,7 +1,7 @@
 import { ValidatorJSON, Value } from "convex/values";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import * as Base64 from "base64-js";
-import { stringifyValue } from "dashboard-common";
+import { stringifyValue } from "../../../lib/stringifyValue";
 import { walkAst } from "./walkAst";
 import { SchemaValidationErrorCode } from "./types";
 import { validateConvexFieldName } from "./ast";

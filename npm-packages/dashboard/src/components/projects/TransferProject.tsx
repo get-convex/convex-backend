@@ -8,8 +8,14 @@ import {
   useTeamMembers,
   useTeamEntitlements,
 } from "api/teams";
-import { Sheet, Combobox, Button, Spinner, Callout } from "dashboard-common";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
+import {
+  Sheet,
+  Combobox,
+  Button,
+  Spinner,
+  Callout,
+  ConfirmationDialog,
+} from "dashboard-common";
 import { useRouter } from "next/router";
 import { useState } from "react";
 

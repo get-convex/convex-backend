@@ -14,7 +14,7 @@ import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patch
 import { captureMessage } from "@sentry/nextjs";
 import { useMount } from "react-use";
 import { useRouter } from "next/router";
-import { stringifyValue } from "dashboard-common";
+import { stringifyValue } from "../../lib/stringifyValue";
 import { cn } from "../../lib/cn";
 import {
   ConvexSchemaValidationError,

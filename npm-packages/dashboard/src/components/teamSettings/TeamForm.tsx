@@ -1,6 +1,5 @@
 import { CopyIcon } from "@radix-ui/react-icons";
-import { Button, Tooltip, Sheet, useCopy } from "dashboard-common";
-import { TextInput } from "elements/TextInput";
+import { Button, Tooltip, Sheet, useCopy, TextInput } from "dashboard-common";
 import { useFormik } from "formik";
 import { Team } from "generatedApi";
 import * as Yup from "yup";

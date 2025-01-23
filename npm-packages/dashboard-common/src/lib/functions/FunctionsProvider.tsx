@@ -1,6 +1,5 @@
 import { ReactNode, useMemo } from "react";
 import { useRouter } from "next/router";
-import { LoadingLogo } from "dashboard-common";
 import { cn } from "lib/cn";
 import { captureMessage } from "@sentry/nextjs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
@@ -15,6 +14,7 @@ import { ModuleFunction } from "./types";
 import { useListModulesAllNents } from "./useListModules";
 import { createContextHook } from "../createContextHook";
 import { ComponentId, Nent, useNents } from "../useNents";
+import { LoadingLogo } from "../../elements/Loading";
 
 const [FunctionsContext, useFunctions] = createContextHook<
   Map<ComponentId, Map<string, Module>>

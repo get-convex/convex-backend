@@ -1,6 +1,6 @@
 import { PlayIcon } from "@radix-ui/react-icons";
-import { ProductionEditsConfirmationDialog } from "elements/ProductionEditsConfirmationDialog";
 import {
+  ProductionEditsConfirmationDialog,
   Button,
   Loading,
   ModuleFunction,

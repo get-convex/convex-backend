@@ -7,8 +7,8 @@ import { datadogConfig } from "system-udfs/convex/schema";
 import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { useCurrentProject } from "api/projects";
 import { useState } from "react";
-import { TextInput } from "elements/TextInput";
 import {
+  TextInput,
   Button,
   Combobox,
   Option,

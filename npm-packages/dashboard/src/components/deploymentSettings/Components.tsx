@@ -1,8 +1,7 @@
 import React, { useState } from "react";
-import { Sheet, Nent, Button } from "dashboard-common";
+import { Sheet, Nent, Button, ConfirmationDialog } from "dashboard-common";
 import Link from "next/link";
 import { useDeleteComponent } from "hooks/deploymentApi";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import { TrashIcon } from "@radix-ui/react-icons";
 
 export function Components({ nents }: { nents: Nent[] }) {

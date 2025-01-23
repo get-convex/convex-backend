@@ -16,10 +16,7 @@
     "jsx": "preserve",
     "incremental": true,
     "baseUrl": "src",
-    "customConditions": ["convex-internal-types"],
-    "paths": {
-      "@dashboard-common": ["../dashboard-common/src/*"]
-    }
+    "customConditions": ["convex-internal-types"]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useRef } from "react";
 import { CommandLineIcon, SignalIcon } from "@heroicons/react/20/solid";
-import { PROVISION_PROD_PAGE_NAME, Tooltip } from "dashboard-common";
+import {
+  PROVISION_PROD_PAGE_NAME,
+  Tooltip,
+  useIsOverflowing,
+} from "dashboard-common";
 import { SelectorItem } from "elements/SelectorItem";
 import {
   ChevronDownIcon,
@@ -14,7 +18,6 @@ import {
   GlobeIcon,
   Pencil2Icon,
 } from "@radix-ui/react-icons";
-import { useIsOverflowing } from "hooks/useIsOverflowing";
 import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
 import { Disclosure } from "@headlessui/react";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";

@@ -4,6 +4,7 @@ import {
   copyTextToClipboard,
   toast,
   Callout,
+  TextInput,
 } from "dashboard-common";
 import { Form, Formik, getIn, useFormikContext } from "formik";
 
@@ -17,7 +18,6 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 
-import { TextInput } from "elements/TextInput";
 import classNames from "classnames";
 import {
   ClipboardEventHandler,

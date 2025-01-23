@@ -9,9 +9,9 @@ import {
   LOG_STREAMS_DESCRIPTION,
   LogIntegration,
   STREAMING_EXPORT_DESCRIPTION,
+  Modal,
 } from "dashboard-common";
 import { useState, ReactNode, useCallback } from "react";
-import { Modal } from "elements/Modal";
 import { IntegrationTitle } from "./IntegrationTitle";
 import { IntegrationOverflowMenu } from "./IntegrationOverflowMenu";
 import { IntegrationStatus } from "./IntegrationStatus";

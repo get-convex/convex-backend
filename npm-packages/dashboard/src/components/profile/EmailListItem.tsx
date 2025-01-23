@@ -1,6 +1,5 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
-import { Menu, MenuItem } from "elements/Menu";
+import { ConfirmationDialog, Menu, MenuItem } from "dashboard-common";
 import {
   useDeleteProfileEmail,
   useResendProfileEmailVerification,

@@ -1,9 +1,9 @@
-import { DetailPanel } from "elements/DetailPanel";
 import { useState } from "react";
 import {
   Button,
   formatDateTime,
   DeploymentAuditLogEvent,
+  DetailPanel,
 } from "dashboard-common";
 import classNames from "classnames";
 import { GearIcon } from "@radix-ui/react-icons";

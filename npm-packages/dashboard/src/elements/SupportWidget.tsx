@@ -12,8 +12,8 @@ import {
   Spinner,
   toast,
   Sheet,
+  TextInput,
 } from "dashboard-common";
-import { TextInput } from "elements/TextInput";
 import { useFormik } from "formik";
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";

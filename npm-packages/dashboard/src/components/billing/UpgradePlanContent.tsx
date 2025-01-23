@@ -1,5 +1,4 @@
-import { Button, Tooltip, Spinner } from "dashboard-common";
-import { TextInput } from "elements/TextInput";
+import { Button, Tooltip, Spinner, TextInput } from "dashboard-common";
 import React, { useCallback, useEffect, useState } from "react";
 import { useDebounce } from "react-use";
 import { Elements } from "@stripe/react-stripe-js";

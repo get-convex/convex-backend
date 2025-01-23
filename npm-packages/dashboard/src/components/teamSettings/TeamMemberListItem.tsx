@@ -8,9 +8,15 @@ import type {
 } from "generatedApi";
 import { useRouter } from "next/router";
 import { useRef, useState } from "react";
-import { Button, Tooltip, Combobox, Option, Spinner } from "dashboard-common";
+import {
+  Button,
+  Tooltip,
+  Combobox,
+  Option,
+  Spinner,
+  ConfirmationDialog,
+} from "dashboard-common";
 import { CaretSortIcon } from "@radix-ui/react-icons";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import { useMount } from "react-use";
 import classNames from "classnames";
 import startCase from "lodash/startCase";

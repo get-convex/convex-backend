@@ -1,12 +1,15 @@
 import React from "react";
-import { SidebarDetailLayout } from "layouts/SidebarDetailLayout";
 import { DirectorySidebar } from "components/functions/DirectorySidebar";
 import { PerformanceGraphs } from "components/functions/PerformanceGraphs";
-import { useCurrentOpenFunction, useModuleFunctions } from "dashboard-common";
+import {
+  useCurrentOpenFunction,
+  useModuleFunctions,
+  EmptySection,
+  SidebarDetailLayout,
+} from "dashboard-common";
 import { FileEditor } from "components/functions/FileEditor";
 import { FunctionSummary } from "components/functions/FunctionSummary";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { EmptySection } from "elements/EmptySection";
 import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
 import { CodeIcon } from "@radix-ui/react-icons";
 import { useCurrentDeployment } from "api/deployments";

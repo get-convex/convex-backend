@@ -1,7 +1,7 @@
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useHasProjectAdminPermissions } from "api/roles";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import {
+  ConfirmationDialog,
   Button,
   Combobox,
   FunctionNameOption,

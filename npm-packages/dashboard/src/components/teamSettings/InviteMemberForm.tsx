@@ -1,5 +1,11 @@
-import { Button, Tooltip, Combobox, toast, Sheet } from "dashboard-common";
-import { TextInput } from "elements/TextInput";
+import {
+  Button,
+  Tooltip,
+  Combobox,
+  toast,
+  Sheet,
+  TextInput,
+} from "dashboard-common";
 import { useFormik } from "formik";
 import { useCreateInvite } from "api/invitations";
 import { Team, CreateInvitationArgs, TeamMemberResponse } from "generatedApi";

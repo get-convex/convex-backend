@@ -12,9 +12,9 @@ import {
   Callout,
   LocalDevCallout,
   Sheet,
+  ConfirmationDialog,
+  TextInput,
 } from "dashboard-common";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
-import { TextInput } from "elements/TextInput";
 import { useFormik } from "formik";
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";

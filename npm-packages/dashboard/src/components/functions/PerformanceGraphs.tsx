@@ -1,16 +1,14 @@
-import { calcBuckets } from "data/Charts/buckets";
-import { format } from "date-fns";
 import {
+  calcBuckets,
   useDeploymentAuthHeader,
   useDeploymentUrl,
   useCurrentOpenFunction,
-} from "dashboard-common";
-import {
   cacheHitPercentage,
   latencyPercentiles,
   UdfMetric,
   udfRate,
-} from "lib/app_metrics";
+} from "dashboard-common";
+import { format } from "date-fns";
 import { SingleGraph } from "./SingleGraph";
 
 export function PerformanceGraphs() {

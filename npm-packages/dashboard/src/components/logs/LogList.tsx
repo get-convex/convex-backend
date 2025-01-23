@@ -14,6 +14,8 @@ import {
   UdfLog,
   Sheet,
   DeploymentAuditLogEvent,
+  InfiniteScrollList,
+  TextInput,
 } from "dashboard-common";
 import {
   Fragment,
@@ -23,14 +25,12 @@ import {
   useRef,
   useState,
 } from "react";
-import { InfiniteScrollList } from "elements/InfiniteScrollList";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
 import { useDebounce, useMeasure, usePrevious } from "react-use";
 import { Transition, Dialog } from "@headlessui/react";
 import isEqual from "lodash/isEqual";
 import { CopyTextButton } from "elements/CopyTextButton";
 import difference from "lodash/difference";
-import { TextInput } from "elements/TextInput";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
 import { DeploymentEventListItem } from "./DeploymentEventListItem";
 import { ITEM_SIZE, LogListItem } from "./LogListItem";

@@ -8,6 +8,8 @@ import {
   Button,
   Tooltip,
   Spinner,
+  TextInput,
+  ConfirmationDialog,
 } from "dashboard-common";
 import classNames from "classnames";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
@@ -19,10 +21,8 @@ import {
   useProfileEmails,
   useUpdateProfileName,
 } from "api/profile";
-import { TextInput } from "elements/TextInput";
 import { useState } from "react";
 import { UserProfile } from "@auth0/nextjs-auth0/client";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import { Emails } from "components/profile/Emails";
 import { DiscordAccounts } from "components/profile/DiscordAccounts";
 import { MemberResponse } from "generatedApi";

@@ -1,6 +1,5 @@
-import { Button, Tooltip, Sheet, useCopy } from "dashboard-common";
+import { Button, Tooltip, Sheet, useCopy, TextInput } from "dashboard-common";
 import { CopyIcon } from "@radix-ui/react-icons";
-import { TextInput } from "elements/TextInput";
 import { useFormik } from "formik";
 import { useUpdateProject } from "api/projects";
 import { ProjectDetails, Team } from "generatedApi";

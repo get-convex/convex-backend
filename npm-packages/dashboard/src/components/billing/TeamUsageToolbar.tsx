@@ -1,6 +1,10 @@
 import { Period, UsagePeriodSelector } from "elements/UsagePeriodSelector";
-import { Combobox, PuzzlePieceIcon, Tooltip } from "dashboard-common";
-import { TextInput } from "elements/TextInput";
+import {
+  Combobox,
+  PuzzlePieceIcon,
+  Tooltip,
+  TextInput,
+} from "dashboard-common";
 import { useRouter } from "next/router";
 import { ProjectDetails } from "generatedApi";
 

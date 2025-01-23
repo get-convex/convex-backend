@@ -37,6 +37,7 @@ export type DeploymentInfo = (
   useCurrentUsageBanner(teamId: number | null): string | null;
   useCurrentDeployment():
     | {
+        id: number;
         name: string;
         projectId: number;
         deploymentType: "prod" | "dev" | "preview";

@@ -15,18 +15,19 @@ import {
   TimestampDistance,
   toast,
   Callout,
+  Modal,
+  Checkbox,
+  Menu,
+  MenuItem,
 } from "dashboard-common";
 import { useEffect, useId, useRef, useState } from "react";
 import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
-import { Modal } from "elements/Modal";
 import { useDeploymentById } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
 import { ServerIcon } from "@heroicons/react/24/outline";
-import { Checkbox } from "elements/Checkbox";
 import { DeploymentLabel } from "elements/DeploymentDisplay";
-import { Menu, MenuItem } from "elements/Menu";
 import {
   useRequestCloudBackup,
   useRestoreFromCloudBackup,

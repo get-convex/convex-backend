@@ -1,11 +1,16 @@
-import { Button, Spinner, toast, Callout } from "dashboard-common";
+import {
+  Button,
+  Spinner,
+  toast,
+  Callout,
+  Modal,
+  TextInput,
+} from "dashboard-common";
 import { useState } from "react";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import { CopyTextButton } from "elements/CopyTextButton";
-import { Modal } from "elements/Modal";
 import startCase from "lodash/startCase";
-import { TextInput } from "elements/TextInput";
 
 export type DeployKeyGenerationDisabledReason =
   | "CannotManageProd"

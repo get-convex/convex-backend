@@ -5,11 +5,12 @@ import {
   ExceptionReportingIntegration,
   integrationName,
   LogIntegration,
+  Menu,
+  MenuItem,
+  ConfirmationDialog,
 } from "dashboard-common";
-import { Menu, MenuItem } from "elements/Menu";
 import { useDeleteSink } from "hooks/deploymentApi";
 import { useState } from "react";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 
 export function IntegrationOverflowMenu({
   integration,

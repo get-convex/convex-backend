@@ -1,6 +1,4 @@
-import { Button, Spinner } from "dashboard-common";
-import { Checkbox } from "elements/Checkbox";
-import { Modal } from "elements/Modal";
+import { Button, Spinner, Checkbox, Modal } from "dashboard-common";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { ProjectMemberRoleResponse, TeamMemberResponse } from "generatedApi";
 import difference from "lodash/difference";

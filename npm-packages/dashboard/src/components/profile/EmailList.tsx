@@ -1,6 +1,5 @@
 import { PlusIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common";
-import { Modal } from "elements/Modal";
+import { Button, Modal } from "dashboard-common";
 import { useState } from "react";
 import { MemberEmailResponse } from "generatedApi";
 import { EmailCreateForm } from "./EmailCreateForm";

@@ -1,4 +1,3 @@
-import { DetailPanel } from "elements/DetailPanel";
 import {
   ReadonlyCode,
   LiveTimestampDistance,
@@ -9,6 +8,7 @@ import {
   prettier,
   stringifyValue,
   Sheet,
+  DetailPanel,
 } from "dashboard-common";
 import { jsonToConvex, JSONValue } from "convex/values";
 import Link from "next/link";

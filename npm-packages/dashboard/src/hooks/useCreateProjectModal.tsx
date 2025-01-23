@@ -1,10 +1,8 @@
-import { Modal } from "elements/Modal";
+import { Modal, TextInput, Button, Loading, Spinner } from "dashboard-common";
 import { ReactElement, useState } from "react";
 import { useRouter } from "next/router";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { TextInput } from "elements/TextInput";
-import { Button, Loading, Spinner } from "dashboard-common";
 import { Team } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCreateProject } from "api/projects";

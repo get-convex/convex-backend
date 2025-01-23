@@ -20,6 +20,15 @@ jest.mock("api/projects", () => ({
 }));
 jest.mock("api/teams", () => ({ useCurrentTeam: jest.fn() }));
 jest.mock("api/deployments", () => ({ useCurrentDeployment: jest.fn() }));
+jest.mock("dashboard-common", () => ({
+  ...jest.requireActual("dashboard-common"),
+  useNents: () => ({
+    nents: [],
+    selectedNent: null,
+    setSelectedNent: jest.fn(),
+  }),
+  NentSwitcher: jest.fn(),
+}));
 
 const mockRouter = jest
   .fn()

@@ -41,7 +41,7 @@ export default function App({ Component, pageProps }: AppProps) {
   );
 }
 
-const deploymentInfo: DeploymentInfo = {
+export const deploymentInfo: DeploymentInfo = {
   ok: true,
   deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
   adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
@@ -53,6 +53,7 @@ const deploymentInfo: DeploymentInfo = {
   useTeamMembers: () => [],
   useCurrentUsageBanner: () => null,
   useCurrentDeployment: () => ({
+    id: 1,
     name: "local",
     deploymentType: "prod",
     projectId: 1,

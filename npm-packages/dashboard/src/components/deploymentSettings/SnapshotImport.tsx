@@ -12,6 +12,7 @@ import {
   Button,
   PuzzlePieceIcon,
   Sheet,
+  ConfirmationDialog,
 } from "dashboard-common";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
@@ -24,7 +25,6 @@ import { snapshotImportFormat } from "system-udfs/convex/tableDefs/snapshotImpor
 import { Infer } from "convex/values";
 import { useCancelImport, useConfirmImport } from "hooks/deploymentApi";
 import { Disclosure } from "@headlessui/react";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
 import { useState } from "react";
 
 function ConfirmImportButton({
