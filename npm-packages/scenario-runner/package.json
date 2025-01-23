@@ -12,7 +12,7 @@
     "@sentry/node": "^7.23.0",
     "@sentry/tracing": "^7.23.0",
     "random-words": "1.2.1",
-    "langchain": "^0.0.182-rc.0",
+    "langchain": "^0.2.19",
     "tiktoken": "^1.0.10",
     "prettier": "3.4.2"
   },

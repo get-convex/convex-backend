@@ -1,4 +1,4 @@
-import { OpenAI } from "langchain/llms/openai";
+import { OpenAI } from "@langchain/openai";
 import { action } from "./_generated/server";
 
 export default action(async (_, { prompt }: { prompt: string }) => {
