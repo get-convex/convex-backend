@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use metrics::{
     log_counter,
     log_counter_with_labels,
@@ -186,4 +188,17 @@ pub fn log_query_bandwidth_bytes(is_paginated: bool, bytes: u64) {
             },
         )],
     );
+}
+
+register_convex_counter!(
+    QUERY_CACHE_EVICTED_TOTAL,
+    "The total number of records evicted",
+);
+register_convex_gauge!(
+    QUERY_CACHE_EVICTED_AGE_SECONDS,
+    "The age of the last evicted entry",
+);
+pub fn query_cache_log_eviction(age: Duration) {
+    log_counter(&QUERY_CACHE_EVICTED_TOTAL, 1);
+    log_gauge(&QUERY_CACHE_EVICTED_AGE_SECONDS, age.as_secs_f64())
 }

@@ -10,7 +10,10 @@ use std::{
         Arc,
         LazyLock,
     },
-    time::Duration,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use async_broadcast::{
@@ -67,6 +70,7 @@ use metrics::{
     log_validate_system_time_in_the_future,
     log_validate_system_time_too_old,
     log_validate_ts_too_old,
+    query_cache_log_eviction,
     succeed_get_timer,
     GoReason,
 };
@@ -951,6 +955,12 @@ impl Inner {
                 .pop_lru()
                 .expect("Cache is too large without any items?");
             self.size -= popped_key.size() + popped_entry.size();
+            if let CacheEntry::Ready(r) = popped_entry {
+                let system_time: SystemTime = r.token.ts().into();
+                if let Ok(t) = system_time.elapsed() {
+                    query_cache_log_eviction(t);
+                }
+            }
         }
         log_cache_size(self.size)
     }
