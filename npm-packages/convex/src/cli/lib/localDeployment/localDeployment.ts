@@ -1,4 +1,4 @@
-import { Context, logVerbose } from "../../../bundler/context.js";
+import { Context, logMessage, logVerbose } from "../../../bundler/context.js";
 import detect from "detect-port";
 import {
   bigBrainPause,
@@ -21,7 +21,8 @@ import {
 import { handlePotentialUpgrade } from "./upgrade.js";
 import { OnDeploymentActivityFunc } from "../deployment.js";
 import { promptSearch } from "../utils/prompts.js";
-
+import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
+import chalk from "chalk";
 export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
@@ -49,6 +50,14 @@ export async function handleLocalDeployment(
   const existingDeploymentForProject = await getExistingDeployment(ctx, {
     projectSlug: options.projectSlug,
     teamSlug: options.teamSlug,
+  });
+  if (existingDeploymentForProject === null) {
+    printLocalDeploymentWelcomeMessage(ctx);
+  }
+  ctx.registerCleanup(async (_exitCode, err) => {
+    if (err instanceof LocalDeploymentError) {
+      printLocalDeploymentOnError(ctx);
+    }
   });
   if (existingDeploymentForProject !== null) {
     logVerbose(
@@ -108,9 +117,9 @@ export async function handleLocalDeployment(
   });
 
   const cleanupFunc = ctx.removeCleanup(cleanupHandle);
-  ctx.registerCleanup(async () => {
+  ctx.registerCleanup(async (exitCode, err) => {
     if (cleanupFunc !== null) {
-      await cleanupFunc();
+      await cleanupFunc(exitCode, err);
     }
     await bigBrainPause(ctx, {
       projectSlug: options.projectSlug,
@@ -261,4 +270,19 @@ async function choosePorts(
 async function isOffline(): Promise<boolean> {
   // TODO(ENG-7080) -- implement this for real
   return false;
+}
+
+function printLocalDeploymentWelcomeMessage(ctx: Context) {
+  logMessage(
+    ctx,
+    chalk.cyan("You're trying out the beta local deployment feature!"),
+  );
+  logMessage(
+    ctx,
+    chalk.cyan("To learn more, read the docs: https://cvx.so/local-deployment"),
+  );
+  logMessage(
+    ctx,
+    chalk.cyan("To opt out at any time, remove `--local` from your command."),
+  );
 }

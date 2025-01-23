@@ -59,6 +59,7 @@ export async function bigBrainEnableFeatureMetadata(
   });
 }
 
+/** Whether a project already has a cloud dev deployment for this user. */
 export async function projectHasExistingDev(
   ctx: Context,
   {
@@ -71,10 +72,10 @@ export async function projectHasExistingDev(
 ) {
   const response = await bigBrainAPI<
     | {
-        kind: "exists";
+        kind: "Exists";
       }
     | {
-        kind: "doesNotExist";
+        kind: "DoesNotExist";
       }
   >({
     ctx,
@@ -82,5 +83,14 @@ export async function projectHasExistingDev(
     url: "/api/deployment/existing_dev",
     data: { projectSlug, teamSlug },
   });
-  return response;
+  if (response.kind === "Exists") {
+    return true;
+  } else if (response.kind === "DoesNotExist") {
+    return false;
+  }
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "fatal",
+    printedMessage: `Unexpected /api/deployment/existing_dev response: ${JSON.stringify(response, null, 2)}`,
+  });
 }

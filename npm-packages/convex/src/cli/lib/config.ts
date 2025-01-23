@@ -37,6 +37,10 @@ import zlib from "zlib";
 import { recursivelyDelete } from "./fsUtils.js";
 import { NodeDependency } from "./deployApi/modules.js";
 import { ComponentDefinitionPath } from "./components/definition/directoryStructure.js";
+import {
+  LocalDeploymentError,
+  printLocalDeploymentOnError,
+} from "./localDeployment/errors.js";
 export { productionProvisionHost, provisionHost } from "./utils/utils.js";
 
 const brotli = promisify(zlib.brotliCompress);
@@ -770,7 +774,23 @@ export async function pushConfig(
       });
     }
 
-    logFailure(ctx, "Error: Unable to push deployment config to " + url);
+    const message = "Error: Unable to push deployment config to " + url;
+    if (data?.code === "InternalServerError") {
+      const configuredDeployment = getTargetDeploymentName();
+      if (configuredDeployment?.startsWith("local-")) {
+        printLocalDeploymentOnError(ctx);
+        return ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          errForSentry: new LocalDeploymentError(
+            "InternalServerError while pushing to local deployment",
+          ),
+          printedMessage: message,
+        });
+      }
+    }
+
+    logFailure(ctx, message);
     return await logAndHandleFetchError(ctx, error);
   }
 }

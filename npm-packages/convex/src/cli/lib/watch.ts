@@ -95,7 +95,10 @@ export class Crash extends Error {
 }
 
 export class WatchContext implements Context {
-  private _cleanupFns: Record<string, () => Promise<void>> = {};
+  private _cleanupFns: Record<
+    string,
+    (exitCode: number, err?: any) => Promise<void>
+  > = {};
   fs: RecordingFs;
   deprecationMessagePrinted: boolean;
   spinner: Ora | undefined;
@@ -118,14 +121,14 @@ export class WatchContext implements Context {
       logFailure(this, args.printedMessage);
     }
     for (const fn of Object.values(this._cleanupFns)) {
-      await fn();
+      await fn(args.exitCode, args.errForSentry);
     }
     // Okay to throw here. We've wrapped it in a Crash that we'll catch later.
     // eslint-disable-next-line no-restricted-syntax
     throw new Crash(args.errorType, args.errForSentry);
   }
 
-  registerCleanup(fn: () => Promise<void>): string {
+  registerCleanup(fn: (exitCode: number, err?: any) => Promise<void>): string {
     const handle = Math.random().toString(36).slice(2);
     this._cleanupFns[handle] = fn;
     return handle;

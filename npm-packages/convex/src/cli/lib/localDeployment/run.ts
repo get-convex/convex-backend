@@ -17,6 +17,7 @@ import { SENTRY_DSN } from "../utils/sentry.js";
 import { createHash } from "crypto";
 import { components } from "@octokit/openapi-types";
 import { recursivelyDelete } from "../fsUtils.js";
+import { LocalDeploymentError } from "./errors.js";
 const LOCAL_BACKEND_INSTANCE_SECRET =
   "4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974";
 
@@ -27,26 +28,35 @@ export async function ensureBackendBinaryDownloaded(
   version: { kind: "latest" } | { kind: "version"; version: string },
 ): Promise<{ binaryPath: string; version: string }> {
   if (version.kind === "version") {
-    logVerbose(
-      ctx,
-      `Ensuring backend binary downloaded for version ${version.version}`,
-    );
-    const existingDownload = await checkForExistingDownload(
-      ctx,
-      version.version,
-    );
-    if (existingDownload !== null) {
-      logVerbose(ctx, `Using existing download at ${existingDownload}`);
-      return {
-        binaryPath: existingDownload,
-        version: version.version,
-      };
-    }
-    const binaryPath = await downloadBinary(ctx, version.version);
-    return { version: version.version, binaryPath };
+    return _ensureBackendBinaryDownloaded(ctx, version.version);
   }
+  const latestVersionWithBinary = await findLatestVersionWithBinary(ctx);
+  return _ensureBackendBinaryDownloaded(ctx, latestVersionWithBinary);
+}
 
-  logVerbose(ctx, `Ensuring latest backend binary downloaded`);
+async function _ensureBackendBinaryDownloaded(
+  ctx: Context,
+  version: string,
+): Promise<{ binaryPath: string; version: string }> {
+  logVerbose(ctx, `Ensuring backend binary downloaded for version ${version}`);
+  const existingDownload = await checkForExistingDownload(ctx, version);
+  if (existingDownload !== null) {
+    logVerbose(ctx, `Using existing download at ${existingDownload}`);
+    return {
+      binaryPath: existingDownload,
+      version,
+    };
+  }
+  const binaryPath = await downloadBinary(ctx, version);
+  return { version, binaryPath };
+}
+
+/**
+ * Finds the latest version of the convex backend that has a binary matching
+ * this platform.
+ */
+async function findLatestVersionWithBinary(ctx: Context): Promise<string> {
+  logVerbose(ctx, `Finding latest convex backend binary`);
   let releases: GitHubRelease[] = [];
   try {
     releases = (await (
@@ -59,16 +69,17 @@ export async function ensureBackendBinaryDownloaded(
         exitCode: 1,
         errorType: "fatal",
         printedMessage: "Found no convex backend releases.",
-        errForSentry: "Found no convex backend releases.",
+        errForSentry: new LocalDeploymentError(
+          "Found no convex backend releases.",
+        ),
       });
     }
   } catch (e) {
-    logVerbose(ctx, `${e?.toString()}`);
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage: "Failed to get latest convex backend releases",
-      errForSentry: "Failed to get latest convex backend releases",
+      errForSentry: new LocalDeploymentError(e?.toString()),
     });
   }
   const targetName = getDownloadPath();
@@ -84,11 +95,12 @@ export async function ensureBackendBinaryDownloaded(
       break;
     }
     if (!releases.length) {
+      const message = `Failed to find a convex backend release that contained ${targetName}.`;
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `Failed to find a release that contained ${targetName}.`,
-        errForSentry: `Failed to find a release that contained ${targetName}.`,
+        printedMessage: message,
+        errForSentry: new LocalDeploymentError(message),
       });
     }
     logVerbose(
@@ -96,10 +108,7 @@ export async function ensureBackendBinaryDownloaded(
       `Version ${release.tag_name} does not contain a ${targetName}, trying previous version ${releases[0].tag_name}`,
     );
   }
-  return ensureBackendBinaryDownloaded(ctx, {
-    kind: "version",
-    version: versionWithBinary,
-  });
+  return versionWithBinary;
 }
 
 /**
@@ -128,6 +137,8 @@ async function checkForExistingDownload(
 
 async function downloadBinary(ctx: Context, version: string): Promise<string> {
   const downloadPath = getDownloadPath();
+  // Note: We validate earlier that there's a binary for this platform at the specified version,
+  // so in practice, we should never hit errors here.
   if (downloadPath === null) {
     return await ctx.crash({
       exitCode: 1,
@@ -142,6 +153,16 @@ async function downloadBinary(ctx: Context, version: string): Promise<string> {
       exitCode: 1,
       errorType: "fatal",
       printedMessage: `Binary not found at ${url}.`,
+    });
+  }
+  if (response.status !== 200) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Failed to download convex backend binary at ${url}.`,
+      errForSentry: new LocalDeploymentError(
+        `Failed to download convex backend binary at ${url}, status ${response.status}, body ${await response.text()}`,
+      ),
     });
   }
   logMessage(ctx, "Downloading convex backend");
@@ -223,7 +244,9 @@ export async function runLocalBackend(
         exitCode: 1,
         errorType: "fatal",
         printedMessage: message,
-        errForSentry: message,
+        errForSentry: new LocalDeploymentError(
+          "Local backend exited with code 3221225781",
+        ),
       });
     } else if (result.status !== 0) {
       const message = `Failed to run backend binary, exit code ${result.status}, error: ${result.stderr.toString()}`;
@@ -231,7 +254,7 @@ export async function runLocalBackend(
         exitCode: 1,
         errorType: "fatal",
         printedMessage: message,
-        errForSentry: message,
+        errForSentry: new LocalDeploymentError(message),
       });
     }
   } catch (e) {
@@ -240,7 +263,7 @@ export async function runLocalBackend(
       exitCode: 1,
       errorType: "fatal",
       printedMessage: message,
-      errForSentry: message,
+      errForSentry: new LocalDeploymentError(message),
     });
   }
   const commandStr = `${args.binaryPath} ${commandArgs.join(" ")}`;
@@ -254,9 +277,10 @@ export async function runLocalBackend(
       },
     })
     .on("exit", (code) => {
+      const why = code === null ? "from signal" : `with code ${code}`;
       logVerbose(
         ctx,
-        `Local backend exited with code ${code}, full command \`${commandStr}\``,
+        `Local backend exited ${why}, full command \`${commandStr}\``,
       );
     });
   const cleanupHandle = ctx.registerCleanup(async () => {
@@ -289,7 +313,12 @@ export async function ensureBackendRunning(
   );
   const deploymentUrl = localDeploymentUrl(args.cloudPort);
   let timeElapsedSecs = 0;
+  let hasShownWaiting = false;
   while (timeElapsedSecs < args.maxTimeSecs) {
+    if (!hasShownWaiting && timeElapsedSecs > 2) {
+      logMessage(ctx, "waiting for local backend to start...");
+      hasShownWaiting = true;
+    }
     try {
       const resp = await fetch(`${deploymentUrl}/instance_name`);
       if (resp.status === 200) {
@@ -318,6 +347,7 @@ export async function ensureBackendRunning(
     exitCode: 1,
     errorType: "fatal",
     printedMessage: message,
+    errForSentry: new LocalDeploymentError(message),
   });
 }
 

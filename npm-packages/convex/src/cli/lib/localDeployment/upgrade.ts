@@ -25,6 +25,7 @@ import {
 } from "../../convexImport.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { recursivelyDelete } from "../fsUtils.js";
+import { LocalDeploymentError } from "./errors.js";
 
 export async function handlePotentialUpgrade(
   ctx: Context,
@@ -102,7 +103,7 @@ export async function handlePotentialUpgrade(
   }
   return handleUpgrade(ctx, {
     deploymentName: args.deploymentName,
-    oldVersion: args.oldVersion,
+    oldVersion: args.oldVersion!,
     newBinaryPath: args.newBinaryPath,
     newVersion: args.newVersion,
     ports: args.ports,
@@ -184,7 +185,7 @@ async function handleUpgrade(
   logVerbose(ctx, "Stopping the backend on the old version");
   const oldCleanupFunc = ctx.removeCleanup(oldCleanupHandle);
   if (oldCleanupFunc) {
-    await oldCleanupFunc();
+    await oldCleanupFunc(0);
   }
   await ensureBackendStopped(ctx, {
     ports: args.ports,
@@ -213,6 +214,7 @@ async function handleUpgrade(
         method: "POST",
       });
     } catch (e) {
+      // TODO: this should ideally have a `LocalDeploymentError`
       return await logAndHandleFetchError(ctx, e);
     }
   }
@@ -238,10 +240,12 @@ async function handleUpgrade(
     },
   });
   if (status.state !== "waiting_for_confirmation") {
+    const message = "Error while transferring data: Failed to upload snapshot";
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to upload snapshot",
+      printedMessage: message,
+      errForSentry: new LocalDeploymentError(message),
     });
   }
 
@@ -265,10 +269,12 @@ async function handleUpgrade(
   });
   logVerbose(ctx, `Snapshot import status: ${status.state}`);
   if (status.state !== "completed") {
+    const message = "Error while transferring data: Failed to import snapshot";
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to import snapshot",
+      printedMessage: message,
+      errForSentry: new LocalDeploymentError(message),
     });
   }
 
