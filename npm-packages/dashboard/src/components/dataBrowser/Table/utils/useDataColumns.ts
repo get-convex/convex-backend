@@ -9,8 +9,6 @@ const MIN_COLUMN_WIDTH = 50;
 const CREATION_TIME_COLUMN_MIN_WIDTH = 200;
 const MAX_COLUMN_WIDTH = 1000;
 const DEFAULT_COLUMN_WIDTH = 150;
-const MAX_ID_COLUMN_WIDTH = 260;
-const MAX_CREATION_TIME_COLUMN_WIDTH = 200;
 const ID_COLUMN_WIDTH = 100;
 const RECORDS_CHECKED_FOR_DATE_HEURISTIC = 200;
 
@@ -84,12 +82,7 @@ export const useDataColumns = ({
                   DEFAULT_COLUMN_WIDTH,
                 ),
           disableResizing: field === "_creationTime",
-          maxWidth:
-            field === "_id"
-              ? MAX_ID_COLUMN_WIDTH
-              : field === "_creationTime"
-                ? MAX_CREATION_TIME_COLUMN_WIDTH
-                : MAX_COLUMN_WIDTH,
+          maxWidth: MAX_COLUMN_WIDTH,
         })),
       ),
     // Memoize columns for use with react-table so that new data
