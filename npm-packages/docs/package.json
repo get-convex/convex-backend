@@ -45,7 +45,7 @@
     "docusaurus-plugin-typedoc": "npm:@convex-dev/docusaurus-plugin-typedoc@0.19.2",
     "typedoc-plugin-markdown": "npm:@convex-dev/typedoc-plugin-markdown@3.15.6",
     "@docusaurus/module-type-aliases": "2.3.1",
-    "@tsconfig/docusaurus": "1.0.6",
+    "@tsconfig/docusaurus": "1.0.7",
     "typescript": "~5.0.3",
     "webpack": "5.94.0",
     "@docusaurus/types": "2.3.1",

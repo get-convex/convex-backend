@@ -2626,8 +2626,8 @@ importers:
         specifier: 2.3.1
         version: 2.3.1(@swc/core@1.10.1(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@tsconfig/docusaurus':
-        specifier: 1.0.6
-        version: 1.0.6
+        specifier: 1.0.7
+        version: 1.0.7
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -9342,8 +9342,8 @@ packages:
   '@ts-morph/common@0.11.1':
     resolution: {integrity: sha512-7hWZS0NRpEsNV8vWJzg7FEz6V8MaLNeJOmwmghqUXTpzk16V1LLZhdo+4QvE/+zv4cVci0OviuJFnqhEfoV3+g==}
 
-  '@tsconfig/docusaurus@1.0.6':
-    resolution: {integrity: sha512-1QxDaP54hpzM6bq9E+yFEo4F9WbWHhsDe4vktZXF/iDlc9FqGr9qlg+3X/nuKQXx8QxHV7ue8NXFazzajsxFBA==}
+  '@tsconfig/docusaurus@1.0.7':
+    resolution: {integrity: sha512-ffTXxGIP/IRMCjuzHd6M4/HdIrw1bMfC7Bv8hMkTadnePkpe0lG0oDSdbRpSDZb2rQMAgpbWiR10BvxvNYwYrg==}
 
   '@tsconfig/node10@1.0.11':
     resolution: {integrity: sha512-DcRjDCujK/kCk/cUe8Xz8ZSpm8mS3mNNpta+jGCA6USEDfktlNvm1+IuZ9eTcDbNk41BHwpHHeW+N1lKCz4zOw==}
@@ -28908,7 +28908,7 @@ snapshots:
       mkdirp: 1.0.4
       path-browserify: 1.0.1
 
-  '@tsconfig/docusaurus@1.0.6': {}
+  '@tsconfig/docusaurus@1.0.7': {}
 
   '@tsconfig/node10@1.0.11': {}
 
