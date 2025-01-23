@@ -52,7 +52,7 @@
     "react-popper": "^2.3.0",
     "react-table": "7.8.0",
     "react-use": "~17.4.0",
-    "react-window": "1.8.8",
+    "react-window": "1.8.11",
     "recharts": "2.14.1",
     "saffron": "get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39",
     "semver": "^7.6.0",
