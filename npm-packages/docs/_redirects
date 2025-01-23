@@ -104,3 +104,4 @@
 /database/import-export/streaming /production/integrations/streaming-import-export
 /auth/custom-auth                   /auth/advanced/custom-auth
 /functions/args-validation          /functions/validation
+/zen                                /understanding/zen
