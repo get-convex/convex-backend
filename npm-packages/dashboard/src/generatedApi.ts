@@ -548,6 +548,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["transfer_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rename_token": {
         parameters: {
             query?: never;
@@ -1078,7 +1094,7 @@ export interface components {
         /** @description Encrypted admin key */
         AdminKey: string;
         /** @enum {string} */
-        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit";
+        AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
          *     who executed an AuditLogEvent */
         AuditLogActor: "system" | {
@@ -1472,6 +1488,9 @@ export interface components {
             teamId: components["schemas"]["TeamId"];
             usageState: components["schemas"]["UsageState"];
         };
+        TransferProjectArgs: {
+            destinationTeamId: components["schemas"]["TeamId"];
+        };
         UnlinkDiscordAccountRequest: {
             discordId: components["schemas"]["DiscordId"];
         };
@@ -1605,6 +1624,7 @@ export type TeamMemberResponse = components['schemas']['TeamMemberResponse'];
 export type TeamName = components['schemas']['TeamName'];
 export type TeamSlug = components['schemas']['TeamSlug'];
 export type TeamUsageStateResponse = components['schemas']['TeamUsageStateResponse'];
+export type TransferProjectArgs = components['schemas']['TransferProjectArgs'];
 export type UnlinkDiscordAccountRequest = components['schemas']['UnlinkDiscordAccountRequest'];
 export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddressArgs'];
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
@@ -2367,6 +2387,29 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProvisionDeploymentDashboardResponse"];
                 };
+            };
+        };
+    };
+    transfer_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferProjectArgs"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

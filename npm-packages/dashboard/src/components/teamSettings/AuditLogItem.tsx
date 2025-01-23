@@ -122,6 +122,32 @@ function EntryAction({
           metadata={metadata}
         />
       );
+    case "receiveProject":
+      return (
+        <span>
+          transferred project{" "}
+          <ProjectLink
+            projectId={metadata.current?.id}
+            metadata={metadata}
+            projects={projects}
+            team={team}
+          />{" "}
+          to this team.
+        </span>
+      );
+    case "transferProject":
+      return (
+        <span>
+          transferred project{" "}
+          <ProjectLink
+            projectId={metadata.previous?.id}
+            metadata={metadata}
+            projects={projects}
+            team={team}
+          />{" "}
+          to another team.
+        </span>
+      );
     case "updateBillingContact":
       return <span>updated the billing contact</span>;
     case "updateBillingAddress":
