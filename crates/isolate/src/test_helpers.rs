@@ -28,16 +28,13 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
+    fastrace_helpers::EncodedSpan,
     http::{
         fetch::ProxiedFetchClient,
         RoutedHttpPath,
     },
     log_lines::LogLines,
-    minitrace_helpers::EncodedSpan,
-    pause::{
-        PauseClient,
-        PauseController,
-    },
+    pause::HoldGuard,
     persistence::Persistence,
     query_journal::QueryJournal,
     runtime::{
@@ -123,6 +120,27 @@ use tokio::sync::{
     mpsc,
     oneshot,
 };
+use udf::{
+    environment::{
+        CONVEX_ORIGIN,
+        CONVEX_SITE,
+    },
+    helpers::parse_udf_args,
+    validation::{
+        validate_schedule_args,
+        ValidatedHttpPath,
+        ValidatedPathAndArgs,
+    },
+    ActionOutcome,
+    FunctionOutcome,
+    FunctionResult,
+    HttpActionRequest,
+    HttpActionResponse,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+    UdfOutcome,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -136,7 +154,6 @@ use vector::{
     VectorSearch,
 };
 
-use super::FunctionResult;
 use crate::{
     bundled_js::UDF_TEST_BUNDLE_PATH,
     client::{
@@ -148,38 +165,16 @@ use crate::{
         SharedIsolateHeapStats,
         UdfCallback,
         UdfRequest,
-        PAUSE_RECREATE_CLIENT,
     },
     concurrency_limiter::ConcurrencyLimiter,
-    environment::{
-        action::outcome::ActionOutcome,
-        helpers::{
-            validation::ValidatedHttpPath,
-            FunctionOutcome,
-        },
-        udf::outcome::UdfOutcome,
-    },
-    http_action::{
-        HttpActionRequest,
-        HttpActionResponsePart,
-        HttpActionResponseStreamer,
-    },
     isolate2::runner::{
         run_isolate_v2_udf,
         SeedData,
     },
     metrics::queue_timer,
-    parse_udf_args,
-    validate_schedule_args,
     ActionCallbacks,
-    BackendIsolateWorker,
-    HttpActionResponse,
-    HttpActionResult,
     IsolateClient,
     IsolateConfig,
-    ValidatedPathAndArgs,
-    CONVEX_ORIGIN,
-    CONVEX_SITE,
 };
 
 #[derive(Debug, Deserialize)]
@@ -245,8 +240,7 @@ pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentD
     })
 }
 
-#[derive(Clone)]
-pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
+pub struct UdfTest<RT: Runtime, P: Persistence> {
     pub database: Database<RT>,
     pub isolate: IsolateClient<RT>,
     pub persistence: Arc<P>,
@@ -255,11 +249,29 @@ pub struct UdfTest<RT: Runtime, P: Persistence + Clone> {
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
     search_storage: Arc<dyn Storage>,
     file_storage: TransactionalFileStorage<RT>,
+    environment_data: EnvironmentData<RT>,
 
     isolate_v2_enabled: bool,
 }
 
-impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
+impl<RT: Runtime, P: Persistence> Clone for UdfTest<RT, P> {
+    fn clone(&self) -> Self {
+        Self {
+            database: self.database.clone(),
+            isolate: self.isolate.clone(),
+            persistence: self.persistence.clone(),
+            rt: self.rt.clone(),
+            key_broker: self.key_broker.clone(),
+            module_loader: self.module_loader.clone(),
+            search_storage: self.search_storage.clone(),
+            file_storage: self.file_storage.clone(),
+            environment_data: self.environment_data.clone(),
+            isolate_v2_enabled: self.isolate_v2_enabled,
+        }
+    }
+}
+
+impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
     async fn new(
         modules: Vec<ModuleConfig>,
         rt: RT,
@@ -281,7 +293,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             },
         )
         .await?;
-        let mut handle = database.start_search_and_vector_bootstrap(PauseClient::new());
+        let mut handle = database.start_search_and_vector_bootstrap();
         handle.join().await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
         let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
@@ -292,23 +304,22 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
         let convex_origin = "http://127.0.0.1:8000".into();
         let file_storage =
             TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
-
-        let system_env_vars = btreemap! {
-            CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,
-            CONVEX_SITE.clone() => "https://carnitas.convex.site".parse()?
+        let environment_data = EnvironmentData {
+            key_broker: key_broker.clone(),
+            system_env_vars: btreemap! {
+                CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,
+                CONVEX_SITE.clone() => "https://carnitas.convex.site".parse()?
+            },
+            file_storage: file_storage.clone(),
+            module_loader: module_loader.clone(),
         };
-        let isolate_worker = BackendIsolateWorker::new(rt.clone(), config.isolate_config);
+
         let isolate = IsolateClient::new(
             rt.clone(),
-            isolate_worker,
+            100,
             max_isolate_workers,
-            true,
-            DEV_INSTANCE_NAME.to_string(),
-            DEV_SECRET.try_into()?,
-            file_storage.clone(),
-            system_env_vars,
-            module_loader.clone(),
-        );
+            Some(config.isolate_config),
+        )?;
 
         anyhow::ensure!(
             modules
@@ -324,7 +335,12 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             .map(|c| (c.path.clone().canonicalize(), c.clone()))
             .collect();
         let analyze_results = match isolate
-            .analyze(udf_config.clone(), modules_by_path.clone(), BTreeMap::new())
+            .analyze(
+                udf_config.clone(),
+                modules_by_path.clone(),
+                BTreeMap::new(),
+                DEV_INSTANCE_NAME.to_string(),
+            )
             .await?
         {
             Ok(analyze_results) => analyze_results,
@@ -367,6 +383,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
             search_storage,
             module_loader,
             file_storage,
+            environment_data,
             isolate_v2_enabled: false,
         }))
     }
@@ -560,7 +577,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
+                    self.environment_data.clone(),
                     0,
+                    DEV_INSTANCE_NAME.to_string(),
                 )
                 .await?;
             let FunctionOutcome::Mutation(outcome) = outcome else {
@@ -706,7 +725,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     journal.unwrap_or_else(QueryJournal::new),
                     ExecutionContext::new_for_test(),
+                    self.environment_data.clone(),
                     0,
+                    DEV_INSTANCE_NAME.to_string(),
                 )
                 .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
@@ -770,7 +791,9 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                     tx,
                     QueryJournal::new(),
                     ExecutionContext::new_for_test(),
+                    self.environment_data.clone(),
                     0,
+                    DEV_INSTANCE_NAME.to_string(),
                 )
                 .await?;
             match outcome {
@@ -959,6 +982,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 http_response_streamer,
                 tx,
                 ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                DEV_INSTANCE_NAME.to_string(),
             )
             .await?;
         let mut log_lines = vec![];
@@ -1094,6 +1119,8 @@ impl<RT: Runtime, P: Persistence + Clone> UdfTest<RT, P> {
                 fetch_client,
                 log_line_sender,
                 ExecutionContext::new_for_test(),
+                self.environment_data.clone(),
+                DEV_INSTANCE_NAME.to_string(),
             )
             .await?;
         let mut log_lines = vec![];
@@ -1109,7 +1136,7 @@ static DEFAULT_CONFIG: LazyLock<UdfTestConfig> = LazyLock::new(|| UdfTestConfig 
     udf_server_version: Version::parse("1000.0.0").unwrap(),
 });
 
-static DEFAULT_MAX_ISOLATE_WORKERS: usize = 1;
+static DEFAULT_MAX_ISOLATE_WORKERS: usize = 2;
 
 #[derive(Clone)]
 pub struct UdfTestConfig {
@@ -1205,11 +1232,10 @@ impl<RT: Runtime> UdfTest<RT, TestPersistence> {
 }
 
 #[async_trait]
-impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
+impl<RT: Runtime, P: Persistence> UdfCallback<RT> for UdfTest<RT, P> {
     async fn execute_udf(
         &self,
         _client_id: String,
-        _identity: Identity,
         _udf_type: UdfType,
         _path_and_args: ValidatedPathAndArgs,
         _environment_data: EnvironmentData<RT>,
@@ -1223,7 +1249,7 @@ impl<RT: Runtime, P: Persistence + Clone> UdfCallback<RT> for UdfTest<RT, P> {
 }
 
 #[async_trait]
-impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
+impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
     async fn execute_query(
         &self,
         identity: Identity,
@@ -1416,11 +1442,9 @@ impl<RT: Runtime, P: Persistence + Clone> ActionCallbacks for UdfTest<RT, P> {
 pub async fn bogus_udf_request<RT: Runtime>(
     db: &Database<RT>,
     client_id: &str,
-    pause_client: Option<PauseClient>,
     sender: oneshot::Sender<anyhow::Result<(Transaction<RT>, FunctionOutcome)>>,
 ) -> anyhow::Result<Request<RT>> {
     let tx = db.begin_system().await?;
-    // let (sender, _rx) = oneshot::channel();
     let request = UdfRequest {
         path_and_args: ValidatedPathAndArgs::new_for_tests(
             "path.js:default".parse()?,
@@ -1444,7 +1468,6 @@ pub async fn bogus_udf_request<RT: Runtime>(
     Ok(Request {
         client_id: client_id.to_string(),
         inner,
-        pause_client: pause_client.unwrap_or_default(),
         parent_trace: EncodedSpan::empty(),
     })
 }
@@ -1456,7 +1479,6 @@ impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
     async fn execute_udf(
         &self,
         _client_id: String,
-        _identity: Identity,
         _udf_type: UdfType,
         _path_and_args: ValidatedPathAndArgs,
         _environment_data: EnvironmentData<RT>,
@@ -1472,10 +1494,10 @@ impl<RT: Runtime> UdfCallback<RT> for BogusUdfCallback {
 pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWorker<RT>>(
     rt: RT,
     worker: W,
-    mut pause: PauseController,
+    hold_guard: HoldGuard,
 ) -> anyhow::Result<()> {
     initialize_v8();
-    let mut wait_for_blocked = pause.wait_for_blocked(PAUSE_RECREATE_CLIENT).boxed();
+    let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let heap_stats = SharedIsolateHeapStats::new();
     let (work_sender, work_receiver) = mpsc::channel(1);
     let _handle = rt
@@ -1483,7 +1505,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "carnitas", None, sender).await?;
+    let request = bogus_udf_request(&db, "carnitas", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     // First request should not recreate isolate.
@@ -1498,7 +1520,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
     // Second request with different client_id should recreate isolate.
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "alpastor", None, sender).await?;
+    let request = bogus_udf_request(&db, "alpastor", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     loop {
@@ -1508,7 +1530,7 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
             request");
         },
                 pause_guard = wait_for_blocked.as_mut().fuse() => {
-                    if let Some(mut pause_guard) = pause_guard {
+                    if let Some(pause_guard) = pause_guard {
                         drop(done_receiver);
                         pause_guard.unpause();
                         drop(wait_for_blocked);
@@ -1523,10 +1545,10 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
 pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: IsolateWorker<RT>>(
     rt: RT,
     worker: W,
-    mut pause: PauseController,
+    hold_guard: HoldGuard,
 ) -> anyhow::Result<()> {
     initialize_v8();
-    let mut wait_for_blocked = pause.wait_for_blocked(PAUSE_RECREATE_CLIENT).boxed();
+    let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let heap_stats = SharedIsolateHeapStats::new();
     let (work_sender, work_receiver) = mpsc::channel(1);
     let _handle = rt
@@ -1534,7 +1556,7 @@ pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: Isolate
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "carnitas", None, sender).await?;
+    let request = bogus_udf_request(&db, "carnitas", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     // First request should not recreate isolate.
@@ -1549,7 +1571,7 @@ pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: Isolate
     // Second request with the same client_id should not recreate isolate.
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
-    let request = bogus_udf_request(&db, "carnitas", None, sender).await?;
+    let request = bogus_udf_request(&db, "carnitas", sender).await?;
     work_sender.try_send((request, done_sender, None)).unwrap();
     let mut done_receiver = done_receiver.boxed();
     select! {

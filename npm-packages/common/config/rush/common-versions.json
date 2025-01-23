@@ -69,18 +69,40 @@
      * is typically our priority, but sometimes we're trying to test
      * against the latest TypeScript, the one our users are most likely
      * to be using.
+     *
+     * Next.js async components require 5.1.3 or higher even though their templates
+     * start you off with "^5".
      */
-    "typescript": ["5.0.4", "~5.6.2"],
+    "typescript": ["5.0.4", "~5.6.2", "^5", "^5.1.3", "^5.7.2"],
     /**
-     * These are for private-demos/tanstack-start to closely match 
+     * These are for private-demos/tanstack-start to closely match
      * https://github.com/TanStack/router
      * specifically https://github.com/TanStack/router/blob/main/examples/react/start-basic-react-query/package.json
      */
     "@vitejs/plugin-react": ["^4.3.1"],
+    "tailwindcss": ["^3.4.16"],
+    "tailwind-merge": ["^2.5.5"],
+    "autoprefixer": ["^10.4.20"],
+    "postcss": ["^8.4.49"],
+    /**
+     * These are for private-demos/nextjs-15-app to closely match
+     * npx create-next-app@latest next-15-app
+     */
+    "next": ["15.1.0"],
+    "react": ["^19", "^18.3.1"],
+    "react-dom": ["^19", "^18.3.1"],
+    //"typescript": ["^5"],
+    "@types/node": ["^20", "^22.5.4"],
+    "@types/react": ["^18", "^18.3.17", "^18.2.65"],
+    "@types/react-dom": ["^18", "^18.3.1", "^18.2.21"],
+    //"eslint": ["^8"],
+    "@eslint/eslintrc": ["^3"],
+    "eslint-config-next": ["15.1.0"],
+
     /**
      * Until an upgrade to ESLint 9 is done
      */
-     "eslint": ["^8.29.0"],
+     "eslint": ["^8.29.0", "^9"],
      "eslint-plugin-react-hooks": ["^4.6.2"]
   }
 }

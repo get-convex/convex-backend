@@ -26,3 +26,6 @@ metrics = { path = "../metrics", features = ["testing"] }
 
 [features]
 testing = ["common/testing", "metrics/testing"]
+
+[lints]
+workspace = true

@@ -249,7 +249,9 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
             .get_range(&storage_key.to_string().try_into()?, bytes_range)
             .await?
             .with_context(|| format!("object {storage_key:?} not found"))?;
-        let content_range = ContentRange::bytes(bytes_range, size as u64)?;
+        let content_range = (size != 0)
+            .then(|| ContentRange::bytes(bytes_range, size as u64))
+            .transpose()?;
         let stream = storage_get_stream.stream;
         let content_length = ContentLength(storage_get_stream.content_length as u64);
 

@@ -35,6 +35,7 @@ use runtime::{
     testing::TestRuntime,
 };
 use sync_types::CanonicalizedUdfPath;
+use udf::validation::ValidatedPathAndArgs;
 use value::{
     assert_val,
     ConvexBytes,
@@ -50,7 +51,6 @@ use crate::{
     },
     tests::logging::nested_function_udf_test,
     IsolateConfig,
-    ValidatedPathAndArgs,
 };
 
 static MAX_ISOLATE_WORKERS: usize = 1;
@@ -901,5 +901,29 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
     .await?;
     must_let!(let Err(js_error) = result);
     assert_contains(&js_error, "Could not find public function for 'myFunc'");
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_invoke_function_directly(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default(rt).await?;
+    let mut outcome = t
+        .raw_query(
+            "adversarial:invokeFunctionDirectly",
+            vec![assert_val!({})],
+            Identity::system(),
+            None,
+        )
+        .await?;
+    let log_line = outcome
+        .log_lines
+        .pop()
+        .unwrap()
+        .to_pretty_string_test_only();
+    assert_contains(
+        &log_line,
+        "[WARN] 'Convex functions should not directly call other Convex functions. Consider \
+         calling a helper function instead.",
+    );
     Ok(())
 }

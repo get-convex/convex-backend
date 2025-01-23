@@ -379,3 +379,11 @@ export const actionResultSized = action(
     return x;
   },
 );
+
+export const simpleQuery = query(async ({ db }) => {
+  return await db.query("test").collect();
+});
+
+export const invokeFunctionDirectly = query(async (ctx) => {
+  await simpleQuery(ctx, {});
+});

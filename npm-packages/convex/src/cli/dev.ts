@@ -7,6 +7,7 @@ import {
   logError,
   logFinishedStep,
   logMessage,
+  logOutput,
   logVerbose,
   logWarning,
   oneoffContext,
@@ -29,6 +30,10 @@ import { runFunctionAndLog, subscribe } from "./lib/run.js";
 import { Value } from "../values/index.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { runPush } from "./lib/components.js";
+import {
+  bigBrainEnableFeatureMetadata,
+  projectHasExistingDev,
+} from "./lib/localDeployment/bigBrain.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -62,13 +67,20 @@ export const dev = new Command("dev")
   .addOption(
     new Option(
       "--configure [choice]",
-      "Ignore existing configuration and configure new or existing project",
+      "Ignore existing configuration and configure new or existing project, interactively or set by --team <team_slug> and --project <project_slug>",
     ).choices(["new", "existing"] as const),
   )
-  .option("--team <team_slug>", "The team you'd like to use for this project")
-  .option(
-    "--project <project_slug>",
-    "The name of the project you'd like to configure",
+  .addOption(
+    new Option(
+      "--team <team_slug>",
+      "The team you'd like to use for this project",
+    ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--project <project_slug>",
+      "The name of the project you'd like to configure",
+    ).hideHelp(),
   )
   .option(
     "--once",
@@ -106,6 +118,7 @@ export const dev = new Command("dev")
   )
   .addOption(new Option("--trace-events").default(false).hideHelp())
   .addOption(new Option("--verbose").default(false).hideHelp())
+  .addOption(new Option("--skip-push").default(false).hideHelp())
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
   .addOption(new Option("--debug-bundle-path <path>").hideHelp())
@@ -125,6 +138,8 @@ export const dev = new Command("dev")
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
   .addOption(new Option("--live-component-sources").hideHelp())
+  .addOption(new Option("--enable-feature-metadata").hideHelp())
+  .addOption(new Option("--has-existing-dev").hideHelp())
   .addOption(new Option("--partition-id <id>").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
@@ -133,6 +148,30 @@ export const dev = new Command("dev")
       logVerbose(ctx, "Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
     });
+
+    // These two commands are temporary for testing, until they're hooked up, see ENG-8285
+    if (cmdOptions.enableFeatureMetadata) {
+      const enableFeatureMetadata = await bigBrainEnableFeatureMetadata(ctx);
+      logOutput(ctx, enableFeatureMetadata);
+      await ctx.flushAndExit(0);
+    }
+
+    if (cmdOptions.hasExistingDev) {
+      if (!cmdOptions.team || !cmdOptions.project) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: "Must specify --team and --project",
+        });
+      }
+      const hasExistingDev = await projectHasExistingDev(ctx, {
+        teamSlug: cmdOptions.team,
+        projectSlug: cmdOptions.project,
+      });
+      logOutput(ctx, hasExistingDev);
+      await ctx.flushAndExit(0);
+    }
+    /** End temp testing options */
 
     if (cmdOptions.runComponent && !cmdOptions.run) {
       return await ctx.crash({
@@ -149,6 +188,16 @@ export const dev = new Command("dev")
         errorType: "fatal",
         printedMessage: "`--debug-bundle-path` can only be used with `--once`.",
       });
+    }
+
+    if (cmdOptions.configure === undefined) {
+      if (cmdOptions.team || cmdOptions.project)
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "`--team and --project can can only be used with `--configure`.",
+        });
     }
 
     const localOptions: {
@@ -199,7 +248,7 @@ export const dev = new Command("dev")
       ? parseInt(cmdOptions.partitionId)
       : undefined;
     const configure =
-      cmdOptions.configure === true ? "ask" : cmdOptions.configure ?? null;
+      cmdOptions.configure === true ? "ask" : (cmdOptions.configure ?? null);
     const credentials = await deploymentCredentialsOrConfigure(
       ctx,
       configure,
@@ -211,6 +260,10 @@ export const dev = new Command("dev")
     );
 
     await usageStateWarning(ctx);
+
+    if (cmdOptions.skipPush) {
+      return;
+    }
 
     const promises = [];
     if (cmdOptions.tailLogs) {
@@ -370,19 +423,18 @@ async function runFunctionInDev(
   functionName: string,
   componentPath: string | undefined,
 ) {
-  await runFunctionAndLog(
-    ctx,
-    credentials.url,
-    credentials.adminKey,
+  await runFunctionAndLog(ctx, {
+    deploymentUrl: credentials.url,
+    adminKey: credentials.adminKey,
     functionName,
-    {},
+    argsString: "{}",
     componentPath,
-    {
+    callbacks: {
       onSuccess: () => {
         logFinishedStep(ctx, `Finished running function "${functionName}"`);
       },
     },
-  );
+  });
 }
 
 function getTableWatch(
@@ -394,13 +446,13 @@ function getTableWatch(
   tableName: string | null,
   componentPath: string | undefined,
 ) {
-  return getFunctionWatch(
-    ctx,
-    credentials,
-    "_system/cli/queryTable",
-    () => (tableName !== null ? { tableName } : null),
+  return getFunctionWatch(ctx, {
+    deploymentUrl: credentials.url,
+    adminKey: credentials.adminKey,
+    parsedFunctionName: "_system/cli/queryTable",
+    getArgs: () => (tableName !== null ? { tableName } : null),
     componentPath,
-  );
+  });
 }
 
 function getDeplymentEnvVarWatch(
@@ -411,42 +463,41 @@ function getDeplymentEnvVarWatch(
   },
   shouldRetryOnDeploymentEnvVarChange: boolean,
 ) {
-  return getFunctionWatch(
-    ctx,
-    credentials,
-    "_system/cli/queryEnvironmentVariables",
-    () => (shouldRetryOnDeploymentEnvVarChange ? {} : null),
-    undefined,
-  );
+  return getFunctionWatch(ctx, {
+    deploymentUrl: credentials.url,
+    adminKey: credentials.adminKey,
+    parsedFunctionName: "_system/cli/queryEnvironmentVariables",
+    getArgs: () => (shouldRetryOnDeploymentEnvVarChange ? {} : null),
+    componentPath: undefined,
+  });
 }
 
 function getFunctionWatch(
   ctx: WatchContext,
-  credentials: {
-    url: string;
+  args: {
+    deploymentUrl: string;
     adminKey: string;
+    parsedFunctionName: string;
+    getArgs: () => Record<string, Value> | null;
+    componentPath: string | undefined;
   },
-  functionName: string,
-  getArgs: () => Record<string, Value> | null,
-  componentPath: string | undefined,
 ) {
   const [stopPromise, stop] = waitUntilCalled();
   return {
     watch: async () => {
-      const args = getArgs();
-      if (args === null) {
+      const functionArgs = args.getArgs();
+      if (functionArgs === null) {
         return waitForever();
       }
       let changes = 0;
-      return subscribe(
-        ctx,
-        credentials.url,
-        credentials.adminKey,
-        functionName,
-        args,
-        componentPath,
-        stopPromise,
-        {
+      return subscribe(ctx, {
+        deploymentUrl: args.deploymentUrl,
+        adminKey: args.adminKey,
+        parsedFunctionName: args.parsedFunctionName,
+        parsedFunctionArgs: functionArgs,
+        componentPath: args.componentPath,
+        until: stopPromise,
+        callbacks: {
           onChange: () => {
             changes++;
             // First bump is just the initial results reporting
@@ -455,7 +506,7 @@ function getFunctionWatch(
             }
           },
         },
-      );
+      });
     },
     stop: () => {
       stop();

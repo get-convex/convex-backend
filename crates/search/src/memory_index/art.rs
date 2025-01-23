@@ -7,6 +7,10 @@ use std::{
     marker::PhantomData,
 };
 
+use imbl_slab::{
+    Slab,
+    SlabKey,
+};
 use itertools::Itertools;
 use levenshtein_automata::{
     Distance,
@@ -14,13 +18,7 @@ use levenshtein_automata::{
     SINK_STATE,
 };
 
-use crate::{
-    memory_index::slab::{
-        Slab,
-        SlabKey,
-    },
-    EditDistance,
-};
+use crate::EditDistance;
 
 /// Radix trees must store values associated with keys in the tree. There are
 /// two simple ways to do this: store values within internal tree nodes or have

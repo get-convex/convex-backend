@@ -4,6 +4,7 @@ use std::{
     borrow::Borrow,
     collections::BTreeMap,
     fmt,
+    hash::Hash,
     ops::Deref,
 };
 
@@ -28,7 +29,7 @@ use crate::{
 
 pub const MAX_OBJECT_FIELDS: usize = 1024;
 
-/// A mapping of field name to [`Value`] that's used as the contents of a
+/// A mapping of field name to [`ConvexValue`] that's used as the contents of a
 /// Convex Document.
 ///
 /// To mutate an object, convert it to a `BTreeMap` using `into()`, mutate the
@@ -348,6 +349,12 @@ impl Deref for ConvexObject {
 impl HeapSize for ConvexObject {
     fn heap_size(&self) -> usize {
         self.fields.heap_size()
+    }
+}
+
+impl Hash for ConvexObject {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.fields.hash(state);
     }
 }
 

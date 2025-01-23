@@ -1,0 +1,29 @@
+{
+  "name": "bundle-size",
+  "version": "0.0.0",
+  "scripts": {
+    "dev-vite": "vite",
+    "analyze": "npm run build && npm run analyze-webpack && npm run analyze-esbuild && ./analyze.mjs",
+    "analyze-webpack": "webpack-cli && webpack-cli --profile --json > dist/webpack-stats.json",
+    "analyze-esbuild": "esbuild src/main.tsx --bundle --minify --metafile=dist/esbuild.json --outfile=dist/esbuild-output --define:process.env.NODE_ENV='\"production\"'",
+    "build": "rm -rf dist && tsc && vite build && mv parcel-bundle-buddy.json dist",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "~5.0.3",
+    "ts-loader": "9.3.1",
+    "vite": "^5.4.12",
+    "esbuild": "0.23.0",
+    "webpack-cli": "4.10.0",
+    "webpack": "5.94.0"
+  }
+}

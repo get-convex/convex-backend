@@ -13,11 +13,11 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 common = { path = "../common" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 imbl = { workspace = true }
 itertools = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 tracing = { workspace = true }
 value = { path = "../value" }
 
@@ -43,3 +43,6 @@ testing = [
 [[bench]]
 name = "index_registry"
 harness = false
+
+[lints]
+workspace = true

@@ -8,6 +8,10 @@ use std::{
     },
 };
 
+use imbl_slab::{
+    Slab,
+    SlabKey,
+};
 use ref_cast::RefCast;
 use tantivy::{
     schema::Type,
@@ -19,10 +23,6 @@ use crate::{
     levenshtein_dfa::build_fuzzy_dfa,
     memory_index::{
         art::ART,
-        slab::{
-            Slab,
-            SlabKey,
-        },
         small_slice::SmallSlice,
     },
     scoring::term_from_str,
@@ -138,7 +138,7 @@ impl TermTable {
             })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn visit_top_terms_for_query(
         &self,
         token_ord: u32,

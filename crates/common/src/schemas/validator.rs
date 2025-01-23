@@ -563,14 +563,14 @@ impl Validator {
     }
 
     fn is_valid_vector_validator(validator: &Validator) -> bool {
-        return match validator {
+        match validator {
             Validator::Array(validator) => {
                 matches!(**validator, Validator::Float64 | Validator::Any)
             },
             Validator::Any => true,
             Validator::Union(validators) => validators.iter().any(Self::is_valid_vector_validator),
             _ => false,
-        };
+        }
     }
 
     fn _overlaps_with_array_float64(&self, field_path_parts: &[IdentifierFieldName]) -> bool {
@@ -999,8 +999,8 @@ pub struct FieldValidator {
         any(test, feature = "testing"),
         proptest(strategy = "any_with::<Validator>(params)")
     )]
-    pub(crate) validator: Validator,
-    pub(crate) optional: bool,
+    pub validator: Validator,
+    pub optional: bool,
 }
 
 impl FieldValidator {

@@ -73,7 +73,7 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
         Ok(config)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn set(
         &mut self,
         new_config: UdfConfig,

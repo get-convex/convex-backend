@@ -872,7 +872,7 @@ impl TryFrom<ConvexObject> for CronJobStatus {
             ),
         };
 
-        return match status_t.as_ref() {
+        match status_t.as_ref() {
             "success" => {
                 let result = match fields.remove("result") {
                     Some(ConvexValue::Object(o)) => o.try_into()?,
@@ -904,7 +904,7 @@ impl TryFrom<ConvexObject> for CronJobStatus {
                 Ok(CronJobStatus::Canceled { num_canceled })
             },
             _ => anyhow::bail!("Invalid CronJobStatus `type`: {}", status_t),
-        };
+        }
     }
 }
 
@@ -946,7 +946,7 @@ impl TryFrom<ConvexObject> for CronJobResult {
             ),
         };
 
-        return match result_t.as_ref() {
+        match result_t.as_ref() {
             "default" => {
                 let value = match fields.remove("value") {
                     Some(ConvexValue::String(s)) => json_deserialize(&s)?,
@@ -968,7 +968,7 @@ impl TryFrom<ConvexObject> for CronJobResult {
                 Ok(CronJobResult::Truncated(truncated_log.into()))
             },
             _ => anyhow::bail!("Invalid CronJobResult `type`: {}", result_t),
-        };
+        }
     }
 }
 

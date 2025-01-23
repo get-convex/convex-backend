@@ -1,0 +1,145 @@
+---
+title: "Limits"
+sidebar_position: 2
+---
+
+We’d love for you to have _unlimited_ joy building on Convex but engineering
+practicalities dictate a few limits. This page outlines current limits in the
+Convex ecosystem.
+
+Many of these limits will become more permissive over time. Please get in touch
+if any are prohibitive for your application.
+
+Limits are applied per team unless stated otherwise.
+
+## Team
+
+|            | Starter | Professional                  |
+| ---------- | ------- | ----------------------------- |
+| Developers | 1-2     | 1-20<br/>$25/member per month |
+| Projects   | 20      | 100                           |
+
+## Database
+
+|                   | Starter       | Professional                                       | Notes                                                                                     |
+| ----------------- | ------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Storage           | 0.5 GiB       | 50 GiB included<br/>$0.20/month per additional GiB | Includes database rows and indexes but not files or backups.                              |
+| Bandwidth         | 1 GiB/month   | 50 GiB/month included<br/>$0.20 per additional GiB | Document and index data transferred between Convex functions and the underlying database. |
+| Tables            | 10,000        | 10,000                                             | Per deployment.                                                                           |
+| Indexes per table | 32            | 32                                                 |                                                                                           |
+| Fields per index  | 16            | 16                                                 |
+| Index name length | 64 characters | 64 characters                                      |                                                                                           |
+
+### Restrictions
+
+- Table and index names must be valid identifiers and cannot start with an
+  underscore.
+
+## Documents
+
+Applied per document and to any nested `Object` unless stated otherwise.
+
+|                     |               | Notes                                                            |
+| ------------------- | ------------- | ---------------------------------------------------------------- |
+| Size                | 1 MiB         |                                                                  |
+| Fields              | 1024          | The number of fields/keys                                        |
+| Field name length   | 64 characters | Nested `Object` keys can have length up to 1024 characters.      |
+| Field nesting depth | 16            | How many times objects and arrays can be nested, e.g. `[[[[]]]]` |
+| Array elements      | 8192          |                                                                  |
+
+### Restrictions
+
+- Field names must only contain non-control alphanumeric ASCII characters and
+  underscores and must start with an alphabetic character or underscore.
+- Documents cannot contain top-level fields that start with an underscore, other
+  than the system-provided `_id` and `_creationTime` fields.
+- Strings must be valid Unicode sequences with no unpaired surrogates.
+
+## Functions
+
+|                                                                                   | Starter                             | Professional                                              | Notes                                                                                                         |
+| --------------------------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Function calls                                                                    | 1,000,000/month                     | 25,000,000/month included<br/>$2 per additional 1,000,000 | Explicit client calls, scheduled executions, subscription updates, and file accesses count as function calls. |
+| Action execution                                                                  | 20 GiB-hours                        | 250 GiB-hours included<br/>$0.30/GiB-hour additional      | Convex runtime: 64 MiB RAM.<br/>Node.js runtime: 512 MiB RAM.                                                 |
+| Code size                                                                         | 32 MiB                              | 32 MiB                                                    | Per deployment.                                                                                               |
+| Function argument size                                                            | 8 MiB                               | 8 MiB                                                     |                                                                                                               |
+| Function return value size                                                        | 8 MiB                               | 8 MiB                                                     |                                                                                                               |
+| HTTP action response size                                                         | 20 MiB                              | 20 MiB                                                    | There is no specific limit on request size                                                                    |
+| Length of a console.log line                                                      | 4 KiB                               | 4 KiB                                                     |                                                                                                               |
+| [Log streaming](/docs/production/integrations/log-streams/log-streams.mdx) limits | 4096 logs, flushed every 10 seconds | 4096 logs, flushed every 10 seconds                       | How many logs can be buffered when streaming                                                                  |
+
+## Execution time and scheduling
+
+|                                              |                 | Notes                                                                                                                   |
+| -------------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Query/mutation execution time                | 1 second        | Limit applies only to user code and doesn’t include database operations.                                                |
+| Action execution time                        | 10&nbsp;minutes |                                                                                                                         |
+| Scheduled functions                          | 1000            | The number of other functions a single mutation can schedule.                                                           |
+| Total size of scheduled functions' arguments | 8 MiB           | Applies only to mutations.                                                                                              |
+| Concurrent IO operations per function        | 1000            | The number of IO operations a single function can perform, e.g., a database operation, or a fetch request in an action. |
+| Outstanding scheduled functions              | 1,000,000       |                                                                                                                         |
+
+## Transactions
+
+These limits apply to each `query` or `mutation` function.
+
+|                            |        | Notes                                                     |
+| -------------------------- | ------ | --------------------------------------------------------- |
+| Data read                  | 8 MiB  | Data not returned due to a `filter` counts as scanned     |
+| Data written               | 8 MiB  |
+| Documents scanned          | 16,384 | Documents not returned due to a `filter` count as scanned |
+| Documents written          | 8,192  |
+| Function return value size | 8 MiB  |
+
+## Environment Variables
+
+Applied per-deployment.
+
+|                     |               |
+| ------------------- | ------------- |
+| Number of variables | 100           |
+| Maximum name length | 40 characters |
+| Maximum value size  | 8 KiB         |
+
+## File Storage
+
+|           | Starter     | Professional                                        | Notes                                                                                                     |
+| --------- | ----------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Storage   | 1 GiB       | 100 GiB included<br/>$0.03/month per additional GiB | Includes user files and backups.                                                                          |
+| Bandwidth | 1 GiB/month | 50 GiB/month included<br/>$0.30 per additional GiB  | Includes serving user files, accessing user files inside functions, and generating and restoring backups. |
+
+## Full text search
+
+<BetaAdmonition feature="Full text search" verb="is" />
+
+|                          | Value |
+| ------------------------ | ----- |
+| Search indexes per table | 4     |
+| Filters per search index | 16    |
+| Terms per search query   | 16    |
+| Filters per search query | 8     |
+| Maximum term length      | 32 B  |
+| Maximum result set       | 1024  |
+
+## Vector search
+
+<BetaAdmonition feature="Vector search" verb="is" />
+
+|                          | Value                    |
+| ------------------------ | ------------------------ |
+| Vector indexes per table | 4                        |
+| Filters per vector index | 16                       |
+| Terms per search query   | 16                       |
+| Vectors to search by     | 1                        |
+| Dimension fields         | 1 (value between 2-4096) |
+| Filters per search query | 64                       |
+| Maximum term length      | 32 B                     |
+| Maximum result set       | 256 (defaults to 10)     |
+
+If any of these limits don't work for you,
+[let us know](https://convex.dev/community)!
+
+Please see our [plans and pricing page](https://www.convex.dev/plans) for
+resource limits. After these limits are hit on a free plan, new mutations that
+attempt to commit more insertions or updates may fail. Paid plans have no hard
+resource limits - they can scale to billions of documents and TBs of storage.

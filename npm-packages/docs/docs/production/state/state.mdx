@@ -1,0 +1,86 @@
+---
+title: "Status and Guarantees"
+id: "state"
+sidebar_position: 1
+---
+
+Please [contact us](mailto:support@convex.dev) with any specific requirements or
+if you want to build a project on Convex that is not yet satisfied by our
+guarantees.
+
+## Guarantees
+
+The official Convex Terms of Service, Privacy Policy and Customer Agreements are
+[outlined in our official terms](https://www.convex.dev/legal/tos). We do not
+yet have contractual agreements beyond what is listed in our official terms and
+the discussions within this document don't constitute an amendment to these
+terms.
+
+Convex is always under continual development and future releases may require
+code changes in order to upgrade to a new version. Code developed on Convex 1.0
+or later will continue to operate as-is. If we are required to make a breaking
+change in future we will contact teams directly to provide substantial advance
+notice.
+
+All user data in Convex is encrypted at rest. Database state is replicated
+durably across multiple physical availability zones. Regular periodic and
+incremental database backups are performed and stored with 99.999999999% (11
+9's) durability.
+
+We target an availability of 99.99% (4 9's) for Convex deployments although
+these may experience downtime for maintenance without notice. A physical outage
+may affect availability of a deployment but will not affect durability of the
+data stored in Convex.
+
+## Limits
+
+For information on limits, see [here](/docs/production/state/limits.mdx).
+
+## Beta Features
+
+Features tagged with **beta** in these docs are still in development. They can
+be used in production but their APIs might change in the future, requiring
+additional effort when upgrading to a new version of the Convex NPM package and
+other Convex client libraries.
+
+## Future Features
+
+Convex is still under very active development and here we list some of the
+missing functionality on our radar. We'd love to hear more about your
+requirements in the [Convex Discord Community](https://convex.dev/community).
+
+### Authorization
+
+Convex currently has an [_authentication framework_](/docs/auth.mdx) which
+verifies user identities. In the future we plan to add an _authorization
+framework_ which will allow developers to define what data a user can access.
+
+For now, you can implement manual authorization checks within your queries and
+mutations, but stay tuned for a more comprehensive, fool-proof solution in the
+future.
+
+### Telemetry
+
+Currently, the dashboard provides only basic metrics. Serious sites at scale are
+going to need to integrate our logs and metrics into more fully fledged
+observability systems that categorize them and empower things like alerting.
+
+Convex will eventually have methods to publish deployment data in formats that
+can be ingested by third parties.
+
+### Analytics / OLAP
+
+Convex is designed to primarily service all your app's realtime implementation
+(OLTP) needs. It is less suited to be a good solution for the kinds of complex
+queries and huge table scans that are necessary to address the requirements of
+analytics (OLAP) use cases.
+
+Convex exposes
+[Fivetran and Airbyte connectors](/docs/production/integrations/streaming-import-export.md)
+to export Convex data to external analytics systems.
+
+### Browser support
+
+Convex does not yet have an official browser support policy, but we strive to
+support most modern browsers with significant
+[usage](https://caniuse.com/usage-table).

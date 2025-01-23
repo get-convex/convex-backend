@@ -16,6 +16,7 @@ async-trait = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 home = { workspace = true }
 http = { workspace = true }
@@ -23,7 +24,6 @@ isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 model = { path = "../model" }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -34,6 +34,7 @@ tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-process-stream = { workspace = true }
 tracing = { workspace = true }
+udf = { path = "../udf" }
 value = { path = "../value" }
 
 [dev-dependencies]
@@ -48,6 +49,7 @@ model = { path = "../model", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 tempfile = { workspace = true }
+udf = { path = "../udf", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
 [features]
@@ -60,4 +62,8 @@ testing = [
     "model/testing",
     "storage/testing",
     "value/testing",
+    "udf/testing",
 ]
+
+[lints]
+workspace = true

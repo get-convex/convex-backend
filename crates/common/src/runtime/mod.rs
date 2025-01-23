@@ -21,6 +21,12 @@ use std::{
 
 use anyhow::Context;
 use async_trait::async_trait;
+use fastrace::{
+    collector::SpanContext,
+    func_path,
+    future::FutureExt as _,
+    Span,
+};
 use futures::{
     future::{
         BoxFuture,
@@ -43,12 +49,6 @@ use governor::{
     Quota,
 };
 use metrics::CONVEX_METRICS_REGISTRY;
-use minitrace::{
-    collector::SpanContext,
-    full_name,
-    future::FutureExt as MinitraceFutureExt,
-    Span,
-};
 use parking_lot::Mutex;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
@@ -65,7 +65,9 @@ use uuid::Uuid;
 use value::heap_size::HeapSize;
 
 use crate::{
+    errors::recapture_stacktrace,
     is_canceled::IsCanceled,
+    pause::PauseClient,
     types::Timestamp,
 };
 
@@ -127,7 +129,7 @@ pub async fn try_join_buffered<
     assert_send(
         stream::iter(tasks.map(|task| {
             let span = SpanContext::current_local_parent()
-                .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
+                .map(|ctx| Span::root(format!("{}::{name}", func_path!()), ctx))
                 .unwrap_or(Span::noop());
             assert_send(try_join(name, assert_send(task), span))
         }))
@@ -158,7 +160,7 @@ pub async fn try_join_buffer_unordered<
     assert_send(
         stream::iter(tasks.map(|task| {
             let span = SpanContext::current_local_parent()
-                .map(|ctx| Span::root(format!("{}::{name}", full_name!()), ctx))
+                .map(|ctx| Span::root(format!("{}::{name}", func_path!()), ctx))
                 .unwrap_or(Span::noop());
             try_join(name, task, span)
         }))
@@ -174,7 +176,7 @@ pub async fn try_join<T: Send + 'static>(
     span: Span,
 ) -> anyhow::Result<T> {
     let handle = tokio_spawn(name, fut.in_span(span));
-    handle.await?
+    handle.await?.map_err(recapture_stacktrace)
 }
 
 /// A Runtime can be considered somewhat like an operating system abstraction
@@ -233,6 +235,8 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     fn generate_timestamp(&self) -> anyhow::Result<Timestamp> {
         Timestamp::try_from(self.system_time())
     }
+
+    fn pause_client(&self) -> PauseClient;
 }
 
 /// Abstraction over a unix timestamp. Internally it stores a Duration since the
@@ -456,6 +460,30 @@ impl<RT: Runtime> WithTimeout for RT {
 pub struct TimeoutError {
     description: &'static str,
     duration: Duration,
+}
+
+pub struct MutexWithTimeout<T: Send> {
+    timeout: Duration,
+    mutex: tokio::sync::Mutex<T>,
+}
+
+impl<T: Send> MutexWithTimeout<T> {
+    pub fn new(timeout: Duration, value: T) -> Self {
+        Self {
+            timeout,
+            mutex: tokio::sync::Mutex::new(value),
+        }
+    }
+
+    pub async fn acquire_lock_with_timeout(&self) -> anyhow::Result<tokio::sync::MutexGuard<T>> {
+        let acquire_lock = async { Ok(self.mutex.lock().await) };
+        select_biased! {
+            result = acquire_lock.fuse() => result,
+            _ = tokio::time::sleep(self.timeout).fuse() => {
+                anyhow::bail!(TimeoutError{description: "acquire_lock", duration: self.timeout});
+            },
+        }
+    }
 }
 
 /// Transitional function while we move away from using our own special

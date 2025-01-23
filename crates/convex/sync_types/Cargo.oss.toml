@@ -1,10 +1,10 @@
 [package]
 name = "convex_sync_types"
 description = "Sync types for the Convex Websocket protocol (convex.dev)"
-version = "0.8.1"
+version = "0.9.0"
 authors = [ "Convex, Inc. <no-reply@convex.dev>" ]
 edition = "2021"
-rust-version = "1.70.0"
+rust-version = "1.71.1"
 resolver = "2"
 license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
@@ -28,3 +28,21 @@ proptest-derive = { version = "0.5.0" }
 
 [features]
 testing = [ "proptest", "proptest-derive" ]
+
+[lints.rust]
+unused_extern_crates = "warn"
+
+[lints.clippy]
+await_holding_lock = "warn"
+await_holding_refcell_ref = "warn"
+large_enum_variant = "allow"
+manual_map = "allow"
+new_without_default = "allow"
+op_ref = "allow"
+ptr_arg = "allow"
+single_match = "allow"
+too_many_arguments = "allow"
+type_complexity = "allow"
+upper_case_acronyms = "allow"
+useless_format = "allow"
+useless_vec = "allow"

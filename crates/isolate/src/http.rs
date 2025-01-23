@@ -21,12 +21,12 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use udf::HttpActionRequestHead;
 use url::Url;
 
 use crate::{
     ops::OpProvider,
     request_scope::StreamListener,
-    HttpActionRequestHead,
 };
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

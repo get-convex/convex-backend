@@ -16,6 +16,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use authentication::token_to_authorization_header;
 use common::{
+    auth::AuthConfig,
     backoff::Backoff,
     bootstrap_model::components::{
         definition::ComponentDefinitionMetadata,
@@ -33,6 +34,7 @@ use common::{
     },
     errors::JsError,
     execution_context::ExecutionContext,
+    fastrace_helpers::EncodedSpan,
     knobs::{
         APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT,
         APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS,
@@ -45,14 +47,12 @@ use common::{
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
-        UDF_ISOLATE_MAX_EXEC_THREADS,
     },
     log_lines::{
         run_function_and_collect_log_lines,
         LogLine,
+        LogLines,
     },
-    minitrace_helpers::EncodedSpan,
-    pause::PauseClient,
     query_journal::QueryJournal,
     runtime::{
         Runtime,
@@ -98,31 +98,9 @@ use futures::{
     select_biased,
     FutureExt,
 };
-use isolate::{
-    environment::helpers::validation::{
-        ValidatedActionOutcome,
-        ValidatedUdfOutcome,
-    },
-    parse_udf_args,
-    validate_schedule_args,
-    ActionCallbacks,
-    ActionOutcome,
-    AuthConfig,
-    BackendIsolateWorker,
-    ConcurrencyLimiter,
-    EvaluateAppDefinitionsResult,
-    FunctionOutcome,
-    FunctionResult,
-    HttpActionOutcome,
-    IsolateClient,
-    IsolateConfig,
-    JsonPackedValue,
-    UdfOutcome,
-    ValidatedPathAndArgs,
-};
+use isolate::ActionCallbacks;
 use keybroker::{
     Identity,
-    InstanceSecret,
     KeyBroker,
 };
 use model::{
@@ -180,13 +158,30 @@ use serde_json::Value as JsonValue;
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
 use tokio::sync::mpsc;
+use udf::{
+    helpers::parse_udf_args,
+    validation::{
+        validate_schedule_args,
+        ValidatedActionOutcome,
+        ValidatedPathAndArgs,
+        ValidatedUdfOutcome,
+    },
+    ActionOutcome,
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+    FunctionResult,
+    HttpActionOutcome,
+    UdfOutcome,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
+    OccInfo,
 };
 use value::{
     id_v6::DeveloperDocumentId,
     identifier::Identifier,
+    JsonPackedValue,
     TableNamespace,
 };
 use vector::{
@@ -210,7 +205,10 @@ use crate::{
         log_function_wait_timeout,
         log_mutation_already_committed,
     },
-    cache::CacheManager,
+    cache::{
+        CacheManager,
+        QueryCache,
+    },
     function_log::{
         ActionCompletion,
         FunctionExecutionLog,
@@ -279,7 +277,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
 }
 
 impl<RT: Runtime> FunctionRouter<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn execute_query_or_mutation(
         &self,
         tx: Transaction<RT>,
@@ -309,7 +307,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         Ok((tx, outcome))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn execute_action(
         &self,
         tx: Transaction<RT>,
@@ -337,7 +335,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
         Ok(outcome)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn execute_http_action(
         &self,
         tx: Transaction<RT>,
@@ -345,6 +343,8 @@ impl<RT: Runtime> FunctionRouter<RT> {
         http_action_metadata: HttpActionMetadata,
         context: ExecutionContext,
     ) -> anyhow::Result<HttpActionOutcome> {
+        // All http actions are run in the isolate environment.
+        let timer = function_total_timer(ModuleEnvironment::Isolate, UdfType::HttpAction);
         let (_, outcome) = self
             .function_runner_execute(
                 tx,
@@ -359,12 +359,13 @@ impl<RT: Runtime> FunctionRouter<RT> {
         let FunctionOutcome::HttpAction(outcome) = outcome else {
             anyhow::bail!("Calling an http action returned an invalid outcome")
         };
+        timer.finish();
         Ok(outcome)
     }
 
     // Execute using the function runner. Can be used for v8 udfs other than http
     // actions.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn function_runner_execute(
         &self,
         mut tx: Transaction<RT>,
@@ -527,7 +528,7 @@ struct RequestGuard<'a> {
     permit: Option<SemaphorePermit<'a>>,
 }
 
-impl<'a> RequestGuard<'a> {
+impl RequestGuard<'_> {
     async fn acquire_permit(&mut self) -> anyhow::Result<()> {
         let timer = function_waiter_timer(self.limiter.udf_type);
         assert!(
@@ -542,7 +543,7 @@ impl<'a> RequestGuard<'a> {
     }
 }
 
-impl<'a> Drop for RequestGuard<'a> {
+impl Drop for RequestGuard<'_> {
     fn drop(&mut self) {
         // Drop the semaphore permit before updating gauges.
         drop(self.permit.take());
@@ -568,8 +569,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
     isolate_functions: FunctionRouter<RT>,
     // Used for analyze, schema, etc.
-    analyze_isolate: IsolateClient<RT>,
-    node_actions: Actions,
+    node_actions: Actions<RT>,
 
     pub(crate) module_cache: Arc<dyn ModuleLoader<RT>>,
     modules_storage: Arc<dyn Storage>,
@@ -584,46 +584,28 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     pub fn new(
-        instance_name: String,
-        instance_secret: InstanceSecret,
         runtime: RT,
         database: Database<RT>,
         key_broker: KeyBroker,
         function_runner: Arc<dyn FunctionRunner<RT>>,
-        node_actions: Actions,
+        node_actions: Actions<RT>,
         file_storage: TransactionalFileStorage<RT>,
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        cache: QueryCache,
     ) -> Self {
         // We limit the isolates to only consume fraction of the available
         // cores leaving the rest for tokio. This is still over-provisioning
         // in case there are multiple active backends per server.
         let isolate_concurrency_limit =
             *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT * num_cpus::get_physical() / 100;
-        let limiter = ConcurrencyLimiter::new(isolate_concurrency_limit);
         tracing::info!(
             "Limiting isolate concurrency to {} ({}% out of {} physical cores)",
             isolate_concurrency_limit,
             *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
             num_cpus::get_physical(),
-        );
-
-        let analyze_isolate_worker = BackendIsolateWorker::new(
-            runtime.clone(),
-            IsolateConfig::new("database_executor", limiter),
-        );
-        let analyze_isolate = IsolateClient::new(
-            runtime.clone(),
-            analyze_isolate_worker,
-            *UDF_ISOLATE_MAX_EXEC_THREADS,
-            false,
-            instance_name,
-            instance_secret,
-            file_storage.clone(),
-            system_env_vars.clone(),
-            module_cache.clone(),
         );
 
         let isolate_functions = FunctionRouter::new(
@@ -637,6 +619,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database.clone(),
             isolate_functions.clone(),
             function_log.clone(),
+            cache,
         );
 
         Self {
@@ -644,7 +627,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             database,
             key_broker,
             isolate_functions,
-            analyze_isolate,
             node_actions,
             module_cache,
             modules_storage,
@@ -661,7 +643,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     pub(crate) async fn shutdown(&self) -> anyhow::Result<()> {
-        self.analyze_isolate.shutdown().await?;
         self.node_actions.shutdown();
         Ok(())
     }
@@ -674,7 +655,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         path: CanonicalizedComponentFunctionPath,
         arguments: ConvexArray,
         caller: FunctionCaller,
-    ) -> anyhow::Result<UdfOutcome> {
+    ) -> anyhow::Result<(Result<JsonPackedValue, JsError>, LogLines)> {
         if !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("query_without_caching"));
         }
@@ -720,8 +701,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         };
         let stats = tx.take_stats();
 
+        let result = outcome.result.clone();
+        let log_lines = outcome.log_lines.clone();
         self.function_log.log_query(
-            outcome.clone(),
+            &outcome,
             stats,
             false,
             start.elapsed(),
@@ -730,11 +713,11 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             context,
         );
 
-        Ok(outcome)
+        Ok((result, log_lines))
     }
 
     /// Runs a mutations and retries on OCC errors.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn retry_mutation(
         &self,
         request_id: RequestId,
@@ -743,7 +726,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let timer = mutation_timer();
         let result = self
@@ -754,7 +736,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 identity,
                 mutation_identifier,
                 caller,
-                pause_client,
             )
             .await;
         match &result {
@@ -765,7 +746,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs a mutations and retries on OCC errors.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _retry_mutation(
         &self,
         request_id: RequestId,
@@ -774,7 +755,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        pause_client: PauseClient,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -795,10 +775,9 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             *UDF_EXECUTOR_OCC_MAX_BACKOFF,
         );
 
-        // Function usage is accumulated across retries. So if a function is retried due
-        // to OCC, we will continue to accumulate usage for the function.
-        let usage_tracker = FunctionUsageTracker::new();
         loop {
+            let usage_tracker = FunctionUsageTracker::new();
+
             // Note that we use different context for every mutation attempt.
             // This so every JS function run gets a different executionId.
             let context = ExecutionContext::new(request_id.clone(), &caller);
@@ -808,6 +787,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 .database
                 .begin_with_usage(identity.clone(), usage_tracker.clone())
                 .await?;
+            let pause_client = self.runtime.pause_client();
             pause_client.wait("retry_mutation_loop_start").await;
             let identity = tx.inert_identity();
 
@@ -906,32 +886,42 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                  {udf_path_string:?} after {sleep:?}",
                             );
                             self.runtime.wait(sleep).await;
-                            let (table_name, document_id) = e.occ_info().unwrap_or((None, None));
+                            let (table_name, document_id, write_source) =
+                                e.occ_info().unwrap_or((None, None, None));
                             self.function_log.log_mutation_occ_error(
                                 outcome,
                                 stats,
                                 execution_time,
                                 caller.clone(),
+                                usage_tracker,
                                 context.clone(),
-                                table_name,
-                                document_id,
-                                (backoff.failures() - 1) as u64,
+                                OccInfo {
+                                    table_name,
+                                    document_id,
+                                    write_source,
+                                    retry_count: (backoff.failures() - 1) as u64,
+                                },
                             );
                             continue;
                         }
                         outcome.result = Err(JsError::from_error_ref(&e));
 
                         if e.is_occ() {
-                            let (table_name, document_id) = e.occ_info().unwrap_or((None, None));
+                            let (table_name, document_id, write_source) =
+                                e.occ_info().unwrap_or((None, None, None));
                             self.function_log.log_mutation_occ_error(
                                 outcome,
                                 stats,
                                 execution_time,
                                 caller,
+                                usage_tracker,
                                 context.clone(),
-                                table_name,
-                                document_id,
-                                backoff.failures().into(),
+                                OccInfo {
+                                    table_name,
+                                    document_id,
+                                    write_source,
+                                    retry_count: backoff.failures().into(),
+                                },
                             );
                         } else {
                             self.function_log.log_mutation_system_error(
@@ -959,7 +949,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 context.clone(),
             );
             log_occ_retries(backoff.failures() as usize);
-            pause_client.close("retry_mutation_loop_start");
             return Ok(result);
         }
     }
@@ -998,7 +987,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs the mutation once without any logging.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_mutation_inner(
         &self,
         mut tx: Transaction<RT>,
@@ -1059,7 +1048,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok((tx, outcome))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_action(
         &self,
         request_id: RequestId,
@@ -1125,7 +1114,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
     /// Runs the actions without logging to the UDF log. It is the caller
     /// responsibility to log to the UDF log.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_action_no_udf_log(
         &self,
         path: PublicFunctionPath,
@@ -1158,7 +1147,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
     }
 
     /// Runs the action without any logging.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_action_inner(
         &self,
         path: PublicFunctionPath,
@@ -1278,19 +1267,32 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     component: path.component,
                     module_path: path.udf_path.module().clone(),
                 };
-                let module_version = self
-                    .module_cache
-                    .get_module(&mut tx, module_path.clone())
+                let component = path.component;
+                let module_metadata = match ModuleModel::new(&mut tx)
+                    .get_metadata(module_path.clone())
                     .await?
-                    .context("Missing a valid module_version")?;
+                {
+                    Some(r) => r,
+                    None => anyhow::bail!("Missing a valid module_version"),
+                };
+                let source_package = SourcePackageModel::new(&mut tx, component.into())
+                    .get(module_metadata.source_package_id)
+                    .await?;
+                let source_maps_callback = async {
+                    let module_version = self
+                        .module_cache
+                        .get_module_with_metadata(module_metadata, source_package)
+                        .await?;
+                    let mut source_maps = BTreeMap::new();
+                    if let Some(source_map) = module_version.source_map.clone() {
+                        source_maps.insert(module_path.module_path.clone(), source_map);
+                    }
+                    Ok(source_maps)
+                };
                 let _request_guard = self
                     .node_action_limiter
                     .acquire_permit_with_timeout(&self.runtime)
                     .await?;
-                let mut source_maps = BTreeMap::new();
-                if let Some(source_map) = module_version.source_map.clone() {
-                    source_maps.insert(module_path.module_path.clone(), source_map);
-                }
 
                 let source_package_id = module.source_package_id;
                 let source_package = SourcePackageModel::new(&mut tx, component.into())
@@ -1353,7 +1355,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
                 let node_outcome_future = self
                     .node_actions
-                    .execute(request, &source_maps, log_line_sender)
+                    .execute(request, log_line_sender, source_maps_callback)
                     .boxed();
                 let (mut node_outcome_result, log_lines) = run_function_and_collect_log_lines(
                     node_outcome_future,
@@ -1445,7 +1447,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn build_deps(
         &self,
         deps: Vec<NodeDependency>,
@@ -1469,7 +1471,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         )
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_app_definitions(
         &self,
         app_definition: ModuleConfig,
@@ -1477,7 +1479,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_app_definitions(
                 app_definition,
                 component_definitions,
@@ -1488,7 +1491,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn evaluate_component_initializer(
         &self,
         evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
@@ -1497,12 +1500,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         args: BTreeMap<Identifier, Resource>,
         name: ComponentName,
     ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_component_initializer(evaluated_definitions, path, definition, args, name)
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze(
         &self,
         udf_config: UdfConfig,
@@ -1610,7 +1614,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(Ok(result))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn validate_cron_jobs(
         &self,
         modules: &BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
@@ -1667,7 +1671,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         rng_seed: [u8; 32],
         unix_timestamp: UnixTimestamp,
     ) -> anyhow::Result<DatabaseSchema> {
-        self.analyze_isolate
+        self.isolate_functions
+            .function_runner
             .evaluate_schema(schema_bundle, source_map, rng_seed, unix_timestamp)
             .await
     }
@@ -1677,10 +1682,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
         mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
         environment_variables.extend(self.system_env_vars.clone());
-        self.analyze_isolate
-            .evaluate_auth_config(auth_config_bundle, source_map, environment_variables)
+        self.isolate_functions
+            .function_runner
+            .evaluate_auth_config(
+                auth_config_bundle,
+                source_map,
+                environment_variables,
+                explanation,
+            )
             .await
     }
 
@@ -1688,7 +1700,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         self.node_actions.enable()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_query_at_ts(
         &self,
         request_id: RequestId,
@@ -1721,7 +1733,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         result
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_query_at_ts_inner(
         &self,
         request_id: RequestId,
@@ -1764,7 +1776,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn check_mutation_status(
         &self,
         tx: &mut Transaction<RT>,
@@ -1791,7 +1803,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         Ok(Some(result))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn write_mutation_status(
         &self,
         tx: &mut Transaction<RT>,
@@ -1832,7 +1844,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
 #[async_trait]
 impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_query(
         &self,
         identity: Identity,
@@ -1858,7 +1870,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         Ok(FunctionResult { result })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_mutation(
         &self,
         identity: Identity,
@@ -1876,7 +1888,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
-                PauseClient::new(),
             )
             .await
             .map(|r| match r {
@@ -1886,7 +1897,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
         Ok(FunctionResult { result })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn execute_action(
         &self,
         identity: Identity,
@@ -1957,7 +1968,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_storage_store_file_entry",
                 |tx| {
                     async {
@@ -1989,7 +1999,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_storage_delete",
                 |tx| {
                     async {
@@ -2020,7 +2029,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_schedule_job",
                 |tx| {
                     let path = scheduled_path.clone();
@@ -2059,7 +2067,6 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
             .execute_with_occ_retries(
                 identity,
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "app_funrun_cancel_job",
                 |tx| {
                     async {

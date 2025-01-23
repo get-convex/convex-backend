@@ -6,6 +6,7 @@ use std::{
 use anyhow::Context;
 use common::{
     knobs::{
+        MAX_COMPACTION_SEGMENTS,
         MAX_SEGMENT_DELETED_PERCENTAGE,
         MIN_COMPACTION_SEGMENTS,
         SEARCH_WORKER_PASSIVE_PAGES_PER_SECOND,
@@ -17,6 +18,7 @@ use common::{
 };
 use itertools::Itertools;
 use keybroker::Identity;
+use rand::seq::SliceRandom;
 use search::{
     metrics::SearchType,
     Searcher,
@@ -40,7 +42,6 @@ use crate::{
     },
     metrics::{
         compaction_build_one_timer,
-        finish_compaction_timer,
         log_compaction_compacted_segment_num_documents_total,
         log_compaction_total_segments,
         CompactionReason,
@@ -148,11 +149,20 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 )?,
                 _ => continue,
             };
-            if let Some((segments_to_compact, compaction_reason)) = maybe_segments_to_compact {
+            if let Some((mut segments_to_compact, compaction_reason)) = maybe_segments_to_compact {
                 tracing::info!(
                     "Queueing {:?} index for compaction: {name:?}",
                     Self::search_type()
                 );
+                // Choose segments to compact at random.
+                segments_to_compact.shuffle(&mut rand::thread_rng());
+                tracing::info!(
+                    "Compacting {} segments out of {} that need compaction for reason: {:?}",
+                    *MAX_COMPACTION_SEGMENTS,
+                    segments_to_compact.len(),
+                    compaction_reason,
+                );
+                segments_to_compact.truncate(*MAX_COMPACTION_SEGMENTS);
                 let job = CompactionJob {
                     index_id,
                     index_name: name.clone(),
@@ -168,7 +178,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
     }
 
     async fn build_one(&self, job: CompactionJob<T>) -> anyhow::Result<u64> {
-        let timer = compaction_build_one_timer(Self::search_type());
+        let timer = compaction_build_one_timer(Self::search_type(), job.compaction_reason);
         let snapshot_ts = match job.on_disk_state {
             SearchOnDiskState::Backfilling(BackfillState {
                 backfill_snapshot_ts,
@@ -218,8 +228,7 @@ impl<RT: Runtime, T: SearchIndex> SearchIndexCompactor<RT, T> {
                 .collect::<anyhow::Result<Vec<_>>>()?,
             Self::format(&new_segment, &job.developer_config)?,
         );
-
-        finish_compaction_timer(timer, job.compaction_reason);
+        timer.finish();
         Ok(total_compacted_segments)
     }
 

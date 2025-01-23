@@ -20,12 +20,6 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    sync::state_channel::{
-        new_state_channel,
-        ClosedError,
-        StateChannelReceiver,
-        StateChannelSender,
-    },
     types::{
         PersistenceVersion,
         SubscriberId,
@@ -33,16 +27,19 @@ use common::{
         Timestamp,
     },
 };
+use fastrace::future::FutureExt as _;
 use indexing::interval::IntervalMap;
-use minitrace::future::FutureExt as MinitraceFutureExt;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use search::query::TextSearchSubscriptions;
 use slab::Slab;
 use tokio::sync::{
-    mpsc,
-    mpsc::error::TrySendError,
+    mpsc::{
+        self,
+        error::TrySendError,
+    },
     oneshot,
+    watch,
 };
 
 use crate::{
@@ -66,20 +63,11 @@ struct SubscriptionKey {
 // Provide large enough limit so we never hit this in practice.
 const SUBSCRIPTIONS_BUFFER: usize = 10000;
 
+#[derive(Clone)]
 pub struct SubscriptionsClient {
     handle: Arc<Mutex<Box<dyn SpawnHandle>>>,
     log: LogReader,
     sender: mpsc::Sender<SubscriptionRequest>,
-}
-
-impl Clone for SubscriptionsClient {
-    fn clone(&self) -> Self {
-        Self {
-            handle: self.handle.clone(),
-            log: self.log.clone(),
-            sender: self.sender.clone(),
-        }
-    }
 }
 
 impl SubscriptionsClient {
@@ -151,7 +139,7 @@ impl SubscriptionsWorker {
                                 Ok(s) => {
                                     let _: Result<_, _> = result.send(s);
                                 },
-                                Err(mut e) => report_error(&mut e),
+                                Err(mut e) => report_error(&mut e).await,
                             }
                         },
                         Some(SubscriptionRequest::Cancel(key)) => {
@@ -165,7 +153,7 @@ impl SubscriptionsWorker {
                 },
                 next_ts = self.subscriptions.wait_for_next_ts() => {
                     if let Err(mut e) = self.subscriptions.advance_log(next_ts) {
-                        report_error(&mut e);
+                        report_error(&mut e).await;
                     }
                 },
             }
@@ -194,8 +182,9 @@ pub struct SubscriptionManager {
 }
 
 struct Subscriber {
-    reads: ReadSet,
-    sender: StateChannelSender<SubscriptionState>,
+    reads: Arc<ReadSet>,
+    valid_ts: Arc<Mutex<Option<Timestamp>>>,
+    valid: watch::Sender<SubscriptionState>,
     seq: Sequence,
 }
 
@@ -248,21 +237,23 @@ impl SubscriptionManager {
 
         self.subscriptions.insert(subscriber_id, token.reads());
 
-        let (sender, receiver) = new_state_channel(SubscriptionState::Valid(token.ts()));
-        let seq = self.next_seq;
+        let valid_ts = Arc::new(Mutex::new(Some(token.ts())));
+        let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
+        let seq: usize = self.next_seq;
         let key = SubscriptionKey {
             id: subscriber_id,
             seq,
         };
         self.next_seq += 1;
-        let reads = token.into_reads();
         entry.insert(Subscriber {
-            reads: reads.clone(),
-            sender,
+            reads: token.reads_owned(),
+            valid_ts: valid_ts.clone(),
+            valid: valid_tx,
             seq,
         });
         let subscription = Subscription {
-            receiver,
+            valid_ts,
+            valid: valid_rx,
             key: Some(key),
             sender: self.sender.clone(),
             _timer: metrics::subscription_timer(),
@@ -294,7 +285,7 @@ impl SubscriptionManager {
             // First, do a pass where we advance all of the valid subscriptions.
             for (subscriber_id, subscriber) in &mut self.subscribers {
                 if !to_notify.contains(&subscriber_id) {
-                    subscriber.sender.set(SubscriptionState::Valid(next_ts));
+                    *subscriber.valid_ts.lock() = Some(next_ts);
                 }
             }
             // Then, invalidate all the remaining subscriptions.
@@ -345,10 +336,7 @@ impl SubscriptionManager {
     }
 
     fn get_subscriber(&self, key: SubscriptionKey) -> Option<&Subscriber> {
-        let entry = match self.subscribers.get(key.id) {
-            None => return None,
-            Some(e) => e,
-        };
+        let entry = self.subscribers.get(key.id)?;
         if entry.seq > key.seq {
             return None;
         }
@@ -367,20 +355,22 @@ impl SubscriptionManager {
 
     fn _remove(&mut self, id: SubscriberId) {
         let entry = self.subscribers.remove(id);
-        entry.sender.set(SubscriptionState::Invalid);
+        *entry.valid_ts.lock() = None;
+        let _ = entry.valid.send(SubscriptionState::Invalid);
         self.subscriptions.remove(id, &entry.reads);
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone)]
 enum SubscriptionState {
-    Valid(Timestamp),
+    Valid,
     Invalid,
 }
 
 /// A subscription on a set of read keys from a prior read-only transaction.
 pub struct Subscription {
-    receiver: StateChannelReceiver<SubscriptionState>,
+    valid_ts: Arc<Mutex<Option<Timestamp>>>,
+    valid: watch::Receiver<SubscriptionState>,
     key: Option<SubscriptionKey>,
     sender: mpsc::Sender<SubscriptionRequest>,
     _timer: Timer<VMHistogram>,
@@ -394,9 +384,10 @@ impl Subscription {
     }
 
     fn invalid(sender: mpsc::Sender<SubscriptionRequest>) -> Self {
-        let (_, receiver) = new_state_channel(SubscriptionState::Invalid);
+        let (_, receiver) = watch::channel(SubscriptionState::Invalid);
         Subscription {
-            receiver,
+            valid_ts: Arc::new(Mutex::new(None)),
+            valid: receiver,
             key: None,
             sender,
             _timer: metrics::subscription_timer(),
@@ -404,17 +395,16 @@ impl Subscription {
     }
 
     pub fn current_ts(&self) -> Option<Timestamp> {
-        match self.receiver.current_state() {
-            Ok(SubscriptionState::Valid(ts)) => Some(ts),
-            Ok(SubscriptionState::Invalid) | Err(ClosedError) => None,
-        }
+        *self.valid_ts.lock()
     }
 
     pub fn wait_for_invalidation(&self) -> impl Future<Output = ()> {
-        let future = self.receiver.wait_for(SubscriptionState::Invalid);
-        let span = minitrace::Span::enter_with_local_parent("wait_for_invalidation");
+        let mut valid = self.valid.clone();
+        let span = fastrace::Span::enter_with_local_parent("wait_for_invalidation");
         async move {
-            let _: Result<_, _> = future.await;
+            let _: Result<_, _> = valid
+                .wait_for(|state| matches!(state, SubscriptionState::Invalid))
+                .await;
         }
         .in_span(span)
     }
@@ -722,10 +712,8 @@ mod tests {
         table_id: TabletIdAndTableNumber,
         terms: Vec<TextQueryTerm>,
     ) -> anyhow::Result<Token> {
-        let index_name: GenericIndexName<TabletId> = GenericIndexName::new(
-            table_id.tablet_id,
-            IndexDescriptor::from_str("index").unwrap(),
-        )?;
+        let index_name: GenericIndexName<TabletId> =
+            GenericIndexName::new(table_id.tablet_id, IndexDescriptor::new("index").unwrap())?;
         let field_path = FieldPath::from_str("path")?;
 
         Ok(Token::text_search_token(
@@ -912,7 +900,7 @@ mod tests {
 
     fn contains_text_query(token: Token) -> bool {
         token
-            .into_reads()
+            .reads()
             .iter_search()
             .any(|(_, reads)| !reads.text_queries.is_empty())
     }
@@ -924,7 +912,7 @@ mod tests {
     ) -> BTreeSet<SubscriberId> {
         let mut to_notify = BTreeSet::new();
         for token in tokens {
-            let documents = create_matching_documents(&token.into_reads(), id_generator);
+            let documents = create_matching_documents(token.reads(), id_generator);
             for doc in &documents {
                 subscription_manager.overlapping(doc, &mut to_notify, PersistenceVersion::V5);
             }

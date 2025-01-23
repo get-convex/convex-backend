@@ -1,0 +1,51 @@
+{
+  "name": "@convex-dev/triggers",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "tsc --project ./esm.json && echo '{\\n  \"type\": \"module\"\\n}' > dist/esm/package.json",
+    "build:cjs": "tsc --project ./commonjs.json && echo '{\\n  \"type\": \"commonjs\"\\n}' > dist/esm/package.json",
+    "typecheck": "tsc --noEmit",
+    "dev": "convex dev",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/client/index.d.ts",
+        "default": "./dist/esm/client/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/client/index.d.ts",
+        "default": "./dist/commonjs/client/index.js"
+      }
+    },
+    "./convex.config.js": {
+      "import": {
+        "types": "./dist/esm/triggers/convex.config.d.ts",
+        "default": "./dist/esm/triggers/convex.config.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/triggers/convex.config.d.ts",
+        "default": "./dist/commonjs/triggers/convex.config.js"
+      }
+    }
+  },
+  "dependencies": {
+    "convex": "workspace:*"
+  },
+  "devDependencies": {
+    "prettier": "3.4.2",
+    "@types/node": "^18.17.0",
+    "typescript": "~5.0.3"
+  },
+  "main": "./dist/commonjs/client.js",
+  "types": "./dist/commonjs/client.d.ts",
+  "module": "./dist/esm/client.js"
+}

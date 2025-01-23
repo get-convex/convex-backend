@@ -97,7 +97,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
             .map(|(document, _)| document))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn get_with_ts(
         &mut self,
@@ -180,7 +180,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     }
 
     /// Creates a new document with given value in the specified table.
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn insert(
         &mut self,
@@ -243,7 +243,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
     /// Merges the existing document with the given object. Will overwrite any
     /// conflicting fields.
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn patch(
         &mut self,
@@ -259,8 +259,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .number_to_tablet(),
@@ -278,7 +277,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
     }
 
     /// Replace the document with the given value.
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn replace(
         &mut self,
@@ -296,8 +295,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         }
         self.tx.retention_validator.fail_if_falling_behind()?;
         let id_ = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .number_to_tablet(),
@@ -310,7 +308,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
 
     /// Delete the document at the given path -- called from user facing APIs
     /// (e.g. syscalls)
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     pub async fn delete(&mut self, id: DeveloperDocumentId) -> anyhow::Result<DeveloperDocument> {
         if self.tx.is_system(self.namespace, id.table())
@@ -322,8 +320,7 @@ impl<'a, RT: Runtime> UserFacingModel<'a, RT> {
         self.tx.retention_validator.fail_if_falling_behind()?;
 
         let id_ = id.to_resolved(
-            &self
-                .tx
+            self.tx
                 .table_mapping()
                 .namespace(self.namespace)
                 .number_to_tablet(),
@@ -399,7 +396,7 @@ fn start_index_range<RT: Runtime>(
 
 /// NOTE: returns a page of results. Callers must call record_read_document +
 /// record_indexed_directly for all documents returned from the index stream.
-#[minitrace::trace]
+#[fastrace::trace]
 #[convex_macro::instrument_future]
 pub async fn index_range_batch<RT: Runtime>(
     tx: &mut Transaction<RT>,

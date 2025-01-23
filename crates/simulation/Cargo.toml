@@ -1,0 +1,108 @@
+[package]
+name = "simulation"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[package.metadata.cargo-udeps.ignore]
+normal = [
+    "anyhow",
+    "application",
+    "common",
+    "deno_core",
+    "errors",
+    "futures",
+    "isolate",
+    "keybroker",
+    "maplit",
+    "model",
+    "rand",
+    "rand_chacha",
+    "serde",
+    "serde_json",
+    "sync",
+    "sync_types",
+    "tokio",
+    "tracing",
+]
+development = [
+    "anyhow",
+    "application",
+    "common",
+    "deno_core",
+    "errors",
+    "futures",
+    "isolate",
+    "keybroker",
+    "maplit",
+    "model",
+    "rand",
+    "rand_chacha",
+    "serde",
+    "serde_json",
+    "sync",
+    "sync_types",
+    "tokio",
+    "tracing",
+]
+
+[dependencies]
+anyhow = { workspace = true }
+application = { path = "../application" }
+common = { path = "../common" }
+deno_core = { workspace = true }
+errors = { path = "../errors" }
+futures = { workspace = true }
+isolate = { path = "../isolate" }
+keybroker = { path = "../keybroker" }
+maplit = { workspace = true }
+model = { path = "../model" }
+proptest = { workspace = true, optional = true }
+proptest-derive = { workspace = true, optional = true }
+rand = { workspace = true }
+rand_chacha = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sync = { path = "../sync" }
+sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+application = { path = "../application", features = ["testing"] }
+common = { path = "../common", features = ["testing"] }
+convex = { path = "../convex", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
+errors = { path = "../errors", features = ["testing"] }
+isolate = { path = "../isolate", features = ["testing"] }
+keybroker = { path = "../keybroker", features = ["testing"] }
+metrics = { path = "../metrics", features = ["testing"] }
+model = { path = "../model", features = ["testing"] }
+must-let = { workspace = true }
+proptest = { workspace = true }
+proptest-derive = { workspace = true }
+rand_distr = { workspace = true }
+runtime = { path = "../runtime", features = ["testing"] }
+sync = { path = "../sync", features = ["testing"] }
+uuid = { workspace = true }
+
+[features]
+testing = [
+    "application/testing",
+    "common/testing",
+    "errors/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "sync/testing",
+    "proptest",
+    "proptest-derive",
+]
+
+[lints]
+workspace = true

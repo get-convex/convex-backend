@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 #![feature(iterator_try_collect)]
 #![feature(let_chains)]
 #![feature(coroutines)]
@@ -28,7 +27,10 @@ use authentication::{
 };
 use bytes::Bytes;
 use common::{
-    auth::AuthInfo,
+    auth::{
+        AuthConfig,
+        AuthInfo,
+    },
     bootstrap_model::{
         components::handles::FunctionHandle,
         index::{
@@ -67,10 +69,10 @@ use common::{
     log_lines::LogLines,
     log_streaming::LogSender,
     paths::FieldPath,
-    pause::PauseClient,
     persistence::Persistence,
     query_journal::QueryJournal,
     runtime::{
+        shutdown_and_join,
         Runtime,
         SpawnHandle,
         UnixTimestamp,
@@ -125,6 +127,12 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::{
+    collector::SpanContext,
+    func_path,
+    future::FutureExt,
+    Span,
+};
 use file_storage::{
     FileRangeStream,
     FileStorage,
@@ -144,28 +152,11 @@ use http_client::{
     cached_http_client_for,
     ClientPurpose,
 };
-use isolate::{
-    parse_udf_args,
-    AuthConfig,
-    HttpActionRequest,
-    HttpActionResponseStreamer,
-    HttpActionResult,
-    UdfOutcome,
-    CONVEX_ORIGIN,
-    CONVEX_SITE,
-};
 use keybroker::{
     Identity,
-    InstanceSecret,
     KeyBroker,
 };
 use maplit::btreemap;
-use minitrace::{
-    collector::SpanContext,
-    full_name,
-    future::FutureExt,
-    Span,
-};
 use model::{
     auth::AuthInfoModel,
     backend_state::BackendStateModel,
@@ -212,6 +203,7 @@ use model::{
         types::FileStorageEntry,
         FileStorageId,
     },
+    migrations::MigrationWorker,
     modules::{
         module_versions::{
             AnalyzedModule,
@@ -287,6 +279,21 @@ use tokio::{
     },
     task::JoinSet,
 };
+use udf::{
+    environment::{
+        CONVEX_ORIGIN,
+        CONVEX_SITE,
+    },
+    helpers::parse_udf_args,
+    HttpActionRequest,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+};
+use udf_metrics::{
+    MetricsWindow,
+    Percentile,
+    Timeseries,
+};
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
@@ -308,13 +315,10 @@ use vector::{
 
 use crate::{
     application_function_runner::ApplicationFunctionRunner,
-    export_worker::ExportWorker,
+    exports::worker::ExportWorker,
     function_log::{
         FunctionExecutionLog,
-        MetricsWindow,
-        Percentile,
         TableRate,
-        Timeseries,
         UdfMetricSummary,
         UdfRate,
     },
@@ -332,7 +336,7 @@ pub mod application_function_runner;
 mod cache;
 pub mod cron_jobs;
 pub mod deploy_config;
-mod export_worker;
+mod exports;
 pub mod function_log;
 pub mod log_visibility;
 mod metrics;
@@ -350,6 +354,7 @@ pub mod test_helpers;
 #[cfg(test)]
 mod tests;
 
+pub use crate::cache::QueryCache;
 use crate::metrics::{
     log_external_deps_package,
     log_source_package_size_bytes_total,
@@ -489,6 +494,7 @@ pub struct Application<RT: Runtime> {
     snapshot_import_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     export_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
     system_table_cleanup_worker: Arc<Mutex<Box<dyn SpawnHandle>>>,
+    migration_worker: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
     log_sender: Arc<dyn LogSender>,
     log_visibility: Arc<dyn LogVisibility<RT>>,
     module_cache: ModuleCache<RT>,
@@ -523,6 +529,7 @@ impl<RT: Runtime> Clone for Application<RT> {
             snapshot_import_worker: self.snapshot_import_worker.clone(),
             export_worker: self.export_worker.clone(),
             system_table_cleanup_worker: self.system_table_cleanup_worker.clone(),
+            migration_worker: self.migration_worker.clone(),
             log_sender: self.log_sender.clone(),
             log_visibility: self.log_visibility.clone(),
             module_cache: self.module_cache.clone(),
@@ -545,19 +552,17 @@ impl<RT: Runtime> Application<RT> {
         usage_tracking: UsageCounter,
         key_broker: KeyBroker,
         instance_name: String,
-        instance_secret: InstanceSecret,
         function_runner: Arc<dyn FunctionRunner<RT>>,
         convex_origin: ConvexOrigin,
         convex_site: ConvexSite,
         searcher: Arc<dyn Searcher>,
         segment_term_metadata_fetcher: Arc<dyn SegmentTermMetadataFetcher>,
         persistence: Arc<dyn Persistence>,
-        node_actions: Actions,
+        node_actions: Actions<RT>,
         log_sender: Arc<dyn LogSender>,
         log_visibility: Arc<dyn LogVisibility<RT>>,
-        snapshot_import_pause_client: PauseClient,
-        scheduled_jobs_pause_client: PauseClient,
         app_auth: Arc<ApplicationAuth>,
+        cache: QueryCache,
     ) -> anyhow::Result<Self> {
         let module_cache = ModuleCache::new(runtime.clone(), modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
@@ -588,9 +593,8 @@ impl<RT: Runtime> Application<RT> {
             segment_term_metadata_fetcher,
         );
         let search_worker = Arc::new(Mutex::new(search_worker));
-        let search_and_vector_bootstrap_worker = Arc::new(Mutex::new(
-            database.start_search_and_vector_bootstrap(PauseClient::new()),
-        ));
+        let search_and_vector_bootstrap_worker =
+            Arc::new(Mutex::new(database.start_search_and_vector_bootstrap()));
         let table_summary_worker =
             TableSummaryWorker::start(runtime.clone(), database.clone(), persistence.clone());
         let schema_worker = Arc::new(Mutex::new(runtime.spawn(
@@ -613,8 +617,6 @@ impl<RT: Runtime> Application<RT> {
             log_sender.clone(),
         );
         let runner = Arc::new(ApplicationFunctionRunner::new(
-            instance_name.clone(),
-            instance_secret,
             runtime.clone(),
             database.clone(),
             key_broker.clone(),
@@ -625,6 +627,7 @@ impl<RT: Runtime> Application<RT> {
             module_loader,
             function_log.clone(),
             system_env_vars.clone(),
+            cache,
         ));
         function_runner.set_action_callbacks(runner.clone());
 
@@ -634,7 +637,6 @@ impl<RT: Runtime> Application<RT> {
             database.clone(),
             runner.clone(),
             function_log.clone(),
-            scheduled_jobs_pause_client,
         );
 
         let cron_job_executor_fut = CronJobExecutor::start(
@@ -654,6 +656,7 @@ impl<RT: Runtime> Application<RT> {
             exports_storage.clone(),
             files_storage.clone(),
             database.usage_counter().clone(),
+            instance_name.clone(),
         );
         let export_worker = Arc::new(Mutex::new(runtime.spawn("export_worker", export_worker)));
 
@@ -663,11 +666,20 @@ impl<RT: Runtime> Application<RT> {
             snapshot_imports_storage.clone(),
             file_storage.clone(),
             database.usage_counter().clone(),
-            snapshot_import_pause_client,
         );
         let snapshot_import_worker = Arc::new(Mutex::new(
             runtime.spawn("snapshot_import_worker", snapshot_import_worker),
         ));
+
+        let migration_worker = MigrationWorker::new(
+            runtime.clone(),
+            persistence.clone(),
+            database.clone(),
+            modules_storage.clone(),
+        );
+        let migration_worker = Arc::new(Mutex::new(Some(
+            runtime.spawn("migration_worker", migration_worker.go()),
+        )));
 
         Ok(Self {
             runtime,
@@ -694,6 +706,7 @@ impl<RT: Runtime> Application<RT> {
             export_worker,
             snapshot_import_worker,
             system_table_cleanup_worker,
+            migration_worker,
             log_sender,
             log_visibility,
             module_cache,
@@ -734,7 +747,7 @@ impl<RT: Runtime> Application<RT> {
         self.instance_name.clone()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn begin(&self, identity: Identity) -> anyhow::Result<Transaction<RT>> {
         self.database.begin(identity).await
     }
@@ -744,7 +757,7 @@ impl<RT: Runtime> Application<RT> {
         self.commit(transaction, "test").await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn commit(
         &self,
         transaction: Transaction<RT>,
@@ -755,7 +768,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
         self.database.subscribe(token).await
     }
@@ -764,7 +777,7 @@ impl<RT: Runtime> Application<RT> {
         self.database.usage_counter().clone()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn document_deltas(
         &self,
         identity: Identity,
@@ -797,7 +810,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn list_snapshot(
         &self,
         identity: Identity,
@@ -914,7 +927,7 @@ impl<RT: Runtime> Application<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn read_only_udf_at_ts(
         &self,
         request_id: RequestId,
@@ -986,7 +999,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(redacted_query_return)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn mutation_udf(
         &self,
         request_id: RequestId,
@@ -996,7 +1009,6 @@ impl<RT: Runtime> Application<RT> {
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
-        pause_client: PauseClient,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         identity.ensure_can_run_function(UdfType::Mutation)?;
         let block_logging = self
@@ -1016,7 +1028,6 @@ impl<RT: Runtime> Application<RT> {
                 identity,
                 mutation_identifier,
                 caller,
-                pause_client,
             )
             .await
         {
@@ -1052,7 +1063,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn action_udf(
         &self,
         request_id: RequestId,
@@ -1076,7 +1087,7 @@ impl<RT: Runtime> Application<RT> {
         let runner: Arc<ApplicationFunctionRunner<RT>> = self.runner.clone();
         let request_id_ = request_id.clone();
         let span = SpanContext::current_local_parent()
-            .map(|ctx| Span::root(format!("{}::actions_future", full_name!()), ctx))
+            .map(|ctx| Span::root(format!("{}::actions_future", func_path!()), ctx))
             .unwrap_or(Span::noop());
         let run_action = async move {
             runner
@@ -1118,7 +1129,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(result)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn http_action_udf(
         &self,
         request_id: RequestId,
@@ -1142,7 +1153,7 @@ impl<RT: Runtime> Application<RT> {
         let (tx, rx) = oneshot::channel();
         let runner = self.runner.clone();
         let span = SpanContext::current_local_parent()
-            .map(|ctx| Span::root(format!("{}::http_actions_future", full_name!()), ctx))
+            .map(|ctx| Span::root(format!("{}::http_actions_future", func_path!()), ctx))
             .unwrap_or(Span::noop());
         let response_streamer_ = response_streamer.clone();
         self.runtime.spawn("run_http_action", async move {
@@ -1258,7 +1269,6 @@ impl<RT: Runtime> Application<RT> {
                     identity,
                     None,
                     caller,
-                    PauseClient::new(),
                 )
                 .await
                 .map(|res| {
@@ -1387,7 +1397,10 @@ impl<RT: Runtime> Application<RT> {
                     start_ts,
                     ..
                 } => (zip_object_key, start_ts),
-                Export::Failed { .. } | Export::InProgress { .. } | Export::Requested { .. } => {
+                Export::Failed { .. }
+                | Export::Canceled { .. }
+                | Export::InProgress { .. }
+                | Export::Requested { .. } => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "ExportNotComplete",
                         format!("The requested export {id} has not completed"),
@@ -1538,7 +1551,8 @@ impl<RT: Runtime> Application<RT> {
                     // project default env variables. Report the error but do not fail the request.
                     report_error(&mut anyhow::anyhow!(
                         "Error setting initial environment variables: {e}"
-                    ));
+                    ))
+                    .await;
                     Ok(())
                 } else {
                     Err(e)
@@ -1634,7 +1648,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(schema)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get_evaluated_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
@@ -1711,34 +1725,17 @@ impl<RT: Runtime> Application<RT> {
         auth_config_module: ModuleConfig,
         explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
-        let auth_config = runner
+        runner
             .evaluate_auth_config(
                 auth_config_module.source,
                 auth_config_module.source_map,
                 environment_variables,
+                explanation,
             )
             .await
-            .map_err(|error| {
-                let error = error.to_string();
-                if error.starts_with("Uncaught Error: Environment variable") {
-                    // Reformatting the underlying message to be nicer
-                    // here. Since we lost the underlying ErrorMetadata into the JSError,
-                    // we do some string matching instead. CX-4531
-                    ErrorMetadata::bad_request(
-                        "AuthConfigMissingEnvironmentVariable",
-                        error.trim_start_matches("Uncaught Error: ").to_string(),
-                    )
-                } else {
-                    ErrorMetadata::bad_request(
-                        "InvalidAuthConfig",
-                        format!("{explanation}: {error}"),
-                    )
-                }
-            })?;
-        Ok(auth_config)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply_config_with_retries(
         &self,
         identity: Identity,
@@ -1753,7 +1750,7 @@ impl<RT: Runtime> Application<RT> {
         .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _apply_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
         tx: &mut Transaction<RT>,
@@ -1811,7 +1808,7 @@ impl<RT: Runtime> Application<RT> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn analyze_modules_with_auth_config(
         &self,
         udf_config: UdfConfig,
@@ -2054,7 +2051,7 @@ impl<RT: Runtime> Application<RT> {
         Ok(object_key)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn upload_package(
         &self,
         modules: &Vec<ModuleConfig>,
@@ -2239,15 +2236,11 @@ impl<RT: Runtime> Application<RT> {
         };
         let arguments = parse_udf_args(&path.udf_path, args)?;
         let (result, log_lines) = match analyzed_function.udf_type {
-            UdfType::Query => self
-                .runner
-                .run_query_without_caching(request_id.clone(), tx, path, arguments, caller)
-                .await
-                .map(
-                    |UdfOutcome {
-                         result, log_lines, ..
-                     }| { (result, log_lines) },
-                ),
+            UdfType::Query => {
+                self.runner
+                    .run_query_without_caching(request_id.clone(), tx, path, arguments, caller)
+                    .await
+            },
             UdfType::Mutation => {
                 anyhow::bail!(ErrorMetadata::bad_request(
                     "UnsupportedTestQuery",
@@ -2280,7 +2273,7 @@ impl<RT: Runtime> Application<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn build_external_node_deps(
         &self,
         deps: Vec<NodeDependency>,
@@ -2317,7 +2310,7 @@ impl<RT: Runtime> Application<RT> {
         Ok((id, pkg))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _upload_external_deps_package(
         &self,
         external_deps_package: ExternalDepsPackage,
@@ -2627,6 +2620,30 @@ impl<RT: Runtime> Application<RT> {
         self.function_log.udf_rate(identifier, metric, window)
     }
 
+    pub async fn failure_percentage_top_k(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("failure_percentage_top_k"));
+        }
+        self.function_log.failure_percentage_top_k(window, k)
+    }
+
+    pub async fn cache_hit_percentage_top_k(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("failure_percentage_top_k"));
+        }
+        self.function_log.cache_hit_percentage_top_k(window, k)
+    }
+
     pub async fn cache_hit_percentage(
         &self,
         identity: Identity,
@@ -2697,6 +2714,17 @@ impl<RT: Runtime> Application<RT> {
             anyhow::bail!(unauthorized_error("stream_function_logs"));
         }
         Ok(self.function_log.stream_parts(cursor).await)
+    }
+
+    pub async fn scheduled_job_lag(
+        &self,
+        identity: Identity,
+        window: MetricsWindow,
+    ) -> anyhow::Result<Timeseries> {
+        if !(identity.is_admin() || identity.is_system()) {
+            anyhow::bail!(unauthorized_error("scheduled_job_lag"));
+        }
+        self.function_log.scheduled_job_lag(window)
     }
 
     pub async fn cancel_all_jobs(
@@ -2799,7 +2827,6 @@ impl<RT: Runtime> Application<RT> {
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
-            PauseClient::new(),
             write_source,
             f,
         )
@@ -2823,7 +2850,6 @@ impl<RT: Runtime> Application<RT> {
     {
         self.execute_with_audit_log_events_and_occ_retries_with_pause_client(
             identity,
-            PauseClient::new(),
             write_source,
             f,
         )
@@ -2833,7 +2859,6 @@ impl<RT: Runtime> Application<RT> {
     pub async fn execute_with_audit_log_events_and_occ_retries_with_pause_client<'a, F, T>(
         &self,
         identity: Identity,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(T, OccRetryStats)>
@@ -2847,13 +2872,9 @@ impl<RT: Runtime> Application<RT> {
     {
         let db = self.database.clone();
         let (ts, (t, events), stats) = db
-            .execute_with_occ_retries(
-                identity,
-                FunctionUsageTracker::new(),
-                pause_client,
-                write_source,
-                |tx| Self::insert_deployment_audit_log_events(tx, &f).into(),
-            )
+            .execute_with_occ_retries(identity, FunctionUsageTracker::new(), write_source, |tx| {
+                Self::insert_deployment_audit_log_events(tx, &f).into()
+            })
             .await?;
         // Send deployment audit logs
         // TODO CX-5139 Remove this when audit logs are being processed in LogManager.
@@ -2872,7 +2893,6 @@ impl<RT: Runtime> Application<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T)>
@@ -2882,7 +2902,7 @@ impl<RT: Runtime> Application<RT> {
         F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         self.database
-            .execute_with_occ_retries(identity, usage, pause_client, write_source, f)
+            .execute_with_occ_retries(identity, usage, write_source, f)
             .await
             .map(|(ts, t, _)| (ts, t))
     }
@@ -2955,6 +2975,10 @@ impl<RT: Runtime> Application<RT> {
         self.scheduled_job_runner.shutdown();
         self.cron_job_executor.lock().shutdown();
         self.database.shutdown().await?;
+        let migration_worker = self.migration_worker.lock().take();
+        if let Some(migration_worker) = migration_worker {
+            shutdown_and_join(migration_worker).await?;
+        }
         tracing::info!("Application shut down");
         Ok(())
     }

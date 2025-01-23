@@ -15,11 +15,11 @@ use axum::{
 };
 use bytes::Bytes;
 use errors::ErrorMetadata;
-use http::HeaderMap;
-use minitrace::{
+use fastrace::{
     future::FutureExt,
     Span,
 };
+use http::HeaderMap;
 use serde::{
     de::DeserializeOwned,
     Serialize,
@@ -139,7 +139,7 @@ fn json_content_type(headers: &HeaderMap) -> bool {
         return false;
     };
     mime.type_() == "application"
-        && (mime.subtype() == "json" || mime.suffix().map_or(false, |name| name == "json"))
+        && (mime.subtype() == "json" || mime.suffix().is_some_and(|name| name == "json"))
 }
 
 impl<T> IntoResponse for Json<T>

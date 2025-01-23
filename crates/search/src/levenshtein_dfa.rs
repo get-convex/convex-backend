@@ -43,7 +43,7 @@ pub struct LevenshteinDfaWrapper<'a>(pub &'a DFA);
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-impl<'a> tantivy::fst::automaton::Automaton for LevenshteinDfaWrapper<'a> {
+impl tantivy::fst::automaton::Automaton for LevenshteinDfaWrapper<'_> {
     type State = u32;
 
     fn start(&self) -> Self::State {
@@ -66,6 +66,7 @@ impl<'a> tantivy::fst::automaton::Automaton for LevenshteinDfaWrapper<'a> {
     }
 }
 
+#[fastrace::trace]
 pub fn build_fuzzy_dfa(query: &str, distance: u8, prefix: bool) -> DFA {
     assert!(distance <= 2);
     let dfa_builder = &LEVENSHTEIN_DFAS[distance as usize];

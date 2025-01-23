@@ -9,7 +9,10 @@ use crate::{
     comparators::AsComparator,
     document::ResolvedDocument,
     knobs::DOCUMENTS_IN_MEMORY,
-    persistence::RepeatablePersistence,
+    persistence::{
+        DocumentLogEntry,
+        RepeatablePersistence,
+    },
     try_chunks::TryChunksExt,
     types::Timestamp,
 };
@@ -41,8 +44,7 @@ impl RevisionPair {
     }
 }
 
-type RevisionStreamEntry =
-    anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>;
+type RevisionStreamEntry = anyhow::Result<DocumentLogEntry>;
 
 #[allow(clippy::needless_lifetimes)]
 #[try_stream(ok = RevisionPair, error = anyhow::Error)]
@@ -54,16 +56,26 @@ pub async fn stream_revision_pairs<'a>(
     futures::pin_mut!(documents);
 
     while let Some(read_chunk) = documents.try_next().await? {
-        let ids = read_chunk.iter().map(|(ts, id, _)| (*id, *ts)).collect();
+        // TODO: use prev_ts when it is available
+        let ids = read_chunk
+            .iter()
+            .map(|entry| (entry.id, entry.ts))
+            .collect();
         let mut prev_revs = reader.previous_revisions(ids).await?;
-        for (ts, id, document) in read_chunk {
+        for DocumentLogEntry {
+            ts,
+            id,
+            value: document,
+            ..
+        } in read_chunk
+        {
             let rev = DocumentRevision { ts, document };
             let prev_rev =
                 prev_revs
                     .remove((&id, &ts).as_comparator())
-                    .map(|(prev_ts, prev_document)| DocumentRevision {
-                        ts: prev_ts,
-                        document: prev_document,
+                    .map(|entry| DocumentRevision {
+                        ts: entry.ts,
+                        document: entry.value,
                     });
             yield RevisionPair { id, rev, prev_rev };
         }

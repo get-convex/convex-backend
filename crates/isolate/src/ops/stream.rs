@@ -107,9 +107,10 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                 if let Some(listener) = self.state_mut()?.stream_listeners.remove(&stream_id) {
                     match listener {
                         StreamListener::JsPromise(resolver) => {
+                            let mut scope = v8::HandleScope::new(&mut **self);
                             let result = match update {
                                 Ok(update) => Ok(serde_v8::to_v8(
-                                    self,
+                                    &mut scope,
                                     JsStreamChunk {
                                         done: update.is_none(),
                                         value: update.map(|chunk| chunk.to_vec().into()),
@@ -117,7 +118,7 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, 
                                 )?),
                                 Err(e) => Err(e),
                             };
-                            resolve_promise(self, resolver, result)?;
+                            resolve_promise(&mut scope, resolver, result)?;
                         },
                         StreamListener::RustStream(mut stream) => match update {
                             Ok(None) => drop(stream),

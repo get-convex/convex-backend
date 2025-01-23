@@ -146,14 +146,24 @@ export function changesToGitIgnore(existingFile: string | null): string | null {
     return `${ENV_VAR_FILE_PATH}\n`;
   }
   const gitIgnoreLines = existingFile.split("\n");
-  const envVarFileIgnored = gitIgnoreLines.some(
-    (line) =>
-      line === ".env.local" ||
-      line === ".env.*" ||
-      line === ".env*" ||
-      line === "*.local" ||
-      line === ".env*.local",
-  );
+  const envVarFileIgnored = gitIgnoreLines.some((line) => {
+    if (line.startsWith("#")) return false;
+    if (line.startsWith("!")) return false;
+
+    // .gitignore ignores trailing whitespace, and also we need to remove
+    // the trailing `\r` from Windows-style newline since we split on `\n`.
+    const trimmedLine = line.trimEnd();
+
+    const envIgnorePatterns = [
+      /^\.env\.local$/,
+      /^\.env\.\*$/,
+      /^\.env\*$/,
+      /^.*\.local$/,
+      /^\.env\*\.local$/,
+    ];
+
+    return envIgnorePatterns.some((pattern) => pattern.test(trimmedLine));
+  });
   if (!envVarFileIgnored) {
     return `${existingFile}\n${ENV_VAR_FILE_PATH}\n`;
   } else {

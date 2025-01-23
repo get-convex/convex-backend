@@ -179,6 +179,7 @@ async function deployToNewPreviewDeployment(
 
     debug?: boolean | undefined;
     debugBundlePath?: string | undefined;
+    partitionId?: string | undefined;
   },
 ) {
   const previewName = options.previewCreate ?? gitBranchFromEnvironment();
@@ -223,6 +224,9 @@ async function deployToNewPreviewDeployment(
         options.configuredDeployKey,
       ),
       identifier: previewName,
+      partitionId: options.partitionId
+        ? parseInt(options.partitionId)
+        : undefined,
     },
   });
 
@@ -248,14 +252,13 @@ async function deployToNewPreviewDeployment(
   logFinishedStep(ctx, `Deployed Convex functions to ${previewUrl}`);
 
   if (options.previewRun !== undefined) {
-    await runFunctionAndLog(
-      ctx,
-      previewUrl,
-      previewAdminKey,
-      options.previewRun,
-      {},
-      undefined,
-      {
+    await runFunctionAndLog(ctx, {
+      deploymentUrl: previewUrl,
+      adminKey: previewAdminKey,
+      functionName: options.previewRun,
+      argsString: "{}",
+      componentPath: undefined,
+      callbacks: {
         onSuccess: () => {
           logFinishedStep(
             ctx,
@@ -263,7 +266,7 @@ async function deployToNewPreviewDeployment(
           );
         },
       },
-    );
+    });
   }
 }
 

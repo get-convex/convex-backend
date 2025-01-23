@@ -325,7 +325,7 @@ pub fn export_value(
     Ok(value.export(format))
 }
 
-#[minitrace::trace(properties = { "udf_type": "query"})]
+#[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_get(
     State(st): State<RouterState>,
     Query(req): Query<UdfArgsQuery>,
@@ -370,7 +370,7 @@ pub async fn public_query_get(
     Ok(Json(response))
 }
 
-#[minitrace::trace(properties = { "udf_type": "query"})]
+#[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -424,7 +424,7 @@ pub async fn public_get_query_ts(
     Ok(Json(Ts { ts: ts.into() }))
 }
 
-#[minitrace::trace(properties = { "udf_type": "query"})]
+#[fastrace::trace(properties = { "udf_type": "query"})]
 pub async fn public_query_at_ts_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -528,7 +528,7 @@ pub async fn public_query_batch_post(
     Ok(Json(QueryBatchResponse { results }))
 }
 
-#[minitrace::trace(properties = { "udf_type": "mutation"})]
+#[fastrace::trace(properties = { "udf_type": "mutation"})]
 pub async fn public_mutation_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,
@@ -574,7 +574,7 @@ pub async fn public_mutation_post(
     Ok(Json(response))
 }
 
-#[minitrace::trace(properties = { "udf_type": "action"})]
+#[fastrace::trace(properties = { "udf_type": "action"})]
 pub async fn public_action_post(
     State(st): State<RouterState>,
     ExtractResolvedHostname(host): ExtractResolvedHostname,

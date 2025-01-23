@@ -63,7 +63,6 @@ use itertools::Itertools;
 use keybroker::KeyBroker;
 use model::{
     components::{
-        auth::propagate_component_auth,
         handles::FunctionHandlesModel,
         ComponentsModel,
     },
@@ -83,6 +82,14 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
+use udf::{
+    validation::{
+        validate_schedule_args,
+        ValidatedPathAndArgs,
+    },
+    FunctionOutcome,
+    UdfOutcome,
+};
 use value::{
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
@@ -99,7 +106,6 @@ use crate::{
         helpers::{
             parse_version,
             syscall_error::clone_error_for_batch,
-            validation::validate_schedule_args,
             with_argument_error,
             ArgName,
         },
@@ -107,9 +113,6 @@ use crate::{
     helpers::UdfArgsJson,
     isolate2::client::QueryId,
     metrics::async_syscall_timer,
-    FunctionOutcome,
-    UdfOutcome,
-    ValidatedPathAndArgs,
 };
 
 pub struct PendingSyscall {
@@ -273,6 +276,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     fn context(&self) -> &ExecutionContext;
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
+    fn observe_identity(&self) -> anyhow::Result<()>;
 
     fn persistence_version(&self) -> PersistenceVersion;
     fn is_system(&self) -> bool;
@@ -348,6 +352,10 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
 
     fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
         self.phase.unix_timestamp()
+    }
+
+    fn observe_identity(&self) -> anyhow::Result<()> {
+        self.phase.observe_identity()
     }
 
     fn persistence_version(&self) -> PersistenceVersion {
@@ -462,7 +470,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_udf(
         &mut self,
         udf_type: UdfType,
@@ -529,13 +537,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         let (mut tx, outcome) = self
             .udf_callback
             .execute_udf(
-                // TODO: Remove this `client_id` once we do isolate2.
-                "component".to_string(),
-                propagate_component_auth(
-                    tx.identity(),
-                    self.component()?,
-                    called_component_id.is_root(),
-                ),
+                self.client_id.clone(),
                 udf_type,
                 path_and_args,
                 EnvironmentData {
@@ -633,7 +635,7 @@ pub struct DatabaseSyscallsV1<RT: Runtime, P: AsyncSyscallProvider<RT>> {
 impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
     /// Runs a batch of syscalls, each of which can succeed or fail
     /// independently. The returned vec is the same length as the batch.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_async_syscall_batch(
         provider: &mut P,
         batch: AsyncSyscallBatch,
@@ -740,6 +742,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
 
     #[convex_macro::instrument_future]
     async fn get_user_identity(provider: &mut P, _args: JsonValue) -> anyhow::Result<JsonValue> {
+        provider.observe_identity()?;
         // TODO: Somehow make the Transaction aware of the dependency on the user.
         let tx = provider.tx()?;
         let user_identity = tx.user_identity();
@@ -938,7 +941,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(JsonValue::Null)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn insert(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -968,7 +971,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(json!({ "_id": id_str }))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn shallow_merge(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -1000,7 +1003,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(document.into_value().0.into())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn replace(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -1032,7 +1035,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         Ok(document.into_value().0.into())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn query_batch(
         provider: &mut P,
@@ -1199,13 +1202,13 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         results.into_values().collect()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn query_page(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         DatabaseSyscallsShared::query_page(provider, args).await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn remove(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
@@ -1436,7 +1439,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn query_page(provider: &mut P, args: JsonValue) -> anyhow::Result<JsonValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]

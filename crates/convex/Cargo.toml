@@ -2,9 +2,9 @@
 name = "convex"
 description = "Client library for Convex (convex.dev)"
 authors = ["Convex, Inc. <no-reply@convex.dev>"]
-version = "0.8.1"
+version = "0.9.0"
 edition = "2021"
-rust-version = "1.70.0"
+rust-version = "1.71.1"
 resolver = "2"
 license = "Apache-2.0"
 repository = "https://github.com/get-convex/convex-rs"
@@ -15,7 +15,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 base64 = { workspace = true }
 bytes = { workspace = true }
-convex_sync_types = { path = "./sync_types", version = "=0.8.1" }
+convex_sync_types = { path = "./sync_types", version = "=0.9.0" }
 futures = { workspace = true }
 imbl = { workspace = true }
 parking_lot = { workspace = true, optional = true }
@@ -36,7 +36,7 @@ uuid = { workspace = true, features = ["serde", "v4"] }
 
 [dev-dependencies]
 colored = { workspace = true }
-convex_sync_types = { path = "./sync_types", version = "=0.8.1", features = [
+convex_sync_types = { path = "./sync_types", version = "=0.9.0", features = [
     "testing",
 ] }
 dotenvy = { workspace = true }
@@ -59,3 +59,6 @@ testing = [
     "proptest-derive",
     "parking_lot",
 ]
+
+[lints]
+workspace = true

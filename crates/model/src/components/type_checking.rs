@@ -83,7 +83,7 @@ impl<'a> TypecheckContext<'a> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn instantiate_root(&self) -> anyhow::Result<CheckedComponent> {
         let definition_path = ComponentDefinitionPath::root();
         let component_path = ComponentPath::root();

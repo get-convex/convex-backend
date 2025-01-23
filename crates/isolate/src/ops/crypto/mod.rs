@@ -427,7 +427,15 @@ impl CryptoOps {
     }
 
     pub fn get_random_values(mut rng: impl Rng, byte_length: u32) -> anyhow::Result<Vec<u8>> {
-        anyhow::ensure!(byte_length <= 65536);
+        let max_byte_length = 65536;
+        anyhow::ensure!(
+            byte_length <= max_byte_length,
+            type_error(format!(
+                "Byte length ({}) exceeds the number of bytes of entropy available via this API \
+                 ({})",
+                byte_length, max_byte_length
+            ))
+        );
         let byte_length = byte_length as usize;
         let mut bytes = vec![0u8; byte_length];
         rng.fill(&mut bytes[..]);

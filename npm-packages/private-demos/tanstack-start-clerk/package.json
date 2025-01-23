@@ -1,0 +1,44 @@
+{
+  "name": "tanstack-start-clerk",
+  "private": true,
+  "version": "1.0.0",
+  "sideEffects": false,
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -r npm:dev:web npm:dev:db",
+    "dev:web": "vinxi dev",
+    "dev:db": "just convex dev",
+    "build": "vinxi build 2>/dev/null & true 'Ignore vinxi build warnings until tanstack start can run without them (need updated guide)'",
+    "start": "vinxi start",
+    "lint": "prettier --check '**/*' --ignore-unknown && eslint --ext .ts,.tsx ./app",
+    "format": "prettier --write '**/*' --ignore-unknown"
+  },
+  "dependencies": {
+    "@clerk/tanstack-start": "0.6.5",
+    "@convex-dev/react-query": "workspace:*",
+    "@tanstack/react-query": "^5.62.0",
+    "@tanstack/react-router": "^1.92.11",
+    "@tanstack/router-devtools": "^1.92.11",
+    "@tanstack/react-router-with-query": "^1.92.11",
+    "@tanstack/start": "^1.92.11",
+    "convex": "workspace:*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "redaxios": "^0.5.1",
+    "tailwind-merge": "^2.5.5",
+    "vinxi": "0.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "@types/react": "^18.2.65",
+    "@types/react-dom": "^18.2.21",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "~8.2.2",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "prettier": "3.4.2",
+    "typescript": "^5.7.2",
+    "vite-tsconfig-paths": "^5.1.3"
+  }
+}

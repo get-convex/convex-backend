@@ -15,6 +15,7 @@ use common::{
         PackedDocument,
     },
     index::IndexKeyBytes,
+    knobs::DISABLE_FUZZY_TEXT_SEARCH,
     query::search_value_to_bytes,
     types::{
         SubscriberId,
@@ -811,6 +812,7 @@ impl<T: Clone + Ord> SearchTermTries<T> {
         }
     }
 
+    #[fastrace::trace]
     fn overlaps<'a>(&'a self, document: &'a PackedDocument, analyzer: &'a TextAnalyzer) -> bool {
         let mut tokens = DocumentTokens::new(analyzer, document);
         !self.matching_values(&mut tokens).is_empty()
@@ -824,9 +826,15 @@ impl<T: Clone + Ord> SearchTermTries<T> {
                 // notes there), so we can get away with a symmetric search where the dfa's
                 // prefix is always set to false.
                 tokens.for_each_token(path, *prefix, |token| {
-                    let dfa = build_fuzzy_dfa(token, *max_distance, false);
-                    for (values, ..) in trie.intersect(dfa, None) {
-                        result.extend(values.keys().cloned());
+                    if *DISABLE_FUZZY_TEXT_SEARCH {
+                        if let Some(value) = trie.get(token) {
+                            result.extend(value.keys().cloned());
+                        }
+                    } else {
+                        let dfa = build_fuzzy_dfa(token, *max_distance, false);
+                        for (values, ..) in trie.intersect(dfa, None) {
+                            result.extend(values.keys().cloned());
+                        }
                     }
                 });
             }
@@ -920,6 +928,7 @@ impl QueryReads {
         self.filter_conditions.extend(other.filter_conditions);
     }
 
+    #[fastrace::trace]
     pub fn overlaps(&self, document: &PackedDocument) -> bool {
         let _timer = metrics::query_reads_overlaps_timer();
 

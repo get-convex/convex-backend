@@ -1,5 +1,4 @@
 #![feature(let_chains)]
-#![feature(lazy_cell)]
 #![feature(iterator_try_collect)]
 #![feature(int_roundings)]
 #![feature(type_alias_impl_trait)]

@@ -29,21 +29,21 @@ impl<'a, Q: ?Sized, T: Borrow<Q> + 'a> Borrow<dyn LowerBoundKey<Q> + 'a> for Low
     }
 }
 
-impl<'a, T: Ord + ?Sized> Ord for dyn LowerBoundKey<T> + 'a {
+impl<T: Ord + ?Sized> Ord for dyn LowerBoundKey<T> + '_ {
     fn cmp(&self, other: &Self) -> Ordering {
         self.key().cmp(&other.key())
     }
 }
 
-impl<'a, T: Ord + ?Sized> PartialOrd for dyn LowerBoundKey<T> + 'a {
+impl<T: Ord + ?Sized> PartialOrd for dyn LowerBoundKey<T> + '_ {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<'a, T: Eq + ?Sized> Eq for dyn LowerBoundKey<T> + 'a {}
+impl<T: Eq + ?Sized> Eq for dyn LowerBoundKey<T> + '_ {}
 
-impl<'a, T: PartialEq + ?Sized> PartialEq for dyn LowerBoundKey<T> + 'a {
+impl<T: PartialEq + ?Sized> PartialEq for dyn LowerBoundKey<T> + '_ {
     fn eq(&self, other: &Self) -> bool {
         self.key().eq(&other.key())
     }

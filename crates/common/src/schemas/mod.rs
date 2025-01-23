@@ -239,7 +239,7 @@ macro_rules! db_schema_with_vector_indexes {
                     $(
                         let index_name = $crate::types::IndexName::new(
                             str::parse($table)?,
-                            $index_name.parse()?
+                            $crate::types::IndexDescriptor::new($index_name)?
                         )?;
                         vector_indexes.insert(
                             index_name.descriptor().clone(),

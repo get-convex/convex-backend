@@ -14,12 +14,12 @@ application = { path = "../application" }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 errors = { path = "../errors" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 model = { path = "../model" }
 parking_lot = { workspace = true }
 proptest = { workspace = true, optional = true }
@@ -34,6 +34,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 application = { path = "../application", features = ["testing"] }
 common = { path = "../common", features = ["testing"] }
+convex = { path = "../convex", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
 errors = { path = "../errors", features = ["testing"] }
 isolate = { path = "../isolate", features = ["testing"] }
@@ -57,3 +58,6 @@ testing = [
     "proptest",
     "proptest-derive",
 ]
+
+[lints]
+workspace = true

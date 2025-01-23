@@ -286,9 +286,9 @@ impl SearchIndex for VectorSearchIndex {
         _schema: Self::Schema,
         _document_log_lower_bound: Timestamp,
     ) -> anyhow::Result<()> {
-        while let Some((_, id, document)) = documents.try_next().await? {
-            if document.is_none() {
-                previous_segments.maybe_delete_convex(id.internal_id())?;
+        while let Some(entry) = documents.try_next().await? {
+            if entry.value.is_none() {
+                previous_segments.maybe_delete_convex(entry.id.internal_id())?;
             }
         }
         Ok(())

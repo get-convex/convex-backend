@@ -16,7 +16,10 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    knobs::SEARCHLIGHT_CLUSTER_NAME,
+    knobs::{
+        DISABLE_FUZZY_TEXT_SEARCH,
+        SEARCHLIGHT_CLUSTER_NAME,
+    },
     query::{
         InternalSearch,
         InternalSearchFilterExpression,
@@ -191,7 +194,8 @@ impl TextIndexManager {
         let timer = metrics::search_timer(&SEARCHLIGHT_CLUSTER_NAME);
         let tantivy_schema =
             TantivySearchIndexSchema::new_for_index(index, &search.printable_index_name()?)?;
-        let (compiled_query, reads) = tantivy_schema.compile(search, version)?;
+        let (compiled_query, reads) =
+            tantivy_schema.compile(search, version, *DISABLE_FUZZY_TEXT_SEARCH)?;
         // Ignore empty searches to avoid failures due to transient search issues (e.g.
         // bootstrapping). Do this after validating the query above.
         if search.filters.iter().any(|filter| {

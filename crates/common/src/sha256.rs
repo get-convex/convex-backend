@@ -8,6 +8,7 @@ use http::{
     HeaderValue,
 };
 pub use value::sha256::{
+    SetDigest,
     Sha256,
     Sha256Digest,
 };

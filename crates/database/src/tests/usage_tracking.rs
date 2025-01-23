@@ -17,11 +17,13 @@ use common::{
         Query,
     },
     types::{
+        IndexDescriptor,
         IndexName,
         ModuleEnvironment,
         TableName,
         UdfIdentifier,
     },
+    RequestId,
 };
 use keybroker::Identity;
 use maplit::btreeset;
@@ -76,11 +78,13 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
     fixtures.db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -105,7 +109,9 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     fixtures.db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -138,11 +144,13 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
     fixtures.db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -171,11 +179,13 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
     fixtures.db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -225,11 +235,13 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     fixtures.db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Action {
             env: ModuleEnvironment::Isolate,
             duration: Duration::from_secs(10),
             memory_in_mb: 10,
         },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -267,7 +279,9 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -292,7 +306,9 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -322,7 +338,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     let mut tx = db
         .begin_with_usage(Identity::system(), tx_usage.clone())
         .await?;
-    let index_name = IndexName::new(table_name.clone(), "by_key".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_key")?)?;
     IndexModel::new(&mut tx)
         .add_application_index(
             namespace,
@@ -334,7 +350,9 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -358,7 +376,9 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -385,7 +405,9 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::Mutation { occ_info: None },
+        true,
         tx_usage.gather_user_stats(),
     );
 
@@ -412,11 +434,13 @@ async fn http_action_counts_compute(rt: TestRuntime) -> anyhow::Result<()> {
     db.usage_counter().track_call(
         test_udf_identifier(),
         ExecutionId::new(),
+        RequestId::new(),
         CallType::HttpAction {
             duration: Duration::from_secs(5),
             memory_in_mb: 100,
             response_sha256: Sha256Digest::from([0; 32]),
         },
+        true,
         tx_usage.gather_user_stats(),
     );
     let stats = test_usage_logger.collect();

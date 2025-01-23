@@ -31,14 +31,14 @@ use prometheus::{
     VMHistogramVec,
 };
 use sync_types::CanonicalizedUdfPath;
-
-use crate::{
-    environment::udf::outcome::UdfOutcome,
+use udf::{
     ActionOutcome,
     FunctionOutcome,
     HttpActionOutcome,
-    IsolateHeapStats,
+    UdfOutcome,
 };
+
+use crate::IsolateHeapStats;
 
 register_convex_histogram!(
     UDF_EXECUTE_SECONDS,
@@ -92,8 +92,8 @@ pub fn is_developer_ok(outcome: &FunctionOutcome) -> bool {
         FunctionOutcome::HttpAction(HttpActionOutcome { result, .. }) => match result {
             // The developer might hit errors after beginning to stream the response that wouldn't
             // be captured here
-            crate::HttpActionResult::Streamed => true,
-            crate::HttpActionResult::Error(_) => false,
+            udf::HttpActionResult::Streamed => true,
+            udf::HttpActionResult::Error(_) => false,
         },
     }
 }
@@ -255,6 +255,26 @@ pub fn op_timer(op_name: &str) -> StatusTimer {
     let mut t = StatusTimer::new(&UDF_OP_SECONDS);
     t.add_label(StaticMetricLabel::new("op", op_name.to_owned()));
     t
+}
+
+register_convex_counter!(
+    ISOLATE_DIRECT_FUNCTION_CALL_TOTAL,
+    "Number of calls to registered UDFs as js functions"
+);
+fn log_direct_function_call() {
+    log_counter(&ISOLATE_DIRECT_FUNCTION_CALL_TOTAL, 1);
+}
+
+pub fn log_log_line(line: &str) {
+    // We log a console.warn line containing this link when a function is called
+    // directly. These are potentially problematic because it looks like arg and
+    // return values are being validated, and a new isolate is running the UDF,
+    // but actually the plain JS function is being called. If the non-isolated,
+    // non-validated behavior is intended, the helper function should be explicit.
+    if line.contains("https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code") {
+        tracing::warn!("Direct function call detected: '{line}'");
+        log_direct_function_call();
+    }
 }
 
 register_convex_histogram!(
@@ -590,4 +610,12 @@ pub fn module_load_timer(source: &'static str) -> Timer<VMHistogramVec> {
     let mut timer = Timer::new_with_labels(&MODULE_LOAD_SECONDS);
     timer.add_label(MetricLabel::new_const("source", source));
     timer
+}
+
+register_convex_counter!(
+    ISOLATE_OUT_OF_MEMORY_TOTAL,
+    "Number of times isolate ran out of memory during function execution"
+);
+pub fn log_isolate_out_of_memory() {
+    log_counter(&ISOLATE_OUT_OF_MEMORY_TOTAL, 1);
 }

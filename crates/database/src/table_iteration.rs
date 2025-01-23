@@ -18,9 +18,9 @@ use common::{
     },
     interval::Interval,
     knobs::DOCUMENTS_IN_MEMORY,
-    pause::PauseClient,
     persistence::{
         new_static_repeatable_recent,
+        DocumentLogEntry,
         PersistenceReader,
         RepeatablePersistence,
         RetentionValidator,
@@ -30,6 +30,7 @@ use common::{
         CursorPosition,
         Order,
     },
+    runtime::Runtime,
     try_chunks::TryChunksExt,
     types::{
         IndexId,
@@ -88,28 +89,27 @@ fn cursor_has_walked(cursor: Option<&CursorPosition>, key: &IndexKeyBytes) -> bo
     }
 }
 
-pub struct TableIterator {
+pub struct TableIterator<RT: Runtime> {
+    runtime: RT,
     persistence: Arc<dyn PersistenceReader>,
     retention_validator: Arc<dyn RetentionValidator>,
     page_size: usize,
-    pause_client: PauseClient,
     snapshot_ts: RepeatableTimestamp,
 }
 
-impl TableIterator {
+impl<RT: Runtime> TableIterator<RT> {
     pub fn new(
+        runtime: RT,
         snapshot_ts: RepeatableTimestamp,
         persistence: Arc<dyn PersistenceReader>,
         retention_validator: Arc<dyn RetentionValidator>,
         page_size: usize,
-        pause_client: Option<PauseClient>,
     ) -> Self {
-        let pause_client = pause_client.unwrap_or_default();
         Self {
+            runtime,
             persistence,
             retention_validator,
             page_size,
-            pause_client,
             snapshot_ts,
         }
     }
@@ -171,7 +171,8 @@ impl TableIterator {
         let mut skipped_keys = IterationDocuments::default();
 
         loop {
-            self.pause_client.wait("before_index_page").await;
+            let pause_client = self.runtime.pause_client();
+            pause_client.wait("before_index_page").await;
             let page_start = cursor.index_key.clone();
             let (page, new_end_ts) = self.fetch_page(index_id, tablet_id, &mut cursor).await?;
             anyhow::ensure!(*new_end_ts >= end_ts);
@@ -262,7 +263,6 @@ impl TableIterator {
                 break;
             }
         }
-        self.pause_client.close("before_index_page");
     }
 
     /// A document may be skipped if:
@@ -270,7 +270,7 @@ impl TableIterator {
     /// 2. at the snapshot, it had a key higher than what we've walked so far
     /// 3. it was modified after the snapshot but before we walked its key
     /// range.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn fetch_skipped_keys(
         &self,
         tablet_id: TabletId,
@@ -311,9 +311,9 @@ impl TableIterator {
             .try_chunks2(self.page_size);
         pin_mut!(documents);
         while let Some(chunk) = documents.try_next().await? {
-            for (_, id, _) in chunk {
-                if id.table() == tablet_id {
-                    yield id;
+            for entry in chunk {
+                if entry.id.table() == tablet_id {
+                    yield entry.id;
                 }
             }
         }
@@ -333,10 +333,9 @@ impl TableIterator {
     /// 2. snapshot_ts never changes and new_static_repeatable_recent is weakly
     ///    monotonically increasing
     /// 3. snapshot_ts and new_static_repeatable_recent are both Repeatable, and
-    ///    the
-    /// max of Repeatable timestamps is repeatable.
+    ///    the max of Repeatable timestamps is repeatable.
     /// 4. new_static_repeatable_recent is within retention, so max(anything,
-    /// new_static_repeatable_recent()) is within retention.
+    ///    new_static_repeatable_recent()) is within retention.
     async fn new_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
         Ok(cmp::max(
             self.snapshot_ts,
@@ -344,7 +343,7 @@ impl TableIterator {
         ))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn fetch_page(
         &self,
         index_id: IndexId,
@@ -407,7 +406,12 @@ impl TableIterator {
             // Yield in the same order as the input, skipping duplicates and
             // missing documents.
             for id in chunk {
-                if let Some((revision_ts, Some(revision))) = old_revisions.remove(&(id, ts_succ)) {
+                if let Some(DocumentLogEntry {
+                    ts: revision_ts,
+                    value: Some(revision),
+                    ..
+                }) = old_revisions.remove(&(id, ts_succ))
+                {
                     yield (revision, revision_ts);
                 };
             }
@@ -552,6 +556,7 @@ mod tests {
         types::{
             unchecked_repeatable_ts,
             GenericIndexName,
+            IndexDescriptor,
             IndexName,
         },
         value::{
@@ -569,6 +574,7 @@ mod tests {
         TestDriver,
         TestRuntime,
     };
+    use tokio::sync::oneshot;
     use value::{
         assert_obj,
         assert_val,
@@ -638,7 +644,7 @@ mod tests {
                 .enabled_index_metadata(TableNamespace::test_user(), &by_id)?
                 .unwrap();
             database.commit(tx).await?;
-            let iterator = database.table_iterator(database.now_ts_for_reads(), 2, None);
+            let iterator = database.table_iterator(database.now_ts_for_reads(), 2);
             let tablet_id = table_mapping.id(&table_name)?.tablet_id;
             let revision_stream = iterator.stream_documents_in_table(
                 tablet_id,
@@ -662,6 +668,7 @@ mod tests {
         table_name: TableName,
         initial: Vec<ConvexObject>,
         update_batches: Vec<Vec<Update>>,
+        pause: PauseController,
     ) -> anyhow::Result<()> {
         let database = new_test_database(runtime.clone()).await;
         let mut objects = BTreeMap::new();
@@ -683,21 +690,27 @@ mod tests {
             .unwrap();
         database.commit(tx).await?;
 
-        let (mut pause, pause_client) = PauseController::new(["before_index_page"]);
+        let hold_guard = pause.hold("before_index_page");
         let snapshot_ts = database.now_ts_for_reads();
-        let iterator = database.table_iterator(snapshot_ts, 2, Some(pause_client));
+        let iterator = database.table_iterator(snapshot_ts, 2);
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revision_stream =
             iterator.stream_documents_in_table(tablet_id, by_id_metadata.id().internal_id(), None);
         let table_name_ = table_name.clone();
         let database_ = database.clone();
+
+        let (stream_done_tx, mut stream_done_rx) = oneshot::channel();
         let test_driver = async move {
+            let mut hold_guard = hold_guard;
             for update_batch in update_batches {
                 // Run the backfill process until it hits our breakpoint.
-                let mut pause_guard = match pause.wait_for_blocked("before_index_page").await {
-                    Some(g) => g,
-                    // If the worker has finished processing index pages, stop agitating.
-                    None => break,
+                let pause_guard = tokio::select! {
+                    _ = &mut stream_done_rx => break,
+                    pause_guard = hold_guard.wait_for_blocked() => match pause_guard {
+                        Some(pause_guard) => pause_guard,
+                        // If the worker has finished processing index pages, stop agitating.
+                        None => break,
+                    },
                 };
 
                 // Agitate by doing a concurrent update while the worker is blocked.
@@ -739,6 +752,7 @@ mod tests {
                     // to make the commit visible to TableIterator.
                     database_.bump_max_repeatable_ts().await?;
                 }
+                hold_guard = pause.hold("before_index_page");
                 // Continue the worker.
                 pause_guard.unpause();
             }
@@ -755,6 +769,7 @@ mod tests {
                 prev_doc_id = Some(revision.id());
                 actual.insert(revision.id(), revision.to_developer());
             }
+            let _ = stream_done_tx.send(());
             Ok(actual)
         };
 
@@ -767,12 +782,13 @@ mod tests {
     }
 
     #[convex_macro::test_runtime]
-    async fn test_deleted(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_deleted(rt: TestRuntime, pause: PauseController) -> anyhow::Result<()> {
         racing_commits_test(
             rt,
             "A".parse()?,
             vec![assert_obj!()],
             vec![vec![Update::Delete { index: 0 }]],
+            pause,
         )
         .await
     }
@@ -787,7 +803,7 @@ mod tests {
         let table_name: TableName = "a".parse()?;
 
         // Create a.by_k and backfill.
-        let index_name = GenericIndexName::new(table_name.clone(), "by_k".parse()?)?;
+        let index_name = GenericIndexName::new(table_name.clone(), IndexDescriptor::new("by_k")?)?;
         let field: FieldPath = "k".parse()?;
         let index_fields = IndexedFields::try_from(vec![field.clone()])?;
         let mut tx = database.begin(Identity::system()).await?;
@@ -833,7 +849,7 @@ mod tests {
         database.commit(tx).await?;
         database.bump_max_repeatable_ts().await?;
 
-        let iterator = database.table_iterator(snapshot_ts, 1, None);
+        let iterator = database.table_iterator(snapshot_ts, 1);
         let tablet_id = table_mapping.id(&table_name)?.tablet_id;
         let revisions: Vec<_> = iterator
             .stream_documents_in_table_by_index(tablet_id, by_k_id, index_fields, None)
@@ -869,9 +885,10 @@ mod tests {
             initial in small_user_objects(),
             update_batches in racing_updates(),
         ) {
-            let td = TestDriver::new();
+            let (pause, pause_client) = PauseController::new();
+            let td = TestDriver::new_with_pause_client(pause_client);
             td.run_until(
-                racing_commits_test(td.rt(), table_name, initial, update_batches),
+                racing_commits_test(td.rt(), table_name, initial, update_batches, pause),
             ).unwrap();
         }
 

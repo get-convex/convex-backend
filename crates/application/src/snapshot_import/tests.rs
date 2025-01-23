@@ -35,6 +35,7 @@ use common::{
     },
     tokio::select,
     types::{
+        IndexDescriptor,
         IndexName,
         MemberId,
         ObjectKey,
@@ -108,10 +109,7 @@ use crate::{
         ImportFormat,
         ImportMode,
     },
-    test_helpers::{
-        ApplicationFixtureArgs,
-        ApplicationTestExt,
-    },
+    test_helpers::ApplicationTestExt,
     Application,
 };
 
@@ -469,16 +467,11 @@ Interrupting `npx convex import` will not cancel it."#
 
 // Hard to control timing in race test with background job moving state forward.
 #[convex_macro::test_runtime]
-async fn import_races_with_schema_update(rt: TestRuntime) -> anyhow::Result<()> {
-    let (mut pause_controller, pause_client) = PauseController::new(vec!["before_finalize_import"]);
-    let app = Application::new_for_tests_with_args(
-        &rt,
-        ApplicationFixtureArgs {
-            snapshot_import_pause_client: Some(pause_client),
-            ..Default::default()
-        },
-    )
-    .await?;
+async fn import_races_with_schema_update(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
     let table_name = "table1";
     let test_csv = r#"
 a
@@ -496,14 +489,17 @@ a
     );
 
     activate_schema(&app, initial_schema).await?;
+
+    let hold_guard = pause_controller.hold("before_finalize_import");
+
     let mut import_fut = run_csv_import(&app, table_name, test_csv).boxed();
 
     select! {
         r = import_fut.as_mut().fuse() => {
             anyhow::bail!("import finished before pausing: {r:?}");
         },
-        pause_guard = pause_controller.wait_for_blocked("before_finalize_import").fuse() => {
-            let mut pause_guard = pause_guard.unwrap();
+        pause_guard = hold_guard.wait_for_blocked().fuse() => {
+            let pause_guard = pause_guard.unwrap();
             let mismatch_schema = db_schema!(
                 table_name => DocumentSchema::Union(
                     vec![
@@ -707,6 +703,94 @@ _id,a
             .get("a"),
         Some(&val!("string")),
     );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn import_replace_all_table_number_mismatch(rt: TestRuntime) -> anyhow::Result<()> {
+    let test_case = |mode: ImportMode, expect_success: bool| {
+        let rt = rt.clone();
+        async move {
+            let app = Application::new_for_tests(&rt).await?;
+            let table_name1: TableName = "table1".parse()?;
+            let table_name2: TableName = "table2".parse()?;
+            let identity = new_admin_id();
+
+            // Create tables
+            let t1_doc = {
+                let mut tx = app.begin(identity.clone()).await?;
+                let mut ufm = UserFacingModel::new_root_for_test(&mut tx);
+                let t1_doc = ufm.insert(table_name1, assert_obj!()).await?;
+                ufm.insert(table_name2.clone(), assert_obj!()).await?;
+                app.commit_test(tx).await?;
+                t1_doc
+            };
+
+            // Add table2 to schema, so the importer tries to clear it.
+            let initial_schema = db_schema!("table2" => DocumentSchema::Any);
+            activate_schema(&app, initial_schema).await?;
+
+            // ID is for a table corresponding to table1, but we're writing it into table2
+            let test_csv = format!(
+                r#"
+_id,a
+"{t1_doc}","string"
+"#
+            );
+
+            assert_eq!(
+                TableModel::new(&mut app.begin(identity.clone()).await?).count_user_tables(),
+                2
+            );
+
+            // Import into table2
+            let result = do_import(
+                &app,
+                new_admin_id(),
+                ImportFormat::Csv(table_name2.clone()),
+                mode,
+                ComponentPath::root(),
+                stream_from_str(&test_csv),
+            )
+            .await;
+
+            if expect_success {
+                assert_eq!(result?, 1);
+            } else {
+                result.unwrap_err();
+                return Ok(());
+            }
+
+            let mut tx = app.begin(identity.clone()).await?;
+            assert_eq!(TableModel::new(&mut tx).count_user_tables(), 1);
+            assert_eq!(
+                TableModel::new(&mut tx)
+                    .must_count(TableNamespace::Global, &table_name2)
+                    .await?,
+                1
+            );
+            assert_eq!(
+                UserFacingModel::new_root_for_test(&mut tx)
+                    .get(t1_doc, None)
+                    .await?
+                    .context("Not found")?
+                    .into_value()
+                    .into_value()
+                    .get("a"),
+                Some(&val!("string")),
+            );
+            anyhow::Ok(())
+        }
+    };
+    // Append table1's id into table2 results in conflicting IDs in table2
+    test_case(ImportMode::Append, false).await?;
+    // Replacing table1's id into table2 results in two tables with the same ID.
+    test_case(ImportMode::Replace, false).await?;
+    // Replacing all deletes table2 and replaces table1, so it's good.
+    test_case(ImportMode::ReplaceAll, true).await?;
+    // Require empty fails because table2 is not empty.
+    test_case(ImportMode::RequireEmpty, false).await?;
 
     Ok(())
 }
@@ -977,7 +1061,7 @@ a
 "string"
 "#;
     let identity = new_admin_id();
-    let index_name = IndexName::new(table_name.clone(), "by_a".parse()?)?;
+    let index_name = IndexName::new(table_name.clone(), IndexDescriptor::new("by_a")?)?;
 
     let index_id = {
         let mut tx = app.begin(identity.clone()).await?;
@@ -1050,7 +1134,6 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
-        &app.usage_tracking,
     )
     .await?;
 

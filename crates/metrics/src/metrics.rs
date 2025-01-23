@@ -7,14 +7,17 @@
 //! 1. Metrics may only contain alphanumerics and underscores.
 //! 2. Metrics are automatically prefixed with `SERVICE_NAME`.
 //! 3. Suffix metrics with their units (e.g. `_seconds`, `_bytes`, `_total`).
-//! See `ALLOWED_SUFFIXES` for more detail. 4. Use seconds for time and bytes
-//! for data. Use `_total` for unit-less counts.
+//!    See `ALLOWED_SUFFIXES` for more detail.
+//! 4. Use seconds for time and bytes for data. Use `_total` for unit-less
+//!    counts.
 //!
 //! We also have a few conventions for instrumenting code within our crates.
+//!
 //! 1. All metrics code goes in a `metrics` module. The interface to this module
-//! should be high level (e.g. "this event happened") rather than logging an
-//! `f64` to a particular metric name. 2. All metrics names and labels are
-//! constants/string literals in the metrics module.
+//!    should be high level (e.g. "this event happened") rather than logging an
+//!    `f64` to a particular metric name.
+//! 2. All metrics names and labels are constants/string literals in the metrics
+//!    module.
 use std::{
     borrow::Cow,
     collections::HashSet,
@@ -132,11 +135,7 @@ const fn validate_metric_name(name: &str) {
     let mut i = 0;
     while i < name_bytes.len() {
         let c = name_bytes[i];
-        let is_upper = 65 <= c && c <= 90;
-        let is_lower = 97 <= c && c <= 122;
-        let is_numeric = 48 <= c && c <= 57;
-        let is_underscore = c == 95;
-        if !(is_upper || is_lower || is_numeric || is_underscore) {
+        if !(c.is_ascii_alphanumeric() || c == b'_') {
             panic!("Metric names can only contain alphanumeric characters and underscores");
         }
         i += 1;

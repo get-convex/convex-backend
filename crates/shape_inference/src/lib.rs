@@ -313,8 +313,13 @@ impl<C: ShapeConfig> CountedShape<C> {
     /// may return `Err` if it wasn't. Since there may be false successes,
     /// it's usually not safe to recover from this `Err`.
     pub fn remove(&self, object: &ConvexObject) -> anyhow::Result<Self> {
-        self._remove_object(object)
-            .ok_or_else(|| anyhow::anyhow!("Object {object:?} not in {self:?}"))
+        self._remove_object(object).ok_or_else(|| {
+            anyhow::anyhow!(
+                "Object with shape {:?} and id {:?} not in {self:?}",
+                Self::shape_of_object(object),
+                object.get("_id"),
+            )
+        })
     }
 
     fn _remove(&self, value: &ConvexValue) -> Option<Self> {

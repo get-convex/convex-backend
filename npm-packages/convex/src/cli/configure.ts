@@ -308,6 +308,7 @@ async function selectNewProject(
       teamSlug: selectedTeam,
       projectName,
       partitionId: config.partitionId,
+      deploymentTypeToProvision: "dev",
     }));
   } catch (err) {
     logFailure(ctx, "Unable to create project.");

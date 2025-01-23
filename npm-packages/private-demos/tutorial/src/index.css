@@ -1,0 +1,340 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --primary: #f35d1c;
+  --primary-text: #111827;
+  --secondary-text: #374151;
+  --tertiary-text: #4b5563;
+  --secondary-background: #f3f4f6;
+  --bubbles-background: white;
+  --bubbles-mine-background: #f35d1c;
+  --focus-ring: #3b82f680;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary: #f35d1c;
+    --primary-text: #f9fafb;
+    --secondary-text: #f3f4f6;
+    --tertiary-text: #e5e7eb;
+    --secondary-background: #0f172a;
+    --bubbles-background: #374151;
+    --bubbles-mine-background: #f35d1c;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Oxygen,
+    Ubuntu,
+    Cantarell,
+    "Open Sans",
+    "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: var(--secondary-background);
+
+  padding-top: 96px;
+  padding-bottom: 72px;
+}
+
+button {
+  cursor: pointer;
+}
+
+.chat header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 3;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--primary);
+  color: white;
+  text-align: center;
+  height: 75px;
+}
+
+.chat header::before,
+.chat header::after {
+  display: block;
+  content: "";
+  position: absolute;
+  top: 75px;
+  box-shadow: 0 -40px 0 0 var(--primary);
+  pointer-events: none;
+  width: 40px;
+  height: 80px;
+}
+
+.chat header::before {
+  left: 0;
+  border-top-left-radius: 40px;
+}
+
+.chat header::after {
+  right: 0;
+  border-top-right-radius: 40px;
+}
+
+.chat header h1 {
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.chat header p {
+  margin: 0;
+  position: relative;
+  padding-left: 1.2em;
+  font-weight: 300;
+}
+
+.chat header p::before,
+.chat header p::after {
+  position: absolute;
+  top: 20%;
+  left: 0;
+  display: inline-block;
+
+  content: "";
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.5em;
+  background-color: #81e18c;
+  border-radius: 50%;
+  margin-bottom: 1px;
+
+  animation: pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.chat header p::after {
+  animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion) {
+  .chat header p::after {
+    display: none;
+  }
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.chat header p strong {
+  font-weight: 500;
+}
+
+.chat header p input {
+  font-weight: 500;
+  margin: 0;
+  padding: 0;
+  width: 100px;
+  border-radius: 0;
+}
+
+.chat article {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 24px auto;
+  max-width: 380px;
+  padding-left: 16px;
+  padding-right: calc(16px + 10vw);
+  animation: 0.15s ease-in-out message;
+  box-sizing: content-box;
+}
+
+@media (prefers-reduced-motion) {
+  .chat article {
+    animation-name: fade;
+  }
+}
+
+@keyframes message {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.chat article div {
+  font-weight: 500;
+  color: var(--primary-text);
+}
+
+.chat article p {
+  color: var(--secondary-text);
+  background-color: var(--bubbles-background);
+  margin-bottom: 1em;
+  padding: 20px;
+  margin: 0.5em 0;
+  border-radius: 16px;
+  border-bottom-left-radius: 0;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.1),
+    0 1px 2px -1px rgb(0 0 0 / 0.1);
+  text-overflow: ellipsis;
+  /* overflow-x: hidden; */
+  line-height: 1.4;
+  grid-column: 1 / 3;
+  justify-self: start;
+  white-space: pre-line;
+  position: relative;
+}
+
+.chat article.message-mine {
+  padding-left: calc(16px + 10vw);
+  padding-right: 16px;
+}
+
+.chat article.message-mine div {
+  text-align: right;
+  justify-self: end;
+  grid-column: 1 / 3;
+}
+
+.chat article.message-mine p {
+  border-radius: 16px;
+  border-bottom-right-radius: 0;
+  background: var(--bubbles-mine-background);
+  color: white;
+  justify-self: end;
+}
+
+.chat form {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  width: calc(100% - 16px);
+  height: 72px;
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 16px;
+  display: flex;
+  z-index: 3;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat form {
+    background-color: rgba(55, 65, 81, 0.8);
+  }
+}
+
+.chat input {
+  color: #111827;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  padding-left: 20px;
+  padding-right: 72px;
+  font-family: inherit;
+  border: 3px solid transparent;
+  border-radius: 16px;
+}
+
+.chat input::placeholder {
+  color: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat input {
+    color: white;
+  }
+
+  .chat input::placeholder {
+    color: #9ca3af;
+  }
+}
+
+.chat input:focus {
+  outline: 0;
+  border-color: var(--focus-ring);
+}
+
+.chat form > button {
+  appearance: none;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: white;
+  font-size: 0;
+  transition: 0.15s ease-in-out opacity;
+
+  background-color: var(--primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='white' %3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5' /%3E%3C/svg%3E%0A");
+  background-size: 24px;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.chat button:disabled {
+  opacity: 0.7;
+}
+
+article button {
+  position: absolute;
+  bottom: -0.5em;
+  right: -0.5em;
+  border: 0px;
+  border-radius: 10px;
+  padding: 0.3em;
+  z-index: 2;
+  min-width: 2em;
+  min-height: 1em;
+}
+
+article button {
+  display: none;
+  cursor: pointer;
+}
+
+article:hover button,
+article button:has(span) {
+  display: block;
+}
+
+article button span {
+  padding-left: 0.2em;
+}

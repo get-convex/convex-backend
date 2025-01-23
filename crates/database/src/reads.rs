@@ -61,7 +61,8 @@ pub const OVER_LIMIT_HELP: &str = "Consider using smaller limits in your queries
 static READ_SET_CAPTURE_BACKTRACES: LazyLock<bool> =
     LazyLock::new(|| env_config("READ_SET_CAPTURE_BACKTRACES", false));
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
+#[derive(Debug, Clone)]
 pub struct IndexReads {
     pub fields: IndexedFields,
     pub intervals: IntervalSet,
@@ -74,7 +75,8 @@ impl HeapSize for IndexReads {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq, Eq))]
 pub struct ReadSet {
     indexed: WithHeapSize<BTreeMap<TabletIndexName, IndexReads>>,
     search: WithHeapSize<BTreeMap<TabletIndexName, SearchQueryReads>>,
@@ -177,6 +179,7 @@ impl ReadSet {
     /// If a write transaction intersects, it will be retried to maintain
     /// serializability. If a subscription intersects, it will be rerun and the
     /// result sent to all clients.
+    #[fastrace::trace]
     pub fn writes_overlap<'a>(
         &self,
         updates: impl Iterator<
@@ -346,9 +349,15 @@ impl TransactionReadSet {
         // Database bandwidth for document reads
         let is_system_table = table_name.is_system() && !is_virtual_table;
         usage_tracker.track_database_egress_size(
-            component_path,
+            component_path.clone(),
             table_name.to_string(),
             document_size as u64,
+            is_system_table,
+        );
+        usage_tracker.track_database_egress_rows(
+            component_path,
+            table_name.to_string(),
+            1,
             is_system_table,
         );
 
@@ -497,9 +506,11 @@ mod tests {
             PackedDocument,
             ResolvedDocument,
         },
+        knobs::DISABLE_FUZZY_TEXT_SEARCH,
         query::search_value_to_bytes,
         testing::TestIdGenerator,
         types::{
+            IndexDescriptor,
             PersistenceVersion,
             TabletIndexName,
         },
@@ -558,7 +569,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -604,7 +616,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -625,13 +638,15 @@ mod tests {
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
 
-        assert!(read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            // If "word" is a token, it overlaps.
-            "Text containing word and other stuff."
-        )?);
+        if !*DISABLE_FUZZY_TEXT_SEARCH {
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                // If "word" is a token, it overlaps.
+                "Text containing word and other stuff."
+            )?);
+        }
 
         assert!(!read_set_overlaps(
             id,
@@ -650,7 +665,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -677,26 +693,28 @@ mod tests {
             field_path,
             "Text containing word and other stuff."
         )?);
-        assert!(read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            "Text containing shword and other stuff."
-        )?);
-
-        // This would match if prefix is true.
-        assert!(!read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            "Text containing wordddd and other stuff."
-        )?);
         assert!(!read_set_overlaps(
             id,
             &read_set,
             field_path,
             "This text doesn't have the keyword."
         )?);
+        if !*DISABLE_FUZZY_TEXT_SEARCH {
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                "Text containing shword and other stuff."
+            )?);
+
+            // This would match if prefix is true.
+            assert!(!read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                "Text containing wordddd and other stuff."
+            )?);
+        }
 
         Ok(())
     }
@@ -707,7 +725,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -753,7 +772,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -774,13 +794,24 @@ mod tests {
         let read_set = reads.into_read_set();
         let id = id_generator.user_generate(&table_name);
 
-        assert!(read_set_overlaps(
-            id,
-            &read_set,
-            field_path,
-            // If "word.*" is a token, it overlaps.
-            "Text containing wordsythings and other stuff."
-        )?);
+        if *DISABLE_FUZZY_TEXT_SEARCH {
+            // Add a test case here
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                // If "wrd.*" is a token, it overlaps.
+                "Text containing wrdsythings and other stuff."
+            )?);
+        } else {
+            assert!(read_set_overlaps(
+                id,
+                &read_set,
+                field_path,
+                // If "word.*" is a token, it overlaps.
+                "Text containing wordsythings and other stuff."
+            )?);
+        }
 
         assert!(!read_set_overlaps(
             id,
@@ -799,7 +830,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
         let field_path = "textField";
 
         let search_reads = SearchQueryReads::new(
@@ -867,7 +899,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
 
         let search_reads = SearchQueryReads::new(
             vec![TextQueryTermRead {
@@ -922,7 +955,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
 
         let search_reads = SearchQueryReads::new(
             vec![].into(),
@@ -990,7 +1024,8 @@ mod tests {
         let mut id_generator = TestIdGenerator::new();
         let table_name = "mytable".parse()?;
         let table_id = id_generator.user_table_id(&table_name);
-        let index_name = TabletIndexName::new(table_id.tablet_id, "search_index".parse()?)?;
+        let index_name =
+            TabletIndexName::new(table_id.tablet_id, IndexDescriptor::new("search_index")?)?;
 
         let search_reads = SearchQueryReads::new(
             vec![TextQueryTermRead {

@@ -353,7 +353,6 @@ export type RegisteredMutation<
 
   isConvexFunction: true;
   isMutation: true;
-  isRegistered?: true;
 
   /** @internal */
   invokeMutation(argsStr: string): Promise<string>;
@@ -385,7 +384,6 @@ export type RegisteredQuery<
 
   isConvexFunction: true;
   isQuery: true;
-  isRegistered?: true;
 
   /** @internal */
   invokeQuery(argsStr: string): Promise<string>;
@@ -417,7 +415,6 @@ export type RegisteredAction<
 
   isConvexFunction: true;
   isAction: true;
-  isRegistered?: true;
 
   /** @internal */
   invokeAction(requestId: string, argsStr: string): Promise<string>;
@@ -443,7 +440,6 @@ export type RegisteredAction<
 export type PublicHttpAction = {
   (ctx: GenericActionCtx<any>, request: Request): Promise<Response>;
   isHttp: true;
-  isRegistered?: true;
 
   /** @internal */
   invokeHttpAction(request: Request): Promise<Response>;
@@ -587,7 +583,7 @@ export type ReturnValueForOptionalValidator<
 > = [ReturnsValidator] extends [Validator<any, any, any>]
   ? ValidatorTypeToReturnType<Infer<ReturnsValidator>>
   : [ReturnsValidator] extends [PropertyValidators]
-    ? ObjectType<ReturnsValidator>
+    ? ValidatorTypeToReturnType<ObjectType<ReturnsValidator>>
     : any;
 
 export type ArgsArrayForOptionalValidator<

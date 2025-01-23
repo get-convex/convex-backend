@@ -313,7 +313,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
 
     /// Get the absolute path for the directory referenced by a given key.
     /// Fetches the archive from storage if it doesn't already exist on disk.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -326,7 +326,7 @@ impl<RT: Runtime> ArchiveCacheManager<RT> {
         result
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get_single_file(
         &self,
         search_storage: Arc<dyn Storage>,
@@ -416,18 +416,10 @@ async fn set_readonly(path: &PathBuf, readonly: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(Clone)]
 struct CacheCleaner {
     cleanup_tx: mpsc::UnboundedSender<PathBuf>,
-    cleanup_handle: Arc<Box<dyn SpawnHandle>>,
-}
-
-impl Clone for CacheCleaner {
-    fn clone(&self) -> Self {
-        Self {
-            cleanup_tx: self.cleanup_tx.clone(),
-            cleanup_handle: self.cleanup_handle.clone(),
-        }
-    }
+    _cleanup_handle: Arc<Box<dyn SpawnHandle>>,
 }
 
 impl CacheCleaner {
@@ -436,7 +428,7 @@ impl CacheCleaner {
         let cleanup_handle = Arc::new(rt.spawn_thread(|| cleanup_thread(cleanup_rx)));
         Self {
             cleanup_tx,
-            cleanup_handle,
+            _cleanup_handle: cleanup_handle,
         }
     }
 

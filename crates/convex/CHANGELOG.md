@@ -1,5 +1,12 @@
 # Upcoming
 
+# 0.9.0
+
+- Add `ConvexClientBuilder` pattern for constructing `ConvexClient`
+- Add support for `on_state_change` for handling reconnects.
+- Bump rust-version minimum from 1.65.0 to 1.71.1
+- Update `url` dependency.
+
 # 0.8.1
 
 Remove native-tls-vendored dependency for tokio-tungstenite. Rely on requested

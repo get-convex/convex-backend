@@ -394,9 +394,10 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
                 if let Some(listener) = self.context_state()?.stream_listeners.remove(&stream_id) {
                     match listener {
                         StreamListener::JsPromise(resolver) => {
+                            let mut scope = v8::HandleScope::new(self.scope);
                             let result = match update {
                                 Ok(update) => Ok(serde_v8::to_v8(
-                                    self.scope,
+                                    &mut scope,
                                     JsStreamChunk {
                                         done: update.is_none(),
                                         value: update.map(|chunk| chunk.to_vec().into()),
@@ -406,7 +407,7 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
                             };
                             // TODO: Is this okay? We're throwing a JsError here from within
                             // the callback context, which then needs to propagate it.
-                            resolve_promise(self.scope, resolver, result)?;
+                            resolve_promise(&mut scope, resolver, result)?;
                         },
                         StreamListener::RustStream(mut stream) => match update {
                             Ok(None) => drop(stream),

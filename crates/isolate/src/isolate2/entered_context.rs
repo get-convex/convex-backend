@@ -285,7 +285,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 FunctionNotFoundError::new(udf_path.function_name(), udf_path.module().as_str());
             anyhow::bail!(JsError::from_message(err.to_string()));
         }
-        let function: v8::Local<v8::Function> = exports
+        let function: v8::Local<v8::Object> = exports
             .get(self.scope, name_str)
             .ok_or_else(|| {
                 let err = FunctionNotFoundError::new(
@@ -335,7 +335,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         &mut self,
         udf_type: UdfType,
         udf_path: &CanonicalizedUdfPath,
-        function: &v8::Local<v8::Function>,
+        function: &v8::Local<v8::Object>,
     ) -> anyhow::Result<v8::Local<'scope, v8::String>> {
         let is_query = self.classify_function_object(&strings::isQuery, function)?;
         let is_mutation = self.classify_function_object(&strings::isMutation, function)?;
@@ -381,7 +381,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
     fn classify_function_object(
         &mut self,
         function_type: &'static StaticString,
-        function: &v8::Local<v8::Function>,
+        function: &v8::Local<v8::Object>,
     ) -> anyhow::Result<bool> {
         let function_type_str = function_type.create(self.scope)?.into();
         let has_function_type = function.has(self.scope, function_type_str) == Some(true);
@@ -413,18 +413,20 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             (async_syscalls, async_ops)
         };
         for (resolver, result) in async_syscalls {
+            let mut scope = v8::HandleScope::new(self.scope);
             let result_v8 = match result {
-                Ok(v) => Ok(serde_v8::to_v8(self.scope, v)?),
+                Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
                 Err(e) => Err(e),
             };
-            resolve_promise(self.scope, resolver, result_v8)?;
+            resolve_promise(&mut scope, resolver, result_v8)?;
         }
         for (resolver, result) in async_ops {
+            let mut scope = v8::HandleScope::new(self.scope);
             let result_v8 = match result {
-                Ok(v) => Ok(v.into_v8(self.scope)?),
+                Ok(v) => Ok(v.into_v8(&mut scope)?),
                 Err(e) => Err(e),
             };
-            resolve_promise(self.scope, resolver, result_v8)?;
+            resolve_promise(&mut scope, resolver, result_v8)?;
         }
 
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;

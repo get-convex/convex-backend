@@ -25,7 +25,6 @@ use database::{
     TableModel,
     Transaction,
 };
-use isolate::parse_udf_args;
 use keybroker::Identity;
 use model::{
     backend_state::{
@@ -46,6 +45,7 @@ use model::{
 };
 use runtime::testing::TestRuntime;
 use serde_json::Value as JsonValue;
+use udf::helpers::parse_udf_args;
 
 use crate::{
     test_helpers::{

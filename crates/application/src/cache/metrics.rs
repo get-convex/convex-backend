@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use metrics::{
     log_counter,
     log_counter_with_labels,
@@ -13,7 +15,7 @@ use metrics::{
 register_convex_histogram!(
     CACHE_GET_SECONDS,
     "Time taken for a UDF cache read",
-    &["status", "cache_status"]
+    &["status", "cache_status", "is_paginated"]
 );
 pub fn get_timer() -> StatusTimer {
     let mut t = StatusTimer::new(&CACHE_GET_SECONDS);
@@ -22,10 +24,11 @@ pub fn get_timer() -> StatusTimer {
     // way the success case is the deliberate one, and we'll default to
     // accidentally logging errors over successes.
     t.add_label(StaticMetricLabel::new("cache_status", "unknown"));
+    t.add_label(StaticMetricLabel::new("is_paginated", "unpaginated"));
     t
 }
 
-pub fn succeed_get_timer(mut timer: StatusTimer, is_cache_hit: bool) {
+pub fn succeed_get_timer(mut timer: StatusTimer, is_cache_hit: bool, is_paginated: bool) {
     if is_cache_hit {
         timer.replace_label(
             StaticMetricLabel::new("cache_status", "unknown"),
@@ -35,6 +38,12 @@ pub fn succeed_get_timer(mut timer: StatusTimer, is_cache_hit: bool) {
         timer.replace_label(
             StaticMetricLabel::new("cache_status", "unknown"),
             StaticMetricLabel::new("cache_status", "miss"),
+        );
+    }
+    if is_paginated {
+        timer.replace_label(
+            StaticMetricLabel::new("is_paginated", "unpaginated"),
+            StaticMetricLabel::new("is_paginated", "paginated"),
         );
     }
     timer.finish();
@@ -159,4 +168,37 @@ pub fn log_validate_system_time_in_the_future() {
 register_convex_gauge!(CACHE_SIZE_BYTES, "Size of the cache in bytes");
 pub fn log_cache_size(size: usize) {
     log_gauge(&CACHE_SIZE_BYTES, size as f64)
+}
+
+register_convex_counter!(
+    QUERY_BANDWIDTH_BYTES,
+    "Database bandwidth used for queries",
+    &["is_paginated"]
+);
+pub fn log_query_bandwidth_bytes(is_paginated: bool, bytes: u64) {
+    log_counter_with_labels(
+        &QUERY_BANDWIDTH_BYTES,
+        bytes,
+        vec![StaticMetricLabel::new(
+            "is_paginated",
+            if is_paginated {
+                "paginated"
+            } else {
+                "unpaginated"
+            },
+        )],
+    );
+}
+
+register_convex_counter!(
+    QUERY_CACHE_EVICTED_TOTAL,
+    "The total number of records evicted",
+);
+register_convex_gauge!(
+    QUERY_CACHE_EVICTED_AGE_SECONDS,
+    "The age of the last evicted entry",
+);
+pub fn query_cache_log_eviction(age: Duration) {
+    log_counter(&QUERY_CACHE_EVICTED_TOTAL, 1);
+    log_gauge(&QUERY_CACHE_EVICTED_AGE_SECONDS, age.as_secs_f64())
 }

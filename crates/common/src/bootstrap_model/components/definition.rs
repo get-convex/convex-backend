@@ -186,7 +186,7 @@ pub enum SerializedComponentArgumentValidator {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
-enum SerializedComponentArgument {
+pub enum SerializedComponentArgument {
     Value { value: String },
 }
 

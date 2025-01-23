@@ -1,18 +1,12 @@
 #![feature(assert_matches)]
-#![feature(lint_reasons)]
 #![feature(coroutines)]
 #![feature(result_flattening)]
 #![feature(iter_advance_by)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
-#![feature(lazy_cell)]
-#![feature(const_option)]
-#![feature(is_sorted)]
 #![feature(iterator_try_collect)]
 #![feature(never_type)]
 #![feature(try_blocks)]
-#![feature(exclusive_range_pattern)]
-#![feature(async_closure)]
 #![feature(trait_upcasting)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(cow_is_borrowed)]
@@ -37,6 +31,7 @@ mod stack_traces;
 pub mod subscription;
 mod table_registry;
 pub mod table_summary;
+mod table_usage;
 mod token;
 mod transaction;
 mod transaction_id_generator;
@@ -148,7 +143,6 @@ pub use self::{
         DatabaseSnapshot,
         DocumentDeltas,
         OccRetryStats,
-        ShutdownSignal,
         SnapshotPage,
         StreamingExportTableFilter,
         MAX_OCC_FAILURES,
@@ -177,6 +171,10 @@ pub use self::{
     table_summary::{
         TableSummary,
         TableSummaryWriter,
+    },
+    table_usage::{
+        TableUsage,
+        TablesUsage,
     },
     transaction::DEFAULT_PAGE_SIZE,
     transaction_id_generator::TransactionIdGenerator,

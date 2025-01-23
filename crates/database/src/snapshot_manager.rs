@@ -12,7 +12,7 @@ use common::{
         ComponentPath,
     },
     document::{
-        DocumentUpdate,
+        DocumentUpdateRef,
         ResolvedDocument,
     },
     knobs::MAX_TRANSACTION_WINDOW,
@@ -58,6 +58,8 @@ use crate::{
     ComponentRegistry,
     TableRegistry,
     TableSummary,
+    TableUsage,
+    TablesUsage,
     TransactionReadSet,
 };
 
@@ -78,8 +80,8 @@ pub struct SnapshotManager {
 /// exist and tracks the user document and size counts.
 pub struct TableSummaries {
     pub tables: OrdMap<TabletId, TableSummary>,
-    pub num_user_documents: usize,
-    pub user_size: usize,
+    pub num_user_documents: u64,
+    pub user_size: u64,
 }
 
 #[async_trait]
@@ -90,7 +92,7 @@ impl TableCountSnapshot for Option<TableSummaries> {
                 let count = table_summaries
                     .tables
                     .get(&table)
-                    .map_or(0, |summary| summary.num_values() as u64);
+                    .map_or(0, |summary| summary.num_values());
                 Some(count)
             },
             None => None,
@@ -149,7 +151,9 @@ impl TableSummaries {
             })?
             .clone();
         if let Some(old_value) = old {
-            table_summary = table_summary.remove(&old_value.value().0)?;
+            table_summary = table_summary
+                .remove(&old_value.value().0)
+                .with_context(|| format!("removing from table {}", document_id.tablet_id))?;
         }
         if let Some(new_value) = new {
             table_summary = table_summary.insert(&new_value.value().0);
@@ -207,13 +211,13 @@ pub struct Snapshot {
 impl Snapshot {
     pub(crate) fn update(
         &mut self,
-        document_update: &DocumentUpdate,
+        document_update: &impl DocumentUpdateRef,
         commit_ts: Timestamp,
     ) -> anyhow::Result<(Vec<DatabaseIndexUpdate>, DocInVectorIndex)> {
         block_in_place(|| {
-            let removal = document_update.old_document.as_ref();
-            let insertion = document_update.new_document.as_ref();
-            let document_id = document_update.id;
+            let removal = document_update.old_document();
+            let insertion = document_update.new_document();
+            let document_id = document_update.id();
             let table_update = self
                 .table_registry
                 .update(
@@ -282,10 +286,10 @@ impl Snapshot {
     pub fn must_table_summaries(&self) -> anyhow::Result<&TableSummaries> {
         self.table_summaries
             .as_ref()
-            .context(table_summary_bootstrapping_error(None))
+            .ok_or_else(|| table_summary_bootstrapping_error(None))
     }
 
-    pub fn iter_user_table_summaries(
+    pub fn iter_table_summaries(
         &self,
     ) -> anyhow::Result<impl Iterator<Item = ((TableNamespace, TableName), &'_ TableSummary)> + '_>
     {
@@ -311,8 +315,7 @@ impl Snapshot {
                     ),
                     summary,
                 )
-            })
-            .filter(|((_, table_name), _)| !table_name.is_system());
+            });
         Ok(result)
     }
 
@@ -339,18 +342,26 @@ impl Snapshot {
         table: &TableName,
     ) -> anyhow::Result<TableSummary> {
         self.table_summary(namespace, table)
-            .context(table_summary_bootstrapping_error(None))
+            .ok_or_else(|| table_summary_bootstrapping_error(None))
     }
 
-    pub fn get_user_document_and_index_storage(
+    /// Counts storage space used by all tables, including system tables
+    pub fn get_document_and_index_storage(
         &self,
-    ) -> anyhow::Result<BTreeMap<(TableNamespace, TableName), (usize, usize)>> {
-        let table_mapping = self.table_mapping().clone();
+    ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
+        let table_mapping: TableMapping = self.table_mapping().clone();
 
         let mut document_storage_by_table = BTreeMap::new();
-        for (table_name, summary) in self.iter_user_table_summaries()? {
+        for (table_name, summary) in self.iter_table_summaries()? {
             let table_size = summary.total_size();
-            document_storage_by_table.insert(table_name, (table_size, 0));
+            document_storage_by_table.insert(
+                table_name,
+                TableUsage {
+                    document_size: table_size,
+                    index_size: 0,
+                    system_index_size: 0,
+                },
+            );
         }
 
         // TODO: We are currently using document size * index count as a rough
@@ -368,26 +379,22 @@ impl Snapshot {
                 .clone()
                 .map_table(&table_mapping.tablet_to_name())
                 .unwrap();
-            let table_name = index_name.table().clone();
-
-            if !index_name.is_system_owned() {
-                let (document_size, total_index_size) = *document_storage_by_table
-                    .get(&(table_namespace, table_name.clone()))
-                    .with_context(|| {
-                        format!(
-                            "Index {index_name} on a nonexistent table {table_name} in namespace \
-                             {:?}",
-                            table_namespace
-                        )
-                    })?;
-                document_storage_by_table.insert(
-                    (table_namespace, table_name),
-                    (document_size, total_index_size + document_size),
-                );
+            let key = (table_namespace, index_name.table().clone());
+            let table_usage = document_storage_by_table.get_mut(&key).with_context(|| {
+                format!(
+                    "Index {index_name} on a nonexistent table {table_name} in namespace \
+                     {table_namespace:?}",
+                    table_name = key.1
+                )
+            })?;
+            if index_name.is_system_owned() {
+                table_usage.system_index_size += table_usage.document_size;
+            } else {
+                table_usage.index_size += table_usage.document_size;
             }
         }
 
-        Ok(document_storage_by_table)
+        Ok(TablesUsage(document_storage_by_table))
     }
 
     pub fn component_ids_to_paths(&self) -> BTreeMap<ComponentId, ComponentPath> {

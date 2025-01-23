@@ -108,6 +108,10 @@ impl ComponentPath {
         }
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &ComponentName> {
+        self.path.iter()
+    }
+
     pub fn join(&self, name: ComponentName) -> Self {
         let mut path = self.path.clone();
         path.push(name);

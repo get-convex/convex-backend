@@ -1,12 +1,17 @@
 use std::{
-    collections::BTreeSet,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     env,
     fs::{
         self,
         File,
     },
-    io,
-    io::Write,
+    io::{
+        self,
+        Write,
+    },
     path::Path,
     process::Command,
     thread,
@@ -15,7 +20,9 @@ use std::{
 
 use anyhow::Context;
 use serde::Deserialize;
+use serde_json::Value as JsonValue;
 use value::sha256::Sha256;
+use walkdir::WalkDir;
 
 const PACKAGES_DIR: &str = "../../npm-packages";
 const NPM_DIR: &str = "../../npm-packages/convex";
@@ -202,6 +209,8 @@ fn main() -> anyhow::Result<()> {
             "udf-runtime",
             "-t",
             "udf-tests",
+            "-t",
+            "simulation",
         ])
         .status()
         .context("Failed on rush build")?;
@@ -277,6 +286,28 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Step 7: Record dependencies for the simulation test build. It's a bit of a
+    // hack that it's in this build script, but we can't safely invoke Rush
+    // across two build scripts since it'll fail if called concurrently.
+    let metafile = Path::new(PACKAGES_DIR).join("simulation/dist/metafile.json");
+    let metafile_contents = fs::read_to_string(metafile).context("Failed to read metafile")?;
+    let metafile: Metafile =
+        serde_json::from_str(&metafile_contents).context("Failed to parse metafile")?;
+
+    for (rel_path, _) in metafile.inputs {
+        // TODO: Building `convex` seems to bump the files' mtime even on cache hit.
+        // [simulation 0.1.0] ==[ convex ]==============================[ 1 of 2 ]==
+        // [simulation 0.1.0] "convex" was restored from the build cache.
+        if rel_path.contains("convex/dist/esm") {
+            continue;
+        }
+        let path = fs::canonicalize(Path::new(PACKAGES_DIR).join("simulation").join(rel_path))?;
+        rerun_if_changed(path.as_os_str().to_str().unwrap())?;
+    }
+    for entry in WalkDir::new(Path::new(PACKAGES_DIR).join("simulation/convex")) {
+        rerun_if_changed(entry?.path().to_str().expect("Invalid path"))?;
+    }
+
     Ok(())
 }
 
@@ -336,4 +367,9 @@ fn write_start_push_request(project_directory: &Path, out_file: &Path) -> anyhow
         String::from_utf8(output.stderr)?
     );
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct Metafile {
+    inputs: BTreeMap<String, JsonValue>,
 }

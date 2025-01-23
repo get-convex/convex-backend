@@ -1,0 +1,19 @@
+{
+  "include": ["**/*"],
+  "exclude": ["node_modules", "dist", "convex"],
+  "compileOnSave": true,
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "noEmit": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowSyntheticDefaultImports": true,
+    /* allow use of internal Convex APIS */
+    "customConditions": ["convex-internal-types"]
+  }
+}

@@ -20,6 +20,7 @@ use common::{
 use keybroker::{
     AdminIdentity,
     Identity,
+    DEV_INSTANCE_NAME,
 };
 use model::{
     config::ConfigModel,
@@ -29,15 +30,13 @@ use model::{
 use must_let::must_let;
 use runtime::testing::TestRuntime;
 use sync_types::CanonicalizedUdfPath;
+use udf::validation::ValidatedPathAndArgs;
 use value::{
     ConvexArray,
     TableNamespace,
 };
 
-use crate::{
-    test_helpers::UdfTest,
-    ValidatedPathAndArgs,
-};
+use crate::test_helpers::UdfTest;
 
 #[convex_macro::test_runtime]
 async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
@@ -70,7 +69,12 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let analyze_results = t
         .isolate
-        .analyze(udf_config, modules_by_path, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules_by_path,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
 
     let source_package = SourcePackageModel::new(&mut tx, TableNamespace::test_user())

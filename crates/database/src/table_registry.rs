@@ -47,7 +47,7 @@ impl TableRegistry {
     /// Fill out all of our table metadata from the latest version of each
     /// document in the `_tables` table. In particular, we expect to find
     /// exactly one record for the `_tables` table.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn bootstrap(
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,
@@ -274,7 +274,7 @@ pub(crate) struct Update<'a> {
     table_update: Option<TableUpdate>,
 }
 
-impl<'a> Update<'a> {
+impl Update<'_> {
     pub(crate) fn apply(self) -> Option<TableUpdate> {
         if let Some(ref table_update) = self.table_update {
             if table_update.activates() {

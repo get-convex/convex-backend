@@ -33,9 +33,9 @@ use common::{
         ComponentPath,
         ExportPath,
     },
+    fastrace_helpers::get_sampled_span,
     http::ResolvedHostname,
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
-    minitrace_helpers::get_sampled_span,
     runtime::{
         Runtime,
         WithTimeout,
@@ -49,6 +49,7 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadata;
+use fastrace::prelude::*;
 use futures::{
     future::{
         self,
@@ -67,7 +68,6 @@ use futures::{
 };
 use keybroker::Identity;
 use maplit::btreemap;
-use minitrace::prelude::*;
 use model::session_requests::types::SessionRequestIdentifier;
 use sync_types::{
     ClientMessage,
@@ -75,6 +75,7 @@ use sync_types::{
     QueryId,
     QuerySetModification,
     SerializedQueryJournal,
+    SessionId,
     StateModification,
     StateVersion,
     Timestamp,
@@ -196,6 +197,18 @@ impl SingleFlightReceiver {
         }
         result
     }
+
+    pub fn try_next(&mut self) -> Option<(ServerMessage, tokio::time::Instant)> {
+        let result = self.inner.try_recv().ok();
+        if let Some(msg) = &result {
+            if matches!(msg.0, ServerMessage::Transition { .. }) {
+                self.transition_count.fetch_sub(1, Ordering::SeqCst);
+            }
+            // Don't block if channel is full.
+            _ = self.size_reduced_tx.try_send(());
+        }
+        result
+    }
 }
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(15);
@@ -222,7 +235,7 @@ pub struct SyncWorker<RT: Runtime> {
     // Has an update been scheduled for the future?
     update_scheduled: bool,
 
-    connect_timer: Option<StatusTimer>,
+    on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
 }
 
 enum QueryResult {
@@ -250,6 +263,7 @@ impl<RT: Runtime> SyncWorker<RT> {
         config: SyncWorkerConfig,
         rx: mpsc::UnboundedReceiver<(ClientMessage, tokio::time::Instant)>,
         tx: SingleFlightSender,
+        on_connect: Box<dyn FnOnce(SessionId) + Send>,
     ) -> Self {
         let (mutation_sender, receiver) = mpsc::channel(OPERATION_QUEUE_BUFFER_SIZE);
         let mutation_futures = ReceiverStream::new(receiver).buffered(1); // Execute at most one operation at a time.
@@ -266,7 +280,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             action_futures: FuturesUnordered::new(),
             transition_future: None,
             update_scheduled: false,
-            connect_timer: Some(connect_timer()),
+            on_connect: Some((connect_timer(), on_connect)),
         }
     }
 
@@ -414,8 +428,9 @@ impl<RT: Runtime> SyncWorker<RT> {
                 max_observed_timestamp,
                 connection_count,
             } => {
-                if let Some(timer) = self.connect_timer.take() {
+                if let Some((timer, on_connect)) = self.on_connect.take() {
                     timer.finish();
+                    on_connect(session_id);
                 }
                 self.state.set_session_id(session_id);
                 if let Some(max_observed_timestamp) = max_observed_timestamp {
@@ -664,6 +679,15 @@ impl<RT: Runtime> SyncWorker<RT> {
         new_ts: Timestamp,
         subscriptions_client: Arc<dyn SubscriptionClient>,
     ) -> anyhow::Result<impl Future<Output = anyhow::Result<TransitionState>>> {
+        let root = get_sampled_span(
+            &self.host.instance_name,
+            "sync-worker/update-queries",
+            &mut self.rt.rng(),
+            btreemap! {
+               "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
+            },
+        );
+        let _gaurd = root.set_local_parent();
         let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
 
@@ -722,15 +746,8 @@ impl<RT: Runtime> SyncWorker<RT> {
             let identity_ = identity.clone();
             let client_version = self.config.client_version.clone();
             let current_subscription = remaining_subscriptions.remove(&query.query_id);
-            let root = get_sampled_span(
-                &self.host.instance_name,
-                "sync-worker/update-queries",
-                &mut self.rt.rng(),
-                btreemap! {
-                   "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
-                   "udf_path".into() => query.udf_path.clone().into(),
-                },
-            );
+            let span = Span::enter_with_local_parent("update_query")
+                .with_property(|| ("udf_path", query.udf_path.clone().to_string()));
             let subscriptions_client = subscriptions_client.clone();
             let future = async move {
                 let new_subscription = match current_subscription {
@@ -801,7 +818,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                 };
                 Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
             }
-            .in_span(root);
+            .in_span(span);
             futures.push(future);
         }
         Ok(async move {
@@ -822,7 +839,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 new_version,
                 timer,
             })
-        })
+        }
+        .in_span(root))
     }
 
     fn finish_update_queries(

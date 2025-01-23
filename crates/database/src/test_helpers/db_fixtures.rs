@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use common::{
-    pause::PauseClient,
     persistence::Persistence,
     runtime::Runtime,
+    shutdown::ShutdownSignal,
     testing::TestPersistence,
     virtual_system_mapping::VirtualSystemMapping,
 };
@@ -23,7 +23,6 @@ use storage::{
 use crate::{
     text_index_worker::BuildTextIndexArgs,
     Database,
-    ShutdownSignal,
     Transaction,
 };
 
@@ -93,7 +92,7 @@ impl<RT: Runtime> DbFixtures<RT> {
         .await?;
         db.set_search_storage(search_storage.clone());
         if bootstrap_search_and_vector_indexes {
-            let mut handle = db.start_search_and_vector_bootstrap(PauseClient::new());
+            let mut handle = db.start_search_and_vector_bootstrap();
             handle.join().await?;
         }
         let build_index_args = BuildTextIndexArgs {

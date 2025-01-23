@@ -132,6 +132,11 @@ const analyzedModule = v.object({
   sourceMapped: v.union(mappedModule, v.null()),
 });
 
+const exportRequestor = v.union(
+  v.literal("snapshotExport"),
+  v.literal("cloudBackup"),
+);
+
 export const completedExport = v.object({
   state: v.literal("completed"),
   complete_ts: v.int64(),
@@ -145,7 +150,7 @@ export const completedExport = v.object({
       include_storage: v.boolean(),
     }),
   ),
-  requestor: v.literal("snapshotExport"),
+  requestor: exportRequestor,
 });
 
 const cronJobStatus = v.union(
@@ -282,17 +287,19 @@ export default defineSchema({
         state: v.literal("failed"),
         start_ts: v.int64(),
         failed_ts: v.int64(),
-        requestor: v.literal("snapshotExport"),
+        requestor: exportRequestor,
       }),
       v.object({
         state: v.literal("in_progress"),
         start_ts: v.int64(),
-        requestor: v.literal("snapshotExport"),
+        requestor: exportRequestor,
+        progress_message: v.optional(v.union(v.null(), v.string())),
       }),
       v.object({
         state: v.literal("requested"),
-        requestor: v.literal("snapshotExport"),
+        requestor: exportRequestor,
       }),
+      // TODO: add canceled
     ),
   ).index("by_requestor", ["requestor"]),
   _deployment_audit_log: deploymentAuditLogTable,

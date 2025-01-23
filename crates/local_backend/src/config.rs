@@ -4,6 +4,7 @@ use std::{
 };
 
 use clap::Parser;
+use clusters::DbDriverTag;
 use common::types::{
     ConvexOrigin,
     ConvexSite,
@@ -20,9 +21,13 @@ use url::Url;
 #[derive(Parser, Clone)]
 #[clap(version = &**SERVER_VERSION_STR, author = "Convex, Inc. <no-reply@convex.dev>")]
 pub struct LocalConfig {
-    /// File path for SQLite
+    /// File path for SQLite, the file path; for postgres, a server URL.
     #[clap(default_value = "convex_local_backend.sqlite3")]
     pub db_spec: String,
+
+    /// Database driver type.
+    #[clap(short, long, value_enum, default_value_t = DbDriverTag::Sqlite)]
+    pub db: DbDriverTag,
 
     /// Host interface to bind to
     #[clap(short, long, default_value = "0.0.0.0")]
@@ -37,17 +42,22 @@ pub struct LocalConfig {
     site_proxy_port: u16,
 
     /// Origin of the Convex server
+    #[clap(long, requires = "convex_site")]
     convex_origin: Option<ConvexOrigin>,
 
     /// Origin of the Convex HTTP Actions
+    #[clap(long, requires = "convex_origin")]
     convex_site: Option<ConvexSite>,
 
+    /// Optional proxy for Actions fetches
     #[clap(long)]
     pub convex_http_proxy: Option<Url>,
 
+    /// Instance name for this backend.
     #[clap(long, requires = "instance_secret")]
     pub instance_name: Option<String>,
 
+    /// Instance secret for this backend.
     #[clap(long, requires = "instance_name")]
     pub instance_secret: Option<String>,
 
@@ -59,6 +69,12 @@ pub struct LocalConfig {
     /// Which directory should local storage use
     #[clap(long, default_value = "convex_local_storage")]
     local_storage: String,
+
+    /// If set, the persistence won't require SSL when talking to the database.
+    /// It would still prefer SSL if available. This should only be set in
+    /// tests.
+    #[clap(long)]
+    pub do_not_require_ssl: bool,
 }
 
 impl fmt::Debug for LocalConfig {

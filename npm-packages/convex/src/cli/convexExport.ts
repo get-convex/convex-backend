@@ -140,15 +140,14 @@ async function waitForStableExportState(
 ): Promise<SnapshotExportState> {
   const [donePromise, onDone] = waitUntilCalled();
   let snapshotExportState: SnapshotExportState;
-  await subscribe(
-    ctx,
+  await subscribe(ctx, {
     deploymentUrl,
     adminKey,
-    "_system/cli/exports:getLatest",
-    {},
-    undefined,
-    donePromise,
-    {
+    parsedFunctionName: "_system/cli/exports:getLatest",
+    parsedFunctionArgs: {},
+    componentPath: undefined,
+    until: donePromise,
+    callbacks: {
       onChange: (value: any) => {
         // NOTE: `value` would only be `null` if there has never been an export
         // requested.
@@ -168,7 +167,7 @@ async function waitForStableExportState(
         }
       },
     },
-  );
+  });
   return snapshotExportState!;
 }
 
@@ -182,7 +181,10 @@ export async function startSnapshotExport(
     deploymentName: string | null;
   },
 ) {
-  const fetch = deploymentFetch(args.deploymentUrl, args.adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: args.deploymentUrl,
+    adminKey: args.adminKey,
+  });
   try {
     await fetch(
       `/api/export/request/zip?includeStorage=${args.includeStorage}`,
@@ -212,10 +214,11 @@ export async function downloadSnapshotExport(
   },
 ): Promise<{ filePath: string }> {
   const inputPath = args.inputPath;
-  const exportUrl = `/api/export/zip/${args.snapshotExportTs.toString()}?adminKey=${encodeURIComponent(
-    args.adminKey,
-  )}`;
-  const fetch = deploymentFetch(args.deploymentUrl, args.adminKey);
+  const exportUrl = `/api/export/zip/${args.snapshotExportTs.toString()}`;
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: args.deploymentUrl,
+    adminKey: args.adminKey,
+  });
   let response: Response;
   try {
     response = await fetch(exportUrl, {

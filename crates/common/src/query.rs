@@ -40,7 +40,7 @@ use crate::{
         BinaryKey,
         End,
         Interval,
-        Start,
+        StartIncluded,
     },
     paths::FieldPath,
     types::{
@@ -282,7 +282,7 @@ impl IndexRange {
                 },
             };
             Interval {
-                start: Start::Included(start),
+                start: StartIncluded(start),
                 end,
             }
         } else {

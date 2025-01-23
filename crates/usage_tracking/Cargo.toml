@@ -42,3 +42,6 @@ testing = [
 
 [package.metadata.cargo-machete]
 ignored = []
+
+[lints]
+workspace = true

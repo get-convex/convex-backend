@@ -81,7 +81,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             loop {
                 if let Err(e) = worker.run().await {
                     let delay = backoff.fail(&mut worker.runtime.rng());
-                    report_error(&mut e.context("SchemaWorker died"));
+                    report_error(&mut e.context("SchemaWorker died")).await;
                     tracing::error!("Schema worker failed, sleeping {delay:?}");
                     worker.runtime.wait(delay).await;
                 } else {
@@ -160,7 +160,7 @@ impl<RT: Runtime> SchemaWorker<RT> {
             )?;
 
             for table_name in tables_to_check {
-                let table_iterator = self.database.table_iterator(ts, 1000, None);
+                let table_iterator = self.database.table_iterator(ts, 1000);
                 let tablet_id = table_mapping.name_to_tablet()(table_name.clone())?;
                 let stream = table_iterator.stream_documents_in_table(
                     tablet_id,

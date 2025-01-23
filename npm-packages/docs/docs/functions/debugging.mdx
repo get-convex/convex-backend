@@ -1,0 +1,89 @@
+---
+title: Debugging
+sidebar_position: 100
+---
+
+Debugging is the process of figuring out why your code isn't behaving as you
+expect.
+
+## Debugging during development
+
+During development the built-in `console` API allows you to understand what's
+going on inside your functions:
+
+```ts title="convex/myFunctions.ts"
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export const mutateSomething = mutation({
+  args: { a: v.number(), b: v.number() },
+  handler: (_, args) => {
+    console.log("Received args", args);
+    // ...
+  },
+});
+```
+
+The following methods are available in the
+[default Convex runtime](/docs/functions/runtimes.mdx#default-convex-runtime):
+
+- Logging values, with a specified severity level:
+  - `console.log`
+  - `console.info`
+  - `console.warn`
+  - `console.error`
+  - `console.debug`
+- Logging with a stack trace:
+  - [`console.trace`](https://developer.mozilla.org/en-US/docs/Web/API/console/trace_static)
+- Measuring execution time:
+  - [`console.time`](https://developer.mozilla.org/en-US/docs/Web/API/console/time_static)
+  - [`console.timeLog`](https://developer.mozilla.org/en-US/docs/Web/API/console/timelog_static)
+  - [`console.timeEnd`](https://developer.mozilla.org/en-US/docs/Web/API/console/timeend_static)
+
+The Convex backend also automatically logs all successful function executions
+and all errors thrown by your functions.
+
+You can view these logs:
+
+1. When using the [`ConvexReactClient`](/docs/client/react.mdx), in your browser
+   developer tools console pane. The logs are sent from your dev deployment to
+   your client, and the client logs them to the browser. Production deployments
+   [**do not** send logs to the client](/docs/functions/error-handling/error-handling.mdx#differences-in-error-reporting-between-dev-and-prod).
+2. In your Convex dashboard on the
+   [Logs page](/docs/dashboard/deployments/logs.md).
+3. In your terminal by running
+   [`npx convex logs`](/docs/cli.md#tail-deployment-logs) or
+   `npx convex dev --tail-logs`.
+
+### Using a debugger
+
+You can exercise your functions from tests, in which case you can add
+`debugger;` statements and step through your code. See
+[Testing](/docs/testing/convex-test.mdx#debugging-tests).
+
+## Debugging in production
+
+When debugging an issue in production your options are:
+
+1. Leverage existing logging
+2. Add more logging and deploy a new version of your backend to production
+
+Convex backend currently only preserves a limited number of logs, and logs can
+be erased at any time when the Convex team performs internal maintenance and
+upgrades. You should therefore set up
+[log streaming and error reporting](/docs/production/integrations/integrations.mdx)
+integrations to enable your team easy access to historical logs and additional
+information logged by your client.
+
+## Finding relevant logs by Request ID
+
+To find the appropriate logs for an error you or your users experience, Convex
+includes a Request ID in all exception messages in both dev and prod in this
+format: `[Request ID: <request_id>]`.
+
+You can copy and paste a Request ID into your Convex dashboard to view the logs
+for functions started by that request. See the
+[Dashboard logs page](/docs/dashboard/deployments/logs.md#filter-logs) for
+details.
+
+{/* TODO: Document how to filter by Request ID in Datadog/Axiom */}

@@ -38,3 +38,6 @@ runtime = { path = "../runtime", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 usage_tracking = { path = "../usage_tracking", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
+
+[lints]
+workspace = true

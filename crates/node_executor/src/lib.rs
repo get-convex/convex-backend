@@ -1,4 +1,3 @@
-#![feature(lazy_cell)]
 #![feature(assert_matches)]
 #![feature(never_type)]
 #![feature(let_chains)]
@@ -6,7 +5,6 @@
 #![feature(iterator_try_collect)]
 #![feature(stmt_expr_attributes)]
 #![feature(try_blocks)]
-#![feature(const_trait_impl)]
 
 mod executor;
 pub mod local;

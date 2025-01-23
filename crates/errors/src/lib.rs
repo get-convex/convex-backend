@@ -1,4 +1,3 @@
-#![feature(lazy_cell)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
 #![feature(impl_trait_in_assoc_type)]
@@ -54,6 +53,8 @@ pub enum ErrorCode {
     OCC {
         table_name: Option<String>,
         document_id: Option<String>,
+        write_source: Option<String>,
+        is_system: bool,
     },
     PaginationLimit,
     OutOfRetention,
@@ -249,6 +250,8 @@ impl ErrorMetadata {
             code: ErrorCode::OCC {
                 table_name: None,
                 document_id: None,
+                write_source: None,
+                is_system: true,
             },
             short_msg: OCC_ERROR.into(),
             msg: OCC_ERROR_MSG.into(),
@@ -259,13 +262,14 @@ impl ErrorMetadata {
     pub fn user_occ(
         table_name: Option<String>,
         document_id: Option<String>,
-        occ_write_source: Option<String>,
+        write_source: Option<String>,
+        description: Option<String>,
     ) -> Self {
         let table_description = table_name
             .clone()
             .map(|name| format!("the \"{name}\" table"))
             .unwrap_or("some table".to_owned());
-        let write_source_description = occ_write_source
+        let write_source_description = description
             .clone()
             .map(|source| format!("{}. ", source))
             .unwrap_or_default();
@@ -273,6 +277,8 @@ impl ErrorMetadata {
             code: ErrorCode::OCC {
                 table_name,
                 document_id,
+                write_source,
+                is_system: false,
             },
             short_msg: OCC_ERROR.into(),
             msg: format!(
@@ -281,6 +287,14 @@ impl ErrorMetadata {
                 subsequent retry. {write_source_description}See https://docs.convex.dev/error#1",
             )
             .into(),
+        }
+    }
+
+    pub fn service_unavailable() -> Self {
+        Self {
+            code: ErrorCode::Overloaded,
+            short_msg: "ServiceUnavailable".into(),
+            msg: "Service temporarily unavailable".into(),
         }
     }
 
@@ -391,6 +405,14 @@ impl ErrorMetadata {
         }
     }
 
+    /// Returns the level at which the given error should report to sentry
+    /// INFO -> it's a client-at-fault error
+    /// WARNING -> it's a server-at-fault error that is expected
+    /// ERROR -> it's a server-at-fault error that is unexpected (probably a
+    /// bug)
+    /// FATAL -> it crashes the backend
+    ///
+    /// Also return an optional sampling rate for this type of error
     pub fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)> {
         // Sentry considers errors invalid if this field is empty.
         if self.short_msg.is_empty() {
@@ -398,7 +420,6 @@ impl ErrorMetadata {
         }
         match self.code {
             ErrorCode::ClientDisconnect => None,
-            ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.01))),
             ErrorCode::BadRequest
             | ErrorCode::NotFound
             | ErrorCode::PaginationLimit
@@ -406,13 +427,20 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden
             | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
             ErrorCode::OutOfRetention
-            | ErrorCode::Overloaded
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
 
-            // 1% sampling for OCC, since we only really care about the details if they
-            // happen at high volume.
-            ErrorCode::OCC { .. } => Some((sentry::Level::Warning, Some(0.01))),
+            // 1% sampling for OCC/Overloaded/RateLimited, since we only really care about the
+            // details if they happen at high volume.
+            ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.001))),
+            ErrorCode::OCC {
+                is_system: false, ..
+            } => Some((sentry::Level::Warning, Some(0.001))),
+            ErrorCode::OCC {
+                is_system: true, ..
+            } => Some((sentry::Level::Warning, None)),
+            // we want to see these a bit more than the others above
+            ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.1))),
         }
     }
 
@@ -544,7 +572,7 @@ impl ErrorCode {
 
 pub trait ErrorMetadataAnyhowExt {
     fn is_occ(&self) -> bool;
-    fn occ_info(&self) -> Option<(Option<String>, Option<String>)>;
+    fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
     fn is_out_of_retention(&self) -> bool;
@@ -568,7 +596,6 @@ pub trait ErrorMetadataAnyhowExt {
     fn wrap_error_message<F>(self, f: F) -> Self
     where
         F: FnOnce(String) -> String;
-    fn last_second_classification(self) -> Self;
 }
 
 impl ErrorMetadataAnyhowExt for anyhow::Error {
@@ -580,13 +607,19 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         false
     }
 
-    fn occ_info(&self) -> Option<(Option<String>, Option<String>)> {
+    fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return match &e.code {
                 ErrorCode::OCC {
                     table_name,
                     document_id,
-                } => Some((table_name.clone(), document_id.clone())),
+                    write_source,
+                    is_system: _,
+                } => Some((
+                    table_name.clone(),
+                    document_id.clone(),
+                    write_source.clone(),
+                )),
                 _ => None,
             };
         }
@@ -787,39 +820,6 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         let new_msg = f(self.to_string());
         self.context(new_msg)
     }
-
-    /// Escape hatch classification function.
-    /// Call this near the edge of the system to do a last-second classification
-    /// on the way out. This is not an ideal place to do error
-    /// classification. It is much better to do it at the point it is being
-    /// thrown.
-    ///
-    /// Reality is that in some cases it's not ergonomic or possible to classify
-    /// during throw, so leaving ourselves an escape hatch
-    fn last_second_classification(self) -> Self {
-        // Each classification here should have a comment explaining why we're doing
-        // it last second. We'd much rather prefer doing it at the time of throw.
-
-        let as_string = self.to_string();
-        // Just doing this as a quick hack because sqlx::query has 100 throw sites.
-        // Ideally, we would wrap sqlx and do handling there, but punting to save time.
-        let postgres_occs = [
-            "could not serialize access due to read/write dependencies among transactions",
-            "could not serialize access due to concurrent update",
-        ];
-        if let Some(occ) = postgres_occs
-            .into_iter()
-            .find(|occ| as_string.contains(occ))
-        {
-            // Classify postgres occ as overloaded. ErrorMetadata::OCC is specific to the
-            // application level inside convex backend.
-            return self
-                .context(ErrorMetadata::overloaded("PostgresOcc", occ))
-                .context(as_string);
-        }
-
-        self
-    }
 }
 
 pub const INTERNAL_SERVER_ERROR_MSG: &str = "Your request couldn't be completed. Try again later.";
@@ -853,7 +853,20 @@ mod proptest {
                 ErrorCode::PaginationLimit => {
                     ErrorMetadata::pagination_limit("pagination", "limit")
                 },
-                ErrorCode::OCC { .. } => ErrorMetadata::system_occ(),
+                ErrorCode::OCC {
+                    is_system: true, ..
+                } => ErrorMetadata::system_occ(),
+                ErrorCode::OCC {
+                    is_system: false,
+                    table_name,
+                    document_id,
+                    write_source,
+                } => ErrorMetadata::user_occ(
+                    table_name,
+                    document_id,
+                    write_source,
+                    Some("description".to_string()),
+                ),
                 ErrorCode::OutOfRetention => ErrorMetadata::out_of_retention(),
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),

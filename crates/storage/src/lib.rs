@@ -1,5 +1,4 @@
 #![feature(try_blocks)]
-#![feature(lazy_cell)]
 #![feature(coroutines)]
 
 use std::{
@@ -14,7 +13,6 @@ use std::{
         File,
         OpenOptions,
     },
-    future::Future,
     io::{
         Read,
         Seek,
@@ -53,6 +51,7 @@ use futures::{
         ErrorKind as IoErrorKind,
     },
     pin_mut,
+    ready,
     select_biased,
     stream::{
         self,
@@ -62,7 +61,6 @@ use futures::{
     FutureExt,
     Stream,
     StreamExt,
-    TryFutureExt,
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
@@ -78,13 +76,14 @@ use tokio::{
     sync::mpsc,
 };
 use tokio_stream::wrappers::ReceiverStream;
+use tokio_util::sync::PollSender;
 use value::sha256::{
     Sha256,
     Sha256Digest,
 };
 
 pub const LOCAL_DIR_MIN_PART_SIZE: usize = 5 * (1 << 20);
-pub const MAX_PART_SIZE: usize = 8 * (1 << 30);
+pub const LOCAL_DIR_MAX_PART_SIZE: usize = 8 * (1 << 30);
 pub const MAX_NUM_PARTS: usize = 10000;
 pub const MAXIMUM_PARALLEL_UPLOADS: usize = 8;
 
@@ -309,26 +308,34 @@ impl<T: Upload> UploadExt for T {
 
 #[must_use]
 pub struct BufferedUpload {
-    upload: Option<Box<dyn Upload>>,
+    upload: Box<dyn Upload>,
     buffer: Vec<u8>,
-    min_intermediate_part_size: usize,
+    max_intermediate_part_size: usize,
+    target_intermediate_part_size: usize,
 }
 
 impl BufferedUpload {
-    pub async fn new(
+    pub fn new(
         upload: impl Upload + 'static,
         min_intermediate_part_size: usize,
-    ) -> anyhow::Result<Self> {
+        max_intermediate_part_size: usize,
+    ) -> Self {
         let buffer = Vec::with_capacity(min_intermediate_part_size);
-        Ok(Self {
-            upload: Some(Box::new(upload)),
+        Self {
+            upload: Box::new(upload),
             buffer,
-            min_intermediate_part_size,
-        })
+            max_intermediate_part_size,
+            target_intermediate_part_size: min_intermediate_part_size,
+        }
     }
 
     fn update_buffer_and_get_next(&mut self, data: Bytes) -> Option<Bytes> {
-        Self::_update_buffer_and_get_next(&mut self.buffer, self.min_intermediate_part_size, data)
+        Self::_update_buffer_and_get_next(
+            &mut self.buffer,
+            &mut self.target_intermediate_part_size,
+            self.max_intermediate_part_size,
+            data,
+        )
     }
 
     // Hack around wanting to use this when `upload` is borrowed. Rust can't
@@ -336,16 +343,33 @@ impl BufferedUpload {
     // parts of self.
     fn _update_buffer_and_get_next(
         buffer: &mut Vec<u8>,
-        min_intermediate_part_size: usize,
+        target_intermediate_part_size: &mut usize,
+        max_intermediate_part_size: usize,
         data: Bytes,
     ) -> Option<Bytes> {
         // Fast path, ship the buffer without copying.
-        if buffer.is_empty() && data.len() >= min_intermediate_part_size {
+        if buffer.is_empty()
+            && data.len() >= *target_intermediate_part_size
+            && data.len() <= max_intermediate_part_size
+        {
+            *target_intermediate_part_size = cmp::min(
+                *target_intermediate_part_size * 2,
+                max_intermediate_part_size,
+            );
             return Some(data);
         }
         buffer.extend_from_slice(&data);
-        if buffer.len() >= min_intermediate_part_size {
-            let ready = mem::replace(buffer, Vec::with_capacity(min_intermediate_part_size));
+        if buffer.len() >= *target_intermediate_part_size {
+            *target_intermediate_part_size = cmp::min(
+                *target_intermediate_part_size * 2,
+                max_intermediate_part_size,
+            );
+            let ready = if buffer.len() > max_intermediate_part_size {
+                let remainder = buffer.split_off(max_intermediate_part_size);
+                mem::replace(buffer, remainder)
+            } else {
+                mem::replace(buffer, Vec::with_capacity(*target_intermediate_part_size))
+            };
             Some(ready.into())
         } else {
             None
@@ -357,12 +381,7 @@ impl BufferedUpload {
 impl Upload for BufferedUpload {
     async fn write(&mut self, data: Bytes) -> anyhow::Result<()> {
         if let Some(buf) = self.update_buffer_and_get_next(data) {
-            // self.upload is only ever taken just before drop
-            self.upload
-                .as_mut()
-                .expect("upload must be set")
-                .write(buf)
-                .await?;
+            self.upload.write(buf).await?;
         }
         Ok(())
     }
@@ -375,12 +394,7 @@ impl Upload for BufferedUpload {
         let (tx, rx) = mpsc::channel(MAXIMUM_PARALLEL_UPLOADS / 2);
 
         let mut boxed_rx = ReceiverStream::new(rx).boxed();
-        let mut upload = self
-            .upload
-            .as_mut()
-            .expect("upload must be set")
-            .try_write_parallel(&mut boxed_rx)
-            .fuse();
+        let mut upload = self.upload.try_write_parallel(&mut boxed_rx).fuse();
 
         let buffer_bytes = async {
             let result: anyhow::Result<()> = try {
@@ -390,7 +404,8 @@ impl Upload for BufferedUpload {
                         Ok(buf) => {
                             if let Some(buf) = Self::_update_buffer_and_get_next(
                                 &mut self.buffer,
-                                self.min_intermediate_part_size,
+                                &mut self.target_intermediate_part_size,
+                                self.max_intermediate_part_size,
                                 buf,
                             ) {
                                 tx.send(Ok(buf)).await?;
@@ -420,25 +435,22 @@ impl Upload for BufferedUpload {
     }
 
     async fn abort(mut self: Box<Self>) -> anyhow::Result<()> {
-        // self.upload is only ever taken just before drop
-        self.upload
-            .take()
-            .expect("upload must be set")
-            .abort()
-            .await
+        self.upload.abort().await
     }
 
     async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
-        let ready = mem::take(&mut self.buffer);
-        // self.upload is only ever taken just before drop
-        let mut upload = self.upload.take().expect("upload must be set");
+        let Self {
+            buffer: ready,
+            mut upload,
+            ..
+        } = *self;
         upload.write(ready.into()).await?;
         upload.complete().await
     }
 }
 
 pub struct ChannelWriter {
-    parts: mpsc::Sender<Bytes>,
+    parts: PollSender<Bytes>,
     current_part: Vec<u8>,
     part_size: usize,
 }
@@ -446,7 +458,7 @@ pub struct ChannelWriter {
 impl ChannelWriter {
     pub fn new(sender: mpsc::Sender<Bytes>, part_size: usize) -> Self {
         Self {
-            parts: sender,
+            parts: PollSender::new(sender),
             current_part: Vec::with_capacity(part_size),
             part_size,
         }
@@ -466,20 +478,16 @@ impl AsyncWrite for ChannelWriter {
                 self_.current_part.extend_from_slice(&buf[..n]);
                 return Poll::Ready(Ok(n));
             }
-            tokio::pin! {
-                let permit_future = self_.parts.reserve();
-            }
-            let permit = match Future::poll(permit_future, cx) {
-                Poll::Ready(Ok(p)) => p,
-                Poll::Ready(Err(mpsc::error::SendError(..))) => {
-                    let err = Err(IoError::new(IoErrorKind::BrokenPipe, "Channel closed"));
-                    return Poll::Ready(err);
-                },
-                Poll::Pending => return Poll::Pending,
-            };
+            ready!(self_
+                .parts
+                .poll_reserve(cx)
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed")))?;
             let next_buf = Vec::with_capacity(self_.part_size);
             let buf = mem::replace(&mut self_.current_part, next_buf);
-            permit.send(buf.into());
+            self_
+                .parts
+                .send_item(buf.into())
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed"))?;
         }
     }
 
@@ -491,20 +499,16 @@ impl AsyncWrite for ChannelWriter {
     fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), IoError>> {
         let self_ = self.get_mut();
         if !self_.current_part.is_empty() {
-            tokio::pin! {
-                let permit_future = self_.parts.reserve();
-            }
-            let permit = match Future::poll(permit_future, cx) {
-                Poll::Ready(Ok(p)) => p,
-                Poll::Ready(Err(mpsc::error::SendError(..))) => {
-                    let err = Err(IoError::new(IoErrorKind::BrokenPipe, "Channel closed"));
-                    return Poll::Ready(err);
-                },
-                Poll::Pending => return Poll::Pending,
-            };
+            ready!(self_
+                .parts
+                .poll_reserve(cx)
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed")))?;
             let next_buf = vec![];
             let buf = mem::replace(&mut self_.current_part, next_buf);
-            permit.send(buf.into());
+            self_
+                .parts
+                .send_item(buf.into())
+                .map_err(|_| IoError::new(IoErrorKind::BrokenPipe, "Channel closed"))?;
         }
         Poll::Ready(Ok(()))
     }
@@ -604,20 +608,22 @@ impl StorageExt for Arc<dyn Storage> {
             let key_ = key.clone();
             let stream_fut = async move {
                 self_
-                .get_small_range_with_retries(&key_, chunk_start..chunk_end)
-                // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what the AWS library does internally.
-                .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-                .map_ok(|storage_get_stream| storage_get_stream.stream).await
+                    .get_small_range_with_retries(&key_, chunk_start..chunk_end)
+                    .await
+                    .map_err(|e| {
+                        // Mapping everything to `io::ErrorKind::Other` feels bad, but it's what the
+                        // AWS library does internally.
+                        std::io::Error::new(std::io::ErrorKind::Other, e)
+                    })
+                    .map(|storage_get_stream| storage_get_stream.stream)
             };
             chunk_futures.push(stream_fut);
         }
         // Convert the list of futures into a stream, where each item is the resolved
         // output of the future (i.e. a `ByteStream`)
         let byte_stream = futures::stream::iter(chunk_futures)
-            // Wrap it in `Ok` as the underlying stream is a `TryStream`, and the error types must match
-            .map(Ok)
             // Limit the concurrency of the chunk downloads
-            .try_buffered(MAX_CONCURRENT_CHUNK_DOWNLOADS)
+            .buffered(MAX_CONCURRENT_CHUNK_DOWNLOADS)
             // Flatten the `Stream<Item = io::Result<Stream<Item = io::Result<Bytes>>>>` into a single `Stream<Item = io::Result<Bytes>>`
             .try_flatten();
         Ok(Some(StorageGetStream {
@@ -626,6 +632,7 @@ impl StorageExt for Arc<dyn Storage> {
         }))
     }
 
+    #[fastrace::trace]
     async fn get_small_range_with_retries(
         &self,
         key: &ObjectKey,
@@ -675,10 +682,11 @@ async fn stream_object_with_retries(
                 return Err(e);
             },
             Err(e) => {
-                report_error(&mut anyhow::anyhow!(e).context(format!(
+                let mut toreport = anyhow::anyhow!(e).context(format!(
                     "failed while reading stream for {key:?}. {retries_remaining} attempts \
                      remaining"
-                )));
+                ));
+                report_error(&mut toreport).await;
                 let new_range =
                     (small_byte_range.start + bytes_yielded as u64)..small_byte_range.end;
                 let output = storage
@@ -914,7 +922,7 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
             file: Some(file),
             num_parts: 0,
         };
-        let upload = BufferedUpload::new(upload, LOCAL_DIR_MIN_PART_SIZE).await?;
+        let upload = BufferedUpload::new(upload, LOCAL_DIR_MIN_PART_SIZE, LOCAL_DIR_MAX_PART_SIZE);
         Ok(Box::new(upload))
     }
 
@@ -1120,7 +1128,7 @@ pub struct LocalDirUpload {
 impl Upload for LocalDirUpload {
     async fn write(&mut self, data: Bytes) -> anyhow::Result<()> {
         anyhow::ensure!(self.num_parts < MAX_NUM_PARTS);
-        anyhow::ensure!(data.len() <= MAX_PART_SIZE);
+        anyhow::ensure!(data.len() <= LOCAL_DIR_MAX_PART_SIZE);
         let file = self
             .file
             .as_mut()
@@ -1182,6 +1190,135 @@ impl Display for StorageUseCase {
             StorageUseCase::Files => write!(f, "files"),
             StorageUseCase::SearchIndexes => write!(f, "search"),
         }
+    }
+}
+
+#[cfg(test)]
+mod buffered_upload_tests {
+    use std::{
+        pin::Pin,
+        sync::Arc,
+    };
+
+    use async_trait::async_trait;
+    use bytes::Bytes;
+    use common::types::ObjectKey;
+    use futures::{
+        Stream,
+        StreamExt,
+        TryStreamExt,
+    };
+    use parking_lot::Mutex;
+    use runtime::{
+        prod::ProdRuntime,
+        testing::TestRuntime,
+    };
+    use tokio::{
+        io::AsyncWriteExt,
+        sync::mpsc,
+    };
+    use tokio_stream::wrappers::ReceiverStream;
+
+    use crate::{
+        BufferedUpload,
+        ChannelWriter,
+        Upload,
+        UploadExt,
+    };
+
+    struct NoopUpload {
+        parts: Arc<Mutex<Vec<Bytes>>>,
+    }
+
+    #[async_trait]
+    impl Upload for NoopUpload {
+        async fn write(&mut self, data: Bytes) -> anyhow::Result<()> {
+            self.parts.lock().push(data);
+            Ok(())
+        }
+
+        async fn try_write_parallel<'a>(
+            &'a mut self,
+            stream: &mut Pin<Box<dyn Stream<Item = anyhow::Result<Bytes>> + Send + 'a>>,
+        ) -> anyhow::Result<()> {
+            while let Some(value) = stream.try_next().await? {
+                self.write(value).await?;
+            }
+            Ok(())
+        }
+
+        async fn abort(self: Box<Self>) -> anyhow::Result<()> {
+            Ok(())
+        }
+
+        async fn complete(self: Box<Self>) -> anyhow::Result<common::types::ObjectKey> {
+            Ok(ObjectKey::try_from("asdf")?)
+        }
+    }
+
+    #[convex_macro::prod_rt_test]
+    async fn test_buffered_upload(_rt: ProdRuntime) -> anyhow::Result<()> {
+        let (sender, receiver) = mpsc::channel::<Bytes>(1);
+        // NOTE: data flows from ChannelWriter -> sender -> receiver -> BufferedUpload
+        // -> NoopUpload
+        let parts = Arc::new(Mutex::new(vec![]));
+        let upload = NoopUpload {
+            parts: parts.clone(),
+        };
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 100, 1000));
+        let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
+        let mut writer = ChannelWriter::new(sender, 10);
+        let write_fut = async move {
+            writer.write_all(b"abcdefghijklmnopqrstuvwxyz").await?;
+            writer.shutdown().await?;
+            drop(writer); // drop closes sender, allowing uploader to complete
+            anyhow::Ok(())
+        };
+        // Regression test: if ChannelWriter::poll_write reserves a new permit in
+        // `sender` each time it's called, then the uploader will deadlock.
+        let _ = futures::try_join!(write_fut, uploader)?;
+        let _ = upload.complete().await?;
+        let parts = parts.lock();
+        assert_eq!(
+            *parts,
+            vec![Bytes::from_static(b"abcdefghijklmnopqrstuvwxyz")]
+        );
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_buffered_upload_max_size(_rt: TestRuntime) -> anyhow::Result<()> {
+        let (sender, receiver) = mpsc::channel::<Bytes>(1);
+        let parts = Arc::new(Mutex::new(vec![]));
+        let upload = NoopUpload {
+            parts: parts.clone(),
+        };
+        let mut upload: Box<BufferedUpload> = Box::new(BufferedUpload::new(upload, 10, 30));
+        let uploader = upload.try_write_parallel_and_hash(ReceiverStream::new(receiver).map(Ok));
+        // Intentionally test case where we write sizes that don't divide evenly
+        // into the min or max size.
+        let mut writer = ChannelWriter::new(sender, 7);
+        let data =
+            b"abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_abcdefghi_";
+        let write_fut = async move {
+            // 80 bytes
+            writer.write_all(data).await?;
+            writer.shutdown().await?;
+            drop(writer); // drop closes sender, allowing uploader to complete
+            anyhow::Ok(())
+        };
+        let _ = futures::try_join!(write_fut, uploader)?;
+        let _ = upload.complete().await?;
+        let parts = parts.lock();
+        let joined_parts: Bytes = parts.iter().flat_map(|p| p.iter().copied()).collect();
+        assert_eq!(joined_parts, Bytes::from_static(data));
+        let lengths: Vec<_> = parts.iter().map(|p| p.len()).collect();
+        // 14 is the first multiple of 7 that's greater than 10
+        // 21 is the first multiple of 7 that's greater than 20
+        // 30 is the maximum size
+        // 15 is the remainder
+        assert_eq!(lengths, vec![14, 21, 30, 15]);
+        Ok(())
     }
 }
 

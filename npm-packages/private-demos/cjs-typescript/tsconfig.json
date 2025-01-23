@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    /* The newest in TypeScript module support */
+    "module": "node16",
+    "noImplicitAny": true,
+    "noEmit": true
+    /* Disabled until we fix our browser types */
+    /*"lib": ["ES2020"] */
+  },
+  "include": ["./src"]
+  /* convex directory should not be compiled */
+}

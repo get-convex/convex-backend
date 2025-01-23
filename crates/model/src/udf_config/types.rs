@@ -10,6 +10,11 @@ use common::{
     runtime::UnixTimestamp,
 };
 #[cfg(any(test, feature = "testing"))]
+use proptest::{
+    arbitrary::Arbitrary,
+    strategy::Strategy,
+};
+#[cfg(any(test, feature = "testing"))]
 use rand::Rng;
 use semver::Version;
 use value::{
@@ -18,6 +23,7 @@ use value::{
 };
 
 #[derive(Debug, Clone)]
+#[cfg_attr(any(test, feature = "testing"), derive(PartialEq))]
 pub struct UdfConfig {
     /// What is the version of `convex` in a developer's
     /// "package.json" when they push their UDFs? We currently allow this to
@@ -27,6 +33,23 @@ pub struct UdfConfig {
     pub server_version: Version,
     pub import_phase_rng_seed: [u8; 32],
     pub import_phase_unix_timestamp: UnixTimestamp,
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl Arbitrary for UdfConfig {
+    type Parameters = ();
+
+    type Strategy = impl Strategy<Value = UdfConfig>;
+
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+
+        any::<([u8; 32], UnixTimestamp)>().prop_map(|(rng_seed, unix_ts)| UdfConfig {
+            server_version: Version::parse("0.0.0").unwrap(),
+            import_phase_rng_seed: rng_seed,
+            import_phase_unix_timestamp: unix_ts,
+        })
+    }
 }
 
 impl UdfConfig {

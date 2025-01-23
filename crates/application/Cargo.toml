@@ -24,6 +24,7 @@ database = { path = "../database" }
 either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
+fastrace = { workspace = true }
 file_storage = { path = "../file_storage" }
 float_next_after = { workspace = true }
 function_runner = { path = "../function_runner" }
@@ -41,7 +42,6 @@ lru = { workspace = true }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
 mime2ext = { workspace = true }
-minitrace = { workspace = true }
 model = { path = "../model" }
 node_executor = { path = "../../crates/node_executor" }
 num_cpus = { workspace = true }
@@ -67,7 +67,10 @@ thiserror = { workspace = true }
 thousands = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
+udf = { path = "../udf" }
+udf_metrics = { path = "../udf_metrics" }
 url = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
 value = { path = "../value" }
@@ -89,12 +92,14 @@ model = { path = "../model", features = ["testing"] }
 must-let = { workspace = true }
 node_executor = { path = "../../crates/node_executor", features = ["testing"] }
 openidconnect = { workspace = true }
+pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 shape_inference = { path = "../shape_inference", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
+udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../../crates/usage_tracking", features = [
     "testing",
 ] }
@@ -120,7 +125,11 @@ testing = [
     "search/testing",
     "storage/testing",
     "shape_inference/testing",
+    "udf/testing",
     "usage_tracking/testing",
     "value/testing",
     "vector/testing",
 ]
+
+[lints]
+workspace = true

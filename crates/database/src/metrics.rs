@@ -1,5 +1,3 @@
-use std::sync::LazyLock;
-
 use ::search::metrics::{
     SearchType,
     SEARCH_TYPE_LABEL,
@@ -39,12 +37,12 @@ register_convex_gauge!(
     DOCUMENTS_SIZE_BYTES,
     "Total size of document store in bytes"
 );
-pub fn log_document_store_size(total_size: usize) {
+pub fn log_document_store_size(total_size: u64) {
     log_gauge(&DOCUMENTS_SIZE_BYTES, total_size as f64);
 }
 
 register_convex_gauge!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");
-pub fn log_num_keys(num_keys: usize) {
+pub fn log_num_keys(num_keys: u64) {
     log_gauge(&DOCUMENTS_KEYS_TOTAL, num_keys as f64);
 }
 
@@ -296,6 +294,11 @@ pub fn write_log_append_timer() -> Timer<VMHistogram> {
     Timer::new(&DATABASE_APPLY_DOCUMENT_STORE_APPEND_SECONDS)
 }
 
+register_convex_counter!(DATABASE_COMMIT_ROWS, "Number of commits to database");
+pub fn commit_rows(num_rows: u64) {
+    log_counter(&DATABASE_COMMIT_ROWS, num_rows);
+}
+
 register_convex_histogram!(
     DATABASE_SUBSCRIPTIONS_UPDATE_SECONDS,
     "Time to advance the SubscriptionManager's log"
@@ -340,6 +343,11 @@ pub fn shutdown_error() -> anyhow::Error {
 register_convex_histogram!(BUMP_REPEATABLE_TS_SECONDS, "Time to bump max_repeatable_ts");
 pub fn bump_repeatable_ts_timer() -> Timer<VMHistogram> {
     Timer::new(&BUMP_REPEATABLE_TS_SECONDS)
+}
+
+register_convex_histogram!(NEXT_COMMIT_TS_SECONDS, "Time to bump max_repeatable_ts");
+pub fn next_commit_ts_seconds() -> Timer<VMHistogram> {
+    Timer::new(&NEXT_COMMIT_TS_SECONDS)
 }
 
 register_convex_histogram!(
@@ -873,6 +881,7 @@ pub fn log_non_deleted_documents_per_search_index(count: u64, search_type: Searc
 
 const COMPACTION_REASON_LABEL: &str = "compaction_reason";
 
+#[derive(Debug)]
 pub enum CompactionReason {
     SmallSegments,
     LargeSegments,
@@ -889,24 +898,20 @@ impl CompactionReason {
         StaticMetricLabel::new(COMPACTION_REASON_LABEL, label)
     }
 }
-static UNKNOWN_COMPACTION_LABEL: LazyLock<StaticMetricLabel> =
-    LazyLock::new(|| StaticMetricLabel::new(COMPACTION_REASON_LABEL, "unknown"));
 
 register_convex_histogram!(
     COMPACTION_BUILD_ONE_SECONDS,
     "Time to run a single vector/text index compaction",
     &[STATUS_LABEL[0], COMPACTION_REASON_LABEL, SEARCH_TYPE_LABEL],
 );
-pub fn compaction_build_one_timer(search_type: SearchType) -> StatusTimer {
+pub fn compaction_build_one_timer(
+    search_type: SearchType,
+    reason: CompactionReason,
+) -> StatusTimer {
     let mut timer = StatusTimer::new(&COMPACTION_BUILD_ONE_SECONDS);
     timer.add_label(search_type.tag());
-    timer.add_label(UNKNOWN_COMPACTION_LABEL.clone());
+    timer.add_label(reason.metric_label());
     timer
-}
-
-pub fn finish_compaction_timer(mut timer: StatusTimer, reason: CompactionReason) {
-    timer.replace_label(UNKNOWN_COMPACTION_LABEL.clone(), reason.metric_label());
-    timer.finish();
 }
 
 register_convex_histogram!(

@@ -1,0 +1,64 @@
+---
+title: "Project Configuration"
+sidebar_label: "Project Configuration"
+sidebar_position: 3
+---
+
+## Local development
+
+When you're developing locally you need two pieces of information:
+
+1. The name of your dev deployment. This is where your functions are pushed to
+   and served from. It is stored in the `CONVEX_DEPLOYMENT` environment
+   variable. `npx convex dev` writes it to the `.env.local` file.
+2. The URL of your dev deployment, for your client to connect to. The name of
+   the variable and which file it can be read from varies between client
+   frameworks. `npx convex dev` writes the URL to the `.env.local` or `.env`
+   file.
+
+## Production deployment
+
+You should only be deploying to your production deployment once you have tested
+your changes on your local deployment. When you're ready, you can deploy either
+via a hosting/CI provider or from your local machine.
+
+For a CI environment you can follow the
+[hosting](/docs/production/hosting/hosting.mdx) docs. `npx convex deploy` run by
+the CI pipeline will use the `CONVEX_DEPLOY_KEY`, and the frontend build command
+will use the deployment URL variable, both configured in your CI environment.
+
+You can also deploy your backend from your local machine. `npx convex deploy`
+will ask for a confirmation and then deploy to the production deployment in the
+same project as your configured development `CONVEX_DEPLOYMENT`.
+
+## `convex.json`
+
+Additional project configuration can be specified in the `convex.json` file in
+the root of your project (in the same directory as your `package.json`).
+
+The file supports the following configuration options:
+
+### Changing the `convex/` folder name or location
+
+You can choose a different name or location for the `convex/` folder via the
+`functions` field. For example, Create React App doesn't allow importing from
+outside the `src/` directory, so if you're using Create React App you should
+have the following config:
+
+```json title="convex.json"
+{
+  "functions": "src/convex/"
+}
+```
+
+### Installing packages on the server
+
+You can specify which packages used by Node actions should be installed on the
+server, instead of being bundled, via the `node.externalPackages` field.
+[Read more](/docs/functions/bundling.mdx#external-packages).
+
+### Importing the generated functions API via `require()` syntax
+
+The Convex code generation can be configured to generate a CommonJS-version of
+the `_generated/api.js` file via the `generateCommonJSApi` field.
+[Read more](/docs/client/javascript/node.mdx#javascript-with-commonjs-require-syntax).

@@ -1,13 +1,19 @@
 use std::{
     cmp,
     collections::BTreeMap,
-    fmt,
     mem,
     sync::{
+        atomic::{
+            AtomicU32,
+            Ordering,
+        },
         Arc,
         LazyLock,
     },
-    time::Duration,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use async_broadcast::{
@@ -22,7 +28,6 @@ use common::{
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         DATABASE_UDF_USER_TIMEOUT,
-        UDF_CACHE_MAX_SIZE,
     },
     query_journal::QueryJournal,
     runtime::Runtime,
@@ -46,11 +51,6 @@ use futures::{
     select_biased,
     FutureExt,
 };
-use isolate::{
-    FunctionOutcome,
-    UdfOutcome,
-    ValidatedPathAndArgs,
-};
 use keybroker::Identity;
 use lru::LruCache;
 use metrics::{
@@ -64,15 +64,22 @@ use metrics::{
     log_plan_peer_timeout,
     log_plan_ready,
     log_plan_wait,
+    log_query_bandwidth_bytes,
     log_success,
     log_validate_refresh_failed,
     log_validate_system_time_in_the_future,
     log_validate_system_time_too_old,
     log_validate_ts_too_old,
+    query_cache_log_eviction,
     succeed_get_timer,
     GoReason,
 };
 use parking_lot::Mutex;
+use udf::{
+    validation::ValidatedPathAndArgs,
+    FunctionOutcome,
+    UdfOutcome,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::{
     heap_size::HeapSize,
@@ -100,11 +107,29 @@ pub struct CacheManager<RT: Runtime> {
     function_router: FunctionRouter<RT>,
     udf_execution: FunctionExecutionLog<RT>,
 
-    cache: Cache,
+    instance_id: InstanceId,
+    cache: QueryCache,
 }
 
-#[derive(Clone, Eq, PartialEq, Hash)]
-pub struct CacheKey {
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
+struct InstanceId(u32);
+impl InstanceId {
+    fn allocate() -> Self {
+        static NEXT_INSTANCE_ID: AtomicU32 = AtomicU32::new(0);
+        let id = NEXT_INSTANCE_ID.fetch_add(1, Ordering::SeqCst);
+        assert_ne!(id, u32::MAX, "instance id overflow");
+        InstanceId(id)
+    }
+}
+
+/// A cache key representing a specific query request, before it runs.
+/// It may have more specific information than a `StoredCacheKey`, because
+/// multiple query requests may be served by the same cache entry.
+/// e.g. if a query does not check `ctx.auth`, then `RequestedCacheKey`
+/// contains the identity, but `StoredCacheKey` does not.
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct RequestedCacheKey {
+    instance: InstanceId,
     path: PublicFunctionPath,
     args: ConvexArray,
     identity: IdentityCacheKey,
@@ -112,20 +137,82 @@ pub struct CacheKey {
     allowed_visibility: AllowedVisibility,
 }
 
-impl fmt::Debug for CacheKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut builder = f.debug_struct("CacheKey");
-        builder
-            .field("path", &self.path)
-            .field("args", &self.args)
-            .field("identity", &self.identity)
-            .field("journal", &self.journal)
-            .field("allowed_visibility", &self.allowed_visibility)
-            .finish()
+impl RequestedCacheKey {
+    // In order from most specific to least specific.
+    fn _possible_cache_keys(&self) -> Vec<StoredCacheKey> {
+        vec![
+            self.precise_cache_key(),
+            StoredCacheKey {
+                instance: self.instance,
+                path: self.path.clone(),
+                args: self.args.clone(),
+                // Include queries that did not read `ctx.auth`.
+                identity: None,
+                journal: self.journal.clone(),
+                allowed_visibility: self.allowed_visibility,
+            },
+        ]
+    }
+
+    fn precise_cache_key(&self) -> StoredCacheKey {
+        StoredCacheKey {
+            instance: self.instance,
+            path: self.path.clone(),
+            args: self.args.clone(),
+            identity: Some(self.identity.clone()),
+            journal: self.journal.clone(),
+            allowed_visibility: self.allowed_visibility,
+        }
+    }
+
+    fn get_cache_entry<'a>(
+        &'a self,
+        cache: &'a mut LruCache<StoredCacheKey, CacheEntry>,
+        stored_key_hint: Option<&'_ StoredCacheKey>,
+    ) -> (Option<&'a CacheEntry>, StoredCacheKey) {
+        for key in self._possible_cache_keys() {
+            if cache.contains(&key) {
+                return (Some(cache.get(&key).unwrap()), key);
+            }
+        }
+        if let Some(stored_key_hint) = stored_key_hint {
+            assert!(self._possible_cache_keys().contains(stored_key_hint));
+            (None, stored_key_hint.clone())
+        } else {
+            (None, self.precise_cache_key())
+        }
+    }
+
+    fn cache_key_after_execution(&self, outcome: &UdfOutcome) -> StoredCacheKey {
+        let identity = if outcome.observed_identity {
+            Some(self.identity.clone())
+        } else {
+            None
+        };
+        StoredCacheKey {
+            instance: self.instance,
+            path: self.path.clone(),
+            args: self.args.clone(),
+            identity,
+            journal: outcome.journal.clone(),
+            allowed_visibility: self.allowed_visibility,
+        }
     }
 }
 
-impl CacheKey {
+/// A cache key representing a persisted query result.
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+pub struct StoredCacheKey {
+    instance: InstanceId,
+    path: PublicFunctionPath,
+    args: ConvexArray,
+    // None means that the query did not read `ctx.auth`.
+    identity: Option<IdentityCacheKey>,
+    journal: QueryJournal,
+    allowed_visibility: AllowedVisibility,
+}
+
+impl StoredCacheKey {
     /// Approximate size in-memory of the CacheEntry structure, including stack
     /// and heap allocated memory.
     fn size(&self) -> usize {
@@ -165,7 +252,7 @@ impl CacheEntry {
 
 #[derive(Clone)]
 struct CacheResult {
-    outcome: UdfOutcome,
+    outcome: Arc<UdfOutcome>,
     original_ts: Timestamp,
     token: Token,
 }
@@ -182,13 +269,18 @@ impl<RT: Runtime> CacheManager<RT> {
         database: Database<RT>,
         function_router: FunctionRouter<RT>,
         udf_execution: FunctionExecutionLog<RT>,
+        cache: QueryCache,
     ) -> Self {
+        // each `CacheManager` (for a different instance) gets its own cache key space
+        // within `Cache`, which has a _global_ size-limit
+        let instance_id = InstanceId::allocate();
         Self {
             rt,
             database,
             function_router,
             udf_execution,
-            cache: Cache::new(),
+            instance_id,
+            cache,
         }
     }
 
@@ -196,7 +288,7 @@ impl<RT: Runtime> CacheManager<RT> {
     /// timestamp. This function internally handles LRU caching these
     /// function executions and ensuring that served cache values are
     /// consistent as of the given timestamp.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get(
         &self,
         request_id: RequestId,
@@ -222,8 +314,12 @@ impl<RT: Runtime> CacheManager<RT> {
             )
             .await;
         match &result {
-            Ok((_, is_cache_hit)) => {
-                succeed_get_timer(timer, *is_cache_hit);
+            Ok((query_return, is_cache_hit)) => {
+                succeed_get_timer(
+                    timer,
+                    *is_cache_hit,
+                    query_return.journal.end_cursor.is_some(),
+                );
             },
             Err(e) => {
                 timer.finish_with(e.metric_status_label_value());
@@ -232,7 +328,7 @@ impl<RT: Runtime> CacheManager<RT> {
         Ok(result?.0)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn _get(
         &self,
         request_id: RequestId,
@@ -246,14 +342,23 @@ impl<RT: Runtime> CacheManager<RT> {
     ) -> anyhow::Result<(QueryReturn, bool)> {
         let start = self.rt.monotonic_now();
         let identity_cache_key = identity.cache_key();
-        let key = CacheKey {
-            path: path.clone(),
-            args: args.clone(),
+        let requested_key = RequestedCacheKey {
+            instance: self.instance_id,
+            path,
+            args,
             identity: identity_cache_key,
             journal: journal.unwrap_or_else(QueryJournal::new),
             allowed_visibility: caller.allowed_visibility(),
         };
         let context = ExecutionContext::new(request_id, &caller);
+        // If the query exists at some cache key, but the cached entry is invalid,
+        // create a Waiting entry at that key, even if it's not the most precise for the
+        // request. e.g. if the query was cached with identity:None, create a
+        // Waiting entry with identity:None so other queries with other
+        // identities will wait for us to finish. This requires keeping
+        // `stored_key_hint` across iterations, since finding an invalid key
+        // removes it from the cache and continues the loop.
+        let mut stored_key_hint = None;
 
         let mut num_attempts = 0;
         'top: loop {
@@ -271,13 +376,20 @@ impl<RT: Runtime> CacheManager<RT> {
 
             // Step 1: Decide what we're going to do this iteration: use a cached value,
             // wait on someone else to run a UDF, or run the UDF ourselves.
-            let maybe_op =
-                self.cache
-                    .plan_cache_op(&key, start, now, &identity, ts, context.clone());
-            let op: CacheOp = match maybe_op {
-                Some(op) => op,
+            let maybe_op = self.cache.plan_cache_op(
+                &requested_key,
+                stored_key_hint.as_ref(),
+                start,
+                now,
+                &identity,
+                ts,
+                context.clone(),
+            );
+            let (op, stored_key) = match maybe_op {
+                Some(op_key) => op_key,
                 None => continue 'top,
             };
+            stored_key_hint = Some(stored_key.clone());
 
             // Create a waiting entry in order to guarantee the waiting entry always
             // get cleaned up if the current future returns an error or gets dropped.
@@ -288,7 +400,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 _ => None,
             };
             let mut waiting_entry_guard =
-                WaitingEntryGuard::new(waiting_entry_id, &key, self.cache.clone());
+                WaitingEntryGuard::new(waiting_entry_id, &stored_key, self.cache.clone());
 
             // Step 2: Perform our cache operation, potentially running the UDF.
             let is_cache_hit = match op {
@@ -301,7 +413,7 @@ impl<RT: Runtime> CacheManager<RT> {
                 CacheOp::Go { .. } => false,
             };
             let (result, table_stats) = match self
-                .perform_cache_op(&key, op, usage_tracker.clone())
+                .perform_cache_op(&requested_key, &stored_key, op, usage_tracker.clone())
                 .await?
             {
                 Some(r) => r,
@@ -311,25 +423,37 @@ impl<RT: Runtime> CacheManager<RT> {
             // Step 3: Validate that the cache result we got is good enough. Is our desired
             // timestamp in its validity interval? If it looked at system time, is it not
             // too old?
-            let cache_result = match self.validate_cache_result(&key, ts, result).await? {
+            let cache_result = match self.validate_cache_result(&stored_key, ts, result).await? {
                 Some(r) => r,
                 None => continue 'top,
             };
 
-            // Step 4: Rewrite the value into the cache. This method will discard the new
-            // value if the UDF failed or if a newer (i.e. higher `original_ts`)
-            // value is in the cache.
+            // Step 4: Rewrite the value into the cache. If this was a cache hit, this will
+            // bump the cache result's token. This method will discard the new value if the
+            // UDF failed or if a newer (i.e. higher `original_ts`) value is in the cache.
             if cache_result.outcome.result.is_ok() {
+                let actual_stored_key =
+                    requested_key.cache_key_after_execution(&cache_result.outcome);
                 // We do not cache JSErrors
-                waiting_entry_guard.complete(cache_result.clone());
+                waiting_entry_guard.complete(actual_stored_key, cache_result.clone());
             } else {
                 drop(waiting_entry_guard);
             }
 
             // Step 5: Log some stuff and return.
             log_success(num_attempts);
+            let usage_stats = usage_tracker.clone().gather_user_stats();
+            let database_bandwidth_bytes = usage_stats
+                .database_egress_size
+                .iter()
+                .map(|(_, size)| size)
+                .sum();
+            log_query_bandwidth_bytes(
+                cache_result.outcome.journal.end_cursor.is_some(),
+                database_bandwidth_bytes,
+            );
             self.udf_execution.log_query(
-                cache_result.outcome.clone(),
+                &cache_result.outcome,
                 table_stats,
                 is_cache_hit,
                 start.elapsed(),
@@ -339,22 +463,30 @@ impl<RT: Runtime> CacheManager<RT> {
             );
 
             let result = QueryReturn {
-                result: cache_result.outcome.result.map(|r| r.unpack()),
-                log_lines: cache_result.outcome.log_lines,
+                result: cache_result
+                    .outcome
+                    .result
+                    .as_ref()
+                    .map(|r| r.unpack())
+                    .map_err(|e| e.clone()),
+                log_lines: cache_result.outcome.log_lines.clone(),
                 token: cache_result.token,
-                journal: cache_result.outcome.journal,
+                journal: cache_result.outcome.journal.clone(),
             };
             return Ok((result, is_cache_hit));
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn perform_cache_op(
         &self,
-        key: &CacheKey,
-        op: CacheOp,
+        requested_key: &RequestedCacheKey,
+        key: &StoredCacheKey,
+        op: CacheOp<'_>,
         usage_tracker: FunctionUsageTracker,
     ) -> anyhow::Result<Option<(CacheResult, BTreeMap<TableName, TableStats>)>> {
+        let pause_client = self.rt.pause_client();
+        pause_client.wait("perform_cache_op").await;
         let r = match op {
             CacheOp::Ready { result } => {
                 if result.outcome.result.is_err() {
@@ -431,21 +563,22 @@ impl<RT: Runtime> CacheManager<RT> {
                         let query_outcome = UdfOutcome::from_error(
                             js_err,
                             path.clone().debug_into_component_path(),
-                            args,
-                            identity.into(),
+                            args.clone(),
+                            identity.clone().into(),
                             self.rt.clone(),
                             None,
                         )?;
                         (tx, query_outcome)
                     },
                     Ok((path_and_args, returns_validator)) => {
+                        let component = path_and_args.path().component;
                         let (mut tx, outcome) = self
                             .function_router
                             .execute_query_or_mutation(
                                 tx,
-                                path_and_args.clone(),
+                                path_and_args,
                                 UdfType::Query,
-                                journal,
+                                journal.clone(),
                                 context,
                             )
                             .await?;
@@ -454,7 +587,6 @@ impl<RT: Runtime> CacheManager<RT> {
                         };
                         if let Ok(ref json_packed_value) = &query_outcome.result {
                             let output: ConvexValue = json_packed_value.unpack();
-                            let component = path_and_args.path().component;
                             let table_mapping = tx.table_mapping().namespace(component.into());
                             let virtual_system_mapping = tx.virtual_system_mapping();
                             let returns_validation_error = returns_validator.check_output(
@@ -473,12 +605,17 @@ impl<RT: Runtime> CacheManager<RT> {
                 let table_stats = tx.take_stats();
                 let token = tx.into_token()?;
                 let result = CacheResult {
-                    outcome: query_outcome,
+                    outcome: Arc::new(query_outcome),
                     original_ts: *ts,
                     token,
                 };
-                if result.outcome.result.is_ok() {
+                if result.outcome.result.is_ok()
+                    && *key == requested_key.cache_key_after_execution(&result.outcome)
+                {
                     let _: Result<_, _> = sender.try_broadcast(result.clone());
+                } else {
+                    // Send an error to receivers so any waiting peers will retry.
+                    drop(sender);
                 }
                 log_perform_go(result.outcome.result.is_ok());
                 (result, table_stats)
@@ -487,10 +624,10 @@ impl<RT: Runtime> CacheManager<RT> {
         Ok(Some(r))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn validate_cache_result(
         &self,
-        key: &CacheKey,
+        key: &StoredCacheKey,
         ts: Timestamp,
         mut result: CacheResult,
     ) -> anyhow::Result<Option<CacheResult>> {
@@ -549,12 +686,12 @@ impl<RT: Runtime> CacheManager<RT> {
 // canceled.
 struct WaitingEntryGuard<'a> {
     entry_id: Option<u64>,
-    key: &'a CacheKey,
-    cache: Cache,
+    key: &'a StoredCacheKey,
+    cache: QueryCache,
 }
 
 impl<'a> WaitingEntryGuard<'a> {
-    fn new(entry_id: Option<u64>, key: &'a CacheKey, cache: Cache) -> Self {
+    fn new(entry_id: Option<u64>, key: &'a StoredCacheKey, cache: QueryCache) -> Self {
         Self {
             entry_id,
             key,
@@ -563,15 +700,15 @@ impl<'a> WaitingEntryGuard<'a> {
     }
 
     // Marks the waiting entry as removed, so we don't have to remove it on Drop
-    fn complete(&mut self, result: CacheResult) {
-        self.cache.put_ready(self.key.clone(), result);
-        // We just performed put_ready so there is no need to perform remove_waiting
-        // on Drop.
-        self.entry_id.take();
+    fn complete(&mut self, actual_stored_key: StoredCacheKey, result: CacheResult) {
+        if let Some(entry_id) = self.entry_id.take() {
+            self.cache.remove_waiting(self.key, entry_id);
+            self.cache.put_ready(actual_stored_key, result);
+        }
     }
 }
 
-impl<'a> Drop for WaitingEntryGuard<'a> {
+impl Drop for WaitingEntryGuard<'_> {
     fn drop(&mut self) {
         // Remove the cache entry from the cache if still present.
         if let Some(entry_id) = self.entry_id {
@@ -581,38 +718,41 @@ impl<'a> Drop for WaitingEntryGuard<'a> {
 }
 
 struct Inner {
-    cache: LruCache<CacheKey, CacheEntry>,
+    cache: LruCache<StoredCacheKey, CacheEntry>,
     size: usize,
+    size_limit: usize,
 
     next_waiting_id: u64,
 }
 
 #[derive(Clone)]
-struct Cache {
+pub struct QueryCache {
     inner: Arc<Mutex<Inner>>,
 }
 
-impl Cache {
-    fn new() -> Self {
+impl QueryCache {
+    pub fn new(size_limit: usize) -> Self {
         let inner = Inner {
             cache: LruCache::unbounded(),
             size: 0,
             next_waiting_id: 0,
+            size_limit,
         };
         Self {
             inner: Arc::new(Mutex::new(inner)),
         }
     }
 
-    fn plan_cache_op(
+    fn plan_cache_op<'a>(
         &self,
-        key: &CacheKey,
+        key: &'a RequestedCacheKey,
+        stored_key_hint: Option<&'_ StoredCacheKey>,
         start: tokio::time::Instant,
         now: tokio::time::Instant,
-        identity: &Identity,
+        identity: &'a Identity,
         ts: Timestamp,
         context: ExecutionContext,
-    ) -> Option<CacheOp> {
+    ) -> Option<(CacheOp<'a>, StoredCacheKey)> {
         let go = |sender: Option<(Sender<_>, u64)>| {
             let (sender, waiting_entry_id) = match sender {
                 Some((sender, waiting_entry_id)) => (sender, Some(waiting_entry_id)),
@@ -626,27 +766,28 @@ impl Cache {
             CacheOp::Go {
                 waiting_entry_id,
                 sender,
-                path: key.path.clone(),
-                args: key.args.clone(),
-                identity: identity.clone(),
+                path: &key.path,
+                args: &key.args,
+                identity,
                 ts,
-                journal: key.journal.clone(),
-                allowed_visibility: key.allowed_visibility.clone(),
+                journal: &key.journal,
+                allowed_visibility: key.allowed_visibility,
                 context,
             }
         };
         let mut inner = self.inner.lock();
-        let op = match inner.cache.get(key) {
+        let (entry, stored_key) = key.get_cache_entry(&mut inner.cache, stored_key_hint);
+        let op = match entry {
             Some(CacheEntry::Ready(r)) => {
                 if ts < r.original_ts {
                     // If another request has already executed this UDF at a
                     // newer timestamp, we can't use the cache. Re-execute
                     // in this case.
-                    tracing::debug!("Cache value too new for {:?}", key);
+                    tracing::debug!("Cache value too new for {:?}", stored_key);
                     log_plan_go(GoReason::PeerTimestampTooNew);
                     go(None)
                 } else {
-                    tracing::debug!("Cache value ready for {:?}", key);
+                    tracing::debug!("Cache value ready for {:?}", stored_key);
                     log_plan_ready();
                     CacheOp::Ready { result: r.clone() }
                 }
@@ -660,7 +801,7 @@ impl Cache {
                 let entry_id = *id;
                 if *peer_ts > ts {
                     log_plan_go(GoReason::PeerTimestampTooNew);
-                    return Some(go(None));
+                    return Some((go(None), stored_key));
                 }
                 // We don't serialize sampling `now` under the cache lock, and since it can
                 // occur on different threads, we're not guaranteed that
@@ -673,13 +814,13 @@ impl Cache {
                         "Peer timed out ({:?}), removing cache entry and retrying",
                         peer_elapsed
                     );
-                    inner.remove_waiting(key, entry_id);
+                    inner.remove_waiting(&stored_key, entry_id);
                     log_plan_peer_timeout();
                     return None;
                 }
                 let get_elapsed = now - start;
                 let remaining = *TOTAL_QUERY_TIMEOUT - cmp::max(peer_elapsed, get_elapsed);
-                tracing::debug!("Waiting for peer to compute {:?}", key);
+                tracing::debug!("Waiting for peer to compute {:?}", stored_key);
                 log_plan_wait();
                 CacheOp::Wait {
                     waiting_entry_id: *id,
@@ -688,24 +829,24 @@ impl Cache {
                 }
             },
             None => {
-                tracing::debug!("No cache value for {:?}, executing UDF...", key);
-                let (sender, executor_id) = inner.put_waiting(key.clone(), now, ts);
+                tracing::debug!("No cache value for {:?}, executing UDF...", stored_key);
+                let (sender, executor_id) = inner.put_waiting(stored_key.clone(), now, ts);
                 log_plan_go(GoReason::NoCacheResult);
                 go(Some((sender, executor_id)))
             },
         };
-        Some(op)
+        Some((op, stored_key))
     }
 
-    fn remove_waiting(&self, key: &CacheKey, entry_id: u64) {
+    fn remove_waiting(&self, key: &StoredCacheKey, entry_id: u64) {
         self.inner.lock().remove_waiting(key, entry_id)
     }
 
-    fn remove_ready(&self, key: &CacheKey, original_ts: Timestamp) {
+    fn remove_ready(&self, key: &StoredCacheKey, original_ts: Timestamp) {
         self.inner.lock().remove_ready(key, original_ts)
     }
 
-    fn put_ready(&self, key: CacheKey, result: CacheResult) {
+    fn put_ready(&self, key: StoredCacheKey, result: CacheResult) {
         self.inner.lock().put_ready(key, result)
     }
 }
@@ -713,10 +854,11 @@ impl Cache {
 impl Inner {
     // Remove only a `CacheEntry::Ready` from the cache, predicated on its
     // `executor_id` matching.
-    fn remove_waiting(&mut self, key: &CacheKey, entry_id: u64) {
+    fn remove_waiting(&mut self, key: &StoredCacheKey, entry_id: u64) {
         match self.cache.get(key) {
             Some(CacheEntry::Waiting { id, .. }) if *id == entry_id => {
-                self.size -= key.size() + self.cache.pop(key).unwrap().size();
+                let (actual_key, entry) = self.cache.pop_entry(key).unwrap();
+                self.size -= actual_key.size() + entry.size();
             },
             _ => (),
         }
@@ -725,10 +867,11 @@ impl Inner {
 
     // Remove only a `CacheEntry::Ready` from the cache, predicated on its
     // `original_ts` matching.
-    fn remove_ready(&mut self, key: &CacheKey, original_ts: Timestamp) {
+    fn remove_ready(&mut self, key: &StoredCacheKey, original_ts: Timestamp) {
         match self.cache.get(key) {
             Some(CacheEntry::Ready(ref result)) if result.original_ts == original_ts => {
-                self.size -= key.size() + self.cache.pop(key).unwrap().size();
+                let (actual_key, entry) = self.cache.pop_entry(key).unwrap();
+                self.size -= actual_key.size() + entry.size();
             },
             _ => (),
         }
@@ -737,7 +880,7 @@ impl Inner {
 
     fn put_waiting(
         &mut self,
-        key: CacheKey,
+        key: StoredCacheKey,
         now: tokio::time::Instant,
         ts: Timestamp,
     ) -> (Sender<CacheResult>, u64) {
@@ -746,22 +889,22 @@ impl Inner {
 
         let (sender, receiver) = broadcast(1);
 
-        let key_size = key.size();
         let new_entry = CacheEntry::Waiting {
             id,
             receiver,
             started: now,
             ts,
         };
-        let new_size = key_size + new_entry.size();
+        let new_size = key.size() + new_entry.size();
         let old_size = self
             .cache
-            .put(key, new_entry)
-            .map(|value| key_size + value.size())
+            .push(key, new_entry)
+            .map(|(old_key, old_value)| old_key.size() + old_value.size())
             .unwrap_or(0);
 
-        self.size -= old_size;
-        self.size += new_size;
+        // N.B.: `self.size - old_size` could be _negative_ if `key.size()` was larger
+        // than the size of the preexisting key; therefore add before subtracting
+        self.size = self.size + new_size - old_size;
 
         self.enforce_size_limit();
         (sender, id)
@@ -769,7 +912,7 @@ impl Inner {
 
     // Put a `CacheEntry::Ready` into the cache, potentially dropping it if there's
     // already a value with a higher `original_ts`.
-    fn put_ready(&mut self, key: CacheKey, result: CacheResult) {
+    fn put_ready(&mut self, key: StoredCacheKey, result: CacheResult) {
         match self.cache.get_mut(&key) {
             Some(entry @ CacheEntry::Waiting { .. }) => {
                 let new_entry = CacheEntry::Ready(result);
@@ -806,18 +949,24 @@ impl Inner {
 
     /// Pop records until the cache is under the given size.
     fn enforce_size_limit(&mut self) {
-        while self.size > *UDF_CACHE_MAX_SIZE {
+        while self.size > self.size_limit {
             let (popped_key, popped_entry) = self
                 .cache
                 .pop_lru()
                 .expect("Cache is too large without any items?");
             self.size -= popped_key.size() + popped_entry.size();
+            if let CacheEntry::Ready(r) = popped_entry {
+                let system_time: SystemTime = r.token.ts().into();
+                if let Ok(t) = system_time.elapsed() {
+                    query_cache_log_eviction(t);
+                }
+            }
         }
         log_cache_size(self.size)
     }
 }
 
-enum CacheOp {
+enum CacheOp<'a> {
     Ready {
         result: CacheResult,
     },
@@ -829,12 +978,146 @@ enum CacheOp {
     Go {
         waiting_entry_id: Option<u64>,
         sender: Sender<CacheResult>,
-        path: PublicFunctionPath,
-        args: ConvexArray,
-        identity: Identity,
+        path: &'a PublicFunctionPath,
+        args: &'a ConvexArray,
+        identity: &'a Identity,
         ts: Timestamp,
-        journal: QueryJournal,
+        journal: &'a QueryJournal,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        path::PathBuf,
+        sync::Arc,
+    };
+
+    use common::{
+        components::{
+            ExportPath,
+            PublicFunctionPath,
+        },
+        identity::IdentityCacheKey,
+        index::IndexKeyBytes,
+        query::{
+            Cursor,
+            CursorPosition,
+        },
+        query_journal::QueryJournal,
+        types::AllowedVisibility,
+    };
+    use database::Token;
+    use proptest::{
+        prelude::{
+            Arbitrary,
+            Strategy,
+        },
+        strategy::ValueTree,
+        test_runner::TestRunner,
+    };
+    use sync_types::{
+        CanonicalizedModulePath,
+        CanonicalizedUdfPath,
+        Timestamp,
+    };
+    use tokio::time::Instant;
+    use udf::UdfOutcome;
+    use value::{
+        ConvexArray,
+        ConvexValue,
+    };
+
+    use super::{
+        CacheResult,
+        InstanceId,
+        QueryCache,
+        StoredCacheKey,
+    };
+
+    // Construct a cache key where as many fields as possible have extra capacity in
+    // them
+    fn make_cache_key() -> StoredCacheKey {
+        macro_rules! with_extra_capacity {
+            ($e:expr) => {{
+                let mut r = $e;
+                r.reserve(100);
+                r
+            }};
+        }
+        StoredCacheKey {
+            instance: InstanceId(0),
+            path: PublicFunctionPath::RootExport(ExportPath::from(CanonicalizedUdfPath::new(
+                CanonicalizedModulePath::new(
+                    PathBuf::with_capacity(1 << 10),
+                    false,
+                    false,
+                    false,
+                    false,
+                ),
+                "function_name".parse().unwrap(),
+            ))),
+            args: ConvexArray::try_from(with_extra_capacity!(vec![ConvexValue::from(100.)]))
+                .unwrap(),
+            identity: Some(IdentityCacheKey::InstanceAdmin(with_extra_capacity!(
+                "admin".to_string()
+            ))),
+            journal: QueryJournal {
+                end_cursor: Some(Cursor {
+                    position: CursorPosition::After(IndexKeyBytes(with_extra_capacity!(
+                        b"key".to_vec()
+                    ))),
+                    query_fingerprint: with_extra_capacity!(b"fingerprint".to_vec()),
+                }),
+            },
+            allowed_visibility: AllowedVisibility::All,
+        }
+    }
+
+    fn make_cache_result() -> CacheResult {
+        let mut test_runner = TestRunner::deterministic();
+        CacheResult {
+            outcome: Arc::new(
+                UdfOutcome::arbitrary()
+                    .new_tree(&mut test_runner)
+                    .unwrap()
+                    .current(),
+            ),
+            original_ts: Timestamp::MIN,
+            token: Token::arbitrary()
+                .new_tree(&mut test_runner)
+                .unwrap()
+                .current(),
+        }
+    }
+
+    #[test]
+    fn test_put_waiting_excess_capacity() {
+        let cache = QueryCache::new(usize::MAX);
+        let cache_key = make_cache_key();
+        // Cloning the key effectively shrinks away the excess capacity
+        let cloned_key = cache_key.clone();
+        assert_ne!(cache_key.size(), cloned_key.size());
+        let (_, id) = cache
+            .inner
+            .lock()
+            .put_waiting(cloned_key, Instant::now(), Timestamp::MIN);
+        assert!(cache.inner.lock().size > 0);
+        cache.remove_waiting(&cache_key, id);
+        assert_eq!(cache.inner.lock().size, 0);
+    }
+
+    #[test]
+    fn test_put_ready_excess_capacity() {
+        let cache = QueryCache::new(usize::MAX);
+        let cache_key = make_cache_key();
+        let cloned_key = cache_key.clone();
+        assert_ne!(cache_key.size(), cloned_key.size());
+        cache.put_ready(cloned_key, make_cache_result());
+        assert!(cache.inner.lock().size > 0);
+        cache.remove_ready(&cache_key, Timestamp::MIN);
+        assert_eq!(cache.inner.lock().size, 0);
+    }
 }

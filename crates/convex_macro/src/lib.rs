@@ -83,6 +83,33 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let Some(FnArg::Typed(_)) = args.first() else {
         panic!("#[test_runtime] requires `{name}` to have `rt: TestRuntime` as the first arg");
     };
+    let is_pauseable = if let Some(arg1) = args.get(1) {
+        assert!(
+            matches!(arg1, FnArg::Typed(pat) if matches!(&*pat.ty, syn::Type::Path(p) if p.path.is_ident("PauseController")))
+        );
+        true
+    } else {
+        false
+    };
+    let run_test = if is_pauseable {
+        quote! {
+            let (__pause_controller, __pause_client) = ::common::pause::PauseController::new();
+            let mut __test_driver = ::runtime::testing::TestDriver::new_with_pause_client(
+                __pause_client
+            );
+            let rt = __test_driver.rt();
+            let test_future = #name(rt, __pause_controller);
+            __test_driver.run_until(test_future)
+        }
+    } else {
+        quote! {
+            let mut __test_driver = ::runtime::testing::TestDriver::new();
+            let rt = __test_driver.rt();
+            let test_future = #name(rt);
+            __test_driver.run_until(test_future)
+        }
+    };
+
     let attrs = ast.attrs.iter();
     let gen = quote! {
         #[test]
@@ -94,10 +121,7 @@ pub fn test_runtime(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 *::common::knobs::RUNTIME_STACK_SIZE);
             let handler = builder
                 .spawn(|| {
-                    let mut __test_driver = ::runtime::testing::TestDriver::new();
-                    let rt = __test_driver.rt();
-                    let test_future = #name(rt);
-                    __test_driver.run_until(test_future)
+                    #run_test
                 })
                 .unwrap();
             handler.join().unwrap()
@@ -135,16 +159,10 @@ pub fn instrument_future(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let gen = quote! {
         #(#attrs)*
         #vis async fn #ident #generics (#inputs) #output {
-            let __instrument_name = ::common::tracing::cstr!(#ident);
-            let __instrument_loc = ::common::span_location!();
-            let future = async move {
+            ::common::run_instrumented!(
+                #ident,
                 #block
-            };
-            ::common::tracing::InstrumentedFuture::new(
-                future,
-                __instrument_name,
-                __instrument_loc,
-            ).await
+            )
         }
     };
     gen.into()
@@ -218,7 +236,7 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 let #pat = {
                     let __raw_arg = __args.get(#idx);
                     ::deno_core::serde_v8::from_v8(
-                        OpProvider::scope(#provider_ident),
+                        &mut __scope,
                         __raw_arg,
                     ).context(#arg_info)?
                 };
@@ -247,13 +265,6 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     else {
         panic!("op must return anyhow::Result<...>");
     };
-    let serialize_retval = quote! {
-        let __value_v8 = deno_core::serde_v8::to_v8(
-            OpProvider::scope(#provider_ident),
-            __result_v,
-        )?;
-        __rv.set(__value_v8);
-    };
 
     let gen = quote! {
         #(#attrs)*
@@ -262,9 +273,17 @@ pub fn v8_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             __args: ::deno_core::v8::FunctionCallbackArguments,
             mut __rv: ::deno_core::v8::ReturnValue,
         ) -> ::anyhow::Result<()> {
+            let mut __scope = ::deno_core::v8::HandleScope::new(OpProvider::scope(#provider_ident));
             #arg_parsing
+            drop(__scope);
             let __result_v = (|| #output { #block })()?;
-            { #serialize_retval }
+            {
+                let mut __scope = ::deno_core::v8::HandleScope::new(
+                    OpProvider::scope(#provider_ident),
+                );
+                let __value_v8 = deno_core::serde_v8::to_v8(&mut __scope, __result_v)?;
+                __rv.set(__value_v8);
+            }
             Ok(())
         }
     };

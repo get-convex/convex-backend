@@ -43,8 +43,8 @@ use crate::{
 /// by default, with loss of precision.
 ///
 /// e.g. (this number is 2^60)
-///   > JSON.parse("{\"foo\": 1152921504606846976}")
-///   { foo: 1152921504606847000 }
+///     > JSON.parse("{\"foo\": 1152921504606846976}")
+///     { foo: 1152921504606847000 }
 ///
 /// So instead we send it down as a string and unpack it ourselves.
 fn u64_to_string(x: u64) -> String {

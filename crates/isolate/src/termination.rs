@@ -4,7 +4,7 @@ use std::{
 };
 
 use common::errors::{
-    report_error,
+    report_error_sync,
     JsError,
     TIMEOUT_ERROR_MESSAGE,
 };
@@ -13,7 +13,11 @@ use errors::ErrorMetadata;
 use parking_lot::Mutex;
 use thiserror::Error;
 
-use crate::isolate::IsolateNotClean;
+use crate::{
+    isolate::IsolateNotClean,
+    metrics::log_isolate_out_of_memory,
+    IsolateHeapStats,
+};
 
 #[derive(Debug)]
 pub enum TerminationReason {
@@ -58,6 +62,7 @@ pub struct IsolateHandleInner {
     // Incrementing counter identifying the current context running in the
     // isolate.
     context_id: usize,
+    request_stream_bytes: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -73,8 +78,14 @@ impl IsolateHandle {
             inner: Arc::new(Mutex::new(IsolateHandleInner {
                 reason: None,
                 context_id: 0,
+                request_stream_bytes: None,
             })),
         }
+    }
+
+    pub fn update_request_stream_bytes(&self, request_stream_bytes: usize) {
+        let mut inner = self.inner.lock();
+        inner.request_stream_bytes = Some(request_stream_bytes)
     }
 
     pub fn terminate(&self, reason: TerminationReason) {
@@ -83,7 +94,7 @@ impl IsolateHandle {
         if inner.reason.is_none() {
             inner.reason = Some(reason);
         } else {
-            report_error(&mut anyhow::anyhow!(
+            report_error_sync(&mut anyhow::anyhow!(
                 "termination after already terminated: {reason:?}"
             ));
         }
@@ -112,7 +123,12 @@ impl IsolateHandle {
         Ok(())
     }
 
-    pub fn take_termination_error(&self) -> anyhow::Result<Result<(), JsError>> {
+    pub fn take_termination_error(
+        &self,
+        heap_stats: Option<IsolateHeapStats>,
+        // The isolate environment and function path (if applicable)
+        source: &str,
+    ) -> anyhow::Result<Result<(), JsError>> {
         let mut inner = self.inner.lock();
         match &mut inner.reason {
             None => Ok(Ok(())),
@@ -136,7 +152,30 @@ impl IsolateHandle {
                         format!("{}", UserTimeoutError(max_duration)),
                     ))),
                     TerminationReason::OutOfMemory => {
-                        Ok(Err(JsError::from_message(format!("{OutOfMemoryError}"))))
+                        log_isolate_out_of_memory();
+                        // We report this error here because otherwise it is only surfaced to users
+                        // since it is a JsError. Reporting to sentry
+                        // enables us to see what instance the request came from.
+                        let error = ErrorMetadata::bad_request(
+                            "IsolateOutOfMemory",
+                            format!(
+                                "Isolate ran out of memory during execution with \
+                                 request_stream_size: {:?},  heap stats: {heap_stats:?} in \
+                                 {source:?}",
+                                inner.request_stream_bytes
+                            ),
+                        );
+                        report_error_sync(&mut error.into());
+                        let error_message =
+                            if let Some(request_stream_bytes) = inner.request_stream_bytes {
+                                format!(
+                                    "{OutOfMemoryError}: request stream size was \
+                                     {request_stream_bytes} bytes"
+                                )
+                            } else {
+                                format!("{OutOfMemoryError}")
+                            };
+                        Ok(Err(JsError::from_message(error_message)))
                     },
                     TerminationReason::UncatchableDeveloperError(e) => Ok(Err(e)),
                 }

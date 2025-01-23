@@ -30,6 +30,9 @@ export const provisionHost =
   process.env.CONVEX_PROVISION_HOST || productionProvisionHost;
 const BIG_BRAIN_URL = `${provisionHost}/api/`;
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
+const MAX_RETRIES = 6;
+// After 3 retries, log a progress message that we're retrying the request
+const RETRY_LOG_THRESHOLD = 3;
 
 export function parsePositiveInteger(value: string) {
   const parsedValue = parseInteger(value);
@@ -130,7 +133,7 @@ export class ThrowingFetchError extends Error {
  */
 export async function throwingFetch(
   resource: RequestInfo | URL,
-  options: (RequestInit & RequestInitRetryParams) | undefined,
+  options: (RequestInit & RequestInitRetryParams<typeof fetch>) | undefined,
 ): Promise<Response> {
   const Headers = globalThis.Headers;
   const headers = new Headers((options || {})["headers"]);
@@ -424,7 +427,7 @@ export async function loadPackageJson(
     });
   }
   const packages = {
-    ...(includePeerDeps ? obj.peerDependencies ?? {} : {}),
+    ...(includePeerDeps ? (obj.peerDependencies ?? {}) : {}),
     ...(obj.dependencies ?? {}),
     ...(obj.devDependencies ?? {}),
   };
@@ -546,7 +549,7 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
       ...(optionsHeaders || {}),
     };
     const opts = {
-      retries: 6,
+      retries: MAX_RETRIES,
       retryDelay,
       headers,
       ...rest,
@@ -562,7 +565,7 @@ export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
   };
 }
 
-export async function bigBrainAPI({
+export async function bigBrainAPI<T = any>({
   ctx,
   method,
   url,
@@ -572,7 +575,7 @@ export async function bigBrainAPI({
   method: string;
   url: string;
   data?: any;
-}): Promise<any> {
+}): Promise<T> {
   const dataString =
     data === undefined
       ? undefined
@@ -912,26 +915,28 @@ function retryDelay(
   return delay + randomSum;
 }
 
-function deploymentFetchRetryOn(onError?: (err: any) => void, method?: string) {
-  return function (
-    _attempt: number,
+function deploymentFetchRetryOn(
+  onError?: (err: any, attempt: number) => void,
+  method?: string,
+) {
+  const shouldRetry = function (
+    attempt: number,
     error: Error | null,
     response: Response | null,
-  ) {
-    if (onError && error !== null) {
-      onError(error);
-    }
-
+  ): { kind: "retry"; error: any } | { kind: "stop" } {
     // Retry on network errors.
-    if (error) {
+    if (error !== null) {
       // TODO filter out all SSL errors
       // https://github.com/nodejs/node/blob/8a41d9b636be86350cd32847c3f89d327c4f6ff7/src/crypto/crypto_common.cc#L218-L245
-      return true;
+      return { kind: "retry", error: error };
     }
     // Retry on 404s since these can sometimes happen with newly created
     // deployments for POSTs.
     if (response?.status === 404) {
-      return true;
+      return {
+        kind: "retry",
+        error: `Received response with status ${response.status}`,
+      };
     }
 
     // Whatever the error code it doesn't hurt to retry idempotent requests.
@@ -957,12 +962,34 @@ function deploymentFetchRetryOn(onError?: (err: any) => void, method?: string) {
           416, // Range Not Satisfiable
         ].includes(response.status)
       ) {
-        return false;
+        return {
+          kind: "stop",
+        };
       }
-      return true;
+      return {
+        kind: "retry",
+        error: `Received response with status ${response.status}`,
+      };
     }
 
-    return false;
+    return { kind: "stop" };
+  };
+
+  return function (
+    attempt: number,
+    error: Error | null,
+    response: Response | null,
+  ) {
+    const result = shouldRetry(attempt, error, response);
+    if (result.kind === "retry") {
+      onError?.(result.error, attempt);
+    }
+    if (attempt >= MAX_RETRIES) {
+      // Stop retrying if we've exhausted all retries, but do this after we've
+      // called `onError` so that the caller can still log the error.
+      return false;
+    }
+    return result.kind === "retry";
   };
 }
 
@@ -971,9 +998,22 @@ function deploymentFetchRetryOn(onError?: (err: any) => void, method?: string) {
  * must supply any headers.
  */
 export function bareDeploymentFetch(
-  deploymentUrl: string,
-  onError?: (err: any) => void,
+  ctx: Context,
+  options: {
+    deploymentUrl: string;
+    onError?: (err: any) => void;
+  },
 ): typeof throwingFetch {
+  const { deploymentUrl, onError } = options;
+  const onErrorWithAttempt = (err: any, attempt: number) => {
+    onError?.(err);
+    if (attempt >= RETRY_LOG_THRESHOLD) {
+      logMessage(
+        ctx,
+        chalk.gray(`Retrying request (attempt ${attempt}/${MAX_RETRIES})...`),
+      );
+    }
+  };
   return (resource: RequestInfo | URL, options: RequestInit | undefined) => {
     const url =
       resource instanceof URL
@@ -982,9 +1022,8 @@ export function bareDeploymentFetch(
           ? new URL(resource, deploymentUrl)
           : new URL(resource.url, deploymentUrl);
     const func = throwingFetch(url, {
-      retries: 6,
       retryDelay,
-      retryOn: deploymentFetchRetryOn(onError, options?.method),
+      retryOn: deploymentFetchRetryOn(onErrorWithAttempt, options?.method),
       ...options,
     });
     return func;
@@ -998,10 +1037,23 @@ export function bareDeploymentFetch(
  * the `Convex-Client` header if they are not set in the `fetch`.
  */
 export function deploymentFetch(
-  deploymentUrl: string,
-  adminKey: string,
-  onError?: (err: any) => void,
+  ctx: Context,
+  options: {
+    deploymentUrl: string;
+    adminKey: string;
+    onError?: (err: any) => void;
+  },
 ): typeof throwingFetch {
+  const { deploymentUrl, adminKey, onError } = options;
+  const onErrorWithAttempt = (err: any, attempt: number) => {
+    onError?.(err);
+    if (attempt >= RETRY_LOG_THRESHOLD) {
+      logMessage(
+        ctx,
+        chalk.gray(`Retrying request (attempt ${attempt}/${MAX_RETRIES})...`),
+      );
+    }
+  };
   return (resource: RequestInfo | URL, options: RequestInit | undefined) => {
     const url =
       resource instanceof URL
@@ -1021,9 +1073,8 @@ export function deploymentFetch(
       headers.set("Convex-Client", `npm-cli-${version}`);
     }
     const func = throwingFetch(url, {
-      retries: 6,
       retryDelay,
-      retryOn: deploymentFetchRetryOn(onError, options?.method),
+      retryOn: deploymentFetchRetryOn(onErrorWithAttempt, options?.method),
       ...options,
       headers,
     });

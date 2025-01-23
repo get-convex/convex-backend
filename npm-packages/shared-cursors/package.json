@@ -1,0 +1,26 @@
+{
+  "name": "shared-cursors",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "rm -rf dist && tsc && vite build",
+    "clean": "",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "bootstrap": "^5.0.2",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "convex": "workspace:*",
+    "uplot": "^1.6.20",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "~5.0.3",
+    "vite": "^5.4.12"
+  }
+}

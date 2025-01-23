@@ -1,5 +1,4 @@
 #![feature(iterator_try_collect)]
-#![feature(lazy_cell)]
 #![feature(let_chains)]
 
 use std::{
@@ -18,6 +17,7 @@ use common::{
         StorageUuid,
         UdfIdentifier,
     },
+    RequestId,
 };
 use events::usage::{
     FunctionCallUsageFields,
@@ -81,6 +81,7 @@ impl UsageCounter {
 pub struct OccInfo {
     pub table_name: Option<String>,
     pub document_id: Option<String>,
+    pub write_source: Option<String>,
     pub retry_count: u64,
 }
 
@@ -148,6 +149,15 @@ impl CallType {
         }
     }
 
+    fn occ_write_source(&self) -> Option<String> {
+        match self {
+            Self::Mutation { occ_info, .. } => {
+                occ_info.as_ref().and_then(|info| info.write_source.clone())
+            },
+            _ => None,
+        }
+    }
+
     fn occ_retry_count(&self) -> Option<u64> {
         match self {
             Self::Mutation { occ_info, .. } => occ_info.as_ref().map(|info| info.retry_count),
@@ -199,25 +209,27 @@ impl UsageCounter {
         &self,
         udf_path: UdfIdentifier,
         execution_id: ExecutionId,
+        request_id: RequestId,
         call_type: CallType,
+        success: bool,
         stats: FunctionUsageStats,
     ) {
         let mut usage_metrics = Vec::new();
 
         // Because system udfs might cause usage before any data is added by the user,
         // we do not count their calls. We do count their bandwidth.
-        let (should_track_calls_by_udf_path, udf_id_type) = match &udf_path {
+        let (should_track_calls, udf_id_type) = match &udf_path {
             UdfIdentifier::Function(path) => (!path.udf_path.is_system(), "function"),
             UdfIdentifier::Http(_) => (true, "http"),
-            UdfIdentifier::Cli(_) => (false, "cli"),
+            UdfIdentifier::SystemJob(_) => (false, "_system_job"),
         };
-
-        let should_track_calls = should_track_calls_by_udf_path && !call_type.is_occ();
 
         let (component_path, udf_id) = udf_path.clone().into_component_and_udf_path();
         usage_metrics.push(UsageEvent::FunctionCall {
             fields: FunctionCallUsageFields {
                 id: execution_id.to_string(),
+                request_id: request_id.to_string(),
+                status: if success { "success" } else { "failure" }.to_string(),
                 component_path,
                 udf_id,
                 udf_id_type: udf_id_type.to_string(),
@@ -230,12 +242,19 @@ impl UsageCounter {
                 is_occ: call_type.is_occ(),
                 occ_table_name: call_type.occ_table_name(),
                 occ_document_id: call_type.occ_document_id(),
+                occ_write_source: call_type.occ_write_source(),
                 occ_retry_count: call_type.occ_retry_count(),
             },
         });
 
         // We always track bandwidth, even for system udfs.
-        self._track_function_usage(udf_path, stats, execution_id, &mut usage_metrics);
+        self._track_function_usage(
+            udf_path,
+            stats,
+            execution_id,
+            request_id,
+            &mut usage_metrics,
+        );
         self.usage_logger.record(usage_metrics);
     }
 
@@ -248,10 +267,17 @@ impl UsageCounter {
         &self,
         udf_path: UdfIdentifier,
         execution_id: ExecutionId,
+        request_id: RequestId,
         stats: FunctionUsageStats,
     ) {
         let mut usage_metrics = Vec::new();
-        self._track_function_usage(udf_path, stats, execution_id, &mut usage_metrics);
+        self._track_function_usage(
+            udf_path,
+            stats,
+            execution_id,
+            request_id,
+            &mut usage_metrics,
+        );
         self.usage_logger.record(usage_metrics);
     }
 
@@ -260,6 +286,7 @@ impl UsageCounter {
         udf_path: UdfIdentifier,
         stats: FunctionUsageStats,
         execution_id: ExecutionId,
+        request_id: RequestId,
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
         // Merge the storage stats.
@@ -296,21 +323,29 @@ impl UsageCounter {
         for ((component_path, table_name), ingress_size) in stats.database_ingress_size {
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
+                request_id: request_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: ingress_size,
                 egress: 0,
+                egress_rows: 0,
             });
         }
         for ((component_path, table_name), egress_size) in stats.database_egress_size {
+            let rows = stats
+                .database_egress_rows
+                .get(&(component_path.clone(), table_name.clone()))
+                .unwrap_or(&0);
             usage_metrics.push(UsageEvent::DatabaseBandwidth {
                 id: execution_id.to_string(),
+                request_id: request_id.to_string(),
                 component_path: component_path.serialize(),
                 udf_id: udf_id.clone(),
                 table_name,
                 ingress: 0,
                 egress: egress_size,
+                egress_rows: *rows,
             });
         }
         for ((component_path, table_name), ingress_size) in stats.vector_ingress_size {
@@ -517,6 +552,23 @@ impl FunctionUsageTracker {
             .mutate_entry_or_default((component_path, table_name), |count| *count += egress_size);
     }
 
+    pub fn track_database_egress_rows(
+        &self,
+        component_path: ComponentPath,
+        table_name: String,
+        egress_rows: u64,
+        skip_logging: bool,
+    ) {
+        if skip_logging {
+            return;
+        }
+
+        let mut state = self.state.lock();
+        state
+            .database_egress_rows
+            .mutate_entry_or_default((component_path, table_name), |count| *count += egress_rows);
+    }
+
     // Tracks the vector ingress surcharge and database usage for documents
     // that have one or more vectors in a vector index.
     //
@@ -659,6 +711,7 @@ pub struct FunctionUsageStats {
     pub storage_egress_size: WithHeapSize<BTreeMap<ComponentPath, u64>>,
     pub database_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub database_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
+    pub database_egress_rows: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_ingress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
     pub vector_egress_size: WithHeapSize<BTreeMap<(ComponentPath, TableName), u64>>,
 }
@@ -698,6 +751,10 @@ impl FunctionUsageStats {
         for (key, egress_size) in other.database_egress_size {
             self.database_egress_size
                 .mutate_entry_or_default(key.clone(), |count| *count += egress_size);
+        }
+        for (key, egress_rows) in other.database_egress_rows {
+            self.database_egress_rows
+                .mutate_entry_or_default(key.clone(), |count| *count += egress_rows);
         }
         for (key, ingress_size) in other.vector_ingress_size {
             self.vector_ingress_size
@@ -762,6 +819,12 @@ mod usage_arbitrary {
                     0..=4,
                 )
                 .prop_map(WithHeapSize::from),
+                proptest::collection::btree_map(
+                    any::<(ComponentPath, TableName)>(),
+                    0..=1024u64,
+                    0..=4,
+                )
+                .prop_map(WithHeapSize::from),
             );
             strategies
                 .prop_map(
@@ -771,6 +834,7 @@ mod usage_arbitrary {
                         storage_egress_size,
                         database_ingress_size,
                         database_egress_size,
+                        database_egress_rows,
                         vector_ingress_size,
                         vector_egress_size,
                     )| FunctionUsageStats {
@@ -779,6 +843,7 @@ mod usage_arbitrary {
                         storage_egress_size,
                         database_ingress_size,
                         database_egress_size,
+                        database_egress_rows,
                         vector_ingress_size,
                         vector_egress_size,
                     },
@@ -854,6 +919,7 @@ impl From<FunctionUsageStats> for FunctionUsageStatsProto {
             ),
             database_ingress_size: to_by_tag_count(stats.database_ingress_size.into_iter()),
             database_egress_size: to_by_tag_count(stats.database_egress_size.into_iter()),
+            database_egress_rows: to_by_tag_count(stats.database_egress_rows.into_iter()),
             vector_ingress_size: to_by_tag_count(stats.vector_ingress_size.into_iter()),
             vector_egress_size: to_by_tag_count(stats.vector_egress_size.into_iter()),
         }
@@ -871,6 +937,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             from_by_component_tag_count(stats.storage_egress_size_by_component)?.collect();
         let database_ingress_size = from_by_tag_count(stats.database_ingress_size)?.collect();
         let database_egress_size = from_by_tag_count(stats.database_egress_size)?.collect();
+        let database_egress_rows = from_by_tag_count(stats.database_egress_rows)?.collect();
         let vector_ingress_size = from_by_tag_count(stats.vector_ingress_size)?.collect();
         let vector_egress_size = from_by_tag_count(stats.vector_egress_size)?.collect();
 
@@ -879,6 +946,7 @@ impl TryFrom<FunctionUsageStatsProto> for FunctionUsageStats {
             storage_ingress_size,
             storage_egress_size,
             database_ingress_size,
+            database_egress_rows,
             database_egress_size,
             vector_ingress_size,
             vector_egress_size,

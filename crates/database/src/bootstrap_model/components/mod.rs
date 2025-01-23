@@ -138,7 +138,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
             .all_component_paths(&mut self.tx.reads)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn load_all_components(
         &mut self,
     ) -> anyhow::Result<Vec<ParsedDocument<ComponentMetadata>>> {
@@ -259,7 +259,10 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let component = self
             .load_component(id)
             .await?
-            .context("Component not found")?
+            .context(format!(
+                "Component not found for ComponentId {:?}",
+                id.serialize_to_string()
+            ))?
             .into_value();
         let args = match component.component_type {
             ComponentType::App => anyhow::bail!(ErrorMetadata::bad_request(
@@ -328,7 +331,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn load_all_definitions(
         &mut self,
     ) -> anyhow::Result<

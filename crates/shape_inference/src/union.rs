@@ -25,8 +25,8 @@ use crate::{
 /// 1. To keep space bounded, `2 <= n <= ShapeConfig::MAX_UNION_VARIANTS`.
 /// 2. There are no nested unions.
 /// 3. For any distinct `u_i` and `u_j`, `u_i` and `u_j` are disjoint sets.
-/// Then, when we're inserting or removing a value into the union, we can know
-/// precisely which variant it belongs in.
+///    Then, when we're inserting or removing a value into the union, we can
+///    know precisely which variant it belongs in.
 ///
 /// To maintain these invariants, we alternate between [`UnionShape`] and a
 /// builder shape [`UnionBuilder`] that's used for inserting new shapes into the

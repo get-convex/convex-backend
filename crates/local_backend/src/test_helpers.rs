@@ -11,10 +11,10 @@ use common::{
         HttpError,
         NoopRouteMapper,
     },
+    shutdown::ShutdownSignal,
     testing::TestPersistence,
     types::MemberId,
 };
-use database::ShutdownSignal;
 use http::{
     Request,
     StatusCode,
@@ -50,7 +50,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
         config.clone(),
         Arc::new(persistence),
         shutdown_rx,
-        ShutdownSignal::new(preempt_tx),
+        ShutdownSignal::new(preempt_tx, config.name()),
     )
     .await?;
     let router = router(st.clone());

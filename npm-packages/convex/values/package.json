@@ -1,5 +1,5 @@
 {
   "main": "../dist/cjs/values/index.js",
   "module": "../dist/esm/values/index.js",
-  "types": "../dist/internal-cjs-types/values/index.d.ts"
+  "types": "../dist/cjs-types/values/index.d.ts"
 }

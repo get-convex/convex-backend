@@ -40,11 +40,11 @@ pub fn increment_name(name: &str, amt: u64) -> String {
         .and_then(|c| c.get(2))
         .and_then(|m| m.as_str().parse::<u64>().ok())
     {
-        return NAME_NUMBER_RE
+        NAME_NUMBER_RE
             .replace(name, |caps: &regex::Captures| {
                 format!("{} ({})", &caps[1], number + amt)
             })
-            .into();
+            .into()
     } else {
         format!("{name} ({amt})")
     }

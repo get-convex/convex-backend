@@ -26,7 +26,7 @@ use std::ops::{
 pub use self::{
     bounds::{
         End,
-        Start,
+        StartIncluded,
     },
     interval_set::IntervalSet,
     key::BinaryKey,
@@ -42,7 +42,7 @@ use crate::{
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct Interval {
-    pub start: Start,
+    pub start: StartIncluded,
     pub end: End,
 }
 
@@ -50,21 +50,21 @@ impl Interval {
     pub fn prefix(key: BinaryKey) -> Self {
         let end = End::after_prefix(&key);
         Self {
-            start: Start::Included(key),
+            start: StartIncluded(key),
             end,
         }
     }
 
     pub const fn empty() -> Self {
         Self {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Excluded(BinaryKey::min()),
         }
     }
 
     pub const fn all() -> Self {
         Self {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Unbounded,
         }
     }
@@ -72,7 +72,7 @@ impl Interval {
     pub fn is_empty(&self) -> bool {
         match (&self.start, &self.end) {
             (_, End::Unbounded) => false,
-            (Start::Included(ref s), End::Excluded(ref t)) => s >= t,
+            (StartIncluded(ref s), End::Excluded(ref t)) => s >= t,
         }
     }
 
@@ -82,7 +82,7 @@ impl Interval {
 
     pub fn contains(&self, point: &[u8]) -> bool {
         let after_start = match self.start {
-            Start::Included(ref s) => &s[..] <= point,
+            StartIncluded(ref s) => &s[..] <= point,
         };
         let before_end = match self.end {
             End::Excluded(ref t) => point < &t[..],
@@ -129,7 +129,7 @@ impl Interval {
                 },
                 match last_key_binary.increment() {
                     Some(last_key_incr) => Self {
-                        start: Start::Included(last_key_incr),
+                        start: StartIncluded(last_key_incr),
                         end: self.end.clone(),
                     },
                     None => Interval::empty(),
@@ -137,7 +137,7 @@ impl Interval {
             ),
             Order::Desc => (
                 Self {
-                    start: Start::Included(last_key_binary.clone()),
+                    start: StartIncluded(last_key_binary.clone()),
                     end: self.end.clone(),
                 },
                 Self {
@@ -158,7 +158,7 @@ impl Interval {
 
 impl RangeBounds<[u8]> for &Interval {
     fn start_bound(&self) -> Bound<&[u8]> {
-        let Start::Included(ref s) = self.start;
+        let StartIncluded(ref s) = self.start;
         Bound::Included(&s[..])
     }
 
@@ -180,7 +180,7 @@ mod tests {
     use super::{
         bounds::{
             End,
-            Start,
+            StartIncluded,
         },
         key::BinaryKey,
         test_helpers::*,
@@ -274,7 +274,7 @@ mod tests {
         interval: Interval,
         expected: Vec<&BinaryKey>,
     ) {
-        let Start::Included(ref s) = interval.start;
+        let StartIncluded(ref s) = interval.start;
         let r = match interval.end {
             End::Excluded(ref t) => set.range(s..t),
             End::Unbounded => set.range(s..),

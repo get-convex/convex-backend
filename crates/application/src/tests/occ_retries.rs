@@ -1,8 +1,5 @@
 use anyhow::Context;
-use common::pause::{
-    PauseClient,
-    PauseController,
-};
+use common::pause::PauseController;
 use database::{
     SystemMetadataModel,
     Transaction,
@@ -39,14 +36,12 @@ async fn test_replace_tx(
 
 async fn test_replace_with_retries(
     application: &Application<TestRuntime>,
-    pause_client: PauseClient,
     id: ResolvedDocumentId,
     value: ConvexValue,
 ) -> anyhow::Result<()> {
     application
         .execute_with_audit_log_events_and_occ_retries_with_pause_client(
             Identity::system(),
-            pause_client,
             "test",
             move |tx| test_replace_tx(tx, id, value.clone()).into(),
         )
@@ -55,7 +50,7 @@ async fn test_replace_with_retries(
 }
 
 #[convex_macro::test_runtime]
-async fn test_occ_fails(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_occ_fails(rt: TestRuntime, pause: PauseController) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     let identity = Identity::system();
     let mut tx = application.begin(identity.clone()).await?;
@@ -67,15 +62,17 @@ async fn test_occ_fails(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     application.commit_test(tx).await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_tx_loop_start"]);
-    let fut1 = test_replace_with_retries(&application, pause_client, id, "value".try_into()?);
+    let hold_guard = pause.hold("retry_tx_loop_start");
+    let fut1 = test_replace_with_retries(&application, id, "value".try_into()?);
 
     let fut2 = async {
+        let mut hold_guard = hold_guard;
         for _i in 0..MAX_OCC_FAILURES {
-            let mut guard = pause
-                .wait_for_blocked("retry_tx_loop_start")
+            let guard = hold_guard
+                .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
+            hold_guard = pause.hold("retry_tx_loop_start");
             let mut tx = application.begin(identity.clone()).await?;
             test_replace_tx(&mut tx, id, "value2".try_into()?).await?;
             application.commit_test(tx).await?;
@@ -89,7 +86,7 @@ async fn test_occ_fails(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
-async fn test_occ_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_occ_succeeds(rt: TestRuntime, pause: PauseController) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     let identity = Identity::system();
     let mut tx = application.begin(identity.clone()).await?;
@@ -101,15 +98,17 @@ async fn test_occ_succeeds(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     application.commit_test(tx).await?;
 
-    let (mut pause, pause_client) = PauseController::new(["retry_tx_loop_start"]);
-    let fut1 = test_replace_with_retries(&application, pause_client, id, "value".try_into()?);
+    let hold_guard = pause.hold("retry_tx_loop_start");
+    let fut1 = test_replace_with_retries(&application, id, "value".try_into()?);
 
     let fut2 = async {
+        let mut hold_guard = hold_guard;
         for i in 0..MAX_OCC_FAILURES {
-            let mut guard = pause
-                .wait_for_blocked("retry_tx_loop_start")
+            let guard = hold_guard
+                .wait_for_blocked()
                 .await
                 .context("Didn't hit breakpoint?")?;
+            hold_guard = pause.hold("retry_tx_loop_start");
             if i < MAX_OCC_FAILURES - 1 {
                 let mut tx = application.begin(identity.clone()).await?;
                 test_replace_tx(&mut tx, id, "value2".try_into()?).await?;

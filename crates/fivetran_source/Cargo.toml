@@ -56,3 +56,6 @@ ignored = [
     # Prost required via tonic macro
     "prost",
 ]
+
+[lints]
+workspace = true

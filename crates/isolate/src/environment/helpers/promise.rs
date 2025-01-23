@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use common::errors::{
-    report_error,
+    report_error_sync,
     JsError,
 };
 use deno_core::v8;
@@ -47,7 +47,7 @@ fn resolve_promise_inner(
             // - log it now, and convert it to a JsError
             if !e.is_deterministic_user_error() {
                 if allow_all_errors {
-                    report_error(&mut e);
+                    report_error_sync(&mut e);
                 } else {
                     return Err(e);
                 };

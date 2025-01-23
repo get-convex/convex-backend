@@ -1,0 +1,58 @@
+# Stage 1: Build
+FROM rust:latest AS build
+
+RUN apt-get update && apt-get install -y curl gnupg cmake && \
+    mkdir -p /etc/apt/keyrings && \
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
+    apt-get update && \
+    apt-get install -y git build-essential clang libclang-dev nodejs && \
+    # Verify installation
+    node --version && \
+    npm --version
+
+# Install Just (for build scripts)
+RUN cargo install just
+
+# Clone the Convex backend repository
+RUN git clone https://github.com/get-convex/convex-backend.git /convex
+
+WORKDIR /convex
+
+# Install npm dependencies in the scripts folder
+RUN npm install --prefix scripts
+
+# Install Rush dependencies
+RUN just rush install
+
+# Build the convex-local-backend binary
+RUN cargo build --release -p local_backend --bin convex-local-backend
+
+# Stage 2: Final runtime
+FROM ubuntu:22.04
+
+# Install dependencies
+RUN apt-get update && apt-get install -y libclang-dev libstdc++6 libc6
+
+# Create a directory for the application
+WORKDIR /usr/local/bin
+
+# Copy the built binary and node from the build stage to the correct location. Node is required to run node actions.
+COPY --from=build /usr/bin/node /usr/bin/node
+COPY --from=build /usr/bin/npm /usr/bin/npm
+COPY --from=build /usr/lib/node_modules/npm /usr/lib/node_modules/npm
+# Set up npm and npx commands
+RUN ln -sf /usr/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm && \
+    chmod +x /usr/bin/npm
+RUN ln -sf /usr/lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx && \
+    chmod +x /usr/bin/npx
+COPY --from=build --chmod=744 /convex/target/release/convex-local-backend /usr/local/bin/convex-local-backend
+
+RUN chmod +x convex-local-backend
+
+# Set the backend as the executable
+ENTRYPOINT ["./convex-local-backend"]
+
+# Expose the required ports
+EXPOSE 3210
+EXPOSE 3211

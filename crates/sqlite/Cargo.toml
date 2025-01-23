@@ -28,3 +28,6 @@ ignored = [
     # persistence_test_suite macro depends on tokio
     "tokio",
 ]
+
+[lints]
+workspace = true

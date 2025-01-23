@@ -71,6 +71,7 @@ pub(crate) struct FragmentedSegmentFetcher<RT: Runtime> {
     archive_cache: ArchiveCacheManager<RT>,
 }
 
+#[derive(Debug)]
 pub struct FragmentedSegmentStorageKeys {
     pub segment: ObjectKey,
     pub id_tracker: ObjectKey,
@@ -92,7 +93,7 @@ impl<RT: Runtime> FragmentedSegmentFetcher<RT> {
         &'a self,
         search_storage: Arc<dyn Storage>,
         fragments: Vec<T>,
-    ) -> impl Stream<Item = anyhow::Result<UntarredVectorDiskSegmentPaths>> + '_
+    ) -> impl Stream<Item = anyhow::Result<UntarredVectorDiskSegmentPaths>> + 'a
     where
         anyhow::Error: From<T::Error>,
     {
@@ -159,7 +160,7 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
         }
     }
 
-    pub async fn compact<'a, T: TryInto<FragmentedSegmentStorageKeys> + Send + 'a>(
+    pub async fn compact<'a, T: TryInto<FragmentedSegmentStorageKeys> + Clone + Send + 'a>(
         &'a self,
         segments: Vec<T>,
         dimension: usize,
@@ -170,15 +171,24 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
         <T as TryInto<FragmentedSegmentStorageKeys>>::Error: From<std::io::Error> + Send,
         <T as TryInto<FragmentedSegmentStorageKeys>>::Error: From<anyhow::Error> + 'static,
     {
+        let segment_keys: Vec<FragmentedSegmentStorageKeys> = segments
+            .clone()
+            .into_iter()
+            .map(|s| s.try_into())
+            .try_collect()?;
+        tracing::info!("Compacting {} segments: {:?}", segments.len(), segment_keys);
         let timer = vector_compact_seconds_timer();
         let fetch_timer = vector_compact_fetch_segments_seconds_timer();
         let segments: Vec<_> = self
             .segment_fetcher
             .stream_fetch_fragmented_segments(search_storage.clone(), segments)
             .and_then(|paths| async move {
-                self.blocking_thread_pool
+                let paths_clone = paths.clone();
+                let segment = self
+                    .blocking_thread_pool
                     .execute(|| load_disk_segment(paths))
-                    .await?
+                    .await??;
+                anyhow::Ok((paths_clone, segment))
             })
             .try_collect()
             .await?;
@@ -196,7 +206,10 @@ impl<RT: Runtime> FragmentedSegmentCompactor<RT> {
             .execute(move || {
                 let timer = vector_compact_construct_segment_seconds_timer();
                 let result = merge_disk_segments_hnsw(
-                    segments.iter().collect_vec(),
+                    segments
+                        .iter()
+                        .map(|(paths, segment)| (Some(paths.clone()), segment))
+                        .collect_vec(),
                     dimension,
                     &scratch_dir,
                     &target_path,
@@ -388,7 +401,7 @@ impl<RT: Runtime> FragmentedSegmentPrefetcher<RT> {
                     {
                         log_vector_prefetch_expiration();
                     } else {
-                        report_error(&mut e);
+                        report_error(&mut e).await;
                     }
                 }
             })

@@ -1,0 +1,21 @@
+{
+  "name": "convex-analytics",
+  "version": "0.0.1",
+  "description": "Log events from our JS apps to backend",
+  "main": "./dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "convex": "workspace:*",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.0.3"
+  }
+}

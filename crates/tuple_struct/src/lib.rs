@@ -48,6 +48,7 @@ macro_rules! tuple_struct_string {
             derive_more::From,
             derive_more::Deref,
             derive_more::AsRef,
+            utoipa::ToSchema,
         )]
         #[from(forward)]
         #[as_ref(forward)]

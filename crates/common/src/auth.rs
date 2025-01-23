@@ -13,21 +13,21 @@ use serde::{
 pub struct AuthInfo {
     #[serde(rename = "applicationID")]
     pub application_id: String,
-    #[serde(deserialize_with = "deserialize_url_default_to_https")]
+    #[serde(deserialize_with = "deserialize_issuer_url")]
     pub domain: IssuerUrl,
 }
 
 static PROTOCOL_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\w+://").unwrap());
 
-fn deserialize_url_default_to_https<'de, D>(deserializer: D) -> Result<IssuerUrl, D::Error>
+fn deserialize_issuer_url<'de, D>(deserializer: D) -> Result<IssuerUrl, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let url = String::deserialize(deserializer)?;
-    let url = if PROTOCOL_REGEX.is_match(&url) {
-        url
+    let original_url = String::deserialize(deserializer)?;
+    let (had_scheme, url) = if PROTOCOL_REGEX.is_match(&original_url) {
+        (true, original_url.clone())
     } else {
-        format!("https://{url}")
+        (false, format!("https://{original_url}"))
     };
     if url.starts_with("http://") {
         let parsed_url: IssuerUrl = serde_json::to_string(&url)
@@ -48,9 +48,31 @@ where
         .ok_or(serde::de::Error::custom("must use HTTPS"))
         .and_then(|url| serde_json::to_string(&url))
         .and_then(|json| serde_json::from_str(&json))
-        .map_err(|error| {
-            serde::de::Error::custom(format!("Invalid provider domain URL \"{url}\": {error}"))
+        .and_then(|url: IssuerUrl| {
+            // Check if the input really looks like a URL,
+            // to catch mistakes (e.g. putting random tokens in the domain field)
+            if !had_scheme && !url.url().host_str().is_some_and(ends_with_tld) {
+                return Err(serde::de::Error::custom(
+                    "Does not look like a URL (must have a scheme or end with a top-level domain)",
+                ));
+            }
+            Ok(url)
         })
+        .map_err(|error| {
+            serde::de::Error::custom(format!(
+                "Invalid provider domain URL \"{original_url}\": {error}"
+            ))
+        })
+}
+
+fn ends_with_tld(host: &str) -> bool {
+    if host == "localhost" {
+        return true;
+    }
+    let Some((_, maybe_tld)) = host.rsplit_once('.') else {
+        return false;
+    };
+    tld::exist(maybe_tld)
 }
 
 impl AuthInfo {
@@ -85,6 +107,16 @@ impl proptest::arbitrary::Arbitrary for AuthInfo {
     }
 }
 
+#[derive(Debug, Deserialize)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(proptest_derive::Arbitrary, Clone, PartialEq)
+)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthConfig {
+    pub providers: Vec<AuthInfo>,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::auth::AuthInfo;
@@ -94,6 +126,9 @@ mod tests {
         let info: AuthInfo =
             serde_json::from_str(r#"{"applicationID": "123", "domain": "example.com"}"#).unwrap();
         assert_eq!(info.domain.to_string(), "https://example.com");
+        let info: AuthInfo =
+            serde_json::from_str(r#"{"applicationID": "123", "domain": "localhost"}"#).unwrap();
+        assert_eq!(info.domain.to_string(), "https://localhost");
     }
 
     #[test]
@@ -121,6 +156,16 @@ mod tests {
         // fails because host is not localhost
         serde_json::from_str::<AuthInfo>(
             r#"{"applicationID": "123", "domain": "http://localhost.foo.com:3211"}"#,
+        )
+        .unwrap_err();
+    }
+
+    #[test]
+    fn test_auth_info_rejects_bogus_domain() {
+        serde_json::from_str::<AuthInfo>(r#"{"applicationID": "123", "domain": "foobar123"}"#)
+            .unwrap_err();
+        serde_json::from_str::<AuthInfo>(
+            r#"{"applicationID": "123", "domain": "idont.looklikeadomain"}"#,
         )
         .unwrap_err();
     }

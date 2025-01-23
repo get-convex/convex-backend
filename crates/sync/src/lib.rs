@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-#![feature(lazy_cell)]
 #![feature(type_alias_impl_trait)]
 #![feature(let_chains)]
 #![feature(try_blocks)]

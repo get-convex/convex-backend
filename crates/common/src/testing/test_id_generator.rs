@@ -33,6 +33,7 @@ use crate::{
     index::IndexKey,
     persistence::{
         ConflictStrategy,
+        DocumentLogEntry,
         Persistence,
         PersistenceGlobalKey,
     },
@@ -196,7 +197,12 @@ impl TestIdGenerator {
                 value: DatabaseIndexValue::NonClustered(id),
                 is_system_index: false,
             };
-            documents.push((ts, doc.id_with_table_id(), Some(doc)));
+            documents.push(DocumentLogEntry {
+                ts,
+                id: doc.id_with_table_id(),
+                value: Some(doc),
+                prev_ts: None,
+            });
             indexes.insert((ts, index_update));
         }
         p.write(documents, indexes, ConflictStrategy::Error).await?;

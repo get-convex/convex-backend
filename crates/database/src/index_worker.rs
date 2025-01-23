@@ -230,7 +230,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             }
             loop {
                 if let Err(e) = worker.run().await {
-                    report_error(&mut e.context("IndexWorker died"));
+                    report_error(&mut e.context("IndexWorker died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
                     log::error!(
                         "IndexWorker died, num_failures: {}. Backing off for {}ms",
@@ -720,11 +720,11 @@ impl<RT: Runtime> IndexWriter<RT> {
         tablet_id: TabletId,
     ) -> anyhow::Result<()> {
         let table_iterator = TableIterator::new(
+            self.runtime.clone(),
             snapshot_ts,
             self.reader.clone(),
             self.retention_validator.clone(),
             *INDEX_BACKFILL_CHUNK_SIZE,
-            None,
         );
 
         let by_id = index_registry.must_get_by_id(tablet_id)?.id();
@@ -936,7 +936,7 @@ impl<RT: Runtime> IndexWriter<RT> {
     ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
         let document_stream = reader
             .load_documents(range, order)
-            .try_filter(|(_, id, _)| future::ready(index_selector.filter_id(*id)));
+            .try_filter(|entry| future::ready(index_selector.filter_id(entry.id)));
         stream_revision_pairs(document_stream, reader)
     }
 

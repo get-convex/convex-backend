@@ -1,0 +1,40 @@
+{
+  "name": "tanstack-start",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -r npm:dev:web npm:dev:db",
+    "dev:web": "vinxi dev",
+    "dev:db": "just convex dev",
+    "build": "vinxi build 2>/dev/null & true 'Ignore vinxi build warnings until tanstack start can run without them (need updated guide)'",
+    "start": "vinxi start",
+    "lint": "prettier --check '**/*' --ignore-unknown && eslint --ext .ts,.tsx ./app",
+    "format": "prettier --write '**/*' --ignore-unknown"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@convex-dev/react-query": "workspace:*",
+    "@tanstack/react-query": "^5.62.0",
+    "@tanstack/react-router": "^1.92.11",
+    "@tanstack/react-router-with-query": "^1.92.11",
+    "@tanstack/start": "^1.92.11",
+    "convex": "workspace:*",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "vinxi": "0.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/parser": "^6.7.4",
+    "concurrently": "~8.2.2",
+    "eslint": "^8.29.0",
+    "eslint-config-react-app": "~7.0.1",
+    "prettier": "3.4.2",
+    "typescript": "~5.0.3"
+  }
+}

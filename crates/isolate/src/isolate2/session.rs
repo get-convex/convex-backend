@@ -62,7 +62,7 @@ impl<'a> Session<'a> {
     }
 }
 
-impl<'a> Drop for Session<'a> {
+impl Drop for Session<'_> {
     fn drop(&mut self) {
         if !self.heap_ctx_ptr.is_null() {
             // First remove the callback, so V8 can no longer invoke it.

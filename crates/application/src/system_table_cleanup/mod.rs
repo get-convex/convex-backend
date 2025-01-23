@@ -99,7 +99,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             }
             loop {
                 if let Err(e) = worker.run().await {
-                    report_error(&mut e.context("SystemTableCleanupWorker died"));
+                    report_error(&mut e.context("SystemTableCleanupWorker died")).await;
                 }
             }
         }

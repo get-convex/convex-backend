@@ -137,11 +137,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
     ) -> anyhow::Result<u64> {
-        self.count(namespace, table)
-            .await?
-            .context(table_summary_bootstrapping_error(Some(
-                "Table count unavailable while bootstrapping",
-            )))
+        self.count(namespace, table).await?.ok_or_else(|| {
+            table_summary_bootstrapping_error(Some("Table count unavailable while bootstrapping"))
+        })
     }
 
     pub async fn count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<Option<u64>> {
@@ -173,11 +171,9 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
     }
 
     pub async fn must_count_tablet(&mut self, tablet_id: TabletId) -> anyhow::Result<u64> {
-        self.count_tablet(tablet_id)
-            .await?
-            .context(table_summary_bootstrapping_error(Some(
-                "Table count unavailable while bootstrapping",
-            )))
+        self.count_tablet(tablet_id).await?.ok_or_else(|| {
+            table_summary_bootstrapping_error(Some("Table count unavailable while bootstrapping"))
+        })
     }
 
     pub(crate) fn doc_table_id_to_name(
@@ -333,7 +329,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
-        tables_affected_in_import: &BTreeSet<TableName>,
+        tables_affected_in_import: &BTreeSet<(TableNamespace, TableName)>,
     ) -> anyhow::Result<()> {
         let Some(table_number) = table_number else {
             return Ok(());
@@ -378,7 +374,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             // Overwriting in-place, same table name and number.
             return Ok(());
         }
-        if tables_affected_in_import.contains(&existing_table_by_number) {
+        if tables_affected_in_import.contains(&(namespace, existing_table_by_number.clone())) {
             // Overwriting would create a table number conflict with an
             // existing table, but that existing table is also being
             // overwritten.
@@ -408,7 +404,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         tablet_id: TabletId,
         table_name: &TableName,
         table_number: TableNumber,
-        tables_affected_in_import: &BTreeSet<TableName>,
+        tables_affected_in_import: &BTreeSet<(TableNamespace, TableName)>,
     ) -> anyhow::Result<u64> {
         let mut documents_deleted = 0;
         let table_metadata = self.get_table_metadata(tablet_id).await?;
@@ -479,7 +475,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         namespace: TableNamespace,
         table: &TableName,
         table_number: Option<TableNumber>,
-        tables_affected_in_import: &BTreeSet<TableName>,
+        tables_affected_in_import: &BTreeSet<(TableNamespace, TableName)>,
     ) -> anyhow::Result<TabletIdAndTableNumber> {
         anyhow::ensure!(
             bootstrap_system_tables()

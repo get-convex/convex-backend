@@ -140,7 +140,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         Self { tx }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn apply(
         &mut self,
         component: ComponentId,
@@ -205,7 +205,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     }
 
     /// Returns the registered modules metadata, including system modules.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn get_all_metadata(
         &mut self,
         component: ComponentId,

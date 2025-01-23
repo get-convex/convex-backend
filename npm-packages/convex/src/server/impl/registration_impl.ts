@@ -84,6 +84,20 @@ export async function invokeFunction<
   return result;
 }
 
+function dontCallDirectly(
+  funcType: string,
+  handler: (ctx: any, args: any) => any,
+) {
+  return (ctx: any, args: any) => {
+    globalThis.console.warn(
+      "Convex functions should not directly call other Convex functions. Consider calling a helper function instead. " +
+        `e.g. \`export const foo = ${funcType}(...); await foo(ctx);\` is not supported. ` +
+        "See https://docs.convex.dev/production/best-practices/#use-helper-functions-to-write-shared-code",
+    );
+    return handler(ctx, args);
+  };
+}
+
 // Keep in sync with node executor
 function serializeConvexErrorData(thrown: unknown) {
   if (
@@ -178,19 +192,17 @@ export const mutationGeneric: MutationBuilder<any, "public"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredMutation<"public", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredMutation<"public", any, any>;
+  ) as (ctx: GenericMutationCtx<any>, args: any) => any;
+  const func = dontCallDirectly("mutation", handler) as RegisteredMutation<
+    "public",
+    any,
+    any
+  >;
 
-  // Helpful runtime check that functions are only be registered once
-  if (func.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
   assertNotBrowser();
-  func.isRegistered = true;
   func.isMutation = true;
   func.isPublic = true;
-  func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
+  func.invokeMutation = (argsStr) => invokeMutation(handler, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -217,19 +229,16 @@ export const internalMutationGeneric: MutationBuilder<any, "internal"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
+  ) as (ctx: GenericMutationCtx<any>, args: any) => any;
+  const func = dontCallDirectly(
+    "internalMutation",
+    handler,
   ) as RegisteredMutation<"internal", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredMutation<"internal", any, any>;
 
-  // Helpful runtime check that functions are only be registered once
-  if (func.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
   assertNotBrowser();
-  func.isRegistered = true;
   func.isMutation = true;
   func.isInternal = true;
-  func.invokeMutation = (argsStr) => invokeMutation(func, argsStr);
+  func.invokeMutation = (argsStr) => invokeMutation(handler, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -274,22 +283,17 @@ export const queryGeneric: QueryBuilder<any, "public"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredQuery<"public", any, any>;
-  const func = ((ctx: any, args: any) => handler(ctx, args)) as RegisteredQuery<
+  ) as (ctx: GenericQueryCtx<any>, args: any) => any;
+  const func = dontCallDirectly("query", handler) as RegisteredQuery<
     "public",
     any,
     any
   >;
 
-  // Helpful runtime check that functions are only be registered once
-  if (func.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
   assertNotBrowser();
-  func.isRegistered = true;
   func.isQuery = true;
   func.isPublic = true;
-  func.invokeQuery = (argsStr) => invokeQuery(func, argsStr);
+  func.invokeQuery = (argsStr) => invokeQuery(handler, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -316,22 +320,17 @@ export const internalQueryGeneric: QueryBuilder<any, "internal"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredQuery<"internal", any, any>;
-  const func = ((ctx: any, args: any) => handler(ctx, args)) as RegisteredQuery<
+  ) as (ctx: GenericQueryCtx<any>, args: any) => any;
+  const func = dontCallDirectly("internalQuery", handler) as RegisteredQuery<
     "internal",
     any,
     any
   >;
 
-  // Helpful runtime check that functions are only be registered once
-  if (func.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
   assertNotBrowser();
-  func.isRegistered = true;
   func.isQuery = true;
   func.isInternal = true;
-  func.invokeQuery = (argsStr) => invokeQuery(func as any, argsStr);
+  func.invokeQuery = (argsStr) => invokeQuery(handler as any, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -372,20 +371,18 @@ export const actionGeneric: ActionBuilder<any, "public"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredAction<"public", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredAction<"public", any, any>;
+  ) as (ctx: GenericActionCtx<any>, args: any) => any;
+  const func = dontCallDirectly("action", handler) as RegisteredAction<
+    "public",
+    any,
+    any
+  >;
 
-  // Helpful runtime check that functions are only be registered once
-  if (func.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
   assertNotBrowser();
-  func.isRegistered = true;
   func.isAction = true;
   func.isPublic = true;
   func.invokeAction = (requestId, argsStr) =>
-    invokeAction(func, requestId, argsStr);
+    invokeAction(handler, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -410,20 +407,18 @@ export const internalActionGeneric: ActionBuilder<any, "internal"> = ((
     typeof functionDefinition === "function"
       ? functionDefinition
       : functionDefinition.handler
-  ) as RegisteredAction<"internal", any, any>;
-  const func = ((ctx: any, args: any) =>
-    handler(ctx, args)) as RegisteredAction<"internal", any, any>;
+  ) as (ctx: GenericActionCtx<any>, args: any) => any;
+  const func = dontCallDirectly("internalAction", handler) as RegisteredAction<
+    "internal",
+    any,
+    any
+  >;
 
-  // Helpful runtime check that functions are only be registered once
-  if (func.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
   assertNotBrowser();
-  func.isRegistered = true;
   func.isAction = true;
   func.isInternal = true;
   func.invokeAction = (requestId, argsStr) =>
-    invokeAction(func, requestId, argsStr);
+    invokeAction(handler, requestId, argsStr);
   func.exportArgs = exportArgs(functionDefinition);
   func.exportReturns = exportReturns(functionDefinition);
   func._handler = handler;
@@ -462,15 +457,8 @@ export const httpActionGeneric = (
     request: Request,
   ) => Promise<Response>,
 ): PublicHttpAction => {
-  const handler = func as unknown as PublicHttpAction;
-  const q = ((ctx: any, request: any) =>
-    handler(ctx, request)) as PublicHttpAction;
-  // Helpful runtime check that functions are only be registered once
-  if (q.isRegistered) {
-    throw new Error("Function registered twice " + func);
-  }
+  const q = dontCallDirectly("httpAction", func) as PublicHttpAction;
   assertNotBrowser();
-  q.isRegistered = true;
   q.isHttp = true;
   q.invokeHttpAction = (request) => invokeHttpAction(func as any, request);
   q._handler = func;

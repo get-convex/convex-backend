@@ -1,0 +1,28 @@
+{
+  "name": "users-and-auth",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "build": "tsc --noEmit && vite build",
+    "dev:backend": "convex dev",
+    "dev:frontend": "vite --open",
+    "predev": "convex dev --until-success"
+  },
+  "dependencies": {
+    "@auth0/auth0-react": "2.2.4",
+    "convex": "workspace:*",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "@types/babel__core": "^7.20.0",
+    "@types/node": "^18.17.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "~5.0.3",
+    "vite": "^5.4.12",
+    "npm-run-all2": "^5.0.0"
+  }
+}

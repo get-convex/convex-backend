@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    /* The newest in TypeScript module support */
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "noEmit": true
+  },
+  "include": ["./src/index-cjs.ts"]
+  /* convex directory should not be compiled */
+}

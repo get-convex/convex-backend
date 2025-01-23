@@ -7,7 +7,10 @@ use common::{
     log_lines::LogLevel,
 };
 
-use super::OpProvider;
+use super::{
+    metrics,
+    OpProvider,
+};
 
 #[convex_macro::v8_op]
 pub fn op_console_message<'b, P: OpProvider<'b>>(
@@ -15,6 +18,9 @@ pub fn op_console_message<'b, P: OpProvider<'b>>(
     level: String,
     messages: Vec<String>,
 ) -> anyhow::Result<()> {
+    for message in messages.iter() {
+        metrics::log_log_line(message);
+    }
     provider.trace(level.parse()?, messages)?;
     Ok(())
 }

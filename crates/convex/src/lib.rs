@@ -38,7 +38,7 @@
 //!
 //! Detailed examples of both use cases are documented for each struct.
 
-#![warn(missing_docs)]
+#![cfg_attr(not(test), warn(missing_docs))]
 #![warn(rustdoc::missing_crate_level_docs)]
 
 mod value;

@@ -11,7 +11,11 @@ use common::{
         UdfType,
     },
 };
-use keybroker::Identity;
+use errors::ErrorMetadataAnyhowExt;
+use keybroker::{
+    Identity,
+    DEV_INSTANCE_NAME,
+};
 use maplit::btreemap;
 use model::{
     config::types::ModuleConfig,
@@ -65,7 +69,12 @@ async fn test_analyze_module(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let mut result = t
         .isolate
-        .analyze(udf_config.clone(), modules, BTreeMap::new())
+        .analyze(
+            udf_config.clone(),
+            modules,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
     let analyze_path = "analyze.js".parse()?;
     let module = result.remove(&analyze_path).unwrap();
@@ -219,7 +228,12 @@ async fn test_analyze_http_errors(rt: TestRuntime) -> anyhow::Result<()> {
         let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
         let Err(err) = t
             .isolate
-            .analyze(udf_config, modules, BTreeMap::new())
+            .analyze(
+                udf_config,
+                modules,
+                BTreeMap::new(),
+                DEV_INSTANCE_NAME.to_string(),
+            )
             .await?
         else {
             anyhow::bail!("No JsError raised for missing default export");
@@ -243,7 +257,12 @@ async fn test_analyze_function(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let mut result = t
         .isolate
-        .analyze(udf_config, modules, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
     let source_maps_path = "sourceMaps.js".parse()?;
     let analyzed_module = result.remove(&source_maps_path).unwrap();
@@ -294,7 +313,12 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
     let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
     let mut result = t
         .isolate
-        .analyze(udf_config, modules, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules,
+            BTreeMap::new(),
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await??;
     let internal_path = "internal.js".parse()?;
     let analyzed_module = result.remove(&internal_path).unwrap();
@@ -365,54 +389,76 @@ async fn test_analyze_internal_function(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_analyze_developer_errors(rt: TestRuntime) -> anyhow::Result<()> {
-    let cases = [
-        // Syntax errors should be propagated back to the developer.
-        ("const x = 'what", "SyntaxError"),
-        // `esbuild` should catch most import errors, but we should still degrade gracefully if we
-        // see an import error at this layer.
-        (
-            "import { something } from 'nonexistent';",
-            r#"Relative import path "nonexistent" not prefixed with /"#,
-        ),
-        (
-            "import { something } from './nonexistent';",
-            "Couldn't find JavaScript module",
-        ),
-        // Throwing an error within a syntactically valid module is still a developer error.  The
-        // error message is a bit jank, but hopefully it's good enough for now to point developers
-        // to their errors.
-        // ```
-        // Uncaught Error: Uncaught Error: no thanks
-        //   at <anonymous> (convex:/broken.js:1:7)
-        //   at <anonymous> (convex:/_system/cli/listModules.js:14:27)
-        //   at async invokeQuery (convex:/_system/_deps/HBQGL2NV.js:774:18)
-        //
-        //   at <anonymous> (convex:/_system/cli/listModules.js:14:27)
-        //   at async invokeQuery (convex:/_system/_deps/HBQGL2NV.js:774:18)
-        // ```
-        ("throw new Error('no thanks');", "Uncaught Error: no thanks"),
-        (
-            r##"Convex.syscall("insert", JSON.stringify({ table: "oh", value: { hello: "there" } }))"##,
-            "Can't use database at import time",
-        ),
-        (
-            "async function test(){}; await test();",
-            "Top-level awaits in source files are unsupported",
-        ),
-    ];
+    let run_test = |source: &'static str, expected_error: &'static str| {
+        let rt = rt.clone();
+        async move {
+            let module = ModuleConfig {
+                path: "broken.js".parse()?,
+                source: source.to_owned(),
+                source_map: None,
+                environment: ModuleEnvironment::Isolate,
+            };
+            let err = match UdfTest::default_with_modules(vec![module], rt.clone()).await {
+                Ok(Err(js_error)) => js_error.to_string(),
+                Err(e) if e.is_bad_request() => e.to_string(),
+                _ => anyhow::bail!("No JsError raised for broken source: {}", source),
+            };
+            assert!(
+                format!("{err}").contains(expected_error),
+                "Uhoh: {err:?} - did not contain {expected_error}"
+            );
+            Ok(())
+        }
+    };
 
-    for (source, expected_error) in cases {
-        let module = ModuleConfig {
-            path: "broken.js".parse()?,
-            source: source.to_owned(),
-            source_map: None,
-            environment: ModuleEnvironment::Isolate,
-        };
-        let Err(err) = UdfTest::default_with_modules(vec![module], rt.clone()).await? else {
-            anyhow::bail!("No JsError raised for broken source: {}", source);
-        };
-        assert!(format!("{}", err).contains(expected_error), "{err:?}");
-    }
+    // Syntax errors should be propagated back to the developer.
+    run_test("const x = 'what", "SyntaxError").await?;
+    // `esbuild` should catch most import errors, but we should still degrade
+    // gracefully if we see an import error at this layer.
+    run_test(
+        "import { something } from 'nonexistent';",
+        r#"Relative import path "nonexistent" not prefixed with /"#,
+    )
+    .await?;
+    run_test(
+        "\n\nimport { something } from 'https://bad@scheme.com/module';",
+        r#"convex:/broken.js:2:26: Unsupported scheme (https) in"#,
+    )
+    .await?;
+    run_test(
+        "\n\nimport { something } from 'convex://cdnjs.cloudflare.com/module';",
+        r#"convex:/broken.js:2:26: Module URL convex://cdnjs.cloudflare.com/module must not have an authority. Has cdnjs.cloudflare.com"#,
+    )
+    .await?;
+    run_test(
+        "import { something } from './nonexistent';",
+        "Couldn't find JavaScript module",
+    )
+    .await?;
+    // Throwing an error within a syntactically valid module is still a developer
+    // error.  The error message is a bit jank, but hopefully it's good enough
+    // for now to point developers to their errors.
+    // ```
+    // Uncaught Error: Uncaught Error: no thanks
+    //   at <anonymous> (convex:/broken.js:1:7)
+    //   at <anonymous> (convex:/_system/cli/listModules.js:14:27)
+    //   at async invokeQuery (convex:/_system/_deps/HBQGL2NV.js:774:18)
+    //
+    //   at <anonymous> (convex:/_system/cli/listModules.js:14:27)
+    //   at async invokeQuery (convex:/_system/_deps/HBQGL2NV.js:774:18)
+    // ```
+    run_test("throw new Error('no thanks');", "Uncaught Error: no thanks").await?;
+    run_test(
+        r##"Convex.syscall("insert", JSON.stringify({ table: "oh", value: { hello: "there" } }))"##,
+        "Can't use database at import time",
+    )
+    .await?;
+    run_test(
+        "async function test(){}; await test();",
+        "Top-level awaits in source files are unsupported",
+    )
+    .await?;
+
     Ok(())
 }
 
@@ -480,7 +526,12 @@ async fn test_analyze_imports_are_none(rt: TestRuntime) -> anyhow::Result<()> {
         let udf_config = UdfConfig::new_for_test(&t.rt, "1000.0.0".parse()?);
         let mut analyze_result = t
             .isolate
-            .analyze(udf_config, modules, BTreeMap::new())
+            .analyze(
+                udf_config,
+                modules,
+                BTreeMap::new(),
+                DEV_INSTANCE_NAME.to_string(),
+            )
             .await?
             .expect("analyze failed");
         let with_http = case_canon_path.with_http();

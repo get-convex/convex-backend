@@ -1,0 +1,15 @@
+{
+  "name": "html",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "convex dev",
+    "build": "echo build steps are for squares"
+  },
+  "devDependencies": {
+    "convex": "workspace:*",
+    "typescript": "~5.0.3"
+  },
+  "dependencies": {
+    "prettier": "3.4.2"
+  }
+}

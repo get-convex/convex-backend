@@ -62,3 +62,10 @@ testing = [
 [[bench]]
 name = "document_id"
 harness = false
+
+[[bench]]
+name = "json"
+harness = false
+
+[lints]
+workspace = true

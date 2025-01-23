@@ -24,7 +24,6 @@ use common::{
     document::ParsedDocument,
     errors::report_error,
     knobs::UDF_EXECUTOR_OCC_MAX_RETRIES,
-    pause::PauseClient,
     persistence::{
         RepeatablePersistence,
         TimestampRange,
@@ -94,7 +93,6 @@ pub struct SearchIndexBootstrapWorker<RT: Runtime> {
     table_mapping: NamespacedTableMapping,
     committer_client: CommitterClient,
     backoff: Backoff,
-    pause_client: PauseClient,
 }
 
 const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
@@ -438,12 +436,12 @@ pub fn stream_revision_pairs_for_indexes<'a>(
 ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
     let document_stream = persistence
         .load_documents(range, Order::Asc)
-        .try_filter(|(_, id, _)| {
-            let is_in_indexed_table = tables_with_indexes.contains(&id.table());
+        .try_filter(|entry| {
+            let is_in_indexed_table = tables_with_indexes.contains(&entry.id.table());
             if !is_in_indexed_table {
                 log_document_skipped();
             }
-            future::ready(tables_with_indexes.contains(&id.table()))
+            future::ready(tables_with_indexes.contains(&entry.id.table()))
         });
     stream_revision_pairs(document_stream, persistence)
 }
@@ -455,7 +453,6 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
         persistence: RepeatablePersistence,
         table_mapping: NamespacedTableMapping,
         committer_client: CommitterClient,
-        pause_client: PauseClient,
     ) -> Self {
         Self {
             runtime,
@@ -464,7 +461,6 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
             persistence,
             committer_client,
             backoff: Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF),
-            pause_client,
         }
     }
 
@@ -476,7 +472,7 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
                 // Forgive OCC errors < N to match UDF mutation retry behavior.
                 if !e.is_occ() || (self.backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
                 {
-                    report_error(&mut e.context("SearchAndVectorBootstrapWorker died"));
+                    report_error(&mut e.context("SearchAndVectorBootstrapWorker died")).await;
                     tracing::error!(
                         "SearchIndexBoostrapWorker died, num_failures: {}. Backing off for {}ms",
                         self.backoff.failures(),
@@ -501,7 +497,8 @@ impl<RT: Runtime> SearchIndexBootstrapWorker<RT> {
 
     async fn run(&mut self) -> anyhow::Result<()> {
         let bootstrapped_indexes = self.bootstrap().await?;
-        self.pause_client.wait(FINISHED_BOOTSTRAP_UPDATES).await;
+        let pause_client = self.runtime.pause_client();
+        pause_client.wait(FINISHED_BOOTSTRAP_UPDATES).await;
         self.committer_client
             .finish_search_and_vector_bootstrap(
                 bootstrapped_indexes,
@@ -570,6 +567,7 @@ mod tests {
         },
         runtime::Runtime,
         types::{
+            IndexDescriptor,
             IndexId,
             IndexName,
             WriteTimestamp,
@@ -937,7 +935,7 @@ mod tests {
     }
 
     fn backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
-        let index_name = IndexName::new(table(), "vector_index".parse()?)?;
+        let index_name = IndexName::new(table(), IndexDescriptor::new("vector_index")?)?;
         let vector_field: FieldPath = "vector".parse()?;
         let filter_field: FieldPath = "channel".parse()?;
         let metadata = IndexMetadata::new_backfilling_vector_index(
@@ -1191,7 +1189,7 @@ mod tests {
         );
         flusher.step().await?;
 
-        let index_name = IndexName::new(table_name, "by_text".parse()?)?;
+        let index_name = IndexName::new(table_name, IndexDescriptor::new("by_text")?)?;
         let mut tx = db.begin_system().await?;
         let mut model = IndexModel::new(&mut tx);
         let index_doc = model

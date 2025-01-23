@@ -118,7 +118,7 @@ pub fn syscall_impl<RT: Runtime, P: SyscallProvider<RT>>(
 
         #[cfg(any(test, feature = "testing"))]
         "throwSystemError" => anyhow::bail!("I can't go for that."),
-        "throwOcc" => anyhow::bail!(ErrorMetadata::user_occ(None, None, None)),
+        "throwOcc" => anyhow::bail!(ErrorMetadata::user_occ(None, None, None, None)),
         "throwOverloaded" => {
             anyhow::bail!(ErrorMetadata::overloaded("Busy", "I'm a bit busy."))
         },

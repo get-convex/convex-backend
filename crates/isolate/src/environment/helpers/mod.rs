@@ -1,12 +1,7 @@
-mod json_packed_value;
 pub mod module_loader;
-mod outcome;
 pub mod permit;
 mod promise;
 pub mod syscall_error;
-mod syscall_stats;
-mod syscall_trace;
-pub mod validation;
 mod version;
 
 use deno_core::{
@@ -17,14 +12,10 @@ use errors::ErrorMetadata;
 use serde_json::Value as JsonValue;
 
 pub use self::{
-    json_packed_value::JsonPackedValue,
-    outcome::FunctionOutcome,
     promise::{
         resolve_promise,
         resolve_promise_allow_all_errors,
     },
-    syscall_stats::SyscallStats,
-    syscall_trace::SyscallTrace,
     version::parse_version,
 };
 

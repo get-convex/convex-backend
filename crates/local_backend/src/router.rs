@@ -30,15 +30,18 @@ use common::{
 };
 use http::{
     header::{
+        ACCEPT,
+        ACCEPT_LANGUAGE,
         AUTHORIZATION,
         CONTENT_TYPE,
+        REFERER,
+        USER_AGENT,
     },
     request,
     HeaderValue,
     Method,
     StatusCode,
 };
-use isolate::HTTP_ACTION_BODY_LIMIT;
 use metrics::SERVER_VERSION_STR;
 use tower::ServiceBuilder;
 use tower_http::{
@@ -48,11 +51,15 @@ use tower_http::{
     },
     decompression::RequestDecompressionLayer,
 };
+use udf::HTTP_ACTION_BODY_LIMIT;
 
 use crate::{
     app_metrics::{
         cache_hit_percentage,
+        cache_hit_percentage_top_k,
+        failure_percentage_top_k,
         latency_percentiles,
+        scheduled_job_lag,
         table_rate,
         udf_rate,
     },
@@ -125,10 +132,7 @@ use crate::{
         storage_get,
         storage_upload,
     },
-    subs::{
-        sync,
-        sync_client_version_url,
-    },
+    subs::sync,
     LocalAppState,
     RouterState,
 };
@@ -148,7 +152,7 @@ pub fn router(st: LocalAppState) -> Router {
     let browser_routes = Router::new()
         // Called by the browser (and optionally authenticated by a cookie or `Authorization`
         // header). Passes version in the URL because websockets can't do it in header.
-        .route("/:client_version/sync", get(sync_client_version_url));
+        .route("/:client_version/sync", get(sync));
 
     let dashboard_routes = common_dashboard_routes()
         // Scheduled jobs routes
@@ -312,9 +316,15 @@ where
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))
         .route("/udf_rate", get(udf_rate))
+        .route("/failure_percentage_top_k", get(failure_percentage_top_k))
+        .route(
+            "/cache_hit_percentage_top_k",
+            get(cache_hit_percentage_top_k),
+        )
         .route("/cache_hit_percentage", get(cache_hit_percentage))
         .route("/table_rate", get(table_rate))
         .route("/latency_percentiles", get(latency_percentiles))
+        .route("/scheduled_job_lag", get(scheduled_job_lag))
 }
 
 // Routes with the same handlers for the local backend + closed source backend
@@ -335,7 +345,17 @@ where
 
 pub fn cors() -> CorsLayer {
     CorsLayer::new()
-        .allow_headers(vec![CONTENT_TYPE, "sentry-trace".parse().unwrap(), "baggage".parse().unwrap(), CONVEX_CLIENT_HEADER, AUTHORIZATION])
+        .allow_headers(vec![
+           "baggage".parse().unwrap(),
+           "sentry-trace".parse().unwrap(),
+           ACCEPT,
+           ACCEPT_LANGUAGE,
+           AUTHORIZATION,
+           CONTENT_TYPE,
+           CONVEX_CLIENT_HEADER,
+           REFERER,
+           USER_AGENT,
+        ])
         .allow_credentials(true)
         .allow_methods(vec![
             Method::GET,

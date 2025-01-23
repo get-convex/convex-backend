@@ -48,3 +48,6 @@ testing = [
     "rsa",
     "runtime/testing",
 ]
+
+[lints]
+workspace = true

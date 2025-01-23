@@ -11,6 +11,17 @@ export default queryPrivateSystem({
   },
 });
 
+export const latestCloudExport = queryPrivateSystem({
+  args: {},
+  handler: async function ({ db }): Promise<Export | null> {
+    return await db
+      .query("_exports")
+      .withIndex("by_requestor", (q) => q.eq("requestor", "cloudBackup"))
+      .order("desc")
+      .first();
+  },
+});
+
 export const canExportFileStorage = queryGeneric({
   args: {},
   handler: async (ctx) => {

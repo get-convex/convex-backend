@@ -108,7 +108,7 @@ fn load_datasets(
     let mut terms = 0;
     for dataset in datasets {
         let mut frequency_map: BTreeMap<String, u32> = BTreeMap::new();
-        let f = File::open(&format!("{path}/{dataset}.jsonl"))?;
+        let f = File::open(format!("{path}/{dataset}.jsonl"))?;
         let f = BufReader::new(f);
         let mut documents = vec![];
         let mut m = 0;
@@ -168,7 +168,7 @@ fn create_subscription_token(
     token: String,
 ) -> Token {
     let index_name: GenericIndexName<TabletId> =
-        GenericIndexName::new(tablet_id, IndexDescriptor::from_str("index").unwrap()).unwrap();
+        GenericIndexName::new(tablet_id, IndexDescriptor::new("index").unwrap()).unwrap();
 
     Token::text_search_token(
         index_name,

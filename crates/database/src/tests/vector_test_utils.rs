@@ -26,6 +26,7 @@ use common::{
     runtime::Runtime,
     types::{
         GenericIndexName,
+        IndexDescriptor,
         IndexName,
         TabletIndexName,
     },
@@ -261,8 +262,7 @@ impl VectorFixtures {
         self.new_index_flusher_with_full_scan_threshold(*MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB)
     }
 
-    pub async fn run_compaction_during_flush(&self) -> anyhow::Result<()> {
-        let (mut pause, pause_client) = PauseController::new([FLUSH_RUNNING_LABEL]);
+    pub async fn run_compaction_during_flush(&self, pause: PauseController) -> anyhow::Result<()> {
         let mut flusher = new_vector_flusher_for_tests(
             self.rt.clone(),
             self.db.clone(),
@@ -272,12 +272,12 @@ impl VectorFixtures {
             0,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             8,
-            Some(pause_client),
         );
+        let hold_guard = pause.hold(FLUSH_RUNNING_LABEL);
         let flush = flusher.step();
         let compactor = self.new_compactor().await?;
         let compact_during_flush = async move {
-            if let Some(mut pause_guard) = pause.wait_for_blocked(FLUSH_RUNNING_LABEL).await {
+            if let Some(pause_guard) = hold_guard.wait_for_blocked().await {
                 compactor.step().await?;
                 pause_guard.unpause();
             };
@@ -300,7 +300,6 @@ impl VectorFixtures {
             0,
             full_scan_threshold_kb,
             *VECTOR_INDEX_SIZE_SOFT_LIMIT,
-            None,
         ))
     }
 
@@ -317,7 +316,6 @@ impl VectorFixtures {
             0,
             *MULTI_SEGMENT_FULL_SCAN_THRESHOLD_KB,
             incremental_part_threshold,
-            None,
         ))
     }
 
@@ -438,7 +436,7 @@ pub struct IndexData {
 
 fn new_backfilling_vector_index() -> anyhow::Result<IndexMetadata<TableName>> {
     let table_name: TableName = "table".parse()?;
-    let index_name = IndexName::new(table_name, "vector_index".parse()?)?;
+    let index_name = IndexName::new(table_name, IndexDescriptor::new("vector_index")?)?;
     let vector_field: FieldPath = "vector".parse()?;
     let filter_field: FieldPath = "channel".parse()?;
     let metadata = IndexMetadata::new_backfilling_vector_index(

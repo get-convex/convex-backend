@@ -27,7 +27,7 @@ use crate::{
     metrics::module_load_timer,
 };
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub async fn get_module_and_prefetch(
     modules_storage: Arc<dyn Storage>,
     module_metadata: ParsedDocument<ModuleMetadata>,
@@ -55,7 +55,7 @@ pub async fn get_module_and_prefetch(
     }
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 async fn download_module_source_from_package(
     modules_storage: Arc<dyn Storage>,
     source_package: ParsedDocument<SourcePackage>,

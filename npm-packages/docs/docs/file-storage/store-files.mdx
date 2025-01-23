@@ -1,0 +1,45 @@
+---
+title: "Storing Generated Files"
+sidebar_label: "Store"
+sidebar_position: 2
+---
+
+import StoreImageTS from "!!raw-loader!@site/../private-demos/snippets/convex/images.ts";
+import StoreImageJS from "!!raw-loader!@site/../private-demos/snippets/convex/imagesJS.js";
+
+Files can be uploaded to Convex from a client and stored directly, see
+[Upload](/docs/file-storage/upload-files.mdx).
+
+Alternatively files can also be stored after they've been fetched or generated
+in [actions](/docs/functions/actions.mdx) and
+[HTTP actions](/docs/functions/http-actions.mdx). For example you might call a
+third-party API to generate an image based on a user prompt and then store that
+image in Convex.
+
+**Example:**
+[Dall-E Storage & Action](https://github.com/get-convex/convex-demos/tree/main/dall-e-storage-action)
+
+## Storing files in actions
+
+Storing files in actions is similar to
+[uploading a file via an HTTP action](/docs/file-storage/upload-files.mdx#uploading-files-via-an-http-action).
+
+The action takes these steps:
+
+1. Fetch or generate an image.
+2. Store the image using
+   [`storage.store()`](/api/interfaces/server.StorageActionWriter#store) and
+   receive a storage ID.
+3. Save the storage ID into your data model via a mutation.
+
+Storage IDs correspond to documents in the `"_storage"` system table (see
+[Metadata](/docs/file-storage/file-metadata.mdx)), so they can be validated
+using the `v.id("_storage")` validator and typed as `Id<"_storage">` in
+TypeScript.
+
+<TSAndJSSnippet
+  title="convex/images.ts"
+  sourceTS={StoreImageTS}
+  sourceJS={StoreImageJS}
+  highlightPatterns={["fetch", "storage.store", "runMutation\\("]}
+/>

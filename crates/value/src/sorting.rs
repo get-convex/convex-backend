@@ -10,14 +10,15 @@
 //! layer](https://github.com/apple/foundationdb/blob/master/design/tuple.md).
 //! 1) Values are always prefixed with a tag.
 //! 2) Binary strings are stored with `0x0` as a delimiter. Null bytes within
-//! the string are escaped to `0x0 0xFF`, which implies that `0xFF` must never
-//! be a valid tag. 3) 64-bit signed integers are stored as either 1, 2, 4, or 8
-//! bytes, with the size stored within the tag. There is a negative variant of
-//! the tag that orders negatives before positives. 4) Floats are stored
-//! according to IEEE-754 total ordering. See (<https://github.com/apple/foundationdb/blob/master/design/tuple.md#ieee-binary-floating-point>)[FoundationDB's
-//! notes] for an explanation of the algorithm.
+//!    the string are escaped to `0x0 0xFF`, which implies that `0xFF` must
+//!    never be a valid tag.
+//! 3) 64-bit signed integers are stored as either 1, 2, 4, or 8 bytes, with the
+//!    size stored within the tag. There is a negative variant of the tag that
+//!    orders negatives before positives.
+//! 4) Floats are stored according to IEEE-754 total ordering. See [FoundationDB's notes](https://github.com/apple/foundationdb/blob/master/design/tuple.md#ieee-binary-floating-point)
+//!    for an explanation of the algorithm.
 //! 5) Compound types, like arrays, are stored sequentially, with a null
-//! terminator at the end.
+//!    terminator at the end.
 use std::{
     cmp::Ordering,
     io::{

@@ -1,0 +1,20 @@
+{
+  "name": "components-poc",
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "convex dev"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "convex-helpers": "0.1.67",
+    "@convex-dev/ratelimiter": "workspace:*",
+    "@convex-dev/triggers": "workspace:*"
+  },
+  "devDependencies": {
+    "prettier": "3.4.2",
+    "@types/node": "^18.17.0",
+    "typescript": "~5.0.3"
+  }
+}

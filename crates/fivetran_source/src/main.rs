@@ -1,6 +1,5 @@
 #![feature(coroutines)]
 #![feature(iterator_try_collect)]
-#![feature(lazy_cell)]
 
 mod connector;
 mod convert;

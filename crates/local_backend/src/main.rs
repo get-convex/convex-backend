@@ -1,9 +1,6 @@
 #![feature(let_chains)]
 
-use std::{
-    sync::Arc,
-    time::Duration,
-};
+use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -12,9 +9,9 @@ use common::{
     errors::MainError,
     http::ConvexHttpService,
     runtime::Runtime,
+    shutdown::ShutdownSignal,
     version::SERVER_VERSION_STR,
 };
-use database::ShutdownSignal;
 use futures::{
     future::{
         self,
@@ -25,13 +22,13 @@ use futures::{
 use local_backend::{
     config::LocalConfig,
     make_app,
+    persistence::connect_persistence,
     proxy::dev_site_proxy,
     router::router,
     HttpActionRouteMapper,
     MAX_CONCURRENT_REQUESTS,
 };
 use runtime::prod::ProdRuntime;
-use sqlite::SqlitePersistence;
 use tokio::signal::{
     self,
 };
@@ -96,15 +93,24 @@ async fn run_server(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result
 async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result<()> {
     // Used to receive fatal errors from the database or /preempt endpoint.
     let (preempt_tx, mut preempt_rx) = async_broadcast::broadcast(1);
+    let preempt_signal = ShutdownSignal::new(preempt_tx.clone(), config.name());
     // Use to signal to the http service to stop.
     let (shutdown_tx, shutdown_rx) = async_broadcast::broadcast(1);
-    let persistence = SqlitePersistence::new(&config.db_spec, false)?;
+    let persistence = connect_persistence(
+        config.db,
+        &config.db_spec,
+        config.do_not_require_ssl,
+        &config.name(),
+        runtime.clone(),
+        preempt_signal.clone(),
+    )
+    .await?;
     let st = make_app(
         runtime.clone(),
         config.clone(),
-        Arc::new(persistence),
+        persistence,
         shutdown_rx.clone(),
-        ShutdownSignal::new(preempt_tx.clone()),
+        preempt_signal.clone(),
     )
     .await?;
     let router = router(st.clone());

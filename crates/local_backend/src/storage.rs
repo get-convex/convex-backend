@@ -188,10 +188,18 @@ pub async fn storage_get(
             .get_file_range(&host, request_id, origin, component, file_storage_id, range)
             .await?;
 
+        let (status, content_range) = match content_range {
+            Some(content_range) => (
+                StatusCode::PARTIAL_CONTENT,
+                Some(TypedHeader(content_range)),
+            ),
+            None => (StatusCode::OK, None),
+        };
+
         return Ok((
-            StatusCode::PARTIAL_CONTENT,
+            status,
             content_type.map(TypedHeader),
-            TypedHeader(content_range),
+            content_range,
             TypedHeader(content_length),
             TypedHeader(
                 CacheControl::new()

@@ -54,7 +54,7 @@ pub struct ComponentRegistry {
 }
 
 impl ComponentRegistry {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn bootstrap(
         table_mapping: &TableMapping,
         component_docs: Vec<ParsedDocument<ComponentMetadata>>,
@@ -322,7 +322,7 @@ pub(crate) struct Update<'a> {
     update: Option<ComponentUpdate>,
 }
 
-impl<'a> Update<'a> {
+impl Update<'_> {
     pub(crate) fn apply(self) {
         if let Some(update) = self.update {
             let components = &mut self.registry.components;

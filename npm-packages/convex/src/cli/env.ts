@@ -14,7 +14,7 @@ import {
   fetchDeploymentCredentialsWithinCurrentProject,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
-import { runQuery } from "./lib/run.js";
+import { runSystemQuery } from "./lib/run.js";
 import {
   deploymentFetch,
   ensureHasConvexDependency,
@@ -88,14 +88,13 @@ const envGet = new Command("get")
         deploymentSelection,
       );
 
-    const envVar = (await runQuery(
-      ctx,
-      url,
+    const envVar = (await runSystemQuery(ctx, {
+      deploymentUrl: url,
       adminKey,
-      "_system/cli/queryEnvironmentVariables:get",
-      undefined,
-      { name: envVarName },
-    )) as EnvVar | null;
+      functionName: "_system/cli/queryEnvironmentVariables:get",
+      componentPath: undefined,
+      args: { name: envVarName },
+    })) as EnvVar | null;
     if (envVar === null) {
       logFailure(ctx, `Environment variable "${envVarName}" not found.`);
       return;
@@ -141,14 +140,13 @@ const envList = new Command("list")
         deploymentSelection,
       );
 
-    const envs = (await runQuery(
-      ctx,
-      url,
+    const envs = (await runSystemQuery(ctx, {
+      deploymentUrl: url,
       adminKey,
-      "_system/cli/queryEnvironmentVariables",
-      undefined,
-      {},
-    )) as EnvVar[];
+      functionName: "_system/cli/queryEnvironmentVariables",
+      componentPath: undefined,
+      args: {},
+    })) as EnvVar[];
     if (envs.length === 0) {
       logMessage(ctx, "No environment variables set.");
       return;
@@ -179,7 +177,10 @@ async function callUpdateEnvironmentVariables(
       ctx,
       deploymentSelection,
     );
-  const fetch = deploymentFetch(url, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl: url,
+    adminKey,
+  });
   try {
     await fetch("/api/update_environment_variables", {
       body: JSON.stringify({ changes }),

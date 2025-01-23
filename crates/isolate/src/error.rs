@@ -1,3 +1,4 @@
+use anyhow::Context;
 use common::{
     errors::{
         FrameData,
@@ -9,6 +10,7 @@ use deno_core::{
     v8,
     ModuleSpecifier,
 };
+use errors::ErrorMetadataAnyhowExt;
 use sourcemap::SourceMap;
 use value::ConvexValue;
 
@@ -25,7 +27,7 @@ use crate::{
     metrics,
 };
 
-impl<'a, 'b, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, E> {
+impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, RT, E> {
     pub fn format_traceback(&mut self, exception: v8::Local<v8::Value>) -> anyhow::Result<JsError> {
         // Check if we hit a system error or timeout and can't run any JavaScript now.
         // Abort with a system error here, and we'll (in the best case) pull out
@@ -70,6 +72,39 @@ impl<'a, 'b, RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'a, 'b, RT, 
         };
         Ok(Some(SourceMap::from_slice(source_map.as_bytes())?))
     }
+
+    pub fn nicely_show_line_number_on_error(
+        &mut self,
+        name: &ModuleSpecifier,
+        location: v8::Location,
+        e: anyhow::Error,
+    ) -> anyhow::Result<!> {
+        let source_map = self.lookup_source_map(name)?;
+        let line = location.get_line_number();
+        let col = location.get_column_number();
+        let Some(ref source_map) = source_map else {
+            return Err(e.wrap_error_message(|m| format!("{name}:{line}:{col}: {m}")));
+        };
+        let Some(token) = source_map.lookup_token(
+            location.get_line_number() as u32,
+            location.get_column_number() as u32,
+        ) else {
+            return Err(e.wrap_error_message(|m| format!("{name}:{line}:{col}: {m}")));
+        };
+        let (line, col) = token.get_src();
+        let ctx = token
+            .get_source_view()
+            .context("Source View missing?")?
+            .get_line(line)
+            .context("Line missing?")?;
+        Err(e.wrap_error_message(|m| {
+            format!(
+                "{name}:{line}:{col}: {m}\n\n{ctx}\n{}{}",
+                " ".repeat(col as usize),
+                "~".repeat(ctx.len() - col as usize)
+            )
+        }))
+    }
 }
 
 pub fn extract_source_mapped_error(
@@ -97,22 +132,31 @@ pub fn extract_source_mapped_error(
     // Access the `stack` property to ensure `prepareStackTrace` has been called.
     // NOTE if this is the first time accessing `stack`, it will call the op
     // `error/stack` which does a redundant source map lookup.
-    let _stack: v8::Local<v8::String> = get_property(scope, exception_obj, "stack")?
+    let stack: v8::Local<v8::String> = get_property(scope, exception_obj, "stack")?
         .ok_or_else(|| anyhow::anyhow!("Exception was missing the `stack` property"))?
         .try_into()?;
 
-    let frame_data: v8::Local<v8::String> = get_property(scope, exception_obj, "__frameData")?
-        .ok_or_else(|| anyhow::anyhow!("Exception was missing the `__frameData` property"))?
-        .try_into()?;
+    let frame_data = get_property(scope, exception_obj, "__frameData")?
+        .ok_or_else(|| anyhow::anyhow!("Exception was missing the `__frameData` property"))?;
+
+    // Sometimes the frame_data is undefined. What's that about?
+    if frame_data.is_undefined() {
+        anyhow::bail!(
+            "Exception frame data was undefined, stack: {:?}",
+            to_rust_string(scope, &stack)?
+        );
+    }
+
+    let frame_data: v8::Local<v8::String> = frame_data.try_into()?;
     let frame_data = to_rust_string(scope, &frame_data)?;
     let frame_data: Vec<FrameData> = serde_json::from_str(&frame_data)?;
 
     // error[error.ConvexErrorSymbol] === true
     let convex_error_symbol = get_property(scope, exception_obj, "ConvexErrorSymbol")?;
-    let is_convex_error = convex_error_symbol.map_or(false, |symbol| {
+    let is_convex_error = convex_error_symbol.is_some_and(|symbol| {
         exception_obj
             .get(scope, symbol)
-            .map_or(false, |v| v.is_true())
+            .is_some_and(|v| v.is_true())
     });
 
     let custom_data = if is_convex_error {

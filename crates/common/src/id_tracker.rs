@@ -39,7 +39,6 @@ pub const ID_TABLE_VERSION: u8 = 1;
 /// This implementation currently loads the full indexes into memory, but we
 /// could eventually change this to use `mmap(2)` to lazily load pieces as
 /// necessary.
-
 pub struct StaticIdTracker {
     count: usize,
     /// Convex IDs in search/vector index id order.
@@ -48,7 +47,7 @@ pub struct StaticIdTracker {
 }
 
 impl StaticIdTracker {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn load_from_path<P: AsRef<Path>>(id_table_path: P) -> anyhow::Result<Self> {
         let _timer = load_id_tracker_timer();
         let uuid_file = File::open(id_table_path)?;

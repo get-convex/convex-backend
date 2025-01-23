@@ -1,6 +1,6 @@
 use anyhow::Context;
 use common::errors::{
-    report_error,
+    report_error_sync,
     FrameData,
     JsError,
 };
@@ -17,7 +17,7 @@ pub fn op_throw_uncatchable_developer_error<'b, P: OpProvider<'b>>(
     let js_error = JsError::from_frames(message.clone(), frame_data, None, |s| {
         provider.lookup_source_map(s)
     });
-    report_error(&mut anyhow::anyhow!(format!(
+    report_error_sync(&mut anyhow::anyhow!(format!(
         "UncatchableDeveloperError: {}",
         message
     )));

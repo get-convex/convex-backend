@@ -5,12 +5,12 @@ use common::{
     },
     execution_context::ExecutionContext,
 };
+use fastrace::Event;
 use futures::{
     future::BoxFuture,
     select_biased,
     FutureExt,
 };
-use minitrace::Event;
 use model::{
     environment_variables::types::{
         EnvVarName,
@@ -21,18 +21,19 @@ use model::{
         user_error::FunctionNotFoundError,
     },
 };
+use udf::{
+    helpers::serialize_udf_args,
+    FunctionOutcome,
+    SyscallTrace,
+};
 pub mod async_syscall;
 
-pub mod outcome;
 mod phase;
 pub mod syscall;
 use std::{
     cmp::Ordering,
     collections::VecDeque,
-    sync::{
-        Arc,
-        LazyLock,
-    },
+    sync::Arc,
 };
 
 use anyhow::anyhow;
@@ -87,11 +88,13 @@ use keybroker::KeyBroker;
 use rand::Rng;
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use udf::UdfOutcome;
 use value::{
     heap_size::{
         HeapSize,
         WithHeapSize,
     },
+    JsonPackedValue,
     NamespacedTableMapping,
     Size,
     TableMappingValue,
@@ -106,7 +109,6 @@ use self::{
         PendingSyscall,
         QueryManager,
     },
-    outcome::UdfOutcome,
     phase::UdfPhase,
     syscall::syscall_impl,
 };
@@ -130,9 +132,6 @@ use crate::{
         helpers::{
             module_loader::module_specifier_from_path,
             resolve_promise,
-            FunctionOutcome,
-            JsonPackedValue,
-            SyscallTrace,
             MAX_LOG_LINES,
         },
         udf::async_syscall::DatabaseSyscallsV1,
@@ -142,7 +141,6 @@ use crate::{
     helpers::{
         self,
         deserialize_udf_result,
-        serialize_udf_args,
     },
     isolate::{
         Isolate,
@@ -161,18 +159,6 @@ use crate::{
     },
 };
 
-pub static CONVEX_ORIGIN: LazyLock<EnvVarName> = LazyLock::new(|| {
-    "CONVEX_CLOUD_URL"
-        .parse()
-        .expect("CONVEX_CLOUD_URL should be a valid EnvVarName")
-});
-
-pub static CONVEX_SITE: LazyLock<EnvVarName> = LazyLock::new(|| {
-    "CONVEX_SITE_URL"
-        .parse()
-        .expect("CONVEX_SITE_URL should be a valid EnvVarName")
-});
-
 pub struct DatabaseUdfEnvironment<RT: Runtime> {
     rt: RT,
 
@@ -181,6 +167,7 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     arguments: ConvexArray,
     identity: InertIdentity,
     udf_server_version: Option<semver::Version>,
+    client_id: String,
 
     phase: UdfPhase<RT>,
     file_storage: TransactionalFileStorage<RT>,
@@ -311,7 +298,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 }
 
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn new(
         rt: RT,
         EnvironmentData {
@@ -331,6 +318,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         }: UdfRequest<RT>,
         reactor_depth: usize,
         udf_callback: Box<dyn UdfCallback<RT>>,
+        client_id: String,
     ) -> Self {
         let persistence_version = transaction.persistence_version();
         let (path, arguments, udf_server_version) = path_and_args.consume();
@@ -367,10 +355,11 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
 
             reactor_depth,
             udf_callback,
+            client_id,
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run(
         mut self,
         client_id: String,
@@ -383,11 +372,13 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         // system-generated input.
         let rng_seed = self.rt.rng().gen();
         let unix_timestamp = self.rt.unix_timestamp();
+        let heap_stats = self.heap_stats.clone();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
         let client_id = Arc::new(client_id);
+        let path = self.path.clone();
         let (handle, state) = isolate.start_request(client_id, self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
@@ -405,7 +396,9 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         *isolate_clean = true;
 
         // Override the returned result if we hit a termination error.
-        match handle.take_termination_error() {
+        let termination_error = handle
+            .take_termination_error(Some(heap_stats.get()), &format!("{:?}", path.for_logging()));
+        match termination_error {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
                 result = Ok(Err(e));
@@ -449,6 +442,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 path: self.path.for_logging(),
                 arguments: self.arguments,
                 identity: self.identity,
+                observed_identity: self.phase.observed_identity(),
                 rng_seed,
                 observed_rng: self.phase.observed_rng(),
                 unix_timestamp,
@@ -468,6 +462,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 path: self.path.for_logging(),
                 arguments: self.arguments,
                 identity: self.identity,
+                observed_identity: self.phase.observed_identity(),
                 rng_seed,
                 observed_rng: self.phase.observed_rng(),
                 unix_timestamp,
@@ -487,7 +482,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
     }
 
     #[convex_macro::instrument_future]
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_inner(
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         cancellation: BoxFuture<'_, ()>,
@@ -560,7 +555,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             );
             return Ok(Err(JsError::from_message(message)));
         }
-        let function: v8::Local<v8::Function> = namespace
+        let function: v8::Local<v8::Object> = namespace
             .get(&mut scope, function_str)
             .ok_or_else(|| anyhow!("Did not find function in module after checking?"))?
             .try_into()?;
@@ -738,11 +733,12 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             // Complete the syscall's promise, which will put its handlers on the microtask
             // queue.
             for (resolver, result) in resolvers.into_iter().zip(results.into_iter()) {
+                let mut result_scope = v8::HandleScope::new(&mut *scope);
                 let result_v8 = match result {
-                    Ok(v) => Ok(serde_v8::to_v8(&mut scope, v)?),
+                    Ok(v) => Ok(serde_v8::to_v8(&mut result_scope, v)?),
                     Err(e) => Err(e),
                 };
-                resolve_promise(&mut scope, resolver, result_v8)?;
+                resolve_promise(&mut result_scope, resolver, result_v8)?;
             }
             handle.check_terminated()?;
         }

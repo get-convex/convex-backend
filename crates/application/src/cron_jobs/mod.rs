@@ -21,13 +21,13 @@ use common::{
         JsError,
     },
     execution_context::ExecutionContext,
+    fastrace_helpers::get_sampled_span,
     identity::InertIdentity,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     log_lines::LogLines,
-    minitrace_helpers::get_sampled_span,
     query::{
         IndexRange,
         Order,
@@ -47,6 +47,7 @@ use database::{
     Transaction,
 };
 use errors::ErrorMetadataAnyhowExt;
+use fastrace::future::FutureExt as _;
 use futures::{
     future::Either,
     select_biased,
@@ -55,9 +56,7 @@ use futures::{
     TryStreamExt,
 };
 use futures_async_stream::try_stream;
-use isolate::JsonPackedValue;
 use keybroker::Identity;
-use minitrace::future::FutureExt as _;
 use model::{
     backend_state::BackendStateModel,
     cron_jobs::{
@@ -79,6 +78,7 @@ use sync_types::Timestamp;
 use tokio::sync::mpsc;
 use usage_tracking::FunctionUsageTracker;
 use value::{
+    JsonPackedValue,
     ResolvedDocumentId,
     TableNamespace,
 };
@@ -129,7 +129,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             while let Err(mut e) = executor.run(&mut backoff).await {
                 // Only report OCCs that happen repeatedly
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                 }
                 let delay = backoff.fail(&mut executor.rt.rng());
                 tracing::error!("Cron job executor failed, sleeping {delay:?}");
@@ -308,7 +308,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 Err(mut e) => {
                     let delay = function_backoff.fail(&mut self.rt.rng());
                     tracing::error!("System error executing job:, sleeping {delay:?}");
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                     metrics::log_cron_job_failure(&e);
                     self.rt.wait(delay).await;
                 },
@@ -621,7 +621,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 {
                     let delay = backoff.fail(&mut self.rt.rng());
                     tracing::error!("Failed to update action state, sleeping {delay:?}");
-                    report_error(&mut err);
+                    report_error(&mut err).await;
                     self.rt.wait(delay).await;
                 }
                 self.function_log.log_action(completion, usage_tracker);

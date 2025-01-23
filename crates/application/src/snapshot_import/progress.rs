@@ -1,6 +1,5 @@
 use common::{
     components::ComponentPath,
-    pause::PauseClient,
     runtime::Runtime,
     types::TableName,
 };
@@ -52,7 +51,6 @@ pub async fn add_checkpoint_message<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity.clone(),
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_add_checkpoint_message",
             |tx| {
                 async {

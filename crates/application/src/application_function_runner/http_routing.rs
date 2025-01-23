@@ -35,15 +35,6 @@ use futures::{
     StreamExt,
 };
 use http::StatusCode;
-use isolate::{
-    HttpActionOutcome,
-    HttpActionRequest,
-    HttpActionRequestHead,
-    HttpActionResponsePart,
-    HttpActionResponseStreamer,
-    HttpActionResult,
-    ValidatedHttpPath,
-};
 use keybroker::Identity;
 use model::modules::{
     ModuleModel,
@@ -55,13 +46,22 @@ use sync_types::{
 };
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use udf::{
+    validation::ValidatedHttpPath,
+    HttpActionOutcome,
+    HttpActionRequest,
+    HttpActionRequestHead,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+};
 use usage_tracking::FunctionUsageTracker;
 
 use super::ApplicationFunctionRunner;
 use crate::function_log::HttpActionStatusCode;
 
 impl<RT: Runtime> ApplicationFunctionRunner<RT> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_http_action(
         &self,
         request_id: RequestId,
@@ -69,7 +69,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         mut response_streamer: HttpActionResponseStreamer,
         identity: Identity,
         caller: FunctionCaller,
-    ) -> anyhow::Result<isolate::HttpActionResult> {
+    ) -> anyhow::Result<udf::HttpActionResult> {
         let start = self.runtime.monotonic_now();
         let usage_tracker = FunctionUsageTracker::new();
 
@@ -83,14 +83,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 Some(r) => r,
                 None => {
                     drop(tx);
-                    let response_parts = isolate::HttpActionResponsePart::from_text(
+                    let response_parts = udf::HttpActionResponsePart::from_text(
                         StatusCode::NOT_FOUND,
                         "This Convex deployment does not have HTTP actions enabled.".to_string(),
                     );
                     for part in response_parts {
                         response_streamer.send_part(part)?;
                     }
-                    return Ok(isolate::HttpActionResult::Streamed);
+                    return Ok(udf::HttpActionResult::Streamed);
                 },
             };
         let path = CanonicalizedComponentFunctionPath {
@@ -102,7 +102,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         };
         let validated_path = match ValidatedHttpPath::new(&mut tx, path).await? {
             Ok(validated_path) => validated_path,
-            Err(e) => return Ok(isolate::HttpActionResult::Error(e)),
+            Err(e) => return Ok(udf::HttpActionResult::Error(e)),
         };
         let unix_timestamp = self.runtime.unix_timestamp();
         let context = ExecutionContext::new(request_id, &caller);
@@ -239,7 +239,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         Ok(HttpActionResult::Streamed)
                     },
                     None => {
-                        let result = isolate::HttpActionResult::Error(js_err.clone());
+                        let result = udf::HttpActionResult::Error(js_err.clone());
                         let outcome = HttpActionOutcome::new(
                             None,
                             request_head,

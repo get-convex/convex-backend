@@ -54,13 +54,24 @@ export const convexImport = new Command("import")
     new Option(
       "--replace",
       "Replace all existing data in any of the imported tables",
-    ).conflicts("--append"),
+    )
+      .conflicts("--append")
+      .conflicts("--replace-all"),
+  )
+  .addOption(
+    new Option("--append", "Append imported data to any existing tables")
+      .conflicts("--replace-all")
+      .conflicts("--replace"),
   )
   .addOption(
     new Option(
-      "--append",
-      "Append imported data to any existing tables",
-    ).conflicts("--replace"),
+      "--replace-all",
+      "Replace all existing data in the deployment with the imported tables,\n" +
+        "  deleting tables that don't appear in the import file or the schema,\n" +
+        "  and clearing tables that appear in the schema but not in the import file",
+    )
+      .conflicts("--append")
+      .conflicts("--replace"),
   )
   .option(
     "-y, --yes",
@@ -160,6 +171,8 @@ export const convexImport = new Command("import")
       mode = "append";
     } else if (options.replace) {
       mode = "replace";
+    } else if (options.replaceAll) {
+      mode = "replaceAll";
     }
     const importArgs = {
       tableName: tableName === null ? undefined : tableName,
@@ -365,15 +378,14 @@ export async function waitForStableImportState(
   const [donePromise, onDone] = waitUntilCalled();
   let snapshotImportState: SnapshotImportState;
   let checkpointCount = 0;
-  await subscribe(
-    ctx,
+  await subscribe(ctx, {
     deploymentUrl,
     adminKey,
-    "_system/cli/queryImport",
-    { importId },
-    undefined,
-    donePromise,
-    {
+    parsedFunctionName: "_system/cli/queryImport",
+    parsedFunctionArgs: { importId },
+    componentPath: undefined,
+    until: donePromise,
+    callbacks: {
       onChange: (value: any) => {
         snapshotImportState = value.state;
         switch (snapshotImportState.state) {
@@ -396,7 +408,7 @@ export async function waitForStableImportState(
         }
       },
     },
-  );
+  });
   return snapshotImportState!;
 }
 
@@ -447,7 +459,10 @@ export async function confirmImport(
   },
 ) {
   const { importId, adminKey, deploymentUrl } = args;
-  const fetch = deploymentFetch(deploymentUrl, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl,
+    adminKey,
+  });
   const performUrl = `/api/perform_import`;
   try {
     await fetch(performUrl, {
@@ -476,7 +491,10 @@ export async function uploadForImport(
   },
 ) {
   const { deploymentUrl, adminKey, filePath } = args;
-  const fetch = deploymentFetch(deploymentUrl, adminKey);
+  const fetch = deploymentFetch(ctx, {
+    deploymentUrl,
+    adminKey,
+  });
 
   const data = ctx.fs.createReadStream(filePath, {
     highWaterMark: CHUNK_SIZE,

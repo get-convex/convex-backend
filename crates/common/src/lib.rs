@@ -2,21 +2,16 @@
 #![feature(assert_matches)]
 #![feature(binary_heap_drain_sorted)]
 #![feature(const_for)]
-#![feature(const_mut_refs)]
-#![feature(const_option)]
 #![feature(const_type_name)]
 #![feature(coroutines)]
 #![feature(iter_intersperse)]
 #![feature(let_chains)]
 #![feature(nonzero_ops)]
-#![feature(lazy_cell)]
 #![feature(try_blocks)]
 #![feature(type_alias_impl_trait)]
 #![feature(bound_as_ref)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
-#![feature(const_trait_impl)]
-#![feature(async_closure)]
 #![feature(error_iter)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(round_char_boundary)]
@@ -39,6 +34,7 @@ pub mod document;
 pub mod errors;
 pub mod execution_context;
 pub mod ext;
+pub mod fastrace_helpers;
 pub mod floating_point;
 pub mod grpc;
 pub mod heap_size;
@@ -55,7 +51,6 @@ pub mod knobs;
 pub mod log_lines;
 pub mod log_streaming;
 pub mod metrics;
-pub mod minitrace_helpers;
 pub mod numeric;
 pub mod paths;
 pub mod pause;
@@ -70,6 +65,7 @@ pub mod runtime;
 pub mod schemas;
 pub mod sha256;
 pub mod shapes;
+pub mod shutdown;
 pub mod sync;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;

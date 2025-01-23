@@ -19,25 +19,22 @@ use crate::{
     log_distribution_with_labels,
 };
 
-pub struct Timer<T: 'static> {
+pub trait TimerHistogram: Sized + 'static {
+    fn finish(timer: &mut Timer<Self>);
+}
+
+pub struct Timer<T: TimerHistogram> {
     start: Instant,
     histogram: &'static T,
     labels: BTreeSet<StaticMetricLabel>,
 }
 
-trait DropInner {
-    fn drop_inner(&mut self);
-}
-
-impl<T: 'static> DropInner for Timer<T> {
-    default fn drop_inner(&mut self) {
-        panic!("Default Drop implementation for Timer should not be callable")
-    }
-}
-
-impl<T: 'static> Drop for Timer<T> {
+impl<T: TimerHistogram> Drop for Timer<T> {
     fn drop(&mut self) {
-        self.drop_inner();
+        if std::thread::panicking() {
+            return;
+        }
+        T::finish(self);
     }
 }
 
@@ -62,10 +59,6 @@ impl Timer<VMHistogramVec> {
         self.labels.remove(&old_label);
         self.labels.insert(new_label);
     }
-
-    pub fn elapsed(&self) -> Duration {
-        self.start.elapsed()
-    }
 }
 
 impl Timer<VMHistogram> {
@@ -76,37 +69,33 @@ impl Timer<VMHistogram> {
             labels: BTreeSet::new(),
         }
     }
+}
 
+impl<T: TimerHistogram> Timer<T> {
     pub fn elapsed(&self) -> Duration {
         self.start.elapsed()
     }
 }
 
-impl DropInner for Timer<VMHistogram> {
-    fn drop_inner(&mut self) {
-        if std::thread::panicking() {
-            return;
-        }
-        let elapsed_duration = self.start.elapsed();
+impl TimerHistogram for VMHistogram {
+    fn finish(timer: &mut Timer<Self>) {
+        let elapsed_duration = timer.start.elapsed();
         let elapsed = elapsed_duration.as_secs_f64();
-        let desc = get_desc(self.histogram);
+        let desc = get_desc(timer.histogram);
         tracing::debug!("{elapsed_duration:?} for timer {desc:?}");
-        log_distribution(self.histogram, elapsed);
+        log_distribution(timer.histogram, elapsed);
     }
 }
 
-impl DropInner for Timer<VMHistogramVec> {
-    fn drop_inner(&mut self) {
-        if std::thread::panicking() {
-            return;
-        }
-        let elapsed_duration = self.start.elapsed();
+impl TimerHistogram for VMHistogramVec {
+    fn finish(timer: &mut Timer<Self>) {
+        let elapsed_duration = timer.start.elapsed();
         let elapsed = elapsed_duration.as_secs_f64();
 
-        let desc = get_desc(self.histogram);
-        tracing::debug!("{elapsed_duration:?} for timer {desc:?} {:?}", self.labels);
-        let labels = mem::take(&mut self.labels);
-        log_distribution_with_labels(self.histogram, elapsed, labels.into_iter().collect());
+        let desc = get_desc(timer.histogram);
+        tracing::debug!("{elapsed_duration:?} for timer {desc:?} {:?}", timer.labels);
+        let labels = mem::take(&mut timer.labels);
+        log_distribution_with_labels(timer.histogram, elapsed, labels.into_iter().collect());
     }
 }
 

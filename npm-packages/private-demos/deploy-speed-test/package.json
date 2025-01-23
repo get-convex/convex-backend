@@ -1,0 +1,23 @@
+{
+  "name": "deploy-speed-test",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npx convex dev --admin-key 0135d8598650f8f5cb0f30c34ec2e2bb62793bc28717c8eb6fb577996d50be5f4281b59181095065c5d0f86a2c31ddbe9b597ec62b47ded69782cd --url \"http://localhost.charlesproxy.com:8000\"",
+    "build": "tsc --noEmit"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "@faker-js/faker": "^8.0.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "eslint": "^8.29.0",
+    "prettier": "3.4.2",
+    "typescript": "~5.0.3"
+  }
+}

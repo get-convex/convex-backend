@@ -1,0 +1,35 @@
+@import "../node_modules/bootstrap/dist/css/bootstrap.min.css";
+
+main {
+  width: min(800px, 95vw);
+  margin: 0 auto;
+}
+
+.list-group-item:hover {
+  background: #f8f9fa;
+}
+
+.channel-item:hover {
+  background: #f8f9fa;
+  color: black;
+  cursor: pointer;
+}
+
+.main-content {
+  display: flex;
+}
+
+.command-hints {
+  margin-left: 4em;
+  margin-top: 1em;
+}
+
+.command-box {
+  flex-grow: 0;
+  margin-left: 1em;
+  margin-top: 1em;
+}
+
+.chat-box {
+  flex-grow: 1;
+}

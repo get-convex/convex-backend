@@ -22,14 +22,14 @@ use common::{
     components::ComponentId,
     db_schema,
     http::fetch::StaticFetchClient,
-    knobs::ACTION_USER_TIMEOUT,
-    log_streaming::NoopLogSender,
-    pause::{
-        PauseClient,
-        PauseController,
+    knobs::{
+        ACTION_USER_TIMEOUT,
+        UDF_CACHE_MAX_SIZE,
     },
+    log_streaming::NoopLogSender,
     persistence::Persistence,
     runtime::Runtime,
+    shutdown::ShutdownSignal,
     testing::TestPersistence,
     types::{
         ConvexOrigin,
@@ -39,7 +39,6 @@ use common::{
 use database::{
     Database,
     SchemaModel,
-    ShutdownSignal,
     Transaction,
 };
 use events::usage::{
@@ -50,9 +49,9 @@ use file_storage::{
     FileStorage,
     TransactionalFileStorage,
 };
-use function_runner::server::{
-    InProcessFunctionRunner,
-    InstanceStorage,
+use function_runner::{
+    in_process_function_runner::InProcessFunctionRunner,
+    server::InstanceStorage,
 };
 use isolate::{
     bundled_js::OUT_DIR,
@@ -102,17 +101,15 @@ use value::{
 };
 
 use crate::{
+    cache::QueryCache,
     cron_jobs::CronJobExecutor,
     deploy_config::{
+        FinishPushDiff,
         SchemaStatus,
         StartPushRequest,
     },
     log_visibility::AllowLogging,
-    scheduled_jobs::{
-        ScheduledJobExecutor,
-        SCHEDULED_JOB_COMMITTING,
-        SCHEDULED_JOB_EXECUTED,
-    },
+    scheduled_jobs::ScheduledJobExecutor,
     Application,
 };
 
@@ -122,31 +119,10 @@ pub static OBJECTS_TABLE_COMPONENT: ComponentId = ComponentId::test_user();
 #[derive(Default)]
 pub struct ApplicationFixtureArgs {
     pub tp: Option<TestPersistence>,
-    pub snapshot_import_pause_client: Option<PauseClient>,
-    pub scheduled_jobs_pause_client: PauseClient,
     pub event_logger: Option<Arc<dyn UsageEventLogger>>,
 }
 
 impl ApplicationFixtureArgs {
-    pub fn with_scheduled_jobs_pause_client() -> (Self, PauseController) {
-        let (pause_controller, pause_client) = PauseController::new(vec![SCHEDULED_JOB_EXECUTED]);
-        let args = ApplicationFixtureArgs {
-            scheduled_jobs_pause_client: pause_client,
-            ..Default::default()
-        };
-        (args, pause_controller)
-    }
-
-    pub fn with_scheduled_jobs_fault_client() -> (Self, PauseController) {
-        let (pause_controller, pause_client) =
-            PauseController::new(vec![SCHEDULED_JOB_COMMITTING, SCHEDULED_JOB_EXECUTED]);
-        let args = ApplicationFixtureArgs {
-            scheduled_jobs_pause_client: pause_client,
-            ..Default::default()
-        };
-        (args, pause_controller)
-    }
-
     pub fn with_event_logger(event_logger: Arc<dyn UsageEventLogger>) -> Self {
         Self {
             event_logger: Some(event_logger),
@@ -172,6 +148,8 @@ pub trait ApplicationTestExt<RT: Runtime> {
     async fn load_udf_tests_modules_with_node(&self) -> anyhow::Result<()>;
     /// Load the modules form npm-packages/component-tests
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()>;
+    async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff>;
+
     async fn test_one_off_cron_job_executor_run(
         &self,
         job: CronJob,
@@ -205,7 +183,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let searcher = Arc::new(search::searcher::SearcherStub {});
         let segment_term_metadata_fetcher = Arc::new(search::searcher::SearcherStub {});
         let persistence = args.tp.unwrap_or_else(TestPersistence::new);
-        let snapshot_import_pause_client = args.snapshot_import_pause_client.unwrap_or_default();
         let database = Database::load(
             Arc::new(persistence.clone()),
             rt.clone(),
@@ -271,7 +248,12 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
         let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
         let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout)?);
-        let actions = Actions::new(node_executor, convex_origin.clone(), *ACTION_USER_TIMEOUT);
+        let actions = Actions::new(
+            node_executor,
+            convex_origin.clone(),
+            *ACTION_USER_TIMEOUT,
+            rt.clone(),
+        );
 
         let application = Application::new(
             rt.clone(),
@@ -285,7 +267,6 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             database.usage_counter(),
             kb.clone(),
             DEV_INSTANCE_NAME.into(),
-            DEV_SECRET.try_into()?,
             function_runner,
             convex_origin,
             convex_site,
@@ -295,12 +276,11 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             actions,
             Arc::new(NoopLogSender),
             Arc::new(AllowLogging),
-            snapshot_import_pause_client,
-            args.scheduled_jobs_pause_client,
             Arc::new(ApplicationAuth::new(
                 kb.clone(),
                 Arc::new(NullAccessTokenAuth),
             )),
+            QueryCache::new(*UDF_CACHE_MAX_SIZE),
         )
         .await?;
 
@@ -357,6 +337,11 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
 
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()> {
         let request = Self::load_start_push_request(Path::new(layout))?;
+        self.run_test_push(request).await?;
+        Ok(())
+    }
+
+    async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff> {
         let dry_run = request.dry_run;
         let config = request.into_project_config()?;
         let start_push = self.start_push(&config, dry_run).await?;
@@ -374,8 +359,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 _ => anyhow::bail!("Unexpected schema status: {schema_status:?}"),
             }
         }
-        self.finish_push(Identity::system(), start_push).await?;
-        Ok(())
+        let diff = self.finish_push(Identity::system(), start_push).await?;
+        Ok(diff)
     }
 
     fn validate_user_defined_index_fields(

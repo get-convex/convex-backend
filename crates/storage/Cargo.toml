@@ -19,6 +19,7 @@ axum = { workspace = true }
 bytes = { workspace = true }
 common = { path = "../common" }
 derive_more = { workspace = true }
+fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 http = { workspace = true }
@@ -30,18 +31,19 @@ serde_json = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 value = { path = "../value" }
 
 [dev-dependencies]
 common = { path = "../common", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
+parking_lot = { workspace = true }
 runtime = { path = "../runtime", features = ["testing"] }
 value = { path = "../value", features = ["testing"] }
 
 [features]
-testing = [
-    "common/testing",
-    "runtime/testing",
-    "value/testing",
-]
+testing = ["common/testing", "runtime/testing", "value/testing"]
+
+[lints]
+workspace = true

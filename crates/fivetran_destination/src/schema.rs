@@ -70,7 +70,7 @@ use crate::{
 /// The user doesn’t have to name their sync index like this, it’s only a
 /// suggestion.
 pub static DEFAULT_FIVETRAN_SYNCED_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| "by_fivetran_synced".parse().unwrap());
+    LazyLock::new(|| IndexDescriptor::new("by_fivetran_synced").unwrap());
 
 #[derive(Clone, Debug)]
 pub struct FivetranTableColumn {
@@ -1017,7 +1017,7 @@ mod tests {
         indexes
             .into_iter()
             .map(|(index_name, index_fields)| {
-                let index_descriptor = IndexDescriptor::from_str(index_name).unwrap();
+                let index_descriptor = IndexDescriptor::new(index_name.to_string()).unwrap();
                 (
                     index_descriptor.clone(),
                     IndexSchema {
@@ -1842,16 +1842,16 @@ mod tests {
             TableDefinition {
                 table_name: "my_table".parse()?,
                 indexes: btreemap! {
-                    "by_fivetran_synced".parse()? => IndexSchema {
-                        index_descriptor: "by_fivetran_synced".parse()?,
+                    IndexDescriptor::new("by_fivetran_synced")? => IndexSchema {
+                        index_descriptor: IndexDescriptor::new("by_fivetran_synced")?,
                         fields: vec![
                             "fivetran.deleted".parse()?,
                             "fivetran.synced".parse()?,
                             "_creationTime".parse()?,
                         ].try_into()?
                     },
-                    "by_primary_key".parse()? => IndexSchema {
-                        index_descriptor: "by_primary_key".parse()?,
+                    IndexDescriptor::new("by_primary_key")? => IndexSchema {
+                        index_descriptor: IndexDescriptor::new("by_primary_key")?,
                         fields: vec![
                             "fivetran.deleted".parse()?,
                             "fivetran.id".parse()?,

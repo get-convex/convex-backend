@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     sync::Arc,
     time::Duration,
 };
@@ -14,8 +15,10 @@ use common::{
         Runtime,
         SpawnHandle,
     },
+    types::TabletIndexName,
 };
 use futures::{
+    future::BoxFuture,
     pin_mut,
     select_biased,
     FutureExt,
@@ -59,6 +62,7 @@ use crate::{
         BuildVectorIndexArgs,
     },
     Database,
+    Token,
     VectorIndexFlusher,
 };
 
@@ -192,6 +196,17 @@ impl SearchIndexWorkers {
 }
 
 impl<RT: Runtime> SearchIndexWorker<RT> {
+    // The actual work future is fairly large, so box it to avoid consuming
+    // steady-state memory.
+    fn step(&mut self) -> BoxFuture<'_, anyhow::Result<(BTreeMap<TabletIndexName, u64>, Token)>> {
+        match self {
+            Self::VectorFlusher(flusher) => flusher.step().boxed(),
+            Self::VectorCompactor(compactor) => compactor.step().boxed(),
+            Self::TextFlusher(flusher) => flusher.step().boxed(),
+            Self::TextCompactor(compactor) => compactor.step().boxed(),
+        }
+    }
+
     async fn work_and_wait_for_changes(
         &mut self,
         name: &'static str,
@@ -201,12 +216,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
     ) -> anyhow::Result<()> {
         loop {
             let status = log_worker_starting(name);
-            let (metrics, token) = match self {
-                Self::VectorFlusher(flusher) => flusher.step().await?,
-                Self::VectorCompactor(compactor) => compactor.step().await?,
-                Self::TextFlusher(flusher) => flusher.step().await?,
-                Self::TextCompactor(compactor) => compactor.step().await?,
-            };
+            let (metrics, token) = self.step().await?;
             drop(status);
 
             if !metrics.is_empty() {

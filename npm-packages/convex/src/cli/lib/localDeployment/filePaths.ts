@@ -3,9 +3,9 @@
   binaries
     convex-backend.zip
     0.0.1
-      convex-local-backend
+      convex-local-backend[.exe] // convex-local-backend.exe on windows
     0.0.2
-      convex-local-backend
+      convex-local-backend[.exe]
   convex-backend-state
     local-my_team-chess
       config.json // contains `LocalDeploymentConfig`
@@ -79,5 +79,6 @@ export function versionedBinaryDir(version: string) {
 }
 
 export function executablePath(version: string) {
-  return path.join(versionedBinaryDir(version), "convex-local-backend");
+  const ext = process.platform === "win32" ? ".exe" : "";
+  return path.join(versionedBinaryDir(version), `convex-local-backend${ext}`);
 }

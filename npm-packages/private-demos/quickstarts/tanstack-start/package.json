@@ -1,0 +1,32 @@
+{
+  "name": "tanstack-start",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vinxi dev",
+    "build": "vinxi build",
+    "start": "vinxi start"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@convex-dev/react-query": "^0.0.0-alpha.8",
+    "@tanstack/react-query": "^5.59.20",
+    "@tanstack/react-router": "^1.82.1",
+    "@tanstack/react-router-with-query": "^1.82.1",
+    "@tanstack/start": "^1.82.1",
+    "convex": "^1.17.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vinxi": "^0.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "typescript": "^5.6.3"
+  }
+}

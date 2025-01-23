@@ -6,7 +6,10 @@ use std::{
     },
     ops::Deref,
     sync::Arc,
-    time::Duration,
+    time::{
+        Duration,
+        SystemTime,
+    },
 };
 
 use common::{
@@ -18,6 +21,7 @@ use common::{
         JsError,
     },
     execution_context::ExecutionContext,
+    fastrace_helpers::get_sampled_span,
     knobs::{
         SCHEDULED_JOB_EXECUTION_PARALLELISM,
         SCHEDULED_JOB_GARBAGE_COLLECTION_BATCH_SIZE,
@@ -29,11 +33,7 @@ use common::{
         SCHEDULED_JOB_RETENTION,
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
-    minitrace_helpers::get_sampled_span,
-    pause::{
-        Fault,
-        PauseClient,
-    },
+    pause::Fault,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -60,6 +60,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::future::FutureExt as _;
 use futures::{
     future::Either,
     select_biased,
@@ -69,7 +70,6 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use keybroker::Identity;
-use minitrace::future::FutureExt as _;
 use model::{
     backend_state::BackendStateModel,
     modules::ModuleModel,
@@ -102,18 +102,10 @@ mod metrics;
 pub(crate) const SCHEDULED_JOB_EXECUTED: &str = "scheduled_job_executed";
 pub(crate) const SCHEDULED_JOB_COMMITTING: &str = "scheduled_job_committing";
 
+#[derive(Clone)]
 pub struct ScheduledJobRunner {
     executor: Arc<Mutex<Box<dyn SpawnHandle>>>,
     garbage_collector: Arc<Mutex<Box<dyn SpawnHandle>>>,
-}
-
-impl Clone for ScheduledJobRunner {
-    fn clone(&self) -> Self {
-        Self {
-            executor: self.executor.clone(),
-            garbage_collector: self.garbage_collector.clone(),
-        }
-    }
 }
 
 impl ScheduledJobRunner {
@@ -123,7 +115,6 @@ impl ScheduledJobRunner {
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
-        pause_client: PauseClient,
     ) -> Self {
         let executor_fut = ScheduledJobExecutor::start(
             rt.clone(),
@@ -131,7 +122,6 @@ impl ScheduledJobRunner {
             database.clone(),
             runner,
             function_log,
-            pause_client,
         );
         let executor = Arc::new(Mutex::new(rt.spawn("scheduled_job_executor", executor_fut)));
 
@@ -153,7 +143,6 @@ impl ScheduledJobRunner {
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
-    pause_client: PauseClient,
 }
 
 impl<RT: Runtime> Deref for ScheduledJobExecutor<RT> {
@@ -171,7 +160,6 @@ pub struct ScheduledJobContext<RT: Runtime> {
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
-    pause_client: PauseClient,
 }
 
 /// This roughly matches tokio's permits that it uses as part of cooperative
@@ -187,7 +175,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
-        pause_client: PauseClient,
     ) -> impl Future<Output = ()> + Send {
         let mut executor = Self {
             context: ScheduledJobContext {
@@ -196,9 +183,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 database,
                 runner,
                 function_log,
-                pause_client: pause_client.clone(),
             },
-            pause_client,
         };
         async move {
             let mut backoff =
@@ -206,7 +191,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             while let Err(mut e) = executor.run(&mut backoff).await {
                 let delay = backoff.fail(&mut executor.rt.rng());
                 tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
-                report_error(&mut e);
+                report_error(&mut e).await;
                 executor.rt.wait(delay).await;
             }
         }
@@ -227,9 +212,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 database,
                 runner,
                 function_log,
-                pause_client: PauseClient::new(),
             },
-            pause_client: PauseClient::new(),
         }
     }
 
@@ -250,6 +233,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
 
     async fn run(&mut self, backoff: &mut Backoff) -> anyhow::Result<()> {
         tracing::info!("Starting scheduled job executor");
+        let pause_client = self.context.rt.pause_client();
         let (job_finished_tx, mut job_finished_rx) =
             mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
         let mut running_job_ids = HashSet::new();
@@ -278,19 +262,17 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             };
 
             metrics::log_num_running_jobs(running_job_ids.len());
+            let now = self.rt.system_time();
+            let next_job_ready_time = next_job_ready_time.map(SystemTime::from);
+            self.log_scheduled_job_execution_lag(next_job_ready_time, now);
             let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
-                let now = self.rt.generate_timestamp()?;
-                Either::Left(if next_job_ts < now {
-                    metrics::log_scheduled_job_execution_lag(now - next_job_ts);
+                let wait_time = next_job_ts.duration_since(now).unwrap_or_else(|_| {
                     // If we're behind, re-run this loop every 5 seconds to log the gauge above and
                     // track how far we're behind in our metrics.
-                    self.rt.wait(Duration::from_secs(5))
-                } else {
-                    metrics::log_scheduled_job_execution_lag(Duration::from_secs(0));
-                    self.rt.wait(next_job_ts - now)
-                })
+                    Duration::from_secs(5)
+                });
+                Either::Left(self.rt.wait(wait_time))
             } else {
-                metrics::log_scheduled_job_execution_lag(Duration::from_secs(0));
                 Either::Right(std::future::pending())
             };
 
@@ -300,7 +282,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             select_biased! {
                 job_id = job_finished_rx.recv().fuse() => {
                     if let Some(job_id) = job_id {
-                        self.pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
+                        pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
                         running_job_ids.remove(&job_id);
                     } else {
                         anyhow::bail!("Job results channel closed, this is unexpected!");
@@ -417,6 +399,22 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             }
         }
     }
+
+    fn log_scheduled_job_execution_lag(
+        &self,
+        next_job_ready_time: Option<SystemTime>,
+        now: SystemTime,
+    ) {
+        if let Some(next_job_ts) = next_job_ready_time {
+            metrics::log_scheduled_job_execution_lag(
+                now.duration_since(next_job_ts).unwrap_or(Duration::ZERO),
+            );
+        } else {
+            metrics::log_scheduled_job_execution_lag(Duration::ZERO);
+        }
+        self.function_log
+            .log_scheduled_job_lag(next_job_ready_time, now);
+    }
 }
 
 impl<RT: Runtime> ScheduledJobContext<RT> {
@@ -437,7 +435,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                         // If scheduling a retry hits an error, nothing has
                         // changed so the job will remain at the head of the queue and
                         // will be picked up by the scheduler in the next cycle.
-                        report_error(&mut retry_err);
+                        report_error(&mut retry_err).await;
                     },
                 }
             },
@@ -465,7 +463,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         // Only report OCCs that happen repeatedly
         if !system_error.is_occ() || (attempts.occ_errors as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
         {
-            report_error(&mut system_error);
+            report_error(&mut system_error).await;
         }
         if system_error.is_occ() {
             attempts.occ_errors += 1;
@@ -473,7 +471,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             attempts.system_errors += 1;
         }
         let delay = backoff.fail(&mut self.rt.rng());
-        tracing::error!("System error executing job, sleeping {delay:?}");
+        tracing::error!("System error executing job {job_id}, sleeping {delay:?}");
         job.next_ts = Some(self.rt.generate_timestamp()?.add(delay)?);
 
         SchedulerModel::new(&mut tx, namespace)
@@ -636,6 +634,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let identity = tx.inert_identity();
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
         let path = job.path.clone();
+        let pause_client = self.rt.pause_client();
 
         let udf_args = job.udf_args()?;
         let result = self
@@ -665,7 +664,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             SchedulerModel::new(&mut tx, namespace)
                 .complete(job_id, ScheduledJobState::Success)
                 .await?;
-            if let Fault::Error(e) = self.pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
+            if let Fault::Error(e) = pause_client.wait(SCHEDULED_JOB_COMMITTING).await {
                 tracing::info!("Injected error before committing mutation");
                 return Err(e);
             };
@@ -770,7 +769,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 {
                     let delay = backoff.fail(&mut self.rt.rng());
                     tracing::error!("Failed to update action state, sleeping {delay:?}");
-                    report_error(&mut err);
+                    report_error(&mut err).await;
                     self.rt.wait(delay).await;
                 }
                 self.function_log.log_action(completion, usage_tracker);
@@ -882,9 +881,8 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
                 tracing::error!("Scheduled job garbage collector failed, sleeping {delay:?}");
                 // Only report OCCs that happen repeatedly
                 if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                 }
-                report_error(&mut e);
                 garbage_collector.rt.wait(delay).await;
             }
         }

@@ -20,7 +20,7 @@ use std::{
 
 use cmd_util::env::env_config;
 
-use crate::minitrace_helpers::SamplingConfig;
+use crate::fastrace_helpers::SamplingConfig;
 
 /// This exists solely to allow knobs to have separate defaults for local
 /// execution and prod (running in Nomad). Don't export this outside of
@@ -61,9 +61,35 @@ pub static RUNTIME_DISABLE_LIFO_SLOT: LazyLock<bool> =
 pub static UDF_CACHE_MAX_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("UDF_CACHE_MAX_SIZE", 104857600));
 
+/// Maximum size of the shared UDF cache in Conductor. Default 500MiB.
+pub static SHARED_UDF_CACHE_MAX_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("SHARED_UDF_CACHE_MAX_SIZE", 5 * 104857600));
+
 /// How many UDF execution logs to keep in memory.
 pub static MAX_UDF_EXECUTION: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_UDF_EXECUTION", 1000));
+
+/// What is the metrics aggregation window for UDF metrics?
+pub static UDF_METRICS_BUCKET_WIDTH: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("UDF_METRICS_BUCKET_WIDTH_SECS", 60)));
+
+/// How many UDF metrics buckets do we keep in-memory? This defaults to 60s * 60
+/// = 1 hour.
+pub static UDF_METRICS_MAX_BUCKETS: LazyLock<usize> =
+    LazyLock::new(|| env_config("UDF_METRICS_MAX_BUCKETS", 60));
+
+/// Minimum duration to record in a histogram bucket.
+pub static UDF_METRICS_MIN_DURATION: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("UDF_METRICS_MIN_DURATION_MS", 1)));
+
+/// Maximum duration to record in a histogram bucket.
+pub static UDF_METRICS_MAX_DURATION: LazyLock<Duration> = LazyLock::new(|| {
+    Duration::from_millis(env_config("UDF_METRICS_MAX_DURATION_MS", 15 * 60 * 1000))
+});
+
+/// How many significant figures to store in a histogram bucket.
+pub static UDF_METRICS_SIGNIFICANT_FIGURES: LazyLock<u8> =
+    LazyLock::new(|| env_config("UDF_METRICS_SIGNIFICANT_FIGURES", 2));
 
 /// How often to flush function activity reports to analytics (in seconds).
 pub static UDF_ANALYTICS_POLL_TIME: LazyLock<u64> =
@@ -522,10 +548,10 @@ pub static WRITE_LOG_MAX_RETENTION_SECS: LazyLock<Duration> =
 
 /// The maximum size of the write log. Notes:
 /// - the write log will be trimmed based on WRITE_LOG_MAX_RETENTION_SECS, and
-/// thus it might never reach this size.
+///   thus it might never reach this size.
 /// - the write log always retains at least WRITE_LOG_MIN_RETENTION_SECS, and
-/// thus we could exceed this limit. The reason we do that is to allow some
-/// minimum buffer for queries to refresh after execution.
+///   thus we could exceed this limit. The reason we do that is to allow some
+///   minimum buffer for queries to refresh after execution.
 pub static WRITE_LOG_SOFT_MAX_SIZE_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("WRITE_LOG_SOFT_MAX_SIZE_BYTES", 50 * 1024 * 1024));
 
@@ -662,18 +688,6 @@ pub static COMMITTER_QUEUE_SIZE: LazyLock<usize> =
 
 /// 0 -> default (number of cores)
 pub static V8_THREADS: LazyLock<u32> = LazyLock::new(|| env_config("V8_THREADS", 0));
-
-/// Cap on the number of active isolate execution threads.
-pub static UDF_ISOLATE_MAX_EXEC_THREADS: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "UDF_ISOLATE_MAX_EXEC_THREADS",
-        if cfg!(any(test, feature = "testing")) {
-            2
-        } else {
-            16
-        },
-    )
-});
 
 /// If false, each UDF runs in its own isolate with its own heap.
 /// If true, each UDF runs in the same isolate in its own context, sharing a
@@ -867,6 +881,9 @@ pub static SEGMENT_MAX_SIZE_BYTES: LazyLock<u64> =
 /// The minimum number of segments we will compact in one pass.
 pub static MIN_COMPACTION_SEGMENTS: LazyLock<u64> =
     LazyLock::new(|| env_config("MIN_COMPACTION_SEGMENTS", 3));
+/// The maximum number of segments to compact in one request.
+pub static MAX_COMPACTION_SEGMENTS: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_COMPACTION_SEGMENTS", 10));
 /// The maximum percentage of a Segment that can be deleted before we will
 /// recompact that segment to remove deleted vectors
 /// This number must be between 0 and 1.
@@ -876,11 +893,6 @@ pub static MAX_SEGMENT_DELETED_PERCENTAGE: LazyLock<f64> =
 /// Whether to run queries, mutations, HTTP actions, and v8 actions in Funrun
 /// (true) or InProcessFunctionRunner (false).
 pub static UDF_USE_FUNRUN: LazyLock<bool> = LazyLock::new(|| env_config("UDF_USE_FUNRUN", true));
-
-/// Whether to analyze code in Funrun (true) or
-/// InProcessFunctionRunner (false).
-pub static ANALYZE_IN_FUNRUN: LazyLock<bool> =
-    LazyLock::new(|| env_config("ANALYZE_IN_FUNRUN", false));
 
 /// The amount of time to wait for the primary request to finish before starting
 /// a second backup request when running a vector search.
@@ -903,7 +915,7 @@ pub static ARCHIVE_FETCH_TIMEOUT_SECONDS: LazyLock<Duration> =
 /// The total number of modules across all versions that will be held in memory
 /// at once.
 pub static MODULE_CACHE_MAX_SIZE_BYTES: LazyLock<u64> =
-    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 250_000_000));
+    LazyLock::new(|| env_config("MODULE_CACHE_MAX_SIZE_BYTES", 100_000_000));
 
 /// The maximum number of concurrent module fetches we'll allow.
 pub static MODULE_CACHE_MAX_CONCURRENCY: LazyLock<usize> =
@@ -986,15 +998,25 @@ pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> = LazyLock::n
 });
 
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
-/// know doesn't delay deploys that are required due to user backends.
+/// knob doesn't delay deploys that are required due to the user pushing new
+/// node actions. Only affects deploys on startup triggered by changes to
+/// backend/node-executor code.
+///
+/// AWS has a rate limit of 15/s on their APIs, so we need this to be roughly
+/// large enough to be on the same scale as N/s where N is the number of
+/// instances with lambdas.
 pub static AWS_LAMBDA_DEPLOY_SPLAY_SECONDS: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 300)));
+    LazyLock::new(|| Duration::from_secs(env_config("AWS_LAMBDA_DEPLOY_SPLAY_SECONDS", 1800)));
 
 /// The maximum number of requests to send using a single AWS Lambda client.
 /// Empirical tests have shown that AWS servers allows up to 128 concurrent
 /// streams over a single http2 connection.
 pub static AWS_LAMBDA_CLIENT_MAX_CONCURRENT_REQUESTS: LazyLock<usize> =
     LazyLock::new(|| env_config("AWS_LAMBDA_MAX_CONCURRENT_STREAMS_PER_CONNECTION", 100));
+
+/// The maximum number of times to retry analyze requests for node actions.
+pub static NODE_ANALYZE_MAX_RETRIES: LazyLock<usize> =
+    LazyLock::new(|| env_config("NODE_ANALYZE_MAX_RETRIES", 3));
 
 /// The number of seconds backend should wait for requests to drain before
 /// shutting down after SIGINT.
@@ -1105,6 +1127,13 @@ pub static MAX_BACKEND_PUBLIC_API_REQUEST_SIZE: LazyLock<usize> =
 pub static DATABASE_WORKERS_MIN_COMMITS: LazyLock<usize> =
     LazyLock::new(|| env_config("DATABASE_WORKERS_MIN_COMMITS", 100));
 
+/// The TableSummaryWorker must checkpoint every
+/// [`DATABASE_WORKERS_MAX_CHECKPOINT_AGE`] seconds even if nothing has changed.
+/// However, to prevent all instances from checkpointing at the same time, we'll
+/// add a jitter of up to ±TABLE_SUMMARY_AGE_JITTER_SECONDS.
+pub static TABLE_SUMMARY_AGE_JITTER_SECONDS: LazyLock<f32> =
+    LazyLock::new(|| env_config("TABLE_SUMMARY_AGE_JITTER_SECONDS", 900.0));
+
 /// HTTP requests to backend will time out after this duration has passed.
 ///
 /// See https://docs.rs/tower-http/0.5.0/tower_http/timeout/struct.TimeoutLayer.html
@@ -1135,18 +1164,18 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 /// overrides, which take precedence over the default fraction.
 ///
 /// When in doubt, write out a test case to verify the behavior in
-/// minitrace_helpers.rs.
+/// fastrace_helpers.rs.
 ///
 /// It's often easiest to craft the JSON in a repl (e.g. node, browser console),
 /// and then stringify it at the end.
 ///
-/// See `minitrace_helpers.rs` for more examples
+/// See `fastrace_helpers.rs` for more examples
 pub static REQUEST_TRACE_SAMPLE_CONFIG: LazyLock<SamplingConfig> = LazyLock::new(|| {
     env_config(
         "REQUEST_TRACE_SAMPLE_CONFIG",
         prod_override(
             SamplingConfig::default(),
-            r#"{"defaultFraction":0.00001,"routeOverrides":[{"routeRegexp":"/api/push_config","fraction":0.1}]}"#
+            r#"{"defaultFraction":0.00001,"routeOverrides":[{"routeRegexp":"/api/push_config","fraction":0.1}, {"routeRegexp":"conductor/load-instance","fraction":0.01}]}"#
                 .parse()
                 .unwrap(),
         ),
@@ -1197,3 +1226,37 @@ pub static MAX_IMPORT_AGE: LazyLock<Duration> =
 /// duration has not passed since the last refresh, a stale value will be used.
 pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("PARTITION_LOADER_MAX_STALE_SECS", 1)));
+
+/// Seconds to wait before timing out when trying to acquire the lock for
+/// claiming an instance in big-brain.
+pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_secs(env_config("CLAIM_INSTANCE_TIMEOUT_SECS", 10)));
+
+/// Disable fuzzy matches on text search results
+pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
+    LazyLock::new(|| env_config("DISABLE_FUZZY_TEXT_SEARCH", true));
+
+/// The maximum number of bytes to buffer in an multipart upload.
+/// There may be stricter limits imposed by the storage provider, but this is
+/// the target max size for the buffer to protect against memory exhaustion.
+/// The maximum number of parts is 10000, so this imposes a max file size, which
+/// defaults to 10000 * 100MiB = 1TB. When reducing this knob, make sure the
+/// maximum file size can fit a snapshot export of the instance.
+/// Storage uploads can run in parallel, and the buffers get cloned during
+/// upload, so make sure this knob times ~8 can fit in memory.
+///
+/// Defaults to 100MiB.
+pub static STORAGE_MAX_INTERMEDIATE_PART_SIZE: LazyLock<usize> =
+    LazyLock::new(|| env_config("STORAGE_MAX_INTERMEDIATE_PART_SIZE", 100 * (1 << 20)));
+
+/// Minimum number of milliseconds a commit needs to take to send traces to
+/// honeycomb.
+pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
+    LazyLock::new(|| Duration::from_millis(env_config("COMMIT_TRACE_THRESHOLD", 250)));
+
+/// How many instances a Conductor will try to simultaneously load (on startup,
+/// or when it discovers new instances) Going too high means that the Conductor
+/// may be unable to serve requests for already-loaded instances in a timely
+/// manner, or that we may exhaust CPU on the physical host
+pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 6));

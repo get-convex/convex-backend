@@ -62,7 +62,7 @@ impl<'a, RT: Runtime> AuthInfoModel<'a, RT> {
         Self { tx }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn put(&mut self, auth_infos: Vec<AuthInfo>) -> anyhow::Result<AuthDiff> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("put_auth_config"));

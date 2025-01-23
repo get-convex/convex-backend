@@ -15,6 +15,7 @@ use common::{
         DeveloperDocument,
         ResolvedDocument,
     },
+    errors::JsError,
     index::IndexKeyBytes,
     interval::Interval,
     query::{
@@ -40,7 +41,10 @@ use futures::{
 };
 use indexing::backend_in_memory_indexes::BatchKey;
 use maplit::btreemap;
-use value::TableNamespace;
+use value::{
+    val,
+    TableNamespace,
+};
 
 use self::{
     filter::Filter,
@@ -785,8 +789,15 @@ fn query_scanned_too_much_data(num_bytes: usize) -> ErrorMetadata {
     )
 }
 
-pub fn invalid_cursor() -> ErrorMetadata {
+pub fn invalid_cursor() -> anyhow::Error {
+    let data: anyhow::Result<_> =
+        try { val!({ "isConvexSystemError" => true, "paginationError" => "InvalidCursor"}) };
     let message = "InvalidCursor: Tried to run a query starting from a cursor, but it looks like \
                    this cursor is from a different query.";
-    ErrorMetadata::bad_request("InvalidCursor", message)
+    anyhow::anyhow!("InvalidCursor")
+        .context(JsError::convex_error(
+            message.to_string(),
+            data.expect("InvalidCursor data should be a valid Value"),
+        ))
+        .context(ErrorMetadata::bad_request("InvalidCursor", message))
 }

@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    future::Future,
     path::Path,
     sync::{
         Arc,
@@ -10,15 +11,18 @@ use std::{
 
 use async_trait::async_trait;
 use common::{
+    backoff::Backoff,
     errors::{
         FrameData,
         JsError,
     },
     execution_context::ExecutionContext,
+    knobs::NODE_ANALYZE_MAX_RETRIES,
     log_lines::{
         LogLine,
         LogLineStructured,
     },
+    runtime::Runtime,
     sha256::Sha256Digest,
     types::{
         ActionCallbackToken,
@@ -28,15 +32,12 @@ use common::{
         UdfType,
     },
 };
+use errors::ErrorMetadataAnyhowExt;
 use http::Uri;
 use isolate::{
     deserialize_udf_custom_error,
     deserialize_udf_result,
     format_uncaught_error,
-    serialize_udf_args,
-    SyscallStats,
-    SyscallTrace,
-    ValidatedPathAndArgs,
 };
 use model::{
     environment_variables::types::{
@@ -75,6 +76,12 @@ use sync_types::{
     UserIdentityAttributes,
 };
 use tokio::sync::mpsc;
+use udf::{
+    helpers::serialize_udf_args,
+    validation::ValidatedPathAndArgs,
+    SyscallStats,
+    SyscallTrace,
+};
 use value::{
     base64,
     heap_size::WithHeapSize,
@@ -109,6 +116,9 @@ pub static EXECUTE_TIMEOUT_RESPONSE_JSON: LazyLock<JsonValue> = LazyLock::new(||
     )
 });
 
+const NODE_ANALYZE_INITIAL_BACKOFF: Duration = Duration::from_millis(100);
+const NODE_ANALYZE_MAX_BACKOFF: Duration = Duration::from_secs(5);
+
 #[async_trait]
 pub trait NodeExecutor: Sync + Send {
     fn enable(&self) -> anyhow::Result<()>;
@@ -127,10 +137,11 @@ pub struct InvokeResponse {
 }
 
 #[derive(Clone)]
-pub struct Actions {
+pub struct Actions<RT: Runtime> {
     executor: Arc<dyn NodeExecutor>,
     convex_origin: ConvexOrigin,
     user_timeout: Duration,
+    runtime: RT,
 }
 
 fn construct_js_error(
@@ -178,16 +189,18 @@ fn construct_js_error(
     Ok(error)
 }
 
-impl Actions {
+impl<RT: Runtime> Actions<RT> {
     pub fn new(
         executor: Arc<dyn NodeExecutor>,
         convex_origin: ConvexOrigin,
         user_timeout: Duration,
+        runtime: RT,
     ) -> Self {
         Self {
             executor,
             convex_origin,
             user_timeout,
+            runtime,
         }
     }
 
@@ -199,11 +212,14 @@ impl Actions {
         self.executor.shutdown()
     }
 
+    #[rustfmt::skip]
     pub async fn execute(
         &self,
         request: ExecuteRequest,
-        source_maps: &BTreeMap<CanonicalizedModulePath, SourceMap>,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
+        source_maps_callback: impl Future<Output = anyhow::Result<
+            BTreeMap<CanonicalizedModulePath, SourceMap>>>
+            + Send,
     ) -> anyhow::Result<NodeActionOutcome> {
         let path = request.path_and_args.path().clone();
         let timer = node_executor("execute");
@@ -273,7 +289,8 @@ impl Actions {
                 frames,
                 ..
             } => {
-                let error = construct_js_error(message, name, data, frames, source_maps)?;
+                let source_maps = source_maps_callback.await?;
+                let error = construct_js_error(message, name, data, frames, &source_maps)?;
                 Err(error)
             },
         };
@@ -284,7 +301,7 @@ impl Actions {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn build_deps(
         &self,
         request: BuildDepsRequest,
@@ -342,7 +359,28 @@ impl Actions {
         result
     }
 
-    #[minitrace::trace]
+    async fn invoke_analyze(&self, request: AnalyzeRequest) -> anyhow::Result<InvokeResponse> {
+        let mut backoff = Backoff::new(NODE_ANALYZE_INITIAL_BACKOFF, NODE_ANALYZE_MAX_BACKOFF);
+        let mut retries = 0;
+        loop {
+            let (log_line_sender, _log_line_receiver) = mpsc::unbounded_channel();
+            let request = ExecutorRequest::Analyze(request.clone());
+            match self.executor.invoke(request, log_line_sender).await {
+                Ok(response) => return Ok(response),
+                Err(e) => {
+                    if retries >= *NODE_ANALYZE_MAX_RETRIES || e.is_deterministic_user_error() {
+                        return Err(e);
+                    }
+                    tracing::warn!("Failed to invoke analyze: {:?}", e);
+                    retries += 1;
+                    let duration = backoff.fail(&mut self.runtime.rng());
+                    self.runtime.wait(duration).await;
+                },
+            }
+        }
+    }
+
+    #[fastrace::trace]
     pub async fn analyze(
         &self,
         request: AnalyzeRequest,
@@ -350,13 +388,11 @@ impl Actions {
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         let timer = node_executor("analyze");
 
-        let (log_line_sender, _log_line_receiver) = mpsc::unbounded_channel();
-        let request = ExecutorRequest::Analyze(request);
         let InvokeResponse {
             response,
             memory_used_in_mb: _,
             aws_request_id,
-        } = self.executor.invoke(request, log_line_sender).await?;
+        } = self.invoke_analyze(request).await?;
         let response: AnalyzeResponse = serde_json::from_value(response.clone()).map_err(|e| {
             anyhow::anyhow!(
                 "Failed to deserialize analyze response: {}. Response: {}",
@@ -779,7 +815,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AnalyzeRequest {
     pub source_package: SourcePackage,
     pub environment_variables: BTreeMap<EnvVarName, EnvVarValue>,

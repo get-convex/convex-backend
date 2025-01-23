@@ -1,35 +1,29 @@
 use std::{
-    collections::BTreeMap,
-    fmt::Debug,
-    sync::{
-        Arc,
-        Weak,
+    collections::{
+        BTreeMap,
+        BTreeSet,
     },
-    time::Duration,
+    fmt::Debug,
+    sync::Arc,
 };
 
 use anyhow::Context;
 use async_trait::async_trait;
 use common::{
-    codel_queue::{
-        new_codel_queue_async,
-        CoDelQueueSender,
+    auth::AuthConfig,
+    bootstrap_model::components::definition::ComponentDefinitionMetadata,
+    components::{
+        ComponentDefinitionPath,
+        ComponentName,
+        Resource,
     },
-    errors::{
-        recapture_stacktrace,
-        JsError,
-    },
+    errors::JsError,
     execution_context::ExecutionContext,
     http::{
         fetch::FetchClient,
         RoutedHttpPath,
     },
-    knobs::{
-        FUNRUN_ISOLATE_ACTIVE_THREADS,
-        ISOLATE_QUEUE_SIZE,
-    },
     log_lines::LogLine,
-    minitrace_helpers::EncodedSpan,
     persistence::{
         NoopRetentionValidator,
         PersistenceReader,
@@ -37,10 +31,10 @@ use common::{
     },
     query_journal::QueryJournal,
     runtime::{
-        shutdown_and_join,
         Runtime,
-        SpawnHandle,
+        UnixTimestamp,
     },
+    schemas::DatabaseSchema,
     types::{
         ConvexOrigin,
         IndexId,
@@ -50,43 +44,19 @@ use common::{
     },
 };
 use database::{
-    shutdown_error,
     BootstrapMetadata,
-    Database,
     FollowerRetentionManager,
     TableCountSnapshot,
-    TextIndexManagerSnapshot,
     Transaction,
     TransactionTextSnapshot,
 };
-use errors::ErrorMetadataAnyhowExt;
 use file_storage::TransactionalFileStorage;
+use futures::FutureExt;
 use isolate::{
-    client::{
-        initialize_v8,
-        EnvironmentData,
-        HttpActionRequest,
-        IsolateWorkerHandle,
-        Request as IsolateRequest,
-        RequestType as IsolateRequestType,
-        SharedIsolateScheduler,
-        UdfRequest,
-    },
-    metrics::{
-        execute_full_error,
-        queue_timer,
-    },
+    client::EnvironmentData,
     ActionCallbacks,
-    ActionRequest,
-    ActionRequestParams,
-    ConcurrencyLimiter,
-    FunctionOutcome,
-    HttpActionRequest as HttpActionRequestInner,
-    HttpActionResponseStreamer,
-    IsolateConfig,
+    IsolateClient,
     UdfCallback,
-    ValidatedHttpPath,
-    ValidatedPathAndArgs,
 };
 use keybroker::{
     Identity,
@@ -99,12 +69,12 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::module_versions::AnalyzedModule,
+    modules::module_versions::{
+        AnalyzedModule,
+        ModuleSource,
+        SourceMap,
+    },
     udf_config::types::UdfConfig,
-};
-use parking_lot::{
-    Mutex,
-    RwLock,
 };
 use storage::{
     Storage,
@@ -114,20 +84,24 @@ use sync_types::{
     CanonicalizedModulePath,
     Timestamp,
 };
-use tokio::sync::{
-    mpsc,
-    oneshot,
+use tokio::sync::mpsc;
+use udf::{
+    validation::{
+        ValidatedHttpPath,
+        ValidatedPathAndArgs,
+    },
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+    HttpActionRequest as HttpActionRequestInner,
+    HttpActionResponseStreamer,
 };
 use usage_tracking::{
     FunctionUsageStats,
     FunctionUsageTracker,
 };
+use value::identifier::Identifier;
 
-use super::{
-    in_memory_indexes::InMemoryIndexCache,
-    isolate_worker::FunctionRunnerIsolateWorker,
-    FunctionRunner,
-};
+use super::in_memory_indexes::InMemoryIndexCache;
 use crate::{
     module_cache::{
         FunctionRunnerModuleLoader,
@@ -138,9 +112,6 @@ use crate::{
 };
 
 const MAX_ISOLATE_WORKERS: usize = 128;
-// We gather prometheus stats every 30 seconds, so we should make sure we log
-// active permits more frequently than that.
-const ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY: Duration = Duration::from_secs(10);
 
 pub struct RunRequestArgs {
     pub instance_name: String,
@@ -210,31 +181,25 @@ impl<RT: Runtime> StorageForInstance<RT> for InstanceStorage {
 
 pub struct FunctionRunnerCore<RT: Runtime, S: StorageForInstance<RT>> {
     rt: RT,
-    sender: CoDelQueueSender<RT, IsolateRequest<RT>>,
-    scheduler: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    concurrency_logger: Arc<Mutex<Option<Box<dyn SpawnHandle>>>>,
-    handles: Arc<Mutex<Vec<IsolateWorkerHandle>>>,
     storage: S,
     index_cache: InMemoryIndexCache<RT>,
     module_cache: ModuleCache<RT>,
+    isolate_client: IsolateClient<RT>,
 }
 
 impl<RT: Runtime, S: StorageForInstance<RT>> Clone for FunctionRunnerCore<RT, S> {
     fn clone(&self) -> Self {
         Self {
             rt: self.rt.clone(),
-            sender: self.sender.clone(),
-            scheduler: self.scheduler.clone(),
-            concurrency_logger: self.concurrency_logger.clone(),
-            handles: self.handles.clone(),
             storage: self.storage.clone(),
             index_cache: self.index_cache.clone(),
             module_cache: self.module_cache.clone(),
+            isolate_client: self.isolate_client.clone(),
         }
     }
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub async fn validate_run_function_result(
     udf_type: UdfType,
     ts: Timestamp,
@@ -265,88 +230,26 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         max_percent_per_client: usize,
         max_isolate_workers: usize,
     ) -> anyhow::Result<Self> {
-        let concurrency_limit = if *FUNRUN_ISOLATE_ACTIVE_THREADS > 0 {
-            ConcurrencyLimiter::new(*FUNRUN_ISOLATE_ACTIVE_THREADS)
-        } else {
-            ConcurrencyLimiter::unlimited()
-        };
-        let concurrency_logger = rt.spawn(
-            "concurrency_logger",
-            concurrency_limit.go_log(rt.clone(), ACTIVE_CONCURRENCY_PERMITS_LOG_FREQUENCY),
-        );
-        let isolate_config = IsolateConfig::new("funrun", concurrency_limit);
-
-        initialize_v8();
-        // TODO: do we need to change the below?
-        // NB: We don't call V8::Dispose or V8::ShutdownPlatform since we just assume a
-        // single V8 instance per process and don't need to clean up its
-        // resources.
-        let (sender, receiver) =
-            new_codel_queue_async::<_, IsolateRequest<_>>(rt.clone(), *ISOLATE_QUEUE_SIZE);
-        let handles = Arc::new(Mutex::new(Vec::new()));
-        let handles_clone = handles.clone();
-        let rt_clone = rt.clone();
-        let scheduler = rt.spawn("shared_isolate_scheduler", async move {
-            // The scheduler thread pops a worker from available_workers and
-            // pops a request from the CoDelQueueReceiver. Then it sends the request
-            // to the worker.
-            let isolate_worker = FunctionRunnerIsolateWorker::new(rt_clone.clone(), isolate_config);
-            let scheduler = SharedIsolateScheduler::new(
-                rt_clone,
-                isolate_worker,
-                max_isolate_workers,
-                handles_clone,
-                max_percent_per_client,
-            );
-            scheduler.run(receiver).await
-        });
+        let isolate_client = IsolateClient::new(
+            rt.clone(),
+            max_percent_per_client,
+            max_isolate_workers,
+            None,
+        )?;
         let index_cache = InMemoryIndexCache::new(rt.clone());
         let module_cache = ModuleCache::new(rt.clone());
+
         Ok(Self {
             rt,
-            sender,
-            scheduler: Arc::new(Mutex::new(Some(scheduler))),
-            concurrency_logger: Arc::new(Mutex::new(Some(concurrency_logger))),
-            handles,
             storage,
             index_cache,
             module_cache,
+            isolate_client,
         })
     }
 
-    fn send_request(&self, request: IsolateRequest<RT>) -> anyhow::Result<()> {
-        self.sender
-            .try_send(request)
-            .map_err(|_| execute_full_error())?;
-        Ok(())
-    }
-
-    async fn receive_response<T>(rx: oneshot::Receiver<T>) -> anyhow::Result<T> {
-        // The only reason a oneshot response channel wil be dropped prematurely if the
-        // isolate worker is shutting down.
-        rx.await.map_err(|_| shutdown_error())
-    }
-
     pub async fn shutdown(&self) -> anyhow::Result<()> {
-        {
-            let handles: Vec<_> = {
-                let mut handles = self.handles.lock();
-                for handle in &mut *handles {
-                    handle.handle.shutdown();
-                }
-                handles.drain(..).collect()
-            };
-            for handle in handles.into_iter() {
-                shutdown_and_join(handle.handle).await?;
-            }
-        }
-        if let Some(mut scheduler) = self.scheduler.lock().take() {
-            scheduler.shutdown();
-        }
-        if let Some(mut concurrency_logger) = self.concurrency_logger.lock().take() {
-            concurrency_logger.shutdown();
-        }
-        Ok(())
+        self.isolate_client.shutdown().await
     }
 
     pub async fn begin_tx(
@@ -387,7 +290,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
     // NOTE: The caller of this is responsible of checking retention by calling
     // `validate_function_runner_result`. If the retention check fails, we should
     // ignore any results or errors returned by this method.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_function_no_retention_check(
         &self,
         run_request_args: RunRequestArgs,
@@ -403,10 +306,11 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             function_metadata,
             http_action_metadata,
         )
+        .boxed()
         .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_function_no_retention_check_inner(
         &self,
         RunRequestArgs {
@@ -494,28 +398,19 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                     path_and_args,
                     journal,
                 } = function_metadata.context("Missing function metadata for query or mutation")?;
-                let (tx, rx) = oneshot::channel();
-                let request = IsolateRequest::new(
-                    instance_name,
-                    IsolateRequestType::Udf {
-                        request: UdfRequest {
-                            path_and_args,
-                            udf_type,
-                            identity: identity.into(),
-                            transaction,
-                            journal,
-                            context,
-                        },
+                let (tx, outcome) = self
+                    .isolate_client
+                    .execute_udf(
+                        udf_type,
+                        path_and_args,
+                        transaction,
+                        journal,
+                        context,
                         environment_data,
-                        response: tx,
-                        queue_timer: queue_timer(),
-                        reactor_depth: 0,
-                        udf_callback: Box::new(self.clone()),
-                    },
-                    EncodedSpan::from_parent(),
-                );
-                self.send_request(request)?;
-                let (tx, outcome) = Self::receive_response(rx).await??;
+                        0,
+                        instance_name,
+                    )
+                    .await?;
                 Ok((
                     Some(tx.try_into()?),
                     outcome,
@@ -525,29 +420,21 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             UdfType::Action => {
                 let FunctionMetadata { path_and_args, .. } =
                     function_metadata.context("Missing function metadata for action")?;
-                let (tx, rx) = oneshot::channel();
                 let log_line_sender =
                     log_line_sender.context("Missing log line sender for action")?;
-                let request = IsolateRequest::new(
-                    instance_name,
-                    IsolateRequestType::Action {
-                        request: ActionRequest {
-                            params: ActionRequestParams { path_and_args },
-                            transaction,
-                            identity,
-                            context,
-                        },
-                        environment_data,
-                        response: tx,
-                        queue_timer: queue_timer(),
+                let outcome = self
+                    .isolate_client
+                    .execute_action(
+                        path_and_args,
+                        transaction,
                         action_callbacks,
                         fetch_client,
                         log_line_sender,
-                    },
-                    EncodedSpan::from_parent(),
-                );
-                self.send_request(request)?;
-                let outcome = Self::receive_response(rx).await??;
+                        context,
+                        environment_data,
+                        instance_name,
+                    )
+                    .await?;
                 Ok((
                     None,
                     FunctionOutcome::Action(outcome),
@@ -561,32 +448,25 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                     routed_path,
                     http_request,
                 } = http_action_metadata.context("Missing http action metadata")?;
-                let (tx, rx) = oneshot::channel();
                 let log_line_sender =
                     log_line_sender.context("Missing log line sender for http action")?;
-                let request = IsolateRequest::new(
-                    instance_name,
-                    IsolateRequestType::HttpAction {
-                        request: HttpActionRequest {
-                            http_module_path,
-                            routed_path,
-                            http_request,
-                            identity,
-                            transaction,
-                            context,
-                        },
-                        response: tx,
-                        queue_timer: queue_timer(),
+                let outcome = self
+                    .isolate_client
+                    .execute_http_action(
+                        http_module_path,
+                        routed_path,
+                        http_request,
+                        identity,
                         action_callbacks,
                         fetch_client,
                         log_line_sender,
                         http_response_streamer,
+                        transaction,
+                        context,
                         environment_data,
-                    },
-                    EncodedSpan::from_parent(),
-                );
-                self.send_request(request)?;
-                let outcome = Self::receive_response(rx).await??;
+                        instance_name,
+                    )
+                    .await?;
                 Ok((
                     None,
                     FunctionOutcome::HttpAction(outcome),
@@ -609,27 +489,105 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 .all(|m| m.environment == ModuleEnvironment::Isolate),
             "Can only analyze Isolate modules"
         );
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequestType::Analyze {
-            modules,
-            response: tx,
-            udf_config,
-            environment_variables,
-        };
-        self.send_request(IsolateRequest::new(
-            instance_name,
-            request,
-            EncodedSpan::from_parent(),
-        ))?;
-        FunctionRunnerCore::<RT, InstanceStorage>::receive_response(rx)
-            .await?
-            .map_err(|e| {
-                if e.is_overloaded() {
-                    recapture_stacktrace(e)
-                } else {
-                    e
-                }
-            })
+
+        self.isolate_client
+            .analyze(udf_config, modules, environment_variables, instance_name)
+            .await
+    }
+
+    #[fastrace::trace]
+    pub async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        instance_name: String,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
+        anyhow::ensure!(
+            app_definition.environment == ModuleEnvironment::Isolate,
+            "Can only evaluate Isolate modules"
+        );
+        anyhow::ensure!(
+            component_definitions
+                .values()
+                .all(|m| m.environment == ModuleEnvironment::Isolate),
+            "Can only evaluate Isolate modules"
+        );
+
+        self.isolate_client
+            .evaluate_app_definitions(
+                app_definition,
+                component_definitions,
+                dependency_graph,
+                environment_variables,
+                system_env_vars,
+                instance_name,
+            )
+            .await
+    }
+
+    #[fastrace::trace]
+    pub async fn evaluate_component_initializer(
+        &self,
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+        instance_name: String,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>> {
+        self.isolate_client
+            .evaluate_component_initializer(
+                evaluated_definitions,
+                path,
+                definition,
+                args,
+                name,
+                instance_name,
+            )
+            .await
+    }
+
+    #[fastrace::trace]
+    pub async fn evaluate_schema(
+        &self,
+        schema_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
+        instance_name: String,
+    ) -> anyhow::Result<DatabaseSchema> {
+        self.isolate_client
+            .evaluate_schema(
+                schema_bundle,
+                source_map,
+                rng_seed,
+                unix_timestamp,
+                instance_name,
+            )
+            .await
+    }
+
+    #[fastrace::trace]
+    pub async fn evaluate_auth_config(
+        &self,
+        auth_config_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
+        instance_name: String,
+    ) -> anyhow::Result<AuthConfig> {
+        self.isolate_client
+            .evaluate_auth_config(
+                auth_config_bundle,
+                source_map,
+                environment_variables,
+                explanation,
+                instance_name,
+            )
+            .await
     }
 }
 
@@ -638,7 +596,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerC
     async fn execute_udf(
         &self,
         client_id: String,
-        identity: Identity,
         udf_type: UdfType,
         path_and_args: ValidatedPathAndArgs,
         environment_data: EnvironmentData<RT>,
@@ -647,277 +604,17 @@ impl<RT: Runtime, S: StorageForInstance<RT>> UdfCallback<RT> for FunctionRunnerC
         context: ExecutionContext,
         reactor_depth: usize,
     ) -> anyhow::Result<(Transaction<RT>, FunctionOutcome)> {
-        let (tx, rx) = oneshot::channel();
-        let request = IsolateRequest::new(
-            client_id,
-            IsolateRequestType::Udf {
-                request: UdfRequest {
-                    path_and_args,
-                    udf_type,
-                    identity: identity.into(),
-                    transaction,
-                    journal,
-                    context,
-                },
+        self.isolate_client
+            .execute_udf(
+                udf_type,
+                path_and_args,
+                transaction,
+                journal,
+                context,
                 environment_data,
-                response: tx,
-                queue_timer: queue_timer(),
                 reactor_depth,
-                udf_callback: Box::new(self.clone()),
-            },
-            EncodedSpan::from_parent(),
-        );
-        self.send_request(request)?;
-        let result = Self::receive_response(rx).await??;
-        Ok(result)
-    }
-}
-
-pub struct InProcessFunctionRunner<RT: Runtime> {
-    server: FunctionRunnerCore<RT, InstanceStorage>,
-    persistence_reader: Arc<dyn PersistenceReader>,
-
-    // Static information about the backend.
-    instance_name: String,
-    instance_secret: InstanceSecret,
-    convex_origin: ConvexOrigin,
-    database: Database<RT>,
-    // Use Weak reference to avoid reference cycle between InProcessFunctionRunner
-    // and ApplicationFunctionRunner.
-    action_callbacks: Arc<RwLock<Option<Weak<dyn ActionCallbacks>>>>,
-    fetch_client: Arc<dyn FetchClient>,
-}
-
-impl<RT: Runtime> InProcessFunctionRunner<RT> {
-    pub async fn new(
-        instance_name: String,
-        instance_secret: InstanceSecret,
-        convex_origin: ConvexOrigin,
-        rt: RT,
-        persistence_reader: Arc<dyn PersistenceReader>,
-        storage: InstanceStorage,
-        database: Database<RT>,
-        fetch_client: Arc<dyn FetchClient>,
-    ) -> anyhow::Result<Self> {
-        // InProcessFunrun is single tenant and thus can use the full capacity.
-        let max_percent_per_client = 100;
-        let server = FunctionRunnerCore::new(rt, storage, max_percent_per_client).await?;
-        Ok(Self {
-            server,
-            persistence_reader,
-            instance_name,
-            instance_secret,
-            convex_origin,
-            database,
-            action_callbacks: Arc::new(RwLock::new(None)),
-            fetch_client,
-        })
-    }
-}
-
-#[async_trait]
-impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
-    #[minitrace::trace]
-    async fn run_function(
-        &self,
-        udf_type: UdfType,
-        identity: Identity,
-        ts: RepeatableTimestamp,
-        existing_writes: FunctionWrites,
-        log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
-        function_metadata: Option<FunctionMetadata>,
-        http_action_metadata: Option<HttpActionMetadata>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
-        in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
-        context: ExecutionContext,
-    ) -> anyhow::Result<(
-        Option<FunctionFinalTransaction>,
-        FunctionOutcome,
-        FunctionUsageStats,
-    )> {
-        let snapshot = self.database.snapshot(ts)?;
-        let table_count_snapshot = Arc::new(snapshot.table_summaries);
-        let text_index_snapshot = Arc::new(TextIndexManagerSnapshot::new(
-            snapshot.index_registry,
-            snapshot.text_indexes,
-            self.database.searcher.clone(),
-            self.database.search_storage.clone(),
-        ));
-        let action_callbacks = self
-            .action_callbacks
-            .read()
-            .clone()
-            .context("Action callbacks not set")?
-            .upgrade()
-            .context(shutdown_error())?;
-
-        let request_metadata = RunRequestArgs {
-            instance_name: self.instance_name.clone(),
-            instance_secret: self.instance_secret,
-            reader: self.persistence_reader.clone(),
-            convex_origin: self.convex_origin.clone(),
-            bootstrap_metadata: self.database.bootstrap_metadata.clone(),
-            table_count_snapshot,
-            text_index_snapshot,
-            action_callbacks,
-            fetch_client: self.fetch_client.clone(),
-            log_line_sender,
-            udf_type,
-            identity,
-            ts,
-            existing_writes,
-            system_env_vars,
-            in_memory_index_last_modified,
-            context,
-        };
-
-        // NOTE: We run the function without checking retention until after the
-        // function execution. It is important that we do not surface any errors
-        // or results until after we call `validate_run_function_result` below.
-        let result = match udf_type {
-            UdfType::Query | UdfType::Mutation | UdfType::Action => {
-                self.server
-                    .run_function_no_retention_check(request_metadata, function_metadata, None)
-                    .await
-            },
-            UdfType::HttpAction => {
-                self.server
-                    .run_function_no_retention_check(request_metadata, None, http_action_metadata)
-                    .await
-            },
-        };
-        validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;
-        result
-    }
-
-    #[minitrace::trace]
-    async fn analyze(
-        &self,
-        udf_config: UdfConfig,
-        modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
-    ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
-        self.server
-            .analyze(
-                udf_config,
-                modules,
-                environment_variables,
-                self.instance_name.clone(),
+                client_id,
             )
             .await
-    }
-
-    /// This fn should be called on startup. All `run_function` calls will fail
-    /// if actions callbacks are not set.
-    fn set_action_callbacks(&self, action_callbacks: Arc<dyn ActionCallbacks>) {
-        *self.action_callbacks.write() = Some(Arc::downgrade(&action_callbacks));
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-
-    use common::pause::PauseController;
-    use database::test_helpers::DbFixtures;
-    use errors::ErrorMetadataAnyhowExt;
-    use isolate::{
-        client::{
-            initialize_v8,
-            NO_AVAILABLE_WORKERS,
-            PAUSE_REQUEST,
-        },
-        test_helpers::bogus_udf_request,
-    };
-    use model::test_helpers::DbFixturesWithModel;
-    use runtime::testing::TestRuntime;
-    use storage::LocalDirStorage;
-    use tokio::sync::oneshot;
-
-    use crate::server::{
-        FunctionRunnerCore,
-        InstanceStorage,
-    };
-    #[convex_macro::test_runtime]
-    async fn test_scheduler_workers_limit_requests(rt: TestRuntime) -> anyhow::Result<()> {
-        initialize_v8();
-        let storage = InstanceStorage {
-            files_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
-            modules_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
-        };
-        let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 100, 1).await?;
-        let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
-        let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
-        let client1 = "client1";
-        let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client1, Some(pause_client1), sender).await?;
-        function_runner_core.send_request(request)?;
-        // Pausing a request while being executed should make the next request be
-        // rejected because there are no available workers.
-        let _guard = pause1.wait_for_blocked(PAUSE_REQUEST).await.unwrap();
-        let (sender, rx2) = oneshot::channel();
-        let request2 = bogus_udf_request(&db, client1, None, sender).await?;
-        function_runner_core.send_request(request2)?;
-        let response =
-            FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await?;
-        let err = response.unwrap_err();
-        assert!(err.is_rejected_before_execution(), "{err:?}");
-        assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_scheduler_does_not_throttle_different_clients(
-        rt: TestRuntime,
-    ) -> anyhow::Result<()> {
-        initialize_v8();
-        let storage = InstanceStorage {
-            files_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
-            modules_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
-        };
-        let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 50, 2).await?;
-        let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
-        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
-        let client1 = "client1";
-        let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client1, Some(pause_client1), sender).await?;
-        function_runner_core.send_request(request)?;
-        // Pausing a request should not affect the next one because we have 2 workers
-        // and 2 requests from different clients.
-        let _guard = pause1.wait_for_blocked(PAUSE_REQUEST).await.unwrap();
-        let (sender, rx2) = oneshot::channel();
-        let client2 = "client2";
-        let request2 = bogus_udf_request(&db, client2, None, sender).await?;
-        function_runner_core.send_request(request2)?;
-        FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await??;
-        Ok(())
-    }
-
-    #[convex_macro::test_runtime]
-    async fn test_scheduler_throttles_same_client(rt: TestRuntime) -> anyhow::Result<()> {
-        initialize_v8();
-        let storage = InstanceStorage {
-            files_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
-            modules_storage: Arc::new(LocalDirStorage::new(rt.clone())?),
-        };
-        let function_runner_core = FunctionRunnerCore::_new(rt.clone(), storage, 50, 2).await?;
-        let (mut pause1, pause_client1) = PauseController::new([PAUSE_REQUEST]);
-        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
-        let client = "client";
-        let (sender, _rx1) = oneshot::channel();
-        let request = bogus_udf_request(&db, client, Some(pause_client1), sender).await?;
-        function_runner_core.send_request(request)?;
-        // Pausing the first request and sending a second should make the second fail
-        // because there's only one worker left and it is reserved for other clients.
-        let _guard = pause1.wait_for_blocked(PAUSE_REQUEST).await.unwrap();
-        let (sender, rx2) = oneshot::channel();
-        let request2 = bogus_udf_request(&db, client, None, sender).await?;
-        function_runner_core.send_request(request2)?;
-        let response =
-            FunctionRunnerCore::<TestRuntime, InstanceStorage>::receive_response(rx2).await?;
-        let err = response.unwrap_err();
-        assert!(err.is_rejected_before_execution());
-        assert!(err.to_string().contains(NO_AVAILABLE_WORKERS));
-        Ok(())
     }
 }

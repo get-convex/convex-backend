@@ -13,6 +13,10 @@ use model::backend_state::{
 };
 use runtime::testing::TestRuntime;
 use tokio::sync::mpsc;
+use udf::{
+    HttpActionResponseStreamer,
+    HttpActionResult,
+};
 use value::assert_obj;
 
 use crate::{
@@ -21,8 +25,6 @@ use crate::{
         http_action_udf_test,
         http_post_request,
     },
-    HttpActionResponseStreamer,
-    HttpActionResult,
 };
 
 #[convex_macro::test_runtime]

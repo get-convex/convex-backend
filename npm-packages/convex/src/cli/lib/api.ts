@@ -37,7 +37,13 @@ export async function createProject(
     teamSlug: selectedTeamSlug,
     projectName,
     partitionId,
-  }: { teamSlug: string; projectName: string; partitionId?: number },
+    deploymentTypeToProvision,
+  }: {
+    teamSlug: string;
+    projectName: string;
+    partitionId?: number;
+    deploymentTypeToProvision: DeploymentType;
+  },
 ): Promise<{
   projectSlug: string;
   teamSlug: string;
@@ -48,8 +54,7 @@ export async function createProject(
     projectName,
     // TODO: Consider allowing projects with no deployments, or consider switching
     // to provisioning prod on creation.
-    deploymentType: "dev",
-    backendVersionOverride: process.env.CONVEX_BACKEND_VERSION_OVERRIDE,
+    deploymentType: deploymentTypeToProvision,
     partitionId,
   };
   const data = await bigBrainAPI({

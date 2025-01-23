@@ -1,0 +1,67 @@
+/* START: Search modal: Hide algolia logo */
+body .DocSearch-Footer {
+  flex-direction: row;
+}
+
+body .DocSearch-Logo {
+  display: none;
+}
+/* END: Search modal: Hide algolia logo */
+
+/* Styling the topnav search button */
+body button.DocSearch-Button {
+  height: 32px;
+  border-radius: 6px;
+}
+
+/* The style of the "Search" text in the search button */
+body .DocSearch-Button-Placeholder {
+  font-size: 0.75rem;
+  color: #797979;
+}
+
+/* Dark mode style for the placeholder */
+html[data-theme="dark"] body .DocSearch-Button-Placeholder {
+  color: #adadad;
+}
+
+/* Don't show the magnifying glass icon on big screens */
+@media (min-width: 769px) {
+  .DocSearch-Button .DocSearch-Search-Icon {
+    display: none;
+  }
+}
+
+/* The search button styling  */
+.DocSearch-Button {
+  --docsearch-text-color: #797979;
+  --docsearch-searchbox-background: #f1f1f1;
+}
+
+/* Dark mode search button styling  */
+html[data-theme="dark"] .DocSearch-Button {
+  --docsearch-text-color: var(--ifm-font-color-base);
+  --docsearch-searchbox-background: #292929;
+}
+
+/* START: In the search button make the "keys" stand out less */
+.DocSearch-Button .DocSearch-Button-Key {
+  --docsearch-key-shadow: none;
+  padding: 0;
+  top: 0;
+}
+
+.DocSearch-Button .DocSearch-Button-Key {
+  --docsearch-key-gradient: #e2e2e2;
+  color: #797979;
+}
+
+html[data-theme="dark"] .DocSearch-Button .DocSearch-Button-Key {
+  --docsearch-key-gradient: #323232;
+  color: #adadad;
+}
+/* END: In the search button make the "keys" stand out less */
+
+section.DocSearch-HitsFooter {
+  color: var(--docsearch-text-color);
+}

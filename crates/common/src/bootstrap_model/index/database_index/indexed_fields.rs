@@ -35,8 +35,8 @@ use crate::{
 pub struct IndexedFields(WithHeapSize<Vec<FieldPath>>);
 
 impl IndexedFields {
-    pub fn by_id() -> Self {
-        IndexedFields(vec![].into())
+    pub const fn by_id() -> Self {
+        IndexedFields(WithHeapSize::new_vec())
     }
 
     pub fn creation_time() -> Self {

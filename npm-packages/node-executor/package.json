@@ -16,7 +16,7 @@
     "concat-stream": "^2.0.0",
     "convex": "workspace:*",
     "node-fetch": "^2.6.1",
-    "prettier": "3.2.5",
+    "prettier": "3.4.2",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "uuid": "^9.0.0"
@@ -24,7 +24,7 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.171.0",
     "@sendgrid/mail": "^7.7.0",
-    "@types/adm-zip": "^0.5.5",
+    "@types/adm-zip": "^0.5.7",
     "@types/archiver": "~5.3.2",
     "@types/aws-lambda": "^8.10.106",
     "@types/concat-stream": "^2.0.3",
@@ -37,8 +37,8 @@
     "stripe": "^10.14.0",
     "twilio": "^4.22.0",
     "typescript": "~5.0.3",
-    "undici": "5.28.4",
+    "undici": "5.28.5",
     "vitest": "~1.6.0",
-    "zod": "^3.21.4"
+    "zod": "^3.24.0"
   }
 }

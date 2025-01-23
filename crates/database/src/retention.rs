@@ -31,7 +31,10 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    errors::report_error,
+    errors::{
+        report_error,
+        LeaseLostError,
+    },
     index::{
         IndexEntry,
         SplitKey,
@@ -59,6 +62,7 @@ use common::{
     },
     persistence::{
         new_static_repeatable_recent,
+        DocumentLogEntry,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -75,6 +79,7 @@ use common::{
         SpawnHandle,
     },
     sha256::Sha256,
+    shutdown::ShutdownSignal,
     sync::split_rw_lock::{
         new_split_rw_lock,
         Reader,
@@ -236,6 +241,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         snapshot_reader: Reader<SnapshotManager>,
         follower_retention_manager: FollowerRetentionManager<RT>,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<LeaderRetentionManager<RT>> {
         let reader = persistence.reader();
         let snapshot_ts = snapshot_reader.lock().persisted_max_repeatable_ts();
@@ -318,6 +324,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 send_min_snapshot,
                 send_min_document_snapshot,
                 snapshot_reader.clone(),
+                lease_lost_shutdown.clone(),
             ),
         );
         let deletion_handle = rt.spawn(
@@ -410,6 +417,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         snapshot_reader: &Reader<SnapshotManager>,
         checkpoint_reader: &Reader<Checkpoint>,
         retention_type: RetentionType,
+        lease_lost_shutdown: ShutdownSignal,
     ) -> anyhow::Result<Option<RepeatableTimestamp>> {
         let candidate =
             Self::candidate_min_snapshot_ts(snapshot_reader, checkpoint_reader, retention_type)
@@ -431,12 +439,24 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         // because reads (follower reads and leader on restart) use persistence, while
         // the actual deletions use memory. With the invariant that persistence >=
         // memory, we will never read something that has been deleted.
-        persistence
+        if let Err(e) = persistence
             .write_persistence_global(
                 persistence_key,
                 ConvexValue::from(i64::from(*new_min_snapshot_ts)).into(),
             )
-            .await?;
+            .await
+        {
+            // An idle instance with no commits at all may never notice that it has lost its
+            // lease, except that we'll keep erroring here when we try to advance a
+            // timestamp.
+            // We want to signal that the instance should shut down if that's the case.
+            if let Some(LeaseLostError) = e.downcast_ref() {
+                lease_lost_shutdown.signal(
+                    anyhow::Error::new(LeaseLostError).context("Failed to advance timestamp"),
+                );
+            }
+            return Err(e);
+        }
         match retention_type {
             RetentionType::Document => bounds_writer
                 .write()
@@ -463,11 +483,11 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     ) {
         match ts {
             Err(mut err) => {
-                report_error(&mut err);
+                report_error(&mut err).await;
             },
             Ok(Some(ts)) => {
                 if let Err(err) = snapshot_sender.send(ts) {
-                    report_error(&mut err.into());
+                    report_error(&mut err.into()).await;
                 }
             },
             Ok(None) => {},
@@ -482,6 +502,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         min_snapshot_sender: Sender<RepeatableTimestamp>,
         min_document_snapshot_sender: Sender<RepeatableTimestamp>,
         snapshot_reader: Reader<SnapshotManager>,
+        shutdown: ShutdownSignal,
     ) {
         loop {
             {
@@ -493,6 +514,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &snapshot_reader,
                     &checkpoint_reader,
                     RetentionType::Index,
+                    shutdown.clone(),
                 )
                 .await;
                 Self::emit_timestamp(&min_snapshot_sender, index_ts).await;
@@ -503,6 +525,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     &snapshot_reader,
                     &checkpoint_reader,
                     RetentionType::Document,
+                    shutdown.clone(),
                 )
                 .await;
                 Self::emit_timestamp(&min_document_snapshot_sender, document_ts).await;
@@ -538,14 +561,26 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
                 // the document was deleted or its index key changed.
+                // TODO: use prev_ts when available
                 let prev_revs = reader_
-                    .previous_revisions(chunk.iter().map(|(ts, id, _)| (*id, *ts)).collect())
+                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
                     .await?;
-                for (ts, id, maybe_doc) in chunk {
+                for DocumentLogEntry {
+                    ts,
+                    id,
+                    value: maybe_doc,
+                    ..
+                } in chunk
+                {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction, with no index rows.
-                    let Some((prev_rev_ts, maybe_prev_rev)) = prev_revs.get(&(id, ts)) else {
+                    let Some(DocumentLogEntry {
+                        ts: prev_rev_ts,
+                        value: maybe_prev_rev,
+                        ..
+                    }) = prev_revs.get(&(id, ts))
+                    else {
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
                     };
@@ -557,7 +592,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         report_error(&mut anyhow::anyhow!(
                             "Skipping deleting indexes for {id}@{prev_rev_ts}. It is a tombstone \
                              at {prev_rev_ts} but has a later revision at {ts}"
-                        ));
+                        ))
+                        .await;
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
                     };
@@ -751,15 +787,26 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // outside of the document retention window.
                 let prev_revs = reader_
                     .previous_revisions_with_validator(
-                        chunk.iter().map(|(ts, id, _)| (*id, *ts)).collect(),
+                        chunk.iter().map(|entry| (entry.id, entry.ts)).collect(),
                         Arc::new(NoopRetentionValidator),
                     )
                     .await?;
-                for (ts, id, maybe_doc) in chunk {
+                for DocumentLogEntry {
+                    ts,
+                    id,
+                    value: maybe_doc,
+                    ..
+                } in chunk
+                {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction.
-                    let Some((prev_rev_ts, maybe_prev_rev)) = prev_revs.get(&(id, ts)) else {
+                    let Some(DocumentLogEntry {
+                        ts: prev_rev_ts,
+                        value: maybe_prev_rev,
+                        ..
+                    }) = prev_revs.get(&(id, ts))
+                    else {
                         if maybe_doc.is_none() {
                             anyhow::ensure!(
                                 ts <= Timestamp::try_from(
@@ -968,7 +1015,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             report_error(&mut anyhow::anyhow!(
                 "retention wanted to delete {index_entries_to_delete} entries but found \
                  {deleted_rows} to delete"
-            ));
+            ))
+            .await;
         }
 
         tracing::trace!("delete: deleted {deleted_rows:?} rows");
@@ -1006,7 +1054,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             report_error(&mut anyhow::anyhow!(
                 "retention wanted to delete {documents_to_delete} documents but found \
                  {deleted_rows} to delete"
-            ));
+            ))
+            .await;
         }
 
         tracing::trace!("delete_documents: deleted {deleted_rows:?} rows");
@@ -1043,7 +1092,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if !is_working {
                 min_snapshot_ts = match min_snapshot_rx.changed().await {
                     Err(err) => {
-                        report_error(&mut err.into());
+                        report_error(&mut err.into()).await;
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *MAX_RETENTION_DELAY_SECONDS).await;
@@ -1130,7 +1179,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 }
             };
             if let Err(mut err) = r {
-                report_error(&mut err);
+                report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
                 tracing::debug!("go_delete: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;
@@ -1168,7 +1217,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             if !is_working {
                 min_document_snapshot_ts = match min_document_snapshot_rx.changed().await {
                     Err(err) => {
-                        report_error(&mut err.into());
+                        report_error(&mut err.into()).await;
                         // Fall back to polling if the channel is closed or falls over. This should
                         // really never happen.
                         Self::wait_with_jitter(&rt, *DOCUMENT_RETENTION_BATCH_INTERVAL_SECONDS)
@@ -1229,7 +1278,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 }
             };
             if let Err(mut err) = r {
-                report_error(&mut err);
+                report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
                 tracing::debug!("go_delete_documents: error, {err:?}, delaying {delay:?}");
                 rt.wait(delay).await;
@@ -1382,8 +1431,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
             retention_validator,
         );
-        while let Some((_, _, maybe_doc)) = document_stream.try_next().await? {
-            Self::accumulate_index_document(maybe_doc, all_indexes, index_table_id)?;
+        while let Some(entry) = document_stream.try_next().await? {
+            Self::accumulate_index_document(entry.value, all_indexes, index_table_id)?;
         }
         *cursor = latest_ts;
         Ok(())
@@ -1504,6 +1553,13 @@ impl<RT: Runtime> FollowerRetentionManager<RT> {
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Index).await?;
         let min_document_snapshot_ts =
             latest_retention_min_snapshot_ts(persistence.as_ref(), RetentionType::Document).await?;
+        if *repeatable_ts < min_index_snapshot_ts {
+            anyhow::bail!(snapshot_invalid_error(
+                *repeatable_ts,
+                min_index_snapshot_ts,
+                RetentionType::Index
+            ));
+        }
         let snapshot_bounds = Arc::new(Mutex::new(SnapshotBounds {
             min_index_snapshot_ts: repeatable_ts.prior_ts(min_index_snapshot_ts)?,
             min_document_snapshot_ts: repeatable_ts.prior_ts(min_document_snapshot_ts)?,
@@ -1625,6 +1681,7 @@ mod tests {
             DatabaseIndexUpdate,
             DatabaseIndexValue,
             GenericIndexName,
+            IndexDescriptor,
             RepeatableTimestamp,
             Timestamp,
         },
@@ -1784,7 +1841,7 @@ mod tests {
 
         let all_indexes = btreemap!(
             by_id_index_id => (GenericIndexName::by_id(table_id), IndexedFields::by_id()),
-            by_val_index_id => (GenericIndexName::new(table_id, "by_val".parse()?)?, IndexedFields::try_from(vec!["value".parse()?])?),
+            by_val_index_id => (GenericIndexName::new(table_id, IndexDescriptor::new("by_val")?)?, IndexedFields::try_from(vec!["value".parse()?])?),
         );
         let expired_stream = LeaderRetentionManager::<TestRuntime>::expired_index_entries(
             reader,

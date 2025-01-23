@@ -1,0 +1,148 @@
+---
+title: "Convex with TanStack Query"
+sidebar_label: "TanStack Query"
+sidebar_position: 325
+---
+
+import Setup from "!!raw-loader!@site/../demos/react-query/src/main.tsx";
+import App from "!!raw-loader!@site/../demos/react-query/src/App.tsx";
+
+[TanStack Query](https://tanstack.com/query/latest) is an excellent, popular
+library for managing requests to a server.
+
+The
+[`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query)
+library provides
+[Query Option](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
+functions for use with TanStack Query.
+
+Not all features of the standard [Convex React client](/client/react) are
+available through the TanStack Query APIs but you can use the two alongside each
+other, dropping into the standard Convex React hooks as necessary.
+
+<BetaAdmonition feature="The TanStack Query adapter" verb="is" />
+
+This makes subscribing to a Convex query function using the TanStack Query
+`useQuery` hook look like this:
+
+```ts
+const { data, isPending, error } = useQuery(convexQuery(api.messages.list, {}));
+```
+
+Instead of the typical polling pattern for API endpoints used with TanStack
+Query, the code above receives updates for this `api.messages.list` query from
+the Convex server reactively. New results for all relevant subscriptions are
+pushed to the client where they update at the same time so data is never stale
+and there's no need to manually invalidate queries.
+
+<Admonition type="note" title="Support for other frameworks">
+  Currently only [React
+  Query](https://tanstack.com/query/latest/docs/framework/react/overview) is
+  supported via
+  [`@convex-dev/react-query`](https://www.npmjs.com/package/@convex-dev/react-query).
+  [Let us know](https://convex.dev/community) if you would find support for
+  vue-query, svelte-query, solid-query, or angular-query helpful.
+</Admonition>
+
+## Setup
+
+To get live updates in TanStack Query create a `ConvexQueryClient` and connect
+it to the TanStack Query
+[QueryClient](https://tanstack.com/query/latest/docs/reference/QueryClient).
+After installing the adapter library with
+
+```
+npm i @convex-dev/react-query
+```
+
+wire up Convex to TanStack Query like this:
+
+<Snippet
+  title="src/main.tsx"
+  source={Setup}
+  highlightPatterns={["QueryClient", "convexQuery"]}
+/>
+
+Note that when your create your React tree you should both:
+
+- wrap your app in the TanStack Query
+  [`QueryClientProvider`](https://tanstack.com/query/latest/docs/framework/react/reference/QueryClientProvider)
+  so you can use
+  [TanStack Query hooks](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+  and
+- wrap your app in the [`ConvexProvider`](/api/modules/react#convexprovider) so
+  you can also use normal [Convex React](/client/react) hooks
+
+## Queries
+
+A live-updating subscription to a Convex
+[query](/docs/functions/query-functions.mdx) is as simple as calling TanStack
+[`useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery)
+with `convexQuery`:
+
+```ts
+import { useQuery } from "@tanstack/react-query";
+import { convexQuery } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { data, isPending, error } = useQuery(
+    convexQuery(api.functions.myQuery, { id: 123 }),
+  );
+  return isPending ? "Loading..." : data;
+}
+```
+
+You can spread the object returned by `convexQuery` into an object specifying
+additional
+[arguments of `useQuery`](https://tanstack.com/query/latest/docs/framework/react/reference/useQuery).
+
+```ts
+const { data, isPending, error } = useQuery({
+  ...convexQuery(api.functions.myQuery, { id: 123 }),
+  initialData: [], // use an empty list if no data is available yet
+  gcTime: 10000, // stay subscribed for 10 seconds after this component unmounts
+});
+```
+
+## Mutations
+
+Your app can call Convex [mutations](/docs/functions/mutation-functions.mdx) by
+using the TanStack
+[`useMutation`](https://tanstack.com/query/latest/docs/framework/react/reference/useMutation)
+hook, and setting the `mutationFn` property to the result of calling
+`useConvexMutation`:
+
+```ts
+import { useMutation } from "@tanstack/react-query";
+import { useConvexMutation } from "@convex-dev/react-query";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const { mutate, isPending } = useMutation({
+    mutationFn: useConvexMutation(api.functions.doSomething),
+  });
+  return <button onClick={() => mutate({a: "Hello"})}>Click me</button>;
+}
+```
+
+`useConvexMutation` is just a re-export of the
+[`useMutation`](/client/react#editing-data) hook from
+[Convex React](/client/react).
+
+## Differences from using `fetch` with TanStack Query
+
+Convex provides stronger guarantees than other methods of fetching data with
+React Query, so some options and return value properties are no longer
+necessary.
+
+Subscriptions to Convex queries will remain active after the last component
+using `useQuery` for a given function unmounts for `gcTime` milliseconds. This
+value is 5 minutes by default; if this results in unwanted function activity use
+a smaller value.
+
+Data provided by Convex is never stale, so the `isStale` property of the return
+value of `useQuery` will always be false. `retry`-related options are ignored,
+since Convex provides its own retry mechanism over its WebSocket protocol.
+`refetch`-related options are similarly ignored since Convex queries are always
+up to date.

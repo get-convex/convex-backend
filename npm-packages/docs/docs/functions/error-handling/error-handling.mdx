@@ -1,0 +1,198 @@
+---
+title: "Error Handling"
+sidebar_position: 70
+---
+
+There are four reasons why your Convex
+[queries](/docs/functions/query-functions.mdx) and
+[mutations](/docs/functions/mutation-functions.mdx) may hit errors:
+
+1. [Application Errors](#application-errors-expected-failures): The function
+   code hits a logical condition that should stop further processing, and your
+   code throws a `ConvexError`
+1. Developer Errors: There is a bug in the function (like calling `db.get(null)`
+   instead of `db.get(id)`).
+1. [Read/Write Limit Errors](#readwrite-limit-errors): The function is
+   retrieving or writing too much data.
+1. Internal Convex Errors: There is a problem within Convex (like a network
+   blip).
+
+Convex will automatically handle internal Convex errors. If there are problems
+on our end, we'll automatically retry your queries and mutations until the
+problem is resolved and your queries and mutations succeed.
+
+On the other hand, you must decide how to handle application, developer and
+read/write limit errors. When one of these errors happens, the best practices
+are to:
+
+1. Show the user some appropriate UI.
+2. Send the error to an exception reporting service using the
+   [Exception Reporting Integration](/production/integrations/exception-reporting).
+3. Log the incident using `console.*` and set up reporting with
+   [Log Streaming](/docs/production/integrations/log-streams/log-streams.mdx).
+   This can be done in addition to the above options, and doesn't require an
+   exception to be thrown.
+
+Additionally, you might also want to send client-side errors to a service like
+[Sentry](https://sentry.io) to capture additional information for debugging and
+observability.
+
+## Errors in queries
+
+If your query function hits an error, the error will be sent to the client and
+thrown from your `useQuery` call site. **The best way to handle these errors is
+with a React
+[error boundary component](https://reactjs.org/docs/error-boundaries.html).**
+
+Error boundaries allow you to catch errors thrown in their child component tree,
+render fallback UI, and send information about the error to your exception
+handling service. Adding error boundaries to your app is a great way to handle
+errors in Convex query functions as well as other errors in your React
+components. If you are using Sentry, you can use their
+[`Sentry.ErrorBoundary`](https://docs.sentry.io/platforms/javascript/guides/react/components/errorboundary/)
+component.
+
+With error boundaries, you can decide how granular you'd like your fallback UI
+to be. One simple option is to wrap your entire application in a single error
+boundary like:
+
+```tsx
+<StrictMode>
+  <ErrorBoundary>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </ErrorBoundary>
+</StrictMode>,
+```
+
+Then any error in any of your components will be caught by the boundary and
+render the same fallback UI.
+
+On the other hand, if you'd like to enable some portions of your app to continue
+functioning even if other parts hit errors, you can instead wrap different parts
+of your app in separate error boundaries.
+
+<Admonition type="note" title="Retrying">
+
+Unlike other frameworks, there is no concept of "retrying" if your query
+function hits an error. Because Convex functions are
+[deterministic](/docs/functions/query-functions.mdx#caching-reactivity), if the
+query function hits an error, retrying will always produce the same error. There
+is no point in running the query function with the same arguments again.
+
+</Admonition>
+
+## Errors in mutations
+
+If a mutation hits an error, this will
+
+1. Cause the promise returned from your mutation call to be rejected.
+2. Cause your [optimistic update](/docs/client/react/optimistic-updates.mdx) to
+   be rolled back.
+
+If you have an exception service like [Sentry](https://sentry.io/) configured,
+it should report "unhandled promise rejections" like this automatically. That
+means that with no additional work your mutation errors should be reported.
+
+Note that errors in mutations won't be caught by your error boundaries because
+the error doesn't happen as part of rendering your components.
+
+If you would like to render UI specifically in response to a mutation failure,
+you can use `.catch` on your mutation call. For example:
+
+```javascript
+sendMessage(newMessageText).catch((error) => {
+  // Do something with `error` here
+});
+```
+
+If you're using an `async` handled function you can also use `try...catch`:
+
+```javascript
+try {
+  await sendMessage(newMessageText);
+} catch (error) {
+  // Do something with `error` here
+}
+```
+
+<Admonition type="caution" title="Reporting caught errors">
+
+If you handle your mutation error, it will no longer become an unhandled promise
+rejection. You may need to report this error to your exception handling service
+manually.
+
+</Admonition>
+
+## Errors in action functions
+
+Unlike queries and mutations, [actions](//docs/functions/actions.mdx) may have
+side-effects and therefore can't be automatically retried by Convex when errors
+occur. For example, say your action sends a email. If it fails part-way through,
+Convex has no way of knowing if the email was already sent and can't safely
+retry the action. It is responsibility of the caller to handle errors raised by
+actions and retry if appropriate.
+
+## Differences in error reporting between dev and prod
+
+Using a dev deployment any server error thrown on the client will include the
+original error message and a server-side stack trace to ease debugging.
+
+Using a production deployment any server error will be redacted to only include
+the name of the function and a generic `"Server Error"` message, with no stack
+trace. Server
+[application errors](/docs/functions/error-handling/application-errors.mdx) will
+still include their custom `data`.
+
+Both development and production deployments log full errors with stack traces
+which can be found on the [Logs](/docs/dashboard/deployments/logs.md) page of a
+given deployment.
+
+## Application errors, expected failures
+
+If you have expected ways your functions might fail, you can either return
+different values or throw `ConvexError`s.
+
+See [Application Errors](/docs/functions/error-handling/application-errors.mdx).
+
+## Read/write limit errors
+
+To ensure uptime and guarantee performance, Convex will catch queries and
+mutations that try to read or write too much data. These limits are enforced at
+the level of a single query or mutation function execution. The limits are:
+
+Queries and mutations error out when:
+
+- More than 16384 documents are scanned
+- More than 8MiB worth of data is scanned
+- More than 4096 queries calls to `db.get` or `db.query` are made
+- The function spends more than 1 second executing Javascript
+
+In addition, mutations error out when:
+
+- More than 8192 documents are written
+- More than 8MiB worth of data is written
+
+Documents are "scanned" by the database to figure out which documents should be
+returned from `db.query`. So for example `db.query("table").take(5).collect()`
+will only need to scan 5 documents, but `db.query("table").filter(...).first()`
+might scan up to as many documents as there are in `"table"`, to find the first
+one that matches the given filter.
+
+Number of calls to `db.get` and `db.query` has a limit to prevent a single query
+from subscribing to too many index ranges.
+
+In general, if you're running into these limits frequently, we recommend
+[indexing your queries](/docs/database/reading-data/indexes/indexes.md) to
+reduce the number of documents scanned, allowing you to avoid unnecessary reads.
+Queries that scan large swaths of your data may look innocent at first, but can
+easily blow up at any production scale. If your functions are close to hitting
+these limits they will log a warning.
+
+For information on other limits, see [here](/docs/production/state/limits.mdx).
+
+## Debugging Errors
+
+See [Debugging](/docs/functions/debugging.mdx) and specifically
+[Finding relevant logs by Request ID](/docs/functions/debugging.mdx#finding-relevant-logs-by-request-id).

@@ -1,0 +1,218 @@
+---
+title: "Filters"
+sidebar_position: 200
+---
+
+# Filtering
+
+The [`filter`](/api/interfaces/server.Query#filter) method allows you to
+restrict the documents that your document query returns. This method takes a
+filter constructed by [`FilterBuilder`](/api/interfaces/server.FilterBuilder)
+and will only select documents that match.
+
+The examples below demonstrate some of the common uses of `filter`. You can see
+the full list of available filtering methods
+[in the reference docs](/api/interfaces/server.FilterBuilder).
+
+If you need to filter to documents containing some keywords, use a
+[search query](/docs/search/search.mdx).
+
+<Admonition type="caution" title="Use indexes instead">
+  Filters effectively loop over your table looking for documents that match.
+  This can be slow or cause your function to hit a
+  [limit](/docs/production/state/limits.mdx) when your table has thousands of
+  rows. For faster more database efficient queries use [indexes
+  instead](/docs/database/reading-data/indexes/indexes.md).
+</Admonition>
+
+### Equality conditions
+
+This document query finds documents in the `users` table where
+`doc.name === "Alex"`:
+
+```ts
+// Get all users named "Alex".
+const usersNamedAlex = await ctx.db
+  .query("users")
+  .filter((q) => q.eq(q.field("name"), "Alex"))
+  .collect();
+```
+
+Here `q` is the [`FilterBuilder`](/api/interfaces/server.FilterBuilder) utility
+object. It contains methods for all of our supported filter operators.
+
+This filter will run on all documents in the table. For each document,
+`q.field("name")` evaluates to the `name` property. Then `q.eq` checks if this
+property is equal to `"Alex"`.
+
+If your query references a field that is missing from a given document then that
+field will be considered to have the value `undefined`.
+
+### Comparisons
+
+Filters can also be used to compare fields against values. This document query
+finds documents where `doc.age >= 18`:
+
+```ts
+// Get all users with an age of 18 or higher.
+const adults = await ctx.db
+  .query("users")
+  .filter((q) => q.gte(q.field("age"), 18))
+  .collect();
+```
+
+Here the `q.gte` operator checks if the first argument (`doc.age`) is greater
+than or equal to the second (`18`).
+
+Here's the full list of comparisons:
+
+| Operator      | Equivalent TypeScript |
+| ------------- | --------------------- |
+| `q.eq(l, r)`  | `l === r`             |
+| `q.neq(l, r)` | `l !== r`             |
+| `q.lt(l, r)`  | `l < r`               |
+| `q.lte(l, r)` | `l <= r`              |
+| `q.gt(l, r)`  | `l > r`               |
+| `q.gte(l, r)` | `l >= r`              |
+
+### Arithmetic
+
+You can also include basic arithmetic in your queries. This document query finds
+documents in the `carpets` table where `doc.height * doc.width > 100`:
+
+```ts
+// Get all carpets that have an area of over 100.
+const largeCarpets = await ctx.db
+  .query("carpets")
+  .filter((q) => q.gt(q.mul(q.field("height"), q.field("width")), 100))
+  .collect();
+```
+
+Here's the full list of arithmetic operators:
+
+| Operator      | Equivalent TypeScript |
+| ------------- | --------------------- |
+| `q.add(l, r)` | `l + r`               |
+| `q.sub(l, r)` | `l - r`               |
+| `q.mul(l, r)` | `l * r`               |
+| `q.div(l, r)` | `l / r`               |
+| `q.mod(l, r)` | `l % r`               |
+| `q.neg(x)`    | `-x`                  |
+
+### Combining operators
+
+You can construct more complex filters using methods like `q.and`, `q.or`, and
+`q.not`. This document query finds documents where
+`doc.name === "Alex" && doc.age >= 18`:
+
+```ts
+// Get all users named "Alex" whose age is at least 18.
+const adultAlexes = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.and(q.eq(q.field("name"), "Alex"), q.gte(q.field("age"), 18)),
+  )
+  .collect();
+```
+
+Here is a query that finds all users where
+`doc.name === "Alex" || doc.name === "Emma"`:
+
+```ts
+// Get all users named "Alex" or "Emma".
+const usersNamedAlexOrEmma = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.or(q.eq(q.field("name"), "Alex"), q.eq(q.field("name"), "Emma")),
+  )
+  .collect();
+```
+
+## Advanced filtering techniques
+
+Sometimes the filter syntax is is not expressive enough. For example you may
+want to collect all posts that have a tag. Your schema for the posts looks like
+this:
+
+```ts
+export default defineSchema({
+  posts: defineTable({
+    body: v.string(),
+    tags: v.array(v.string()),
+  }),
+});
+```
+
+One way to solve is by applying the filter on the result of the `collect()`
+call. This is just filtering a JavaScript array:
+
+```ts
+export const postsWithTag = query({
+  args: { tag: v.string() },
+  handler: async (ctx, args) => {
+    const allPosts = await ctx.db.query("posts").collect();
+    return allPosts.filter((post) => post.tags.includes(args.tag));
+  },
+});
+```
+
+But this requires reading the whole table first. If you want to just get the
+first result that matches, reading the whole table could be very inefficient.
+Instead you may want to use the JavaScript
+[`for await...of`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of)
+syntax to loop through the table one document at a time:
+
+```ts
+export const firstPostWithTag = query({
+  args: { tag: v.string() },
+  handler: (ctx, args) => {
+    for await (const post of db.query("posts")) {
+      if (post.tags.includes(args.tag)) {
+        return post;
+      }
+    }
+  },
+});
+```
+
+This works because Convex queries are
+[JavaScript iterables](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols).
+
+Even with this optimization you are still just looping over the table to find
+the first post that matches and may hit your function limits. Using indexes is
+still the way to go. You can read a
+[detailed discussion of how to handle tags with indexes](https://stack.convex.dev/complex-filters-in-convex#optimize-with-indexes).
+
+## Querying performance and limits
+
+Most of the example document queries above can lead to a _full table scan_. That
+is, for the document query to return the requested results, it might need to
+walk over every single document in the table.
+
+Take this simple example:
+
+```ts
+const tasks = await ctx.db.query("tasks").take(5);
+```
+
+This document query will not scan more than 5 documents.
+
+On the other hand, this document query:
+
+```ts
+const tasks = await ctx.db
+  .query("tasks")
+  .filter((q) => q.eq(q.field("isCompleted"), true))
+  .first();
+```
+
+might need to walk over every single document in the `"tasks"` table just to
+find the first one with `isCompleted: true`.
+
+If a table has more than a few thousand documents, you should use
+[indexes](/docs/database/reading-data/indexes/indexes.md) to improve your
+document query performance. Otherwise, you may run into our enforced limits,
+detailed
+[here](/docs/functions/error-handling/error-handling.mdx#readwrite-limit-errors).
+
+For information on other limits, see [here](/docs/production/state/limits.mdx).

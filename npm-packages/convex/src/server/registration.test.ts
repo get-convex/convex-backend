@@ -430,6 +430,36 @@ describe("argument and return value validators can be objects or validators", ()
       },
     }),
 
+    queryAsync: query({
+      args: v.object({
+        arg: v.string(),
+      }),
+      returns: { arg: v.string() },
+      handler: async (_, { arg }) => {
+        return { arg: arg };
+      },
+    }),
+
+    mutationAsync: mutation({
+      args: v.object({
+        arg: v.string(),
+      }),
+      returns: { arg: v.string() },
+      handler: async (_, { arg }) => {
+        return { arg: arg };
+      },
+    }),
+
+    actionAsync: action({
+      args: v.object({
+        arg: v.string(),
+      }),
+      returns: { arg: v.string() },
+      handler: async (_, { arg }) => {
+        return { arg: arg };
+      },
+    }),
+
     // This is syntx that we no longer want to support when typechecking because they result in undefined behavior.
     mutationNoOptionalValidators: mutation({
       // @ts-expect-error Optional validators are not supported at the top level

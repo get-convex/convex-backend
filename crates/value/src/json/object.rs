@@ -7,7 +7,11 @@ use crate::{
 
 impl From<ConvexObject> for JsonValue {
     fn from(object: ConvexObject) -> Self {
-        (&object).into()
+        let v: serde_json::Map<_, _> = object
+            .into_iter()
+            .map(|(k, v)| (k.into(), JsonValue::from(v)))
+            .collect();
+        JsonValue::Object(v)
     }
 }
 

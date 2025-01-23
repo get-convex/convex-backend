@@ -18,12 +18,14 @@ axum = { workspace = true }
 axum-extra = { workspace = true }
 base64 = { workspace = true }
 clap = { workspace = true }
+clusters = { path = "../../crates/clusters" }
 cmd_util = { path = "../../crates/cmd_util" }
 common = { path = "../common" }
 database = { path = "../database" }
 either = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
+fastrace = { workspace = true }
 file_storage = { path = "../file_storage" }
 function_runner = { path = "../function_runner" }
 futures = { workspace = true }
@@ -35,10 +37,11 @@ isolate = { path = "../../crates/isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 model = { path = "../model" }
+mysql = { path = "../mysql" }
 node_executor = { path = "../node_executor" }
 parking_lot = { workspace = true }
+postgres = { path = "../postgres" }
 rand = { workspace = true }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
@@ -59,6 +62,7 @@ tower-http = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tungstenite = { workspace = true }
+udf = { path = "../udf" }
 url = { workspace = true }
 urlencoding = { workspace = true }
 usage_tracking = { path = "../../crates/usage_tracking" }
@@ -78,15 +82,21 @@ isolate = { path = "../../crates/isolate", features = ["testing"] }
 keybroker = { path = "../../crates/keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
+mysql = { path = "../mysql", features = ["testing"] }
 node_executor = { path = "../node_executor", features = ["testing"] }
 portpicker = { workspace = true }
+postgres = { path = "../postgres", features = ["testing"] }
 runtime = { path = "../runtime", features = ["testing"] }
 search = { path = "../search", features = ["testing"] }
 storage = { path = "../storage", features = ["testing"] }
 sync = { path = "../sync", features = ["testing"] }
 tokio-tungstenite = { workspace = true }
+udf = { path = "../udf", features = ["testing"] }
 usage_tracking = { path = "../../crates/usage_tracking", features = [
     "testing",
 ] }
 value = { path = "../../crates/value", features = ["testing"] }
 vector = { path = "../../crates/vector", features = ["testing"] }
+
+[lints]
+workspace = true

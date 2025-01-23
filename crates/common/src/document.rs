@@ -28,6 +28,7 @@ use packed_value::{
 };
 use pb::common::{
     DocumentUpdate as DocumentUpdateProto,
+    DocumentUpdateWithPrevTs as DocumentUpdateWithPrevTsProto,
     ResolvedDocument as ResolvedDocumentProto,
 };
 #[cfg(any(test, feature = "testing"))]
@@ -432,49 +433,10 @@ impl ResolvedDocument {
         Ok(())
     }
 
-    /// Checks system fields _id and _creationTime and confirms
-    /// those are the only system fields.
+    /// Checks system fields _id and _creationTime and checks that there aren't
+    /// any other top-level system fields.
     /// Returns vec of violations, which may be displayed to clients.
     pub fn validate(&self) -> Vec<DocumentValidationError> {
-        fn validate_inner_value(
-            value: &ConvexValue,
-            violations: &mut Vec<DocumentValidationError>,
-        ) {
-            match value {
-                ConvexValue::Object(fields) => {
-                    for (field, value) in fields.iter() {
-                        if field.is_system() {
-                            violations
-                                .push(DocumentValidationError::NestedSystemField(field.clone()));
-                        }
-                        validate_inner_value(value, violations);
-                    }
-                },
-                ConvexValue::Array(items) => {
-                    for item in items {
-                        validate_inner_value(item, violations);
-                    }
-                },
-                ConvexValue::Set(items) => {
-                    for item in items {
-                        validate_inner_value(item, violations);
-                    }
-                },
-                ConvexValue::Map(map) => {
-                    for (key, value) in map {
-                        validate_inner_value(key, violations);
-                        validate_inner_value(value, violations);
-                    }
-                },
-                ConvexValue::Boolean(_)
-                | ConvexValue::Bytes(_)
-                | ConvexValue::Null
-                | ConvexValue::Int64(_)
-                | ConvexValue::Float64(_)
-                | ConvexValue::String(_) => {},
-            }
-        }
-
         let mut violations = vec![];
 
         let nesting = self.value().nesting();
@@ -518,7 +480,7 @@ impl ResolvedDocument {
             },
             None => violations.push(DocumentValidationError::CreationTimeMissing),
         }
-        for (field, value) in self.value.iter() {
+        for (field, _) in self.value.iter() {
             if field == &(*ID_FIELD).clone().into()
                 || field == &(*CREATION_TIME_FIELD).clone().into()
             {
@@ -527,7 +489,6 @@ impl ResolvedDocument {
             if field.is_system() {
                 violations.push(DocumentValidationError::SystemField(field.clone()));
             }
-            validate_inner_value(value, &mut violations);
         }
         violations
     }
@@ -628,16 +589,89 @@ impl ResolvedDocument {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct DocumentUpdateWithPrevTs {
+    pub id: ResolvedDocumentId,
+    /// The old document and its timestamp in the document log.
+    /// The timestamp will become the update's `prev_ts`.
+    // TODO: make the timestamp non-optional after everything has pushed
+    pub old_document: Option<(ResolvedDocument, Option<Timestamp>)>,
+    pub new_document: Option<ResolvedDocument>,
+}
+
+impl DocumentUpdateWithPrevTs {
+    /// Checks if two DocumentUpdates are almost equal, ignoring the case where
+    /// one has a missing old timestamp
+    // TODO: remove this once the old timestamp is non-optional
+    pub fn eq_ignoring_none_old_ts(&self, other: &DocumentUpdateWithPrevTs) -> bool {
+        self.id == other.id
+            && self.old_document.as_ref().map(|(d, _)| d)
+                == other.old_document.as_ref().map(|(d, _)| d)
+            && self
+                .old_document
+                .as_ref()
+                .map(|(_, ts)| ts)
+                .zip(other.old_document.as_ref().map(|(_, ts)| ts))
+                .is_none_or(|(a, b)| a == b)
+            && self.new_document == other.new_document
+    }
+}
+
+impl HeapSize for DocumentUpdateWithPrevTs {
+    fn heap_size(&self) -> usize {
+        self.old_document.heap_size() + self.new_document.heap_size()
+    }
+}
+
+impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        DocumentUpdateWithPrevTs {
+            id,
+            old_document,
+            new_document,
+        }: DocumentUpdateWithPrevTs,
+    ) -> anyhow::Result<Self> {
+        let (old_document, old_ts) = old_document.unzip();
+        Ok(Self {
+            id: Some(id.into()),
+            old_document: old_document.map(|d| d.try_into()).transpose()?,
+            old_ts: old_ts.flatten().map(|ts| ts.into()),
+            new_document: new_document.map(|d| d.try_into()).transpose()?,
+        })
+    }
+}
+
+impl TryFrom<DocumentUpdateWithPrevTsProto> for DocumentUpdateWithPrevTs {
+    type Error = anyhow::Error;
+
+    fn try_from(
+        DocumentUpdateWithPrevTsProto {
+            id,
+            old_document,
+            old_ts,
+            new_document,
+        }: DocumentUpdateWithPrevTsProto,
+    ) -> anyhow::Result<Self> {
+        let id = id
+            .context("Document updates missing document id")?
+            .try_into()?;
+        Ok(Self {
+            id,
+            old_document: old_document
+                .map(|d| anyhow::Ok((d.try_into()?, old_ts.map(Timestamp::try_from).transpose()?)))
+                .transpose()?,
+            new_document: new_document.map(|d| d.try_into()).transpose()?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct DocumentUpdate {
     pub id: ResolvedDocumentId,
     pub old_document: Option<ResolvedDocument>,
     pub new_document: Option<ResolvedDocument>,
-}
-
-impl HeapSize for DocumentUpdate {
-    fn heap_size(&self) -> usize {
-        self.old_document.heap_size() + self.new_document.heap_size()
-    }
 }
 
 impl TryFrom<DocumentUpdate> for DocumentUpdateProto {
@@ -676,6 +710,51 @@ impl TryFrom<DocumentUpdateProto> for DocumentUpdate {
             old_document: old_document.map(|d| d.try_into()).transpose()?,
             new_document: new_document.map(|d| d.try_into()).transpose()?,
         })
+    }
+}
+
+impl From<DocumentUpdateWithPrevTs> for DocumentUpdate {
+    fn from(update: DocumentUpdateWithPrevTs) -> Self {
+        Self {
+            id: update.id,
+            old_document: update.old_document.map(|(d, _)| d),
+            new_document: update.new_document,
+        }
+    }
+}
+
+/// Either a [`DocumentUpdate`] or a [`DocumentUpdateWithPrevTs`]
+pub trait DocumentUpdateRef {
+    fn id(&self) -> ResolvedDocumentId;
+    fn old_document(&self) -> Option<&ResolvedDocument>;
+    fn new_document(&self) -> Option<&ResolvedDocument>;
+}
+
+impl DocumentUpdateRef for DocumentUpdateWithPrevTs {
+    fn id(&self) -> ResolvedDocumentId {
+        self.id
+    }
+
+    fn old_document(&self) -> Option<&ResolvedDocument> {
+        self.old_document.as_ref().map(|(d, _)| d)
+    }
+
+    fn new_document(&self) -> Option<&ResolvedDocument> {
+        self.new_document.as_ref()
+    }
+}
+
+impl DocumentUpdateRef for DocumentUpdate {
+    fn id(&self) -> ResolvedDocumentId {
+        self.id
+    }
+
+    fn old_document(&self) -> Option<&ResolvedDocument> {
+        self.old_document.as_ref()
+    }
+
+    fn new_document(&self) -> Option<&ResolvedDocument> {
+        self.new_document.as_ref()
     }
 }
 
@@ -847,8 +926,6 @@ pub enum DocumentValidationError {
         "Field '{0}' starts with an underscore, which is only allowed for system fields like '_id'"
     )]
     SystemField(FieldName),
-    #[error("Field '{0}' starts with an underscore, which is not allowed for nested fields")]
-    NestedSystemField(FieldName),
     #[error("The document belongs to a different table than its '_id' field")]
     IdWrongTable,
     #[error("The document has id {0}, but its '_id' field is {1}")]
@@ -877,7 +954,6 @@ impl DocumentValidationError {
             DocumentValidationError::IdMismatch(..) => "_id mismatch",
             DocumentValidationError::IdBadType(_) => "_id is not an Id",
             DocumentValidationError::IdMissing => "_id missing",
-            DocumentValidationError::NestedSystemField(_) => "invalid nested system field",
             DocumentValidationError::CreationTimeInvalidFloat(_) => "_creationTime invalid float",
             DocumentValidationError::CreationTimeBadType(_) => "_creationTime wrong type",
             DocumentValidationError::CreationTimeMissing => "_creationTime missing",
@@ -942,6 +1018,7 @@ mod tests {
 
     use super::{
         DocumentUpdateProto,
+        DocumentUpdateWithPrevTsProto,
         ResolvedDocumentProto,
     };
     use crate::{
@@ -949,6 +1026,7 @@ mod tests {
         document::{
             CreationTime,
             DocumentUpdate,
+            DocumentUpdateWithPrevTs,
             ResolvedDocument,
         },
         paths::FieldPath,
@@ -994,7 +1072,13 @@ mod tests {
 
 
         #[test]
-        fn test_document_update_proto_roundtrips(left in any::<DocumentUpdate>()) {
+        fn test_document_update_proto_roundtrips(left in any::<DocumentUpdateWithPrevTs>()) {
+            assert_roundtrips::<DocumentUpdateWithPrevTs, DocumentUpdateWithPrevTsProto>(left);
+        }
+
+
+        #[test]
+        fn test_index_document_update_proto_roundtrips(left in any::<DocumentUpdate>()) {
             assert_roundtrips::<DocumentUpdate, DocumentUpdateProto>(left);
         }
     }

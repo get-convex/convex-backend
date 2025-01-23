@@ -289,8 +289,14 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
                         SystemMetadataModel::new_global(self.tx).delete(id).await?;
                     }
                 },
-                Export::Failed { failed_ts, .. } => {
-                    if failed_ts < delete_before_ts {
+                Export::Failed {
+                    failed_ts: last_ts, ..
+                }
+                | Export::Canceled {
+                    canceled_ts: last_ts,
+                    ..
+                } => {
+                    if last_ts < delete_before_ts {
                         SystemMetadataModel::new_global(self.tx).delete(id).await?;
                     }
                 },
@@ -298,11 +304,27 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         }
         Ok(to_delete)
     }
+
+    pub async fn cancel(&mut self, snapshot_id: DeveloperDocumentId) -> anyhow::Result<()> {
+        let (id, export) = self
+            .get(snapshot_id)
+            .await?
+            .context("Snapshot not found")?
+            .into_id_and_value();
+        let export = export.canceled(*self.tx.begin_timestamp())?;
+        SystemMetadataModel::new_global(self.tx)
+            .replace(id, export.try_into()?)
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{
+        assert_matches::assert_matches,
+        time::Duration,
+    };
 
     use anyhow::Context;
     use cmd_util::env::env_config;
@@ -333,6 +355,17 @@ mod tests {
 
     #[test]
     fn test_export_deserialization() -> anyhow::Result<()> {
+        #[track_caller]
+        fn check_roundtrip(export: &Export) {
+            let object: ConvexObject = export
+                .clone()
+                .try_into()
+                .expect("failed to serialize export");
+            let deserialized_export: Export =
+                object.try_into().expect("failed to deserialize export");
+            assert_eq!(*export, deserialized_export);
+        }
+
         // Requested
         let requested_export = Export::requested(
             ExportFormat::Zip {
@@ -342,30 +375,30 @@ mod tests {
             ExportRequestor::SnapshotExport,
             4321,
         );
-        let object: ConvexObject = requested_export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(requested_export, deserialized_export);
+        check_roundtrip(&requested_export);
 
         let ts = Timestamp::must(1234);
         // InProgress
         let in_progress_export = requested_export.clone().in_progress(ts)?;
-        let object: ConvexObject = in_progress_export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(in_progress_export, deserialized_export);
+        check_roundtrip(&in_progress_export);
 
         // Completed
         let export = in_progress_export
             .clone()
             .completed(ts, ts, ObjectKey::try_from("asdf")?)?;
-        let object: ConvexObject = export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(export, deserialized_export);
+        check_roundtrip(&export);
 
         // Failed
-        let export = in_progress_export.failed(ts, ts)?;
-        let object: ConvexObject = export.clone().try_into()?;
-        let deserialized_export = object.try_into()?;
-        assert_eq!(export, deserialized_export);
+        let export = in_progress_export.clone().failed(ts, ts)?;
+        check_roundtrip(&export);
+
+        // Canceled (never started)
+        let export = requested_export.canceled(Timestamp::must(1235))?;
+        check_roundtrip(&export);
+
+        // Canceled (was started)
+        let export = in_progress_export.canceled(Timestamp::must(1235))?;
+        check_roundtrip(&export);
 
         Ok(())
     }
@@ -590,6 +623,63 @@ mod tests {
             .await?;
         assert_eq!(toremove, vec![ObjectKey::try_from("asdf")?]);
         assert_eq!(exports_model.list().await?.len(), 0);
+        Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_cancel(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+
+        let initial_export = Export::requested(
+            ExportFormat::Zip {
+                include_storage: false,
+            },
+            ComponentId::test_user(),
+            ExportRequestor::CloudBackup,
+            u64::MAX,
+        );
+
+        // Should be able to cancel a `Requested` or `InProgress` export
+        let ts = *db.now_ts_for_reads();
+        for export in [
+            initial_export.clone(),
+            initial_export.clone().in_progress(ts)?,
+        ] {
+            let mut tx = db.begin_system().await?;
+            let mut exports_model = ExportsModel::new(&mut tx);
+            let export_id = exports_model.insert_export(export).await?;
+            exports_model.cancel(export_id.developer_id).await?;
+            assert_matches!(
+                *exports_model
+                    .get(export_id.developer_id)
+                    .await?
+                    .expect("Document must exist"),
+                Export::Canceled { .. }
+            );
+            db.commit(tx).await?;
+        }
+
+        // Should not be able to cancel a `Completed`, `Failed`, or `Canceled` export
+        let ts = *db.now_ts_for_reads();
+        for export in [
+            initial_export.clone().in_progress(ts)?.completed(
+                ts,
+                ts,
+                ObjectKey::try_from("asdf")?,
+            )?,
+            initial_export.clone().in_progress(ts)?.failed(ts, ts)?,
+            initial_export.clone().canceled(ts)?,
+        ] {
+            let mut tx = db.begin_system().await?;
+            let mut exports_model = ExportsModel::new(&mut tx);
+            let export_id = exports_model.insert_export(export).await?;
+            exports_model
+                .cancel(export_id.developer_id)
+                .await
+                .unwrap_err();
+            db.commit(tx).await?;
+        }
+
         Ok(())
     }
 }

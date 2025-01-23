@@ -1,10 +1,7 @@
-#![feature(async_closure)]
-#![feature(lazy_cell)]
 #![feature(let_chains)]
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(coroutines)]
-#![feature(lint_reasons)]
 #![feature(exhaustive_patterns)]
 
 use std::{
@@ -24,36 +21,36 @@ use application::{
     api::ApplicationApi,
     log_visibility::AllowLogging,
     Application,
+    QueryCache,
 };
 use common::{
     http::{
         fetch::ProxiedFetchClient,
         RouteMapper,
     },
-    knobs::ACTION_USER_TIMEOUT,
+    knobs::{
+        ACTION_USER_TIMEOUT,
+        UDF_CACHE_MAX_SIZE,
+    },
     log_streaming::NoopLogSender,
-    pause::PauseClient,
     persistence::Persistence,
+    runtime::Runtime,
+    shutdown::ShutdownSignal,
     types::{
         ConvexOrigin,
         ConvexSite,
     },
 };
 use config::LocalConfig;
-use database::{
-    Database,
-    ShutdownSignal,
-};
+use database::Database;
 use events::usage::NoOpUsageEventLogger;
 use file_storage::{
     FileStorage,
     TransactionalFileStorage,
 };
 use function_runner::{
-    server::{
-        InProcessFunctionRunner,
-        InstanceStorage,
-    },
+    in_process_function_runner::InProcessFunctionRunner,
+    server::InstanceStorage,
     FunctionRunner,
 };
 use model::{
@@ -76,6 +73,7 @@ pub mod admin;
 mod app_metrics;
 mod args_structs;
 pub mod authentication;
+pub mod beacon;
 pub mod config;
 pub mod custom_headers;
 pub mod dashboard;
@@ -86,6 +84,7 @@ pub mod http_actions;
 pub mod logs;
 pub mod node_action_callbacks;
 pub mod parse;
+pub mod persistence;
 pub mod proxy;
 pub mod public_api;
 pub mod router;
@@ -95,12 +94,12 @@ pub mod snapshot_export;
 pub mod snapshot_import;
 pub mod storage;
 pub mod subs;
-
 #[cfg(test)]
 mod test_helpers;
 
 pub const MAX_CONCURRENT_REQUESTS: usize = 128;
 
+#[derive(Clone)]
 pub struct LocalAppState {
     // Origin for the server (e.g. http://127.0.0.1:3210, https://demo.convex.cloud)
     pub origin: ConvexOrigin,
@@ -117,18 +116,6 @@ impl LocalAppState {
         self.application.shutdown().await?;
 
         Ok(())
-    }
-}
-
-impl Clone for LocalAppState {
-    fn clone(&self) -> Self {
-        Self {
-            origin: self.origin.clone(),
-            site_origin: self.site_origin.clone(),
-            instance_name: self.instance_name.clone(),
-            application: self.application.clone(),
-            zombify_rx: self.zombify_rx.clone(),
-        }
     }
 }
 
@@ -210,6 +197,7 @@ pub async fn make_app(
         node_executor,
         config.convex_origin_url(),
         *ACTION_USER_TIMEOUT,
+        runtime.clone(),
     );
 
     #[cfg(not(debug_assertions))]
@@ -250,7 +238,6 @@ pub async fn make_app(
         database.usage_counter(),
         key_broker.clone(),
         config.name(),
-        config.secret()?,
         function_runner,
         config.convex_origin_url(),
         config.convex_site_url(),
@@ -260,17 +247,25 @@ pub async fn make_app(
         actions,
         Arc::new(NoopLogSender),
         Arc::new(AllowLogging),
-        PauseClient::new(),
-        PauseClient::new(),
         Arc::new(ApplicationAuth::new(
             key_broker.clone(),
             Arc::new(NullAccessTokenAuth),
         )),
+        QueryCache::new(*UDF_CACHE_MAX_SIZE),
     )
     .await?;
 
     let origin = config.convex_origin_url();
     let instance_name = config.name().clone();
+
+    // Start the beacon coroutine to help Convex improve the self-hosted product.
+    // This sends anonymous usage metrics like database version to help us
+    // understand how self-hosted instances are being used. You can opt in by
+    // setting CONVEX_ENABLE_BEACON=1
+    if std::env::var("CONVEX_ENABLE_BEACON").is_ok_and(|v| v == "1") {
+        let beacon_future = beacon::start_beacon(runtime.clone(), database.clone());
+        runtime.spawn("beacon_worker", beacon_future);
+    }
 
     let app_state = LocalAppState {
         origin,

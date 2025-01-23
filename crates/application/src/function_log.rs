@@ -1,10 +1,10 @@
 use std::{
-    cmp,
+    cell::Cell,
     collections::{
         BTreeMap,
+        HashMap,
         VecDeque,
     },
-    iter,
     str::FromStr,
     sync::Arc,
     time::{
@@ -19,12 +19,12 @@ use common::{
         ComponentPath,
     },
     errors::{
-        report_error,
+        report_error_sync,
         JsError,
     },
     execution_context::ExecutionContext,
     identity::InertIdentity,
-    knobs::MAX_UDF_EXECUTION,
+    knobs,
     log_lines::{
         LogLine,
         LogLines,
@@ -56,8 +56,15 @@ use http::{
     Method,
     StatusCode,
 };
-use isolate::{
-    environment::helpers::validation::{
+use itertools::Itertools;
+use parking_lot::Mutex;
+use serde_json::{
+    json,
+    Value as JsonValue,
+};
+use tokio::sync::oneshot;
+use udf::{
+    validation::{
         ValidatedActionOutcome,
         ValidatedUdfOutcome,
     },
@@ -66,19 +73,21 @@ use isolate::{
     SyscallTrace,
     UdfOutcome,
 };
-use itertools::Either;
-use parking_lot::Mutex;
-use serde::Deserialize;
-use serde_json::{
-    json,
-    Value as JsonValue,
+use udf_metrics::{
+    CounterBucket,
+    MetricName,
+    MetricStore,
+    MetricStoreConfig,
+    MetricType,
+    MetricsWindow,
+    Percentile,
+    Timeseries,
+    UdfMetricsError,
 };
-use tokio::sync::oneshot;
 use url::Url;
 use usage_tracking::{
     AggregatedFunctionUsageStats,
     CallType,
-    FunctionUsageStats,
     FunctionUsageTracker,
     OccInfo,
     UsageCounter,
@@ -91,6 +100,7 @@ use value::{
     sha256::Sha256Digest,
     ConvexArray,
 };
+
 /// A function's execution is summarized by this structure and stored in the
 /// UdfExecutionLog
 #[derive(Debug, Clone)]
@@ -305,7 +315,7 @@ impl FunctionExecutionProgress {
         }
     }
 
-    fn console_log_events(self) -> Vec<LogEvent> {
+    fn console_log_events(&self) -> Vec<LogEvent> {
         self.log_lines
             .iter()
             .flat_map(|line| self.console_log_events_for_log_line(line, None))
@@ -441,11 +451,6 @@ pub enum TrackUsage {
     SystemError,
 }
 
-pub type Timeseries = Vec<(SystemTime, Option<f64>)>;
-
-/// Integer in [0, 100].
-pub type Percentile = usize;
-
 pub enum UdfRate {
     Invocations,
     Errors,
@@ -486,42 +491,6 @@ impl FromStr for TableRate {
     }
 }
 
-#[derive(Debug)]
-pub struct MetricsWindow {
-    start: SystemTime,
-    end: SystemTime,
-    num_buckets: usize,
-}
-
-impl TryFrom<serde_json::Value> for MetricsWindow {
-    type Error = anyhow::Error;
-
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        #[derive(Debug, Deserialize)]
-        struct MetricsWindowInner {
-            start: SystemTime,
-            end: SystemTime,
-            num_buckets: usize,
-        }
-        let parsed: MetricsWindowInner = serde_json::from_value(value)?;
-        if parsed.end < parsed.start {
-            anyhow::bail!(
-                "Invalid query window: {:?} < {:?}",
-                parsed.end,
-                parsed.start
-            );
-        }
-        if parsed.num_buckets == 0 {
-            anyhow::bail!("Invalid query num_buckets: 0");
-        }
-        Ok(Self {
-            start: parsed.start,
-            end: parsed.end,
-            num_buckets: parsed.num_buckets,
-        })
-    }
-}
-
 #[derive(Clone)]
 pub struct FunctionExecutionLog<RT: Runtime> {
     inner: Arc<Mutex<Inner<RT>>>,
@@ -531,13 +500,23 @@ pub struct FunctionExecutionLog<RT: Runtime> {
 
 impl<RT: Runtime> FunctionExecutionLog<RT> {
     pub fn new(rt: RT, usage_tracking: UsageCounter, log_manager: Arc<dyn LogSender>) -> Self {
+        let base_ts = rt.system_time();
         let inner = Inner {
             rt: rt.clone(),
             num_execution_completions: 0,
             log: WithHeapSize::default(),
             log_waiters: vec![].into(),
             log_manager,
-            metrics: Metrics::default(),
+            metrics: MetricStore::new(
+                base_ts,
+                MetricStoreConfig {
+                    bucket_width: *knobs::UDF_METRICS_BUCKET_WIDTH,
+                    max_buckets: *knobs::UDF_METRICS_MAX_BUCKETS,
+                    histogram_min_duration: *knobs::UDF_METRICS_MIN_DURATION,
+                    histogram_max_duration: *knobs::UDF_METRICS_MAX_DURATION,
+                    histogram_significant_figures: *knobs::UDF_METRICS_SIGNIFICANT_FIGURES,
+                },
+            ),
         };
         Self {
             inner: Arc::new(Mutex::new(inner)),
@@ -548,7 +527,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
 
     pub fn log_query(
         &self,
-        outcome: UdfOutcome,
+        outcome: &UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         was_cached: bool,
         execution_time: Duration,
@@ -589,7 +568,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             None,
         )?;
         self._log_query(
-            outcome,
+            &outcome,
             BTreeMap::new(),
             false,
             start.elapsed(),
@@ -600,10 +579,10 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         Ok(())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn _log_query(
         &self,
-        outcome: UdfOutcome,
+        outcome: &UdfOutcome,
         tables_touched: BTreeMap<TableName, TableStats>,
         was_cached: bool,
         execution_time: Duration,
@@ -618,11 +597,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
+                    context.request_id.clone(),
                     if was_cached {
                         CallType::CachedQuery
                     } else {
                         CallType::UncachedQuery
                     },
+                    outcome.result.is_ok(),
                     usage_stats,
                 );
                 aggregated
@@ -634,26 +615,26 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         }
         let execution = FunctionExecution {
             params: UdfParams::Function {
-                error: match outcome.result {
+                error: match &outcome.result {
                     Ok(_) => None,
-                    Err(e) => Some(e),
+                    Err(e) => Some(e.clone()),
                 },
-                identifier: outcome.path,
+                identifier: outcome.path.clone(),
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
             udf_type: UdfType::Query,
-            log_lines: outcome.log_lines,
+            log_lines: outcome.log_lines.clone(),
             tables_touched: tables_touched.into(),
             cached_result: was_cached,
             execution_time: execution_time.as_secs_f64(),
             caller,
             environment: ModuleEnvironment::Isolate,
-            syscall_trace: outcome.syscall_trace,
+            syscall_trace: outcome.syscall_trace.clone(),
             usage_stats: aggregated,
             action_memory_used_mb: None,
-            udf_server_version: outcome.udf_server_version,
-            identity: outcome.identity,
+            udf_server_version: outcome.udf_server_version.clone(),
+            identity: outcome.identity.clone(),
             context,
         };
         self.log_execution(execution, true);
@@ -675,6 +656,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::Track(usage),
             context,
+            None,
         )
     }
 
@@ -706,6 +688,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             caller,
             TrackUsage::SystemError,
             context,
+            None,
         );
         Ok(())
     }
@@ -716,32 +699,18 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         tables_touched: BTreeMap<TableName, TableStats>,
         execution_time: Duration,
         caller: FunctionCaller,
+        usage: FunctionUsageTracker,
         context: ExecutionContext,
-        table_name: Option<String>,
-        document_id: Option<String>,
-        retry_count: u64,
+        occ_info: OccInfo,
     ) {
-        self.usage_tracking.track_call(
-            UdfIdentifier::Function(outcome.path.clone()),
-            context.execution_id.clone(),
-            CallType::Mutation {
-                occ_info: Some(OccInfo {
-                    table_name,
-                    document_id,
-                    retry_count,
-                }),
-            },
-            // This track call is only to keep track of OCC error metadata.
-            // Usage states across all retries are tracked in the `log_mutation` call.
-            FunctionUsageStats::default(),
-        );
         self._log_mutation(
             outcome,
             tables_touched,
             execution_time,
             caller,
-            TrackUsage::SystemError,
+            TrackUsage::Track(usage),
             context,
+            Some(occ_info),
         );
     }
 
@@ -753,6 +722,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: TrackUsage,
         context: ExecutionContext,
+        occ_info: Option<OccInfo>,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -761,7 +731,9 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     context.execution_id.clone(),
-                    CallType::Mutation { occ_info: None },
+                    context.request_id.clone(),
+                    CallType::Mutation { occ_info },
+                    outcome.result.is_ok(),
                     usage_stats,
                 );
                 aggregated
@@ -845,11 +817,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Function(outcome.path.clone()),
                     completion.context.execution_id.clone(),
+                    completion.context.request_id.clone(),
                     CallType::Action {
                         env: completion.environment,
                         duration: completion.execution_time,
                         memory_in_mb: completion.memory_in_mb,
                     },
+                    outcome.result.is_ok(),
                     usage_stats,
                 );
                 aggregated
@@ -949,7 +923,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             http_request,
             identity,
             self.rt.unix_timestamp(),
-            isolate::HttpActionResult::Error(js_err.clone()),
+            udf::HttpActionResult::Error(js_err.clone()),
             None,
             None,
         );
@@ -983,11 +957,13 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 self.usage_tracking.track_call(
                     UdfIdentifier::Http(outcome.route.clone()),
                     context.execution_id.clone(),
+                    context.request_id.clone(),
                     CallType::HttpAction {
                         duration: execution_time,
                         memory_in_mb: outcome.memory_in_mb(),
                         response_sha256,
                     },
+                    result.clone().is_ok_and(|code| code.0.as_u16() < 400),
                     usage_stats,
                 );
                 aggregated
@@ -1045,7 +1021,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             .lock()
             .log_execution(execution, send_console_events)
         {
-            report_error(&mut e);
+            report_error_sync(&mut e);
         }
     }
 
@@ -1060,7 +1036,19 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 .lock()
                 .log_execution_progress(log_lines, event_source, timestamp)
         {
-            report_error(&mut e);
+            report_error_sync(&mut e);
+        }
+    }
+
+    /// Indicates that as of now (`timestamp`), the next scheduled job is at
+    /// `next_job_ts` (None if there are no pending jobs)
+    pub fn log_scheduled_job_lag(&self, next_job_ts: Option<SystemTime>, timestamp: SystemTime) {
+        if let Err(mut e) = self
+            .inner
+            .lock()
+            .log_scheduled_job_lag(next_job_ts, timestamp)
+        {
+            report_error_sync(&mut e);
         }
     }
 
@@ -1070,15 +1058,18 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         metric: UdfRate,
         window: MetricsWindow,
     ) -> anyhow::Result<Timeseries> {
-        let mut inner = self.inner.lock();
-        let metrics = inner.metrics.udf.entry(identifier).or_default();
-        let data = match metric {
-            UdfRate::Invocations => &metrics.invocations,
-            UdfRate::Errors => &metrics.errors,
-            UdfRate::CacheHits => &metrics.cache_hits,
-            UdfRate::CacheMisses => &metrics.cache_misses,
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
         };
-        data.events_per_second(window)
+        let name = match metric {
+            UdfRate::Invocations => udf_invocations_metric(&identifier),
+            UdfRate::Errors => udf_errors_metric(&identifier),
+            UdfRate::CacheHits => udf_cache_hits_metric(&identifier),
+            UdfRate::CacheMisses => udf_cache_misses_metric(&identifier),
+        };
+        let buckets = metrics.query_counter(&name, window.start..window.end)?;
+        window.resample_counters(&metrics, buckets, true)
     }
 
     pub fn cache_hit_percentage(
@@ -1086,9 +1077,151 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         identifier: UdfIdentifier,
         window: MetricsWindow,
     ) -> anyhow::Result<Timeseries> {
-        let mut inner = self.inner.lock();
-        let metrics = inner.metrics.udf.entry(identifier).or_default();
-        metrics.cache_hit_percentage(window)
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+        let hits = metrics.query_counter(
+            &udf_cache_hits_metric(&identifier),
+            window.start..window.end,
+        )?;
+        let hits = window.resample_counters(&metrics, hits, false /* is_rate */)?;
+        let misses = metrics.query_counter(
+            &udf_cache_misses_metric(&identifier),
+            window.start..window.end,
+        )?;
+        let misses = window.resample_counters(&metrics, misses, false /* is_rate */)?;
+
+        merge_series(&hits, &misses, cache_hit_percentage)
+    }
+
+    pub fn failure_percentage_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+
+        // Get the invocations and errors
+        let invocations = Self::get_udf_metric_counter(&window, &metrics, "invocations")?;
+        let errors = Self::get_udf_metric_counter(&window, &metrics, "errors")?;
+
+        Self::top_k_for_rate(&window, errors, invocations, k, percentage, false)
+    }
+
+    pub fn cache_hit_percentage_top_k(
+        &self,
+        window: MetricsWindow,
+        k: usize,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+
+        // Get the invocations and hits
+        let hits = Self::get_udf_metric_counter(&window, &metrics, "cache_hits")?;
+        let misses = Self::get_udf_metric_counter(&window, &metrics, "cache_misses")?;
+
+        Self::top_k_for_rate(&window, hits, misses, k, cache_hit_percentage, true)
+    }
+
+    fn get_udf_metric_counter(
+        window: &MetricsWindow,
+        metrics: &MetricStore,
+        metric_name: &str,
+    ) -> anyhow::Result<HashMap<String, Timeseries>> {
+        let metric_names = metrics.metric_names_for_type(MetricType::Counter);
+
+        let filtered_metric_names: Vec<_> = metric_names
+            .iter()
+            .filter(|name| name.starts_with("udf") && name.ends_with(metric_name))
+            .collect();
+
+        let mut results: HashMap<String, Vec<&CounterBucket>> = HashMap::new();
+        for metric_name in filtered_metric_names {
+            let result = metrics.query_counter(metric_name, window.start..window.end)?;
+            let metric_name_parts: Vec<&str> = metric_name.split(':').collect();
+            // UDF names can have colons in them, so we need to only exclude
+            // the metric type and metric name
+            let metric_name = metric_name_parts[1..metric_name_parts.len() - 1].join(":");
+            results.insert(metric_name, result);
+        }
+
+        results
+            .into_iter()
+            .map(|(k, v)| {
+                Ok((
+                    k,
+                    window.resample_counters(metrics, v, false /* is_rate */)?,
+                ))
+            })
+            .collect()
+    }
+
+    fn top_k(map: &HashMap<&str, f64>, k: usize, ascending: bool) -> Vec<String> {
+        let mut top_k: Vec<_> = map.iter().map(|(&key, &sum)| (key, sum)).collect();
+        top_k.sort_unstable_by(|(name1, a), (name2, b)| {
+            if ascending {
+                a.total_cmp(b)
+            } else {
+                b.total_cmp(a)
+            }
+            .then(name1.cmp(name2)) // tiebreak by name
+        });
+        top_k.truncate(k);
+        top_k.into_iter().map(|(name, _)| name.to_owned()).collect()
+    }
+
+    // Compute the top k rates for the given UDFs
+    fn top_k_for_rate(
+        window: &MetricsWindow,
+        mut ts1: HashMap<String, Timeseries>,
+        mut ts2: HashMap<String, Timeseries>,
+        k: usize,
+        merge: impl Fn(Option<f64>, Option<f64>) -> Option<f64> + Copy,
+        ascending: bool,
+    ) -> anyhow::Result<Vec<(String, Timeseries)>> {
+        // First, calculate the overall rates summed over the entire time window
+        let mut overall: HashMap<&str, f64> = HashMap::new();
+        for (udf_id, ts1_series) in ts1.iter() {
+            let ts1_sum = ts1_series.iter().filter_map(|&(_, value)| value).sum1();
+            let ts2_sum = ts2
+                .get(udf_id)
+                .and_then(|ts2_series| ts2_series.iter().filter_map(|&(_, value)| value).sum1());
+            if let Some(ratio) = merge(ts1_sum, ts2_sum) {
+                overall.insert(udf_id, ratio);
+            }
+        }
+        let top_k = Self::top_k(&overall, k, ascending);
+
+        let mut ret = vec![];
+
+        for udf_id in top_k {
+            // Remove the top k from the hits and misses timeseries
+            // so we can sum up everything that's left over.
+            let ts1_series = ts1
+                .remove(&udf_id)
+                .expect("everything in topk came from ts1");
+            let ts2_series = ts2
+                .remove(&udf_id)
+                .unwrap_or_else(|| ts1_series.iter().map(|&(ts, _)| (ts, None)).collect());
+            let merged: Timeseries = merge_series(&ts1_series, &ts2_series, merge)?;
+            ret.push((udf_id.to_string(), merged));
+        }
+
+        // Sum up the rest of the rates
+        if !ts2.is_empty() || !ts1.is_empty() {
+            let rest_ts1 = sum_timeseries(window, ts1.values())?;
+            let rest_ts2 = sum_timeseries(window, ts2.values())?;
+            let rest = merge_series(&rest_ts1, &rest_ts2, merge)?;
+            ret.push(("_rest".to_string(), rest));
+        }
+
+        Ok(ret)
     }
 
     pub fn latency_percentiles(
@@ -1097,24 +1230,33 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         percentiles: Vec<Percentile>,
         window: MetricsWindow,
     ) -> anyhow::Result<BTreeMap<Percentile, Timeseries>> {
-        let mut inner = self.inner.lock();
-        let metrics = inner.metrics.udf.entry(identifier).or_default();
-        metrics.latency_percentiles(percentiles, window)
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+        let buckets = metrics.query_histogram(
+            &udf_execution_time_metric(&identifier),
+            window.start..window.end,
+        )?;
+        window.resample_histograms(&metrics, buckets, &percentiles)
     }
 
     pub fn table_rate(
         &self,
-        name: TableName,
+        table_name: TableName,
         metric: TableRate,
         window: MetricsWindow,
     ) -> anyhow::Result<Timeseries> {
-        let mut inner = self.inner.lock();
-        let metrics = inner.metrics.table.entry(name).or_default();
-        let data = match metric {
-            TableRate::RowsRead => &metrics.rows_read,
-            TableRate::RowsWritten => &metrics.rows_written,
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
         };
-        data.summed_events_per_second(window)
+        let name = match metric {
+            TableRate::RowsRead => table_rows_read_metric(&table_name),
+            TableRate::RowsWritten => table_rows_written_metric(&table_name),
+        };
+        let buckets = metrics.query_counter(&name, window.start..window.end)?;
+        window.resample_counters(&metrics, buckets, true)
     }
 
     pub fn udf_summary(
@@ -1228,6 +1370,93 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             0.0
         }
     }
+
+    pub fn scheduled_job_lag(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {
+        let metrics = {
+            let inner = self.inner.lock();
+            inner.metrics.clone()
+        };
+        let buckets = metrics
+            .query_gauge(scheduled_job_next_ts_metric(), window.start..window.end)?
+            .into_iter()
+            .collect();
+        let mut timeseries = window.resample_gauges(&metrics, buckets)?;
+        // For buckets where no value is recorded, interpolate the previous known value
+        // but increase it by the timestep (since lag naturally increases over
+        // time)
+        for i in 1..timeseries.len() {
+            if timeseries[i].1.is_none()
+                && let Some(prev) = timeseries[i - 1].1
+            {
+                let offset = timeseries[i].0.duration_since(timeseries[i - 1].0)?;
+                timeseries[i].1 = Some(prev + offset.as_secs_f64());
+            }
+        }
+        // Then clamp negative values to zero
+        for (_, bucket) in &mut timeseries {
+            if let Some(value) = bucket {
+                *value = value.max(0.);
+            }
+        }
+        Ok(timeseries)
+    }
+}
+
+fn sum_timeseries<'a>(
+    window: &MetricsWindow,
+    series: impl Iterator<Item = &'a Timeseries>,
+) -> anyhow::Result<Timeseries> {
+    let mut result = (0..window.num_buckets)
+        .map(|i| Ok((window.bucket_start(i)?, None)))
+        .collect::<anyhow::Result<Timeseries>>()?;
+    for timeseries in series {
+        anyhow::ensure!(timeseries.len() == result.len());
+        for (i, &(ts, value)) in timeseries.iter().enumerate() {
+            anyhow::ensure!(ts == result[i].0);
+            if let Some(value) = value {
+                *result[i].1.get_or_insert(0.) += value;
+            }
+        }
+    }
+    Ok(result)
+}
+
+fn merge_series(
+    ts1: &Timeseries,
+    ts2: &Timeseries,
+    merge: impl Fn(Option<f64>, Option<f64>) -> Option<f64>,
+) -> anyhow::Result<Timeseries> {
+    anyhow::ensure!(ts2.len() == ts1.len());
+    ts1.iter()
+        .zip(ts2)
+        .map(|(&(t1, t1_value), &(t2, t2_value))| {
+            anyhow::ensure!(t1 == t2);
+            Ok((t1, merge(t1_value, t2_value)))
+        })
+        .collect()
+}
+
+/// numerator / denominator * 100
+fn percentage(numerator: Option<f64>, denominator: Option<f64>) -> Option<f64> {
+    match (numerator, denominator) {
+        (Some(numerator), Some(denominator)) => Some(numerator / denominator * 100.),
+        (None, Some(_denominator)) => Some(0.),
+        // This doesn't make sense, but could happen with mismatched timeseries or missing data
+        (Some(_numerator), None) => Some(100.),
+        (None, None) => None,
+    }
+}
+
+/// hits / (hits + misses) * 100
+fn cache_hit_percentage(hits: Option<f64>, misses: Option<f64>) -> Option<f64> {
+    match (hits, misses) {
+        (Some(hits), Some(misses)) => Some(hits / (hits + misses) * 100.),
+        // There are hits but not misses, so the hit rate is 100.
+        (Some(_hits), None) => Some(100.),
+        // There are misses but not hits, so the hit rate is 0.
+        (None, Some(_misses)) => Some(0.),
+        (None, None) => None,
+    }
 }
 
 struct Inner<RT: Runtime> {
@@ -1237,8 +1466,7 @@ struct Inner<RT: Runtime> {
     num_execution_completions: usize,
     log_waiters: WithHeapSize<Vec<oneshot::Sender<()>>>,
     log_manager: Arc<dyn LogSender>,
-
-    metrics: Metrics,
+    metrics: MetricStore,
 }
 
 impl<RT: Runtime> Inner<RT> {
@@ -1247,7 +1475,9 @@ impl<RT: Runtime> Inner<RT> {
         execution: FunctionExecution,
         send_console_events: bool,
     ) -> anyhow::Result<()> {
-        self.metrics.append(&execution)?;
+        if let Err(e) = self.log_execution_metrics(&execution) {
+            Self::log_metrics_error(e);
+        };
         let next_time = self.next_time()?;
 
         // Gather log lines
@@ -1263,7 +1493,7 @@ impl<RT: Runtime> Inner<RT> {
                 // Don't let failing to construct the UDF execution record block sending
                 // the other log events
                 tracing::error!("failed to create UDF execution record: {}", e);
-                report_error(&mut e);
+                report_error_sync(&mut e);
             },
         }
 
@@ -1272,7 +1502,7 @@ impl<RT: Runtime> Inner<RT> {
         self.log
             .push_back((next_time, FunctionExecutionPart::Completion(execution)));
         self.num_execution_completions += 1;
-        while self.num_execution_completions > *MAX_UDF_EXECUTION {
+        while self.num_execution_completions > *knobs::MAX_UDF_EXECUTION {
             let front = self.log.pop_front();
             if let Some((_, FunctionExecutionPart::Completion(_))) = front {
                 self.num_execution_completions -= 1;
@@ -1280,6 +1510,70 @@ impl<RT: Runtime> Inner<RT> {
         }
         for waiter in self.log_waiters.drain(..) {
             let _ = waiter.send(());
+        }
+        Ok(())
+    }
+
+    fn log_metrics_error(error: UdfMetricsError) {
+        // Only log an error to tracing and/or Sentry at most once every 10 seconds per
+        // thread.
+        thread_local! {
+            static LAST_LOGGED_ERROR: Cell<Option<SystemTime>> = const { Cell::new(None) };
+        }
+        let now = SystemTime::now();
+        let should_log = LAST_LOGGED_ERROR.get().is_none_or(|last_logged| {
+            now.duration_since(last_logged).unwrap_or(Duration::ZERO) >= Duration::from_secs(10)
+        });
+        if !should_log {
+            return;
+        }
+        LAST_LOGGED_ERROR.set(Some(now));
+        tracing::error!("Failed to log execution metrics: {}", error);
+        if let UdfMetricsError::InternalError(mut e) = error {
+            report_error_sync(&mut e);
+        }
+    }
+
+    fn log_execution_metrics(
+        &mut self,
+        execution: &FunctionExecution,
+    ) -> Result<(), UdfMetricsError> {
+        let ts = execution.unix_timestamp.as_system_time();
+
+        let identifier = execution.identifier();
+
+        let name = udf_invocations_metric(&identifier);
+        self.metrics.add_counter(&name, ts, 1.0)?;
+
+        let is_err = match &execution.params {
+            UdfParams::Function { error, .. } => error.is_some(),
+            UdfParams::Http { result, .. } => result.is_err(),
+        };
+        if is_err {
+            let name = udf_errors_metric(&identifier);
+            self.metrics.add_counter(&name, ts, 1.0)?;
+        }
+        if execution.udf_type == UdfType::Query {
+            if execution.cached_result {
+                let name = udf_cache_hits_metric(&identifier);
+                self.metrics.add_counter(&name, ts, 1.0)?;
+            } else {
+                let name = udf_cache_misses_metric(&identifier);
+                self.metrics.add_counter(&name, ts, 1.0)?;
+            }
+        }
+
+        let name = udf_execution_time_metric(&identifier);
+        self.metrics
+            .add_histogram(&name, ts, Duration::from_secs_f64(execution.execution_time))?;
+
+        for (table_name, table_stats) in &execution.tables_touched {
+            let name = table_rows_read_metric(table_name);
+            self.metrics
+                .add_counter(&name, ts, table_stats.rows_read as f32)?;
+            let name = table_rows_written_metric(table_name);
+            self.metrics
+                .add_counter(&name, ts, table_stats.rows_written as f32)?;
         }
         Ok(())
     }
@@ -1297,12 +1591,34 @@ impl<RT: Runtime> Inner<RT> {
             function_start_timestamp,
         };
 
-        let log_events = progress.clone().console_log_events();
+        let log_events = progress.console_log_events();
         self.log_manager.send_logs(log_events);
         self.log
             .push_back((next_time, FunctionExecutionPart::Progress(progress)));
         for waiter in self.log_waiters.drain(..) {
             let _ = waiter.send(());
+        }
+        Ok(())
+    }
+
+    fn log_scheduled_job_lag(
+        &mut self,
+        next_job_ts: Option<SystemTime>,
+        now: SystemTime,
+    ) -> anyhow::Result<()> {
+        let name = scheduled_job_next_ts_metric();
+        // -Infinity means there is no scheduled job
+        let value = next_job_ts.map_or(-f32::INFINITY, |ts| signed_duration_since(now, ts));
+        match self.metrics.add_gauge(name, now, value) {
+            Ok(()) => (),
+            Err(UdfMetricsError::SamplePrecedesCutoff { ts: _, cutoff }) => {
+                // `now` was too old; automatically promote the sample to the cutoff time
+                // instead
+                let value =
+                    next_job_ts.map_or(-f32::INFINITY, |ts| signed_duration_since(cutoff, ts));
+                self.metrics.add_gauge(name, cutoff, value)?;
+            },
+            Err(err) => return Err(err.into()),
         }
         Ok(())
     }
@@ -1324,120 +1640,11 @@ impl<RT: Runtime> Inner<RT> {
     }
 }
 
-#[derive(Default)]
-struct Metrics {
-    udf: BTreeMap<UdfIdentifier, UdfMetrics>,
-    table: BTreeMap<TableName, TableMetrics>,
-}
-
-impl Metrics {
-    fn append(&mut self, row: &FunctionExecution) -> anyhow::Result<()> {
-        let ts = row.unix_timestamp.as_system_time();
-        self.udf
-            .entry(row.identifier())
-            .or_default()
-            .append(ts, row)?;
-        for (table_name, table_stats) in &row.tables_touched {
-            self.table
-                .entry(table_name.clone())
-                .or_default()
-                .append(ts, table_stats)?;
-        }
-        Ok(())
-    }
-}
-
-#[derive(Default)]
-struct UdfMetrics {
-    invocations: Series<()>,
-    errors: Series<()>,
-
-    cache_hits: Series<()>,
-    cache_misses: Series<()>,
-
-    execution_time: Series<Duration>,
-}
-
-impl UdfMetrics {
-    fn append(&mut self, ts: SystemTime, row: &FunctionExecution) -> anyhow::Result<()> {
-        self.invocations.append(ts)?;
-        let is_err = match &row.params {
-            UdfParams::Function { error, .. } => error.is_some(),
-            UdfParams::Http { result, .. } => result.is_err(),
-        };
-        if is_err {
-            self.errors.append(ts)?;
-        }
-        if row.cached_result {
-            self.cache_hits.append(ts)?;
-        } else {
-            self.cache_misses.append(ts)?;
-        }
-        let execution_time = Duration::from_secs_f64(row.execution_time);
-        self.execution_time.append_value(ts, execution_time)?;
-        Ok(())
-    }
-
-    fn cache_hit_percentage(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {
-        let mut hits = vec![0; window.num_buckets];
-        let mut misses = vec![0; window.num_buckets];
-
-        let start = self
-            .cache_misses
-            .bounded_start(self.cache_hits.bounded_start(window.start));
-        for (ts, _) in self.cache_hits.range(start, window.end) {
-            hits[window.bucket_index(ts)?] += 1;
-        }
-        for (ts, _) in self.cache_misses.range(start, window.end) {
-            misses[window.bucket_index(ts)?] += 1;
-        }
-        hits.into_iter()
-            .zip(misses)
-            .enumerate()
-            .map(|(i, (num_hits, num_misses))| {
-                let num_reqs = num_hits + num_misses;
-                // Emit a missing value if there are no requests for a bucket.
-                let hit_percentage = if num_reqs == 0 {
-                    None
-                } else {
-                    Some((num_hits as f64) / (num_reqs as f64) * 100.)
-                };
-                Ok((window.bucket_start(i)?, hit_percentage))
-            })
-            .collect()
-    }
-
-    fn latency_percentiles(
-        &self,
-        percentiles: Vec<Percentile>,
-        window: MetricsWindow,
-    ) -> anyhow::Result<BTreeMap<Percentile, Timeseries>> {
-        let mut bucket_samples = vec![vec![]; window.num_buckets];
-        for (ts, &latency) in self.execution_time.range(window.start, window.end) {
-            bucket_samples[window.bucket_index(ts)?].push(latency);
-        }
-        for bucket_sample in &mut bucket_samples {
-            bucket_sample.sort();
-        }
-        let mut out = BTreeMap::new();
-        for percentile in percentiles {
-            anyhow::ensure!(percentile <= 100);
-            let timeseries = bucket_samples
-                .iter()
-                .enumerate()
-                .map(|(i, bucket)| {
-                    let metric = if bucket.is_empty() {
-                        None
-                    } else {
-                        let ix = (((percentile as f64) / 100.) * (bucket.len() as f64)) as usize;
-                        Some(bucket[ix].as_secs_f64())
-                    };
-                    Ok((window.bucket_start(i)?, metric))
-                })
-                .collect::<anyhow::Result<_>>()?;
-            out.insert(percentile, timeseries);
-        }
-        Ok(out)
+/// `t1 - t2` in seconds, possibly negative
+fn signed_duration_since(t1: SystemTime, t2: SystemTime) -> f32 {
+    match t1.duration_since(t2) {
+        Ok(d) => d.as_secs_f32(),
+        Err(e) => -e.duration().as_secs_f32(),
     }
 }
 
@@ -1501,177 +1708,45 @@ impl From<FunctionSummary> for JsonValue {
     }
 }
 
-#[derive(Default)]
-struct TableMetrics {
-    rows_read: Series<u64>,
-    rows_written: Series<u64>,
+fn udf_invocations_metric(identifier: &UdfIdentifier) -> MetricName {
+    format!("udf:{}:invocations", udf_metric_name(identifier))
 }
 
-impl TableMetrics {
-    fn append(&mut self, ts: SystemTime, stats: &TableStats) -> anyhow::Result<()> {
-        self.rows_read.append_value(ts, stats.rows_read)?;
-        self.rows_written.append_value(ts, stats.rows_written)?;
-        Ok(())
-    }
+fn udf_errors_metric(identifier: &UdfIdentifier) -> MetricName {
+    format!("udf:{}:errors", udf_metric_name(identifier))
 }
 
-#[derive(Default)]
-struct Series<V> {
-    data: BTreeMap<SystemTime, Vec<V>>,
-    low_watermark: Option<SystemTime>,
+fn udf_cache_hits_metric(identifier: &UdfIdentifier) -> MetricName {
+    format!("udf:{}:cache_hits", udf_metric_name(identifier))
 }
 
-impl Series<()> {
-    fn append(&mut self, ts: SystemTime) -> anyhow::Result<()> {
-        self.append_value(ts, ())
-    }
+fn udf_cache_misses_metric(identifier: &UdfIdentifier) -> MetricName {
+    format!("udf:{}:cache_misses", udf_metric_name(identifier))
 }
 
-impl<V> Series<V> {
-    /// Different Series can be truncated and have different starting points,
-    /// so when comparing data across Series, bound the start time by
-    /// bounded_start on both series.
-    fn bounded_start(&self, start: SystemTime) -> SystemTime {
-        if let Some(low_watermark) = self.low_watermark {
-            cmp::max(start, low_watermark)
-        } else {
-            start
-        }
-    }
-
-    fn range(&self, start: SystemTime, end: SystemTime) -> impl Iterator<Item = (SystemTime, &V)> {
-        if start >= end {
-            Either::Left(iter::empty())
-        } else {
-            Either::Right(
-                self.data
-                    .range(start..end)
-                    .flat_map(|(&k, vs)| vs.iter().map(move |v| (k, v))),
-            )
-        }
-    }
-
-    fn append_value(&mut self, ts: SystemTime, value: V) -> anyhow::Result<()> {
-        self.data.entry(ts).or_default().push(value);
-        if self.low_watermark.is_none() {
-            self.low_watermark = Some(ts);
-        }
-        while self.data.len() > *MAX_UDF_EXECUTION {
-            self.data.pop_first();
-            self.low_watermark = Some(*self.data.first_key_value().expect("empty data too big?").0);
-        }
-        Ok(())
-    }
-
-    fn events_per_second(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {
-        let mut bucket_counts = vec![0; window.num_buckets];
-        for (ts, _) in self.range(window.start, window.end) {
-            bucket_counts[window.bucket_index(ts)?] += 1;
-        }
-        let width = window.bucket_width()?.as_secs_f64();
-        bucket_counts
-            .into_iter()
-            .enumerate()
-            // Convert from a count to a number of events per second.
-            .map(|(i, count)| Ok((window.bucket_start(i)?, Some((count as f64) / width))))
-            .collect()
-    }
+fn udf_execution_time_metric(identifier: &UdfIdentifier) -> MetricName {
+    format!("udf:{}:execution_time", udf_metric_name(identifier))
 }
 
-impl Series<u64> {
-    fn summed_events_per_second(&self, window: MetricsWindow) -> anyhow::Result<Timeseries> {
-        let mut bucket_counts = vec![0; window.num_buckets];
-        for (ts, &count) in self.range(window.start, window.end) {
-            bucket_counts[window.bucket_index(ts)?] += count;
-        }
-        let width = window.bucket_width()?.as_secs_f64();
-        bucket_counts
-            .into_iter()
-            .enumerate()
-            // Convert from a count to a number of events per second.
-            .map(|(i, count)| Ok((window.bucket_start(i)?, Some((count as f64) / width))))
-            .collect()
-    }
+// TODO: Thread component path through here.
+fn table_rows_read_metric(table_name: &TableName) -> MetricName {
+    format!("table:{}:rows_read", table_name)
 }
 
-impl MetricsWindow {
-    fn bucket_width(&self) -> anyhow::Result<Duration> {
-        let interval_width = self
-            .end
-            .duration_since(self.start)
-            .unwrap_or_else(|_| panic!("Invalid query window: {:?} < {:?}", self.end, self.start));
-        Ok(interval_width / (self.num_buckets as u32))
-    }
-
-    fn bucket_index(&self, ts: SystemTime) -> anyhow::Result<usize> {
-        if !(self.start <= ts && ts < self.end) {
-            anyhow::bail!("{:?} not in [{:?}, {:?})", ts, self.start, self.end);
-        }
-        let since_start = ts.duration_since(self.start).unwrap();
-        Ok((since_start.as_secs_f64() / self.bucket_width()?.as_secs_f64()) as usize)
-    }
-
-    fn bucket_start(&self, i: usize) -> anyhow::Result<SystemTime> {
-        let bucket_start = self.start + self.bucket_width()? * (i as u32);
-        if self.end < bucket_start {
-            anyhow::bail!(
-                "Invalid bucket index {} for {} buckets in [{:?}, {:?})",
-                i,
-                self.num_buckets,
-                self.start,
-                self.end
-            );
-        }
-        Ok(bucket_start)
-    }
+fn table_rows_written_metric(table_name: &TableName) -> MetricName {
+    format!("table:{}:rows_written", table_name)
 }
 
-#[cfg(test)]
-mod tests {
-    use std::time::{
-        Duration,
-        SystemTime,
-    };
+fn scheduled_job_next_ts_metric() -> &'static str {
+    "scheduled_jobs:next_ts"
+}
 
-    use super::{
-        MetricsWindow,
-        Series,
-    };
-
-    #[test]
-    fn test_series() -> anyhow::Result<()> {
-        let mut s: Series<()> = Series::default();
-
-        let days_after_epoch = |n: u64| SystemTime::UNIX_EPOCH + Duration::from_secs(86400 * n);
-
-        let t0 = days_after_epoch(30);
-        s.append(t0)?;
-
-        let t1 = days_after_epoch(32);
-        s.append(t1)?;
-
-        let window = MetricsWindow {
-            start: days_after_epoch(29),
-            end: days_after_epoch(31),
-            num_buckets: 1,
-        };
-        let ts = s.events_per_second(window)?;
-        assert_eq!(ts.len(), 1);
-        let (ts, rate) = ts[0];
-        assert_eq!(ts, days_after_epoch(29));
-        assert_eq!(rate, Some(1. / (86400. * 2.)));
-
-        let window = MetricsWindow {
-            start: days_after_epoch(28),
-            end: days_after_epoch(34),
-            num_buckets: 1,
-        };
-        let ts = s.events_per_second(window)?;
-        assert_eq!(ts.len(), 1);
-        let (ts, rate) = ts[0];
-        assert_eq!(ts, days_after_epoch(28));
-        assert_eq!(rate, Some(2. / (86400. * 6.)));
-
-        Ok(())
+fn udf_metric_name(identifier: &UdfIdentifier) -> String {
+    let (component, id) = identifier.clone().into_component_and_udf_path();
+    match component {
+        Some(component) => {
+            format!("{}/{}", component, id)
+        },
+        None => id,
     }
 }

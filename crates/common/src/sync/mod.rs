@@ -42,14 +42,6 @@ impl<T> RendezvousSender<T> {
             .await
             .map_err(|_| anyhow::anyhow!("Failed to send value"))
     }
-
-    pub fn try_send(&mut self, value: T) -> anyhow::Result<()> {
-        let permit = self.semaphore.try_acquire()?;
-        permit.forget();
-        self.channel
-            .try_send(value)
-            .map_err(|_| anyhow::anyhow!("Failed to send value"))
-    }
 }
 
 pub struct RendezvousReceiver<T> {

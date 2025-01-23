@@ -25,17 +25,16 @@ use common::{
         ExecutionContext,
         ExecutionId,
     },
+    fastrace_helpers::{
+        initialize_root_from_parent,
+        EncodedSpan,
+    },
     http::{
         extract::Json,
         ExtractClientVersion,
         HttpResponseError,
     },
     knobs::ACTION_USER_TIMEOUT,
-    minitrace_helpers::{
-        initialize_root_from_parent,
-        EncodedSpan,
-    },
-    pause::PauseClient,
     runtime::UnixTimestamp,
     types::{
         FunctionCaller,
@@ -44,13 +43,13 @@ use common::{
     RequestId,
 };
 use errors::ErrorMetadata;
+use fastrace::future::FutureExt;
 use http::HeaderMap;
 use isolate::{
     ActionCallbacks,
     UdfArgsJson,
 };
 use keybroker::Identity;
-use minitrace::future::FutureExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -97,7 +96,7 @@ pub struct NodeCallbackUdfPostRequest {
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into mutations)
-#[minitrace::trace]
+#[fastrace::trace]
 #[debug_handler]
 pub async fn internal_query_post(
     State(st): State<LocalAppState>,
@@ -151,7 +150,7 @@ pub async fn internal_query_post(
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into mutations)
-#[minitrace::trace]
+#[fastrace::trace]
 #[debug_handler]
 pub async fn internal_mutation_post(
     State(st): State<LocalAppState>,
@@ -184,7 +183,6 @@ pub async fn internal_mutation_post(
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
             },
-            PauseClient::new(),
         )
         .await?;
     if req.format.is_some() {
@@ -210,7 +208,7 @@ pub async fn internal_mutation_post(
 /// functions as well. This should not be used for any publicly accessible
 /// endpoints, and should only be used to support Convex functions calling into
 /// other Convex functions (i.e. actions calling into actions)
-#[minitrace::trace]
+#[fastrace::trace]
 #[debug_handler]
 pub async fn internal_action_post(
     State(st): State<LocalAppState>,
@@ -440,6 +438,7 @@ pub async fn vector_search(
             UdfIdentifier::Function(path.canonicalize()),
             // TODO(CX-6045) - have the action send the ExecutionId as a request header
             context.execution_id,
+            context.request_id,
             usage.gather_user_stats(),
         );
     }
@@ -799,7 +798,7 @@ mod tests {
             .header("Content-Type", "application/json")
             .header("Convex-Action-Callback-Token", callback_token.clone())
             .body(body)?;
-        backend.expect_success(req).await?;
+        let () = backend.expect_success(req).await?;
 
         // Try to schedule a job as though we are a the currently running node action
         // that was just canceled

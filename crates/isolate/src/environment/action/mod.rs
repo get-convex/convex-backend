@@ -1,6 +1,5 @@
 mod async_syscall;
 mod fetch;
-pub mod outcome;
 mod phase;
 mod storage;
 mod stream;
@@ -20,6 +19,7 @@ use common::{
     components::ComponentId,
     errors::JsError,
     execution_context::ExecutionContext,
+    fastrace_helpers::EncodedSpan,
     http::{
         fetch::FetchClient,
         RoutedHttpPath,
@@ -35,7 +35,6 @@ use common::{
         LogLine,
         SystemLogMetadata,
     },
-    minitrace_helpers::EncodedSpan,
     runtime::{
         Runtime,
         SpawnHandle,
@@ -84,9 +83,24 @@ use sync_types::{
     ModulePath,
 };
 use tokio::sync::mpsc;
+use udf::{
+    helpers::serialize_udf_args,
+    validation::ValidatedHttpPath,
+    ActionOutcome,
+    HttpActionOutcome,
+    HttpActionRequest,
+    HttpActionRequestHead,
+    HttpActionResponseHead,
+    HttpActionResponsePart,
+    HttpActionResponseStreamer,
+    HttpActionResult,
+    SyscallTrace,
+    HTTP_ACTION_BODY_LIMIT,
+};
 use value::{
     heap_size::HeapSize,
     ConvexArray,
+    JsonPackedValue,
     NamespacedTableMapping,
     Size,
     TableMappingValue,
@@ -100,10 +114,6 @@ pub use self::{
     },
 };
 use self::{
-    outcome::{
-        ActionOutcome,
-        HttpActionOutcome,
-    },
     phase::ActionPhase,
     task::{
         TaskId,
@@ -130,9 +140,6 @@ use crate::{
             module_loader::module_specifier_from_path,
             resolve_promise,
             resolve_promise_allow_all_errors,
-            validation::ValidatedHttpPath,
-            JsonPackedValue,
-            SyscallTrace,
             MAX_LOG_LINES,
         },
         AsyncOpRequest,
@@ -142,17 +149,10 @@ use crate::{
     helpers::{
         self,
         deserialize_udf_result,
-        serialize_udf_args,
     },
     http::{
         HttpRequestV8,
         HttpResponseV8,
-    },
-    http_action::{
-        HttpActionRequest,
-        HttpActionResponseHead,
-        HttpActionResponsePart,
-        HttpActionResponseStreamer,
     },
     isolate::{
         Isolate,
@@ -178,19 +178,7 @@ use crate::{
         Timeout,
     },
     ActionCallbacks,
-    HttpActionRequestHead,
-    HTTP_ACTION_BODY_LIMIT,
 };
-
-#[derive(Debug, Clone)]
-#[cfg_attr(
-    any(test, feature = "testing"),
-    derive(proptest_derive::Arbitrary, PartialEq)
-)]
-pub enum HttpActionResult {
-    Streamed,
-    Error(JsError),
-}
 
 // `CollectResult` starts off as a future that is forever pending,
 // so it never triggers the `select_biased!` until we are actually
@@ -305,7 +293,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_http_action(
         mut self,
         client_id: String,
@@ -326,6 +314,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         anyhow::ensure!(component_function_path.component == self.phase.component());
         let udf_path = &component_function_path.udf_path;
 
+        let heap_stats = self.heap_stats.clone();
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
@@ -349,7 +338,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         )
         .await;
         // Override the returned result if we hit a termination error.
-        let termination_error = handle.take_termination_error();
+        let termination_error = handle
+            .take_termination_error(Some(heap_stats.get()), &format!("http action: {udf_path}"));
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -392,7 +382,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(outcome)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
         client_id: Arc<String>,
@@ -482,7 +472,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let stream_id = match http_request.body {
             Some(body) => {
-                let stream_id = scope.state_mut()?.create_stream()?;
+                let stream_id = scope.state_mut()?.create_request_stream()?;
                 scope
                     .state_mut()?
                     .environment
@@ -612,7 +602,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .expect("TaskExecutor went away?");
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn run_action(
         mut self,
         client_id: String,
@@ -623,6 +613,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ) -> anyhow::Result<ActionOutcome> {
         let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
+        let heap_stats = self.heap_stats.clone();
 
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
@@ -650,7 +641,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         isolate_context.scope.perform_microtask_checkpoint();
         *isolate_clean = true;
 
-        match handle.take_termination_error() {
+        match handle.take_termination_error(
+            Some(heap_stats.get()),
+            &format!(
+                "{:?}",
+                request_params.path_and_args.path().clone().for_logging()
+            ),
+        ) {
             Ok(Ok(..)) => (),
             Ok(Err(e)) => {
                 result = Ok(Err(e));
@@ -682,7 +679,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         Ok(outcome)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_action_inner(
         client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
@@ -744,7 +741,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             );
             return Ok(Err(JsError::from_message(message)));
         }
-        let function: v8::Local<v8::Function> = namespace
+        let function: v8::Local<v8::Object> = namespace
             .get(&mut scope, function_str)
             .ok_or_else(|| anyhow!("Did not find function in module after checking?"))?
             .try_into()?;
@@ -792,7 +789,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         result.ok_or_else(|| anyhow::anyhow!("`run_inner` did not populate a result"))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     fn lookup_route(
         scope: &mut ExecutionScope<RT, Self>,
         router: &v8::Local<v8::Object>,
@@ -925,7 +922,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     ///
     /// Errors from collecting the result will be surfaced via
     /// `get_result_stream` -> `handle_result_part`
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn run_inner<'a, 'b: 'a, T, S>(
         client_id: Arc<String>,
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
@@ -980,6 +977,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // queue.
             scope.perform_microtask_checkpoint();
             scope.record_heap_stats()?;
+            let request_stream_state = scope.state()?.request_stream_state.as_ref();
+            if let Some(request_stream_state) = request_stream_state {
+                handle.update_request_stream_bytes(request_stream_state.bytes_read());
+            }
             handle.check_terminated()?;
 
             // Check for rejected promises still unhandled, if so terminate.
@@ -1095,6 +1096,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                                 Ok(chunk) => {
                                     let done = chunk.is_none();
                                     scope.extend_stream(stream_id, chunk, done)?;
+                                    // If done, add the total accumulated size to the isolate handle inner.
                                 },
                                 Err(e) => scope.error_stream(stream_id, e)?,
                             };
@@ -1105,11 +1107,16 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                                 .remove(&task_id) else {
                                     anyhow::bail!("Task with id {} did not have a promise", task_id);
                                 };
+                            let mut result_scope = v8::HandleScope::new(&mut **scope);
                             let result_v8 = match variant {
-                                Ok(v) => Ok(v.into_v8(scope)?),
+                                Ok(v) => Ok(v.into_v8(&mut result_scope)?),
                                 Err(e) => Err(e),
                             };
-                            resolve_promise_allow_all_errors(scope, resolver, result_v8)?;
+                            resolve_promise_allow_all_errors(
+                                &mut result_scope,
+                                resolver,
+                                result_v8,
+                            )?;
                         },
                     };
                 },

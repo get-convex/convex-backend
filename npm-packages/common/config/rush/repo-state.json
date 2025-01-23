@@ -1,4 +1,5 @@
 // DO NOT MODIFY THIS FILE MANUALLY BUT DO COMMIT IT. It is generated and used by Rush.
 {
-  "preferredVersionsHash": "a61b386e423d46db4e8b0b295fc5800d5535160e"
+  "preferredVersionsHash": "a61b386e423d46db4e8b0b295fc5800d5535160e",
+  "packageJsonInjectedDependenciesHash": "e8e5786cfd4ef9145355c82e1998f4b693c25ff7"
 }

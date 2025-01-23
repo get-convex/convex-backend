@@ -2,7 +2,6 @@ use tantivy::schema::Field;
 pub mod art;
 mod bitset64;
 mod iter_set_bits;
-mod slab;
 mod small_slice;
 mod term_list;
 mod term_table;
@@ -424,7 +423,7 @@ impl MemoryTextIndex {
         shortlist_and_id_mapping(query_term_matches)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn query_tokens(
         &self,
         queries: &[TokenQuery],
@@ -439,7 +438,7 @@ impl MemoryTextIndex {
         Ok(())
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn update_bm25_stats(
         &self,
         snapshot_ts: Timestamp,
@@ -508,7 +507,7 @@ impl MemoryTextIndex {
         Ok(stats)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn prepare_posting_list_query(
         &self,
         and_terms: &[Term],
@@ -570,7 +569,7 @@ impl MemoryTextIndex {
         Ok(Some(prepared))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn query_tombstones(
         &self,
         snapshot_ts: Timestamp,
@@ -594,7 +593,7 @@ impl MemoryTextIndex {
         Ok(results)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn query_posting_lists(
         &self,
         snapshot_ts: Timestamp,

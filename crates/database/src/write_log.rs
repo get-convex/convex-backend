@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{
+        btree_map,
         BTreeMap,
         VecDeque,
     },
@@ -30,7 +31,10 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::Future;
-use imbl::Vector;
+use imbl::{
+    vector,
+    Vector,
+};
 use parking_lot::Mutex;
 use tokio::sync::oneshot;
 use value::heap_size::{
@@ -78,6 +82,8 @@ impl PackedDocumentUpdate {
         }
     }
 }
+
+pub type IterWrites<'a> = btree_map::Iter<'a, ResolvedDocumentId, PackedDocumentUpdate>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WriteSource(pub(crate) Option<Cow<'static, str>>);
@@ -152,7 +158,9 @@ impl WriteLogManager {
     fn append(&mut self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
-        self.log.by_ts.push_back((ts, writes, write_source));
+        self.log
+            .by_ts
+            .push_back(Arc::new((ts, writes, write_source)));
 
         self.notify_waiters();
     }
@@ -185,7 +193,7 @@ impl WriteLogManager {
         let target_ts = current_ts
             .sub(*WRITE_LOG_MAX_RETENTION_SECS)
             .unwrap_or(Timestamp::MIN);
-        while let Some((ts, ..)) = self.log.by_ts.front() {
+        while let Some((ts, ..)) = self.log.by_ts.front().map(|entry| &**entry) {
             let ts = *ts;
 
             // We never trim past max_ts, even if the size of the write log
@@ -210,7 +218,7 @@ impl WriteLogManager {
 /// they may trigger subscriptions.
 #[derive(Clone)]
 struct WriteLog {
-    by_ts: WithHeapSize<Vector<(Timestamp, Writes, WriteSource)>>,
+    by_ts: WithHeapSize<Vector<Arc<(Timestamp, Writes, WriteSource)>>>,
     purged_ts: Timestamp,
     persistence_version: PersistenceVersion,
 }
@@ -226,16 +234,18 @@ impl WriteLog {
 
     fn max_ts(&self) -> Timestamp {
         match self.by_ts.back() {
-            Some((ts, ..)) => *ts,
+            Some(entry) => entry.0,
             None => self.purged_ts,
         }
     }
 
+    // Runtime: O((log n) + k) where n is total length of the write log and k is
+    // the number of elements in the returned iterator.
     fn iter(
         &self,
         from: Timestamp,
         to: Timestamp,
-    ) -> anyhow::Result<Vector<(Timestamp, Writes, WriteSource)>> {
+    ) -> anyhow::Result<impl Iterator<Item = (&Timestamp, IterWrites<'_>, &WriteSource)> + '_> {
         anyhow::ensure!(
             from > self.purged_ts,
             anyhow::anyhow!(
@@ -244,28 +254,19 @@ impl WriteLog {
             )
             .context(ErrorMetadata::out_of_retention())
         );
-        let start = match self.by_ts.binary_search_by_key(&from, |&(ts, ..)| ts) {
+        let start = match self.by_ts.binary_search_by_key(&from, |entry| entry.0) {
             Ok(i) => i,
             Err(i) => i,
         };
-        let end = match self.by_ts.binary_search_by_key(&to, |&(ts, ..)| ts) {
-            Ok(i) => i,
-            Err(i) => {
-                if let Some(i) = i.checked_sub(1) {
-                    i
-                } else {
-                    return Ok(Vector::new());
-                }
-            },
-        };
-        let vector = if end + 1 < self.by_ts.len() {
-            Vector::from(self.by_ts.clone()).slice(start..end + 1)
-        } else {
-            Vector::from(self.by_ts.clone()).slice(start..)
-        };
-        Ok(vector)
+        let focus = focus_after(self.by_ts.focus(), start);
+        let iter = focus.into_iter();
+        Ok(iter
+            .map(|entry| &**entry)
+            .take_while(move |(t, ..)| *t <= to)
+            .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source)))
     }
 
+    #[fastrace::trace]
     fn is_stale(
         &self,
         reads: &ReadSet,
@@ -274,10 +275,7 @@ impl WriteLog {
     ) -> anyhow::Result<Option<ConflictingReadWithWriteSource>> {
         block_in_place(|| {
             let log_range = self.iter(reads_ts.succ()?, ts)?;
-            let iterator = log_range
-                .iter()
-                .map(|(ts, writes, write_source)| (ts, writes.iter(), write_source));
-            Ok(reads.writes_overlap(iterator, self.persistence_version))
+            Ok(reads.writes_overlap(log_range, self.persistence_version))
         })
     }
 
@@ -298,6 +296,19 @@ impl WriteLog {
             },
         };
         Ok(result)
+    }
+}
+
+// TODO: use .narrow(start..) once https://github.com/jneem/imbl/pull/89 is released
+fn focus_after<T>(focus: vector::Focus<'_, T>, start: usize) -> vector::Focus<'_, T> {
+    if focus.is_empty() {
+        // split_at and narrow don't work if the vector is empty
+        focus
+    } else if focus.len() == start {
+        // narrow doesn't work if start is at the end
+        focus.split_at(0).0
+    } else {
+        focus.narrow(start..)
     }
 }
 
@@ -357,12 +368,12 @@ impl LogOwner {
 
     pub fn for_each<F>(&self, from: Timestamp, to: Timestamp, mut f: F) -> anyhow::Result<()>
     where
-        for<'a> F: FnMut(Timestamp, Writes),
+        for<'a> F: FnMut(Timestamp, IterWrites<'a>),
     {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
             for (ts, writes, _) in snapshot.iter(from, to)? {
-                f(ts, writes);
+                f(*ts, writes);
             }
             Ok(())
         })
@@ -375,6 +386,7 @@ pub struct LogReader {
 }
 
 impl LogReader {
+    #[fastrace::trace]
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| snapshot.refresh_token(token, ts))
@@ -503,6 +515,7 @@ mod tests {
         assert_obj,
         document::{
             CreationTime,
+            DocumentUpdate,
             ResolvedDocument,
         },
         index::IndexKey,
@@ -510,11 +523,12 @@ mod tests {
             BinaryKey,
             End,
             Interval,
-            Start,
+            StartIncluded,
         },
         knobs::WRITE_LOG_MAX_RETENTION_SECS,
         testing::TestIdGenerator,
         types::{
+            IndexDescriptor,
             PersistenceVersion,
             TabletIndexName,
             Timestamp,
@@ -532,7 +546,6 @@ mod tests {
             TransactionReadSet,
         },
         write_log::{
-            DocumentUpdate,
             PackedDocumentUpdate,
             WriteLogManager,
             WriteSource,
@@ -564,8 +577,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1001), Timestamp::must(1010))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1002..=1010)
                 .step_by(2)
@@ -576,8 +588,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1004), Timestamp::must(1008))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1004..=1008)
                 .step_by(2)
@@ -588,8 +599,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1004), Timestamp::must(1020))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1004..=1010)
                 .step_by(2)
@@ -613,8 +623,7 @@ mod tests {
             log_manager
                 .log
                 .iter(Timestamp::must(1005), Timestamp::must(1010))?
-                .into_iter()
-                .map(|(ts, ..)| ts)
+                .map(|(ts, ..)| *ts)
                 .collect::<Vec<_>>(),
             (1006..=1010)
                 .step_by(2)
@@ -634,7 +643,8 @@ mod tests {
         let id = id_generator.user_generate(&"t".parse()?);
         let index_key = IndexKey::new(vec![val!(5)], id.into());
         let index_key_binary: BinaryKey = index_key.into_bytes().into();
-        let index_name = TabletIndexName::new(table_id, "by_k".parse().unwrap()).unwrap();
+        let index_name =
+            TabletIndexName::new(table_id, IndexDescriptor::new("by_k").unwrap()).unwrap();
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("k" => 5))?;
         log_manager.append(
             Timestamp::must(1003),
@@ -718,7 +728,7 @@ mod tests {
             index_name.clone()
         );
         let end_excluded_read_set = read_set(Interval {
-            start: Start::Included(BinaryKey::min()),
+            start: StartIncluded(BinaryKey::min()),
             end: End::Excluded(index_key_binary.clone()),
         });
         assert_eq!(
@@ -730,7 +740,7 @@ mod tests {
             None
         );
         let start_included_read_set = read_set(Interval {
-            start: Start::Included(index_key_binary),
+            start: StartIncluded(index_key_binary),
             end: End::Unbounded,
         });
         assert_eq!(

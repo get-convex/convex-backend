@@ -19,6 +19,7 @@ type RequestStatus =
     }
   | {
       status: "Completed";
+      result: FunctionResult;
       onResolve: () => void;
       ts: Long;
     };
@@ -58,7 +59,9 @@ export class RequestManager {
    * @returns A RequestId if the request is complete and its optimistic update
    * can be dropped, null otherwise.
    */
-  onResponse(response: MutationResponse | ActionResponse): RequestId | null {
+  onResponse(
+    response: MutationResponse | ActionResponse,
+  ): { requestId: RequestId; result: FunctionResult } | null {
     const requestInfo = this.inflightRequests.get(response.requestId);
     if (requestInfo === undefined) {
       // Annoyingly we can occasionally get responses to mutations that we're no
@@ -96,26 +99,27 @@ export class RequestManager {
     }
 
     const status = requestInfo.status;
+    let result: FunctionResult;
     let onResolve;
     if (response.success) {
-      onResolve = () =>
-        status.onResult({
-          success: true,
-          logLines: response.logLines,
-          value: jsonToConvex(response.result),
-        });
+      result = {
+        success: true,
+        logLines: response.logLines,
+        value: jsonToConvex(response.result),
+      };
+      onResolve = () => status.onResult(result);
     } else {
       const errorMessage = response.result as string;
       const { errorData } = response;
       logForFunction(this.logger, "error", udfType, udfPath, errorMessage);
-      onResolve = () =>
-        status.onResult({
-          success: false,
-          errorMessage,
-          errorData:
-            errorData !== undefined ? jsonToConvex(errorData) : undefined,
-          logLines: response.logLines,
-        });
+      result = {
+        success: false,
+        errorMessage,
+        errorData:
+          errorData !== undefined ? jsonToConvex(errorData) : undefined,
+        logLines: response.logLines,
+      };
+      onResolve = () => status.onResult(result);
     }
 
     // We can resolve Mutation failures immediately since they don't have any
@@ -126,13 +130,14 @@ export class RequestManager {
       onResolve();
       this.inflightRequests.delete(response.requestId);
       this.requestsOlderThanRestart.delete(response.requestId);
-      return response.requestId;
+      return { requestId: response.requestId, result };
     }
 
     // We have to wait to resolve the request promise until after we transition
     // past this timestamp so clients can read their own writes.
     requestInfo.status = {
       status: "Completed",
+      result,
       ts: response.ts,
       onResolve,
     };
@@ -141,13 +146,13 @@ export class RequestManager {
   }
 
   // Remove and returns completed requests.
-  removeCompleted(ts: Long): Set<RequestId> {
-    const completeRequests: Set<RequestId> = new Set();
+  removeCompleted(ts: Long): Map<RequestId, FunctionResult> {
+    const completeRequests: Map<RequestId, FunctionResult> = new Map();
     for (const [requestId, requestInfo] of this.inflightRequests.entries()) {
       const status = requestInfo.status;
       if (status.status === "Completed" && status.ts.lessThanOrEqual(ts)) {
         status.onResolve();
-        completeRequests.add(requestId);
+        completeRequests.set(requestId, status.result);
         this.inflightRequests.delete(requestId);
         this.requestsOlderThanRestart.delete(requestId);
       }

@@ -1,0 +1,13 @@
+input[type="number"] {
+  height: 40px;
+  width: 100px;
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+  height: 40px;
+  margin: 0;
+  padding: 0;
+  opacity: 1;
+}

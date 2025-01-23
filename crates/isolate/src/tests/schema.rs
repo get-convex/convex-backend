@@ -18,6 +18,7 @@ use common::{
         TableName,
     },
 };
+use keybroker::DEV_INSTANCE_NAME;
 use maplit::{
     btreemap,
     btreeset,
@@ -227,15 +228,21 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
 
     let schema = t
         .isolate
-        .evaluate_schema(source.to_string(), None, rng_seed, unix_timestamp)
+        .evaluate_schema(
+            source.to_string(),
+            None,
+            rng_seed,
+            unix_timestamp,
+            DEV_INSTANCE_NAME.to_string(),
+        )
         .await?;
 
     let name1: TableName = "noIndexes".parse()?;
     let name2: TableName = "twoIndexTable".parse()?;
     let name3: TableName = "searchIndexTable".parse()?;
-    let by_email: IndexDescriptor = "by_email".parse()?;
-    let by_creation_deleted: IndexDescriptor = "by_creation_deleted".parse()?;
-    let search_index: IndexDescriptor = "search_index".parse()?;
+    let by_email = IndexDescriptor::new("by_email")?;
+    let by_creation_deleted = IndexDescriptor::new("by_creation_deleted")?;
+    let search_index = IndexDescriptor::new("search_index")?;
     let expected = DatabaseSchema {
         tables: btreemap!(
             name1.clone() => TableDefinition {

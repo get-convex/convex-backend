@@ -22,8 +22,8 @@ use axum::{
 };
 use common::{
     errors::{
-        self,
         report_error,
+        report_error_sync,
     },
     http::{
         ExtractClientVersion,
@@ -52,7 +52,10 @@ use sync::{
     SyncWorker,
     SyncWorkerConfig,
 };
-use sync_types::IdentityVersion;
+use sync_types::{
+    IdentityVersion,
+    SessionId,
+};
 use tokio::sync::mpsc;
 
 mod metrics;
@@ -132,6 +135,7 @@ async fn run_sync_socket(
     config: SyncWorkerConfig,
     socket: WebSocket,
     sentry_scope: sentry::Scope,
+    on_connect: Box<dyn FnOnce(SessionId) + Send>,
 ) {
     let _drop_token = SyncSocketDropToken::new();
 
@@ -234,6 +238,7 @@ async fn run_sync_socket(
             config.clone(),
             client_rx,
             server_tx,
+            on_connect,
         );
         let r = sync_worker.go().await;
         identity_version = Some(sync_worker.identity_version());
@@ -250,8 +255,7 @@ async fn run_sync_socket(
 
     let close_msg = match result {
         Ok(..) => None,
-        Err(err) => {
-            let mut err = err.last_second_classification();
+        Err(mut err) => {
             // Send a message on the WebSocket before closing it if the sync
             // worker failed with a "4xx" type error. In this case the client will
             // assume the error is its fault and not retry.
@@ -284,11 +288,11 @@ async fn run_sync_socket(
                     if is_connection_closed_error(&*e) {
                         log_websocket_closed_error_not_reported()
                     } else {
-                        errors::report_error(&mut e);
+                        report_error(&mut e).await;
                     }
                 }
             }
-            sentry::with_scope(|s| *s = sentry_scope, || report_error(&mut err));
+            sentry::with_scope(|s| *s = sentry_scope, || report_error_sync(&mut err));
             if let Some(label) = err.metric_server_error_label() {
                 log_websocket_server_error(label);
             }
@@ -307,7 +311,7 @@ async fn run_sync_socket(
                 log_websocket_closed_error_not_reported()
             } else {
                 let msg = format!("Failed to gracefully close WebSocket: {e:?}");
-                errors::report_error(&mut anyhow::anyhow!(e).context(msg));
+                report_error(&mut anyhow::anyhow!(e).context(msg)).await;
             }
         }
     }
@@ -319,7 +323,7 @@ async fn run_sync_socket(
     if let Err(e) = socket.flush().await {
         if !is_connection_closed_error(&e) {
             let msg = format!("Failed to flush WebSocket: {e:?}");
-            errors::report_error(&mut anyhow::anyhow!(e).context(msg));
+            report_error(&mut anyhow::anyhow!(e).context(msg)).await;
         }
     }
     log_websocket_closed();
@@ -329,29 +333,12 @@ fn new_sync_worker_config(client_version: ClientVersion) -> anyhow::Result<SyncW
     Ok(SyncWorkerConfig { client_version })
 }
 
-pub async fn sync_client_version_url(
-    State(st): State<RouterState>,
-    ExtractResolvedHostname(host): ExtractResolvedHostname,
-    ExtractClientVersion(client_version): ExtractClientVersion,
+pub async fn sync_handler(
+    st: RouterState,
+    host: ResolvedHostname,
+    client_version: ClientVersion,
     ws: WebSocketUpgrade,
-) -> Result<impl IntoResponse, HttpResponseError> {
-    let config = new_sync_worker_config(client_version)?;
-    // Make a copy of the Sentry scope, which contains the request metadata.
-    let sentry_scope = sentry::configure_scope(move |s| s.clone());
-
-    let upgrade_timer = websocket_upgrade_timer();
-    let hub = sentry::Hub::current();
-    Ok(ws.on_upgrade(move |ws: WebSocket| {
-        upgrade_timer.finish();
-        run_sync_socket(st, host, config, ws, sentry_scope).bind_hub(hub)
-    }))
-}
-
-pub async fn sync(
-    State(st): State<RouterState>,
-    ExtractResolvedHostname(host): ExtractResolvedHostname,
-    ExtractClientVersion(client_version): ExtractClientVersion,
-    ws: WebSocketUpgrade,
+    on_connect: Box<dyn FnOnce(SessionId) + Send>,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let config = new_sync_worker_config(client_version)?;
     // Make a copy of the Sentry scope, which contains the request metadata.
@@ -362,8 +349,19 @@ pub async fn sync(
     Ok(ws.on_upgrade(move |ws: WebSocket| {
         upgrade_timer.finish();
         let monitor = ProdRuntime::task_monitor("sync_socket");
-        monitor.instrument(run_sync_socket(st, host, config, ws, sentry_scope).bind_hub(hub))
+        monitor.instrument(
+            run_sync_socket(st, host, config, ws, sentry_scope, on_connect).bind_hub(hub),
+        )
     }))
+}
+
+pub async fn sync(
+    State(st): State<RouterState>,
+    ExtractResolvedHostname(host): ExtractResolvedHostname,
+    ExtractClientVersion(client_version): ExtractClientVersion,
+    ws: WebSocketUpgrade,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    sync_handler(st, host, client_version, ws, Box::new(|_session_id| ())).await
 }
 
 #[cfg(test)]

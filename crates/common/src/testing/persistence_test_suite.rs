@@ -47,10 +47,11 @@ use crate::{
         BinaryKey,
         End,
         Interval,
-        Start,
+        StartIncluded,
     },
     persistence::{
         ConflictStrategy,
+        DocumentLogEntry,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -239,19 +240,31 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
     p.write(
         vec![
             // Write docs
-            (
-                Timestamp::must(0),
-                doc1.id_with_table_id(),
-                Some(doc1.clone()),
-            ),
-            (
-                Timestamp::must(0),
-                doc2.id_with_table_id(),
-                Some(doc2.clone()),
-            ),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc1.id_with_table_id(),
+                value: Some(doc1.clone()),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc2.id_with_table_id(),
+                value: Some(doc2.clone()),
+                prev_ts: None,
+            },
             // Delete doc
-            (Timestamp::must(1), doc1.id_with_table_id(), None),
-            (Timestamp::must(1), doc2.id_with_table_id(), None),
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc1.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc2.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
         ],
         BTreeSet::new(),
         ConflictStrategy::Error,
@@ -265,12 +278,18 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
         TimestampRange::all(),
         Order::Asc,
         vec![
-            (
-                Timestamp::must(0),
-                doc1.id_with_table_id(),
-                Some(doc1.clone()),
-            ),
-            (Timestamp::must(1), doc1.id_with_table_id(), None),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc1.id_with_table_id(),
+                value: Some(doc1.clone()),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc1.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
         ],
     )
     .await?;
@@ -281,12 +300,18 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
         TimestampRange::all(),
         Order::Asc,
         vec![
-            (
-                Timestamp::must(0),
-                doc2.id_with_table_id(),
-                Some(doc2.clone()),
-            ),
-            (Timestamp::must(1), doc2.id_with_table_id(), None),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc2.id_with_table_id(),
+                value: Some(doc2.clone()),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc2.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
         ],
     )
     .await?;
@@ -296,7 +321,12 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
         doc1.id().tablet_id,
         TimestampRange::new(Timestamp::must(1)..)?,
         Order::Asc,
-        vec![(Timestamp::must(1), doc1.id_with_table_id(), None)],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(1),
+            id: doc1.id_with_table_id(),
+            value: None,
+            prev_ts: Some(Timestamp::must(0)),
+        }],
     )
     .await?;
 
@@ -305,7 +335,12 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
         doc2.id().tablet_id,
         TimestampRange::new(Timestamp::must(1)..)?,
         Order::Asc,
-        vec![(Timestamp::must(1), doc2.id_with_table_id(), None)],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(1),
+            id: doc2.id_with_table_id(),
+            value: None,
+            prev_ts: Some(Timestamp::must(0)),
+        }],
     )
     .await?;
 
@@ -314,11 +349,12 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
         doc1.id().tablet_id,
         TimestampRange::new(..Timestamp::must(1))?,
         Order::Asc,
-        vec![(
-            Timestamp::must(0),
-            doc1.id_with_table_id(),
-            Some(doc1.clone()),
-        )],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(0),
+            id: doc1.id_with_table_id(),
+            value: Some(doc1.clone()),
+            prev_ts: None,
+        }],
     )
     .await?;
 
@@ -327,11 +363,12 @@ pub async fn write_and_load_from_table<P: Persistence>(p: Arc<P>) -> anyhow::Res
         doc2.id().tablet_id,
         TimestampRange::new(..Timestamp::must(1))?,
         Order::Asc,
-        vec![(
-            Timestamp::must(0),
-            doc2.id_with_table_id(),
-            Some(doc2.clone()),
-        )],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(0),
+            id: doc2.id_with_table_id(),
+            value: Some(doc2.clone()),
+            prev_ts: None,
+        }],
     )
     .await?;
     Ok(())
@@ -347,13 +384,19 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
     p.write(
         vec![
             // Write doc
-            (
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            ),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            },
             // Delete doc
-            (Timestamp::must(1), doc.id_with_table_id(), None),
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
         ],
         BTreeSet::new(),
         ConflictStrategy::Error,
@@ -368,12 +411,18 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         TimestampRange::all(),
         Order::Asc,
         vec![
-            (
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            ),
-            (Timestamp::must(1), doc.id_with_table_id(), None),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
         ],
     )
     .await?;
@@ -383,7 +432,12 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         &id_generator,
         TimestampRange::new(Timestamp::must(1)..)?,
         Order::Asc,
-        vec![(Timestamp::must(1), doc.id_with_table_id(), None)],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(1),
+            id: doc.id_with_table_id(),
+            value: None,
+            prev_ts: Some(Timestamp::must(0)),
+        }],
     )
     .await?;
     // Pattern used when bootstrapping index.
@@ -392,7 +446,12 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         &id_generator,
         TimestampRange::at(Timestamp::MIN),
         Order::Asc,
-        vec![(Timestamp::MIN, doc.id_with_table_id(), Some(doc.clone()))],
+        vec![DocumentLogEntry {
+            ts: Timestamp::MIN,
+            id: doc.id_with_table_id(),
+            value: Some(doc.clone()),
+            prev_ts: None,
+        }],
     )
     .await?;
     // Pattern used when backfilling index.
@@ -402,12 +461,18 @@ pub async fn write_and_load<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         TimestampRange::new(..Timestamp::must(2))?,
         Order::Desc,
         vec![
-            (Timestamp::must(1), doc.id_with_table_id(), None),
-            (
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            ),
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            },
         ],
     )
     .await?;
@@ -422,7 +487,12 @@ pub async fn write_and_load_value_types<P: Persistence>(p: Arc<P>) -> anyhow::Re
     let new_doc = |value| {
         let id = id_generator.user_generate(&table);
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("field" => value))?;
-        let r = (next_ts, doc.id_with_table_id(), Some(doc));
+        let r = DocumentLogEntry {
+            ts: next_ts,
+            id: doc.id_with_table_id(),
+            value: Some(doc),
+            prev_ts: None,
+        };
         next_ts = next_ts.succ()?;
         Ok(r)
     };
@@ -448,12 +518,12 @@ pub async fn write_and_load_value_types<P: Persistence>(p: Arc<P>) -> anyhow::Re
         ConvexValue::Map(btreemap!(ConvexValue::Null => ConvexValue::Null).try_into()?),
         ConvexValue::Object(assert_obj!("nested" => ConvexValue::Null)),
     ];
-    let triples = values
+    let updates = values
         .into_iter()
         .map(new_doc)
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    p.write(triples.clone(), BTreeSet::new(), ConflictStrategy::Error)
+    p.write(updates.clone(), BTreeSet::new(), ConflictStrategy::Error)
         .await?;
     id_generator.write_tables(p.clone()).await?;
 
@@ -462,7 +532,7 @@ pub async fn write_and_load_value_types<P: Persistence>(p: Arc<P>) -> anyhow::Re
         &id_generator,
         TimestampRange::all(),
         Order::Asc,
-        triples,
+        updates,
     )
     .await?;
 
@@ -479,13 +549,19 @@ pub async fn overwrite_document<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
     p.write(
         vec![
             // Write doc
-            (
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            ),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            },
             // Delete doc
-            (Timestamp::must(1), doc.id_with_table_id(), None),
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc.id_with_table_id(),
+                value: None,
+                prev_ts: Some(Timestamp::must(0)),
+            },
         ],
         BTreeSet::new(),
         ConflictStrategy::Error,
@@ -495,11 +571,12 @@ pub async fn overwrite_document<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
     // Try to overwrite the original write at ts 0 -- should fail.
     let err = p
         .write(
-            vec![(
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            )],
+            vec![DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            }],
             BTreeSet::new(),
             ConflictStrategy::Error,
         )
@@ -510,11 +587,12 @@ pub async fn overwrite_document<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
 
     // With ConflictStrategy::Overwrite the write succeeds.
     p.write(
-        vec![(
-            Timestamp::must(0),
-            doc.id_with_table_id(),
-            Some(doc.clone()),
-        )],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(0),
+            id: doc.id_with_table_id(),
+            value: Some(doc.clone()),
+            prev_ts: None,
+        }],
         BTreeSet::new(),
         ConflictStrategy::Overwrite,
     )
@@ -546,7 +624,12 @@ pub async fn overwrite_index<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
         is_system_index: false,
     };
     p.write(
-        vec![(ts, doc.id_with_table_id(), Some(doc.clone()))],
+        vec![DocumentLogEntry {
+            ts,
+            id: doc.id_with_table_id(),
+            value: Some(doc.clone()),
+            prev_ts: None,
+        }],
         btreeset!((ts, index_update.clone())),
         ConflictStrategy::Error,
     )
@@ -604,7 +687,7 @@ pub async fn test_load_documents_from_table<P: Persistence>(
     tablet_id: TabletId,
     range: TimestampRange,
     order: Order,
-    expected: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
+    expected: Vec<DocumentLogEntry>,
 ) -> anyhow::Result<()> {
     for page_size in 1..3 {
         let docs: Vec<_> = p
@@ -629,7 +712,7 @@ pub async fn test_load_documents<P: Persistence>(
     table_mapping: &TableMapping,
     range: TimestampRange,
     order: Order,
-    expected: Vec<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)>,
+    expected: Vec<DocumentLogEntry>,
 ) -> anyhow::Result<()> {
     let docs: Vec<_> = p
         .reader()
@@ -638,7 +721,7 @@ pub async fn test_load_documents<P: Persistence>(
         .await?;
     let docs: Vec<_> = docs
         .into_iter()
-        .filter(|(_, id, _)| !table_mapping.is_system_tablet(id.table()))
+        .filter(|entry| !table_mapping.is_system_tablet(entry.id.table()))
         .collect();
     assert_eq!(docs, expected);
     Ok(())
@@ -657,16 +740,18 @@ pub async fn write_and_load_sorting<P: Persistence>(p: Arc<P>) -> anyhow::Result
     p.write(
         vec![
             // Write doc1 and doc2. Make sure sorted by TS, not ID
-            (
-                Timestamp::must(1),
-                doc1.id_with_table_id(),
-                Some(doc1.clone()),
-            ),
-            (
-                Timestamp::must(0),
-                doc2.id_with_table_id(),
-                Some(doc2.clone()),
-            ),
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc1.id_with_table_id(),
+                value: Some(doc1.clone()),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc2.id_with_table_id(),
+                value: Some(doc2.clone()),
+                prev_ts: None,
+            },
         ],
         BTreeSet::new(),
         ConflictStrategy::Error,
@@ -677,14 +762,23 @@ pub async fn write_and_load_sorting<P: Persistence>(p: Arc<P>) -> anyhow::Result
     let docs: Vec<_> = p.reader().load_all_documents().try_collect().await?;
     let docs: Vec<_> = docs
         .into_iter()
-        .filter(|(_, id, _)| !id_generator.is_system_tablet(id.table()))
+        .filter(|entry| !id_generator.is_system_tablet(entry.id.table()))
         .collect();
     assert_eq!(
         docs,
         vec![
-            // Make sure sorted by TS, not ID
-            (Timestamp::must(0), doc2.id_with_table_id(), Some(doc2)),
-            (Timestamp::must(1), doc1.id_with_table_id(), Some(doc1)),
+            DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc2.id_with_table_id(),
+                value: Some(doc2),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts: Timestamp::must(1),
+                id: doc1.id_with_table_id(),
+                value: Some(doc1),
+                prev_ts: None,
+            },
         ]
     );
 
@@ -726,8 +820,18 @@ pub async fn same_internal_id_multiple_tables<P: Persistence>(p: Arc<P>) -> anyh
     p.write(
         vec![
             // Write doc1 and doc2. Make sure sorted by TS, not ID
-            (ts, doc1.id_with_table_id(), Some(doc1.clone())),
-            (ts, doc2.id_with_table_id(), Some(doc2.clone())),
+            DocumentLogEntry {
+                ts,
+                id: doc1.id_with_table_id(),
+                value: Some(doc1.clone()),
+                prev_ts: None,
+            },
+            DocumentLogEntry {
+                ts,
+                id: doc2.id_with_table_id(),
+                value: Some(doc2.clone()),
+                prev_ts: None,
+            },
         ],
         btreeset!(
             (
@@ -838,7 +942,12 @@ pub async fn query_index_at_ts<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> 
             }
         }
         p.write(
-            vec![(*ts, doc.id_with_table_id(), Some(doc))],
+            vec![DocumentLogEntry {
+                ts: *ts,
+                id: doc.id_with_table_id(),
+                value: Some(doc),
+                prev_ts: None,
+            }],
             index_updates.into_iter().map(|u| (*ts, u)).collect(),
             ConflictStrategy::Error,
         )
@@ -902,7 +1011,12 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
 
         let doc_id = id_generator.user_generate(&table);
         let doc = ResolvedDocument::new(doc_id, CreationTime::ONE, assert_obj!("value" => value))?;
-        documents.push((ts, doc.id_with_table_id(), Some(doc.clone())));
+        documents.push(DocumentLogEntry {
+            ts,
+            id: doc.id_with_table_id(),
+            value: Some(doc.clone()),
+            prev_ts: None,
+        });
         let key = doc.index_key(&fields, p.reader().version());
         keys.push(key.clone());
         keys_to_doc.insert(key.clone(), doc.clone());
@@ -931,7 +1045,7 @@ pub async fn query_index_range_with_prefix<P: Persistence>(
                         tablet_id,
                         ts,
                         &Interval {
-                            start: Start::Included(keys[i].clone().into_bytes().into()),
+                            start: StartIncluded(keys[i].clone().into_bytes().into()),
                             end: End::after_prefix(&BinaryKey::from(keys[j].clone().into_bytes())),
                         },
                         order,
@@ -1005,7 +1119,12 @@ pub async fn query_multiple_indexes<P: Persistence>(p: Arc<P>) -> anyhow::Result
                 ),
             )?;
             let key = doc.index_key(&fields, p.reader().version());
-            documents.push((ts, doc.id_with_table_id(), Some(doc.clone())));
+            documents.push(DocumentLogEntry {
+                ts,
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            });
             indexes.insert((
                 ts,
                 DatabaseIndexUpdate {
@@ -1121,7 +1240,14 @@ pub async fn query_reference_deleted_doc<P: Persistence>(p: Arc<P>) -> anyhow::R
 
     // Note that we write a deleted document.
     p.write(
-        vec![(ts, document.id_with_table_id(), None)],
+        vec![
+            (DocumentLogEntry {
+                ts,
+                id: document.id_with_table_id(),
+                value: None,
+                prev_ts: None,
+            }),
+        ],
         btreeset!((ts, index_update)),
         ConflictStrategy::Error,
     )
@@ -1176,7 +1302,14 @@ pub async fn query_with_rows_estimate_with_prefix<P: Persistence>(
             is_system_index: false,
         };
         p.write(
-            vec![(ts, document.id_with_table_id(), Some(document.clone()))],
+            vec![
+                (DocumentLogEntry {
+                    ts,
+                    id: document.id_with_table_id(),
+                    value: Some(document.clone()),
+                    prev_ts: None,
+                }),
+            ],
             btreeset!((ts, index_update)),
             ConflictStrategy::Error,
         )
@@ -1233,11 +1366,14 @@ where
 
     p_write
         .write(
-            vec![(
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            )],
+            vec![
+                (DocumentLogEntry {
+                    ts: Timestamp::must(0),
+                    id: doc.id_with_table_id(),
+                    value: Some(doc.clone()),
+                    prev_ts: None,
+                }),
+            ],
             BTreeSet::new(),
             ConflictStrategy::Error,
         )
@@ -1249,18 +1385,16 @@ where
     let p_read = make_p().await?;
     let reader = p_read.reader();
     let stream = reader.load_all_documents();
-    let results: Vec<_> = stream.try_collect().await?;
-    let results: Vec<_> = results
-        .into_iter()
-        .filter(|(_, id, _)| !id_generator.is_system_tablet(id.table()))
-        .collect();
+    let mut results: Vec<_> = stream.try_collect().await?;
+    results.retain(|entry| !id_generator.is_system_tablet(entry.id.table()));
     assert_eq!(
         results,
-        vec![(
-            Timestamp::must(0),
-            doc.id_with_table_id(),
-            Some(doc.clone())
-        )],
+        vec![DocumentLogEntry {
+            ts: Timestamp::must(0),
+            id: doc.id_with_table_id(),
+            value: Some(doc.clone()),
+            prev_ts: None,
+        }],
     );
 
     Ok(())
@@ -1286,11 +1420,12 @@ where
 
     p_backend1
         .write(
-            vec![(
-                Timestamp::must(0),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            )],
+            vec![DocumentLogEntry {
+                ts: Timestamp::must(0),
+                id: doc.id_with_table_id(),
+                value: Some(doc.clone()),
+                prev_ts: None,
+            }],
             BTreeSet::new(),
             ConflictStrategy::Error,
         )
@@ -1318,11 +1453,14 @@ where
     let p_backend2 = make_p().await?;
     p_backend2
         .write(
-            vec![(
-                Timestamp::must(1),
-                doc.id_with_table_id(),
-                Some(doc.clone()),
-            )],
+            vec![
+                (DocumentLogEntry {
+                    ts: Timestamp::must(1),
+                    id: doc.id_with_table_id(),
+                    value: Some(doc.clone()),
+                    prev_ts: None,
+                }),
+            ],
             BTreeSet::new(),
             ConflictStrategy::Error,
         )
@@ -1347,15 +1485,16 @@ pub async fn persistence_global<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
     Ok(())
 }
 
-pub fn doc(
-    id: ResolvedDocumentId,
-    ts: i32,
-    val: Option<i64>,
-) -> anyhow::Result<(Timestamp, InternalDocumentId, Option<ResolvedDocument>)> {
+pub fn doc(id: ResolvedDocumentId, ts: i32, val: Option<i64>) -> anyhow::Result<DocumentLogEntry> {
     let doc = val
         .map(|val| ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("value" => val)))
         .transpose()?;
-    Ok((Timestamp::must(ts), id.into(), doc))
+    Ok(DocumentLogEntry {
+        ts: Timestamp::must(ts),
+        id: id.into(),
+        value: doc,
+        prev_ts: None,
+    })
 }
 
 pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
@@ -1564,15 +1703,12 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
 
     let stream = reader.load_all_documents();
     pin_mut!(stream);
-    let mut all_docs = Vec::new();
-    while let Some(val) = stream.try_next().await? {
-        all_docs.push(val);
-    }
-    assert_eq!(documents.clone(), all_docs);
+    let all_docs = stream.try_collect::<Vec<_>>().await?;
+    assert_eq!(documents, all_docs);
 
-    let docs_to_delete = documents.clone()[..3]
+    let docs_to_delete = documents[..3]
         .iter()
-        .map(|(ts, id, _)| (*ts, *id))
+        .map(|update| (update.ts, update.id))
         .collect_vec();
 
     assert_eq!(p.delete(docs_to_delete).await?, 3);
@@ -1583,7 +1719,7 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
     while let Some(val) = stream.try_next().await? {
         all_docs.push(val);
     }
-    assert_eq!(documents[3..], all_docs);
+    assert_eq!(&documents[3..], &all_docs);
 
     Ok(())
 }
@@ -1613,7 +1749,12 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
     // Create eight documents at timestamp 1.
     let writes = vec![id1, id2, id3, id4, id5, id6, id7, id8]
         .iter()
-        .map(|&id| (Timestamp::must(1), id.into(), Some(doc(id))))
+        .map(|&id| DocumentLogEntry {
+            ts: Timestamp::must(1),
+            id: id.into(),
+            value: Some(doc(id)),
+            prev_ts: None,
+        })
         .collect();
     p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
         .await?;
@@ -1621,7 +1762,12 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
     // Delete four of them at timestamp 2.
     let writes = [id2, id3, id4, id5]
         .iter()
-        .map(|&id| (Timestamp::must(2), id.into(), None))
+        .map(|&id| DocumentLogEntry {
+            ts: Timestamp::must(2),
+            id: id.into(),
+            value: None,
+            prev_ts: None,
+        })
         .collect();
     p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
         .await?;
@@ -1652,7 +1798,12 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
             .into_iter()
             .map(|(id, ts, prev_ts, exists)| (
                 (InternalDocumentId::from(id), Timestamp::must(ts)),
-                (Timestamp::must(prev_ts), exists.then(|| doc(id))),
+                DocumentLogEntry {
+                    id: id.into(),
+                    ts: Timestamp::must(prev_ts),
+                    value: exists.then(|| doc(id)),
+                    prev_ts: None,
+                },
             ))
             .collect::<BTreeMap<_, _>>(),
     );

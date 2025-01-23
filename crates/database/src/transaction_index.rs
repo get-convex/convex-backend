@@ -256,7 +256,7 @@ impl TransactionIndex {
         results
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn search(
         &mut self,
         reads: &mut TransactionReadSet,
@@ -415,7 +415,7 @@ impl TransactionIndex {
             .context("batch_key missing")?
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn preload_index_range(
         &mut self,
         reads: &mut TransactionReadSet,
@@ -570,7 +570,7 @@ impl TransactionIndex {
         &'a self,
         reads: &mut TransactionReadSet,
         getter: impl FnOnce() -> Option<&'a Index>,
-    ) -> Option<&Index> {
+    ) -> Option<&'a Index> {
         let result = getter();
         self.record_interval(reads, result);
         result
@@ -661,7 +661,7 @@ pub struct Update<'a> {
     registry: IndexRegistry,
 }
 
-impl<'a> Update<'a> {
+impl Update<'_> {
     pub fn apply(self) -> Vec<DatabaseIndexUpdate> {
         self.index.finish_update(self.deletion, self.insertion)
     }
@@ -751,7 +751,7 @@ impl TextIndexManagerSnapshot {
             .clone()
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn search_with_compiled_query(
         &self,
         index: &Index,
@@ -822,6 +822,7 @@ mod tests {
         persistence::{
             now_ts,
             ConflictStrategy,
+            DocumentLogEntry,
             Persistence,
             RepeatablePersistence,
         },
@@ -835,6 +836,7 @@ mod tests {
         },
         types::{
             unchecked_repeatable_ts,
+            IndexDescriptor,
             IndexName,
             PersistenceVersion,
             TableName,
@@ -944,8 +946,9 @@ mod tests {
         let ps = rp.read_snapshot(unchecked_repeatable_ts(Timestamp::must(1000)))?;
 
         let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
-        let messages_by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
-        let printable_messages_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
+        let messages_by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
+        let printable_messages_by_name =
+            IndexName::new("messages".parse()?, IndexDescriptor::new("by_name")?)?;
         let (index_registry, inner, search, _) = bootstrap_index(
             &mut id_generator,
             vec![IndexMetadata::new_enabled(
@@ -1044,8 +1047,9 @@ mod tests {
         let table_id = id_generator.user_table_id(&"messages".parse()?).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id("messages".parse()?);
-        let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
-        let printable_by_name = IndexName::new("messages".parse()?, "by_name".parse()?)?;
+        let by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
+        let printable_by_name =
+            IndexName::new("messages".parse()?, IndexDescriptor::new("by_name")?)?;
 
         // Create a transactions with table missing before the transaction started.
         let persistence = Arc::new(TestPersistence::new());
@@ -1204,8 +1208,8 @@ mod tests {
         let table_id = id_generator.user_table_id(&table).tablet_id;
         let by_id = TabletIndexName::by_id(table_id);
         let printable_by_id = IndexName::by_id(table.clone());
-        let by_name = TabletIndexName::new(table_id, "by_name".parse()?)?;
-        let printable_by_name = IndexName::new(table.clone(), "by_name".parse()?)?;
+        let by_name = TabletIndexName::new(table_id, IndexDescriptor::new("by_name")?)?;
+        let printable_by_name = IndexName::new(table.clone(), IndexDescriptor::new("by_name")?)?;
         let (mut index_registry, mut index, search, index_ids) = bootstrap_index(
             &mut id_generator,
             vec![
@@ -1226,7 +1230,14 @@ mod tests {
             index_registry.update(None, Some(&doc))?;
             let index_updates = index.update(index_registry, ts, None, Some(doc.clone()));
             ps.write(
-                vec![(ts, doc.id_with_table_id(), Some(doc.clone()))],
+                vec![
+                    (DocumentLogEntry {
+                        ts,
+                        id: doc.id_with_table_id(),
+                        value: Some(doc.clone()),
+                        prev_ts: None,
+                    }),
+                ],
                 index_updates.into_iter().map(|u| (ts, u)).collect(),
                 ConflictStrategy::Error,
             )

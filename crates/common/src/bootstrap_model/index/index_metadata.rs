@@ -198,7 +198,7 @@ impl TryFrom<SerializedTabletIndexMetadata> for TabletIndexMetadata {
 
     fn try_from(s: SerializedTabletIndexMetadata) -> anyhow::Result<Self> {
         let table_id: TabletId = s.table_id.parse()?;
-        let descriptor: IndexDescriptor = s.descriptor.parse()?;
+        let descriptor = IndexDescriptor::new(s.descriptor)?;
         let name = if descriptor.is_reserved() {
             GenericIndexName::new_reserved(table_id, descriptor)
         } else {

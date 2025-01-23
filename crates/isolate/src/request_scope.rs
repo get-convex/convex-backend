@@ -95,10 +95,38 @@ pub struct RequestState<RT: Runtime, E: IsolateEnvironment<RT>> {
     pub blob_parts: WithHeapSize<BTreeMap<uuid::Uuid, bytes::Bytes>>,
     pub streams: WithHeapSize<BTreeMap<uuid::Uuid, anyhow::Result<ReadableStream>>>,
     pub stream_listeners: WithHeapSize<BTreeMap<uuid::Uuid, StreamListener>>,
+    /// Tracks bytes read in HTTP action requests
+    pub request_stream_state: Option<RequestStreamState>,
     pub console_timers: WithHeapSize<BTreeMap<String, UnixTimestamp>>,
     // This is not wrapped in `WithHeapSize` so we can return `&mut TextDecoderStream`.
     // Additionally, `TextDecoderResource` should have a fairly small heap size.
     pub text_decoders: BTreeMap<uuid::Uuid, TextDecoderResource>,
+}
+
+pub struct RequestStreamState {
+    stream_id: uuid::Uuid,
+    bytes_read: usize,
+}
+
+impl RequestStreamState {
+    fn new(stream_id: uuid::Uuid) -> Self {
+        Self {
+            stream_id,
+            bytes_read: 0,
+        }
+    }
+
+    pub fn stream_id(&self) -> uuid::Uuid {
+        self.stream_id
+    }
+
+    pub fn track_bytes_read(&mut self, bytes_read: usize) {
+        self.bytes_read += bytes_read
+    }
+
+    pub fn bytes_read(&self) -> usize {
+        self.bytes_read
+    }
 }
 
 pub struct TextDecoderResource {
@@ -142,6 +170,12 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
         let rng = self.environment.rng()?;
         let uuid = CryptoOps::random_uuid(rng)?;
         self.streams.insert(uuid, Ok(ReadableStream::default()));
+        Ok(uuid)
+    }
+
+    pub fn create_request_stream(&mut self) -> anyhow::Result<uuid::Uuid> {
+        let uuid = self.create_stream()?;
+        self.request_stream_state = Some(RequestStreamState::new(uuid));
         Ok(uuid)
     }
 
@@ -196,7 +230,7 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> RequestState<RT, E> {
 }
 
 impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT, E> {
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn new(
         scope: &'a mut v8::HandleScope<'b>,
         handle: IsolateHandle,

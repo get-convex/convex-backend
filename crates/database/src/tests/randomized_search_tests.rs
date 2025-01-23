@@ -21,6 +21,7 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
+    knobs::DISABLE_FUZZY_TEXT_SEARCH,
     pause::PauseController,
     persistence::Persistence,
     query::{
@@ -33,6 +34,7 @@ use common::{
         SearchVersion,
     },
     types::{
+        IndexDescriptor,
         IndexName,
         Timestamp,
     },
@@ -266,7 +268,7 @@ impl Scenario {
         IndexModel::new(&mut txn)
             .enable_index_for_testing(
                 self.namespace,
-                &IndexName::new("test".parse()?, "by_text".parse()?)?,
+                &IndexName::new("test".parse()?, IndexDescriptor::new("by_text")?)?,
             )
             .await?;
         self.database.commit(txn).await?;
@@ -860,10 +862,12 @@ async fn test_fuzzy_mem(rt: TestRuntime) -> anyhow::Result<()> {
     let mut scenario = Scenario::new(rt).await?;
 
     scenario._patch("a", "the quick brow fox", "test").await?;
-    let results = scenario
-        ._query_with_scores("brown", None, None, SearchVersion::V2)
-        .await?;
-    assert_eq!(results.len(), 1);
+    if !*DISABLE_FUZZY_TEXT_SEARCH {
+        let results = scenario
+            ._query_with_scores("brown", None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 1);
+    }
 
     // Exact match w/o prefix will fail
     let results = scenario
@@ -887,26 +891,28 @@ async fn test_fuzzy_mem(rt: TestRuntime) -> anyhow::Result<()> {
     assert_eq!(results.len(), 1);
 
     // Prefix + fuzzy
-    let results = scenario
-        ._query_with_scores("ahhhhh", None, None, SearchVersion::V2)
-        .await?;
-    assert_eq!(results.len(), 1);
-
-    // Edit distance 2
-    scenario
-        ._patch("c", "my name is bartholomew", "test")
-        .await?;
-    let results = scenario
-        ._query_with_scores("batholmew runs fast", None, None, SearchVersion::V2)
-        .await?;
-    assert_eq!(results.len(), 1);
+    if !*DISABLE_FUZZY_TEXT_SEARCH {
+        let results = scenario
+            ._query_with_scores("ahhhhh", None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 1);
+        //
+        // Edit distance 2
+        scenario
+            ._patch("c", "my name is bartholomew", "test")
+            .await?;
+        let results = scenario
+            ._query_with_scores("batholmew runs fast", None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 1);
+    }
 
     Ok(())
 }
 
 #[convex_macro::test_runtime]
 async fn test_fuzzy_disk(rt: TestRuntime) -> anyhow::Result<()> {
-    {
+    if !*DISABLE_FUZZY_TEXT_SEARCH {
         let mut scenario = Scenario::new(rt).await?;
         scenario._patch("key1", "rakeeb wuz here", "test").await?;
         scenario.backfill().await?;
@@ -946,22 +952,24 @@ async fn test_fuzzy_disk_snapshot_shortlist_ids_valid_with_empty_memory_index(
 // See https://github.com/get-convex/convex/pull/20649
 #[convex_macro::test_runtime]
 async fn unrelated_sentences_are_queryable_after_flush(rt: TestRuntime) -> anyhow::Result<()> {
-    let mut scenario = Scenario::new(rt).await?;
-    scenario._patch("key1", "rakeeb wuz here", "test").await?;
-    scenario
-        ._patch("key2", "some other sentence", "test")
-        .await?;
-    scenario.backfill().await?;
+    if !*DISABLE_FUZZY_TEXT_SEARCH {
+        let mut scenario = Scenario::new(rt).await?;
+        scenario._patch("key1", "rakeeb wuz here", "test").await?;
+        scenario
+            ._patch("key2", "some other sentence", "test")
+            .await?;
+        scenario.backfill().await?;
 
-    let results = scenario
-        ._query_with_scores("rakeem", None, None, SearchVersion::V2)
-        .await?;
-    assert_eq!(results.len(), 1);
+        let results = scenario
+            ._query_with_scores("rakeem", None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 1);
 
-    let results = scenario
-        ._query_with_scores("senence", None, None, SearchVersion::V2)
-        .await?;
-    assert_eq!(results.len(), 1);
+        let results = scenario
+            ._query_with_scores("senence", None, None, SearchVersion::V2)
+            .await?;
+        assert_eq!(results.len(), 1);
+    }
 
     Ok(())
 }
@@ -1041,22 +1049,20 @@ async fn search_fails_while_bootstrapping(rt: TestRuntime) -> anyhow::Result<()>
 /// Test that search works after bootstrapping has finished when there are
 /// writes in between bootstrap ts and the commit ts.
 #[convex_macro::test_runtime]
-async fn search_works_after_bootstrapping(rt: TestRuntime) -> anyhow::Result<()> {
+async fn search_works_after_bootstrapping(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
     let scenario = Scenario::new(rt.clone()).await?;
-    let (mut pause_controller, pause_client) =
-        PauseController::new(vec![FINISHED_BOOTSTRAP_UPDATES]);
-    let mut wait_for_blocked = pause_controller
-        .wait_for_blocked(FINISHED_BOOTSTRAP_UPDATES)
-        .boxed();
-    let mut handle = scenario
-        .database
-        .start_search_and_vector_bootstrap(pause_client);
+    let hold_guard = pause_controller.hold(FINISHED_BOOTSTRAP_UPDATES);
+    let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
+    let mut handle = scenario.database.start_search_and_vector_bootstrap();
     let bootstrap_fut = handle.join().fuse();
     pin_mut!(bootstrap_fut);
     select_biased! {
                 _ = bootstrap_fut => { panic!("bootstrap completed before pause");},
                 pause_guard = wait_for_blocked.as_mut().fuse() => {
-                    if let Some(mut pause_guard) = pause_guard {
+                    if let Some(pause_guard) = pause_guard {
                         scenario.insert("rakeeb \t\nwuz here", "test").await?;
                         pause_guard.unpause();
                     }

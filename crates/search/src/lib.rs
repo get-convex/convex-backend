@@ -1,15 +1,11 @@
 #![feature(iter_from_coroutine, coroutines)]
 #![feature(let_chains)]
-#![feature(lazy_cell)]
 #![feature(try_blocks)]
-#![feature(is_sorted)]
 #![feature(ptr_metadata)]
 #![feature(iterator_try_collect)]
-#![feature(async_closure)]
 #![feature(assert_matches)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(trait_alias)]
-#![feature(lint_reasons)]
 
 mod aggregation;
 mod archive;
@@ -58,7 +54,6 @@ use common::{
         Timestamp,
     },
 };
-use constants::CONVEX_EN_TOKENIZER;
 pub use constants::{
     convex_en,
     EXACT_SEARCH_MAX_WORD_LENGTH,
@@ -66,6 +61,10 @@ pub use constants::{
     MAX_FILTER_CONDITIONS,
     MAX_QUERY_TERMS,
     SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
+};
+use constants::{
+    CONVEX_EN_TOKENIZER,
+    MAX_TEXT_TERM_LENGTH,
 };
 use convex_query::OrTerm;
 use errors::ErrorMetadata;
@@ -429,7 +428,7 @@ impl TantivySearchIndexSchema {
         }
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn search(
         &self,
         compiled_query: CompiledQuery,
@@ -578,6 +577,7 @@ impl TantivySearchIndexSchema {
                     doc_frequency,
                     bm25_boost: boost,
                 };
+                metrics::log_search_term_edit_distance(distance, prefix);
                 or_terms.push(or_term);
             }
         }
@@ -675,17 +675,23 @@ impl TantivySearchIndexSchema {
     fn compile_tokens_with_typo_tolerance(
         search_field: Field,
         tokens: &Vec<String>,
+        disable_fuzzy_text_search: bool,
     ) -> anyhow::Result<Vec<QueryTerm>> {
         let mut res = vec![];
 
         let mut it = tokens.iter().peekable();
+        let exact_search_max_word_length = if disable_fuzzy_text_search {
+            MAX_TEXT_TERM_LENGTH
+        } else {
+            EXACT_SEARCH_MAX_WORD_LENGTH
+        };
         while let Some(text) = it.next() {
             let term = Term::from_field_text(search_field, text);
             anyhow::ensure!(term.as_str().is_some(), "Term was not valid UTF8");
 
             let char_count = text.chars().count();
             let is_prefix = it.peek().is_none();
-            let num_typos = if char_count <= EXACT_SEARCH_MAX_WORD_LENGTH {
+            let num_typos = if char_count <= exact_search_max_word_length {
                 0
             } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
                 1
@@ -710,6 +716,7 @@ impl TantivySearchIndexSchema {
         &self,
         query: &InternalSearch,
         version: SearchVersion,
+        disable_fuzzy_text_search: bool,
     ) -> anyhow::Result<(CompiledQuery, QueryReads)> {
         let timer = metrics::compile_timer();
 
@@ -796,9 +803,11 @@ impl TantivySearchIndexSchema {
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
             // Only the V2 search codepath can generate QueryTerm::Fuzzy
-            SearchVersion::V2 => {
-                Self::compile_tokens_with_typo_tolerance(self.search_field, &tokens)?
-            },
+            SearchVersion::V2 => Self::compile_tokens_with_typo_tolerance(
+                self.search_field,
+                &tokens,
+                disable_fuzzy_text_search,
+            )?,
         };
 
         let text_reads = text_query

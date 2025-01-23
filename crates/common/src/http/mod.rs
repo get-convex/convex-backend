@@ -47,6 +47,11 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
+use fastrace::{
+    future::FutureExt as _,
+    prelude::SpanContext,
+    Span,
+};
 use futures::{
     stream::BoxStream,
     Stream,
@@ -57,6 +62,7 @@ use http::{
         HeaderName,
         HeaderValue,
         ACCEPT,
+        ACCEPT_LANGUAGE,
         AUTHORIZATION,
         CONTENT_TYPE,
         REFERER,
@@ -70,11 +76,6 @@ use http::{
 };
 use http_body_util::BodyExt;
 use itertools::Itertools;
-use minitrace::{
-    future::FutureExt as _,
-    prelude::SpanContext,
-    Span,
-};
 use prometheus::{
     PullingGauge,
     TextEncoder,
@@ -98,10 +99,11 @@ use tower_http::cors::{
     CorsLayer,
 };
 use url::Url;
+use utoipa::ToSchema;
 
 use self::metrics::log_http_request;
 use crate::{
-    errors::report_error,
+    errors::report_error_sync,
     knobs::HTTP_SERVER_TCP_BACKLOG,
     metrics::log_client_version_unsupported,
     runtime::TaskManager,
@@ -483,7 +485,7 @@ impl HttpError {
     }
 
     pub async fn error_message_from_bytes(
-        bytes: &hyper::body::Bytes,
+        bytes: &[u8],
     ) -> anyhow::Result<(Cow<'static, str>, Cow<'static, str>)> {
         let ResponseErrorMessage { code, message } =
             serde_json::from_slice(bytes).context(format!(
@@ -524,7 +526,7 @@ pub struct HttpResponseError {
     http_error: HttpError,
 }
 
-impl const From<Infallible> for HttpResponseError {
+impl From<Infallible> for HttpResponseError {
     fn from(x: Infallible) -> Self {
         match x {}
     }
@@ -540,7 +542,7 @@ impl IntoResponse for HttpResponseError {
     fn into_response(mut self) -> Response {
         // This is the only place we capture errors to sentry because it is the exit
         // point of the HTTP layer
-        report_error(&mut self.trace);
+        report_error_sync(&mut self.trace);
         self.http_error.into_response()
     }
 }
@@ -552,8 +554,10 @@ impl From<anyhow::Error> for HttpResponseError {
             error_code: err.short_msg().to_string().into(),
             msg: err.msg().to_string().into(),
         };
-        let trace = err.last_second_classification();
-        Self { trace, http_error }
+        Self {
+            trace: err,
+            http_error,
+        }
     }
 }
 
@@ -847,7 +851,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
 pub struct InstanceNameExt(pub String);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(ToSchema, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum RequestDestination {
     ConvexCloud,
@@ -1096,18 +1100,35 @@ async fn log_middleware(
     let content_type = get_header(resp.headers(), http::header::CONTENT_TYPE);
 
     let path = uri.path();
-    if path == "/instance_version" || path == "/instance_name" || path == "/get_backend_info" {
+    if path == "/instance_version"
+        || path == "/instance_name"
+        || path == "/get_backend_info"
+        || path == "/"
+    {
         // Skip logging for these high volume, less useful endpoints
         return Ok(resp);
     }
 
+    let path_and_query_str = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(path);
+
+    let uri_for_logging = match uri.query() {
+        None => path_and_query_str,
+        Some(query) => {
+            if query.contains("adminKey=") {
+                // Remove the entire query string to avoid logging the admin key
+                path
+            } else {
+                path_and_query_str
+            }
+        },
+    };
     tracing::info!(
         target: "convex-cloud-http",
         "[{}] {} \"{} {} {:?}\" {} \"{}\" \"{}\" {} {} {:.3}ms",
         site_id,
         LogOptFmt(remote_addr),
         method,
-        uri,
+        uri_for_logging,
         version,
         resp.status().as_u16(),
         LogOptFmt(referer),
@@ -1136,12 +1157,15 @@ impl<T: fmt::Display> fmt::Display for LogOptFmt<T> {
 pub fn cli_cors() -> CorsLayer {
     CorsLayer::new()
         .allow_headers(vec![
-            CONTENT_TYPE,
-            AUTHORIZATION,
+            "baggage".parse().unwrap(),
+            "sentry-trace".parse().unwrap(),
             ACCEPT,
+            ACCEPT_LANGUAGE,
+            AUTHORIZATION,
+            CONTENT_TYPE,
+            CONVEX_CLIENT_HEADER,
             REFERER,
             USER_AGENT,
-            CONVEX_CLIENT_HEADER,
         ])
         .allow_credentials(true)
         .allow_methods(vec![

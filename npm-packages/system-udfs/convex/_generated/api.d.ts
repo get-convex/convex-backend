@@ -27,6 +27,7 @@ import type * as _system_frontend_components from "../_system/frontend/component
 import type * as _system_frontend_convexSiteUrl from "../_system/frontend/convexSiteUrl.js";
 import type * as _system_frontend_createTable from "../_system/frontend/createTable.js";
 import type * as _system_frontend_deleteDocuments from "../_system/frontend/deleteDocuments.js";
+import type * as _system_frontend_deploymentEvents from "../_system/frontend/deploymentEvents.js";
 import type * as _system_frontend_deploymentState from "../_system/frontend/deploymentState.js";
 import type * as _system_frontend_fileStorageV2 from "../_system/frontend/fileStorageV2.js";
 import type * as _system_frontend_getById from "../_system/frontend/getById.js";
@@ -49,6 +50,7 @@ import type * as _system_frontend_paginatedScheduledJobs from "../_system/fronte
 import type * as _system_frontend_paginatedTableDocuments from "../_system/frontend/paginatedTableDocuments.js";
 import type * as _system_frontend_patchDocumentsFields from "../_system/frontend/patchDocumentsFields.js";
 import type * as _system_frontend_replaceDocument from "../_system/frontend/replaceDocument.js";
+import type * as _system_frontend_scheduler from "../_system/frontend/scheduler.js";
 import type * as _system_frontend_snapshotImport from "../_system/frontend/snapshotImport.js";
 import type * as _system_frontend_tableSize from "../_system/frontend/tableSize.js";
 import type * as _system_paginationLimits from "../_system/paginationLimits.js";
@@ -81,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/convexSiteUrl": typeof _system_frontend_convexSiteUrl;
   "_system/frontend/createTable": typeof _system_frontend_createTable;
   "_system/frontend/deleteDocuments": typeof _system_frontend_deleteDocuments;
+  "_system/frontend/deploymentEvents": typeof _system_frontend_deploymentEvents;
   "_system/frontend/deploymentState": typeof _system_frontend_deploymentState;
   "_system/frontend/fileStorageV2": typeof _system_frontend_fileStorageV2;
   "_system/frontend/getById": typeof _system_frontend_getById;
@@ -103,6 +106,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/paginatedTableDocuments": typeof _system_frontend_paginatedTableDocuments;
   "_system/frontend/patchDocumentsFields": typeof _system_frontend_patchDocumentsFields;
   "_system/frontend/replaceDocument": typeof _system_frontend_replaceDocument;
+  "_system/frontend/scheduler": typeof _system_frontend_scheduler;
   "_system/frontend/snapshotImport": typeof _system_frontend_snapshotImport;
   "_system/frontend/tableSize": typeof _system_frontend_tableSize;
   "_system/paginationLimits": typeof _system_paginationLimits;

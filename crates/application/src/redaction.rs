@@ -7,7 +7,6 @@ use common::{
     RequestId,
 };
 use http::StatusCode;
-use isolate::HttpActionResponsePart;
 use pb::common::{
     RedactedJsError as RedactedJsErrorProto,
     RedactedLogLines as RedactedLogLinesProto,
@@ -21,6 +20,7 @@ use sync_types::{
     types::ErrorPayload,
     LogLinesMessage,
 };
+use udf::HttpActionResponsePart;
 use value::{
     sha256::Sha256,
     ConvexValue,
@@ -211,7 +211,6 @@ pub mod tests {
         errors::JsError,
         RequestId,
     };
-    use isolate::HttpActionResponsePart;
     use must_let::must_let;
     use pb::common::{
         RedactedJsError as RedactedJsErrorProto,
@@ -219,6 +218,7 @@ pub mod tests {
     };
     use proptest::prelude::*;
     use serde_json::Value as JsonValue;
+    use udf::HttpActionResponsePart;
     use value::testing::assert_roundtrips;
 
     use crate::redaction::{

@@ -20,6 +20,7 @@ convex_macro = { path = "../convex_macro" }
 derive_more = { workspace = true }
 errors = { path = "../errors" }
 events = { path = "../events" }
+fastrace = { workspace = true }
 futures = { workspace = true }
 futures-async-stream = { workspace = true }
 governor = { workspace = true }
@@ -29,7 +30,6 @@ itertools = { workspace = true }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
-minitrace = { workspace = true }
 parking_lot = { workspace = true, features = ["hardware-lock-elision"] }
 pb = { path = "../pb" }
 prometheus = { workspace = true }
@@ -104,3 +104,6 @@ testing = [
 
 [package.metadata.cargo-udeps.ignore]
 development = ["criterion"] # udeps can't tell this is used by benchmarks
+
+[lints]
+workspace = true

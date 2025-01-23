@@ -251,11 +251,11 @@ pub fn build_disk_segment(
     disk_path: &Path,
     segment_config: SegmentConfig,
 ) -> anyhow::Result<VectorDiskSegmentValues> {
-    merge_disk_segments(vec![segment], tmp_path, disk_path, segment_config)
+    merge_disk_segments(vec![(None, segment)], tmp_path, disk_path, segment_config)
 }
 
 pub fn merge_disk_segments_hnsw(
-    segments: Vec<&Segment>,
+    segments: Vec<(Option<UntarredVectorDiskSegmentPaths>, &Segment)>,
     dimension: usize,
     tmp_path: &Path,
     disk_path: &Path,
@@ -265,7 +265,7 @@ pub fn merge_disk_segments_hnsw(
 }
 
 pub fn merge_disk_segments(
-    segments: Vec<&Segment>,
+    segments: Vec<(Option<UntarredVectorDiskSegmentPaths>, &Segment)>,
     tmp_path: &Path,
     disk_path: &Path,
     segment_config: SegmentConfig,
@@ -285,8 +285,12 @@ pub fn merge_disk_segments(
     let mut segment_builder =
         SegmentBuilder::new(&tmp_segment_path, &segment_tmp_dir_path, &segment_config)?;
     let stopped = AtomicBool::new(false);
-    for segment in segments {
+    for (paths, segment) in segments {
+        tracing::info!("Updating new segment with segment from paths {:?}", paths);
         segment_builder.update_from(segment, &stopped)?;
+        if let Some(ref segment) = segment_builder.segment {
+            anyhow::ensure!(segment.id_tracker.borrow().deleted_point_count() == 0);
+        }
     }
     let permit = CpuPermit::dummy(4);
     let disk_segment = segment_builder.build(permit, &stopped)?;
@@ -1317,7 +1321,12 @@ mod tests {
         fs::create_dir_all(&indexing_path)?;
         let disk_path = tmp_dir.path().join("disk");
         fs::create_dir_all(&disk_path)?;
-        merge_disk_segments(segments, &indexing_path, &disk_path, config)
+        merge_disk_segments(
+            segments.into_iter().map(|s| (None, s)).collect(),
+            &indexing_path,
+            &disk_path,
+            config,
+        )
     }
 
     // One way this might happen is if we accidentally have the same vector in a

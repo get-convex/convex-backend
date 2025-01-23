@@ -20,3 +20,6 @@ convex_macro = { path = "../../crates/convex_macro" }
 pb = { path = "../../crates/pb" }
 runtime = { path = "../../crates/runtime", features = ["testing"] }
 tempfile = { workspace = true }
+
+[lints]
+workspace = true

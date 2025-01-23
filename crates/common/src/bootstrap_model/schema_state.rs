@@ -22,8 +22,7 @@ use value::codegen_convex_serialization;
 /// ```
 /// Invariants:
 /// 1. At most one schema can be in the `Pending` or `Validated` state at a
-/// time.
-///
+///    time.
 /// 2. At most one schema can be in the `Active` state at a time.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]

@@ -1,5 +1,6 @@
 use std::{
     ops::Bound,
+    sync::Arc,
     time::Duration,
 };
 
@@ -13,7 +14,6 @@ use common::{
         PublicFunctionPath,
     },
     http::ResolvedHostname,
-    pause::PauseClient,
     runtime::Runtime,
     types::{
         AllowedVisibility,
@@ -43,10 +43,6 @@ use headers::{
     ContentLength,
     ContentType,
 };
-use isolate::{
-    HttpActionRequest,
-    HttpActionResponseStreamer,
-};
 use keybroker::Identity;
 use model::{
     file_storage::FileStorageId,
@@ -57,6 +53,10 @@ use sync_types::{
     AuthenticationToken,
     SerializedQueryJournal,
     Timestamp,
+};
+use udf::{
+    HttpActionRequest,
+    HttpActionResponseStreamer,
 };
 use value::{
     sha256::Sha256Digest,
@@ -354,7 +354,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             identity,
             mutation_identifier,
             caller,
-            PauseClient::new(),
         )
         .await
     }
@@ -380,7 +379,6 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             identity,
             mutation_identifier,
             caller,
-            PauseClient::new(),
         )
         .await
     }
@@ -554,7 +552,7 @@ impl<RT: Runtime> SubscriptionClient for ApplicationSubscriptionClient<RT> {
         let inner = self.database.subscribe(token.clone()).await?;
         Ok(Box::new(ApplicationSubscription {
             initial_ts: token.ts(),
-            reads: token.into_reads(),
+            reads: token.reads_owned(),
             inner,
             log: self.database.log().clone(),
         }))
@@ -575,7 +573,7 @@ struct ApplicationSubscription {
     inner: Subscription,
     log: LogReader,
 
-    reads: ReadSet,
+    reads: Arc<ReadSet>,
     // The initial timestamp the subscription was created at. This is known
     // to be valid.
     initial_ts: Timestamp,
@@ -587,6 +585,7 @@ impl SubscriptionTrait for ApplicationSubscription {
         self.inner.wait_for_invalidation().map(Ok).boxed()
     }
 
+    #[fastrace::trace]
     async fn extend_validity(&self, new_ts: Timestamp) -> anyhow::Result<bool> {
         if new_ts < self.initial_ts {
             // new_ts is before the initial subscription timestamp.

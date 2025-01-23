@@ -19,6 +19,9 @@ type UseAuth = () => {
     template?: "convex";
     skipCache?: boolean;
   }) => Promise<string | null>;
+  // We don't use these properties but they should trigger a new token fetch.
+  orgId: string | undefined | null;
+  orgRole: string | undefined | null;
 };
 
 /**
@@ -42,7 +45,7 @@ export function ConvexProviderWithClerk({
 }: {
   children: ReactNode;
   client: IConvexReactClient;
-  useAuth: UseAuth;
+  useAuth: UseAuth; // useAuth from Clerk
 }) {
   const useAuthFromClerk = useUseAuthFromClerk(useAuth);
   return (
@@ -56,7 +59,7 @@ function useUseAuthFromClerk(useAuth: UseAuth) {
   return useMemo(
     () =>
       function useAuthFromClerk() {
-        const { isLoaded, isSignedIn, getToken } = useAuth();
+        const { isLoaded, isSignedIn, getToken, orgId, orgRole } = useAuth();
         const fetchAccessToken = useCallback(
           async ({ forceRefreshToken }: { forceRefreshToken: boolean }) => {
             try {
@@ -68,9 +71,11 @@ function useUseAuthFromClerk(useAuth: UseAuth) {
               return null;
             }
           },
-          // Clerk is not memoizing its getToken function at all
+          // Build a new fetchAccessToken to trigger setAuth() whenever these change.
+          // Anything else from the JWT Clerk wants to be reactive goes here too.
+          // Clerk's Expo useAuth hook is not memoized so we don't include getToken.
           // eslint-disable-next-line react-hooks/exhaustive-deps
-          [],
+          [orgId, orgRole],
         );
         return useMemo(
           () => ({

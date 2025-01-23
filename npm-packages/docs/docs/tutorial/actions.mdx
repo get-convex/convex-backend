@@ -1,0 +1,252 @@
+---
+title: "Convex Tutorial: Calling External Services"
+sidebar_label: "2. Calling external services"
+slug: "actions"
+sidebar_position: 200
+hide_table_of_contents: true
+---
+
+# Convex Tutorial: Calling external services
+
+In the [previous step](/docs/tutorial/index.mdx), you built a fully
+self-contained chat app. Data in, data out.
+
+In order to power the automatic reactivity we just saw while providing strong
+database transactions, query and mutation functions in Convex are not allowed to
+make `fetch` calls to the outside world.
+
+Real apps aren't this simple. They often need to talk to the rest of the
+internet directly from the backend. Convex lets you do this too via **action**
+functions.
+
+Action functions let the sync engine access the external world by scheduling out
+work that can then write data back via mutations.
+
+Let's make our chat app a bit smarter by letting anyone in the chat get the
+Wikipedia summary of a topic using the Wikipedia API.
+
+## Your first `action`
+
+**Add the following action to your `convex/chat.ts` file.**
+
+```typescript
+// highlight-next-line
+// Update your server import like this:
+// highlight-next-line
+import { query, mutation, internalAction } from "./_generated/server";
+
+//...
+
+// highlight-next-line
+export const getWikipediaSummary = internalAction({
+  // highlight-next-line
+  args: { topic: v.string() },
+  // highlight-next-line
+  handler: async (ctx, args) => {
+    // highlight-next-line
+    const response = await fetch(
+      // highlight-next-line
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        // highlight-next-line
+        args.topic,
+      // highlight-next-line
+    );
+    // highlight-next-line
+
+    // highlight-next-line
+    return getSummaryFromJSON(await response.json());
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+// highlight-next-line
+
+// highlight-next-line
+function getSummaryFromJSON(data: any) {
+  // highlight-next-line
+  const firstPageId = Object.keys(data.query.pages)[0];
+  // highlight-next-line
+  return data.query.pages[firstPageId].extract;
+  // highlight-next-line
+}
+```
+
+Let's walk through it:
+
+1. First, we created a new Convex action function called `getWikipediaSummary`.
+   We used `internalAction` because we want this function to be private to the
+   Convex backend and not exposed as a public API. This function does a simple
+   fetch to the Wikipedia API with our topic.
+1. Next, we have a helper TypeScript function called `getSummaryFromJSON` to
+   pull out the summary text from the JSON response.
+1. The `getWikipediaSummary` function calls our helper function like any other
+   TypeScript function.
+
+This is great and all, but how do I use it?
+
+To quickly test this function in the Convex dashboard, go to
+[https://dashboard.convex.dev](https://dashboard.convex.dev/deployment/functions)
+and navigate to your project. Click on the Functions in the left nav, and then
+click on the `getWikipediaSummary` function. Click "Run Function".
+
+The function runner UI will pop up. Try making a few searches.
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_dashboard_action.mp4" type="video/mp4" />
+  Running a few Wikipedia queries
+</video>
+
+## Hooking it up to your app
+
+It's awesome that we can call Wikipedia, but we still need to show up in our
+chat. So, let's hook it all up.
+
+**Update your existing `sendMessage` mutation like this:**
+
+```typescript
+// highlight-next-line
+// Import the api reference
+// highlight-next-line
+import { api, internal } from "./_generated/api";
+
+//...
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("This TypeScript function is running on the server.");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+
+    // highlight-next-line
+    // Add the following lines:
+    // highlight-next-line
+    if (args.body.startsWith("/wiki")) {
+      // highlight-next-line
+      // Get the string after the first space
+      // highlight-next-line
+      const topic = args.body.slice(args.body.indexOf(" ") + 1);
+      // highlight-next-line
+      await ctx.scheduler.runAfter(0, internal.chat.getWikipediaSummary, {
+        // highlight-next-line
+        topic,
+        // highlight-next-line
+      });
+      // highlight-next-line
+    }
+  },
+});
+```
+
+Wait a second! What's with this `ctx.scheduler` stuff? Convex comes with a
+powerful durable function scheduler. It's a fundamental part of the sync engine,
+and it's the way you coordinate asynchronous functions in Convex.
+
+In the case of mutations, it's the only way to call an action to fetch from the
+outside world. The really cool part is, if for some reason your mutation throws
+an exception, then nothing is scheduled. This is because mutations are
+transactions, and scheduling is just a write in the database to tell Convex to
+run this function at a future time.
+
+Ok so, we can schedule our action, but we still need to write the summary back
+to the chat.
+
+**Let's go back and update our `getWikipediaSummary` action:**
+
+```typescript
+export const getWikipediaSummary = internalAction({
+  args: { topic: v.string() },
+  handler: async (ctx, args) => {
+    const response = await fetch(
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        args.topic,
+    );
+
+    // highlight-next-line
+    // Replace the `return ...` with the following.
+    // highlight-next-line
+    const summary = getSummaryFromJSON(await response.json());
+    // highlight-next-line
+    await ctx.scheduler.runAfter(0, api.chat.sendMessage, {
+      // highlight-next-line
+      user: "Wikipedia",
+      // highlight-next-line
+      body: summary,
+      // highlight-next-line
+    });
+  },
+});
+```
+
+Just like scheduling the action, we're now scheduling our `sendMessage` mutation
+to send the result of our Wikipedia lookup to our chat.
+
+Go ahead, now play with your app!
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_wikipedia.mp4" type="video/mp4" />
+  Chat with Wikipedia
+</video>
+
+## The scheduler, actions, and the sync engine
+
+<div className="center-image" style={{ maxWidth: "900px" }}>
+  ![Sync engine with actions](/img/tutorial/ConvexSyncAction.png)
+</div>
+
+Queries and mutations are the only ways to interact with the database and the
+scheduler enables building sophisticated workflows with actions in between.
+
+[Actions](/docs/functions/actions.mdx) are normal serverless functions like AWS
+Lambda and Google Cloud Run. They help model flows like calling AI APIs and
+using the Vector Store. They serve as an escape hatch. They deal with the
+reality of the messy outside world with few guarantees.
+
+Actions are not part of the sync engine. To talk to the database they have to
+talk through query and mutation functions. This restriction lets Convex enforce
+transactional guarantees in the database and keep the sync engine fast and
+nimble.
+
+The best way to structure your application for scale is to minimize the work
+that happens in an action. Only the part that needs the
+[non-determinism](https://en.wikipedia.org/wiki/Deterministic_algorithm), like
+making the external `fetch` call should use them. Keeping them as small as
+possible is the most scalable way to build Convex apps, enabling the highest
+throughput.
+
+The scheduler allows your app to keep most of its important logic in queries and
+mutations and structure your code as workflows in and out of actions.
+
+## What you built
+
+In this section of the tutorial, you built an action to talk to the outside
+world and used the scheduler to trigger this work.
+
+You learned that keeping our actions small and keeping most of our work in
+queries and mutations are fundamental to building scalable Convex backends.
+
+## Next up
+
+You've now learned the most important concepts in Convex. As a full-featured
+backend, Convex is capable of many things such as
+[authentication](/docs/auth.mdx), [file storage](/docs/file-storage.mdx) and
+[search](/docs/search.mdx). You can add those features as needed by following
+the documentation.
+
+We touched a little bit on setting your app up for success. As your application
+scales, you will run into new challenges. Let's learn how to deal with some of
+these challenges in the [next section →](/docs/tutorial/scale.mdx).
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "/tutorial/scale",
+    docId: "tutorial/scale",
+    label: "Scaling your app",
+  }}
+/>

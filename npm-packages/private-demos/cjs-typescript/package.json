@@ -1,0 +1,20 @@
+{
+  "name": "cjs-typescript",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "codegen": "convex codegen --commonjs",
+    "build": "tsc && npx esbuild src/index-cjs.ts src/index-esm.mts --outdir=dist --platform=node --format=cjs --log-level=silent",
+    "test": "tsc && tsc --project old-tsconfig.json && node dist/index-esm.js && node dist/index-cjs.js"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "dotenv": "^16.4.7",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.17.0",
+    "esbuild": "0.23.0",
+    "typescript": "~5.0.3"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "nextjs-app-router",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "build": "tsc && next build 2>&1",
+    "dev:backend": "convex dev",
+    "dev:frontend": "next dev",
+    "predev": "convex dev --until-success",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "next": "14.2.21",
+    "convex": "workspace:*",
+    "prettier": "3.4.2"
+  },
+  "devDependencies": {
+    "@radix-ui/react-slot": "^1.0.2",
+    "@types/node": "^18.17.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/react": "^18.0.0",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "1.2.1",
+    "eslint-config-next": "~13.4.16",
+    "eslint": "^8.29.0",
+    "npm-run-all2": "^5.0.0",
+    "postcss": "^8.4.19",
+    "tailwind-merge": "^1.14.0",
+    "tailwindcss-animate": "^1.0.7",
+    "tailwindcss": "^3.2.4",
+    "typescript": "~5.0.3"
+  }
+}

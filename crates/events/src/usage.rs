@@ -17,6 +17,10 @@ pub enum UdfType {
 pub struct FunctionCallUsageFields {
     /// The ExecutionId of a particular UDF
     pub id: String,
+    /// The RequestId of a particular UDF
+    pub request_id: String,
+    /// Whether the request succeeded or failed
+    pub status: String,
     /// The path of a component. Uniquely identifies a component in a
     /// project.
     pub component_path: Option<String>,
@@ -37,7 +41,6 @@ pub struct FunctionCallUsageFields {
     /// True if we think it's a call we should track in usage. Right now
     /// this is basically any UDF that's neither system nor
     /// triggered by the CLI.
-    /// Function calls events that are OCCs are also not tracked.
     /// This could be derived from path and
     /// udf type, but it seems better to be explicit)
     pub is_tracked: bool,
@@ -51,6 +54,8 @@ pub struct FunctionCallUsageFields {
     /// The document ID of the document that the OCC occurred on. Only set if
     /// is_occ is true.
     pub occ_document_id: Option<String>,
+    // The source of the OCC. Only set if is_occ is true.
+    pub occ_write_source: Option<String>,
     /// The retry number of the OCC. Only set if is_occ is true.
     pub occ_retry_count: Option<u64>,
 }
@@ -103,11 +108,13 @@ pub enum UsageEvent {
     },
     DatabaseBandwidth {
         id: String,
+        request_id: String,
         component_path: Option<String>,
         udf_id: String,
         table_name: String,
         ingress: u64,
         egress: u64,
+        egress_rows: u64,
     },
     VectorBandwidth {
         id: String,
@@ -126,6 +133,7 @@ pub enum UsageEvent {
     },
     CurrentDatabaseStorage {
         tables: Vec<TableDatabaseStorage>,
+        system_tables: Vec<TableDatabaseStorage>,
     },
     CurrentFileStorage {
         // TODO(Rebecca): tag and total_size can be cleaned up after we start using the other
@@ -138,6 +146,7 @@ pub enum UsageEvent {
     },
     CurrentDocumentCounts {
         tables: Vec<TableDocumentCount>,
+        system_tables: Vec<TableDocumentCount>,
     },
 }
 
@@ -207,6 +216,8 @@ mod tests {
         let event = UsageEvent::FunctionCall {
             fields: FunctionCallUsageFields {
                 id: "123".to_string(),
+                request_id: "request_id".to_string(),
+                status: "success".to_string(),
                 component_path: Some("component/path".to_string()),
                 udf_id: "udf_id".to_string(),
                 udf_id_type: "http".to_string(),
@@ -219,6 +230,7 @@ mod tests {
                 is_occ: false,
                 occ_table_name: None,
                 occ_document_id: None,
+                occ_write_source: None,
                 occ_retry_count: None,
             },
         };
@@ -226,6 +238,8 @@ mod tests {
         let output = serde_json::to_string(&event).unwrap();
         let expected_output = json!({"FunctionCall": {
             "id": "123",
+            "request_id": "request_id",
+            "status": "success",
             "component_path": "component/path",
             "udf_id": "udf_id",
             "udf_id_type": "http",
@@ -238,6 +252,7 @@ mod tests {
             "is_occ": false,
             "occ_table_name": null,
             "occ_document_id": null,
+            "occ_write_source": null,
             "occ_retry_count": null,
         }})
         .to_string();
@@ -250,6 +265,8 @@ mod tests {
         let event = UsageEvent::FunctionCall {
             fields: FunctionCallUsageFields {
                 id: "123".to_string(),
+                request_id: "request_id".to_string(),
+                status: "success".to_string(),
                 component_path: Some("component/path".to_string()),
                 udf_id: "udf_id".to_string(),
                 udf_id_type: "http".to_string(),
@@ -262,6 +279,7 @@ mod tests {
                 is_occ: true,
                 occ_table_name: Some("table_name".to_string()),
                 occ_document_id: Some("document_id".to_string()),
+                occ_write_source: None,
                 occ_retry_count: Some(1),
             },
         };
@@ -269,6 +287,8 @@ mod tests {
         let output = serde_json::to_string(&event).unwrap();
         let expected_output = json!({"FunctionCall": {
             "id": "123",
+            "request_id": "request_id",
+            "status": "success",
             "component_path": "component/path",
             "udf_id": "udf_id",
             "udf_id_type": "http",
@@ -281,6 +301,7 @@ mod tests {
             "is_occ": true,
             "occ_table_name": "table_name",
             "occ_document_id": "document_id",
+            "occ_write_source": null,
             "occ_retry_count": 1,
         }})
         .to_string();

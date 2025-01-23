@@ -2,10 +2,7 @@
 // https://github.com/denoland/deno/blob/main/ext/crypto/import_key.rs
 
 use deno_core::ToJsBuffer;
-use elliptic_curve::pkcs8::{
-    der::Decode as _,
-    PrivateKeyInfo,
-};
+use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::EncodePrivateKey;
 use ring::signature::EcdsaKeyPair;
 use rsa::{
@@ -522,13 +519,13 @@ fn import_key_ec_jwk(
             let pkcs8_der = match named_curve {
                 EcNamedCurve::P256 => {
                     let d = decode_b64url_to_field_bytes::<p256::NistP256>(&d)?;
-                    let pk = p256::SecretKey::from_be_bytes(&d[..])?;
+                    let pk = p256::SecretKey::from_bytes(&d)?;
 
                     pk.to_pkcs8_der().map_err(|e| anyhow::anyhow!(e))?
                 },
                 EcNamedCurve::P384 => {
                     let d = decode_b64url_to_field_bytes::<p384::NistP384>(&d)?;
-                    let pk = p384::SecretKey::from_be_bytes(&d[..])?;
+                    let pk = p384::SecretKey::from_bytes(&d)?;
 
                     pk.to_pkcs8_der().map_err(|e| anyhow::anyhow!(e))?
                 },
@@ -611,11 +608,7 @@ fn import_key_ec(
                 EcNamedCurve::P256 | EcNamedCurve::P384 => {
                     let pk = PrivateKeyInfo::from_der(data.as_ref())
                         .map_err(|_| data_error("expected valid PKCS#8 data"))?;
-                    pk.algorithm
-                        .parameters
-                        .ok_or_else(|| data_error("malformed parameters"))?
-                        .oid()
-                        .unwrap()
+                    pk.algorithm.oid
                 },
                 EcNamedCurve::P521 => return Err(data_error("Unsupported named curve")),
             };

@@ -5,7 +5,7 @@ pub use cstr::cstr;
 #[cfg(feature = "tracy-tracing")]
 mod tracing_on {
     use std::{
-        cell::RefCell,
+        cell::Cell,
         cmp::Reverse,
         collections::BinaryHeap,
         ffi::{
@@ -95,7 +95,7 @@ mod tracing_on {
     // into the non-overlapping fibers Tracy expects by using a thread-local to
     // keep track of the current fiber, stash it when entering a new one, and
     // restore it whne existing the old one.
-    thread_local!(static CURRENT_FIBER: RefCell<Option<usize>> = RefCell::new(None));
+    thread_local!(static CURRENT_FIBER: Cell<Option<usize>> = Cell::new(None));
 
     #[pin_project(PinnedDrop)]
     pub struct InstrumentedFuture<F: Future> {
@@ -136,7 +136,7 @@ mod tracing_on {
 
             // First, leave our parent fiber's execution, and stash its number on the stack
             // in `current_fiber`.
-            let current_fiber = CURRENT_FIBER.with(|f| f.borrow_mut().take());
+            let current_fiber = CURRENT_FIBER.take();
             if current_fiber.is_some() {
                 unsafe {
                     sys::___tracy_fiber_leave();
@@ -190,7 +190,7 @@ mod tracing_on {
             };
 
             // Set ourselves as the current fiber in the thread local.
-            CURRENT_FIBER.with(|f| *f.borrow_mut() = Some(fiber_ix));
+            CURRENT_FIBER.set(Some(fiber_ix));
 
             // Poll our future, which may end up polling other instrumented futures.
             let r = this.inner.poll(cx);
@@ -214,11 +214,7 @@ mod tracing_on {
             }
 
             // Restore our parent fiber in the thread local.
-            CURRENT_FIBER.with(|f| {
-                let mut f = f.borrow_mut();
-                assert_eq!(*f, Some(fiber_ix));
-                *f = current_fiber;
-            });
+            assert_eq!(CURRENT_FIBER.replace(current_fiber), Some(fiber_ix));
 
             r
         }
@@ -270,6 +266,13 @@ mod tracing_on {
             )
         };
     }
+
+    #[macro_export]
+    macro_rules! run_instrumented {
+        ($name:ident, $code:block) => {
+            $crate::instrument!($name, async move { $code }).await
+        };
+    }
 }
 #[cfg(feature = "tracy-tracing")]
 pub use tracy_client;
@@ -282,43 +285,9 @@ pub use self::tracing_on::{
 
 #[cfg(not(feature = "tracy-tracing"))]
 mod tracing_off {
-    use std::{
-        ffi::CStr,
-        future::Future,
-        pin::Pin,
-        task::{
-            Context,
-            Poll,
-        },
-    };
-
-    use pin_project::pin_project;
-
     pub fn initialize() {}
 
-    #[pin_project]
-    pub struct InstrumentedFuture<F: Future> {
-        #[pin]
-        inner: F,
-    }
-
     pub struct NoopLocation;
-
-    impl<F: Future> InstrumentedFuture<F> {
-        pub fn new(inner: F, _name: &'static CStr, _loc: &'static NoopLocation) -> Self {
-            Self { inner }
-        }
-    }
-
-    impl<F: Future> Future for InstrumentedFuture<F> {
-        type Output = F::Output;
-
-        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            let this = self.project();
-            this.inner.poll(cx)
-        }
-    }
-
     pub struct NoopSpan;
 
     #[macro_export]
@@ -345,12 +314,18 @@ mod tracing_off {
             $future
         };
     }
+
+    #[macro_export]
+    macro_rules! run_instrumented {
+        ($name:ident, $code:block) => {
+            $code
+        };
+    }
 }
 
 #[cfg(not(feature = "tracy-tracing"))]
 pub use self::tracing_off::{
     initialize,
-    InstrumentedFuture,
     NoopLocation,
     NoopSpan,
 };

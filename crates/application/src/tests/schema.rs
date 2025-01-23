@@ -1,6 +1,9 @@
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
-    types::ModuleEnvironment,
+    types::{
+        IndexDescriptor,
+        ModuleEnvironment,
+    },
 };
 use errors::ErrorMetadataAnyhowExt;
 use model::config::types::ModuleConfig;
@@ -60,11 +63,11 @@ export default new SchemaDefinition()
         .get(&"messages".parse()?)
         .expect("Missing messages table");
     assert_eq!(
-        table_schema.indexes[&"by_channel".parse()?].fields,
+        table_schema.indexes[&IndexDescriptor::new("by_channel")?].fields,
         IndexedFields::try_from(vec!["channel".parse()?, "_creationTime".parse()?])?
     );
     assert_eq!(
-        table_schema.indexes[&"by_author".parse()?].fields,
+        table_schema.indexes[&IndexDescriptor::new("by_author")?].fields,
         IndexedFields::try_from(vec!["author".parse()?, "_creationTime".parse()?])?
     );
 

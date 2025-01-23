@@ -51,15 +51,15 @@ use http::{
     Method,
     StatusCode,
 };
-use isolate::{
+use keybroker::Identity;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
+use udf::{
     HttpActionRequest,
     HttpActionRequestHead,
     HttpActionResponsePart,
     HttpActionResponseStreamer,
 };
-use keybroker::Identity;
-use tokio::sync::mpsc;
-use tokio_stream::wrappers::UnboundedReceiverStream;
 use url::Url;
 
 use crate::{
@@ -151,7 +151,7 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
     }
 }
 
-#[minitrace::trace(properties = { "udf_type": "http_action"})]
+#[fastrace::trace(properties = { "udf_type": "http_action"})]
 #[debug_handler]
 pub async fn http_any_method(
     State(st): State<RouterState>,

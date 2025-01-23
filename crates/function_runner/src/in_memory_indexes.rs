@@ -156,7 +156,7 @@ pub(crate) struct InMemoryIndexCache<RT: Runtime> {
     rt: RT,
 }
 
-#[minitrace::trace]
+#[fastrace::trace]
 async fn load_index(
     instance_name: String,
     index_id: IndexId,
@@ -196,7 +196,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     /// Get the index from the cache or load it from persistence and put it in
     /// the cache. If the index is not in the last_modified map, it is not an
     /// in-memory index and should not be cached.
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn get_or_load(
         &self,
         instance_name: String,
@@ -233,7 +233,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         cache_value_result
     }
 
-    #[minitrace::trace(properties = { "table_name": "{table_name:?}" })]
+    #[fastrace::trace(properties = { "table_name": "{table_name:?}" })]
     pub async fn must_get_or_load_unpacked(
         &self,
         instance_name: String,
@@ -257,7 +257,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         Ok(index_map.0.into_iter().map(|(_k, (_ts, v))| v.unpack()))
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn load_registries(
         &self,
         persistence_snapshot: PersistenceSnapshot,
@@ -294,7 +294,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         );
         let (index_documents, table_documents) =
             futures::future::try_join(index_documents_fut, table_documents_fut).await?;
-        let (table_mapping, table_states) = DatabaseSnapshot::table_mapping_and_states(
+        let (table_mapping, table_states) = DatabaseSnapshot::<RT>::table_mapping_and_states(
             table_documents.map(|doc| doc.try_into()).try_collect()?,
         );
         let index_registry = IndexRegistry::bootstrap(
@@ -308,7 +308,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             table_states,
             persistence_snapshot.persistence().version(),
         )?;
-        DatabaseSnapshot::verify_invariants(&table_registry, &index_registry)?;
+        DatabaseSnapshot::<RT>::verify_invariants(&table_registry, &index_registry)?;
         let component_tablet = table_mapping
             .namespace(TableNamespace::Global)
             .id(&COMPONENTS_TABLE)?
@@ -380,7 +380,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     }
 
     /// Loads table and index registry from cache or persistence snapshot.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub(crate) async fn begin_tx(
         &self,
         identity: Identity,

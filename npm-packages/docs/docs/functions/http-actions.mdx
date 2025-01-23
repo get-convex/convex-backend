@@ -1,0 +1,210 @@
+---
+title: HTTP Actions
+sidebar_position: 35
+---
+
+import http from "!!raw-loader!@site/../demos/http/convex/http.ts";
+import httpFunction from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/httpActionConstructor.ts";
+import httpStorage from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+HTTP actions allow you to build an HTTP API right in Convex!
+
+HTTP actions take in a
+[Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) and return a
+[Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) following
+the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
+HTTP actions can manipulate the request and response directly, and interact with
+data in Convex indirectly by running
+[queries](/docs/functions/query-functions.mdx),
+[mutations](/docs/functions/mutation-functions.mdx), and
+[actions](/docs/functions/actions.mdx). HTTP actions might be used for receiving
+webhooks from external applications or defining a public HTTP API.
+
+HTTP actions are exposed at `https://<your deployment name>.convex.site` (e.g.
+`https://happy-animal-123.convex.site`).
+
+**Example:**
+[HTTP Actions](https://github.com/get-convex/convex-demos/tree/main/http)
+
+## Defining HTTP actions
+
+HTTP action handlers are defined using the
+[`httpAction`](/generated-api/server#httpaction) constructor, similar to the
+`action` constructor for normal actions:
+
+<TSAndJSSnippet
+  title="convex/myHttpActions.ts"
+  sourceTS={Constructor}
+  sourceJS={Constructor}
+/>
+
+The first argument to the `handler` is an
+[`ActionCtx`](/api/interfaces/server.GenericActionCtx) object, which provides
+[`auth`](/api/interfaces/server.Auth),
+[`storage`](/api/interfaces/server.StorageActionWriter), and
+[`scheduler`](/api/interfaces/server.Scheduler), as well as `runQuery`,
+`runMutation`, `runAction`.
+
+The second argument contains the
+[`Request`](https://developer.mozilla.org/en-US/docs/Web/API/Request) data. HTTP
+actions do not support argument validation, as the parsing of arguments from the
+incoming Request is left entirely to you.
+
+Here's an example:
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={httpFunction}
+  sourceJS={httpFunction}
+/>
+
+<>
+  {/* Wrapped in fragment because Prettier pushes the JSDialectFileName on new line */}
+  To expose the HTTP Action, export an instance of
+  [`HttpRouter`](/api/classes/server.HttpRouter) from the
+  <JSDialectFileName name="convex/http.ts" /> file. To create the instance call
+  the `httpRouter` function. On the `HttpRouter` you can expose routes using the
+  `route` method:
+</>
+
+<TSAndJSSnippet
+  title="convex/http.js"
+  sourceTS={http}
+  sourceJS={http}
+  snippet="router"
+  highlightPatterns={["handler: postMessage"]}
+/>
+
+You can now call this action via HTTP and interact with data stored in the
+Convex Database. HTTP actions are exposed on
+`https://<your deployment name>.convex.site`.
+
+```bash
+export DEPLOYMENT_NAME=... # example: "happy-animal-123"
+curl -d '{ "author": "User 123", "body": "Hello world" }' \
+    -H 'content-type: application/json' "https://$DEPLOYMENT_NAME.convex.site/postMessage"
+```
+
+Like other Convex functions, you can view your HTTP actions in the
+[Functions view](/docs/dashboard/deployments/functions.md) of
+[your dashboard](https://dashboard.convex.dev/) and view logs produced by them
+in the [Logs view](/docs/dashboard/deployments/logs.md).
+
+## Limits
+
+HTTP actions run in the same environment as queries and mutations so also do not
+have access to Node.js-specific JavaScript APIs. HTTP actions can call
+[actions](/docs/functions/actions.mdx), which can run in Node.js.
+
+Like [actions](/docs/functions/actions.mdx#error-handling), HTTP actions may
+have side-effects and will not be automatically retried by Convex when errors
+occur. It is a responsibility of the caller to handle errors and retry the
+request if appropriate.
+
+Request and response size is limited to 20MB.
+
+HTTP actions support request and response body types of `.text()`, `.json()`,
+`.blob()`, and `.arrayBuffer()`.
+
+Note that you don't need to define an HTTP action to call your queries,
+mutations and actions over HTTP if you control the caller, since you can use use
+the JavaScript [`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient) or
+the [Python client](/docs/client/python.md) to call these functions directly.
+
+## Debugging
+
+### Step 1: Check that your HTTP actions were deployed.
+
+Check the [functions page](https://dashboard.convex.dev/deployment/functions) in
+the dashboard and make sure there's an entry called `http`.
+
+If not, double check that you've defined your HTTP actions with the `httpRouter`
+in a file called `http.js` or `http.ts` (the name of the file must match
+exactly), and that `npx convex dev` has no errors.
+
+### Step 2: Check that you can access your endpoint using curl
+
+Get your URL from the dashboard under
+[Settings](https://dashboard.convex.dev/deployment/settings) > URL and Deploy
+Key.
+
+Make sure this is the URL that ends in **`.convex.site`**, and not
+`.convex.cloud`. E.g. `https://happy-animal-123.convex.site`
+
+Run a `curl` command to hit one of your defined endpoints, potentially defining
+a new endpoint specifically for testing
+
+```
+curl -X GET https://<deployment name>.convex.site/myEndpoint
+```
+
+Check the [logs page](https://dashboard.convex.dev/deployment/logs) in the
+dashboard to confirm that there's an entry for your HTTP action.
+
+### Step 3: Check the request being made by your browser
+
+If you've determined that your HTTP actions have been deployed and are
+accessible via curl, but there are still issues requesting them from your app,
+check the exact requests being made by your browser.
+
+Open the _Network_ tab in your browser's developer tools, and trigger your HTTP
+requests.
+
+Check that this URL matches what you tested earlier with curl -- it ends in
+`.convex.site` and has the right deployment name.
+
+You should be able to see these requests in the dashboard
+[logs page](https://dashboard.convex.dev/deployment/logs).
+
+If you see "CORS error" or messages in the browser console like
+`Access to fetch at '...' from origin '...' has been blocked by CORS policy`,
+you likely need to configure CORS headers and potentially add a handler for the
+pre-flight `OPTIONS` request. See
+[this section](/docs/functions/http-actions.mdx#cors) below.
+
+## Common patterns
+
+### File Storage
+
+HTTP actions can be used to handle uploading and fetching stored files, see
+[File Storage with HTTP actions](/docs/file-storage.mdx#file-storage-with-http-actions).
+
+### CORS
+
+To make requests to HTTP actions from a website you need to add
+[Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
+headers to your HTTP actions.
+
+There are existing resources for exactly which CORS headers are required based
+on the use case. [This site](https://httptoolkit.com/will-it-cors/) provides an
+interactive walkthrough for what CORS headers to add. Here's an example of
+adding CORS headers to a Convex HTTP action:
+
+<TSAndJSSnippet
+  title="convex/http.ts"
+  sourceTS={httpStorage}
+  sourceJS={httpStorage}
+  snippet={["sendImageStore"]}
+  highlightPatterns={["headers: new Headers", "        ", "     \\}\\)"]}
+/>
+
+Here's an example of handling a pre-flight `OPTIONS` request:
+
+<TSAndJSSnippet
+  title="convex/http.ts"
+  sourceTS={httpStorage}
+  sourceJS={httpStorage}
+  snippet="preflight"
+  highlightPatterns={["headers: new Headers", "          ", "       \\}\\)"]}
+/>
+
+### Authentication
+
+You can leverage Convex's built-in [authentication](/docs/auth.mdx) integration
+and access a user identity from
+[`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity). To
+do this call your endpoint with an `Authorization` header including a JWT token:
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />

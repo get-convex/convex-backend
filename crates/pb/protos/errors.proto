@@ -21,6 +21,8 @@ enum ErrorCode {
 message OccInfo {
   optional string table_name = 1;
   optional string document_id = 2;
+  optional string write_source = 3;
+  bool is_system = 4;
 }
 
 message ErrorMetadata {

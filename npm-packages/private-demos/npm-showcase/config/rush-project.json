@@ -1,0 +1,9 @@
+{
+  "disableBuildCacheForProject": false,
+  "operationSettings": [
+    {
+      "operationName": "build",
+      "outputFolderNames": ["dist"]
+    }
+  ]
+}

@@ -1,9 +1,5 @@
-import { Context, logVerbose } from "../../../bundler/context.js";
-import {
-  bigBrainAPI,
-  bigBrainFetch,
-  logAndHandleFetchError,
-} from "../utils/utils.js";
+import { Context } from "../../../bundler/context.js";
+import { bigBrainAPI } from "../utils/utils.js";
 
 export async function bigBrainStart(
   ctx: Context,
@@ -30,21 +26,12 @@ export async function bigBrainPause(
     teamSlug: string;
   },
 ): Promise<void> {
-  const fetch = await bigBrainFetch(ctx);
-  try {
-    const resp = await fetch("/api/local_deployment/pause", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-    if (!resp.ok) {
-      logVerbose(ctx, "Failed to pause local deployment");
-    }
-  } catch (e) {
-    return logAndHandleFetchError(ctx, e);
-  }
+  return bigBrainAPI({
+    ctx,
+    method: "POST",
+    url: "/api/local_deployment/pause",
+    data,
+  });
 }
 
 export async function bigBrainRecordActivity(
@@ -58,5 +45,52 @@ export async function bigBrainRecordActivity(
     method: "POST",
     url: "/api/local_deployment/record_activity",
     data,
+  });
+}
+
+export async function bigBrainEnableFeatureMetadata(
+  ctx: Context,
+): Promise<{ totalProjects: { kind: "none" | "one" | "multiple" } }> {
+  return bigBrainAPI({
+    ctx,
+    method: "POST",
+    url: "/api/local_deployment/enable_feature_metadata",
+    data: {},
+  });
+}
+
+/** Whether a project already has a cloud dev deployment for this user. */
+export async function projectHasExistingDev(
+  ctx: Context,
+  {
+    projectSlug,
+    teamSlug,
+  }: {
+    projectSlug: string;
+    teamSlug: string;
+  },
+) {
+  const response = await bigBrainAPI<
+    | {
+        kind: "Exists";
+      }
+    | {
+        kind: "DoesNotExist";
+      }
+  >({
+    ctx,
+    method: "POST",
+    url: "/api/deployment/existing_dev",
+    data: { projectSlug, teamSlug },
+  });
+  if (response.kind === "Exists") {
+    return true;
+  } else if (response.kind === "DoesNotExist") {
+    return false;
+  }
+  return await ctx.crash({
+    exitCode: 1,
+    errorType: "fatal",
+    printedMessage: `Unexpected /api/deployment/existing_dev response: ${JSON.stringify(response, null, 2)}`,
   });
 }

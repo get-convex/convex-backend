@@ -33,7 +33,6 @@ use common::{
         TRANSACTION_MAX_NUM_USER_WRITES,
         TRANSACTION_MAX_USER_WRITE_SIZE_BYTES,
     },
-    pause::PauseClient,
     runtime::Runtime,
     types::{
         FullyQualifiedObjectKey,
@@ -42,6 +41,7 @@ use common::{
         TableName,
         UdfIdentifier,
     },
+    RequestId,
 };
 use database::{
     BootstrapComponentsModel,
@@ -105,6 +105,7 @@ use thousands::Separable;
 use usage_tracking::{
     CallType,
     FunctionUsageTracker,
+    StorageCallTracker,
     UsageCounter,
 };
 use value::{
@@ -122,14 +123,15 @@ use value::{
 };
 
 use crate::{
-    metrics::log_snapshot_import_age,
     snapshot_import::{
+        audit_log::make_audit_log_event,
         confirmation::info_message_for_import,
         import_error::{
             wrap_import_err,
             ImportError,
         },
         import_file_storage::import_storage_table,
+        metrics::log_snapshot_import_age,
         parse::{
             parse_objects,
             ImportUnit,
@@ -148,9 +150,11 @@ use crate::{
     Application,
 };
 
+mod audit_log;
 mod confirmation;
 mod import_error;
 mod import_file_storage;
+mod metrics;
 mod parse;
 mod prepare_component;
 mod progress;
@@ -169,7 +173,6 @@ struct SnapshotImportExecutor<RT: Runtime> {
     file_storage: FileStorage<RT>,
     usage_tracking: UsageCounter,
     backoff: Backoff,
-    pause_client: PauseClient,
 }
 
 impl<RT: Runtime> SnapshotImportExecutor<RT> {
@@ -187,7 +190,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     .execute_with_overloaded_retries(
                         Identity::system(),
                         FunctionUsageTracker::new(),
-                        PauseClient::new(),
                         "snapshot_import_waiting_for_confirmation",
                         |tx| {
                             async {
@@ -210,12 +212,11 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             Err(e) => {
                 let mut e = wrap_import_err(e);
                 if e.is_bad_request() {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                     self.database
                         .execute_with_overloaded_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
-                            PauseClient::new(),
                             "snapshot_import_fail",
                             |tx| {
                                 async {
@@ -252,7 +253,6 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
                     .execute_with_overloaded_retries(
                         Identity::system(),
                         FunctionUsageTracker::new(),
-                        PauseClient::new(),
                         "snapshop_import_complete",
                         |tx| {
                             async {
@@ -270,12 +270,11 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             Err(e) => {
                 let mut e = wrap_import_err(e);
                 if e.is_bad_request() {
-                    report_error(&mut e);
+                    report_error(&mut e).await;
                     self.database
                         .execute_with_overloaded_retries(
                             Identity::system(),
                             FunctionUsageTracker::new(),
-                            PauseClient::new(),
                             "snapshot_import_fail",
                             |tx| {
                                 async {
@@ -340,33 +339,28 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             usage.clone(),
             Some(snapshot_import.id()),
             snapshot_import.requestor.clone(),
-            &self.usage_tracking,
         )
         .await?;
 
-        // Truncate list of table names to avoid storing too much data in
-        // audit log object.
-        let table_names: Vec<_> = table_mapping_for_import
-            .table_mapping_in_import
-            .iter()
-            .map(|(_, _, _, table_name)| {
-                if table_name == &*FILE_STORAGE_TABLE {
-                    FILE_STORAGE_VIRTUAL_TABLE.clone()
-                } else {
-                    table_name.clone()
-                }
-            })
-            .take(20)
-            .collect();
-        let table_count = table_mapping_for_import
-            .table_mapping_in_import
-            .iter()
-            .count() as u64;
-        let mut table_names_deleted = table_mapping_for_import.deleted_for_audit_log();
-        let table_count_deleted = table_names_deleted.len() as u64;
-        table_names_deleted = table_names_deleted.into_iter().take(20).collect();
+        let audit_log_event =
+            make_audit_log_event(&self.database, &table_mapping_for_import, &snapshot_import)
+                .await?;
 
-        self.pause_client.wait("before_finalize_import").await;
+        let object_attributes = self
+            .snapshot_imports_storage
+            .get_object_attributes(&snapshot_import.object_key)
+            .await?
+            .context("error getting export object attributes from S3")?;
+
+        // Charge file bandwidth for the download of the snapshot from imports storage
+        usage.track_storage_egress_size(
+            ComponentPath::root(),
+            snapshot_import.requestor.usage_tag().to_string(),
+            object_attributes.size,
+        );
+
+        let pause_client = self.runtime.pause_client();
+        pause_client.wait("before_finalize_import").await;
         let (ts, _documents_deleted) = finalize_import(
             &self.database,
             &self.usage_tracking,
@@ -375,30 +369,10 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             initial_schemas,
             table_mapping_for_import,
             usage,
-            DeploymentAuditLogEvent::SnapshotImport {
-                table_names,
-                table_count,
-                import_mode: snapshot_import.mode,
-                import_format: snapshot_import.format.clone(),
-                requestor: snapshot_import.requestor.clone(),
-                table_names_deleted,
-                table_count_deleted,
-            },
+            audit_log_event,
             snapshot_import.requestor.clone(),
         )
         .await?;
-        let object_attributes = self
-            .snapshot_imports_storage
-            .get_object_attributes(&snapshot_import.object_key)
-            .await?
-            .context("error getting export object attributes from S3")?;
-
-        // Charge file bandwidth for the download of the snapshot from imports storage
-        self.usage_tracking.track_independent_storage_egress_size(
-            ComponentPath::root(),
-            snapshot_import.requestor.usage_tag().to_string(),
-            object_attributes.size,
-        );
 
         Ok((ts, total_documents_imported))
     }
@@ -468,7 +442,6 @@ pub async fn start_stored_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_store_uploaded",
             |tx| {
                 async {
@@ -503,7 +476,6 @@ pub async fn perform_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_perform",
             |tx| {
                 async {
@@ -536,7 +508,6 @@ pub async fn cancel_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_cancel",
             |tx| {
                 async {
@@ -714,7 +685,6 @@ pub async fn clear_tables<RT: Runtime>(
         usage.clone(),
         None,
         ImportRequestor::SnapshotImport,
-        &application.usage_tracking,
     )
     .await?;
 
@@ -742,7 +712,6 @@ async fn import_objects<RT: Runtime>(
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
-    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<(TableMappingForImport, u64)> {
     pin_mut!(objects);
     let mut generated_schemas = BTreeMap::new();
@@ -767,6 +736,24 @@ async fn import_objects<RT: Runtime>(
         to_delete,
     };
 
+    while let Some(num_documents) = import_single_table(
+        database,
+        file_storage,
+        &identity,
+        mode,
+        objects.as_mut(),
+        &mut generated_schemas,
+        &mut table_mapping_for_import,
+        usage.clone(),
+        import_id,
+        requestor.clone(),
+    )
+    .await?
+    {
+        total_num_documents += num_documents;
+    }
+
+    let mut tx = database.begin(identity.clone()).await?;
     let all_component_paths = BootstrapComponentsModel::new(&mut tx).all_component_paths();
     for (tablet_id, (namespace, _table_number, table_name)) in
         table_mapping_for_import.to_delete.clone().into_iter()
@@ -779,6 +766,15 @@ async fn import_objects<RT: Runtime>(
 
         // Delete if it's not in the schema
         if !schema_tables.contains_key(&table_name) {
+            continue;
+        }
+        // If it was written by the import, don't clear it or delete it.
+        if table_mapping_for_import
+            .table_mapping_in_import
+            .namespace(namespace)
+            .name_exists(&table_name)
+        {
+            table_mapping_for_import.to_delete.remove(&tablet_id);
             continue;
         }
 
@@ -810,24 +806,6 @@ async fn import_objects<RT: Runtime>(
         );
     }
 
-    while let Some(num_documents) = import_single_table(
-        database,
-        file_storage,
-        &identity,
-        mode,
-        objects.as_mut(),
-        &mut generated_schemas,
-        &mut table_mapping_for_import,
-        usage.clone(),
-        import_id,
-        requestor.clone(),
-        usage_tracking,
-    )
-    .await?
-    {
-        total_num_documents += num_documents;
-    }
-
     Ok((table_mapping_for_import, total_num_documents))
 }
 
@@ -837,28 +815,30 @@ struct TableMappingForImport {
 }
 
 impl TableMappingForImport {
-    fn tables_affected(&self) -> BTreeSet<TableName> {
-        // TODO - include compenent here
-        let mut tables_affected: BTreeSet<_> = self
-            .table_mapping_in_import
+    fn tables_imported(&self) -> BTreeSet<(TableNamespace, TableName)> {
+        self.table_mapping_in_import
             .iter()
-            .map(|(_, _, _, table_name)| table_name.clone())
-            .collect();
-        tables_affected.extend(self.to_delete.values().map(|v| v.2.clone()));
-        tables_affected
+            .map(|(_, namespace, _, table_name)| (namespace, table_name.clone()))
+            .collect()
     }
 
-    fn deleted_for_audit_log(&self) -> Vec<TableName> {
-        // TODO - include the component path here
+    fn tables_deleted(&self) -> BTreeSet<(TableNamespace, TableName)> {
         self.to_delete
             .values()
-            .filter(|(_namespace, _table_number, table_name)| {
-                self.table_mapping_in_import
-                    .namespaces_for_name(table_name)
-                    .is_empty()
+            .filter(|(namespace, _table_number, table_name)| {
+                !self
+                    .table_mapping_in_import
+                    .namespace(*namespace)
+                    .name_exists(table_name)
             })
-            .map(|(_namespace, _table_number, table_name)| table_name.clone())
+            .map(|(namespace, _table_number, table_name)| (*namespace, table_name.clone()))
             .collect()
+    }
+
+    fn tables_affected(&self) -> BTreeSet<(TableNamespace, TableName)> {
+        let mut tables_affected = self.tables_imported();
+        tables_affected.extend(self.tables_deleted());
+        tables_affected
     }
 }
 
@@ -888,7 +868,6 @@ async fn finalize_import<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity,
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_finalize",
             |tx| {
                 async {
@@ -933,9 +912,11 @@ async fn finalize_import<RT: Runtime>(
     };
     // Charge database bandwidth accumulated during the import
     usage_tracking.track_call(
-        UdfIdentifier::Cli(tag),
+        UdfIdentifier::SystemJob(tag),
         ExecutionId::new(),
+        RequestId::new(),
         call_type,
+        true,
         usage.gather_user_stats(),
     );
 
@@ -986,12 +967,21 @@ async fn import_tables_table<RT: Runtime>(
             })?;
         import_tables.push((table_name, table_number));
     }
+
+    let table_namespace: TableNamespace = {
+        let mut tx = database.begin(identity.clone()).await?;
+        let (_, component_id) = BootstrapComponentsModel::new(&mut tx)
+            .component_path_to_ids(component_path)?
+            .context(format!("Component {component_path:?} should exist by now"))?;
+        component_id.into()
+    };
+
     let tables_affected = table_mapping_for_import
         .tables_affected()
         .union(
             &import_tables
                 .iter()
-                .map(|(table_name, _)| table_name.clone())
+                .map(|(table_name, _)| (table_namespace, table_name.clone()))
                 .collect(),
         )
         .cloned()
@@ -1032,7 +1022,6 @@ async fn import_single_table<RT: Runtime>(
     usage: FunctionUsageTracker,
     import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
-    usage_tracking: &UsageCounter,
 ) -> anyhow::Result<Option<u64>> {
     while let Some(ImportUnit::GeneratedSchema(component_path, table_name, generated_schema)) =
         objects
@@ -1139,7 +1128,6 @@ async fn import_single_table<RT: Runtime>(
             import_id,
             num_to_skip,
             requestor,
-            usage_tracking,
         )
         .await?;
         return Ok(Some(0));
@@ -1266,7 +1254,6 @@ async fn insert_import_objects<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity.clone(),
             usage,
-            PauseClient::new(),
             "snapshot_import_insert_objects",
             |tx| {
                 async {
@@ -1296,7 +1283,7 @@ async fn prepare_table_for_import<RT: Runtime>(
     component_path: &ComponentPath,
     table_name: &TableName,
     table_number: Option<TableNumber>,
-    tables_affected: &BTreeSet<TableName>,
+    tables_affected: &BTreeSet<(TableNamespace, TableName)>,
     import_id: Option<ResolvedDocumentId>,
 ) -> anyhow::Result<(TabletIdAndTableNumber, ComponentId, u64)> {
     anyhow::ensure!(
@@ -1371,7 +1358,6 @@ async fn prepare_table_for_import<RT: Runtime>(
             .execute_with_overloaded_retries(
                 identity.clone(),
                 FunctionUsageTracker::new(),
-                PauseClient::new(),
                 "snapshot_import_prepare_table",
                 |tx| {
                     async {
@@ -1441,7 +1427,6 @@ async fn backfill_and_enable_indexes_on_table<RT: Runtime>(
         .execute_with_overloaded_retries(
             identity.clone(),
             FunctionUsageTracker::new(),
-            PauseClient::new(),
             "snapshot_import_enable_indexes",
             |tx| {
                 async {

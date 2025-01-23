@@ -16,6 +16,19 @@ use value::codegen_convex_serialization;
 
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+/// The export state machine. A new export starts as `Requested` and the valid
+/// transitions are:
+///
+/// - Requested -> InProgress: the export worker started working on an export
+///   the first time
+/// - InProgress -> Completed: the export worker finished and created a zip
+///   object
+/// - InProgress -> Failed: not currently possible, but could be used in the
+///   future if the export worker encounters an unrecoverable error
+/// - Requested,InProgress -> Canceled: an admin canceled the export, which may
+///   or may not have started.
+///
+/// Completed, Failed, and Canceled are terminal states.
 pub enum Export {
     Requested {
         format: ExportFormat,
@@ -33,6 +46,7 @@ pub enum Export {
         requestor: ExportRequestor,
         /// Expiration timestamp in nanos
         expiration_ts: u64,
+        progress_message: Option<String>,
     },
     Completed {
         /// Timestamp for the successful (final) attempt at Export.
@@ -57,6 +71,15 @@ pub enum Export {
         component: ComponentId,
         requestor: ExportRequestor,
     },
+    Canceled {
+        /// When the Export first started, if at all
+        start_ts: Option<Timestamp>,
+        /// Timestamp when the Export was canceled
+        canceled_ts: Timestamp,
+        format: ExportFormat,
+        component: ComponentId,
+        requestor: ExportRequestor,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -75,6 +98,7 @@ enum SerializedExport {
         component: Option<String>,
         requestor: String,
         expiration_ts: i64,
+        progress_message: Option<String>,
     },
     Completed {
         start_ts: u64,
@@ -88,6 +112,15 @@ enum SerializedExport {
     Failed {
         start_ts: u64,
         failed_ts: u64,
+        format: SerializedExportFormat,
+        component: Option<String>,
+        requestor: String,
+    },
+    #[serde(alias = "cancelled")]
+    Canceled {
+        start_ts: Option<u64>,
+        #[serde(alias = "cancelled_ts")]
+        canceled_ts: u64,
         format: SerializedExportFormat,
         component: Option<String>,
         requestor: String,
@@ -116,12 +149,14 @@ impl TryFrom<Export> for SerializedExport {
                 component,
                 expiration_ts,
                 requestor,
+                progress_message,
             } => SerializedExport::InProgress {
                 start_ts: start_ts.into(),
                 format: format.into(),
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
                 expiration_ts: expiration_ts as i64,
+                progress_message,
             },
             Export::Completed {
                 start_ts,
@@ -153,6 +188,19 @@ impl TryFrom<Export> for SerializedExport {
                 component: component.serialize_to_string(),
                 requestor: requestor.to_string(),
             },
+            Export::Canceled {
+                start_ts,
+                canceled_ts,
+                format,
+                component,
+                requestor,
+            } => SerializedExport::Canceled {
+                start_ts: start_ts.map(From::from),
+                canceled_ts: canceled_ts.into(),
+                format: format.into(),
+                component: component.serialize_to_string(),
+                requestor: requestor.to_string(),
+            },
         })
     }
 }
@@ -179,12 +227,14 @@ impl TryFrom<SerializedExport> for Export {
                 component,
                 expiration_ts,
                 requestor,
+                progress_message,
             } => Export::InProgress {
                 start_ts: start_ts.try_into()?,
                 format: format.into(),
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
                 expiration_ts: expiration_ts as u64,
+                progress_message,
             },
             SerializedExport::Completed {
                 start_ts,
@@ -216,6 +266,19 @@ impl TryFrom<SerializedExport> for Export {
                 component: ComponentId::deserialize_from_string(component.as_deref())?,
                 requestor: requestor.parse()?,
             },
+            SerializedExport::Canceled {
+                start_ts,
+                canceled_ts,
+                format,
+                component,
+                requestor,
+            } => Export::Canceled {
+                start_ts: start_ts.map(Timestamp::try_from).transpose()?,
+                canceled_ts: canceled_ts.try_into()?,
+                format: format.into(),
+                component: ComponentId::deserialize_from_string(component.as_deref())?,
+                requestor: requestor.parse()?,
+            },
         })
     }
 }
@@ -228,7 +291,8 @@ impl Export {
             Export::Requested { format, .. }
             | Export::InProgress { format, .. }
             | Export::Completed { format, .. }
-            | Export::Failed { format, .. } => *format,
+            | Export::Failed { format, .. }
+            | Export::Canceled { format, .. } => *format,
         }
     }
 
@@ -237,7 +301,8 @@ impl Export {
             Export::Requested { component, .. }
             | Export::InProgress { component, .. }
             | Export::Completed { component, .. }
-            | Export::Failed { component, .. } => *component,
+            | Export::Failed { component, .. }
+            | Export::Canceled { component, .. } => *component,
         }
     }
 
@@ -246,7 +311,8 @@ impl Export {
             Export::Requested { requestor, .. }
             | Export::InProgress { requestor, .. }
             | Export::Completed { requestor, .. }
-            | Export::Failed { requestor, .. } => *requestor,
+            | Export::Failed { requestor, .. }
+            | Export::Canceled { requestor, .. } => *requestor,
         }
     }
 }
@@ -329,10 +395,40 @@ impl Export {
                 component,
                 requestor,
                 expiration_ts,
+                progress_message: None,
             }),
-            Self::Completed { .. } | Self::InProgress { .. } | Self::Failed { .. } => Err(
-                anyhow::anyhow!("Can only begin an export that is requested"),
-            ),
+            Self::Completed { .. }
+            | Self::InProgress { .. }
+            | Self::Failed { .. }
+            | Self::Canceled { .. } => Err(anyhow::anyhow!(
+                "Can only begin an export that is requested"
+            )),
+        }
+    }
+
+    pub fn update_progress(self, msg: String) -> anyhow::Result<Export> {
+        match self {
+            Self::InProgress {
+                format,
+                component,
+                requestor,
+                expiration_ts,
+                start_ts,
+                progress_message: _,
+            } => Ok(Self::InProgress {
+                start_ts,
+                format,
+                component,
+                requestor,
+                expiration_ts,
+                progress_message: Some(msg),
+            }),
+            Self::Completed { .. }
+            | Self::Requested { .. }
+            | Self::Failed { .. }
+            | Self::Canceled { .. } => Err(anyhow::anyhow!(
+                "Can only update progress on an export that is InProgress"
+            )),
         }
     }
 
@@ -349,6 +445,7 @@ impl Export {
                 requestor,
                 expiration_ts,
                 start_ts: _, // replace start_ts with the actual database TS
+                progress_message: _,
             } => {
                 anyhow::ensure!(snapshot_ts <= complete_ts);
                 Ok(Self::Completed {
@@ -379,6 +476,13 @@ impl Export {
             | Self::Failed {
                 start_ts: _,
                 failed_ts: _,
+                format: _,
+                component: _,
+                requestor: _,
+            }
+            | Self::Canceled {
+                start_ts: _,
+                canceled_ts: _,
                 format: _,
                 component: _,
                 requestor: _,
@@ -426,9 +530,49 @@ impl Export {
                 format: _,
                 component: _,
                 requestor: _,
+            }
+            | Self::Canceled {
+                start_ts: _,
+                canceled_ts: _,
+                format: _,
+                component: _,
+                requestor: _,
             } => Err(anyhow::anyhow!(
                 "Can only fail an export that is in_progress"
             )),
+        }
+    }
+
+    pub fn canceled(self, canceled_ts: Timestamp) -> anyhow::Result<Export> {
+        match self {
+            Self::InProgress {
+                format,
+                component,
+                requestor,
+                start_ts,
+                ..
+            } => Ok(Self::Canceled {
+                start_ts: Some(start_ts),
+                canceled_ts,
+                format,
+                component,
+                requestor,
+            }),
+            Self::Requested {
+                format,
+                component,
+                requestor,
+                ..
+            } => Ok(Self::Canceled {
+                start_ts: None,
+                canceled_ts,
+                format,
+                component,
+                requestor,
+            }),
+            Self::Completed { .. } | Self::Failed { .. } | Self::Canceled { .. } => Err(
+                anyhow::anyhow!("Can only cancel an export that hasn't completed or failed"),
+            ),
         }
     }
 }
@@ -440,6 +584,7 @@ impl Display for Export {
             Self::InProgress { .. } => write!(f, "in_progress"),
             Self::Completed { .. } => write!(f, "completed"),
             Self::Failed { .. } => write!(f, "failed"),
+            Self::Canceled { .. } => write!(f, "canceled"),
         }
     }
 }

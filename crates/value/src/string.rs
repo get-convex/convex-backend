@@ -17,7 +17,7 @@ impl TryFrom<String> for ConvexString {
     type Error = anyhow::Error;
 
     fn try_from(s: String) -> anyhow::Result<Self> {
-        let size = 1 + s.as_bytes().len() + 1;
+        let size = 1 + s.len() + 1;
         check_system_size(size)?;
         Ok(ConvexString(s))
     }

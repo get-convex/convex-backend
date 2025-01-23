@@ -105,7 +105,7 @@ impl IndexRegistry {
     /// document in the `_index` table. After initializing each index, mark
     /// all of them as completed since we'll be streaming in all non
     /// `_index` documents later.
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub fn bootstrap<'a>(
         table_mapping: &TableMapping,
         index_documents: impl Iterator<Item = &'a ResolvedDocument>,

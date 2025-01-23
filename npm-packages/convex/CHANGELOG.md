@@ -1,5 +1,112 @@
 # Changelog
 
+## 1.18.0
+
+- Warn on direct Convex function call. This adds a console.warn whenever a
+  Convex Function (mutation, query, action, internalMutation, etc.) is called
+  directly
+
+  ```ts
+  export const foo = mutation(...);
+
+  export const bar = mutation({
+    args: v.any(),
+    returns: v.any(),
+    handler: (ctx, args) => {
+      const result = await foo();
+    })
+  }
+  ```
+
+  because this pattern causes problems and there are straightforward
+  workarounds. The problems here:
+
+  1. Arguments and return values aren't validated despite the presence of
+     validators at the function definition site.
+  2. Functions called this way unexpectedly lack isolation and atomicity. Convex
+     functions may be writting assuming they will run as independent
+     transactions, but running these function directly breaks that assumption.
+  3. Running Convex functions defined by customFunctions like triggers can cause
+     deadlocks and other bad behavior.
+
+  There are two options for how to modify your code to address the warning:
+
+  1. Refactor it out as a helper function, then call that helper function
+     directly.
+  2. Use `ctx.runMutation`, `ctx.runQuery`, or `ctx.runAction()` instead of
+     calling the function directly. This has more overhead (it's slower) but you
+     gain isolation and atomicity because it runs as a subtransaction.
+
+  See
+  https://docs.convex.dev/understanding/best-practices/#use-helper-functions-to-write-shared-code
+  for more.
+
+  Filter to warnings in the convex dashboard logs to see if you're using this
+  pattern.
+
+  For now running functions this way only logs a warning, but this pattern is
+  now deprecated and may be deleted in a future version.
+
+- Support for Next.js 15 and
+  [Clerk core 2](https://clerk.com/docs/upgrade-guides/core-2/overview):
+  `@clerk/nextjs@5` and `@clerk/nextjs@6` are now known to work to Convex. Docs,
+  quickstarts and templates have not yet been updated. If you're upgrading
+  `@clerk/nextjs` from v4 or v5 be sure to follow the Clerk upgrade guides as
+  there are many breaking changes.
+
+- Improvements to `npx convex run`:
+
+  - Better argument parsing with JSON5 so `{ name: "sshader" }` parses
+  - support for `--identity` similar to dashboard "acting as user" feature, like
+    `npx convex run --identity '{ name: "sshader" }'`
+  - `npx convex run api.foo.bar` is equivalent to `npx convex run foo:bar`
+  - `npx convex run convex/foo.ts:bar` is equivalent to `npx convex run foo:bar`
+  - `npx convex run convex/foo.ts` is equivalent to `npx convex run foo:default`
+
+- Allow non-JavaScript/TypeScript files in the `convex/` directory. Only .js
+  etc. files will be bundled and may define Convex functions points but adding a
+  temporary file like `convex/foo.tmp` will no longer break` the build.
+
+- Fix type for FieldTypeFromFieldPath with optional objects.
+
+- Fix types when a handler returns a promise when using return value validators
+  with object syntax.
+
+## 1.17.4
+
+- Revert use of the identity of useAuth from Clerk to determine whether
+  refreshing auth is necessary. This was causing an auth loop in Expo.
+
+## 1.17.3
+
+- Fetch a new JWT from Clerk when using Clerk components to change the active
+  orgId or orgRole in React on the client. Any auth provider can implement this
+  by returning a new `getToken` function from the `useAuth` hook passed into
+  `ConvexProviderWithAuth`.
+
+## 1.17.2
+
+- Revert local Prettier settings change described in 1.17.1 which removed angle
+  brackets in some cases where local prettier config used plugins.
+
+- `npx convex import --replace-all` flag which behaves like the Restore
+  functionality in the dashboard.
+
+## 1.17.1
+
+- Use local Prettier settings to format code in `convex/_generated` if found.
+- Extend supported react and react-dom peerDependencies to include v19
+  prereleases. This is temporary, only stable React 19 releases will be
+  supported in the long term.
+- Hook up Sentry reporting for local deployments, opted-into by
+  `npx convex dev --local`. This telemetry will be made configurable before this
+  feature is released more broadly. This is being called out here for
+  transparency regarding telemetry, but this `--local` feature is not yet ready
+  for general consumption. Please don't use it unless you're excited to help
+  test unfinished features and willing to have errors submitted to Convex.
+- Don't try to bundle .txt or .md files in the convex/ directory.
+- Don't include credentials in HTTP client requests.
+
 ## 1.17.0
 
 - Disallow extra arguments to CLI commands.

@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     cmp,
     collections::{
         BTreeMap,
@@ -56,10 +55,10 @@ use common::{
     },
     interval::Interval,
     knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
-    pause::PauseClient,
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
+        DocumentLogEntry,
         DocumentStream,
         LatestDocumentStream,
         Persistence,
@@ -76,6 +75,7 @@ use common::{
         Runtime,
         SpawnHandle,
     },
+    shutdown::ShutdownSignal,
     sync::split_rw_lock::{
         new_split_rw_lock,
         Reader,
@@ -187,6 +187,7 @@ use crate::{
         self,
         BootstrapKind,
     },
+    table_usage::TablesUsage,
     token::Token,
     transaction_id_generator::TransactionIdGenerator,
     transaction_index::{
@@ -285,7 +286,8 @@ struct ListSnapshotTableIteratorCacheEntry {
 }
 
 #[derive(Clone)]
-pub struct DatabaseSnapshot {
+pub struct DatabaseSnapshot<RT: Runtime> {
+    runtime: RT,
     ts: RepeatableTimestamp,
     pub bootstrap_metadata: BootstrapMetadata,
     pub snapshot: Snapshot,
@@ -338,7 +340,7 @@ pub struct BootstrapMetadata {
     pub index_tablet_id: TabletId,
 }
 
-impl DatabaseSnapshot {
+impl<RT: Runtime> DatabaseSnapshot<RT> {
     pub async fn max_ts(reader: &dyn PersistenceReader) -> anyhow::Result<Timestamp> {
         reader
             .max_ts()
@@ -364,6 +366,7 @@ impl DatabaseSnapshot {
             .await
     }
 
+    #[fastrace::trace]
     async fn load_table_documents<D: TryFrom<ConvexObject, Error = anyhow::Error>>(
         persistence_snapshot: &PersistenceSnapshot,
         index_id: IndexId,
@@ -405,6 +408,7 @@ impl DatabaseSnapshot {
         (table_mapping, table_states)
     }
 
+    #[fastrace::trace]
     pub async fn load_table_and_index_metadata(
         persistence_snapshot: &PersistenceSnapshot,
     ) -> anyhow::Result<(
@@ -450,7 +454,8 @@ impl DatabaseSnapshot {
         ))
     }
 
-    pub async fn load_table_registry(
+    #[fastrace::trace]
+    pub fn load_table_registry(
         persistence_snapshot: &PersistenceSnapshot,
         table_mapping: TableMapping,
         table_states: OrdMap<TabletId, TableState>,
@@ -465,13 +470,13 @@ impl DatabaseSnapshot {
         Ok(table_registry)
     }
 
-    pub fn table_iterator(&self) -> TableIterator {
+    pub fn table_iterator(&self) -> TableIterator<RT> {
         TableIterator::new(
+            self.runtime.clone(),
             self.timestamp(),
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
             1000,
-            None,
         )
     }
 
@@ -539,7 +544,9 @@ impl DatabaseSnapshot {
         })
     }
 
-    pub async fn load<RT: Runtime>(
+    #[fastrace::trace]
+    pub async fn load(
+        runtime: RT,
         persistence: Arc<dyn PersistenceReader>,
         snapshot: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
@@ -585,8 +592,7 @@ impl DatabaseSnapshot {
             table_mapping.clone(),
             table_states,
             &index_registry,
-        )
-        .await?;
+        )?;
 
         let mut schema_docs = BTreeMap::new();
         for namespace in table_mapping.namespaces_for_name(&SCHEMAS_TABLE) {
@@ -616,6 +622,7 @@ impl DatabaseSnapshot {
         .await?;
         let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         Ok(Self {
+            runtime,
             ts: persistence_snapshot.timestamp(),
             bootstrap_metadata,
             snapshot: Snapshot {
@@ -643,9 +650,10 @@ impl DatabaseSnapshot {
     /// But for tools like `db-info` or `db-verifier`, we want the table
     /// summaries to be loaded (and can't rely on TableSummaryWorker +
     /// committer in these services).
-    pub async fn load_table_summaries<RT: Runtime>(&mut self) -> anyhow::Result<()> {
+    pub async fn load_table_summaries(&mut self) -> anyhow::Result<()> {
         tracing::info!("Bootstrapping table summaries...");
-        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap::<RT>(
+        let (table_summary_snapshot, summaries_num_rows) = table_summary::bootstrap(
+            self.runtime.clone(),
             self.persistence_reader.clone(),
             self.retention_validator.clone(),
             self.ts,
@@ -705,38 +713,10 @@ impl DatabaseSnapshot {
         self.snapshot.table_summaries.as_ref()
     }
 
-    pub fn get_user_document_and_index_storage(
+    pub fn get_document_and_index_storage(
         &self,
-    ) -> anyhow::Result<BTreeMap<(TableNamespace, TableName), (usize, usize)>> {
-        self.snapshot.get_user_document_and_index_storage()
-    }
-}
-
-// Used by the database to signal it has encountered a fatal error.
-#[derive(Clone)]
-pub struct ShutdownSignal {
-    shutdown_tx: Option<async_broadcast::Sender<Arc<anyhow::Error>>>,
-}
-
-impl ShutdownSignal {
-    pub fn new(shutdown_tx: async_broadcast::Sender<Arc<anyhow::Error>>) -> Self {
-        Self {
-            shutdown_tx: Some(shutdown_tx),
-        }
-    }
-
-    // Creates a new ShutdownSignal that panics when signaled.
-    pub fn panic() -> Self {
-        Self { shutdown_tx: None }
-    }
-
-    pub fn signal(&self, fatal_error: anyhow::Error) {
-        if let Some(ref shutdown_tx) = self.shutdown_tx {
-            _ = shutdown_tx.try_broadcast(Arc::new(fatal_error));
-        } else {
-            // We don't anyone to shutdown signal configured. Just panic.
-            panic!("Shutting down due to fatal error: {}", fatal_error);
-        }
+    ) -> anyhow::Result<TablesUsage<(TableNamespace, TableName)>> {
+        self.snapshot.get_document_and_index_storage()
     }
 }
 
@@ -767,6 +747,7 @@ impl Default for StreamingExportTableFilter {
 }
 
 impl<RT: Runtime> Database<RT> {
+    #[fastrace::trace]
     pub async fn load(
         mut persistence: Arc<dyn Persistence>,
         runtime: RT,
@@ -788,7 +769,7 @@ impl<RT: Runtime> Database<RT> {
 
         // Get the latest timestamp to perform the load at.
         let snapshot_ts = new_idle_repeatable_ts(persistence.as_ref(), &runtime).await?;
-        let original_max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
+        let original_max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
 
         let follower_retention_manager = FollowerRetentionManager::new_with_repeatable_ts(
             runtime.clone(),
@@ -797,19 +778,21 @@ impl<RT: Runtime> Database<RT> {
         )
         .await?;
 
-        let db_snapshot = DatabaseSnapshot::load::<RT>(
+        let db_snapshot = DatabaseSnapshot::load(
+            runtime.clone(),
             reader.clone(),
             snapshot_ts,
             Arc::new(follower_retention_manager.clone()),
         )
         .await?;
-        let max_ts = DatabaseSnapshot::max_ts(&*reader).await?;
+        let max_ts = DatabaseSnapshot::<RT>::max_ts(&*reader).await?;
         anyhow::ensure!(
             original_max_ts == max_ts,
             "race while loading DatabaseSnapshot: max ts {original_max_ts} at start, {max_ts} at \
              end",
         );
         let DatabaseSnapshot {
+            runtime: _,
             bootstrap_metadata,
             persistence_snapshot: _,
             ts,
@@ -826,6 +809,7 @@ impl<RT: Runtime> Database<RT> {
             persistence.clone(),
             snapshot_reader.clone(),
             follower_retention_manager,
+            shutdown.clone(),
         )
         .await?;
 
@@ -879,11 +863,8 @@ impl<RT: Runtime> Database<RT> {
         tracing::info!("Set search storage to {search_storage:?}");
     }
 
-    pub fn start_search_and_vector_bootstrap(
-        &self,
-        pause_client: PauseClient,
-    ) -> Box<dyn SpawnHandle> {
-        let worker = self.new_search_and_vector_bootstrap_worker(pause_client);
+    pub fn start_search_and_vector_bootstrap(&self) -> Box<dyn SpawnHandle> {
+        let worker = self.new_search_and_vector_bootstrap_worker();
         self.runtime
             .spawn("search_and_vector_bootstrap", async move {
                 worker.start().await
@@ -898,13 +879,10 @@ impl<RT: Runtime> Database<RT> {
     pub fn new_search_and_vector_bootstrap_worker_for_testing(
         &self,
     ) -> SearchIndexBootstrapWorker<RT> {
-        self.new_search_and_vector_bootstrap_worker(PauseClient::new())
+        self.new_search_and_vector_bootstrap_worker()
     }
 
-    fn new_search_and_vector_bootstrap_worker(
-        &self,
-        pause_client: PauseClient,
-    ) -> SearchIndexBootstrapWorker<RT> {
+    fn new_search_and_vector_bootstrap_worker(&self) -> SearchIndexBootstrapWorker<RT> {
         let (ts, snapshot) = self.snapshot_manager.lock().latest();
         let vector_persistence =
             RepeatablePersistence::new(self.reader.clone(), ts, self.retention_validator());
@@ -915,7 +893,6 @@ impl<RT: Runtime> Database<RT> {
             vector_persistence,
             table_mapping,
             self.committer.clone(),
-            pause_client,
         )
     }
 
@@ -970,20 +947,19 @@ impl<RT: Runtime> Database<RT> {
         &self,
         snapshot_ts: RepeatableTimestamp,
         page_size: usize,
-        pause_client: Option<PauseClient>,
-    ) -> TableIterator {
+    ) -> TableIterator<RT> {
         let retention_validator = self.retention_validator();
         let persistence = self.reader.clone();
         TableIterator::new(
+            self.runtime.clone(),
             snapshot_ts,
             persistence,
             retention_validator,
             page_size,
-            pause_client,
         )
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn snapshot_table_mapping(
         &self,
         ts: RepeatableTimestamp,
@@ -993,12 +969,12 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn compute_snapshot_table_mapping(
         self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<TableMapping> {
-        let table_iterator = self.table_iterator(ts, 100, None);
+        let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let tables_tablet_id = snapshot
             .table_registry
@@ -1027,7 +1003,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(table_mapping)
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn snapshot_by_id_indexes(
         &self,
         ts: RepeatableTimestamp,
@@ -1037,12 +1013,12 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     async fn compute_snapshot_by_id_indexes(
         self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<BTreeMap<TabletId, IndexId>> {
-        let table_iterator = self.table_iterator(ts, 100, None);
+        let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let index_tablet_id = snapshot.index_registry.index_table();
         let index_by_id = snapshot
@@ -1077,7 +1053,7 @@ impl<RT: Runtime> Database<RT> {
         self,
         ts: RepeatableTimestamp,
     ) -> anyhow::Result<BTreeMap<ComponentId, ComponentPath>> {
-        let table_iterator = self.table_iterator(ts, 100, None);
+        let table_iterator = self.table_iterator(ts, 100);
         let (_, snapshot) = self.snapshot_manager.lock().latest();
         let component_tablet_id = snapshot
             .table_registry
@@ -1260,7 +1236,12 @@ impl<RT: Runtime> Database<RT> {
         let ts = Timestamp::MIN;
         let document_writes = document_writes
             .into_iter()
-            .map(|(id, doc)| (ts, id.into(), Some(doc)))
+            .map(|(id, doc)| DocumentLogEntry {
+                ts,
+                id: id.into(),
+                value: Some(doc),
+                prev_ts: None, // these are all freshly created documents
+            })
             .collect();
         let index_writes = index_writes
             .into_iter()
@@ -1320,7 +1301,6 @@ impl<RT: Runtime> Database<RT> {
         mut backoff: Backoff,
         usage: FunctionUsageTracker,
         is_retriable: R,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1330,64 +1310,59 @@ impl<RT: Runtime> Database<RT> {
         F: for<'b> Fn(&'b mut Transaction<RT>) -> ShortBoxFuture<'b, 'a, anyhow::Result<T>>,
     {
         let write_source = write_source.into();
-        let result = {
-            let mut error = None;
-            while backoff.failures() < max_failures {
-                let mut tx = self
-                    .begin_with_usage(identity.clone(), usage.clone())
+        let mut error = None;
+        while backoff.failures() < max_failures {
+            let mut tx = self
+                .begin_with_usage(identity.clone(), usage.clone())
+                .await?;
+            let pause_client = self.runtime.pause_client();
+            pause_client.wait("retry_tx_loop_start").await;
+            let start = Instant::now();
+            let result = async {
+                let t = f(&mut tx).0.await?;
+                let func_end_time = Instant::now();
+                let ts = self
+                    .commit_with_write_source(tx, write_source.clone())
                     .await?;
-                pause_client.wait("retry_tx_loop_start").await;
-                let start = Instant::now();
-                let result = async {
-                    let t = f(&mut tx).0.await?;
-                    let func_end_time = Instant::now();
-                    let ts = self
-                        .commit_with_write_source(tx, write_source.clone())
-                        .await?;
-                    let commit_end_time = Instant::now();
-                    Ok((ts, t, func_end_time, commit_end_time))
-                }
-                .await;
-                let total_duration = Instant::now() - start;
-                match result {
-                    Err(e) => {
-                        if is_retriable(&e) {
-                            let delay = backoff.fail(&mut self.runtime.rng());
-                            tracing::warn!("Retrying transaction after error: {}", e);
-                            self.runtime.wait(delay).await;
-                            error = Some(e);
-                            continue;
-                        } else {
-                            return Err(e);
-                        }
-                    },
-                    Ok((ts, t, func_end_time, commit_end_time)) => {
-                        return Ok((
-                            ts,
-                            t,
-                            OccRetryStats {
-                                retries: backoff.failures(),
-                                total_duration,
-                                duration: func_end_time - start,
-                                commit_duration: commit_end_time - func_end_time,
-                            },
-                        ))
-                    },
-                }
+                let commit_end_time = Instant::now();
+                Ok((ts, t, func_end_time, commit_end_time))
             }
-            let error =
-                error.unwrap_or_else(|| anyhow::anyhow!("Error was not returned from commit"));
-            Err(error)
-        };
-        pause_client.close("retry_tx_loop_start");
-        result
+            .await;
+            let total_duration = Instant::now() - start;
+            match result {
+                Err(e) => {
+                    if is_retriable(&e) {
+                        let delay = backoff.fail(&mut self.runtime.rng());
+                        tracing::warn!("Retrying transaction after error: {}", e);
+                        self.runtime.wait(delay).await;
+                        error = Some(e);
+                        continue;
+                    } else {
+                        return Err(e);
+                    }
+                },
+                Ok((ts, t, func_end_time, commit_end_time)) => {
+                    return Ok((
+                        ts,
+                        t,
+                        OccRetryStats {
+                            retries: backoff.failures(),
+                            total_duration,
+                            duration: func_end_time - start,
+                            commit_duration: commit_end_time - func_end_time,
+                        },
+                    ))
+                },
+            }
+        }
+        let error = error.unwrap_or_else(|| anyhow::anyhow!("Error was not returned from commit"));
+        Err(error)
     }
 
     pub async fn execute_with_occ_retries<'a, T, F>(
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1403,7 +1378,6 @@ impl<RT: Runtime> Database<RT> {
             backoff,
             usage,
             is_retriable,
-            pause_client,
             write_source,
             f,
         )
@@ -1418,7 +1392,6 @@ impl<RT: Runtime> Database<RT> {
         &'a self,
         identity: Identity,
         usage: FunctionUsageTracker,
-        pause_client: PauseClient,
         write_source: impl Into<WriteSource>,
         f: F,
     ) -> anyhow::Result<(Timestamp, T, OccRetryStats)>
@@ -1434,7 +1407,6 @@ impl<RT: Runtime> Database<RT> {
             backoff,
             usage,
             is_retriable,
-            pause_client,
             write_source,
             f,
         )
@@ -1544,7 +1516,7 @@ impl<RT: Runtime> Database<RT> {
             .await
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn commit_with_write_source(
         &self,
         transaction: Transaction<RT>,
@@ -1562,6 +1534,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(result)
     }
 
+    #[fastrace::trace]
     pub async fn load_indexes_into_memory(
         &self,
         tables: BTreeSet<TableName>,
@@ -1627,7 +1600,7 @@ impl<RT: Runtime> Database<RT> {
         true
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn document_deltas(
         &self,
         identity: Identity,
@@ -1667,7 +1640,12 @@ impl<RT: Runtime> Database<RT> {
         // should request another page.
         let mut has_more = false;
         let mut rows_read = 0;
-        while let Some((ts, id, maybe_doc)) = match document_stream.try_next().await {
+        while let Some(DocumentLogEntry {
+            ts,
+            id,
+            value: maybe_doc,
+            ..
+        }) = match document_stream.try_next().await {
             Ok::<_, Error>(doc) => doc,
             Err(e) if e.is_out_of_retention() => {
                 // Throws a user error if the documents window is out of retention
@@ -1727,7 +1705,7 @@ impl<RT: Runtime> Database<RT> {
         })
     }
 
-    #[minitrace::trace]
+    #[fastrace::trace]
     pub async fn list_snapshot(
         &self,
         identity: Identity,
@@ -1810,7 +1788,7 @@ impl<RT: Runtime> Database<RT> {
                 let (_, ds) = cached.take().unwrap();
                 ds
             } else {
-                let table_iterator = self.table_iterator(snapshot, 100, None);
+                let table_iterator = self.table_iterator(snapshot, 100);
                 table_iterator
                     .stream_documents_in_table(tablet_id, by_id, resolved_cursor)
                     .boxed()
@@ -1948,6 +1926,7 @@ impl<RT: Runtime> Database<RT> {
         Ok(vector_index_storage)
     }
 
+    /// Counts the number of documents in each table, including system tables.
     pub async fn get_document_counts(
         &self,
     ) -> anyhow::Result<Vec<(ComponentPath, TableName, u64)>> {
@@ -1956,15 +1935,17 @@ impl<RT: Runtime> Database<RT> {
         let mut components_model = BootstrapComponentsModel::new(&mut tx);
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
         let mut document_counts = vec![];
-        for ((table_namespace, table_name), summary) in snapshot.iter_user_table_summaries()? {
-            let count = summary.num_values() as u64;
+        for ((table_namespace, table_name), summary) in snapshot.iter_table_summaries()? {
+            let count = summary.num_values();
             if let Some(component_path) =
                 components_model.get_component_path(ComponentId::from(table_namespace))
             {
                 document_counts.push((component_path, table_name, count));
-            } else {
+            } else if !table_name.is_system() {
                 // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push
+                // user table left over from incomplete components push.
+                // System tables may be created earlier (e.g. `_schemas`), so they may be
+                // legitimately nonempty in that case.
                 anyhow::ensure!(
                     count == 0,
                     "Table {table_name} is in an orphaned TableNamespace without a component, but \
@@ -1983,10 +1964,10 @@ impl<RT: Runtime> Database<RT> {
             .is_some()
     }
 
-    pub async fn get_user_document_and_index_storage(
+    pub async fn get_document_and_index_storage(
         &self,
         identity: Identity,
-    ) -> anyhow::Result<BTreeMap<(ComponentPath, TableName), (u64, u64)>> {
+    ) -> anyhow::Result<TablesUsage<(ComponentPath, TableName)>> {
         if !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("get_user_document_storage"));
         }
@@ -1995,29 +1976,28 @@ impl<RT: Runtime> Database<RT> {
         let ts = *tx.begin_timestamp();
         let mut components_model = BootstrapComponentsModel::new(&mut tx);
         let snapshot = self.snapshot_manager.lock().snapshot(ts)?;
-        let documents_and_index_storage = snapshot.get_user_document_and_index_storage()?;
+        let documents_and_index_storage = snapshot.get_document_and_index_storage()?;
         let mut remapped_documents_and_index_storage = BTreeMap::new();
-        for ((table_namespace, table_name), (document_size, index_size)) in
-            documents_and_index_storage.into_iter()
-        {
+        for ((table_namespace, table_name), usage) in documents_and_index_storage.0 {
             if let Some(component_path) =
                 components_model.get_component_path(ComponentId::from(table_namespace))
             {
-                remapped_documents_and_index_storage.insert(
-                    (component_path, table_name),
-                    (document_size as u64, index_size as u64),
-                );
-            } else {
+                remapped_documents_and_index_storage.insert((component_path, table_name), usage);
+            } else if !table_name.is_system() {
                 // If there is no component path for this table namespace, this must be an empty
-                // user table left over from incomplete components push
+                // user table left over from incomplete components push.
+                // System tables may be created earlier (e.g. `_schemas`), so they may be
+                // legitimately nonempty in that case.
                 anyhow::ensure!(
-                    document_size == 0 && index_size == 0,
+                    usage.document_size == 0 && usage.index_size == 0,
                     "Table {table_name} is in an orphaned TableNamespace without a component, but \
-                     has document size {document_size} and index size {index_size}",
+                     has document size {} and index size {}",
+                    usage.document_size,
+                    usage.index_size
                 );
             }
         }
-        Ok(remapped_documents_and_index_storage)
+        Ok(TablesUsage(remapped_documents_and_index_storage))
     }
 
     pub fn usage_counter(&self) -> UsageCounter {
@@ -2178,7 +2158,7 @@ pub struct ConflictingRead {
 }
 
 fn occ_write_source_string(
-    source: &Cow<'static, str>,
+    source: &str,
     document_id: String,
     is_same_write_source: bool,
 ) -> String {
@@ -2204,12 +2184,12 @@ impl ConflictingReadWithWriteSource {
         let table_name = mapping.tablet_name(*self.read.index.table());
 
         let Ok(table_name) = table_name else {
-            return anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None));
+            return anyhow::anyhow!(ErrorMetadata::user_occ(None, None, None, None));
         };
 
         // We want to show the document's ID only if we know which mutation changed it,
         // so use it only if we have a write source.
-        let occ_write_source = self.write_source.0.as_ref().map(|write_source| {
+        let occ_msg = self.write_source.0.as_deref().map(|write_source| {
             occ_write_source_string(
                 write_source,
                 self.read.id.to_string(),
@@ -2221,15 +2201,19 @@ impl ConflictingReadWithWriteSource {
             return anyhow::anyhow!(ErrorMetadata::user_occ(
                 Some(table_name.into()),
                 Some(self.read.id.developer_id.encode()),
-                occ_write_source,
+                self.write_source.0.as_ref().map(|s| s.to_string()),
+                occ_msg,
             ));
         }
 
-        let msg = occ_write_source
+        let msg = occ_msg
             .map(|write_source| format!("{}.\n", write_source))
             .unwrap_or_default();
         let index = format!("{table_name}.{}", self.read.index.descriptor());
-        let msg = format!("{msg}(conflicts with read of system table {index})");
+        let msg = format!(
+            "{msg}(conflicts with read of system table {index} in this writer \"{}\")",
+            current_writer.0.as_deref().unwrap_or("unknownwriter")
+        );
 
         let formatted = if let Some(stack_traces) = self.read.stack_traces {
             format!(

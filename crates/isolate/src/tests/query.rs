@@ -25,21 +25,19 @@ use keybroker::Identity;
 use must_let::must_let;
 use pretty_assertions::assert_eq;
 use runtime::testing::TestRuntime;
+use udf::UdfOutcome;
 use value::{
     assert_val,
     id_v6::DeveloperDocumentId,
     ConvexObject,
 };
 
-use crate::{
-    test_helpers::{
-        UdfTest,
-        UdfTestType,
-    },
-    UdfOutcome,
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
 };
 
-async fn add_index<RT: Runtime, P: Persistence + Clone>(t: &UdfTest<RT, P>) -> anyhow::Result<()> {
+async fn add_index<RT: Runtime, P: Persistence>(t: &UdfTest<RT, P>) -> anyhow::Result<()> {
     t.add_index(IndexMetadata::new_backfilling(
         *t.database.now_ts_for_reads(),
         "myTable.by_a_b".parse()?,
@@ -590,12 +588,11 @@ async fn test_multiple_paginated_queries_error(rt: TestRuntime) -> anyhow::Resul
 
 /// Assert that these produce a the same result + query journal:
 /// 1. A UDF that runs a paginated query with no query journal.
-/// 2. The same UDF + args with the journal produced in (1).
-/// This ensures that our journaling is deterministic.
-///
+/// 2. The same UDF + args with the journal produced in (1). This ensures that
+///    our journaling is deterministic.
 /// 3. Then we insert an object which may be within the page, and asserts the
-/// object is returned or not (so the journal is actually doing something).
-/// Then we delete the object.
+///    object is returned or not (so the journal is actually doing something).
+///    Then we delete the object.
 ///
 /// Returns (page_of_results, is_done)
 pub async fn assert_paginated_query_journal_is_correct(

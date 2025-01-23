@@ -47,6 +47,7 @@ use model::{
 };
 use rand_chacha::ChaCha12Rng;
 use serde_json::Value as JsonValue;
+use udf::EvaluateAppDefinitionsResult;
 use value::{
     base64,
     identifier::Identifier,
@@ -61,7 +62,6 @@ use super::{
     IsolateEnvironment,
 };
 use crate::{
-    client::EvaluateAppDefinitionsResult,
     concurrency_limiter::ConcurrencyPermit,
     environment::helpers::syscall_error::{
         syscall_description_for_error,
@@ -292,7 +292,7 @@ impl AppDefinitionEvaluator {
 
         isolate_context.scope.perform_microtask_checkpoint();
         drop(isolate_context);
-        handle.take_termination_error()??;
+        handle.take_termination_error(None, "evaluate_definition")??;
 
         Ok(result)
     }
@@ -435,7 +435,7 @@ impl ComponentInitializerEvaluator {
 
         isolate_context.scope.perform_microtask_checkpoint();
         drop(isolate_context);
-        handle.take_termination_error()??;
+        handle.take_termination_error(None, "evaluate")??;
 
         Ok(result)
     }

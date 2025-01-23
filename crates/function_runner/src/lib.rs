@@ -1,20 +1,32 @@
-#![feature(lazy_cell)]
 #![feature(iterator_try_collect)]
 #![feature(impl_trait_in_assoc_type)]
 #![feature(try_blocks)]
-#![feature(lint_reasons)]
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        BTreeSet,
+    },
     sync::Arc,
 };
 
 use async_trait::async_trait;
 use common::{
-    document::DocumentUpdate,
+    auth::AuthConfig,
+    bootstrap_model::components::definition::ComponentDefinitionMetadata,
+    components::{
+        ComponentDefinitionPath,
+        ComponentName,
+        Resource,
+    },
+    document::DocumentUpdateWithPrevTs,
     errors::JsError,
     execution_context::ExecutionContext,
     log_lines::LogLine,
-    runtime::Runtime,
+    runtime::{
+        Runtime,
+        UnixTimestamp,
+    },
+    schemas::DatabaseSchema,
     types::{
         IndexId,
         RepeatableTimestamp,
@@ -29,10 +41,7 @@ use database::{
     Writes,
 };
 use imbl::OrdMap;
-use isolate::{
-    ActionCallbacks,
-    FunctionOutcome,
-};
+use isolate::ActionCallbacks;
 use keybroker::Identity;
 use model::{
     config::types::ModuleConfig,
@@ -40,7 +49,11 @@ use model::{
         EnvVarName,
         EnvVarValue,
     },
-    modules::module_versions::AnalyzedModule,
+    modules::module_versions::{
+        AnalyzedModule,
+        ModuleSource,
+        SourceMap,
+    },
     udf_config::types::UdfConfig,
 };
 #[cfg(any(test, feature = "testing"))]
@@ -54,14 +67,19 @@ use sync_types::{
     Timestamp,
 };
 use tokio::sync::mpsc;
+use udf::{
+    EvaluateAppDefinitionsResult,
+    FunctionOutcome,
+};
 use usage_tracking::FunctionUsageStats;
 use value::{
+    identifier::Identifier,
     ResolvedDocumentId,
     TabletId,
 };
 
 mod in_memory_indexes;
-mod isolate_worker;
+pub mod in_process_function_runner;
 mod metrics;
 mod module_cache;
 pub mod server;
@@ -92,6 +110,40 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         modules: BTreeMap<CanonicalizedModulePath, ModuleConfig>,
         environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>>;
+
+    async fn evaluate_app_definitions(
+        &self,
+        app_definition: ModuleConfig,
+        component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
+        dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    ) -> anyhow::Result<EvaluateAppDefinitionsResult>;
+
+    async fn evaluate_component_initializer(
+        &self,
+        evaluated_definitions: BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>,
+        path: ComponentDefinitionPath,
+        definition: ModuleConfig,
+        args: BTreeMap<Identifier, Resource>,
+        name: ComponentName,
+    ) -> anyhow::Result<BTreeMap<Identifier, Resource>>;
+
+    async fn evaluate_schema(
+        &self,
+        schema_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        rng_seed: [u8; 32],
+        unix_timestamp: UnixTimestamp,
+    ) -> anyhow::Result<DatabaseSchema>;
+
+    async fn evaluate_auth_config(
+        &self,
+        auth_config_bundle: ModuleSource,
+        source_map: Option<SourceMap>,
+        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        explanation: &str,
+    ) -> anyhow::Result<AuthConfig>;
 
     /// Set the action callbacks. Only used for InProcessFunctionRunner to break
     /// a reference cycle between ApplicationFunctionRunner and dyn
@@ -163,7 +215,7 @@ impl From<TransactionReadSet> for FunctionReads {
 #[cfg_attr(any(test, feature = "testing"), derive(Debug, PartialEq))]
 #[derive(Clone, Default)]
 pub struct FunctionWrites {
-    pub updates: OrdMap<ResolvedDocumentId, DocumentUpdate>,
+    pub updates: OrdMap<ResolvedDocumentId, DocumentUpdateWithPrevTs>,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -173,7 +225,7 @@ impl proptest::arbitrary::Arbitrary for FunctionWrites {
     type Strategy = impl Strategy<Value = FunctionWrites>;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        proptest::collection::vec(proptest::prelude::any::<DocumentUpdate>(), 0..4)
+        proptest::collection::vec(proptest::prelude::any::<DocumentUpdateWithPrevTs>(), 0..4)
             .prop_map(|updates| Self {
                 updates: updates.into_iter().map(|u| (u.id, u)).collect(),
             })

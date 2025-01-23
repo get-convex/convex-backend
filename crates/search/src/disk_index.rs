@@ -75,7 +75,7 @@ use crate::{
 static SEARCH_INDEXING_MEMORY_ARENA_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("SEARCH_INDEXING_MEMORY_ARENA_BYTES", 50_000_000));
 
-#[minitrace::trace]
+#[fastrace::trace]
 pub async fn index_reader_for_directory<P: AsRef<Path>>(
     directory: P,
 ) -> anyhow::Result<IndexReader> {
@@ -346,7 +346,7 @@ pub async fn upload_index_archive_from_path<P: AsRef<Path>>(
 
 async fn write_index_archive<P: AsRef<Path>>(
     directory: P,
-    mut out: impl AsyncWrite + Sync + Send + Unpin,
+    mut out: impl AsyncWrite + Send + Unpin,
 ) -> anyhow::Result<()> {
     let mut writer = ZipFileWriter::new(&mut out);
     for entry in WalkDir::new(&directory).sort_by_file_name() {

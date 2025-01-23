@@ -25,7 +25,7 @@ pub fn parse_schema_id(
         Err(_) => {
             // Try parsing as an IDv6 ID
             let id = DeveloperDocumentId::decode(schema_id)?;
-            id.to_resolved(&table_mapping.namespace(namespace).number_to_tablet())
+            id.to_resolved(table_mapping.namespace(namespace).number_to_tablet())
         },
     }
 }

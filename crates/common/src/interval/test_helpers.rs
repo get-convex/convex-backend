@@ -8,7 +8,7 @@ use proptest::prelude::*;
 use super::{
     bounds::{
         End,
-        Start,
+        StartIncluded,
     },
     key::BinaryKey,
     Interval,
@@ -19,12 +19,12 @@ pub fn key(s: &'static [u8]) -> BinaryKey {
     s.to_vec().into()
 }
 
-pub fn start(s: &'static [u8]) -> Start {
-    Start::Included(key(s))
+pub fn start(s: &'static [u8]) -> StartIncluded {
+    StartIncluded(key(s))
 }
 
-pub fn int_start(s: u8) -> Start {
-    Start::Included(vec![s].into())
+pub fn int_start(s: u8) -> StartIncluded {
+    StartIncluded(vec![s].into())
 }
 
 pub fn end(s: &'static [u8]) -> End {
@@ -72,7 +72,7 @@ pub fn u8_interval() -> impl Strategy<Value = (BTreeSet<BinaryKey>, Interval)> {
         for i in start..end {
             reference.insert(vec![i as u8].into());
         }
-        let start = Start::Included(s.map(|s| vec![s]).unwrap_or_else(Vec::new).into());
+        let start = StartIncluded(s.map(|s| vec![s]).unwrap_or_else(Vec::new).into());
         let end = t
             .map(|t| End::Excluded(vec![t].into()))
             .unwrap_or(End::Unbounded);
@@ -102,7 +102,7 @@ prop_compose! {
             }
         }
 
-        let start = Start::Included(start.into());
+        let start = StartIncluded(start.into());
         let end = end.map(|e| End::Excluded(e.into())).unwrap_or(End::Unbounded);
 
         (reference, Interval { start, end })
@@ -114,7 +114,7 @@ prop_compose! {
         start in small_key(),
         end in prop::option::of(small_key()),
     ) -> Interval {
-        let start = Start::Included(start);
+        let start = StartIncluded(start);
         let end = end.map(End::Excluded).unwrap_or(End::Unbounded);
         Interval { start, end }
     }

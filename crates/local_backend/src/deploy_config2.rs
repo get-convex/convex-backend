@@ -27,7 +27,7 @@ use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
-use minitrace::{
+use fastrace::{
     collector::EventRecord,
     prelude::{
         SpanId,

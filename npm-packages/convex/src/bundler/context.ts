@@ -45,8 +45,10 @@ export interface Context {
     errForSentry?: any;
     printedMessage: string | null;
   }): Promise<never>;
-  registerCleanup(fn: () => Promise<void>): string;
-  removeCleanup(handle: string): (() => Promise<void>) | null;
+  registerCleanup(fn: (exitCode: number, err?: any) => Promise<void>): string;
+  removeCleanup(
+    handle: string,
+  ): (exitCode: number, err?: any) => Promise<void> | null;
 }
 
 async function flushAndExit(exitCode: number, err?: any) {
@@ -67,7 +69,10 @@ export type OneoffCtx = Context & {
 };
 
 class OneoffContextImpl {
-  private _cleanupFns: Record<string, () => Promise<void>> = {};
+  private _cleanupFns: Record<
+    string,
+    (exitCode: number, err?: any) => Promise<void>
+  > = {};
   public fs: Filesystem = nodeFs;
   public deprecationMessagePrinted: boolean = false;
   public spinner: Ora | undefined = undefined;
@@ -91,12 +96,12 @@ class OneoffContextImpl {
     const fns = Object.values(cleanupFns);
     logVerbose(this, `Running ${fns.length} cleanup functions`);
     for (const fn of fns) {
-      await fn();
+      await fn(exitCode, err);
     }
     logVerbose(this, "All cleanup functions ran");
     return flushAndExit(exitCode, err);
   };
-  registerCleanup(fn: () => Promise<void>) {
+  registerCleanup(fn: (exitCode: number, err?: any) => Promise<void>) {
     const handle = Math.random().toString(36).slice(2);
     this._cleanupFns[handle] = fn;
     return handle;

@@ -5,7 +5,7 @@ import {
   logFinishedStep,
   logVerbose,
 } from "../../../bundler/context.js";
-import { runQuery } from "../run.js";
+import { runSystemQuery } from "../run.js";
 import { deploymentStateDir, saveDeploymentConfig } from "./filePaths.js";
 import {
   ensureBackendBinaryDownloaded,
@@ -25,6 +25,7 @@ import {
 } from "../../convexImport.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { recursivelyDelete } from "../fsUtils.js";
+import { LocalDeploymentError } from "./errors.js";
 
 export async function handlePotentialUpgrade(
   ctx: Context,
@@ -102,7 +103,7 @@ export async function handlePotentialUpgrade(
   }
   return handleUpgrade(ctx, {
     deploymentName: args.deploymentName,
-    oldVersion: args.oldVersion,
+    oldVersion: args.oldVersion!,
     newBinaryPath: args.newBinaryPath,
     newVersion: args.newVersion,
     ports: args.ports,
@@ -141,14 +142,13 @@ async function handleUpgrade(
 
   logVerbose(ctx, "Downloading env vars");
   const deploymentUrl = localDeploymentUrl(args.ports.cloud);
-  const envs = (await runQuery(
-    ctx,
+  const envs = (await runSystemQuery(ctx, {
     deploymentUrl,
-    args.adminKey,
-    "_system/cli/queryEnvironmentVariables",
-    undefined,
-    {},
-  )) as Array<{
+    adminKey: args.adminKey,
+    functionName: "_system/cli/queryEnvironmentVariables",
+    componentPath: undefined,
+    args: {},
+  })) as Array<{
     name: string;
     value: string;
   }>;
@@ -176,7 +176,7 @@ async function handleUpgrade(
     });
   }
   await downloadSnapshotExport(ctx, {
-    snapshotExportTs: snaphsotExportState.complete_ts,
+    snapshotExportTs: snaphsotExportState.start_ts,
     inputPath: exportPath,
     adminKey: args.adminKey,
     deploymentUrl,
@@ -185,7 +185,7 @@ async function handleUpgrade(
   logVerbose(ctx, "Stopping the backend on the old version");
   const oldCleanupFunc = ctx.removeCleanup(oldCleanupHandle);
   if (oldCleanupFunc) {
-    await oldCleanupFunc();
+    await oldCleanupFunc(0);
   }
   await ensureBackendStopped(ctx, {
     ports: args.ports,
@@ -204,13 +204,17 @@ async function handleUpgrade(
 
   logVerbose(ctx, "Importing the env vars");
   if (envs.length > 0) {
-    const fetch = deploymentFetch(deploymentUrl, args.adminKey);
+    const fetch = deploymentFetch(ctx, {
+      deploymentUrl,
+      adminKey: args.adminKey,
+    });
     try {
       await fetch("/api/update_environment_variables", {
         body: JSON.stringify({ changes: envs }),
         method: "POST",
       });
     } catch (e) {
+      // TODO: this should ideally have a `LocalDeploymentError`
       return await logAndHandleFetchError(ctx, e);
     }
   }
@@ -236,10 +240,12 @@ async function handleUpgrade(
     },
   });
   if (status.state !== "waiting_for_confirmation") {
+    const message = "Error while transferring data: Failed to upload snapshot";
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to upload snapshot",
+      printedMessage: message,
+      errForSentry: new LocalDeploymentError(message),
     });
   }
 
@@ -263,10 +269,12 @@ async function handleUpgrade(
   });
   logVerbose(ctx, `Snapshot import status: ${status.state}`);
   if (status.state !== "completed") {
+    const message = "Error while transferring data: Failed to import snapshot";
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Failed to import snapshot",
+      printedMessage: message,
+      errForSentry: new LocalDeploymentError(message),
     });
   }
 
