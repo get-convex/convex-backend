@@ -932,6 +932,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/set_spending_limit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set_spending_limit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/unpause": {
         parameters: {
             query?: never;
@@ -1177,6 +1193,8 @@ export interface components {
             name: string;
             paymentMethod?: string | null;
             planId: string;
+            /** Format: int64 */
+            spendingLimitThresholdCents?: number | null;
         };
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
@@ -1422,6 +1440,10 @@ export interface components {
          *     The json is externally tagged. Expect it to look like
          *     {"v1": "auth0token"} */
         SerializedAccessToken: string;
+        SetSpendingLimitArgs: {
+            /** Format: int64 */
+            thresholdCents: number;
+        };
         SetupIntentResponse: {
             clientSecret: string;
         };
@@ -1615,6 +1637,7 @@ export type RequestDestination = components['schemas']['RequestDestination'];
 export type RestoreFromCloudBackupArgs = components['schemas']['RestoreFromCloudBackupArgs'];
 export type Role = components['schemas']['Role'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
+export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
 export type Team = components['schemas']['Team'];
 export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResponse'];
@@ -2936,6 +2959,29 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["RemoveMemberArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    set_spending_limit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetSpendingLimitArgs"];
             };
         };
         responses: {
