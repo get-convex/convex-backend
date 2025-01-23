@@ -62,6 +62,7 @@ pub struct IsolateHandleInner {
     // Incrementing counter identifying the current context running in the
     // isolate.
     context_id: usize,
+    request_stream_bytes: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -77,8 +78,14 @@ impl IsolateHandle {
             inner: Arc::new(Mutex::new(IsolateHandleInner {
                 reason: None,
                 context_id: 0,
+                request_stream_bytes: None,
             })),
         }
+    }
+
+    pub fn update_request_stream_bytes(&self, request_stream_bytes: usize) {
+        let mut inner = self.inner.lock();
+        inner.request_stream_bytes = Some(request_stream_bytes)
     }
 
     pub fn terminate(&self, reason: TerminationReason) {
@@ -152,12 +159,23 @@ impl IsolateHandle {
                         let error = ErrorMetadata::bad_request(
                             "IsolateOutOfMemory",
                             format!(
-                                "Isolate ran out of memory during execution with heap stats: \
-                                 {heap_stats:?} in {source:?}"
+                                "Isolate ran out of memory during execution with \
+                                 request_stream_size: {:?},  heap stats: {heap_stats:?} in \
+                                 {source:?}",
+                                inner.request_stream_bytes
                             ),
                         );
                         report_error_sync(&mut error.into());
-                        Ok(Err(JsError::from_message(format!("{OutOfMemoryError}"))))
+                        let error_message =
+                            if let Some(request_stream_bytes) = inner.request_stream_bytes {
+                                format!(
+                                    "{OutOfMemoryError}: request stream size was \
+                                     {request_stream_bytes} bytes"
+                                )
+                            } else {
+                                format!("{OutOfMemoryError}")
+                            };
+                        Ok(Err(JsError::from_message(error_message)))
                     },
                     TerminationReason::UncatchableDeveloperError(e) => Ok(Err(e)),
                 }

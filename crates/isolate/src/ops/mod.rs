@@ -268,7 +268,14 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
     ) -> anyhow::Result<()> {
         let state = self.state_mut()?;
         let new_part_id = match bytes {
-            Some(bytes) => Some(state.create_blob_part(bytes)?),
+            Some(bytes) => {
+                if let Some(request_stream_state) = state.request_stream_state.as_mut()
+                    && request_stream_state.stream_id() == id
+                {
+                    request_stream_state.track_bytes_read(bytes.len());
+                }
+                Some(state.create_blob_part(bytes)?)
+            },
             None => None,
         };
         state.streams.mutate(&id, |stream| -> anyhow::Result<()> {

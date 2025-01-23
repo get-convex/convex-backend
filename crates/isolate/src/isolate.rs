@@ -302,6 +302,7 @@ impl<RT: Runtime> Isolate<RT> {
             blob_parts: WithHeapSize::default(),
             streams: WithHeapSize::default(),
             stream_listeners: WithHeapSize::default(),
+            request_stream_state: None,
             console_timers: WithHeapSize::default(),
             text_decoders: BTreeMap::new(),
         };

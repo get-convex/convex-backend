@@ -472,7 +472,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let stream_id = match http_request.body {
             Some(body) => {
-                let stream_id = scope.state_mut()?.create_stream()?;
+                let stream_id = scope.state_mut()?.create_request_stream()?;
                 scope
                     .state_mut()?
                     .environment
@@ -977,6 +977,10 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // queue.
             scope.perform_microtask_checkpoint();
             scope.record_heap_stats()?;
+            let request_stream_state = scope.state()?.request_stream_state.as_ref();
+            if let Some(request_stream_state) = request_stream_state {
+                handle.update_request_stream_bytes(request_stream_state.bytes_read());
+            }
             handle.check_terminated()?;
 
             // Check for rejected promises still unhandled, if so terminate.
