@@ -19,15 +19,15 @@ application code.
 The best way to get started with Convex is to follow the
 [getting started guides in the Convex docs](https://docs.convex.dev/).
 
-**[Convex managed hosted product](https://www.convex.dev/plans).** The hosted
-product includes a generous free tier and provides a seamless, reliable,
-cost-effective platform that allows you to focus on building your application
-without worrying about infrastructure.
+The **[Convex managed hosted product](https://www.convex.dev/plans).** includes
+a generous free tier and provides a seamless, reliable, cost-effective platform
+that allows you to focus on building your application without worrying about
+infrastructure.
 
-No official support is provided for the open source version of Convex but
-community support is available in the `#open-source` channel in the
-[Convex Discord](https://discord.gg/convex). There is a
-[self-hosting guide](./SELFHOSTING.md) available with some guidance.
+You can also opt to self-host Convex. There is a
+[self-hosting guide](./self-hosted/SELFHOSTING.md) available with some guidance.
+Community support for self-hosting is available in the `#open-source` channel in
+the [Convex Discord](https://discord.gg/convex).
 
 Development of the Convex backend is led by the Convex team. We
 [welcome bug fixes](./CONTRIBUTING.md) and
