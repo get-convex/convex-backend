@@ -524,7 +524,7 @@ mod tests {
 
         let mut uploader = storage.start_upload().await?;
         uploader.write(first_archive.clone().into()).await?;
-        let key = uploader.complete(None).await?;
+        let key = uploader.complete().await?;
         // Create the manager such that it is _just_ big enough to hold the first
         // archive.
         let manager = ArchiveCacheManager::new(
@@ -549,7 +549,7 @@ mod tests {
 
         let mut uploader = storage.start_upload().await?;
         uploader.write(second_archive.clone().into()).await?;
-        let second_key = uploader.complete(None).await?;
+        let second_key = uploader.complete().await?;
         let second_path = manager
             .get(storage, &second_key, SearchFileType::Text)
             .await?;

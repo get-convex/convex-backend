@@ -258,7 +258,6 @@ use storage::{
     StorageExt,
     StorageGetStream,
     Upload,
-    UploadExt,
 };
 use sync_types::{
     AuthenticationToken,
@@ -2046,9 +2045,9 @@ impl<RT: Runtime> Application<RT> {
         let mut upload: Box<BufferedUpload> = self.snapshot_imports_storage.start_upload().await?;
         // unclear why this reassignment is necessary
         let mut body_stream = body_stream;
-        let (_size, digest) = upload.try_write_parallel_and_hash(&mut body_stream).await?;
+        upload.try_write_parallel(&mut body_stream).await?;
         drop(body_stream);
-        let object_key = upload.complete(Some(digest)).await?;
+        let object_key = upload.complete().await?;
         Ok(object_key)
     }
 

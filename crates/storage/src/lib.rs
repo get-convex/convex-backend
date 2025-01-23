@@ -257,10 +257,7 @@ pub trait Upload: Send + Sync {
     async fn abort(self: Box<Self>) -> anyhow::Result<()>;
 
     /// Completes the multipart object.
-    ///
-    /// If `digest` is provided, it should be the sha256 checksum of the entire
-    /// uploaded object.
-    async fn complete(self: Box<Self>, digest: Option<Sha256Digest>) -> anyhow::Result<ObjectKey>;
+    async fn complete(self: Box<Self>) -> anyhow::Result<ObjectKey>;
 }
 
 /// Helper functions for working with uploads for functions that have generic
@@ -441,17 +438,14 @@ impl Upload for BufferedUpload {
         self.upload.abort().await
     }
 
-    async fn complete(
-        mut self: Box<Self>,
-        digest: Option<Sha256Digest>,
-    ) -> anyhow::Result<ObjectKey> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
         let Self {
             buffer: ready,
             mut upload,
             ..
         } = *self;
         upload.write(ready.into()).await?;
-        upload.complete(digest).await
+        upload.complete().await
     }
 }
 
@@ -1163,15 +1157,11 @@ impl Upload for LocalDirUpload {
         Ok(())
     }
 
-    async fn complete(
-        mut self: Box<Self>,
-        _digest: Option<Sha256Digest>,
-    ) -> anyhow::Result<ObjectKey> {
+    async fn complete(mut self: Box<Self>) -> anyhow::Result<ObjectKey> {
         let object_key = self.object_key;
 
         let file = self.file.take().context("Completing inactive file")?;
         file.sync_all()?;
-        // TODO: verify the digest?
         Ok(object_key)
     }
 }
@@ -1228,7 +1218,6 @@ mod buffered_upload_tests {
         sync::mpsc,
     };
     use tokio_stream::wrappers::ReceiverStream;
-    use value::sha256::Sha256Digest;
 
     use crate::{
         BufferedUpload,
@@ -1262,10 +1251,7 @@ mod buffered_upload_tests {
             Ok(())
         }
 
-        async fn complete(
-            self: Box<Self>,
-            _: Option<Sha256Digest>,
-        ) -> anyhow::Result<common::types::ObjectKey> {
+        async fn complete(self: Box<Self>) -> anyhow::Result<common::types::ObjectKey> {
             Ok(ObjectKey::try_from("asdf")?)
         }
     }
@@ -1291,7 +1277,7 @@ mod buffered_upload_tests {
         // Regression test: if ChannelWriter::poll_write reserves a new permit in
         // `sender` each time it's called, then the uploader will deadlock.
         let _ = futures::try_join!(write_fut, uploader)?;
-        let _ = upload.complete(None).await?;
+        let _ = upload.complete().await?;
         let parts = parts.lock();
         assert_eq!(
             *parts,
@@ -1322,7 +1308,7 @@ mod buffered_upload_tests {
             anyhow::Ok(())
         };
         let _ = futures::try_join!(write_fut, uploader)?;
-        let _ = upload.complete(None).await?;
+        let _ = upload.complete().await?;
         let parts = parts.lock();
         let joined_parts: Bytes = parts.iter().flat_map(|p| p.iter().copied()).collect();
         assert_eq!(joined_parts, Bytes::from_static(data));
@@ -1372,7 +1358,7 @@ mod local_storage_tests {
             .write(vec![1; LOCAL_DIR_MIN_PART_SIZE].into())
             .await?;
         test_upload.write(vec![2, 3, 4].into()).await?;
-        let _object_key = test_upload.complete(None).await?;
+        let _object_key = test_upload.complete().await?;
         Ok(())
     }
 
@@ -1384,7 +1370,7 @@ mod local_storage_tests {
             .write(vec![1; LOCAL_DIR_MIN_PART_SIZE].into())
             .await?;
         test_upload.write(vec![2, 3, 4].into()).await?;
-        let _object_key = test_upload.complete(None).await?;
+        let _object_key = test_upload.complete().await?;
         Ok(())
     }
 
@@ -1404,7 +1390,7 @@ mod local_storage_tests {
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
         let mut upload = storage.start_upload().await?;
         upload.write(Bytes::from_static(b"pinna park")).await?;
-        let key = upload.complete(None).await?;
+        let key = upload.complete().await?;
 
         // Get via .get()
         let contents = storage
@@ -1435,7 +1421,7 @@ mod local_storage_tests {
         let length = prefix_length + suffix_length;
         test_upload.write(vec![1; prefix_length].into()).await?;
         test_upload.write(vec![2; suffix_length].into()).await?;
-        let object_key = test_upload.complete(None).await?;
+        let object_key = test_upload.complete().await?;
 
         let stream = storage.get(&object_key).await?.unwrap();
         assert_eq!(stream.content_length, length as i64);
@@ -1471,7 +1457,7 @@ mod local_storage_tests {
         test_upload
             .write(vec![0, 1, 2, 3, 4, 5, 6, 7, 8].into())
             .await?;
-        let object_key = test_upload.complete(None).await?;
+        let object_key = test_upload.complete().await?;
         let disconnected_stream = stream::iter(vec![
             Ok(vec![1, 2, 3].into()),
             Err(futures::io::Error::new(
@@ -1499,7 +1485,7 @@ mod local_storage_tests {
     async fn test_storage_delete(rt: TestRuntime) -> anyhow::Result<()> {
         let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt)?);
         let test_upload = storage.start_upload().await?;
-        let object_key = test_upload.complete(None).await?;
+        let object_key = test_upload.complete().await?;
         assert!(storage.get(&object_key).await?.is_some());
         storage.delete_object(&object_key).await?;
         assert!(storage.get(&object_key).await?.is_none());

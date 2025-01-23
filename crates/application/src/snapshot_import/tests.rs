@@ -147,7 +147,7 @@ async fn run_parse_objects<RT: Runtime>(
     )?);
     let mut upload = storage.start_upload().await?;
     upload.write(Bytes::copy_from_slice(v.as_bytes())).await?;
-    let object_key = upload.complete(None).await?;
+    let object_key = upload.complete().await?;
     let stream = || storage.get_reader(&object_key);
     parse_objects(format, ComponentPath::root(), stream)
         .filter_map(|line| async move {

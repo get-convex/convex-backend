@@ -150,7 +150,7 @@ pub async fn upload_package(
     let packager = write_package(package, writer, external_deps_storage_key);
     let ((unzipped_size_bytes, _packaged_files), (zipped_size_bytes, sha256)) =
         futures::try_join!(packager, uploader)?;
-    let key = upload.complete(Some(sha256.clone())).await?;
+    let key = upload.complete().await?;
     Ok((
         key,
         sha256,
