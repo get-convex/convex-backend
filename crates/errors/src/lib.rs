@@ -438,7 +438,7 @@ impl ErrorMetadata {
             } => Some((sentry::Level::Warning, Some(0.001))),
             ErrorCode::OCC {
                 is_system: true, ..
-            } => Some((sentry::Level::Warning, None)),
+            } => Some((sentry::Level::Warning, Some(0.01))),
             // we want to see these a bit more than the others above
             ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.1))),
         }
