@@ -12,7 +12,7 @@ const docs = [
   },
   {
     href: "https://stack.convex.dev",
-    title: "Stack",
+    title: "Blog",
     description: "Get tips and tricks on using Convex",
     icon: StackIcon,
     bgColor: "bg-util-brand-purple",

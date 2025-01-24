@@ -82,7 +82,7 @@ const config = {
           },
           {
             href: "https://stack.convex.dev/",
-            label: "Stack",
+            label: "Blog",
             position: "right",
           },
           {
