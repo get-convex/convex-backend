@@ -72,6 +72,19 @@ pub fn log_pool_running_count(name: &'static str, count: usize, client_id: &str)
 }
 
 register_convex_gauge!(
+    ISOLATE_POOL_MAX_INFO,
+    "How many isolate workers can be running",
+    &["pool_name"]
+);
+pub fn log_pool_max(name: &'static str, count: usize) {
+    log_gauge_with_labels(
+        &ISOLATE_POOL_MAX_INFO,
+        count as f64,
+        vec![StaticMetricLabel::new("pool_name", name)],
+    );
+}
+
+register_convex_gauge!(
     ISOLATE_POOL_ALLOCATED_COUNT_INFO,
     "How many isolate workers have been allocated",
     &["pool_name"]

@@ -160,6 +160,7 @@ use crate::{
     metrics::{
         self,
         log_aggregated_heap_stats,
+        log_pool_max,
         log_pool_running_count,
         log_worker_stolen,
         queue_timer,
@@ -1153,6 +1154,7 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
     }
 
     pub async fn run(mut self, receiver: CoDelQueueReceiver<RT, Request<RT>>) {
+        log_pool_max(self.worker.config().name, self.max_workers);
         let mut receiver = receiver.fuse();
         let mut report_stats = self.rt.wait(*HEAP_WORKER_REPORT_INTERVAL_SECONDS);
         loop {
