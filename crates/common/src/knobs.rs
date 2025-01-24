@@ -984,19 +984,6 @@ pub static SEARCHLIGHT_CLUSTER_NAME: LazyLock<String> = LazyLock::new(|| {
 pub static FUNRUN_ISOLATE_ACTIVE_THREADS: LazyLock<usize> =
     LazyLock::new(|| env_config("FUNRUN_ISOLATE_ACTIVE_THREADS", 0));
 
-/// What percentage of the physical CPU cores can be actively used by the
-/// isolate.
-///
-/// Give 50% of physical cores to v8. Note that we are still oversubscribing
-/// the CPU since we run multiple backends per server. This is fine since we
-/// are moving js execution to Funrun.
-pub static BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT: LazyLock<usize> = LazyLock::new(|| {
-    env_config(
-        "BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT",
-        prod_override(100, 50),
-    )
-});
-
 /// How long to splay deploying AWS Lambdas due to changes in the backend. This
 /// knob doesn't delay deploys that are required due to the user pushing new
 /// node actions. Only affects deploys on startup triggered by changes to

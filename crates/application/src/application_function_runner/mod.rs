@@ -42,7 +42,6 @@ use common::{
         APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
         APPLICATION_MAX_CONCURRENT_QUERIES,
         APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
-        BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
         ISOLATE_MAX_USER_HEAP_SIZE,
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
@@ -596,18 +595,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
     ) -> Self {
-        // We limit the isolates to only consume fraction of the available
-        // cores leaving the rest for tokio. This is still over-provisioning
-        // in case there are multiple active backends per server.
-        let isolate_concurrency_limit =
-            *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT * num_cpus::get_physical() / 100;
-        tracing::info!(
-            "Limiting isolate concurrency to {} ({}% out of {} physical cores)",
-            isolate_concurrency_limit,
-            *BACKEND_ISOLATE_ACTIVE_THREADS_PERCENT,
-            num_cpus::get_physical(),
-        );
-
         let isolate_functions = FunctionRouter::new(
             function_runner,
             runtime.clone(),
