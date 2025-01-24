@@ -59,7 +59,7 @@ export function MemberProjectRoles() {
         All other team members may create dev and preview deployments, and have
         read-only access to production data.{" "}
         <Link
-          href="https://docs.convex.dev"
+          href="https://docs.convex.dev/dashboard/teams#roles-and-permissions"
           target="_blank"
           className="text-content-link hover:underline dark:underline"
         >
