@@ -1246,4 +1246,4 @@ pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
 /// may be unable to serve requests for already-loaded instances in a timely
 /// manner, or that we may exhaust CPU on the physical host
 pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 6));
+    LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 32));
