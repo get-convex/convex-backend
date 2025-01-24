@@ -1,6 +1,7 @@
 use common::{
     components::ComponentPath,
     types::{
+        FullyQualifiedObjectKey,
         MemberId,
         ObjectKey,
         TableName,
@@ -23,7 +24,8 @@ pub struct SnapshotImport {
     pub format: ImportFormat,
     pub mode: ImportMode,
     pub component_path: ComponentPath,
-    pub object_key: ObjectKey,
+    // TODO: this should always be FullyQualifiedObjectKey
+    pub object_key: Result<FullyQualifiedObjectKey, ObjectKey>,
     pub member_id: Option<MemberId>,
     pub checkpoints: Option<Vec<ImportTableCheckpoint>>,
     pub requestor: ImportRequestor,
@@ -35,7 +37,12 @@ struct SerializedSnapshotImport {
     format: SerializedImportFormat,
     mode: String,
     component_path: Option<String>,
-    object_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    object_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    fq_object_key: Option<String>,
     member_id: Option<i64>,
     checkpoints: Option<Vec<SerializedImportTableCheckpoint>>,
     requestor: SerializedImportRequestor,
@@ -43,12 +50,17 @@ struct SerializedSnapshotImport {
 
 impl From<SnapshotImport> for SerializedSnapshotImport {
     fn from(import: SnapshotImport) -> SerializedSnapshotImport {
+        let (object_key, fq_object_key) = match import.object_key {
+            Ok(key) => (None, Some(key.into())),
+            Err(key) => (Some(key.into()), None),
+        };
         SerializedSnapshotImport {
             state: import.state.into(),
             format: import.format.into(),
             mode: import.mode.to_string(),
             component_path: import.component_path.serialize(),
-            object_key: import.object_key.to_string(),
+            object_key,
+            fq_object_key,
             member_id: import.member_id.map(|member_id| member_id.0 as i64),
             checkpoints: import
                 .checkpoints
@@ -62,12 +74,18 @@ impl TryFrom<SerializedSnapshotImport> for SnapshotImport {
     type Error = anyhow::Error;
 
     fn try_from(import: SerializedSnapshotImport) -> anyhow::Result<SnapshotImport> {
+        let object_key = match (import.object_key, import.fq_object_key) {
+            (None, None) => anyhow::bail!("missing object key"),
+            (None, Some(key)) => Ok(key.into()),
+            (Some(key), None) => Err(key.try_into()?),
+            (Some(_), Some(_)) => anyhow::bail!("can't have both unqualified and fq object key"),
+        };
         Ok(SnapshotImport {
             state: import.state.try_into()?,
             format: import.format.try_into()?,
             mode: import.mode.parse()?,
             component_path: ComponentPath::deserialize(import.component_path.as_deref())?,
-            object_key: import.object_key.try_into()?,
+            object_key,
             member_id: import.member_id.map(|member_id| MemberId(member_id as u64)),
             checkpoints: import
                 .checkpoints

@@ -246,7 +246,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
 
         let storage_get_stream = self
             .storage
-            .get_range(&storage_key.to_string().try_into()?, bytes_range)
+            .get_range(&storage_key, bytes_range)
             .await?
             .with_context(|| format!("object {storage_key:?} not found"))?;
         let content_range = (size != 0)

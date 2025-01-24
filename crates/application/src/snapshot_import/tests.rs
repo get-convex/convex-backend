@@ -38,7 +38,6 @@ use common::{
         IndexDescriptor,
         IndexName,
         MemberId,
-        ObjectKey,
     },
     value::ConvexValue,
 };
@@ -825,17 +824,13 @@ async fn import_zip_flip_table_number(rt: TestRuntime) -> anyhow::Result<()> {
         ufm.insert(table_name1.clone(), assert_obj!()).await?;
         app.commit_test(tx).await?;
 
-        let import_object_key: ObjectKey = app
-            .snapshot_imports_storage
-            .copy_object(export_object_key.clone())
-            .await?;
         let rows_written = do_import_from_object_key(
             &app,
             identity.clone(),
             ImportFormat::Zip,
             mode,
             ComponentPath::root(),
-            import_object_key,
+            export_object_key.clone(),
         )
         .await;
         tracing::info!("Imported in test for {mode}");
@@ -879,17 +874,13 @@ async fn import_zip_to_clone_of_deployment(rt: TestRuntime) -> anyhow::Result<()
         ufm.insert(table_name2.clone(), assert_obj!()).await?;
         app.commit_test(tx).await?;
 
-        let import_object_key: ObjectKey = app
-            .snapshot_imports_storage
-            .copy_object(export_object_key.clone())
-            .await?;
         let rows_written = do_import_from_object_key(
             &app,
             identity.clone(),
             ImportFormat::Zip,
             mode,
             ComponentPath::root(),
-            import_object_key,
+            export_object_key.clone(),
         )
         .await;
         tracing::info!("Imported in test for {mode}");
@@ -937,17 +928,13 @@ async fn import_zip_to_deployment_with_unrelated_tables(rt: TestRuntime) -> anyh
         ufm.insert(table_name4.clone(), assert_obj!()).await?;
         app.commit_test(tx).await?;
 
-        let import_object_key: ObjectKey = app
-            .snapshot_imports_storage
-            .copy_object(export_object_key.clone())
-            .await?;
         let rows_written = do_import_from_object_key(
             &app,
             identity.clone(),
             ImportFormat::Zip,
             mode,
             ComponentPath::root(),
-            import_object_key,
+            export_object_key.clone(),
         )
         .await;
         tracing::info!("Imported in test for {mode}");
@@ -983,17 +970,13 @@ async fn import_zip_to_empty(rt: TestRuntime) -> anyhow::Result<()> {
         (ImportMode::RequireEmpty, true),
     ] {
         let app = Application::new_for_tests(&rt).await?;
-        let import_object_key: ObjectKey = app
-            .snapshot_imports_storage
-            .copy_object(export_object_key.clone())
-            .await?;
         let rows_written = do_import_from_object_key(
             &app,
             identity.clone(),
             ImportFormat::Zip,
             mode,
             ComponentPath::root(),
-            import_object_key,
+            export_object_key.clone(),
         )
         .await;
         tracing::info!("Imported in test for {mode}");
@@ -1028,17 +1011,13 @@ async fn import_zip_to_same_deployment(rt: TestRuntime) -> anyhow::Result<()> {
         app.commit_test(tx).await?;
         let export_object_key = app.export_and_wait().await?;
 
-        let import_object_key: ObjectKey = app
-            .snapshot_imports_storage
-            .copy_object(export_object_key.clone())
-            .await?;
         let rows_written = do_import_from_object_key(
             &app,
             identity.clone(),
             ImportFormat::Zip,
             mode,
             ComponentPath::root(),
-            import_object_key,
+            export_object_key.clone(),
         )
         .await;
         tracing::info!("Imported in test for {mode}");

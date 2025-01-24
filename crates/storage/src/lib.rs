@@ -162,17 +162,23 @@ pub trait Storage: Send + Sync + Debug {
     async fn get_object_attributes(
         &self,
         key: &ObjectKey,
+    ) -> anyhow::Result<Option<ObjectAttributes>> {
+        self.get_fq_object_attributes(&self.fully_qualified_key(key))
+            .await
+    }
+    // TODO: FullyQualifiedObjectKey is an abstraction violation as it possibly
+    // reads from another `Storage` instance; get rid of it
+    async fn get_fq_object_attributes(
+        &self,
+        key: &FullyQualifiedObjectKey,
     ) -> anyhow::Result<Option<ObjectAttributes>>;
     /// Not intended to be called directly.
     /// Use get_range() or get() instead.
     fn get_small_range(
         &self,
-        key: &ObjectKey,
+        key: &FullyQualifiedObjectKey,
         bytes_range: std::ops::Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>>;
-    /// Copy from source storage (potentially different bucket) into current
-    /// bucket
-    async fn copy_object(&self, source: FullyQualifiedObjectKey) -> anyhow::Result<ObjectKey>;
     fn storage_type_proto(&self) -> pb::searchlight::StorageType;
     /// Return a cache key suitable for the given ObjectKey, even in
     /// a multi-tenant cache.
@@ -518,7 +524,7 @@ impl AsyncWrite for ChannelWriter {
 #[pin_project]
 pub struct StorageObjectReader {
     storage: Arc<dyn Storage>,
-    object_key: ObjectKey,
+    object_key: FullyQualifiedObjectKey,
     full_size: u64,
     cursor: u64,
     #[pin]
@@ -527,8 +533,19 @@ pub struct StorageObjectReader {
 
 #[async_trait]
 pub trait StorageExt {
+    // TODO: FullyQualifiedObjectKey is an abstraction violation as it possibly
+    // reads from another `Storage` instance; get rid of it
+    async fn get_fq_object_reader(
+        &self,
+        object_key: &FullyQualifiedObjectKey,
+    ) -> anyhow::Result<StorageObjectReader>;
     async fn get_reader(&self, object_key: &ObjectKey) -> anyhow::Result<StorageObjectReader>;
     /// Gets a stream for a range of a previously stored object.
+    async fn get_fq_object_range(
+        &self,
+        key: &FullyQualifiedObjectKey,
+        bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
+    ) -> anyhow::Result<Option<StorageGetStream>>;
     async fn get_range(
         &self,
         key: &ObjectKey,
@@ -538,16 +555,19 @@ pub trait StorageExt {
     async fn get(&self, key: &ObjectKey) -> anyhow::Result<Option<StorageGetStream>>;
     async fn get_small_range_with_retries(
         &self,
-        key: &ObjectKey,
+        key: &FullyQualifiedObjectKey,
         small_byte_range: std::ops::Range<u64>,
     ) -> anyhow::Result<StorageGetStream>;
 }
 
 #[async_trait]
 impl StorageExt for Arc<dyn Storage> {
-    async fn get_reader(&self, object_key: &ObjectKey) -> anyhow::Result<StorageObjectReader> {
+    async fn get_fq_object_reader(
+        &self,
+        object_key: &FullyQualifiedObjectKey,
+    ) -> anyhow::Result<StorageObjectReader> {
         let full_size = self
-            .get_object_attributes(object_key)
+            .get_fq_object_attributes(object_key)
             .await?
             .with_context(|| format!("object {object_key:?} does not exist in {self:?}"))?
             .size;
@@ -562,6 +582,11 @@ impl StorageExt for Arc<dyn Storage> {
         })
     }
 
+    async fn get_reader(&self, object_key: &ObjectKey) -> anyhow::Result<StorageObjectReader> {
+        self.get_fq_object_reader(&self.fully_qualified_key(object_key))
+            .await
+    }
+
     async fn get(&self, key: &ObjectKey) -> anyhow::Result<Option<StorageGetStream>> {
         self.get_range(
             key,
@@ -570,12 +595,12 @@ impl StorageExt for Arc<dyn Storage> {
         .await
     }
 
-    async fn get_range(
+    async fn get_fq_object_range(
         &self,
-        key: &ObjectKey,
+        key: &FullyQualifiedObjectKey,
         bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
     ) -> anyhow::Result<Option<StorageGetStream>> {
-        let Some(attributes) = self.get_object_attributes(key).await? else {
+        let Some(attributes) = self.get_fq_object_attributes(key).await? else {
             return Ok(None);
         };
         let start_byte = cmp::min(
@@ -632,10 +657,19 @@ impl StorageExt for Arc<dyn Storage> {
         }))
     }
 
+    async fn get_range(
+        &self,
+        key: &ObjectKey,
+        bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
+    ) -> anyhow::Result<Option<StorageGetStream>> {
+        self.get_fq_object_range(&self.fully_qualified_key(key), bytes_range)
+            .await
+    }
+
     #[fastrace::trace]
     async fn get_small_range_with_retries(
         &self,
-        key: &ObjectKey,
+        key: &FullyQualifiedObjectKey,
         small_byte_range: std::ops::Range<u64>,
     ) -> anyhow::Result<StorageGetStream> {
         let output = self.get_small_range(key, small_byte_range.clone()).await?;
@@ -661,7 +695,7 @@ const STORAGE_GET_RETRIES: usize = 5;
 async fn stream_object_with_retries(
     mut stream: BoxStream<'static, futures::io::Result<Bytes>>,
     storage: Arc<dyn Storage>,
-    key: ObjectKey,
+    key: FullyQualifiedObjectKey,
     small_byte_range: std::ops::Range<u64>,
     mut retries_remaining: usize,
 ) {
@@ -703,12 +737,12 @@ async fn stream_object_with_retries(
 impl StorageObjectReader {
     fn new_inner_reader_starting_at(
         storage: Arc<dyn Storage>,
-        object_key: ObjectKey,
+        object_key: FullyQualifiedObjectKey,
         starting_at_index: u64,
     ) -> IntoAsyncRead<BoxStream<'static, futures::io::Result<Bytes>>> {
         let get_range_fut = async move {
             storage
-                .get_range(
+                .get_fq_object_range(
                     &object_key,
                     (
                         std::ops::Bound::Included(starting_at_index),
@@ -1049,11 +1083,10 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
 
     fn get_small_range(
         &self,
-        key: &ObjectKey,
+        key: &FullyQualifiedObjectKey,
         bytes_range: std::ops::Range<u64>,
     ) -> BoxFuture<'static, anyhow::Result<StorageGetStream>> {
-        let key = self.path_for_key(key.clone());
-        let path = self.dir.join(key);
+        let path = Path::new(key.as_str()).to_owned();
         async move {
             let mut buf = vec![0; (bytes_range.end - bytes_range.start) as usize];
             let mut file = File::open(path.clone()).context(format!(
@@ -1070,12 +1103,11 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         .boxed()
     }
 
-    async fn get_object_attributes(
+    async fn get_fq_object_attributes(
         &self,
-        key: &ObjectKey,
+        key: &FullyQualifiedObjectKey,
     ) -> anyhow::Result<Option<ObjectAttributes>> {
-        let key = self.path_for_key(key.clone());
-        let path = self.dir.join(key);
+        let path = Path::new(key.as_str());
         let mut buf = vec![];
         let result = File::open(path);
         if result.is_err() {
@@ -1086,18 +1118,6 @@ impl<RT: Runtime> Storage for LocalDirStorage<RT> {
         Ok(Some(ObjectAttributes {
             size: buf.len() as u64,
         }))
-    }
-
-    async fn copy_object(&self, source: FullyQualifiedObjectKey) -> anyhow::Result<ObjectKey> {
-        let source: String = source.into();
-        let source_path = Path::new(&source);
-        let key: ObjectKey = self.rt.new_uuid_v4().to_string().try_into()?;
-        let dest_path = self.dir.join(self.path_for_key(key.clone()));
-        fs::create_dir_all(dest_path.parent().expect("Must have parent")).context(
-            "LocalDirStorage file creation failed. Perhaps the storage object key isn't valid?",
-        )?;
-        fs::copy(source_path, dest_path).context("fs copy failed")?;
-        Ok(key)
     }
 
     fn storage_type_proto(&self) -> pb::searchlight::StorageType {
@@ -1466,6 +1486,7 @@ mod local_storage_tests {
             )),
         ])
         .boxed();
+        let object_key = storage.fully_qualified_key(&object_key);
         let stream_with_retries = stream_object_with_retries(
             disconnected_stream,
             storage.clone(),

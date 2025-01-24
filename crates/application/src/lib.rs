@@ -2026,13 +2026,16 @@ impl<RT: Runtime> Application<RT> {
             .snapshot_imports_storage
             .finish_client_driven_upload(upload_token, part_tokens)
             .await?;
+        let fq_key = self
+            .snapshot_imports_storage
+            .fully_qualified_key(&object_key);
         start_stored_import(
             self,
             identity,
             format,
             mode,
             component_path,
-            object_key,
+            fq_key,
             ImportRequestor::SnapshotImport,
         )
         .await
@@ -2041,14 +2044,16 @@ impl<RT: Runtime> Application<RT> {
     pub async fn upload_snapshot_import(
         &self,
         body_stream: BoxStream<'_, anyhow::Result<Bytes>>,
-    ) -> anyhow::Result<ObjectKey> {
+    ) -> anyhow::Result<FullyQualifiedObjectKey> {
         let mut upload: Box<BufferedUpload> = self.snapshot_imports_storage.start_upload().await?;
         // unclear why this reassignment is necessary
         let mut body_stream = body_stream;
         upload.try_write_parallel(&mut body_stream).await?;
         drop(body_stream);
         let object_key = upload.complete().await?;
-        Ok(object_key)
+        Ok(self
+            .snapshot_imports_storage
+            .fully_qualified_key(&object_key))
     }
 
     #[fastrace::trace]

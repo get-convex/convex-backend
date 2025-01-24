@@ -37,7 +37,6 @@ use common::{
     types::{
         FullyQualifiedObjectKey,
         MemberId,
-        ObjectKey,
         TableName,
         UdfIdentifier,
     },
@@ -346,11 +345,19 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             make_audit_log_event(&self.database, &table_mapping_for_import, &snapshot_import)
                 .await?;
 
-        let object_attributes = self
-            .snapshot_imports_storage
-            .get_object_attributes(&snapshot_import.object_key)
-            .await?
-            .context("error getting export object attributes from S3")?;
+        let object_attributes = (match &snapshot_import.object_key {
+            Ok(key) => {
+                self.snapshot_imports_storage
+                    .get_fq_object_attributes(key)
+                    .await
+            },
+            Err(key) => {
+                self.snapshot_imports_storage
+                    .get_object_attributes(key)
+                    .await
+            },
+        })?
+        .context("error getting export object attributes from S3")?;
 
         // Charge file bandwidth for the download of the snapshot from imports storage
         usage.track_storage_egress_size(
@@ -396,7 +403,16 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         };
         let body_stream = move || {
             let object_key = object_key.clone();
-            async move { self.snapshot_imports_storage.get_reader(&object_key).await }
+            async move {
+                match object_key {
+                    Ok(key) => {
+                        self.snapshot_imports_storage
+                            .get_fq_object_reader(&key)
+                            .await
+                    },
+                    Err(key) => self.snapshot_imports_storage.get_reader(&key).await,
+                }
+            }
         };
         let objects = parse_objects(format.clone(), component_path.clone(), body_stream).boxed();
 
@@ -431,7 +447,7 @@ pub async fn start_stored_import<RT: Runtime>(
     format: ImportFormat,
     mode: ImportMode,
     component_path: ComponentPath,
-    object_key: ObjectKey,
+    fq_object_key: FullyQualifiedObjectKey,
     requestor: ImportRequestor,
 ) -> anyhow::Result<DeveloperDocumentId> {
     if !(identity.is_admin() || identity.is_system()) {
@@ -451,7 +467,7 @@ pub async fn start_stored_import<RT: Runtime>(
                             format.clone(),
                             mode,
                             component_path.clone(),
-                            object_key.clone(),
+                            fq_object_key.clone(),
                             requestor.clone(),
                         )
                         .await
@@ -583,7 +599,7 @@ pub async fn do_import<RT: Runtime>(
     .await
 }
 
-pub async fn do_import_from_fully_qualified_export<RT: Runtime>(
+pub async fn do_import_from_object_key<RT: Runtime>(
     application: &Application<RT>,
     identity: Identity,
     format: ImportFormat,
@@ -591,36 +607,13 @@ pub async fn do_import_from_fully_qualified_export<RT: Runtime>(
     component_path: ComponentPath,
     export_object_key: FullyQualifiedObjectKey,
 ) -> anyhow::Result<u64> {
-    let import_object_key: ObjectKey = application
-        .snapshot_imports_storage
-        .copy_object(export_object_key)
-        .await?;
-    do_import_from_object_key(
-        application,
-        identity,
-        format,
-        mode,
-        component_path,
-        import_object_key,
-    )
-    .await
-}
-
-async fn do_import_from_object_key<RT: Runtime>(
-    application: &Application<RT>,
-    identity: Identity,
-    format: ImportFormat,
-    mode: ImportMode,
-    component_path: ComponentPath,
-    object_key: ObjectKey,
-) -> anyhow::Result<u64> {
     let import_id = start_stored_import(
         application,
         identity.clone(),
         format,
         mode,
         component_path,
-        object_key,
+        export_object_key,
         ImportRequestor::SnapshotImport,
     )
     .await?;

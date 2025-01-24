@@ -29,6 +29,7 @@ pub struct ObjectKey(
 
 /// Fully qualified object key. For s3, in the format
 /// {bucket}/{prefix}-{object_key}
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[derive(
     Debug,
     Clone,
@@ -41,7 +42,19 @@ pub struct ObjectKey(
     derive_more::From,
     derive_more::Into,
 )]
-pub struct FullyQualifiedObjectKey(String);
+pub struct FullyQualifiedObjectKey(
+    #[cfg_attr(
+        any(test, feature = "testing"),
+        proptest(strategy = "\"[a-zA-Z0-9-_.]+/[a-zA-Z0-9-_./]+\"")
+    )]
+    String,
+);
+
+impl FullyQualifiedObjectKey {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
 
 impl TryFrom<ObjectKey> for ConvexString {
     type Error = anyhow::Error;

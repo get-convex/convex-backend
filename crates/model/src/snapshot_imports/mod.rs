@@ -14,7 +14,7 @@ use common::{
         Query,
     },
     runtime::Runtime,
-    types::ObjectKey,
+    types::FullyQualifiedObjectKey,
 };
 use database::{
     patch_value,
@@ -109,7 +109,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         format: ImportFormat,
         mode: ImportMode,
         component_path: ComponentPath,
-        object_key: ObjectKey,
+        object_key: FullyQualifiedObjectKey,
         requestor: ImportRequestor,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let snapshot_import = SnapshotImport {
@@ -117,7 +117,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             format,
             mode,
             component_path,
-            object_key,
+            object_key: Ok(object_key),
             member_id: self.tx.identity().member_id(),
             checkpoints: None,
             requestor,
@@ -444,7 +444,7 @@ mod tests {
                 ImportFormat::Zip,
                 ImportMode::Replace,
                 ComponentPath::root(),
-                "objectkey".try_into()?,
+                "objectkey".to_string().into(),
                 ImportRequestor::SnapshotImport,
             )
             .await?;
