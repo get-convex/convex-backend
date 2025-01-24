@@ -93,20 +93,15 @@ convex in Docker.
 
 ```sh
 cd self-hosted
-# Build the docker container (pre-built images coming soon!)
-docker build -t convex-backend .
-# Set up a directory `data` where your database and storage will be persisted.
-mkdir data
-# Run the backend in docker
-docker run \
-  -p 3210:3210 \
-  -p 3211:3211 \
-  -v $(pwd)/data:/convex \
-  convex-backend /convex/db.sqlite3 \
-  --local-storage /convex/storage \
-  --instance-name flying-fox-123 \
-  --instance-secret 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
+# Add your INSTANCE_NAME, INSTANCE_SECRET, and ADMIN_KEY to an .env file
+# Pull the latest docker images
+docker compose pull
+# Run the containers
+docker compose up
 ```
+
+Visit the dashboard at `http://localhost:6790` and use the CLI to push functions
+with the `--admin-key $ADMIN_KEY` and `--url http://127.0.0.1:3210` flags.
 
 ## Push code to your backend
 

@@ -1,0 +1,35 @@
+version: "3"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: ghcr.io/get-convex/self-hosted-backend:latest
+    ports:
+      - "3210:3210"
+      - "3211:3211"
+    volumes:
+      - ./data:/convex
+    environment:
+      - INSTANCE_NAME=${INSTANCE_NAME}
+      - INSTANCE_SECRET=${INSTANCE_SECRET}
+    command:
+      /convex/db.sqlite3 --local-storage /convex/storage --instance-name
+      ${INSTANCE_NAME} --instance-secret ${INSTANCE_SECRET}
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    image: ghcr.io/get-convex/self-hosted-dashboard:latest
+    ports:
+      - "6790:6790"
+    environment:
+      - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210
+      - NEXT_PUBLIC_ADMIN_KEY=${ADMIN_KEY}
+    depends_on:
+      - backend
+
+volumes:
+  data:
