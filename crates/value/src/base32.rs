@@ -38,7 +38,7 @@ pub const fn encoded_len(len: usize) -> usize {
 }
 
 pub fn encode(data: &[u8]) -> String {
-    let mut out = Vec::with_capacity((data.len() + 4) / 5 * 5);
+    let mut out = Vec::with_capacity((data.len() + 4) / 5 * 8);
 
     // Process the input in chunks of length 5 (i.e 40 bits), potentially padding
     // the last chunk with zeros for now.

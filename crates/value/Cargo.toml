@@ -67,5 +67,9 @@ harness = false
 name = "json"
 harness = false
 
+[[bench]]
+name = "base32"
+harness = false
+
 [lints]
 workspace = true
