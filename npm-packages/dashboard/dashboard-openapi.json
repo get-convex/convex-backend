@@ -1,0 +1,3581 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "big_brain",
+    "description": "",
+    "license": {
+      "name": "LicenseRef-Convex"
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/cloud_backups/{cloud_backup_id}": {
+      "get": {
+        "operationId": "get_cloud_backup",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBackupResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cloud_backups/{cloud_backup_id}/cancel": {
+      "post": {
+        "operationId": "cancel_cloud_backup",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "default": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cloud_backups/{cloud_backup_id}/delete": {
+      "post": {
+        "operationId": "delete_cloud_backup",
+        "parameters": [
+          {
+            "name": "cloud_backup_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/create_project": {
+      "post": {
+        "operationId": "create_project_and_provision_deployment",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateProjectResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/delete_account": {
+      "post": {
+        "operationId": "delete_account",
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/delete_project/{project_id}": {
+      "post": {
+        "operationId": "dashboard_delete_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/configure_periodic_backup": {
+      "post": {
+        "operationId": "configure_periodic_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigurePeriodicBackupArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PeriodicBackupConfig"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/disable_periodic_backup": {
+      "post": {
+        "operationId": "disable_periodic_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/get_periodic_backup_config": {
+      "get": {
+        "operationId": "get_periodic_backup_config",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PeriodicBackupConfig"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/request_cloud_backup": {
+      "post": {
+        "operationId": "request_cloud_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudBackupResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/deployments/{deployment_id}/restore_from_cloud_backup": {
+      "post": {
+        "operationId": "restore_from_cloud_backup",
+        "parameters": [
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreFromCloudBackupArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/discord/accounts": {
+      "get": {
+        "operationId": "get_discord_accounts",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordAccountsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/discord/authorize": {
+      "post": {
+        "operationId": "authorize_discord_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeDiscordAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/discord/login_url": {
+      "get": {
+        "operationId": "get_discord_login_url",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscordLoginUrlResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/discord/unlink": {
+      "post": {
+        "operationId": "unlink_discord_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnlinkDiscordAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/access_tokens": {
+      "get": {
+        "operationId": "get_deployment_access_tokens",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/auth": {
+      "post": {
+        "operationId": "get_deployment_auth_dashboard",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceAuthForDashboardInteractionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/domains/create": {
+      "post": {
+        "operationId": "create_vanity_domain",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VanityDomainRequestArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/domains/delete": {
+      "post": {
+        "operationId": "delete_vanity_domain",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VanityDomainRequestArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/instances/{deployment_name}/domains/list": {
+      "get": {
+        "operationId": "list_vanity_domains_for_instance",
+        "parameters": [
+          {
+            "name": "deployment_name",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListVanityDomainsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/invites/{code}/accept": {
+      "post": {
+        "operationId": "accept_invitation",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/member_data": {
+      "get": {
+        "operationId": "get_member_data",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberDataResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/optins": {
+      "get": {
+        "operationId": "dashboard_get_opt_ins",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetOptInsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "dashboard_accept_opt_ins",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/OptIn"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "operationId": "get_profile",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile_emails/create": {
+      "post": {
+        "operationId": "create_profile_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/profile_emails/delete": {
+      "post": {
+        "operationId": "delete_profile_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/profile_emails/list": {
+      "get": {
+        "operationId": "list_profile_emails",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberEmailResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile_emails/resend_verification": {
+      "post": {
+        "operationId": "resend_verification_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/profile_emails/update_primary": {
+      "post": {
+        "operationId": "update_primary_profile_email",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileEmailArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/profile_emails/verify/{code}": {
+      "post": {
+        "operationId": "verify_profile_email",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/projects/{project_id}": {
+      "get": {
+        "operationId": "get_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "update_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/access_tokens": {
+      "get": {
+        "operationId": "get_project_access_tokens",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/instances": {
+      "get": {
+        "operationId": "list_deployments_for_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/provision": {
+      "post": {
+        "operationId": "provision_deployment_dashboard",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProvisionDeploymentDashboardArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvisionDeploymentDashboardResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/transfer": {
+      "post": {
+        "operationId": "transfer_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferProjectArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/rename_token": {
+      "post": {
+        "operationId": "rename_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams": {
+      "get": {
+        "operationId": "get_teams_for_member",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Team"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create_team",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTeamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Team"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/delete_access_token": {
+      "post": {
+        "operationId": "delete_team_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionOnAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}": {
+      "post": {
+        "operationId": "update_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/access_tokens": {
+      "get": {
+        "operationId": "get_team_access_tokens",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/cancel_orb_subscription": {
+      "post": {
+        "operationId": "cancel_orb_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/create_setup_intent": {
+      "post": {
+        "operationId": "create_setup_intent",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupIntentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/create_subscription": {
+      "post": {
+        "operationId": "create_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSubscriptionArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/delete": {
+      "post": {
+        "operationId": "delete_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/deployments/{deployment_id}": {
+      "get": {
+        "operationId": "get_deployment_by_id",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/TeamId"
+            }
+          },
+          {
+            "name": "deployment_id",
+            "in": "path",
+            "description": "",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/DeploymentId"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_audit_log_events": {
+      "get": {
+        "operationId": "get_audit_log_events",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_discounted_plan/{plan_id}/{promo_code}": {
+      "get": {
+        "operationId": "get_discounted_plan",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          },
+          {
+            "name": "promo_code",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscountedPlanResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_entitlements": {
+      "get": {
+        "operationId": "get_team_entitlements",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamEntitlementsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_orb_subscription": {
+      "get": {
+        "operationId": "get_orb_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OrbSubscriptionResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/get_project_roles": {
+      "get": {
+        "operationId": "get_project_roles_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectMemberRoleResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/invites": {
+      "get": {
+        "operationId": "pending_invitations_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/InvitationResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "create_invitation",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/invites/cancel": {
+      "post": {
+        "operationId": "cancel_invitation",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelInvitationArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/list_active_plans": {
+      "get": {
+        "operationId": "list_active_plans",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlansResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/list_cloud_backups": {
+      "get": {
+        "operationId": "list_cloud_backups",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudBackupResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/list_invoices": {
+      "get": {
+        "operationId": "list_invoices",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvoicesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/members": {
+      "get": {
+        "operationId": "get_members_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemberResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/projects": {
+      "get": {
+        "operationId": "get_projects_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectDetails"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/remove_member": {
+      "post": {
+        "operationId": "remove_member_from_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveMemberArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/set_spending_limit": {
+      "post": {
+        "operationId": "set_spending_limit",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetSpendingLimitArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/unpause": {
+      "post": {
+        "operationId": "unpause_deployments",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/unschedule_cancel_orb_subscription": {
+      "post": {
+        "operationId": "unschedule_cancel_orb_subscription",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/update_billing_address": {
+      "put": {
+        "operationId": "update_billing_address",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBillingAddressArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/update_billing_contact": {
+      "put": {
+        "operationId": "update_billing_contact",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBillingContactArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/update_member_role": {
+      "post": {
+        "operationId": "update_member_role",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMemberRoleArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/update_payment_method": {
+      "put": {
+        "operationId": "update_payment_method",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentMethodArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/update_project_roles": {
+      "post": {
+        "operationId": "update_project_roles",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRolesArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/usage/team_usage_state": {
+      "get": {
+        "operationId": "get_team_usage_state",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamUsageStateResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/update_profile_name": {
+      "put": {
+        "operationId": "update_profile_name",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileNameArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActionOnAccessTokenArgs": {
+        "type": "object",
+        "required": [
+          "accessToken"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          }
+        }
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "country": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line1": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "postal_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AdminKey": {
+        "type": "string",
+        "description": "Encrypted admin key"
+      },
+      "AuditLogAction": {
+        "type": "string",
+        "enum": [
+          "joinTeam",
+          "createTeam",
+          "updateTeam",
+          "deleteTeam",
+          "createProject",
+          "transferProject",
+          "receiveProject",
+          "updateProject",
+          "deleteProject",
+          "createProjectEnvironmentVariable",
+          "updateProjectEnvironmentVariable",
+          "deleteProjectEnvironmentVariable",
+          "createDeployment",
+          "deleteDeployment",
+          "inviteMember",
+          "cancelMemberInvitation",
+          "removeMember",
+          "updateMemberRole",
+          "updateMemberProjectRole",
+          "updatePaymentMethod",
+          "updateBillingContact",
+          "updateBillingAddress",
+          "createSubscription",
+          "resumeSubscription",
+          "cancelSubscription",
+          "createTeamAccessToken",
+          "updateTeamAccessToken",
+          "deleteTeamAccessToken",
+          "viewTeamAccessToken",
+          "createCustomDomain",
+          "deleteCustomDomain",
+          "startManualCloudBackup",
+          "restoreFromCloudBackup",
+          "configurePeriodicBackup",
+          "disablePeriodicBackup",
+          "deleteCloudBackup",
+          "disableTeamExceedingSpendingLimits",
+          "setSpendingLimit"
+        ]
+      },
+      "AuditLogActor": {
+        "oneOf": [
+          {
+            "type": "string",
+            "enum": [
+              "system"
+            ]
+          },
+          {
+            "type": "object",
+            "required": [
+              "member"
+            ],
+            "properties": {
+              "member": {
+                "type": "object",
+                "required": [
+                  "member_id"
+                ],
+                "properties": {
+                  "member_id": {
+                    "$ref": "#/components/schemas/MemberId"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "serviceAccount"
+            ],
+            "properties": {
+              "serviceAccount": {
+                "type": "object",
+                "required": [
+                  "member_id"
+                ],
+                "properties": {
+                  "member_id": {
+                    "$ref": "#/components/schemas/MemberId"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "team"
+            ],
+            "properties": {
+              "team": {
+                "type": "object",
+                "required": [
+                  "team_id"
+                ],
+                "properties": {
+                  "team_id": {
+                    "$ref": "#/components/schemas/TeamId"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "description": "Represents the `ValidatedActor` equivalent for audit logs. This identifies\nwho executed an AuditLogEvent"
+      },
+      "AuditLogEventResponse": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "actor",
+          "action",
+          "createTime",
+          "metadata"
+        ],
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/AuditLogAction"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/AuditLogActor"
+          },
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/Value"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "AuditLogResponse": {
+        "type": "object",
+        "description": "Struct that contains the result of a query to the audit_logs table. The\n`events` field contains all of the `AuditLog` values and the `cursor` field\ndenotes where to resume the query if more results are needed.",
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditLogEventResponse"
+            }
+          }
+        }
+      },
+      "AuthorizeDiscordAccountRequest": {
+        "type": "object",
+        "required": [
+          "authorizationCode",
+          "csrfToken"
+        ],
+        "properties": {
+          "authorizationCode": {
+            "type": "string"
+          },
+          "csrfToken": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "BillingContactResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CancelInvitationArgs": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CloudBackupId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "CloudBackupResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "sourceDeploymentId",
+          "sourceDeploymentName",
+          "expirationTime",
+          "state",
+          "requestedTime"
+        ],
+        "properties": {
+          "expirationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/CloudBackupId"
+          },
+          "requestedTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "snapshotId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sourceDeploymentId": {
+            "$ref": "#/components/schemas/DeploymentId"
+          },
+          "sourceDeploymentName": {
+            "$ref": "#/components/schemas/InstanceName"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
+      },
+      "ConfigurePeriodicBackupArgs": {
+        "type": "object",
+        "required": [
+          "cronspec"
+        ],
+        "properties": {
+          "cronspec": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateInvitationArgs": {
+        "type": "object",
+        "required": [
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
+      },
+      "CreateProjectArgs": {
+        "type": "object",
+        "required": [
+          "team",
+          "projectName"
+        ],
+        "properties": {
+          "deploymentType": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentType"
+              }
+            ]
+          },
+          "partitionId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PartitionId"
+              }
+            ]
+          },
+          "projectName": {
+            "$ref": "#/components/schemas/ProjectName"
+          },
+          "team": {
+            "$ref": "#/components/schemas/TeamSlug"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateProjectResponse": {
+        "type": "object",
+        "required": [
+          "projectSlug",
+          "teamSlug",
+          "deploymentName",
+          "prodUrl",
+          "projectsRemaining",
+          "adminKey"
+        ],
+        "properties": {
+          "adminKey": {
+            "$ref": "#/components/schemas/AdminKey"
+          },
+          "deploymentName": {
+            "type": "string"
+          },
+          "prodUrl": {
+            "type": "string"
+          },
+          "projectSlug": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "projectsRemaining": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamSlug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          }
+        }
+      },
+      "CreateSubscriptionArgs": {
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "planId"
+        ],
+        "properties": {
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Address"
+              }
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "paymentMethod": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "planId": {
+            "type": "string"
+          },
+          "spendingLimitThresholdCents": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateTeamArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/ProposedTeamName"
+          }
+        }
+      },
+      "DeploymentId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "DeploymentResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "creator",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "creator": {
+                "$ref": "#/components/schemas/MemberId"
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cloud"
+                ]
+              },
+              "name": {
+                "type": "string"
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "createTime",
+              "deploymentType",
+              "projectId",
+              "creator",
+              "port",
+              "lastUpdateTime",
+              "deviceName",
+              "isActive",
+              "kind"
+            ],
+            "properties": {
+              "createTime": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "creator": {
+                "$ref": "#/components/schemas/MemberId"
+              },
+              "deploymentType": {
+                "$ref": "#/components/schemas/DeploymentType"
+              },
+              "deviceName": {
+                "$ref": "#/components/schemas/DeviceName"
+              },
+              "id": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "isActive": {
+                "type": "boolean"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "local"
+                ]
+              },
+              "lastUpdateTime": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "name": {
+                "type": "string"
+              },
+              "port": {
+                "type": "integer",
+                "format": "int32",
+                "minimum": 0
+              },
+              "previewIdentifier": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
+                  }
+                ]
+              },
+              "projectId": {
+                "$ref": "#/components/schemas/ProjectId"
+              }
+            }
+          }
+        ]
+      },
+      "DeploymentType": {
+        "type": "string",
+        "enum": [
+          "dev",
+          "prod",
+          "preview"
+        ]
+      },
+      "DeviceName": {
+        "type": "string"
+      },
+      "DiscordAccount": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "details": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DiscordAccountDetails"
+              }
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "DiscordAccountDetails": {
+        "type": "object",
+        "required": [
+          "username",
+          "discriminator"
+        ],
+        "properties": {
+          "avatar": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "discriminator": {
+            "type": "string"
+          },
+          "global_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "DiscordAccountsResponse": {
+        "type": "object",
+        "required": [
+          "accounts"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiscordAccount"
+            }
+          }
+        }
+      },
+      "DiscordId": {
+        "type": "string"
+      },
+      "DiscordLoginUrlResponse": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DiscountedPlanResponse": {
+        "type": "object",
+        "required": [
+          "planId",
+          "percentOff",
+          "requiresPaymentMethod"
+        ],
+        "properties": {
+          "durationInMonths": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "percentOff": {
+            "type": "number",
+            "format": "double"
+          },
+          "planId": {
+            "type": "string"
+          },
+          "requiresPaymentMethod": {
+            "type": "boolean"
+          }
+        }
+      },
+      "GetOptInsResponse": {
+        "type": "object",
+        "required": [
+          "optInsToAccept"
+        ],
+        "properties": {
+          "optInsToAccept": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OptInToAccept"
+            }
+          }
+        }
+      },
+      "InstanceAuthForDashboardInteractionsResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "adminKey",
+              "instanceUrl",
+              "kind"
+            ],
+            "properties": {
+              "adminKey": {
+                "$ref": "#/components/schemas/SerializedAccessToken"
+              },
+              "instanceUrl": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "Cloud"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "adminKey",
+              "instanceUrl",
+              "kind"
+            ],
+            "properties": {
+              "adminKey": {
+                "$ref": "#/components/schemas/AdminKey"
+              },
+              "instanceUrl": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "Local"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "InstanceName": {
+        "type": "string",
+        "description": "Example instance names:\n\ntall-sheep-123\n\ntest-tall-sheep-123  # Prefix of test for internal testing"
+      },
+      "InvitationResponse": {
+        "type": "object",
+        "required": [
+          "email",
+          "expired",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "expired": {
+            "type": "boolean"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
+      },
+      "InvoiceResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "invoiceDate",
+          "invoiceNumber",
+          "currency",
+          "total",
+          "status",
+          "hasFailedPayment"
+        ],
+        "properties": {
+          "currency": {
+            "type": "string"
+          },
+          "hasFailedPayment": {
+            "type": "boolean"
+          },
+          "hostedInvoiceUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "invoiceDate": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "invoiceNumber": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "total": {
+            "type": "string"
+          }
+        }
+      },
+      "InvoicesResponse": {
+        "type": "object",
+        "required": [
+          "invoices"
+        ],
+        "properties": {
+          "invoices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InvoiceResponse"
+            }
+          }
+        }
+      },
+      "ListVanityDomainsResponse": {
+        "type": "object",
+        "required": [
+          "domains"
+        ],
+        "properties": {
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VanityDomainResponse"
+            }
+          }
+        }
+      },
+      "MemberDataResponse": {
+        "type": "object",
+        "required": [
+          "teams",
+          "projects",
+          "deployments",
+          "optInsToAccept"
+        ],
+        "properties": {
+          "deployments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentResponse"
+            }
+          },
+          "optInsToAccept": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OptInToAccept"
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectDetails"
+            }
+          },
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            }
+          }
+        }
+      },
+      "MemberEmailId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "MemberEmailResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "isVerified",
+          "isPrimary",
+          "creationTime"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/MemberEmailId"
+          },
+          "isPrimary": {
+            "type": "boolean"
+          },
+          "isVerified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MemberId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "MemberResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "OptIn": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "tos"
+            ],
+            "properties": {
+              "tos": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "OptInToAccept": {
+        "type": "object",
+        "required": [
+          "optIn",
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "optIn": {
+            "$ref": "#/components/schemas/OptIn"
+          }
+        }
+      },
+      "OrbSubscriptionResponse": {
+        "type": "object",
+        "required": [
+          "plan",
+          "billingContact",
+          "status"
+        ],
+        "properties": {
+          "billingAddress": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Address"
+              }
+            ]
+          },
+          "billingContact": {
+            "$ref": "#/components/schemas/BillingContactResponse"
+          },
+          "endDate": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "paymentMethod": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaymentMethodResponse"
+              }
+            ]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/PlanResponse"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "PartitionId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "PaymentMethodResponse": {
+        "type": "object",
+        "required": [
+          "kind",
+          "display"
+        ],
+        "properties": {
+          "display": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
+      "PeriodicBackupConfig": {
+        "type": "object",
+        "required": [
+          "sourceDeploymentId",
+          "cronspec",
+          "expirationDeltaSecs",
+          "nextRun"
+        ],
+        "properties": {
+          "cronspec": {
+            "type": "string"
+          },
+          "expirationDeltaSecs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "nextRun": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sourceDeploymentId": {
+            "$ref": "#/components/schemas/DeploymentId"
+          }
+        }
+      },
+      "PlanResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "seatPrice"
+        ],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "planType": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seatPrice": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "PlansResponse": {
+        "type": "object",
+        "required": [
+          "plans"
+        ],
+        "properties": {
+          "plans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanResponse"
+            }
+          }
+        }
+      },
+      "PreviewDeploymentIdentifier": {
+        "type": "string"
+      },
+      "ProfileEmailArgs": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectDetails": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "isDemo",
+          "teamId",
+          "createTime"
+        ],
+        "properties": {
+          "createTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "isDemo": {
+            "type": "boolean"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ProjectName"
+          },
+          "slug": {
+            "$ref": "#/components/schemas/ProjectSlug"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "ProjectId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "ProjectMemberRoleResponse": {
+        "type": "object",
+        "required": [
+          "projectId",
+          "memberId",
+          "teamId",
+          "role",
+          "lastUpdated"
+        ],
+        "properties": {
+          "lastUpdated": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "memberId": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "role": {
+            "$ref": "#/components/schemas/ProjectRole"
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        }
+      },
+      "ProjectName": {
+        "type": "string"
+      },
+      "ProjectRole": {
+        "type": "string",
+        "enum": [
+          "admin"
+        ]
+      },
+      "ProjectRoleUpdateArg": {
+        "type": "object",
+        "required": [
+          "memberId",
+          "projectId"
+        ],
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectRole"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProjectSlug": {
+        "type": "string"
+      },
+      "ProposedTeamName": {
+        "type": "string"
+      },
+      "ProvisionDeploymentDashboardArgs": {
+        "type": "object",
+        "required": [
+          "deploymentType"
+        ],
+        "properties": {
+          "deploymentType": {
+            "$ref": "#/components/schemas/DeploymentType"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProvisionDeploymentDashboardResponse": {
+        "type": "object",
+        "required": [
+          "deploymentName"
+        ],
+        "properties": {
+          "deploymentName": {
+            "type": "string"
+          }
+        }
+      },
+      "RemoveMemberArgs": {
+        "type": "object",
+        "required": [
+          "memberId"
+        ],
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/MemberId"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RenameAccessTokenArgs": {
+        "type": "object",
+        "required": [
+          "accessToken",
+          "newName"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "Authentication token is expected to be the access token from auth0"
+          },
+          "newName": {
+            "$ref": "#/components/schemas/DeviceName"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RequestDestination": {
+        "type": "string",
+        "enum": [
+          "convexCloud",
+          "convexSite"
+        ]
+      },
+      "RestoreFromCloudBackupArgs": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CloudBackupId"
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "developer"
+        ]
+      },
+      "SerializedAccessToken": {
+        "type": "string",
+        "description": "ConvexAccessToken is our own internal notion of authorization.\nIt is versioned.\n\nV1 - uses an auth0_access_token for authorization.\n\nSerialization is done by SerializedAccessToken::new\nThe ConvexAccessToken is serialized (json) and base64\nencoded for obfuscation before sending it to the client\n\nDeserialization is done by SerializedAccessToken::decode\nThis reverses the process and returns a ConvexAccessToken which\ncan be match'd by the extractor.\n\n`SerializedAccessToken` is intentionally the only struct that is\nleft public.\n\nThe json is externally tagged. Expect it to look like\n{\"v1\": \"auth0token\"}"
+      },
+      "SetSpendingLimitArgs": {
+        "type": "object",
+        "required": [
+          "thresholdCents"
+        ],
+        "properties": {
+          "thresholdCents": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupIntentResponse": {
+        "type": "object",
+        "required": [
+          "clientSecret"
+        ],
+        "properties": {
+          "clientSecret": {
+            "type": "string"
+          }
+        }
+      },
+      "Team": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "creator",
+          "suspended"
+        ],
+        "properties": {
+          "creator": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "id": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "name": {
+            "$ref": "#/components/schemas/TeamName"
+          },
+          "slug": {
+            "$ref": "#/components/schemas/TeamSlug"
+          },
+          "suspended": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TeamAccessTokenResponse": {
+        "type": "object",
+        "required": [
+          "accessToken",
+          "name",
+          "creationTime",
+          "serializedAccessToken",
+          "creator"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "creationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "creator": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "lastUsedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "name": {
+            "$ref": "#/components/schemas/DeviceName"
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "serializedAccessToken": {
+            "$ref": "#/components/schemas/SerializedAccessToken"
+          }
+        }
+      },
+      "TeamEntitlementsResponse": {
+        "type": "object",
+        "required": [
+          "maxTeamMembers",
+          "maxProjects",
+          "teamMaxFunctionCalls",
+          "teamMaxActionCompute",
+          "teamMaxDatabaseStorage",
+          "teamMaxDatabaseBandwidth",
+          "teamMaxFileStorage",
+          "teamMaxFileBandwidth",
+          "logStreamingEnabled",
+          "streamingExportEnabled",
+          "projectMaxPreviewDeployments",
+          "teamMaxVectorStorage",
+          "teamMaxVectorBandwidth",
+          "auditLogsEnabled",
+          "customDomainsEnabled",
+          "periodicBackupsEnabled",
+          "maxCloudBackups"
+        ],
+        "properties": {
+          "auditLogsEnabled": {
+            "type": "boolean"
+          },
+          "customDomainsEnabled": {
+            "type": "boolean"
+          },
+          "logStreamingEnabled": {
+            "type": "boolean"
+          },
+          "maxCloudBackups": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxProjects": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "maxTeamMembers": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "periodicBackupsEnabled": {
+            "type": "boolean"
+          },
+          "projectMaxPreviewDeployments": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "streamingExportEnabled": {
+            "type": "boolean"
+          },
+          "teamMaxActionCompute": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxDatabaseBandwidth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxDatabaseStorage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxFileBandwidth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxFileStorage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxFunctionCalls": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxVectorBandwidth": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "teamMaxVectorStorage": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "TeamId": {
+        "type": "integer",
+        "format": "int64",
+        "minimum": 0
+      },
+      "TeamMemberResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        }
+      },
+      "TeamName": {
+        "type": "string"
+      },
+      "TeamSlug": {
+        "type": "string"
+      },
+      "TeamUsageStateResponse": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "usageState"
+        ],
+        "properties": {
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
+          },
+          "usageState": {
+            "$ref": "#/components/schemas/UsageState"
+          }
+        }
+      },
+      "TransferProjectArgs": {
+        "type": "object",
+        "required": [
+          "destinationTeamId"
+        ],
+        "properties": {
+          "destinationTeamId": {
+            "$ref": "#/components/schemas/TeamId"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UnlinkDiscordAccountRequest": {
+        "type": "object",
+        "required": [
+          "discordId"
+        ],
+        "properties": {
+          "discordId": {
+            "$ref": "#/components/schemas/DiscordId"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateBillingAddressArgs": {
+        "type": "object",
+        "required": [
+          "billingAddress"
+        ],
+        "properties": {
+          "billingAddress": {
+            "$ref": "#/components/schemas/Address"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateBillingContactArgs": {
+        "type": "object",
+        "required": [
+          "name",
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateMemberRoleArgs": {
+        "type": "object",
+        "required": [
+          "memberId",
+          "role"
+        ],
+        "properties": {
+          "memberId": {
+            "$ref": "#/components/schemas/MemberId"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePaymentMethodArgs": {
+        "type": "object",
+        "required": [
+          "paymentMethod"
+        ],
+        "properties": {
+          "paymentMethod": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateProfileNameArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateProjectArgs": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectName"
+              }
+            ]
+          },
+          "slug": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectSlug"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateProjectRolesArgs": {
+        "type": "object",
+        "required": [
+          "updates"
+        ],
+        "properties": {
+          "updates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectRoleUpdateArg"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateTeamArgs": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProposedTeamName"
+              }
+            ]
+          },
+          "slug": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamSlug"
+              }
+            ]
+          }
+        }
+      },
+      "UsageState": {
+        "type": "string",
+        "enum": [
+          "Default",
+          "Approaching",
+          "Exceeded",
+          "Paused",
+          "Disabled"
+        ]
+      },
+      "Value": {},
+      "VanityDomainRequestArgs": {
+        "type": "object",
+        "required": [
+          "requestDestination",
+          "domain"
+        ],
+        "properties": {
+          "domain": {
+            "type": "string"
+          },
+          "requestDestination": {
+            "$ref": "#/components/schemas/RequestDestination"
+          }
+        }
+      },
+      "VanityDomainResponse": {
+        "type": "object",
+        "required": [
+          "creationTime",
+          "instanceName",
+          "requestDestination",
+          "domain",
+          "creationTs"
+        ],
+        "properties": {
+          "creationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "creationTs": {
+            "type": "string",
+            "deprecated": true
+          },
+          "domain": {
+            "type": "string"
+          },
+          "instanceName": {
+            "$ref": "#/components/schemas/InstanceName"
+          },
+          "requestDestination": {
+            "$ref": "#/components/schemas/RequestDestination"
+          },
+          "verificationTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "verificationTs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "deprecated": true
+          }
+        }
+      }
+    }
+  }
+}
