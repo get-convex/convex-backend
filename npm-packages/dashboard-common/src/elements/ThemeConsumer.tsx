@@ -1,6 +1,8 @@
 import { useCallback, useEffect } from "react";
 import { useTheme } from "next-themes";
 
+export { ThemeProvider, useTheme } from "next-themes";
+
 export function ThemeConsumer() {
   const { setTheme, theme } = useTheme();
 

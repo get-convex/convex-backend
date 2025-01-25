@@ -1,7 +1,6 @@
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
 import type { AppProps } from "next/app";
-import { ThemeProvider } from "next-themes";
 import { useAuth0 } from "hooks/useAuth0";
 import { useRouter } from "next/router";
 import React, { useEffect } from "react";
@@ -30,7 +29,12 @@ import { RefreshSession } from "components/login/RefreshSession";
 import { useDashboardVersion } from "hooks/api";
 import { useProfile } from "api/profile";
 import { useGlobalLDContext, useLDContext } from "hooks/useLaunchDarklyContext";
-import { Favicon, LoadingLogo, ThemeConsumer } from "dashboard-common";
+import {
+  Favicon,
+  LoadingLogo,
+  ThemeConsumer,
+  ThemeProvider,
+} from "dashboard-common";
 import { CurrentDeploymentDashboardLayout } from "layouts/DeploymentDashboardLayout";
 import { Fallback } from "./500";
 

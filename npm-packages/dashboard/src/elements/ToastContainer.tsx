@@ -1,4 +1,4 @@
-import { useTheme } from "next-themes";
+import { useTheme } from "dashboard-common";
 import { Toaster } from "sonner";
 
 export function ToastContainer() {

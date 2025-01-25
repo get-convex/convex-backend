@@ -1,4 +1,4 @@
-import { Menu, MenuLink, Tooltip } from "dashboard-common";
+import { Menu, MenuLink, Tooltip, useTheme } from "dashboard-common";
 import {
   GearIcon,
   SunIcon,
@@ -12,7 +12,6 @@ import Image from "next/image";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useProfile } from "api/profile";
-import { useTheme } from "next-themes";
 import { cn } from "lib/cn";
 import startCase from "lodash/startCase";
 import { useRouter } from "next/router";
