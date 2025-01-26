@@ -1,6 +1,7 @@
 import omit from "lodash/omit";
-import { functionIdentifierValue, UdfLog } from "dashboard-common";
 import { filterLogs, ALL_LEVELS } from "./filterLogs";
+import { functionIdentifierValue } from "../../../lib/functions/generateFileTree";
+import { UdfLog } from "../../../lib/useLogs";
 
 const logs: UdfLog[] = [
   {

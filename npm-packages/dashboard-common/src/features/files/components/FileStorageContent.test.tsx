@@ -1,6 +1,5 @@
 import { ConvexProvider } from "convex/react";
 import { act, render, within } from "@testing-library/react";
-import { mockConvexReactClient } from "dashboard-common";
 import userEvent from "@testing-library/user-event";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
@@ -10,25 +9,9 @@ import {
   Uploader,
   useUploadFiles,
 } from "./FileStorageContent";
-
-jest.mock("api/roles", () => ({
-  useHasProjectAdminPermissions: jest.fn(),
-}));
-jest.mock("api/profile", () => {});
-jest.mock("api/projects", () => ({
-  useCurrentProject: jest.fn(),
-}));
-jest.mock("api/teams", () => ({ useCurrentTeam: jest.fn() }));
-jest.mock("api/deployments", () => ({ useCurrentDeployment: jest.fn() }));
-jest.mock("dashboard-common", () => ({
-  ...jest.requireActual("dashboard-common"),
-  useNents: () => ({
-    nents: [],
-    selectedNent: null,
-    setSelectedNent: jest.fn(),
-  }),
-  NentSwitcher: jest.fn(),
-}));
+import { mockConvexReactClient } from "../../../lib/mockConvexReactClient";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { deploymentInfo } from "../../../pages/_app";
 
 const mockRouter = jest
   .fn()
@@ -72,9 +55,11 @@ describe("FileStorageContent", () => {
     const setup = () =>
       act(() =>
         render(
-          <ConvexProvider client={mockClient}>
-            <FileStorageContent />
-          </ConvexProvider>,
+          <DeploymentInfoContext.Provider value={deploymentInfo}>
+            <ConvexProvider client={mockClient}>
+              <FileStorageContent />
+            </ConvexProvider>
+          </DeploymentInfoContext.Provider>,
         ),
       );
 
@@ -110,9 +95,11 @@ describe("FileStorageContent", () => {
     const setup = () =>
       act(() =>
         render(
-          <ConvexProvider client={mockClient}>
-            <UploaderWithLogic />
-          </ConvexProvider>,
+          <DeploymentInfoContext.Provider value={deploymentInfo}>
+            <ConvexProvider client={mockClient}>
+              <UploaderWithLogic />
+            </ConvexProvider>
+          </DeploymentInfoContext.Provider>,
         ),
       );
 

@@ -7,10 +7,10 @@ import {
   ConfirmationDialog,
   CopyTextButton,
 } from "dashboard-common";
-import { TeamMemberLink } from "elements/TeamMemberLink";
 import { TeamAccessTokenResponse } from "generatedApi";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useEffect, useState } from "react";
+import { TeamMemberLink } from "elements/TeamMemberLink";
 
 export function DeploymentAccessTokenListItem({
   token,

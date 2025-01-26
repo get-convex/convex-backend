@@ -1,4 +1,4 @@
-import { functionIdentifierValue } from "dashboard-common";
+import { functionIdentifierValue } from "../../../lib/functions/generateFileTree";
 import { functionsForSelectedNents, selectNentOption } from "./LogToolbar";
 
 describe("selectNentOption", () => {

@@ -11,6 +11,7 @@ jest.mock("api/profile", () => {});
 jest.mock("api/teams", () => {});
 jest.mock("api/projects", () => {});
 jest.mock("api/deployments", () => {});
+jest.mock("api/backups", () => {});
 
 jest.mock("api/invitations", () => {
   const createInvite = jest.fn();

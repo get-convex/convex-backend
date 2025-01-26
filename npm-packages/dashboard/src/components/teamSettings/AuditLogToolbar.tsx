@@ -1,9 +1,8 @@
-import { Combobox, Option } from "dashboard-common";
+import { Combobox, Option, DateRangePicker } from "dashboard-common";
 import startCase from "lodash/startCase";
 import { endOfToday, startOfDay } from "date-fns";
 import sortBy from "lodash/sortBy";
-import { DateRangePicker } from "elements/DateRangePicker";
-import { DateRange } from "react-day-picker";
+import type { DateRange } from "react-day-picker";
 import { AuditLogAction, MemberResponse } from "generatedApi";
 
 // TODO: Replace with a generated type once we can generate enum

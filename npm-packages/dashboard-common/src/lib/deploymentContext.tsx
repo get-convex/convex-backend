@@ -34,6 +34,11 @@ export type DeploymentInfo = (
   useTeamMembers(
     teamId?: number,
   ): { id: number; name?: string | null; email?: string }[] | undefined;
+  useTeamEntitlements(teamId?: number):
+    | {
+        auditLogsEnabled?: boolean;
+      }
+    | undefined;
   useCurrentUsageBanner(teamId: number | null): string | null;
   useCurrentDeployment():
     | {
@@ -46,6 +51,11 @@ export type DeploymentInfo = (
     | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
   useIsDeploymentPaused(): boolean | undefined;
+  CloudImport(props: { sourceCloudBackupId: number }): JSX.Element;
+  TeamMemberLink(props: {
+    memberId?: number | null;
+    name: string;
+  }): JSX.Element;
   projectsURI: string;
   deploymentsURI: string;
 };

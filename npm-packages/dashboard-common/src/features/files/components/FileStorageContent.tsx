@@ -7,37 +7,33 @@ import {
   UploadIcon,
 } from "@radix-ui/react-icons";
 import * as Sentry from "@sentry/nextjs";
-import {
-  Button,
-  buttonClasses,
-  Loading,
-  Tooltip,
-  Spinner,
-  NentSwitcher,
-  useNents,
-  toast,
-  formatBytes,
-  useCopy,
-  Sheet,
-  ConfirmationDialog,
-  EmptySection,
-  Checkbox,
-} from "dashboard-common";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import Link from "next/link";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { FileMetadata } from "system-udfs/convex/_system/frontend/fileStorageV2";
 import Image from "next/image";
-import { useCurrentDeployment } from "api/deployments";
-import { useHasProjectAdminPermissions } from "api/roles";
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   createColumnHelper,
 } from "@tanstack/react-table";
+import { toast } from "../../../lib/utils";
+import { NentSwitcher } from "../../../elements/NentSwitcher";
+import { useNents } from "../../../lib/useNents";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { Button, buttonClasses } from "../../../elements/Button";
+import { Tooltip } from "../../../elements/Tooltip";
+import { Spinner } from "../../../elements/Spinner";
+import { Checkbox } from "../../../elements/Checkbox";
+import { formatBytes } from "../../../lib/format";
+import { Loading } from "../../../elements/Loading";
+import { EmptySection } from "../../../elements/EmptySection";
+import { Sheet } from "../../../elements/Sheet";
+import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
+import { useCopy } from "../../../lib/useCopy";
 
 const columnHelper = createColumnHelper<FileMetadata>();
 
@@ -154,6 +150,9 @@ export function DeleteFilesButton({
   selectedFiles: Id<"_storage">[];
 }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
@@ -197,6 +196,9 @@ export function DeleteFilesButton({
 }
 
 export function useUploadFiles() {
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
@@ -588,6 +590,9 @@ function Files({
 }
 
 function FileActions({ file }: { file: FileMetadata }) {
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,

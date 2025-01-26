@@ -1,6 +1,5 @@
 import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
-import { PageContent } from "dashboard-common";
-import { FileStorageContent } from "components/storage/FileStorageContent";
+import { PageContent, FileStorageContent } from "dashboard-common";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 
 export { getServerSideProps } from "lib/ssr";

@@ -1,7 +1,8 @@
-import { BackupResponse } from "api/backups";
+import { BackupResponse, useGetCloudBackup } from "api/backups";
 import { useDeploymentById } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
 import { useProjectById } from "api/projects";
+import { Loading } from "dashboard-common";
 
 export function BackupIdentifier({ backup }: { backup: BackupResponse }) {
   const team = useCurrentTeam();
@@ -16,4 +17,18 @@ export function BackupIdentifier({ backup }: { backup: BackupResponse }) {
       {new Date(backup.requestedTime).getTime()}
     </span>
   );
+}
+
+export function CloudImport({
+  sourceCloudBackupId,
+}: {
+  sourceCloudBackupId: number;
+}) {
+  const backup = useGetCloudBackup(sourceCloudBackupId);
+  const ident = backup ? (
+    <BackupIdentifier backup={backup} />
+  ) : (
+    <Loading fullHeight={false} className="inline-block h-3 w-80" />
+  );
+  return <span>restored from backup: {ident}</span>;
 }

@@ -15,6 +15,7 @@ import { TeamMemberListItem } from "./TeamMemberListItem";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 jest.mock("api/profile", () => {});
+jest.mock("api/backups", () => {});
 jest.mock("api/teams", () => {});
 jest.mock("api/projects", () => {});
 jest.mock("api/deployments", () => {});

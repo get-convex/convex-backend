@@ -1,4 +1,4 @@
-import { DateRangePicker } from "elements/DateRangePicker";
+import { DateRangePicker } from "dashboard-common";
 import { subDays, subMonths } from "date-fns";
 
 /**

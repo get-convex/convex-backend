@@ -6,6 +6,10 @@ import { NextRouter } from "next/router";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { captureMessage } from "@sentry/nextjs";
 
+export function dismissToast(id: string) {
+  sonnerToast.dismiss(id);
+}
+
 export async function copyTextToClipboard(text: string) {
   if ("clipboard" in navigator) {
     return navigator.clipboard.writeText(text);

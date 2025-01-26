@@ -1,18 +1,21 @@
-import { DateRangePicker, useDateFilters } from "elements/DateRangePicker";
+import { endOfDay, endOfToday, startOfDay } from "date-fns";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { useCallback, useContext, useEffect, useState } from "react";
+import { DeploymentEventContent } from "../../../elements/DeploymentEventContent";
 import {
-  Loading,
-  toast,
-  Sheet,
+  DateRangePicker,
+  useDateFilters,
+} from "../../../elements/DateRangePicker";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import {
   DeploymentAuditLogEvent,
   DeploymentAuditLogFilters,
   usePaginatedDeploymentEvents,
-} from "dashboard-common";
-import { DeploymentEventContent } from "elements/DeploymentEventContent";
-import { endOfDay, endOfToday, startOfDay } from "date-fns";
-import { useCurrentTeam, useTeamMembers, useTeamEntitlements } from "api/teams";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import { useCallback, useEffect, useState } from "react";
+} from "../../../lib/useDeploymentAuditLog";
+import { Loading } from "../../../elements/Loading";
+import { toast } from "../../../lib/utils";
+import { Sheet } from "../../../elements/Sheet";
 
 const INITIAL_EVENTS_TO_LOAD = 10;
 const PAGE_SIZE = 10;
@@ -20,8 +23,11 @@ const DISTANCE_FROM_BOTTOM_THRESHOLD_PX = 300;
 
 export function History() {
   const router = useRouter();
+  const { useCurrentTeam, useTeamEntitlements } = useContext(
+    DeploymentInfoContext,
+  );
   const team = useCurrentTeam();
-  const { startDate, endDate, setDate } = useDateFilters();
+  const { startDate, endDate, setDate } = useDateFilters(router);
   const entitlements = useTeamEntitlements(team?.id);
   const auditLogsEnabled = entitlements?.auditLogsEnabled;
 
@@ -63,6 +69,7 @@ export function History() {
 }
 
 function HistoryList({ filters }: { filters: DeploymentAuditLogFilters }) {
+  const { useCurrentTeam, useTeamMembers } = useContext(DeploymentInfoContext);
   const currentTeam = useCurrentTeam();
   const teamMembers = useTeamMembers(currentTeam?.id) ?? [];
 

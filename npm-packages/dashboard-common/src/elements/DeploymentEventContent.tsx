@@ -5,18 +5,7 @@ import {
   PlusIcon,
   UpdateIcon,
 } from "@radix-ui/react-icons";
-import {
-  TimestampDistance,
-  Button,
-  Loading,
-  ReadonlyCodeDiff,
-  NENT_APP_PLACEHOLDER,
-  NentNameOption,
-  displaySchema,
-  SchemaJson,
-  DeploymentAuditLogEvent,
-} from "dashboard-common";
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import { Infer } from "convex/values";
 import { Disclosure } from "@headlessui/react";
 import {
@@ -25,9 +14,14 @@ import {
   cronDiffType,
   schemaDiffType,
 } from "system-udfs/convex/tableDefs/deploymentAuditLogTable";
-import { TeamMemberLink } from "elements/TeamMemberLink";
-import { useGetCloudBackup } from "api/backups";
-import { BackupIdentifier } from "elements/BackupIdentifier";
+import { SchemaJson, displaySchema } from "../lib/format";
+import { DeploymentAuditLogEvent } from "../lib/useDeploymentAuditLog";
+import { DeploymentInfoContext } from "../lib/deploymentContext";
+import { TimestampDistance } from "./TimestampDistance";
+import { Button } from "./Button";
+import { ReadonlyCodeDiff } from "./ReadonlyCode";
+import { NentNameOption } from "./NentSwitcher";
+import { NENT_APP_PLACEHOLDER } from "../lib/useNents";
 
 function useSchemaCode(schema: null | string): string {
   return useMemo(() => {
@@ -42,6 +36,7 @@ export function DeploymentEventContent({
 }: {
   event: DeploymentAuditLogEvent;
 }) {
+  const { TeamMemberLink } = useContext(DeploymentInfoContext);
   let body;
   switch (event.action) {
     case "build_indexes":
@@ -106,6 +101,7 @@ export function DeploymentEventContent({
 }
 
 export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
+  const { CloudImport } = useContext(DeploymentInfoContext);
   switch (event.action) {
     case "create_environment_variable":
       return (
@@ -212,16 +208,6 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
       const _: never = event;
       return null;
   }
-}
-
-function CloudImport({ sourceCloudBackupId }: { sourceCloudBackupId: number }) {
-  const backup = useGetCloudBackup(sourceCloudBackupId);
-  const ident = backup ? (
-    <BackupIdentifier backup={backup} />
-  ) : (
-    <Loading fullHeight={false} className="inline-block h-3 w-80" />
-  );
-  return <span>restored from backup: {ident}</span>;
 }
 
 function Variable({ variableName }: { variableName: string }) {

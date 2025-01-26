@@ -12,10 +12,15 @@ jest.mock("api/profile", () => {});
 jest.mock("api/teams", () => {});
 jest.mock("api/projects", () => {});
 jest.mock("api/deployments", () => {});
+jest.mock("api/backups", () => {});
 
 jest.mock("../../elements/TeamMemberLink", () => ({
   __esModule: true,
   TeamMemberLink: jest.fn().mockReturnValue(<div>Mocked TeamMemberLink</div>),
+}));
+jest.mock("dashboard-common", () => ({
+  ...jest.requireActual("dashboard-common"),
+  DateRangePicker: jest.fn(),
 }));
 
 describe("AuditLogContent", () => {

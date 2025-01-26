@@ -1,6 +1,5 @@
 import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
-import { PageContent } from "dashboard-common";
-import { History } from "components/history/History";
+import { History, PageContent } from "dashboard-common";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 
 export { getServerSideProps } from "lib/ssr";

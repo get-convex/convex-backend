@@ -22,7 +22,6 @@ import { UserProvider, useUser } from "@auth0/nextjs-auth0/client";
 import { useAsync } from "react-use";
 import { basicLogger, LDClient, LDFlagSet } from "launchdarkly-js-client-sdk";
 import { useAccessToken, useInitialData } from "hooks/useServerSideData";
-import { ToastContainer } from "elements/ToastContainer";
 import { useRouterProgress } from "hooks/useRouterProgress";
 import Head from "next/head";
 import { RefreshSession } from "components/login/RefreshSession";
@@ -33,6 +32,7 @@ import {
   Favicon,
   LoadingLogo,
   ThemeConsumer,
+  ToastContainer,
   ThemeProvider,
 } from "dashboard-common";
 import { CurrentDeploymentDashboardLayout } from "layouts/DeploymentDashboardLayout";

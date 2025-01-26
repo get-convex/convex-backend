@@ -3,16 +3,17 @@ import { AppProps } from "next/app";
 import Head from "next/head";
 import { Favicon } from "elements/Favicon";
 import { ThemeConsumer } from "elements/ThemeConsumer";
-import {
-  DeploymentApiProvider,
-  DeploymentDashboardLayout,
-  DeploymentInfo,
-  DeploymentInfoContext,
-  WaitForDeploymentApi,
-} from "index";
 import { ThemeProvider } from "next-themes";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
+import { ToastContainer } from "../elements/ToastContainer";
+import {
+  DeploymentApiProvider,
+  DeploymentInfo,
+  DeploymentInfoContext,
+  WaitForDeploymentApi,
+} from "../lib/deploymentContext";
+import { DeploymentDashboardLayout } from "../layouts/DeploymentDashboardLayout";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -24,6 +25,7 @@ export default function App({ Component, pageProps }: AppProps) {
       </Head>
       <ThemeProvider attribute="class" disableTransitionOnChange>
         <ThemeConsumer />
+        <ToastContainer />
         <DeploymentInfoProvider>
           <DeploymentApiProvider deploymentOverride="local">
             <WaitForDeploymentApi>
@@ -50,6 +52,9 @@ export const deploymentInfo: DeploymentInfo = {
     slug: "team",
   }),
   useTeamMembers: () => [],
+  useTeamEntitlements: () => ({
+    auditLogsEnabled: true,
+  }),
   useCurrentUsageBanner: () => null,
   useCurrentDeployment: () => ({
     id: 1,
@@ -63,6 +68,10 @@ export const deploymentInfo: DeploymentInfo = {
     const deploymentState = useQuery(udfs.deploymentState.deploymentState);
     return deploymentState?.state === "paused";
   },
+  CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
+    <div>{sourceCloudBackupId}</div>
+  ),
+  TeamMemberLink: () => <div />,
   projectsURI: "/",
   deploymentsURI: "/",
 };

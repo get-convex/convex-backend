@@ -579,9 +579,6 @@ importers:
       '@stripe/stripe-js':
         specifier: ~3.0.3
         version: 3.0.10
-      '@tanstack/react-table':
-        specifier: ~8.20.6
-        version: 8.20.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@team-plain/typescript-sdk':
         specifier: ~4.2.3
         version: 4.2.3
@@ -666,9 +663,6 @@ importers:
       shapes:
         specifier: workspace:*
         version: link:../shapes
-      sonner:
-        specifier: ^1.4.0
-        version: 1.7.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       swr:
         specifier: ^2.2.1
         version: 2.3.0(react@18.3.1)
@@ -913,6 +907,9 @@ importers:
       '@sentry/nextjs':
         specifier: 7.120.2
         version: 7.120.2(encoding@0.1.13)(next@14.2.21(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(supports-color@8.1.1)(webpack@5.94.0(@swc/core@1.10.1(@swc/helpers@0.5.15)))
+      '@tanstack/react-table':
+        specifier: ~8.20.6
+        version: 8.20.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       acorn:
         specifier: ~8.8.1
         version: 8.8.2

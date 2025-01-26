@@ -6,19 +6,6 @@ import {
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import {
-  Button,
-  Tooltip,
-  ClosePanelButton,
-  Nent,
-  NENT_APP_PLACEHOLDER,
-  UdfLog,
-  Sheet,
-  DeploymentAuditLogEvent,
-  InfiniteScrollList,
-  TextInput,
-  CopyTextButton,
-} from "dashboard-common";
-import {
   Fragment,
   memo,
   useCallback,
@@ -34,9 +21,19 @@ import difference from "lodash/difference";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
 import { DeploymentEventListItem } from "./DeploymentEventListItem";
 import { ITEM_SIZE, LogListItem } from "./LogListItem";
-import { filterLogs } from "./utils/filterLogs";
-import { InterleavedLog, interleaveLogs } from "./utils/interleaveLogs";
 import { LogToolbar } from "./LogToolbar";
+import { filterLogs } from "../lib/filterLogs";
+import { UdfLog } from "../../../lib/useLogs";
+import { InterleavedLog, interleaveLogs } from "../lib/interleaveLogs";
+import { DeploymentAuditLogEvent } from "../../../lib/useDeploymentAuditLog";
+import { NENT_APP_PLACEHOLDER, Nent } from "../../../lib/useNents";
+import { Sheet } from "../../../elements/Sheet";
+import { Tooltip } from "../../../elements/Tooltip";
+import { InfiniteScrollList } from "../../../elements/InfiniteScrollList";
+import { Button } from "../../../elements/Button";
+import { ClosePanelButton } from "../../../elements/ClosePanelButton";
+import { CopyTextButton } from "../../../elements/CopyTextButton";
+import { TextInput } from "../../../elements/TextInput";
 
 export type LogListProps = {
   logs?: UdfLog[];

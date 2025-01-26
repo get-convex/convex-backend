@@ -1,5 +1,5 @@
 import { CrossCircledIcon } from "@radix-ui/react-icons";
-import { LogOutcome } from "dashboard-common";
+import { LogOutcome } from "../../../lib/useLogs";
 
 export function LogStatusLine({ outcome }: { outcome: LogOutcome }) {
   return (

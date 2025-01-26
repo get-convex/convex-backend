@@ -9,8 +9,8 @@ import {
   LocalDevCallout,
   Checkbox,
   TextInput,
+  Popover,
 } from "dashboard-common";
-import { Popover } from "elements/Popover";
 import {
   useDisablePeriodicBackup,
   useGetPeriodicBackupConfig,

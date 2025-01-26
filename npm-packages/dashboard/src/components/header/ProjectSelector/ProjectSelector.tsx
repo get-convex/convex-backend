@@ -3,13 +3,12 @@ import { ProjectDetails, Team } from "generatedApi";
 import classNames from "classnames";
 import React, { useRef, useState } from "react";
 import { useCurrentProject, useProjects } from "api/projects";
-import { Button } from "dashboard-common";
+import { Button, Popover } from "dashboard-common";
 import {
   CaretSortIcon,
   MixerHorizontalIcon,
   ResetIcon,
 } from "@radix-ui/react-icons";
-import { Popover } from "elements/Popover";
 import { Avatar } from "elements/Avatar";
 import { useScrolling, useWindowSize } from "react-use";
 import { usePopper } from "react-popper";

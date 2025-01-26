@@ -30,12 +30,14 @@ import {
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { CreateDeploymentAccessTokenRequest } from "api/accessTokens";
 import Link from "next/link";
-import { useCurrentTeam, useTeamMembers } from "api/teams";
+import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useCurrentUsageBanner } from "components/header/UsageBanner";
 import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
+import { CloudImport } from "elements/BackupIdentifier";
+import { TeamMemberLink } from "elements/TeamMemberLink";
 import { useAccessToken } from "./useServerSideData";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
@@ -72,8 +74,11 @@ export function DeploymentInfoProvider({
         useCurrentUsageBanner,
         useCurrentDeployment,
         useTeamMembers,
+        useTeamEntitlements,
         useHasProjectAdminPermissions,
         useIsDeploymentPaused,
+        TeamMemberLink,
+        CloudImport,
         projectsURI,
         deploymentsURI,
       });

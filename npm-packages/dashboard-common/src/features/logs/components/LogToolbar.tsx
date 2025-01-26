@@ -1,11 +1,9 @@
-import {
-  MultiSelectCombobox,
-  FunctionNameOption,
-  NENT_APP_PLACEHOLDER,
-  NentNameOption,
-  functionIdentifierFromValue,
-} from "dashboard-common";
 import difference from "lodash/difference";
+import { MultiSelectCombobox } from "../../../elements/MultiSelectCombobox";
+import { NentNameOption } from "../../../elements/NentSwitcher";
+import { functionIdentifierFromValue } from "../../../lib/functions/generateFileTree";
+import { FunctionNameOption } from "../../../elements/FunctionNameOption";
+import { NENT_APP_PLACEHOLDER } from "../../../lib/useNents";
 
 export function LogToolbar({
   functions,

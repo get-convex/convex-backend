@@ -3,6 +3,7 @@ import {
   PageContent,
   Button,
   Tooltip,
+  Popover,
   useIsOverflowing,
 } from "dashboard-common";
 import {
@@ -11,7 +12,6 @@ import {
 } from "components/deploymentSettings/SettingsSidebar";
 import { HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { useCurrentDeployment } from "api/deployments";
-import { Popover } from "elements/Popover";
 import { useMeasure } from "react-use";
 
 export function DeploymentSettingsLayout({

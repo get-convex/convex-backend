@@ -56,7 +56,6 @@
     "saffron": "get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39",
     "semver": "^7.6.0",
     "shapes": "workspace:*",
-    "sonner": "^1.4.0",
     "swr": "^2.2.1",
     "system-udfs": "workspace:*",
     "tailwind-merge": "^1.14.0",
@@ -64,8 +63,7 @@
     "zod": "^3.24.0",
     "swr-openapi": "~5.0.0",
     "openapi-fetch": "~0.13.0",
-    "react-sparklines": "~1.7.0",
-    "@tanstack/react-table": "~8.20.6"
+    "react-sparklines": "~1.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.5",

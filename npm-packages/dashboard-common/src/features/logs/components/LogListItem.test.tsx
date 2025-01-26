@@ -1,7 +1,8 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import { UdfLog, functionIdentifierValue } from "dashboard-common";
 import { LogListItem } from "./LogListItem";
+import { UdfLog } from "../../../lib/useLogs";
+import { functionIdentifierValue } from "../../../lib/functions/generateFileTree";
 
 describe("LogListItem render benchmark", () => {
   it("should render LogListItem within acceptable time", () => {

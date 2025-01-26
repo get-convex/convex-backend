@@ -1,6 +1,7 @@
 import { Id } from "system-udfs/convex/_generated/dataModel";
-import { UdfLog, DeploymentAuditLogEvent } from "dashboard-common";
 import { interleaveLogs } from "./interleaveLogs";
+import { UdfLog } from "../../../lib/useLogs";
+import { DeploymentAuditLogEvent } from "../../../lib/useDeploymentAuditLog";
 
 function createUdfExecutionLog(creationTime: number): UdfLog {
   return {

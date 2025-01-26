@@ -17,6 +17,7 @@ jest.mock("api/roles", () => ({
   useHasProjectAdminPermissions: jest.fn(),
 }));
 jest.mock("api/profile", () => {});
+jest.mock("api/backups", () => {});
 jest.mock("api/deployments", () => ({
   useCurrentDeployment: jest.fn(),
 }));

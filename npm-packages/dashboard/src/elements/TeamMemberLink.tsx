@@ -1,5 +1,5 @@
-import { useCurrentTeam } from "api/teams";
 import Link from "next/link";
+import { useCurrentTeam } from "../api/teams";
 
 export function TeamMemberLink({
   memberId,

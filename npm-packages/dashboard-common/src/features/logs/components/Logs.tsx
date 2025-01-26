@@ -1,24 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { dismissToast } from "lib/utils";
-import {
-  useModuleFunctions,
-  itemIdentifier,
-  Button,
-  Nent,
-  toast,
-  functionIdentifierValue,
-  MAX_LOGS,
-  UdfLog,
-  useLogs,
-  NENT_APP_PLACEHOLDER,
-  useDeploymentAuditLogs,
-  TextInput,
-} from "dashboard-common";
 import { useDebounce, usePrevious } from "react-use";
 import isEqual from "lodash/isEqual";
+import { dismissToast, toast } from "../../../lib/utils";
 import { LogList } from "./LogList";
 import { functionsForSelectedNents, LogToolbar } from "./LogToolbar";
-import { filterLogs } from "./utils/filterLogs";
+import { filterLogs } from "../lib/filterLogs";
+import { NENT_APP_PLACEHOLDER, Nent } from "../../../lib/useNents";
+import {
+  itemIdentifier,
+  useModuleFunctions,
+} from "../../../lib/functions/FunctionsProvider";
+import { functionIdentifierValue } from "../../../lib/functions/generateFileTree";
+import { MAX_LOGS, UdfLog, useLogs } from "../../../lib/useLogs";
+import { useDeploymentAuditLogs } from "../../../lib/useDeploymentAuditLog";
+import { TextInput } from "../../../elements/TextInput";
+import { Button } from "../../../elements/Button";
 
 export function Logs({
   nents: allNents,

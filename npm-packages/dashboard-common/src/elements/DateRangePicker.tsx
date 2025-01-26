@@ -2,7 +2,7 @@
 
 import { CalendarIcon, CheckIcon } from "@radix-ui/react-icons";
 import { endOfToday, parse, startOfDay, format } from "date-fns";
-import { useRouter } from "next/router";
+import { NextRouter } from "next/router";
 import * as React from "react";
 import { DateRange } from "react-day-picker";
 import { Button, Calendar } from "dashboard-common";
@@ -108,7 +108,7 @@ export function DateRangePicker({
 
 export const DATE_FORMAT = "yyyy-MM-dd";
 
-export function useDateFilters() {
+export function useDateFilters(router: NextRouter) {
   // Current day
   const maxEndDate = endOfToday();
 
@@ -116,7 +116,6 @@ export function useDateFilters() {
   const initStartDate = new Date(maxEndDate);
   initStartDate.setDate(initStartDate.getDate() - 7);
 
-  const router = useRouter();
   const startDate = router.query.startDate
     ? parse(router.query.startDate as string, DATE_FORMAT, new Date())
     : initStartDate;
@@ -127,6 +126,7 @@ export function useDateFilters() {
   const checkAndSetStartDate = React.useCallback(
     async (date: Date) => {
       const start = startOfDay(date);
+      // eslint-disable-next-line no-param-reassign
       router.query.startDate = format(start, DATE_FORMAT);
       await router.replace({
         query: router.query,
@@ -138,6 +138,7 @@ export function useDateFilters() {
   const checkAndSetEndDate = React.useCallback(
     async (date: Date) => {
       const end = startOfDay(date);
+      // eslint-disable-next-line no-param-reassign
       router.query.endDate = format(end, DATE_FORMAT);
       await router.replace({
         query: router.query,

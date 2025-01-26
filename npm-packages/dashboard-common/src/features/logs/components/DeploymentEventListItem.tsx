@@ -1,18 +1,16 @@
-import { useState } from "react";
-import {
-  Button,
-  formatDateTime,
-  DeploymentAuditLogEvent,
-  DetailPanel,
-} from "dashboard-common";
+import { useContext, useState } from "react";
 import classNames from "classnames";
 import { GearIcon } from "@radix-ui/react-icons";
-import { TeamMemberLink } from "elements/TeamMemberLink";
 import {
   DeploymentEventContent,
   ActionText,
-} from "elements/DeploymentEventContent";
+} from "../../../elements/DeploymentEventContent";
 import { ITEM_SIZE } from "./LogListItem";
+import { Button } from "../../../elements/Button";
+import { formatDateTime } from "../../../lib/format";
+import { DeploymentAuditLogEvent } from "../../../lib/useDeploymentAuditLog";
+import { DetailPanel } from "../../../elements/DetailPanel";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 
 export function DeploymentEventListItem({
   event,
@@ -21,6 +19,7 @@ export function DeploymentEventListItem({
   event: DeploymentAuditLogEvent;
   inline?: boolean;
 }) {
+  const { TeamMemberLink } = useContext(DeploymentInfoContext);
   const [showDetails, setShowDetails] = useState(false);
   const timestamp = formatDateTime(new Date(event._creationTime));
 

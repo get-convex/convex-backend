@@ -1,11 +1,6 @@
 import { captureMessage } from "@sentry/nextjs";
 import { useEffect } from "react";
 import { usePrevious } from "react-use";
-import { toast as sonnerToast } from "sonner";
-
-export function dismissToast(id: string) {
-  sonnerToast.dismiss(id);
-}
 
 // utility for logging changed values in useEffect re-renders
 export const useEffectDebugger = (

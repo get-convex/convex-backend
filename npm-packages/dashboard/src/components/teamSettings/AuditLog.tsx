@@ -1,11 +1,10 @@
-import { LoadingTransition, Button } from "dashboard-common";
+import { LoadingTransition, Button, useDateFilters } from "dashboard-common";
 import { endOfDay } from "date-fns";
 import { useTeamAuditLog } from "hooks/api";
 import { useProjects } from "api/projects";
 import { useTeamMembers } from "api/teams";
 import { AuditLogAction, Team } from "generatedApi";
 import { useRouter } from "next/router";
-import { useDateFilters } from "elements/DateRangePicker";
 import { AuditLogContent } from "./AuditLogContent";
 import { AuditLogToolbar } from "./AuditLogToolbar";
 
@@ -13,10 +12,11 @@ export function AuditLog({ team }: { team: Team }) {
   const projects = useProjects(team.id);
   const members = useTeamMembers(team.id);
 
-  // Filter state management
-  const { startDate, endDate, setDate } = useDateFilters();
-
   const router = useRouter();
+
+  // Filter state management
+  const { startDate, endDate, setDate } = useDateFilters(router);
+
   const { member, action } = router.query;
   const selectedMember = Array.isArray(member) ? member[0] : member || null;
   const selectedAction = Array.isArray(action)
