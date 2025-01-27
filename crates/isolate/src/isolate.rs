@@ -7,7 +7,9 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context;
 use common::{
+    errors::TIMEOUT_ERROR_MESSAGE,
     knobs::{
         ISOLATE_MAX_HEAP_EXTRA_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
@@ -19,6 +21,7 @@ use derive_more::{
     Add,
     AddAssign,
 };
+use errors::ErrorMetadata;
 use fastrace::Event;
 use humansize::{
     FormatSize,
@@ -293,7 +296,11 @@ impl<RT: Runtime> Isolate<RT> {
         );
         let permit = timeout
             .with_timeout(self.limiter.acquire(client_id))
-            .await?;
+            .await
+            .context(ErrorMetadata::rejected_before_execution(
+                "SystemTimeoutError",
+                TIMEOUT_ERROR_MESSAGE,
+            ))?;
         let state = RequestState {
             rt: self.rt.clone(),
             environment,
