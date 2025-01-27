@@ -609,6 +609,10 @@
       "projectFolder": "demos/custom-errors"
     },
     {
+      "packageName": "python-quickstart",
+      "projectFolder": "demos/python-quickstart"
+    },
+    {
       "packageName": "convex-tour-chat-tutorial",
       "projectFolder": "private-demos/convex-tour-chat-tutorial"
     },

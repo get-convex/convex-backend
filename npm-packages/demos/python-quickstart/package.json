@@ -1,0 +1,11 @@
+{
+  "name": "python-quickstart",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "convex dev",
+    "build": "echo build steps are for squares"
+  },
+  "dependencies": {
+    "convex": "workspace:*"
+  }
+}
