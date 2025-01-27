@@ -1,7 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
-import { createContextHook, useNents, useListModules } from "dashboard-common";
 import { ReactNode, useMemo } from "react";
-import { useInMemoryDocumentCache } from "hooks/useInMemoryDocumentCache";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
 import {
@@ -10,6 +8,10 @@ import {
   CronJobWithLastRun,
   CronJobLog,
 } from "system-udfs/convex/_system/frontend/common";
+import { useInMemoryDocumentCache } from "./useInMemoryDocumentCache";
+import { useListModules } from "../../../lib/functions/useListModules";
+import { createContextHook } from "../../../lib/createContextHook";
+import { useNents } from "../../../lib/useNents";
 
 type CronJobsContextType = {
   cronsModule: Module | undefined;

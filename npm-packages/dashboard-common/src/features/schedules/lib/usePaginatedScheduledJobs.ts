@@ -1,16 +1,25 @@
-import { usePaginatedQuery } from "convex/react";
-import { useCurrentDeployment } from "api/deployments";
-import { createConvexAdminClient } from "hooks/deploymentApi";
-import { useAuthHeader } from "hooks/fetching";
-import { useGlobalLocalStorage, useNents, toast } from "dashboard-common";
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { ConvexReactClient, usePaginatedQuery } from "convex/react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  useContext,
+} from "react";
 import { useMount } from "react-use";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import udfs from "udfs";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useGlobalLocalStorage } from "../../../lib/useGlobalLocalStorage";
+import { useNents } from "../../../lib/useNents";
+import { toast } from "../../../lib/utils";
+import { useAdminKey, useDeploymentUrl } from "../../../lib/deploymentApi";
 
 export const SCHEDULED_JOBS_PAGE_SIZE = 50;
 
 export function usePaginatedScheduledJobs(udfPath: string | undefined) {
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
 
   const [isPaused] = useGlobalLocalStorage(
@@ -60,6 +69,7 @@ function usePausedState(
 ) {
   const [pausedData, setPausedData] = useState(results);
 
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
 
   // Store the paused state in local storage so it persists across refreshes
@@ -82,20 +92,21 @@ function usePausedState(
 
   const isRateLimited = useRateLimitChanges(results, isPaused, onRateLimited);
 
-  const authHeader = useAuthHeader();
-
   const [isLoadingPausedData, setIsLoadingPausedData] = useState(false);
-  const loadFirstPage = useMemo(
-    () =>
-      loadFirstPageOneShot({
-        setIsLoadingPausedData,
-        setPausedData,
-        deploymentName: deployment?.name,
-        authHeader,
-        args,
-      }),
-    [args, authHeader, deployment],
-  );
+  const deploymentUrl = useDeploymentUrl();
+  const adminKey = useAdminKey();
+  const loadFirstPage = useMemo(() => {
+    const client = new ConvexReactClient(deploymentUrl, {
+      reportDebugInfoToConvex: true,
+    });
+    client.setAdminAuth(adminKey);
+    return loadFirstPageOneShot({
+      client,
+      setIsLoadingPausedData,
+      setPausedData,
+      args,
+    });
+  }, [adminKey, args, deploymentUrl]);
 
   useMount(() => {
     isPaused && void loadFirstPage();
@@ -153,30 +164,20 @@ const loadFirstPageOneShot =
   ({
     setIsLoadingPausedData,
     setPausedData,
-    deploymentName,
-    authHeader,
     args,
+    client,
   }: {
     setIsLoadingPausedData: (value: boolean) => void;
     setPausedData: (value: ScheduledJob[]) => void;
-    deploymentName?: string;
-    authHeader: string;
     args: {
       udfPath: string | undefined;
       componentId: string | null;
     };
+    client: ConvexReactClient;
   }) =>
   async () => {
     setIsLoadingPausedData(true);
     try {
-      if (!deploymentName) {
-        throw new Error("Missing deployment name");
-      }
-      const { client } = await createConvexAdminClient(
-        deploymentName,
-        authHeader,
-      );
-
       // Fetch one page
       const result = await client.query(udfs.paginatedScheduledJobs.default, {
         ...args,

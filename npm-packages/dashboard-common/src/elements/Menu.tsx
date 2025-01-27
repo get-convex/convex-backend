@@ -2,8 +2,9 @@ import { Fragment, ReactNode, useState } from "react";
 import { Menu as HeadlessMenu, Portal } from "@headlessui/react";
 import { PopperChildrenProps, usePopper } from "react-popper";
 import classNames from "classnames";
-import { TooltipSide, Button, ButtonProps } from "dashboard-common";
+import { Button, ButtonProps } from "./Button";
 import { Key, KeyboardShortcut } from "./KeyboardShortcut";
+import { TooltipSide } from "./Tooltip";
 
 export type MenuProps = {
   children: React.ReactElement | (React.ReactElement | null)[];

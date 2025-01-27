@@ -1,7 +1,6 @@
 import { BackspaceIcon } from "@heroicons/react/20/solid";
 import { PlusIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { ObjectEditor, Button, Combobox, Option } from "dashboard-common";
 import { GenericDocument } from "convex/server";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
@@ -15,7 +14,10 @@ import {
   isTypeFilterOp,
   typeOf,
 } from "system-udfs/convex/_system/frontend/lib/filters";
+import { Combobox, type Option } from "../../../../elements/Combobox";
 import { DateTimePicker } from "./DateTimePicker";
+import { Button } from "../../../../elements/Button";
+import { ObjectEditor } from "../../../../elements/ObjectEditor/ObjectEditor";
 
 export const operatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]

@@ -1,7 +1,7 @@
 import React, { Fragment, ReactNode, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import classNames from "classnames";
-import { ClosePanelButton } from "dashboard-common";
+import { ClosePanelButton } from "./ClosePanelButton";
 
 type ModalProps = {
   onClose: () => void;

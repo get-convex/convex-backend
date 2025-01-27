@@ -1,6 +1,4 @@
-import { ConvexReactClient } from "convex/react";
 import { ConvexHttpClient } from "convex/browser";
-import { reportHttpError } from "lib/utils";
 import {
   useCallback,
   useContext,
@@ -10,13 +8,12 @@ import {
 } from "react";
 import { useRouter } from "next/router";
 import {
-  displayName,
   DeploymentApiProviderProps,
   DeploymentApiProvider,
   ConnectedDeploymentContext,
   DeploymentInfoContext,
   DeploymentInfo,
-  useNents,
+  reportHttpError,
   useAdminKey,
   useDeploymentAuthHeader,
   useDeploymentUrl,
@@ -29,9 +26,7 @@ import {
 } from "system-udfs/convex/_system/frontend/common";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { CreateDeploymentAccessTokenRequest } from "api/accessTokens";
-import Link from "next/link";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
-import { useCurrentProject } from "api/projects";
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { useCurrentUsageBanner } from "components/header/UsageBanner";
@@ -322,105 +317,6 @@ export function useDeleteSink(): (
     }
   };
 }
-
-export function useCancelAllJobs(): (udfPath?: string) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-  const { selectedNent } = useNents();
-  const team = useCurrentTeam();
-  const project = useCurrentProject();
-  const deployment = useCurrentDeployment();
-
-  return async (udfPath?: string) => {
-    const body = JSON.stringify({
-      udfPath,
-      componentPath: selectedNent?.path ?? undefined,
-      componentId: selectedNent?.id ?? undefined,
-    });
-    const res = await fetch(`${deploymentUrl}/api/cancel_all_jobs`, {
-      method: "POST",
-      headers: {
-        Authorization: `Convex ${adminKey}`,
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-    if (res.status !== 200) {
-      const err = await res.json();
-      reportHttpError("POST", res.url, err);
-      if (err.code === "OptimisticConcurrencyControlFailure") {
-        toast(
-          "error",
-          <span>
-            There are too many functions being scheduled in this deployment.{" "}
-            <Link
-              href={`/t/${team?.slug}/${project?.slug}/${deployment?.name}/settings/pause-deployment`}
-              className="text-content-link hover:underline dark:underline"
-            >
-              Pause your deployment
-            </Link>{" "}
-            to cancel all functions.
-          </span>,
-          "CancelJobsOCC",
-        );
-      } else {
-        toast("error", err.message);
-      }
-      throw err;
-    } else {
-      toast(
-        "success",
-        udfPath
-          ? `Canceled all scheduled runs for ${displayName(udfPath, selectedNent?.path ?? null)}.`
-          : "Canceled all scheduled runs.",
-      );
-    }
-  };
-}
-
-export function useCancelJob(): (
-  id: string,
-  componentId: string | null,
-) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-
-  return async (id: string, componentId: string | null) => {
-    const body = JSON.stringify({ id, componentId });
-    const res = await fetch(`${deploymentUrl}/api/cancel_job`, {
-      method: "POST",
-      headers: {
-        Authorization: `Convex ${adminKey}`,
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-    if (res.status !== 200) {
-      const err = await res.json();
-      reportHttpError("POST", res.url, err);
-      toast("error", err.message);
-    } else {
-      toast("success", "Scheduled run canceled.");
-    }
-  };
-}
-
-export async function createConvexAdminClient(
-  deploymentName: string,
-  authHeader: string,
-) {
-  const authData = await deploymentAuth(deploymentName, authHeader);
-  if (!authData.ok) {
-    throw new Error(authData.errorMessage);
-  }
-  const { deploymentUrl, adminKey } = authData;
-  const client = new ConvexReactClient(deploymentUrl, {
-    reportDebugInfoToConvex: true,
-  });
-  client.setAdminAuth(adminKey);
-  return { client, adminKey, deploymentUrl };
-}
-
 export function MaybeDeploymentApiProvider({
   children,
   deploymentOverride,

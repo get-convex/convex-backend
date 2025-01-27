@@ -1,23 +1,24 @@
 import { TrashIcon } from "@radix-ui/react-icons";
-import { useHasProjectAdminPermissions } from "api/roles";
+import { useRouter } from "next/router";
+import { useContext, useState } from "react";
+import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
+import { useCancelAllJobs } from "../lib/api";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 import {
-  ConfirmationDialog,
-  Button,
-  Combobox,
-  FunctionNameOption,
+  itemIdentifier,
   useCurrentOpenFunction,
   useModuleFunctions,
-  itemIdentifier,
+} from "../../../lib/functions/FunctionsProvider";
+import { Combobox } from "../../../elements/Combobox";
+import {
+  displayName,
   functionIdentifierFromValue,
   functionIdentifierValue,
-  displayName,
-  SchedulerStatus,
-} from "dashboard-common";
-import { useCurrentDeployment } from "api/deployments";
-import { useCancelAllJobs } from "hooks/deploymentApi";
-import { useRouter } from "next/router";
-import { useState } from "react";
-import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
+} from "../../../lib/functions/generateFileTree";
+import { FunctionNameOption } from "../../../elements/FunctionNameOption";
+import { Button } from "../../../elements/Button";
+import { SchedulerStatus } from "../../../elements/SchedulerStatus";
+import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
 
 export function ScheduledFunctionsContentToolbar({
   jobs,
@@ -30,6 +31,9 @@ export function ScheduledFunctionsContentToolbar({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const cancelJobs = useCancelAllJobs();
 
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,

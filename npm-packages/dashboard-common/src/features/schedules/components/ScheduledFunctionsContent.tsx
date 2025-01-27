@@ -1,9 +1,10 @@
-import { Sheet, ModuleFunction } from "dashboard-common";
 import { useRef } from "react";
-import { usePaginatedScheduledJobs } from "./usePaginatedScheduledJobs";
+import { usePaginatedScheduledJobs } from "../lib/usePaginatedScheduledJobs";
 import { ScheduledFunctionsContentToolbar } from "./ScheduledFunctionsContentToolbar";
 import { ScheduledFunctionsListHeader } from "./ScheduledFunctionsListHeader";
 import { ScheduledFunctionsList } from "./ScheduledFunctionsList";
+import { Sheet } from "../../../elements/Sheet";
+import { ModuleFunction } from "../../../lib/functions/types";
 
 export function ScheduledFunctionsContent({
   currentOpenFunction,

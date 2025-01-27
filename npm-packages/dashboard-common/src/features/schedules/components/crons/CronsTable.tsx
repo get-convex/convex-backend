@@ -1,21 +1,8 @@
-import {
-  ReadonlyCode,
-  LiveTimestampDistance,
-  displayName,
-  Tooltip,
-  Button,
-  useFunctionUrl,
-  prettier,
-  stringifyValue,
-  Sheet,
-  DetailPanel,
-} from "dashboard-common";
 import { jsonToConvex, JSONValue } from "convex/values";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useMemo, useState } from "react";
 import { CellProps, useTable } from "react-table";
-import { useWasmCron } from "hooks/useWasmCron";
 import formatDuration from "date-fns/formatDuration";
 import { ChevronRightIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import {
@@ -23,7 +10,22 @@ import {
   CronJobLog,
   CronJobWithLastRun,
 } from "system-udfs/convex/_system/frontend/common";
-import { prettierSaffron, scheduleAsCron, scheduleLiteral } from "./helpers";
+import { useWasmCron } from "../../lib/useWasmCron";
+import {
+  prettierSaffron,
+  scheduleAsCron,
+  scheduleLiteral,
+} from "../../lib/cronHelpers";
+import { stringifyValue } from "../../../../lib/stringifyValue";
+import { prettier } from "../../../../lib/format";
+import { Tooltip } from "../../../../elements/Tooltip";
+import { useFunctionUrl } from "../../../../lib/deploymentApi";
+import { displayName } from "../../../../lib/functions/generateFileTree";
+import { LiveTimestampDistance } from "../../../../elements/TimestampDistance";
+import { Button } from "../../../../elements/Button";
+import { DetailPanel } from "../../../../elements/DetailPanel";
+import { ReadonlyCode } from "../../../../elements/ReadonlyCode";
+import { Sheet } from "../../../../elements/Sheet";
 
 const COLUMN_STYLES = [
   { fontWeight: "500", flex: "2 0 80px", fontSize: "0.875rem" },

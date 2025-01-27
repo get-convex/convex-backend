@@ -1,15 +1,13 @@
 import { PlusIcon, TableIcon } from "@radix-ui/react-icons";
-import {
-  Button,
-  Loading,
-  useTableMetadata,
-  useLogDeploymentEvent,
-  useNents,
-  DeploymentInfoContext,
-} from "dashboard-common";
 import { useContext } from "react";
 import { CreateNewTable } from "./DataSidebar";
 import { EmptySection } from "../../../elements/EmptySection";
+import { useNents } from "../../../lib/useNents";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useTableMetadata } from "../../../lib/useTableMetadata";
+import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
+import { Loading } from "../../../elements/Loading";
+import { Button } from "../../../elements/Button";
 
 export function EmptyData() {
   return (

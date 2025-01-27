@@ -1,11 +1,12 @@
-import { InfiniteScrollList, ModuleFunction } from "dashboard-common";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import { NoScheduledJobs, NoScheduledJobsForFunction } from "./emptyStates";
 import {
   JOB_ITEM_SIZE,
   ScheduledFunctionsListItem,
 } from "./ScheduledFunctionsListItem";
-import { SCHEDULED_JOBS_PAGE_SIZE } from "./usePaginatedScheduledJobs";
+import { SCHEDULED_JOBS_PAGE_SIZE } from "../lib/usePaginatedScheduledJobs";
+import { InfiniteScrollList } from "../../../elements/InfiniteScrollList";
+import { ModuleFunction } from "../../../lib/functions/types";
 
 export function ScheduledFunctionsList({
   hasScheduledJobs,

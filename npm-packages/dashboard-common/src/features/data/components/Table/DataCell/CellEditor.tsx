@@ -2,7 +2,7 @@ import { ValidatorJSON, Value } from "convex/values";
 import { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { ObjectEditor } from "dashboard-common";
+import { ObjectEditor } from "../../../../../elements/ObjectEditor/ObjectEditor";
 import { KeyboardShortcut } from "../../../../../elements/KeyboardShortcut";
 import { useTableDensity } from "../../../lib/useTableDensity";
 

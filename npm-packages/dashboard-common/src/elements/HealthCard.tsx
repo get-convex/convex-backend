@@ -3,10 +3,11 @@ import {
   ExclamationTriangleIcon,
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
-import { LoadingTransition, Tooltip } from "dashboard-common";
 import { cn } from "lib/cn";
 import React from "react";
 import { Sheet } from "./Sheet";
+import { Tooltip } from "./Tooltip";
+import { LoadingTransition } from "./Loading";
 
 export function HealthCard({
   title,

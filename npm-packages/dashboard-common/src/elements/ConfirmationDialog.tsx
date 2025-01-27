@@ -1,6 +1,7 @@
-import { Button, Spinner } from "dashboard-common";
 import React, { ReactNode, useState } from "react";
 import { TextInput } from "./TextInput";
+import { Button } from "./Button";
+import { Spinner } from "./Spinner";
 import { Modal } from "./Modal";
 
 export function ConfirmationDialog({

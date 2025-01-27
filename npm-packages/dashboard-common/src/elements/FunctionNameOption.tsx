@@ -2,11 +2,12 @@ import { ROUTABLE_HTTP_METHODS } from "convex/server";
 import { useHoverDirty } from "react-use";
 import { useRef } from "react";
 import { cn } from "lib/cn";
-import { PuzzlePieceIcon, Tooltip } from "dashboard-common";
 import {
   displayName,
   functionIdentifierFromValue,
 } from "../lib/functions/generateFileTree";
+import { Tooltip } from "./Tooltip";
+import { PuzzlePieceIcon } from "./icons";
 
 function splitFunctionName(functionName: string) {
   for (const method of ROUTABLE_HTTP_METHODS) {

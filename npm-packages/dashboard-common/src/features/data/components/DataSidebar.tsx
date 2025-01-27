@@ -1,13 +1,4 @@
 import { CodeIcon, PlusIcon } from "@radix-ui/react-icons";
-import {
-  Button,
-  Loading,
-  TableMetadata,
-  NentSwitcher,
-  useNents,
-  toast,
-  DeploymentInfoContext,
-} from "dashboard-common";
 import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
@@ -21,6 +12,13 @@ import {
   validateConvexIdentifier,
 } from "../lib/helpers";
 import { TableTab } from "./TableTab";
+import { TableMetadata } from "../../../lib/useTableMetadata";
+import { NentSwitcher } from "../../../elements/NentSwitcher";
+import { Loading } from "../../../elements/Loading";
+import { Button } from "../../../elements/Button";
+import { useNents } from "../../../lib/useNents";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { toast } from "../../../lib/utils";
 
 export function DataSidebar({
   tableData,

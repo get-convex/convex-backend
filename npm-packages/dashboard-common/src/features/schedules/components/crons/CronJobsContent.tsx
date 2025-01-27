@@ -9,22 +9,6 @@ import {
   ReloadIcon,
   StopwatchIcon,
 } from "@radix-ui/react-icons";
-import {
-  Button,
-  LoadingTransition,
-  Tooltip,
-  displayName,
-  LogLinesOutput,
-  entryOutput,
-  formatDateTime,
-  msFormat,
-  useFunctionUrl,
-  PageContent,
-  Sheet,
-  EmptySection,
-  useSourceCode,
-} from "dashboard-common";
-import { useCronJobs } from "data/Functions/CronsProvider";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
@@ -34,6 +18,19 @@ import {
 } from "system-udfs/convex/_system/frontend/common";
 import { FileModal } from "./FileModal";
 import { CronsTable } from "./CronsTable";
+import { useCronJobs } from "../../lib/CronsProvider";
+import { useSourceCode } from "../../../../lib/functions/useSourceCode";
+import { Button } from "../../../../elements/Button";
+import { PageContent } from "../../../../elements/PageContent";
+import { LoadingTransition } from "../../../../elements/Loading";
+import { Sheet } from "../../../../elements/Sheet";
+import { Tooltip } from "../../../../elements/Tooltip";
+import { useFunctionUrl } from "../../../../lib/deploymentApi";
+import { formatDateTime, msFormat } from "../../../../lib/format";
+import { displayName } from "../../../../lib/functions/generateFileTree";
+import { LogLinesOutput } from "../../../../elements/LogOutput";
+import { entryOutput } from "../../../../lib/useLogs";
+import { EmptySection } from "../../../../elements/EmptySection";
 
 export function CronJobsContent() {
   const { loading, cronJobs, cronsModule, cronJobRuns } = useCronJobs();

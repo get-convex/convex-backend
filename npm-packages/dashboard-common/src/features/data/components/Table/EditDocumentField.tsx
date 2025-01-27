@@ -3,9 +3,10 @@ import { GenericDocument } from "convex/server";
 import { useId, useState } from "react";
 import udfs from "udfs";
 import { ValidatorJSON, Value } from "convex/values";
-import { Button, ObjectEditor } from "dashboard-common";
 import isEqual from "lodash/isEqual";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { ObjectEditor } from "../../../../elements/ObjectEditor/ObjectEditor";
+import { Button } from "../../../../elements/Button";
 
 export function EditDocumentField({
   column,

@@ -63,6 +63,7 @@
     "react-window": "1.8.11",
     "react-window-infinite-loader": "^1.0.8",
     "recharts": "2.14.1",
+    "saffron": "get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39",
     "semver": "^7.6.0",
     "shapes": "workspace:*",
     "sonner": "^1.4.0",

@@ -1,13 +1,4 @@
 import React, { useContext, useMemo, useState } from "react";
-import {
-  useTableMetadataAndUpdateURL,
-  LoadingTransition,
-  useNents,
-  useTableShapes,
-  SchemaJson,
-  DeploymentInfoContext,
-  Modal,
-} from "dashboard-common";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
 import { SidebarDetailLayout } from "../../../layouts/SidebarDetailLayout";
@@ -15,6 +6,13 @@ import { EmptyData } from "./EmptyData";
 import { DataContent, DataContentSkeleton } from "./DataContent";
 import { DataSidebar, DataSideBarSkeleton } from "./DataSidebar";
 import { ShowSchema } from "./ShowSchema";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useTableMetadataAndUpdateURL } from "../../../lib/useTableMetadata";
+import { useNents } from "../../../lib/useNents";
+import { SchemaJson } from "../../../lib/format";
+import { useTableShapes } from "../../../lib/deploymentApi";
+import { Modal } from "../../../elements/Modal";
+import { LoadingTransition } from "../../../elements/Loading";
 
 export function Data() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);

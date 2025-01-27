@@ -64,7 +64,7 @@ export const DeploymentInfoContext = createContext<DeploymentInfo>(
   undefined as unknown as DeploymentInfo,
 );
 
-export type ConnectedDeployment = {
+type ConnectedDeployment = {
   client: ConvexReactClient;
   httpClient: ConvexHttpClient;
   deploymentUrl: string;

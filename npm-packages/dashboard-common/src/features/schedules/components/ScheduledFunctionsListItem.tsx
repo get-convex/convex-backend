@@ -1,27 +1,23 @@
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
-import { useHasProjectAdminPermissions } from "api/roles";
-import {
-  stringifyValue,
-  FunctionNameOption,
-  Loading,
-  ReadonlyCode,
-  useFunctionUrl,
-  useNents,
-  functionIdentifierValue,
-  prettier,
-  useCopy,
-  ConfirmationDialog,
-  Menu,
-  MenuItem,
-  DetailPanel,
-} from "dashboard-common";
 import { JSONValue, jsonToConvex } from "convex/values";
-import { useCurrentDeployment } from "api/deployments";
-import { useCancelJob } from "hooks/deploymentApi";
 import Link from "next/link";
-import { memo, useState } from "react";
+import { memo, useContext, useState } from "react";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import { areEqual } from "react-window";
+import { useCancelJob } from "../lib/api";
+import { useNents } from "../../../lib/useNents";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useFunctionUrl } from "../../../lib/deploymentApi";
+import { useCopy } from "../../../lib/useCopy";
+import { DetailPanel } from "../../../elements/DetailPanel";
+import { ReadonlyCode } from "../../../elements/ReadonlyCode";
+import { Loading } from "../../../elements/Loading";
+import { stringifyValue } from "../../../lib/stringifyValue";
+import { prettier } from "../../../lib/format";
+import { FunctionNameOption } from "../../../elements/FunctionNameOption";
+import { functionIdentifierValue } from "../../../lib/functions/generateFileTree";
+import { Menu, MenuItem } from "../../../elements/Menu";
+import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
 
 type JobItemProps = {
   data: { jobs: ScheduledJob[] };
@@ -71,6 +67,9 @@ function JobItemImpl({
   const [showArgs, setShowArgs] = useState(false);
   const { selectedNent } = useNents();
   const cancelJob = useCancelJob();
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,

@@ -1,16 +1,14 @@
 import { useQuery } from "convex/react";
 import { GenericDocument } from "convex/server";
-import {
-  defaultValueForValidator,
-  useTableShapes,
-  useNents,
-} from "dashboard-common";
 import { useMemo } from "react";
 import { Shape } from "shapes";
 import { parseAndFilterToSingleTable } from "system-udfs/convex/_system/frontend/lib/filters";
 import udfs from "udfs";
 import { Value } from "convex/values";
 import { defaultValueForShape } from "./helpers";
+import { useTableShapes } from "../../../lib/deploymentApi";
+import { useNents } from "../../../lib/useNents";
+import { defaultValueForValidator } from "../../../lib/defaultValueForValidator";
 
 export const useDefaultDocument = (tableName: string): GenericDocument => {
   const { tables } = useTableShapes();

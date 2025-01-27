@@ -9,7 +9,7 @@ import { GenericDocument } from "convex/server";
 import { SourceLocation } from "acorn";
 import { captureMessage } from "@sentry/nextjs";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api";
-import { stringifyValue } from "dashboard-common";
+import { stringifyValue } from "../../lib/stringifyValue";
 import {
   copyTextToClipboard,
   documentHref,

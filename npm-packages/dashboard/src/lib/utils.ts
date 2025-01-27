@@ -1,4 +1,3 @@
-import { captureMessage } from "@sentry/nextjs";
 import { useEffect } from "react";
 import { usePrevious } from "react-use";
 
@@ -36,14 +35,4 @@ export const useEffectDebugger = (
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(effectHook, dependencies);
-};
-
-export const reportHttpError = (
-  method: string,
-  url: string,
-  error: { code: string; message: string },
-) => {
-  captureMessage(
-    `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
-  );
 };

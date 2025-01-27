@@ -5,8 +5,9 @@ import { endOfToday, parse, startOfDay, format } from "date-fns";
 import { NextRouter } from "next/router";
 import * as React from "react";
 import { DateRange } from "react-day-picker";
-import { Button, Calendar } from "dashboard-common";
 import { Popover } from "./Popover";
+import { Button } from "./Button";
+import { Calendar } from "./Calendar";
 
 export function DateRangePicker({
   minDate,

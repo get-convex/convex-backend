@@ -654,15 +654,6 @@ importers:
       recharts:
         specifier: 2.14.1
         version: 2.14.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      saffron:
-        specifier: get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39
-        version: '@cloudflare/saffron@https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39'
-      semver:
-        specifier: ^7.6.0
-        version: 7.6.3
-      shapes:
-        specifier: workspace:*
-        version: link:../shapes
       swr:
         specifier: ^2.2.1
         version: 2.3.0(react@18.3.1)
@@ -775,9 +766,6 @@ importers:
       '@types/recharts':
         specifier: ^1.8.24
         version: 1.8.29
-      '@types/semver':
-        specifier: ^7.3.13
-        version: 7.5.8
       '@types/testing-library__jest-dom':
         specifier: ~5.14.5
         version: 5.14.9
@@ -1009,6 +997,9 @@ importers:
       recharts:
         specifier: 2.14.1
         version: 2.14.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      saffron:
+        specifier: get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39
+        version: '@cloudflare/saffron@https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39'
       semver:
         specifier: ^7.6.0
         version: 7.6.3
