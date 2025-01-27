@@ -242,8 +242,14 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             self.rt.spawn(
                 "spawn_cron_job",
                 async move {
-                    let result = context.execute_job(job, job_id).await;
-                    let _ = tx.send(result).await;
+                    select_biased! {
+                        _ = tx.closed().fuse() => {
+                            tracing::error!("Cron job receiver closed");
+                        },
+                        result = context.execute_job(job, job_id).fuse() => {
+                            let _ = tx.send(result).await;
+                        },
+                    }
                 }
                 .in_span(root),
             );
