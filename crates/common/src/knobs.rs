@@ -61,9 +61,9 @@ pub static RUNTIME_DISABLE_LIFO_SLOT: LazyLock<bool> =
 pub static UDF_CACHE_MAX_SIZE: LazyLock<usize> =
     LazyLock::new(|| env_config("UDF_CACHE_MAX_SIZE", 104857600));
 
-/// Maximum size of the shared UDF cache in Conductor. Default 500MiB.
+/// Maximum size of the shared UDF cache in Conductor. Default 1GiB.
 pub static SHARED_UDF_CACHE_MAX_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("SHARED_UDF_CACHE_MAX_SIZE", 5 * 104857600));
+    LazyLock::new(|| env_config("SHARED_UDF_CACHE_MAX_SIZE", 1024 * 1048576));
 
 /// How many UDF execution logs to keep in memory.
 pub static MAX_UDF_EXECUTION: LazyLock<usize> =
