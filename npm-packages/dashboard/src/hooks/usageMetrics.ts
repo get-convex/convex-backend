@@ -28,7 +28,7 @@ const DATABRICKS_QUERY_IDS: {
   teamFunctionBreakdown: "8e6592dd-12a0-4ddf-bc79-7498e07352d4",
   teamFunctionCalls: "46aa42bb-1f90-4fb5-8466-10bc52fcb43f",
   teamStorageCalls: "fe187e75-8670-4c16-a5c4-2cf7b0c5406f",
-  teamSummary: "849ab4f0-db76-4667-8d85-79ef1051f845",
+  teamSummary: "15fbb132-6641-4f17-9156-b05e9ee966d9",
   teamVectorBandwidth: "e24b4660-5dc4-4e41-a895-a91a66dede80",
   teamVectorStorage: "6cf7ee95-c39e-419e-ac3e-cb0acfcc2a0b",
 };
