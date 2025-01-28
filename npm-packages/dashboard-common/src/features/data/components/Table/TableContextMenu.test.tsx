@@ -3,9 +3,9 @@ import { GenericDocument } from "convex/server";
 import mockRouter from "next-router-mock";
 import { ConvexProvider } from "convex/react";
 import udfs from "udfs";
-import { mockConvexReactClient } from "dashboard-common";
 import userEvent from "@testing-library/user-event";
 import { TableContextMenu, TableContextMenuProps } from "./TableContextMenu";
+import { mockConvexReactClient } from "../../../../lib/mockConvexReactClient";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 

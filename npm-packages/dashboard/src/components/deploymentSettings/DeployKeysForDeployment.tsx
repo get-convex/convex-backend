@@ -10,7 +10,7 @@ import {
 import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
 import { DeploymentResponse, Team, ProjectDetails } from "generatedApi";
-import { DeploymentType } from "components/deploymentSettings/DeploymentUrl";
+import { DeploymentType } from "dashboard-common";
 import { useAccessToken } from "hooks/useServerSideData";
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
 

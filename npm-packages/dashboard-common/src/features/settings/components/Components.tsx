@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { Sheet, Nent, Button, ConfirmationDialog } from "dashboard-common";
 import Link from "next/link";
-import { useDeleteComponent } from "hooks/deploymentApi";
 import { TrashIcon } from "@radix-ui/react-icons";
+import { useDeleteComponent } from "../lib/api";
+import { Sheet } from "../../../elements/Sheet";
+import { Nent } from "../../../lib/useNents";
+import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
+import { Button } from "../../../elements/Button";
 
 export function Components({ nents }: { nents: Nent[] }) {
   const sortedNents = [...nents]

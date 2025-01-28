@@ -40,7 +40,7 @@ export function Sidebar({
   const path = router.pathname
     .replace("/t/[team]/[project]/[deploymentName]", "")
     .split("/")
-    .filter(Boolean);
+    .filter((i) => !!i);
   const currentPage = path[0] ?? null;
 
   const { width } = useWindowSize();
@@ -114,6 +114,7 @@ export function SidebarLink({
   disabled,
   proBadge,
   small,
+  tip,
 }: {
   collapsed?: boolean;
   href: string;
@@ -124,44 +125,50 @@ export function SidebarLink({
   disabled?: boolean;
   proBadge?: boolean;
   small?: boolean;
+  tip?: string;
 }) {
   const { query: currentQuery } = useRouter();
   return (
-    <Link
-      href={{
-        pathname: href,
-        query: currentQuery.component
-          ? { ...query, component: currentQuery.component }
-          : query,
-      }}
-      passHref
-      className={sidebarLinkClassNames({
-        isActive,
-        isDisabled: disabled,
-        small,
-      })}
-    >
-      {Icon && (
-        <Icon
-          className={classNames(
-            "size-[1.125rem] shrink-0",
-            !collapsed && "text-content-secondary",
-          )}
-          aria-hidden
-        />
-      )}
-      <span className={classNames("select-none flex-1", collapsed && "hidden")}>
-        {children}
-      </span>
-      {proBadge && (
+    <Tooltip tip={tip} className="w-fit text-left" side="right">
+      <Link
+        href={{
+          pathname: href,
+          query: currentQuery.component
+            ? { ...query, component: currentQuery.component }
+            : query,
+        }}
+        passHref
+        aria-disabled={disabled}
+        className={sidebarLinkClassNames({
+          isActive,
+          isDisabled: disabled,
+          small,
+        })}
+      >
+        {Icon && (
+          <Icon
+            className={classNames(
+              "size-[1.125rem] shrink-0",
+              !collapsed && "text-content-secondary",
+            )}
+            aria-hidden
+          />
+        )}
         <span
-          className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
-          title="Only available in paid plans"
+          className={classNames("select-none flex-1", collapsed && "hidden")}
         >
-          Pro
+          {children}
         </span>
-      )}
-    </Link>
+        {proBadge && (
+          <span
+            className="rounded bg-util-accent px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+            title="Only available in paid plans"
+          >
+            Pro
+          </span>
+        )}
+      </Link>
+    </Tooltip>
   );
 }
 
@@ -190,11 +197,11 @@ export function sidebarLinkClassNames(props: {
     (props.fitWidth ?? true) ? "min-w-fit" : null,
     props.font === "mono" && "font-mono px-1 py-1",
     props.small ? "p-1.5" : "px-3 h-9",
-    (props.isHoverable ?? true)
+    !props.isDisabled && (props.isHoverable ?? true)
       ? "focus-visible:ring cursor-pointer hover:bg-background-primary"
       : null,
     "focus-visible:outline-0 focus-visible:ring-1 focus-visible:ring-util-accent/40 rounded focus-visible:ring-offset-2",
     (props.isActive ?? false) ? "font-semibold bg-background-tertiary" : null,
-    props.isDisabled ? "text-content-tertiary" : null,
+    props.isDisabled ? "text-content-tertiary cursor-not-allowed" : null,
   );
 }

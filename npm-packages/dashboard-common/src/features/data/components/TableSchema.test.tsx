@@ -66,13 +66,6 @@ jest.mock("../../../lib/deploymentApi", () => ({
   useTableShapes: () => ({ tables: new Map(tables) }),
 }));
 
-// jest.mock("dashboard-common", () => ({
-//   ...jest.requireActual("dashboard-common"),
-//   useDeploymentUrl: () => "https://deployment-url.com",
-//   useDeploymentAuthHeader: () => "auth-header",
-//   useLogDeploymentEvent: jest.fn(),
-//   useTableShapes: () => ({ tables: new Map(tables) }),
-
 jest.mock("@monaco-editor/react", () => (p: any) => MockMonaco(p));
 
 describe("TableSchema", () => {

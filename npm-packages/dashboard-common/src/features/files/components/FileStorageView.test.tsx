@@ -4,11 +4,7 @@ import userEvent from "@testing-library/user-event";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import * as nextRouter from "next/router";
-import {
-  FileStorageContent,
-  Uploader,
-  useUploadFiles,
-} from "./FileStorageContent";
+import { FileStorageView, Uploader, useUploadFiles } from "./FileStorageView";
 import { mockConvexReactClient } from "../../../lib/mockConvexReactClient";
 import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 import { deploymentInfo } from "../../../pages/_app";
@@ -57,7 +53,7 @@ describe("FileStorageContent", () => {
         render(
           <DeploymentInfoContext.Provider value={deploymentInfo}>
             <ConvexProvider client={mockClient}>
-              <FileStorageContent />
+              <FileStorageView />
             </ConvexProvider>
           </DeploymentInfoContext.Provider>,
         ),

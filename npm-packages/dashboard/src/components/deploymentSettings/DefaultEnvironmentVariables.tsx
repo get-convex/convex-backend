@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sheet } from "dashboard-common";
+import { DeploymentType, EnvironmentVariables, Sheet } from "dashboard-common";
 import {
   useProjectEnvironmentVariables,
   useUpdateProjectEnvVars,
@@ -8,8 +8,6 @@ import { useCurrentProject } from "api/projects";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
 import Link from "next/link";
-import { EnvironmentVariables } from "./EnvironmentVariables";
-import { DeploymentType } from "./DeploymentUrl";
 
 const DEPLOYMENT_TYPES_FOR_DEFAULT_ENV_VARIABLES: DeploymentTypeType[] = [
   "dev",

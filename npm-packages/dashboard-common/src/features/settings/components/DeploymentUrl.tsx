@@ -1,17 +1,17 @@
-import { useCurrentDeployment } from "api/deployments";
-import { ReactNode } from "react";
-import { DeploymentType as DeploymentTypeType } from "generatedApi";
+import { ReactNode, useContext } from "react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { CopyTextButton, useDeploymentUrl } from "dashboard-common";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useDeploymentUrl } from "../../../lib/deploymentApi";
+import { CopyTextButton } from "../../../elements/CopyTextButton";
 
 // dev/prod sometimes isn't initially loaded.
 // Optimize for no flash on prod.
 export function DeploymentType({
   deploymentType = "prod",
 }: {
-  deploymentType?: DeploymentTypeType;
+  deploymentType?: "prod" | "preview" | "dev";
 }) {
   switch (deploymentType) {
     case "prod":
@@ -29,6 +29,8 @@ export function DeploymentType({
 
 export function DeploymentUrl({ children }: { children: ReactNode }) {
   const deploymentUrl = useDeploymentUrl();
+
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
 
@@ -48,6 +50,8 @@ export function DeploymentUrl({ children }: { children: ReactNode }) {
 export function HttpActionsUrl() {
   const deploymentUrl = useDeploymentUrl();
   const convexSiteUrl = useQuery(udfs.convexSiteUrl.default, {});
+
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
 

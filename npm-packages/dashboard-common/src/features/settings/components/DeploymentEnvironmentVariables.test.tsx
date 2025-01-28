@@ -1,10 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { ConvexProvider } from "convex/react";
-import { ProjectEnvVarConfig } from "hooks/api";
-import {
-  mockConvexReactClient,
-  ConnectedDeploymentContext,
-} from "dashboard-common";
 import mockRouter from "next-router-mock";
 import udfs from "udfs";
 import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common";
@@ -12,21 +7,13 @@ import {
   DeploymentEnvironmentVariables,
   diffEnvironmentVariables,
 } from "./DeploymentEnvironmentVariables";
-
-jest.mock("api/roles", () => ({
-  useHasProjectAdminPermissions: jest.fn(),
-}));
-jest.mock("api/profile", () => {});
-jest.mock("api/backups", () => {});
-jest.mock("api/deployments", () => ({
-  useCurrentDeployment: jest.fn(),
-}));
-jest.mock("api/projects", () => ({
-  useCurrentProject: jest.fn(),
-}));
-jest.mock("api/teams", () => ({
-  useCurrentTeam: jest.fn(),
-}));
+import { mockConvexReactClient } from "../../../lib/mockConvexReactClient";
+import {
+  ConnectedDeploymentContext,
+  DeploymentInfoContext,
+} from "../../../lib/deploymentContext";
+import { ProjectEnvVarConfig } from "../lib/types";
+import { deploymentInfo } from "../../../pages/_app";
 
 const createEnvironmentVariable = (
   name: string,
@@ -191,11 +178,16 @@ describe("Prefilling env var name", () => {
 
   function renderUI() {
     render(
-      <ConvexProvider client={mockClient}>
-        <ConnectedDeploymentContext.Provider value={{ deployment: {} } as any}>
-          <DeploymentEnvironmentVariables />
-        </ConnectedDeploymentContext.Provider>
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={deploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <ConnectedDeploymentContext.Provider
+            value={{ deployment: {} } as any}
+          >
+            <DeploymentEnvironmentVariables />
+          </ConnectedDeploymentContext.Provider>
+        </ConvexProvider>
+        ,
+      </DeploymentInfoContext.Provider>,
     );
   }
 });

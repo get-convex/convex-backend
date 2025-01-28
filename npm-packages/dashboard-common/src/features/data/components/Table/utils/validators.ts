@@ -1,5 +1,5 @@
 import { ValidatorJSON } from "convex/values";
-import { SchemaJson } from "dashboard-common";
+import { SchemaJson } from "../../../../../lib/format";
 
 export function documentValidatorForTable(
   activeSchema: SchemaJson,

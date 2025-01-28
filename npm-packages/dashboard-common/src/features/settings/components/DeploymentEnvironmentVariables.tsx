@@ -1,23 +1,23 @@
-import { Button, Sheet } from "dashboard-common";
-import { useUpdateEnvVars } from "hooks/deploymentApi";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { ProjectEnvVarConfig, useProjectEnvironmentVariables } from "hooks/api";
-import { useCurrentProject } from "api/projects";
-import { useHasProjectAdminPermissions } from "api/roles";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { DeploymentType } from "generatedApi";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common";
-import { useCurrentDeployment } from "api/deployments";
 import {
   EnvironmentVariables,
   BaseEnvironmentVariable,
 } from "./EnvironmentVariables";
+import { useUpdateEnvVars } from "../lib/api";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { Button } from "../../../elements/Button";
+import { Sheet } from "../../../elements/Sheet";
+import { ProjectEnvVarConfig } from "../lib/types";
 
 export function DeploymentEnvironmentVariables() {
+  const { useCurrentDeployment, useHasProjectAdminPermissions, projectsURI } =
+    useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
@@ -32,8 +32,7 @@ export function DeploymentEnvironmentVariables() {
 
   const diff = useEnvironmentVariablesDiff();
 
-  const router = useRouter();
-  const projectSettingsURI = `/t/${router.query.team}/${router.query.project}/settings`;
+  const projectSettingsURI = `${projectsURI}/settings`;
 
   const requestedEnvVars = useRequestedEnvVars();
 
@@ -142,7 +141,7 @@ type EnvironmentVariableDiff =
 export const diffEnvironmentVariables = (
   projectEnvVariables: { configs: ProjectEnvVarConfig[] },
   deploymentEnvVariables: EnvironmentVariable[],
-  deploymentType: DeploymentType,
+  deploymentType: "dev" | "preview" | "prod",
 ): EnvironmentVariableDiff => {
   const deploymentEnvVarMap = new Map(
     deploymentEnvVariables.map((e) => [e.name, e.value]),
@@ -170,6 +169,11 @@ function useEnvironmentVariablesDiff(): EnvironmentVariableDiff {
     udfs.listEnvironmentVariables.default,
     {},
   );
+  const {
+    useCurrentProject,
+    useCurrentDeployment,
+    useProjectEnvironmentVariables,
+  } = useContext(DeploymentInfoContext);
   const projectId = useCurrentProject()?.id;
   const deploymentType = useCurrentDeployment()?.deploymentType;
   const projectEnvironmentVariables = useProjectEnvironmentVariables(

@@ -1,5 +1,3 @@
-import { History as HistoryView } from "../features/history/components/History";
+import { HistoryView } from "../features/history/components/HistoryView";
 
-export default function History() {
-  return <HistoryView />;
-}
+export default HistoryView;

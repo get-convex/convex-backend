@@ -7,7 +7,6 @@ import {
   CounterClockwiseClockIcon,
   TextAlignBottomIcon,
 } from "@radix-ui/react-icons";
-import { useRouter } from "next/router";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useContext, useState } from "react";
@@ -145,10 +144,6 @@ export function DeploymentDashboardLayout({
 }
 
 function PauseBanner() {
-  const { query } = useRouter();
-  const teamSlug = query.team as string;
-  const projectSlug = query.project as string;
-  const deploymentName = query.deploymentName as string;
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
 
   const { useCurrentTeam, useCurrentUsageBanner } = useContext(
@@ -157,6 +152,8 @@ function PauseBanner() {
 
   const team = useCurrentTeam();
   const teamUsageBanner = useCurrentUsageBanner(team?.id ?? null);
+
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
 
   if (!(deploymentState?.state === "paused" && teamUsageBanner !== "Paused")) {
     return null;
@@ -167,7 +164,7 @@ function PauseBanner() {
       This deployment is paused. Resume your deployment on the{" "}
       <Link
         passHref
-        href={`/t/${teamSlug}/${projectSlug}/${deploymentName}/settings/pause-deployment`}
+        href={`${deploymentsURI}settings/pause-deployment`}
         className="text-content-link hover:underline dark:underline"
       >
         settings

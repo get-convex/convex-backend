@@ -34,10 +34,12 @@ import { EmptySection } from "../../../elements/EmptySection";
 import { Sheet } from "../../../elements/Sheet";
 import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
 import { useCopy } from "../../../lib/useCopy";
+import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
+import { PageContent } from "../../../elements/PageContent";
 
 const columnHelper = createColumnHelper<FileMetadata>();
 
-export function FileStorageContent() {
+export function FileStorageView() {
   const [selectedFiles, setSelectedFiles] = useState<
     Record<Id<"_storage">, boolean>
   >({});
@@ -49,63 +51,66 @@ export function FileStorageContent() {
   const useUploadFilesResult = useUploadFiles();
 
   return (
-    <div
-      className="relative flex h-full flex-col gap-4 overflow-hidden p-6 py-4"
-      onDragOver={(e) => {
-        e.preventDefault();
-        if (e.dataTransfer.types.includes("Files")) {
-          setIsDraggingFile(true);
-        }
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDraggingFile(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setIsDraggingFile(false);
+    <PageContent>
+      <DeploymentPageTitle title="Files" />
+      <div
+        className="relative flex h-full flex-col gap-4 overflow-hidden p-6 py-4"
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (e.dataTransfer.types.includes("Files")) {
+            setIsDraggingFile(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDraggingFile(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDraggingFile(false);
 
-        const { handleUpload, isUploading, cantUploadFilesReason } =
-          useUploadFilesResult;
+          const { handleUpload, isUploading, cantUploadFilesReason } =
+            useUploadFilesResult;
 
-        if (isUploading) {
-          toast(
-            "error",
-            "Cannot upload files while another upload is in progress.",
-          );
-          return;
-        }
+          if (isUploading) {
+            toast(
+              "error",
+              "Cannot upload files while another upload is in progress.",
+            );
+            return;
+          }
 
-        if (cantUploadFilesReason) {
-          toast("error", cantUploadFilesReason);
-          return;
-        }
+          if (cantUploadFilesReason) {
+            toast("error", cantUploadFilesReason);
+            return;
+          }
 
-        void handleUpload(e.dataTransfer.files);
-      }}
-    >
-      <div className="flex flex-col">
-        <div className="w-fit min-w-60">
-          <NentSwitcher />
+          void handleUpload(e.dataTransfer.files);
+        }}
+      >
+        <div className="flex flex-col">
+          <div className="w-fit min-w-60">
+            <NentSwitcher />
+          </div>
+          <FileStorageHeader
+            selectedFiles={selectedFilesArr}
+            useUploadFilesResult={useUploadFilesResult}
+          />
         </div>
-        <FileStorageHeader
-          selectedFiles={selectedFilesArr}
-          useUploadFilesResult={useUploadFilesResult}
+        <Files
+          selectedFiles={selectedFiles}
+          setSelectedFiles={setSelectedFiles}
         />
+        {isDraggingFile && (
+          // eslint-disable-next-line no-restricted-syntax
+          <div className="pointer-events-none absolute inset-0 z-50 mx-6 my-4 flex max-w-[46rem] animate-fadeInFromLoading items-center justify-center rounded-lg border-2 border-dashed bg-background-secondary/70 text-center text-lg tracking-tight text-content-tertiary backdrop-blur-sm">
+            <UploadIcon className="mr-2 size-6" />
+            Drop files to upload
+          </div>
+        )}
       </div>
-      <Files
-        selectedFiles={selectedFiles}
-        setSelectedFiles={setSelectedFiles}
-      />
-      {isDraggingFile && (
-        // eslint-disable-next-line no-restricted-syntax
-        <div className="pointer-events-none absolute inset-0 z-50 mx-6 my-4 flex max-w-[46rem] animate-fadeInFromLoading items-center justify-center rounded-lg border-2 border-dashed bg-background-secondary/70 text-center text-lg tracking-tight text-content-tertiary backdrop-blur-sm">
-          <UploadIcon className="mr-2 size-6" />
-          Drop files to upload
-        </div>
-      )}
-    </div>
+    </PageContent>
   );
 }
 

@@ -1,4 +1,4 @@
-import { SchemaJson } from "dashboard-common";
+import { SchemaJson } from "../../../../../../lib/format";
 import {
   documentValidatorForTable,
   validatorForColumn,

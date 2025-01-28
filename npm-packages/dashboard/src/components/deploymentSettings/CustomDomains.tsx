@@ -14,6 +14,8 @@ import {
   Sheet,
   ConfirmationDialog,
   TextInput,
+  ENVIRONMENT_VARIABLES_ROW_CLASSES,
+  ENVIRONMENT_VARIABLE_NAME_COLUMN,
 } from "dashboard-common";
 import { useFormik } from "formik";
 import { useDeployments } from "api/deployments";
@@ -31,7 +33,6 @@ import {
   useCreateVanityDomain,
   useDeleteVanityDomain,
 } from "api/vanityDomains";
-import { ROW, NAME_COLUMN } from "./EnvironmentVariables";
 
 export function CustomDomains({
   team,
@@ -91,8 +92,15 @@ export function CustomDomains({
             )}
             {vanityDomains && vanityDomains.length > 0 && (
               <>
-                <div className={classNames("hidden md:grid", ROW)}>
-                  <div className={`flex flex-col gap-1 ${NAME_COLUMN}`}>
+                <div
+                  className={classNames(
+                    "hidden md:grid",
+                    ENVIRONMENT_VARIABLES_ROW_CLASSES,
+                  )}
+                >
+                  <div
+                    className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+                  >
                     <span className="text-xs text-content-secondary">
                       Domain
                     </span>
@@ -267,8 +275,10 @@ function DisplayVanityDomain({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   return (
     <div className="flex flex-col">
-      <div className={ROW}>
-        <div className={`flex flex-col gap-1 ${NAME_COLUMN}`}>
+      <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
+        <div
+          className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+        >
           <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
             {vanityDomain.domain}
             {vanityDomain.verificationTs && (

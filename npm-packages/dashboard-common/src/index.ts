@@ -1,7 +1,11 @@
-// General dashboard usage
+/**
+ * This barrel file exports all code that is shared between the
+ * self-hosted dashboard and the cloud dashboard.
+ */
+
+// General dashboard exports
 export {
   reportHttpError,
-  copyTextToClipboard,
   toast,
   dismissToast,
   backoffWithJitter,
@@ -10,6 +14,14 @@ export * from "./lib/fetching";
 export * from "./lib/useGlobalLocalStorage";
 export * from "./lib/useCopy";
 export * from "./lib/useIsOverflowing";
+export {
+  formatBytes,
+  formatNumber,
+  formatNumberCompact,
+  formatDate,
+  msFormat,
+  toNumericUTC,
+} from "./lib/format";
 
 // Deployment-related exports for Insights
 export { useLogDeploymentEvent, useFunctionUrl } from "./lib/deploymentApi";
@@ -17,6 +29,7 @@ export {
   functionIdentifierFromValue,
   functionIdentifierValue,
 } from "./lib/functions/generateFileTree";
+export * from "./lib/useNents";
 export { useDeploymentAuditLogs } from "./lib/useDeploymentAuditLog";
 export {
   useModuleFunctions,
@@ -25,6 +38,7 @@ export {
 export { documentHref } from "./lib/utils";
 export * from "./elements/FunctionNameOption";
 export * from "./elements/HealthCard";
+export * from "./features/health/components/DeploymentTimes";
 
 // Re-used in the cloud dashboard for deployment pages
 export {
@@ -39,21 +53,15 @@ export type {
   DeploymentApiProviderProps,
 } from "./lib/deploymentContext";
 
-// Used only for page headers - refactor later
-export { useTableMetadataAndUpdateURL } from "./lib/useTableMetadata";
-
-// TODO: Remove these exports once pages are refactored
+// These are used for some deployment-related settings pages
+// that are not available in the self-hosted dashboard.
 export {
   useDeploymentUrl,
   useDeploymentAuthHeader,
   useAdminKey,
 } from "./lib/deploymentApi";
 export * from "./lib/integrationHelpers";
-export * from "./lib/useNents";
 export * from "./lib/stringifyValue";
-export * from "./lib/format";
-export * from "./lib/mockConvexReactClient";
-export * from "./elements/CopyTextButton";
 
 // Re-usable elements
 export * from "./elements/Button";
@@ -64,6 +72,7 @@ export * from "./elements/ClosePanelButton";
 export * from "./elements/Combobox";
 export * from "./elements/ConfirmationDialog";
 export * from "./elements/CopyButton";
+export * from "./elements/CopyTextButton";
 export * from "./elements/DateRangePicker";
 export * from "./elements/DetailPanel";
 export * from "./elements/EmptySection";
@@ -90,12 +99,20 @@ export * from "./elements/ThemeConsumer";
 
 // For rendering deployment pages in self-hosted dashboard
 export * from "./layouts/DeploymentDashboardLayout";
-export * from "./features/health/components/Health";
-export * from "./features/health/components/DeploymentTimes";
-export * from "./features/data/components/Data";
+export * from "./layouts/DeploymentSettingsLayout";
+export * from "./features/health/components/HealthView";
+export * from "./features/data/components/DataView";
 export * from "./features/functions/components/FunctionsView";
-export * from "./features/files/components/FileStorageContent";
+export * from "./features/files/components/FileStorageView";
 export * from "./features/logs/components/LogsView";
-export * from "./features/history/components/History";
+export * from "./features/history/components/HistoryView";
 export * from "./features/schedules/components/ScheduledFunctionsView";
 export * from "./features/schedules/components/crons/CronsView";
+export * from "./features/settings/components/EnvironmentVariablesView";
+export * from "./features/settings/components/AuthenticationView";
+export * from "./features/settings/components/ComponentsView";
+
+export * from "./features/settings/components/DeploymentUrl";
+export * from "./features/settings/components/EnvironmentVariables";
+export * from "./features/settings/components/DeploymentEnvironmentVariables";
+export * from "./features/settings/lib/types";

@@ -1,9 +1,9 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { mockConvexReactClient } from "dashboard-common";
 import { ConvexProvider } from "convex/react";
 import { ComponentProps } from "react";
 import udfs from "udfs";
 import { DataFilters } from "./DataFilters";
+import { mockConvexReactClient } from "../../../../lib/mockConvexReactClient";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))

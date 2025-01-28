@@ -12,7 +12,6 @@ import {
   Link2Icon,
 } from "@radix-ui/react-icons";
 import { Portal, Transition } from "@headlessui/react";
-import { SchemaJson, stringifyValue, Button } from "dashboard-common";
 import { useTableDensity } from "../../../lib/useTableDensity";
 
 import { ProductionEditsConfirmationDialog } from "../../../../../elements/ProductionEditsConfirmationDialog";
@@ -32,6 +31,9 @@ import {
 import { usePasteListener } from "./utils/usePasteListener";
 import { useTrackCellChanges } from "./utils/useTrackCellChanges";
 import { useValidator } from "./utils/useValidator";
+import { SchemaJson } from "../../../../../lib/format";
+import { stringifyValue } from "../../../../../lib/stringifyValue";
+import { Button } from "../../../../../elements/Button";
 
 export type DataCellProps = {
   value: Value;

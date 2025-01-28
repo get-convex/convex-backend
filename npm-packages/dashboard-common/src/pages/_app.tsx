@@ -47,7 +47,7 @@ export const deploymentInfo: DeploymentInfo = {
   deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
   adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
   useCurrentTeam: () => ({
-    id: 1,
+    id: 0,
     name: "Team",
     slug: "team",
   }),
@@ -56,24 +56,35 @@ export const deploymentInfo: DeploymentInfo = {
     auditLogsEnabled: true,
   }),
   useCurrentUsageBanner: () => null,
+  useCurrentProject: () => ({
+    id: 0,
+    name: "Project",
+    slug: "project",
+    teamId: 0,
+  }),
   useCurrentDeployment: () => ({
-    id: 1,
+    id: 0,
     name: "local",
     deploymentType: "prod",
-    projectId: 1,
+    projectId: 0,
     kind: "local",
+    previewIdentifier: null,
   }),
   useHasProjectAdminPermissions: () => true,
   useIsDeploymentPaused: () => {
     const deploymentState = useQuery(udfs.deploymentState.deploymentState);
     return deploymentState?.state === "paused";
   },
+  useProjectEnvironmentVariables: () => ({ configs: [] }),
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
     <div>{sourceCloudBackupId}</div>
   ),
   TeamMemberLink: () => <div />,
+  useTeamUsageState: () => "Default",
+  teamsURI: "/",
   projectsURI: "/",
   deploymentsURI: "/",
+  isSelfHosted: true,
 };
 
 function DeploymentInfoProvider({ children }: { children: React.ReactNode }) {

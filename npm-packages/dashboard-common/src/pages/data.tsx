@@ -1,5 +1,3 @@
-import { Data } from "../features/data/components/Data";
+import { DataView } from "../features/data/components/DataView";
 
-export default function DataPage() {
-  return <Data />;
-}
+export default DataView;

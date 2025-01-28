@@ -146,16 +146,19 @@ export function Table({
 
   trackDataColumnChanges(dataColumnNames, storedColumnOrder, setColumnOrder);
 
-  const reorderColumns = (item: { index: number }, newIndex: number) => {
-    const { index: currentIndex } = item;
+  const reorderColumns = useCallback(
+    (item: { index: number }, newIndex: number) => {
+      const { index: currentIndex } = item;
 
-    const currentItem = state.columnOrder[currentIndex];
+      const currentItem = state.columnOrder[currentIndex];
 
-    const newColumnOrder = [...state.columnOrder];
-    newColumnOrder.splice(currentIndex, 1);
-    newColumnOrder.splice(newIndex, 0, currentItem);
-    setColumnOrder(newColumnOrder);
-  };
+      const newColumnOrder = [...state.columnOrder];
+      newColumnOrder.splice(currentIndex, 1);
+      newColumnOrder.splice(newIndex, 0, currentItem);
+      setColumnOrder(newColumnOrder);
+    },
+    [setColumnOrder, state.columnOrder],
+  );
 
   const resetColumnWidths = useTrackColumnWidths(state, localStorageKey);
 

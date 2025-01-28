@@ -13,7 +13,6 @@ import { Row } from "react-table";
 import classNames from "classnames";
 import { useFirstMountState, usePrevious } from "react-use";
 import { areEqual } from "react-window";
-import { Loading, SchemaJson } from "dashboard-common";
 import { cn } from "lib/cn";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "../../lib/useContextMenuTrigger";
@@ -24,6 +23,8 @@ import { DataCell, DataCellProps } from "./DataCell/DataCell";
 import { usePatchDocumentField } from "./utils/usePatchDocumentField";
 import { arrowKeyHandler } from "./utils/arrowKeyHandler";
 import { toggleAdjacent } from "./utils/toggleAdjacent";
+import { SchemaJson } from "../../../../lib/format";
+import { Loading } from "../../../../elements/Loading";
 
 type DataRowProps = {
   data: {

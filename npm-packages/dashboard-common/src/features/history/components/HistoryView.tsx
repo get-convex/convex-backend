@@ -16,12 +16,23 @@ import {
 import { Loading } from "../../../elements/Loading";
 import { toast } from "../../../lib/utils";
 import { Sheet } from "../../../elements/Sheet";
+import { PageContent } from "../../../elements/PageContent";
+import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
 
 const INITIAL_EVENTS_TO_LOAD = 10;
 const PAGE_SIZE = 10;
 const DISTANCE_FROM_BOTTOM_THRESHOLD_PX = 300;
 
-export function History() {
+export function HistoryView() {
+  return (
+    <PageContent>
+      <DeploymentPageTitle title="History" />
+      <History />
+    </PageContent>
+  );
+}
+
+function History() {
   const router = useRouter();
   const { useCurrentTeam, useTeamEntitlements } = useContext(
     DeploymentInfoContext,

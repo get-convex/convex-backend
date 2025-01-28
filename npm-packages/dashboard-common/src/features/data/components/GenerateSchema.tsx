@@ -1,15 +1,12 @@
-import {
-  Callout,
-  CopyButton,
-  ReadonlyCode,
-  HighlightLines,
-  displaySchemaFromShapes,
-} from "dashboard-common";
 import Link from "next/link";
 import React, { useMemo } from "react";
 import { Shape } from "shapes";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { ConvexSchemaFilePath } from "./ConvexSchemaFilePath";
+import { HighlightLines, ReadonlyCode } from "../../../elements/ReadonlyCode";
+import { displaySchemaFromShapes } from "../../../lib/format";
+import { Callout } from "../../../elements/Callout";
+import { CopyButton } from "../../../elements/CopyButton";
 
 export type LineHighlighter = (code: string) => HighlightLines;
 export type CodeTransformation = (code: string) => string;

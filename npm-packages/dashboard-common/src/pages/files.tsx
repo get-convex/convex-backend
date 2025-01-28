@@ -1,5 +1,3 @@
-import { FileStorageContent } from "../features/files/components/FileStorageContent";
+import { FileStorageView } from "../features/files/components/FileStorageView";
 
-export default function Files() {
-  return <FileStorageContent />;
-}
+export default FileStorageView;

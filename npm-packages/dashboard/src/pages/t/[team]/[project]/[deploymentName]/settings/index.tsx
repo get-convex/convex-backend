@@ -1,11 +1,11 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { DeploymentSettingsLayout } from "layouts/DeploymentSettingsLayout";
-import { Sheet } from "dashboard-common";
-import { NonProdDeploymentWarning } from "components/deploymentSettings/NonProdDeploymentWarning";
 import {
+  DeploymentSettingsLayout,
+  Sheet,
   DeploymentUrl,
   HttpActionsUrl,
-} from "components/deploymentSettings/DeploymentUrl";
+} from "dashboard-common";
+import { NonProdDeploymentWarning } from "components/deploymentSettings/NonProdDeploymentWarning";
 import { DeployKeysForDeployment } from "components/deploymentSettings/DeployKeysForDeployment";
 import { useCurrentDeployment } from "api/deployments";
 import { useRouter } from "next/router";

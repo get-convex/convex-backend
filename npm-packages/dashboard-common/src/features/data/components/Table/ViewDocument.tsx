@@ -1,10 +1,3 @@
-import {
-  CopyButton,
-  Button,
-  useNents,
-  SchemaJson,
-  stringifyValue,
-} from "dashboard-common";
 import { GenericDocument } from "convex/server";
 import { useState } from "react";
 import { TextInput } from "../../../../elements/TextInput";
@@ -14,6 +7,11 @@ import {
   documentValidatorForTable,
   validatorForColumn,
 } from "./utils/validators";
+import { SchemaJson } from "../../../../lib/format";
+import { useNents } from "../../../../lib/useNents";
+import { CopyButton } from "../../../../elements/CopyButton";
+import { stringifyValue } from "../../../../lib/stringifyValue";
+import { Button } from "../../../../elements/Button";
 
 export function ViewDocument({
   rows,

@@ -1,11 +1,3 @@
-import {
-  Button,
-  Spinner,
-  copyTextToClipboard,
-  toast,
-  Callout,
-  TextInput,
-} from "dashboard-common";
 import { Form, Formik, getIn, useFormikContext } from "formik";
 
 import {
@@ -27,12 +19,17 @@ import {
   useState,
 } from "react";
 import { z } from "zod";
+import { Spinner } from "../../../elements/Spinner";
+import { Callout } from "../../../elements/Callout";
+import { Button } from "../../../elements/Button";
+import { copyTextToClipboard, toast } from "../../../lib/utils";
+import { TextInput } from "../../../elements/TextInput";
 
 const MAX_NUMBER_OF_ENV_VARS = 100;
 
-export const ROW =
+export const ENVIRONMENT_VARIABLES_ROW_CLASSES =
   "grid grid-cols-[minmax(0,1fr)_7.5rem] gap-4 py-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7.5rem] items-start";
-export const NAME_COLUMN = "col-span-2 md:col-span-1";
+export const ENVIRONMENT_VARIABLE_NAME_COLUMN = "col-span-2 md:col-span-1";
 
 const ERROR_ENV_VAR_NOT_UNIQUE = "Environment variable name is not unique";
 
@@ -212,8 +209,15 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
           <div className="divide-y divide-border-transparent">
             {(environmentVariables.length > 0 ||
               formState.values.newVars.length > 0) && (
-              <div className={classNames(ROW, "hidden md:grid")}>
-                <div className={`flex flex-col gap-1 ${NAME_COLUMN}`}>
+              <div
+                className={classNames(
+                  ENVIRONMENT_VARIABLES_ROW_CLASSES,
+                  "hidden md:grid",
+                )}
+              >
+                <div
+                  className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+                >
                   <span className="text-xs text-content-secondary">Name</span>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -318,8 +322,10 @@ function DisplayEnvVar<T extends BaseEnvironmentVariable>({
   const [showValue, setShowValue] = useState(false);
 
   return (
-    <div className={ROW}>
-      <div className={`flex flex-col gap-1 ${NAME_COLUMN}`}>
+    <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
+      <div
+        className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+      >
         <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
           {environmentVariable.name}
         </div>
@@ -409,8 +415,10 @@ function DeletedEnvVar<T extends BaseEnvironmentVariable>({
   const formState = useFormikContext<FormState<T>>();
 
   return (
-    <div className={ROW}>
-      <div className={`flex flex-col gap-1 ${NAME_COLUMN}`}>
+    <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
+      <div
+        className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+      >
         <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
           {environmentVariable.name}
         </div>
@@ -463,10 +471,10 @@ function EditEnvVarForm<T extends BaseEnvironmentVariable>({
 
   return (
     <div>
-      <div className={ROW}>
+      <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
         <label
           htmlFor={nameId}
-          className={`flex flex-col gap-1 ${NAME_COLUMN}`}
+          className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
         >
           <ValidatedTextInput
             formKey={`editedVars[${editIndex}].newEnvVar.name`}
@@ -756,8 +764,11 @@ function NewEnvVar({
   const { value } = (formState.values as any).newVars[newVarIndex];
 
   return (
-    <div className={ROW}>
-      <label htmlFor={nameId} className={`flex flex-col gap-1 ${NAME_COLUMN}`}>
+    <div className={ENVIRONMENT_VARIABLES_ROW_CLASSES}>
+      <label
+        htmlFor={nameId}
+        className={`flex flex-col gap-1 ${ENVIRONMENT_VARIABLE_NAME_COLUMN}`}
+      >
         <div>
           <ValidatedTextInput
             formKey={`newVars[${newVarIndex}].name`}

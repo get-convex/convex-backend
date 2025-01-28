@@ -1,18 +1,13 @@
-import React, { ReactNode, useRef } from "react";
-import {
-  PageContent,
-  Button,
-  Tooltip,
-  Popover,
-  useIsOverflowing,
-} from "dashboard-common";
-import {
-  SettingsSidebar,
-  SettingsPageKind,
-} from "components/deploymentSettings/SettingsSidebar";
+import React, { ReactNode, useContext, useRef } from "react";
 import { HamburgerMenuIcon } from "@radix-ui/react-icons";
-import { useCurrentDeployment } from "api/deployments";
 import { useMeasure } from "react-use";
+import { SettingsSidebar, SettingsPageKind } from "./SettingsSidebar";
+import { PageContent } from "../elements/PageContent";
+import { Popover } from "../elements/Popover";
+import { Button } from "../elements/Button";
+import { DeploymentInfoContext } from "../lib/deploymentContext";
+import { useIsOverflowing } from "../lib/useIsOverflowing";
+import { Tooltip } from "../elements/Tooltip";
 
 export function DeploymentSettingsLayout({
   page,
@@ -83,6 +78,7 @@ function SettingsMenuButton({ open }: { open: boolean }) {
 }
 
 function DeploymentSettingsText() {
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const ref = useRef<HTMLDivElement>(null);
   const isOverflowing = useIsOverflowing(ref);

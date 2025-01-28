@@ -3,7 +3,6 @@ import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
-import { Button, Tooltip, SchemaJson, Sheet } from "dashboard-common";
 import { GenericDocument } from "convex/server";
 import { convexToJson, jsonToConvex, ValidatorJSON } from "convex/values";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -22,6 +21,10 @@ import {
   documentValidatorForTable,
   validatorForColumn,
 } from "../Table/utils/validators";
+import { SchemaJson } from "../../../../lib/format";
+import { Sheet } from "../../../../elements/Sheet";
+import { Button } from "../../../../elements/Button";
+import { Tooltip } from "../../../../elements/Tooltip";
 
 export const filterMenuId = "filterMenu";
 export function DataFilters({

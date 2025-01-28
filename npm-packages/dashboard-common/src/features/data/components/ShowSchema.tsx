@@ -1,9 +1,3 @@
-import {
-  ReadonlyCode,
-  Spinner,
-  SchemaJson,
-  displaySchema,
-} from "dashboard-common";
 import { useMemo } from "react";
 import { Shape } from "shapes";
 import { Tab as HeadlessTab } from "@headlessui/react";
@@ -14,6 +8,9 @@ import {
   CodeTransformation,
   LineHighlighter,
 } from "./GenerateSchema";
+import { SchemaJson, displaySchema } from "../../../lib/format";
+import { ReadonlyCode } from "../../../elements/ReadonlyCode";
+import { Spinner } from "../../../elements/Spinner";
 
 export function ShowSchema({
   activeSchema,

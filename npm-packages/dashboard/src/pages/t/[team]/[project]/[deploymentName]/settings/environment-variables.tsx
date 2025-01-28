@@ -1,15 +1,6 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { DeploymentSettingsLayout } from "layouts/DeploymentSettingsLayout";
-import { DeploymentEnvironmentVariables } from "components/deploymentSettings/DeploymentEnvironmentVariables";
+import { EnvironmentVariablesView } from "dashboard-common";
 
 export { getServerSideProps } from "lib/ssr";
 
-function EnvironmentVariablesPage() {
-  return (
-    <DeploymentSettingsLayout page="environment-variables">
-      <DeploymentEnvironmentVariables />
-    </DeploymentSettingsLayout>
-  );
-}
-
-export default withAuthenticatedPage(EnvironmentVariablesPage);
+export default withAuthenticatedPage(EnvironmentVariablesView);

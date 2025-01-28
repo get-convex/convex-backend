@@ -17,7 +17,7 @@ import {
   functionIdentifierFromValue,
   functionIdentifierValue,
   Sheet,
-  Health,
+  HealthView,
   MultiSelectCombobox,
 } from "dashboard-common";
 import {
@@ -222,7 +222,7 @@ export function HealthWithInsights() {
 
   return (
     <InsightsContext.Provider value={providerValue}>
-      <Health
+      <HealthView
         header={header}
         PagesWrapper={InsightsWrapper}
         PageWrapper={PageWrapper}

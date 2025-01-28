@@ -1,4 +1,3 @@
-import { ConvexHttpClient } from "convex/browser";
 import {
   useCallback,
   useContext,
@@ -34,6 +33,9 @@ import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { CloudImport } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { useAccessToken } from "./useServerSideData";
+import { useCurrentProject } from "../api/projects";
+import { useTeamUsageState } from "./useTeamUsageState";
+import { useProjectEnvironmentVariables } from "./api";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
@@ -55,7 +57,8 @@ export function DeploymentInfoProvider({
   const [accessToken] = useAccessToken();
   const selectedTeamSlug = router.query.team as string;
   const projectSlug = router.query.project as string;
-  const projectsURI = `/t/${selectedTeamSlug}/${projectSlug}`;
+  const teamsURI = `/t/${selectedTeamSlug}`;
+  const projectsURI = `${teamsURI}/${projectSlug}`;
   const deploymentsURI = `${projectsURI}/${deploymentName}/`;
   useIsomorphicLayoutEffect(() => {
     const f = async () => {
@@ -66,16 +69,21 @@ export function DeploymentInfoProvider({
       setDeploymentInfo({
         ...info,
         useCurrentTeam,
+        useCurrentProject,
         useCurrentUsageBanner,
+        useTeamUsageState,
         useCurrentDeployment,
         useTeamMembers,
         useTeamEntitlements,
         useHasProjectAdminPermissions,
+        useProjectEnvironmentVariables,
         useIsDeploymentPaused,
         TeamMemberLink,
         CloudImport,
+        teamsURI,
         projectsURI,
         deploymentsURI,
+        isSelfHosted: false,
       });
     };
     if (accessToken && (deploymentOverride || deploymentName)) {
@@ -171,35 +179,6 @@ export function useGetZipExport(
       return `${deploymentUrl}/api/export/zip/${snapshotId}?${params}`;
     }
     throw new Error("expected zip");
-  };
-}
-
-export function useUpdateEnvVars(): (
-  changes: {
-    name: string;
-    value: string | null;
-  }[],
-) => Promise<void> {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-  return async (changes) => {
-    const body = JSON.stringify({ changes });
-    const res = await fetch(
-      `${deploymentUrl}/api/update_environment_variables`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Convex ${adminKey}`,
-          "Content-Type": "application/json",
-        },
-        body,
-      },
-    );
-    if (res.status !== 200) {
-      const err = await res.json();
-      reportHttpError("POST", res.url, err);
-      toast("error", err.message);
-    }
   };
 }
 
@@ -334,14 +313,6 @@ export function MaybeDeploymentApiProvider({
   );
 }
 
-export function useConvexHttpClient(): ConvexHttpClient {
-  const { deployment } = useContext(ConnectedDeploymentContext);
-  if (!deployment) {
-    throw Error("Must be used inside a loaded connected deployment!");
-  }
-  return deployment.httpClient;
-}
-
 export function useChangeDeploymentState(): (
   newState: "paused" | "running" | "disabled",
 ) => Promise<void> {
@@ -412,29 +383,6 @@ export function useConfirmImport(): (
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ importId }),
-      });
-      if (res.status !== 200) {
-        const err = await res.json();
-        reportHttpError("DELETE", res.url, err);
-        toast("error", err.message);
-      }
-    },
-    [deploymentUrl, adminKey],
-  );
-}
-
-export function useDeleteComponent() {
-  const deploymentUrl = useDeploymentUrl();
-  const adminKey = useAdminKey();
-  return useCallback(
-    async (id: Id<"_components">) => {
-      const res = await fetch(`${deploymentUrl}/api/delete_component`, {
-        method: "POST",
-        headers: {
-          Authorization: `Convex ${adminKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ componentId: id }),
       });
       if (res.status !== 200) {
         const err = await res.json();

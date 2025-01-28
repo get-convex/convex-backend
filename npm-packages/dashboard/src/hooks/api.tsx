@@ -1,16 +1,17 @@
 import useSWR, { SWRConfiguration } from "swr";
 import useSWRInfinite from "swr/infinite";
 
-import { toast, Button, LocalDevCallout } from "dashboard-common";
+import {
+  toast,
+  Button,
+  LocalDevCallout,
+  ProjectEnvVarConfig,
+} from "dashboard-common";
 import { SymbolIcon } from "@radix-ui/react-icons";
 import { captureMessage } from "@sentry/nextjs";
 import flatMap from "lodash/flatMap";
 import { useCallback } from "react";
-import {
-  AuditLogAction,
-  AuditLogEventResponse,
-  DeploymentType,
-} from "generatedApi";
+import { AuditLogAction, AuditLogEventResponse } from "generatedApi";
 import { fetchWithAuthHeader, useAuthHeader } from "./fetching";
 import { useMutation } from "./useMutation";
 
@@ -21,12 +22,6 @@ export function useDeletePreviewDeployment(projectId?: number) {
     successToast: "Deleted preview deployment.",
   });
 }
-
-export type ProjectEnvVarConfig = {
-  name: string;
-  value: string;
-  deploymentTypes: DeploymentType[];
-};
 
 export type ProjectEnvironmentVariable = {
   name: string;

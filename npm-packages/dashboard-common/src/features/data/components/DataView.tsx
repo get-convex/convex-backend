@@ -13,8 +13,9 @@ import { SchemaJson } from "../../../lib/format";
 import { useTableShapes } from "../../../lib/deploymentApi";
 import { Modal } from "../../../elements/Modal";
 import { LoadingTransition } from "../../../elements/Loading";
+import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
 
-export function Data() {
+export function DataView() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deploymentId = useCurrentDeployment()?.id;
   const tableMetadata = useTableMetadataAndUpdateURL();
@@ -53,6 +54,10 @@ export function Data() {
 
   return (
     <>
+      <DeploymentPageTitle
+        subtitle={tableMetadata?.name ? "Data" : undefined}
+        title={tableMetadata?.name || "Data"}
+      />
       {schemas && tables && isShowingSchema && (
         <Modal
           onClose={() => setIsShowingSchema(false)}

@@ -1,5 +1,3 @@
-import { CronsView } from "../..";
+import { CronsView } from "../../features/schedules/components/crons/CronsView";
 
-export default function Crons() {
-  return <CronsView />;
-}
+export default CronsView;

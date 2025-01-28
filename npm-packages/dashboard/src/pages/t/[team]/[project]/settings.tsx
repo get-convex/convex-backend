@@ -6,6 +6,7 @@ import {
   Sheet,
   Callout,
   LocalDevCallout,
+  DeploymentType,
 } from "dashboard-common";
 import { useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
@@ -26,7 +27,6 @@ import {
 } from "components/projects/modals/LostAccessModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { DefaultEnvironmentVariables } from "components/deploymentSettings/DefaultEnvironmentVariables";
-import { DeploymentType } from "components/deploymentSettings/DeploymentUrl";
 import {
   getAccessTokenBasedDeployKey,
   getAccessTokenBasedDeployKeyForPreview,

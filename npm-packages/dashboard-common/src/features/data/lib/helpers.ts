@@ -3,7 +3,8 @@ import { Value } from "convex/values";
 import { useMemo } from "react";
 import { Shape } from "shapes";
 import udfs from "udfs";
-import { SchemaJson, useNents } from "dashboard-common";
+import { useNents } from "../../../lib/useNents";
+import { SchemaJson } from "../../../lib/format";
 
 export function sortColumns(fieldNames: string[]): string[] {
   // Always sort the "_id" field first and the "_creationTime" field last.

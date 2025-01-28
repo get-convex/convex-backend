@@ -11,8 +11,17 @@ import { PerformanceGraphs } from "./PerformanceGraphs";
 import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 import { SidebarDetailLayout } from "../../../layouts/SidebarDetailLayout";
 import { EmptySection } from "../../../elements/EmptySection";
+import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
 
 export function FunctionsView() {
+  return (
+    <>
+      <DeploymentPageTitle title="Functions" />
+      <Functions />
+    </>
+  );
+}
+function Functions() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deploymentId = useCurrentDeployment()?.id;
   const currentOpenFunction = useCurrentOpenFunction();

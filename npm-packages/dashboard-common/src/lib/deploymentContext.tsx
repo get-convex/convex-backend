@@ -13,6 +13,7 @@ import { useRouter } from "next/router";
 import { captureMessage } from "@sentry/nextjs";
 import { cn } from "lib/cn";
 import { LoadingLogo } from "../elements/Loading";
+import { ProjectEnvVarConfig } from "../features/settings/lib/types";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 
@@ -37,9 +38,19 @@ export type DeploymentInfo = (
   useTeamEntitlements(teamId?: number):
     | {
         auditLogsEnabled?: boolean;
+        logStreamingEnabled?: boolean;
+        streamingExportEnabled?: boolean;
       }
     | undefined;
+  useTeamUsageState(teamId: number | null): string | undefined;
   useCurrentUsageBanner(teamId: number | null): string | null;
+  useCurrentProject():
+    | {
+        id: number;
+        name: string;
+        slug: string;
+      }
+    | undefined;
   useCurrentDeployment():
     | {
         id: number;
@@ -47,8 +58,13 @@ export type DeploymentInfo = (
         projectId: number;
         deploymentType: "prod" | "dev" | "preview";
         kind: "local" | "cloud";
+        previewIdentifier?: string | null;
       }
     | undefined;
+  useProjectEnvironmentVariables(
+    projectId?: number,
+    refreshInterval?: number,
+  ): { configs: ProjectEnvVarConfig[] } | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
   useIsDeploymentPaused(): boolean | undefined;
   CloudImport(props: { sourceCloudBackupId: number }): JSX.Element;
@@ -56,8 +72,10 @@ export type DeploymentInfo = (
     memberId?: number | null;
     name: string;
   }): JSX.Element;
+  teamsURI: string;
   projectsURI: string;
   deploymentsURI: string;
+  isSelfHosted: boolean;
 };
 
 export const DeploymentInfoContext = createContext<DeploymentInfo>(

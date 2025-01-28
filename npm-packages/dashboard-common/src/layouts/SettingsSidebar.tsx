@@ -1,20 +1,18 @@
 import classNames from "classnames";
-import React from "react";
-import { SidebarLink, useNents } from "dashboard-common";
-import { useCurrentDeployment } from "api/deployments";
-import { useCurrentProject } from "api/projects";
-import { useCurrentTeam, useTeamEntitlements } from "api/teams";
+import React, { useContext } from "react";
 import { ExternalLinkIcon, LockClosedIcon } from "@radix-ui/react-icons";
-import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
-import { useTeamUsageState } from "hooks/useTeamUsageState";
+import { DeploymentPageTitle } from "../elements/DeploymentPageTitle";
+import { DeploymentInfoContext } from "../lib/deploymentContext";
+import { SidebarLink } from "../elements/Sidebar";
+import { useNents } from "../lib/useNents";
 
 export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   "url-and-deploy-key": "URL & Deploy Key",
   "environment-variables": "Environment Variables",
   authentication: "Authentication",
   snapshots: "Snapshot Import & Export",
-  backups: "Backup & Restore",
   components: "Components",
+  backups: "Backup & Restore",
   integrations: "Integrations",
   "pause-deployment": "Pause Deployment",
 };
@@ -32,9 +30,19 @@ export function SettingsSidebar({
 }) {
   const allowedPages = useAllowedPages();
 
+  const {
+    isSelfHosted,
+    useCurrentTeam,
+    useCurrentProject,
+    useTeamUsageState,
+    useTeamEntitlements,
+    teamsURI,
+    projectsURI,
+    deploymentsURI,
+  } = useContext(DeploymentInfoContext);
+
   const team = useCurrentTeam();
   const project = useCurrentProject();
-  const deployment = useCurrentDeployment();
 
   const entitlements = useTeamEntitlements(team?.id);
   // Hide the badge until entitlements are loaded
@@ -61,12 +69,20 @@ export function SettingsSidebar({
         {/* On larger screens, this is a sidebar and not a popover menu. */}
         {allowedPages.map((page) => (
           <SidebarLink
-            href={`/t/${team?.slug}/${project?.slug}/${
-              deployment?.name
-            }/settings/${page === "url-and-deploy-key" ? "" : page}`}
+            href={`${deploymentsURI}settings/${page === "url-and-deploy-key" ? "" : page}`}
             isActive={page === selectedPage}
             key={page}
-            disabled={shouldLock(page)}
+            disabled={
+              shouldLock(page) ||
+              (isSelfHosted &&
+                ["backups", "integrations", "pause-deployment"].includes(page))
+            }
+            tip={
+              ["backups", "integrations", "pause-deployment"].includes(page) &&
+              isSelfHosted
+                ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
+                : undefined
+            }
             Icon={shouldLock(page) ? LockClosedIcon : undefined}
             proBadge={
               page === "integrations" &&
@@ -81,20 +97,32 @@ export function SettingsSidebar({
         ))}
         <div className="flex flex-col gap-2 border-t py-2">
           <SidebarLink
-            href={`/t/${team?.slug}/${project?.slug}/settings`}
+            href={`${projectsURI}/settings`}
             isActive={false}
+            disabled={isSelfHosted}
+            tip={
+              isSelfHosted
+                ? "Project settings are not available in self-hosted deployments."
+                : undefined
+            }
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               Project Settings
               <ExternalLinkIcon />
             </div>
           </SidebarLink>
           <SidebarLink
-            href={`/t/${team?.slug}/settings/usage`}
+            href={`${teamsURI}/settings/usage`}
             query={{ projectSlug: project?.slug || "" }}
             isActive={false}
+            disabled={isSelfHosted}
+            tip={
+              isSelfHosted
+                ? "Project usage is not available in self-hosted deployments."
+                : undefined
+            }
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               Project Usage
               <ExternalLinkIcon />
             </div>
