@@ -67,6 +67,7 @@ export type DeploymentInfo = (
   ): { configs: ProjectEnvVarConfig[] } | undefined;
   useHasProjectAdminPermissions(projectId: number | undefined): boolean;
   useIsDeploymentPaused(): boolean | undefined;
+  useLogDeploymentEvent(): (msg: string, props?: object | null) => void;
   CloudImport(props: { sourceCloudBackupId: number }): JSX.Element;
   TeamMemberLink(props: {
     memberId?: number | null;

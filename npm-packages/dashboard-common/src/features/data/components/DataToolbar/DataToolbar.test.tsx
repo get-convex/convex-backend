@@ -45,7 +45,6 @@ jest.mock("../../../../lib/useTableMetadata", () => ({
   useTableMetadata: jest.fn(),
 }));
 jest.mock("../../../../lib/deploymentApi", () => ({
-  useLogDeploymentEvent: () => jest.fn(),
   useDeploymentUrl: () => "http://localhost",
   useDeploymentAuthHeader: () => "Bearer admin",
 }));

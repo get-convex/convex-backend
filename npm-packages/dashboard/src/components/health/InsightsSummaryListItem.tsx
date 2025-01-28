@@ -7,12 +7,12 @@ import {
   Tooltip,
   Button,
   FunctionNameOption,
-  useLogDeploymentEvent,
   functionIdentifierValue,
 } from "dashboard-common";
 import { useRouter } from "next/router";
 import { SparklineForInsight } from "./SparklineForInsight";
 import { ProblemForInsight } from "./ProblemForInsight";
+import { useLogDeploymentEvent } from "../../hooks/deploymentApi";
 
 export function InsightsSummaryListItem({
   insight,

@@ -1,16 +1,16 @@
-import React from "react";
+import React, { useContext } from "react";
 import { LockClosedIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { cn } from "lib/cn";
 import { Disclosure } from "@headlessui/react";
 import { ModuleFunction } from "../../../lib/functions/types";
 import { useCurrentOpenFunction } from "../../../lib/functions/FunctionsProvider";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { useCurrentGloballyOpenFunction } from "../../functionRunner/lib/functionRunner";
 import { FunctionIcon } from "../../../elements/icons";
 import { Tooltip } from "../../../elements/Tooltip";
 import { Button } from "../../../elements/Button";
 import { sidebarLinkClassNames } from "../../../elements/Sidebar";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 
 export function FunctionItem({
   item,
@@ -25,6 +25,7 @@ export function FunctionItem({
 }) {
   const router = useRouter();
   const currentOpenFunction = useCurrentOpenFunction();
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
   const [, setGloballyOpenFunction] = useCurrentGloballyOpenFunction();
   const isCurrentFunction = currentOpenFunction?.identifier === item.identifier;

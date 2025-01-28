@@ -6,19 +6,14 @@ import {
   useInsightsPeriod,
   useInsightsSummary,
 } from "api/insights";
-import {
-  Button,
-  Loading,
-  useLogDeploymentEvent,
-  Sheet,
-  HealthCard,
-} from "dashboard-common";
+import { Button, Loading, Sheet, HealthCard } from "dashboard-common";
 import {
   ChevronRightIcon,
   ExternalLinkIcon,
   LockClosedIcon,
 } from "@radix-ui/react-icons";
 import { InsightsSummary } from "./InsightsSummary";
+import { useLogDeploymentEvent } from "../../hooks/deploymentApi";
 
 export function SmallInsightsSummary({ onViewAll }: { onViewAll: () => void }) {
   const team = useCurrentTeam();

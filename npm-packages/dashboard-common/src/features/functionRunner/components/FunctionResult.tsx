@@ -5,7 +5,6 @@ import type { FunctionResult as FunctionResultType } from "convex/browser";
 import { useContext, useEffect, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { Value } from "convex/values";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { RequestFilter } from "../../../lib/appMetrics";
 import { Spinner } from "../../../elements/Spinner";
 import { ComponentId } from "../../../lib/useNents";
@@ -86,9 +85,11 @@ export function useFunctionResult({
     }
   }, [runHistoryItem, setImpersonatedUser, setIsImpersonating]);
 
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useLogDeploymentEvent,
+  } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
   const isProd = deployment?.deploymentType === "prod";

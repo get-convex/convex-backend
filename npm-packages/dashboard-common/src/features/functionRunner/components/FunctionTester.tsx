@@ -11,7 +11,7 @@ import { ConvexReactClient } from "convex/react";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useContext, useState } from "react";
 import { useDebounce } from "react-use";
 import { ZodError, z } from "zod";
 import { generateErrorMessage } from "zod-error";
@@ -31,7 +31,6 @@ import {
   functionIdentifierValue,
 } from "../../../lib/functions/generateFileTree";
 import { ModuleFunction } from "../../../lib/functions/types";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { defaultValueForValidator } from "../../../lib/defaultValueForValidator";
 import { ObjectEditor } from "../../../elements/ObjectEditor/ObjectEditor";
 import { NENT_APP_PLACEHOLDER, useNents } from "../../../lib/useNents";
@@ -54,6 +53,7 @@ import {
   useIsImpersonating,
 } from "./RunHistory";
 import { useGlobalReactClient } from "../lib/client";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 
 const CUSTOM_TEST_QUERY_PLACEHOLDER =
   "__CONVEX_PLACEHOLDER_custom_test_query_1255035852";
@@ -157,6 +157,7 @@ export function GlobalFunctionTester({
       setRunHistoryItem,
     );
 
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
 
   const logInfo = {
@@ -569,6 +570,7 @@ export function useFunctionTester({
       />
     );
 
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
 
   const args = (

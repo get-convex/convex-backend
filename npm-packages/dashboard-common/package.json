@@ -32,7 +32,6 @@
     "@tanstack/react-table": "~8.20.6",
     "acorn": "~8.8.1",
     "base64-js": "^1.5.1",
-    "convex-analytics": "workspace:*",
     "classnames": "^2.3.2",
     "clsx": "1.2.1",
     "convex": "workspace:*",

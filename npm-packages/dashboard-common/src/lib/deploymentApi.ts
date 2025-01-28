@@ -1,5 +1,4 @@
 import { useCallback, useContext, useMemo } from "react";
-import { logDeploymentEvent } from "convex-analytics";
 import { Shape, shapeSchema } from "shapes";
 import useSWR, { BareFetcher, Middleware, useSWRConfig } from "swr";
 import { z } from "zod";
@@ -42,21 +41,6 @@ export function useDeploymentIsDisconnected(): boolean {
     throw Error("Must be used inside a loaded connected deployment!");
   }
   return value.isDisconnected;
-}
-
-export function useLogDeploymentEvent() {
-  const deployment = useContext(ConnectedDeploymentContext);
-  if (!deployment) {
-    throw Error("Must be used inside a loaded connected deployment!");
-  }
-  const deploymentUrl = useDeploymentUrl();
-  const authHeader = useDeploymentAuthHeader();
-  return useCallback(
-    (msg: string, props: object | null = null) => {
-      logDeploymentEvent(msg, deploymentUrl, authHeader, props);
-    },
-    [deploymentUrl, authHeader],
-  );
 }
 
 const shapes2ResponseSchema = z.record(shapeSchema);

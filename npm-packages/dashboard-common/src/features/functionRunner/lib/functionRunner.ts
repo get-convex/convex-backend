@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import { createGlobalState, useLocalStorage } from "react-use";
 import { useRouter } from "next/router";
 import {
@@ -6,9 +6,9 @@ import {
   displayNameToIdentifier,
 } from "../../../lib/functions/FunctionsProvider";
 import { ModuleFunction } from "../../../lib/functions/types";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { ComponentId, useNents } from "../../../lib/useNents";
 import { useTableMetadata } from "../../../lib/useTableMetadata";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 
 export const useCurrentGloballyOpenFunction =
   createGlobalState<ModuleFunction | null>(null);
@@ -39,6 +39,7 @@ export function useShowGlobalRunner() {
   const tableMetadata = useTableMetadata();
 
   // only for logging
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
   const [isGlobalRunnerVertical] = useLocalStorage(
     "functionRunnerOrientation",
@@ -94,6 +95,7 @@ export function useShowGlobalRunner() {
 
 export function useHideGlobalRunner() {
   const [, setGlobalRunnerShown] = useGlobalRunnerShown();
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
   return useCallback(
     (how: "click" | "redirect" | "keyboard") => {

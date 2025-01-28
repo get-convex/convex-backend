@@ -13,7 +13,6 @@ import { Tooltip } from "../../../../elements/Tooltip";
 import { Spinner } from "../../../../elements/Spinner";
 import { useShowGlobalRunner } from "../../../functionRunner/lib/functionRunner";
 import { DeploymentInfoContext } from "../../../../lib/deploymentContext";
-import { useLogDeploymentEvent } from "../../../../lib/deploymentApi";
 import { useNents } from "../../../../lib/useNents";
 import { PopupState } from "../../lib/useToolPopup";
 import { useEnabledDebounced } from "../../lib/useEnabledDebounced";
@@ -81,11 +80,12 @@ export function DataToolbar({
 
   const numRowsWeKnowOf = hasFilters ? numRowsLoaded : numRows;
 
+  const {
+    useLogDeploymentEvent,
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+  } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
-
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
 
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(

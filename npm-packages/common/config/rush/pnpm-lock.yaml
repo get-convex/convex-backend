@@ -913,9 +913,6 @@ importers:
       convex:
         specifier: workspace:*
         version: link:../convex
-      convex-analytics:
-        specifier: workspace:*
-        version: link:../convex-analytics
       date-fns:
         specifier: ^2.29.3
         version: 2.30.0

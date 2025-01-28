@@ -24,7 +24,7 @@ export {
 } from "./lib/format";
 
 // Deployment-related exports for Insights
-export { useLogDeploymentEvent, useFunctionUrl } from "./lib/deploymentApi";
+export { useFunctionUrl } from "./lib/deploymentApi";
 export {
   functionIdentifierFromValue,
   functionIdentifierValue,

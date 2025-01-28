@@ -76,6 +76,8 @@ export const deploymentInfo: DeploymentInfo = {
     return deploymentState?.state === "paused";
   },
   useProjectEnvironmentVariables: () => ({ configs: [] }),
+  // no-op. don't send analytics in the self-hosted dashboard.
+  useLogDeploymentEvent: () => () => {},
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
     <div>{sourceCloudBackupId}</div>
   ),

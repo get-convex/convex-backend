@@ -10,7 +10,6 @@ import { ExternalLinkIcon, GearIcon } from "@radix-ui/react-icons";
 import { useContext } from "react";
 import { HealthCard } from "../../../elements/HealthCard";
 import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { Button } from "../../../elements/Button";
 import { Tooltip } from "../../../elements/Tooltip";
 import { Loading } from "../../../elements/Loading";
@@ -54,6 +53,7 @@ function IntegrationStatusCard({
   title: string;
   notConfiguredSummary: React.ReactNode;
 }) {
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
   const integrations = useQuery(udfs.listConfiguredSinks.default);
 

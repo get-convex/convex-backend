@@ -1,13 +1,12 @@
 import classNames from "classnames";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/router";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useContext } from "react";
 import { usePrevious } from "react-use";
 import udfs from "udfs";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Button } from "../../../elements/Button";
 import { FunctionIcon } from "../../../elements/icons";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { toast } from "../../../lib/utils";
 import {
   useHideGlobalRunner,
@@ -16,6 +15,7 @@ import {
   useGlobalRunnerSelectedItem,
 } from "../lib/functionRunner";
 import { GlobalFunctionTester } from "./FunctionTester";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 
 export function FunctionRunnerWrapper({
   isVertical,
@@ -79,6 +79,7 @@ export function FunctionRunnerWrapper({
       : showGlobalRunner(null, "keyboard");
   });
 
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
 
   const setIsGlobalRunnerVerticalAndLog = useCallback(

@@ -49,7 +49,6 @@ jest.mock("../lib/api", () => ({
 }));
 
 jest.mock("../../../lib/deploymentApi", () => ({
-  useLogDeploymentEvent: () => jest.fn(),
   useDeploymentUrl: () => "http://localhost",
   useDeploymentAuthHeader: () => "Bearer admin",
 }));

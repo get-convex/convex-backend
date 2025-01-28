@@ -32,6 +32,7 @@ import { useCurrentUsageBanner } from "components/header/UsageBanner";
 import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { CloudImport } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
+import { logDeploymentEvent } from "convex-analytics";
 import { useAccessToken } from "./useServerSideData";
 import { useCurrentProject } from "../api/projects";
 import { useTeamUsageState } from "./useTeamUsageState";
@@ -78,6 +79,7 @@ export function DeploymentInfoProvider({
         useHasProjectAdminPermissions,
         useProjectEnvironmentVariables,
         useIsDeploymentPaused,
+        useLogDeploymentEvent,
         TeamMemberLink,
         CloudImport,
         teamsURI,
@@ -391,5 +393,20 @@ export function useConfirmImport(): (
       }
     },
     [deploymentUrl, adminKey],
+  );
+}
+
+export function useLogDeploymentEvent() {
+  const deployment = useContext(ConnectedDeploymentContext);
+  if (!deployment) {
+    throw Error("Must be used inside a loaded connected deployment!");
+  }
+  const deploymentUrl = useDeploymentUrl();
+  const authHeader = useDeploymentAuthHeader();
+  return useCallback(
+    (msg: string, props: object | null = null) => {
+      logDeploymentEvent(msg, deploymentUrl, authHeader, props);
+    },
+    [deploymentUrl, authHeader],
   );
 }

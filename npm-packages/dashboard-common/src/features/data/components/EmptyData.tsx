@@ -5,7 +5,6 @@ import { EmptySection } from "../../../elements/EmptySection";
 import { useNents } from "../../../lib/useNents";
 import { DeploymentInfoContext } from "../../../lib/deploymentContext";
 import { useTableMetadata } from "../../../lib/useTableMetadata";
-import { useLogDeploymentEvent } from "../../../lib/deploymentApi";
 import { Loading } from "../../../elements/Loading";
 import { Button } from "../../../elements/Button";
 
@@ -26,9 +25,11 @@ export function EmptyDataContent({
 }) {
   const { selectedNent } = useNents();
 
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    useLogDeploymentEvent,
+  } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(

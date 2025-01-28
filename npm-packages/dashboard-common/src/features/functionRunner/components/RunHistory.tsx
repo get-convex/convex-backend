@@ -3,11 +3,6 @@ import {
   ChevronRightIcon,
   CodeIcon,
 } from "@radix-ui/react-icons";
-import {
-  Button,
-  DeploymentInfoContext,
-  useGlobalLocalStorage,
-} from "dashboard-common";
 import { UserIdentityAttributes } from "convex/browser";
 import { Value } from "convex/values";
 import isEqual from "lodash/isEqual";
@@ -15,11 +10,11 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import { useContext, useEffect, useState } from "react";
 import { createGlobalState } from "react-use";
-import {
-  useFunctionUrl,
-  useLogDeploymentEvent,
-} from "../../../lib/deploymentApi";
+import { useFunctionUrl } from "../../../lib/deploymentApi";
 import { ComponentId } from "../../../lib/useNents";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { Button } from "../../../elements/Button";
+import { useGlobalLocalStorage } from "../../../lib/useGlobalLocalStorage";
 
 // Keep track of a single user across instances of FunctionTester
 export const useImpersonatedUser = createGlobalState<UserIdentityAttributes>({
@@ -38,6 +33,7 @@ export function RunHistory({
   componentId: ComponentId;
   selectItem: (item: RunHistoryItem) => void;
 }) {
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
   const log = useLogDeploymentEvent();
   const url = useFunctionUrl(functionIdentifier, componentId);
   const { runHistory } = useRunHistory(functionIdentifier, componentId);
