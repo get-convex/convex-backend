@@ -1123,6 +1123,42 @@ async fn test_import_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
 }
 
 #[convex_macro::test_runtime]
+async fn test_import_file_storage_changing_table_number(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let old_storage_id: DeveloperDocumentId = "4d9wy5r5x7rmjdjqnx45ct829fff4ar".parse()?;
+    let objects = stream::iter(vec![
+        Ok(ImportUnit::NewTable(
+            ComponentPath::root(),
+            "_storage".parse()?,
+        )),
+        Ok(ImportUnit::Object(
+            json!({"_id": old_storage_id.to_string()}),
+        )),
+        Ok(ImportUnit::StorageFileChunk(
+            old_storage_id,
+            Bytes::from_static(b"foobarbaz"),
+        )),
+    ])
+    .boxed()
+    .peekable();
+
+    // Regression test: used to fail with "cannot find table with id 35"
+    import_objects(
+        &app.database,
+        &app.file_storage,
+        new_admin_id(),
+        ImportMode::Replace,
+        objects,
+        FunctionUsageTracker::new(),
+        None,
+        ImportRequestor::SnapshotImport,
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
 async fn test_import_into_component(rt: TestRuntime) -> anyhow::Result<()> {
     let app = Application::new_for_tests(&rt).await?;
     app.load_component_tests_modules("with-schema").await?;
