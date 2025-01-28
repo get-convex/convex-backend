@@ -1889,7 +1889,7 @@ mod tests {
             v in any_with::<Validator>(btreeset! { "table_name".parse::<TableName>().unwrap()}),
             value_format in any::<ValueFormat>(),
         ) {
-            jsonschema::JSONSchema::compile(&v.to_json_schema(value_format)).unwrap();
+            jsonschema::validator_for(&v.to_json_schema(value_format)).unwrap();
         }
 
         #[test]
