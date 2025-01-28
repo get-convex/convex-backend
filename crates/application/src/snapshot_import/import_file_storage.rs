@@ -56,6 +56,7 @@ use value::{
     val,
     ConvexObject,
     ResolvedDocumentId,
+    TableMapping,
     TabletIdAndTableNumber,
 };
 
@@ -82,11 +83,9 @@ pub async fn import_storage_table<RT: Runtime>(
     import_id: Option<ResolvedDocumentId>,
     num_to_skip: u64,
     requestor: ImportRequestor,
+    table_mapping_for_schema: &TableMapping,
 ) -> anyhow::Result<()> {
     let snapshot = database.latest_snapshot()?;
-    let namespace = snapshot
-        .table_mapping()
-        .tablet_namespace(table_id.tablet_id)?;
     let virtual_table_number = snapshot.table_mapping().tablet_number(table_id.tablet_id)?;
     let mut lineno = 0;
     let mut storage_metadata = BTreeMap::new();
@@ -187,19 +186,9 @@ pub async fn import_storage_table<RT: Runtime>(
                 "snapshot_import_storage_table",
                 |tx| {
                     async {
-                        // Assume table numbers of _storage and _file_storage aren't changing with
-                        // this import.
-                        let table_mapping = tx.table_mapping().clone();
-                        let physical_id = tx
-                            .virtual_system_mapping()
-                            .virtual_id_v6_to_system_resolved_doc_id(
-                                namespace,
-                                &id,
-                                &table_mapping,
-                            )?;
                         let mut entry_object_map =
                             BTreeMap::from(ConvexObject::try_from(entry.clone())?);
-                        entry_object_map.insert(ID_FIELD.clone().into(), val!(physical_id));
+                        entry_object_map.insert(ID_FIELD.clone().into(), val!(id));
                         if let Some(creation_time) = creation_time {
                             entry_object_map.insert(
                                 CREATION_TIME_FIELD.clone().into(),
@@ -208,7 +197,12 @@ pub async fn import_storage_table<RT: Runtime>(
                         }
                         let entry_object = ConvexObject::try_from(entry_object_map)?;
                         ImportFacingModel::new(tx)
-                            .insert(table_id, &FILE_STORAGE_TABLE, entry_object, &table_mapping)
+                            .insert(
+                                table_id,
+                                &FILE_STORAGE_TABLE,
+                                entry_object,
+                                table_mapping_for_schema,
+                            )
                             .await?;
                         Ok(())
                     }

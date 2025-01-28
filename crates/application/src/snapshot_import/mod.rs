@@ -1121,6 +1121,7 @@ async fn import_single_table<RT: Runtime>(
             import_id,
             num_to_skip,
             requestor,
+            &table_mapping_for_import.table_mapping_in_import,
         )
         .await?;
         return Ok(Some(0));
