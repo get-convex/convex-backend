@@ -4240,8 +4240,8 @@ importers:
         specifier: workspace:*
         version: link:../udf-syscall-ffi
       web-streams-polyfill:
-        specifier: ~3.2.1
-        version: 3.2.1
+        specifier: ~3.3.0
+        version: 3.3.3
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -4304,8 +4304,8 @@ importers:
         specifier: workspace:*
         version: link:../udf-syscall-ffi
       web-streams-polyfill:
-        specifier: ~3.2.1
-        version: 3.2.1
+        specifier: ~3.3.0
+        version: 3.3.3
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -20144,8 +20144,8 @@ packages:
   web-namespaces@1.1.4:
     resolution: {integrity: sha512-wYxSGajtmoP4WxfejAPIr4l0fVh+jeMXZb08wNc0tMg6xsfZXj3cECqIK0G7ZAqUq0PP8WlMDtaOGVBTAWztNw==}
 
-  web-streams-polyfill@3.2.1:
-    resolution: {integrity: sha512-e0MO3wdXWKrLbL0DgGnUV7WHVuw9OUvL4hjgnPkIeEvESk74gAITi5G606JtZPp39cd8HA9VQzCIvA49LpPN5Q==}
+  web-streams-polyfill@3.3.3:
+    resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
   web-streams-polyfill@4.0.0-beta.3:
@@ -44009,7 +44009,7 @@ snapshots:
 
   web-namespaces@1.1.4: {}
 
-  web-streams-polyfill@3.2.1: {}
+  web-streams-polyfill@3.3.3: {}
 
   web-streams-polyfill@4.0.0-beta.3: {}
 

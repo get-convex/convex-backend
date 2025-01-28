@@ -13,7 +13,7 @@
     "object-inspect": "^1.12.0",
     "zod": "^3.24.0",
     "base64-js": "^1.5.1",
-    "web-streams-polyfill": "~3.2.1",
+    "web-streams-polyfill": "~3.3.0",
     "abortcontroller-polyfill": "1.7.6",
     "lodash": "~4.17.21",
     "id-encoding": "workspace:*",
