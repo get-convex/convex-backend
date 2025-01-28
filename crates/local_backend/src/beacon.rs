@@ -21,6 +21,8 @@ use database::Database;
 use model::database_globals::DatabaseGlobalsModel;
 use runtime::prod::ProdRuntime;
 
+const COMPILED_REVISION: &str = env!("VERGEN_GIT_SHA");
+const COMMIT_TIMESTAMP: &str = env!("VERGEN_GIT_COMMIT_TIMESTAMP");
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
 
@@ -36,9 +38,12 @@ pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>)
 
             // For now, just log the beacon info since endpoint is TBD
             tracing::info!(
-                "Beacon: document_id={:?}, database_version={}",
+                "Beacon: document_id={:?}, database_version={}, compiled_revision={}, \
+                 commit_timestamp={}",
                 globals.id(),
-                globals.version
+                globals.version,
+                COMPILED_REVISION,
+                COMMIT_TIMESTAMP,
             );
             Ok::<(), anyhow::Error>(())
         }
