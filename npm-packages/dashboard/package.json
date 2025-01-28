@@ -122,7 +122,7 @@
     "tailwindcss": "^3.2.4",
     "typescript": "~5.0.3",
     "vercel": "~33.5.2",
-    "webpack": "5.94.0",
+    "webpack": "5.97.1",
     "@testing-library/dom": "~10.4.0",
     "openapi-typescript": "~7.4.2",
     "openapi-typescript-helpers": "~0.0.15",
