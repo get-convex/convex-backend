@@ -14,6 +14,7 @@ async-recursion = { workspace = true }
 async-trait = { workspace = true }
 async_lru = { path = "../async_lru" }
 async_zip = { workspace = true }
+async_zip_reader = { version = "0.1.0", path = "../async_zip_reader" }
 authentication = { path = "../../crates/authentication" }
 bytes = { workspace = true }
 cmd_util = { path = "../cmd_util" }

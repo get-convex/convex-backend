@@ -461,7 +461,7 @@ async fn cleanup_thread(mut rx: mpsc::UnboundedReceiver<PathBuf>) {
 mod tests {
     use std::sync::Arc;
 
-    use async_zip::{
+    use async_zip_0_0_9::{
         Compression,
         ZipEntryBuilder,
     };
@@ -487,7 +487,7 @@ mod tests {
     // of all contained files.
     async fn random_archive() -> (Vec<u8>, u64) {
         let mut buf = vec![];
-        let mut writer = async_zip::write::ZipFileWriter::new(&mut buf);
+        let mut writer = async_zip_0_0_9::write::ZipFileWriter::new(&mut buf);
         let mut size = 0u64;
         for _ in 0..thread_rng().gen_range(1..10) {
             let filename = thread_rng()

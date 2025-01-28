@@ -1,16 +1,15 @@
 use async_zip::{
-    write::{
+    tokio::write::{
         EntryStreamWriter,
         ZipFileWriter,
     },
     Compression,
     ZipEntryBuilder,
-    ZipEntryBuilderExt,
 };
 use bytes::Bytes;
 use common::{
     self,
-    async_compat::TokioAsyncWriteCompatExt,
+    async_compat::FuturesAsyncWriteCompatExt,
     document::ResolvedDocument,
     types::TableName,
 };
@@ -27,7 +26,10 @@ use shape_inference::{
     ShapeConfig,
 };
 use storage::ChannelWriter;
-use tokio::io::AsyncBufRead;
+use tokio::io::{
+    AsyncBufRead,
+    AsyncWriteExt as _,
+};
 use value::export::ValueFormat;
 
 static AFTER_DOCUMENTS_CLEAN: Bytes = Bytes::from_static("\n".as_bytes());
@@ -60,7 +62,7 @@ impl<'a, 'b> ZipSnapshotTableUpload<'a, 'b> {
         table_name: TableName,
     ) -> anyhow::Result<Self> {
         let source_path = format!("{path_prefix}{table_name}/documents.jsonl");
-        let builder = ZipEntryBuilder::new(source_path.clone(), Compression::Deflate)
+        let builder = ZipEntryBuilder::new(source_path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
         let entry_writer = zip_writer.write_entry_stream(builder.build()).await?;
         Ok(Self { entry_writer })
@@ -73,11 +75,8 @@ impl<'a, 'b> ZipSnapshotTableUpload<'a, 'b> {
 
     pub async fn write_json_line(&mut self, json: JsonValue) -> anyhow::Result<()> {
         let buf = serde_json::to_vec(&json)?;
-        self.entry_writer.compat_mut_write().write_all(&buf).await?;
-        self.entry_writer
-            .compat_mut_write()
-            .write_all(&AFTER_DOCUMENTS_CLEAN)
-            .await?;
+        self.entry_writer.write_all(&buf).await?;
+        self.entry_writer.write_all(&AFTER_DOCUMENTS_CLEAN).await?;
         Ok(())
     }
 
@@ -93,7 +92,7 @@ pub struct ZipSnapshotUpload<'a> {
 
 impl<'a> ZipSnapshotUpload<'a> {
     pub async fn new(out: &'a mut ChannelWriter) -> anyhow::Result<Self> {
-        let writer = ZipFileWriter::new(out);
+        let writer = ZipFileWriter::with_tokio(out);
         let mut zip_snapshot_upload = Self { writer };
         zip_snapshot_upload
             .stream_full_file("README.md".to_owned(), README_MD_CONTENTS.as_bytes())
@@ -107,12 +106,16 @@ impl<'a> ZipSnapshotUpload<'a> {
         path: String,
         contents: impl AsyncBufRead,
     ) -> anyhow::Result<()> {
-        let builder = ZipEntryBuilder::new(path, Compression::Deflate)
+        let builder = ZipEntryBuilder::new(path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
-        let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
+        let mut entry_writer = self
+            .writer
+            .write_entry_stream(builder.build())
+            .await?
+            .compat_write();
         pin_mut!(contents);
         tokio::io::copy_buf(&mut contents, &mut entry_writer).await?;
-        entry_writer.close().await?;
+        entry_writer.into_inner().close().await?;
         Ok(())
     }
 
@@ -141,25 +144,27 @@ impl<'a> ZipSnapshotUpload<'a> {
         generated_schema: GeneratedSchema<T>,
     ) -> anyhow::Result<()> {
         let generated_schema_path = format!("{path_prefix}{table_name}/generated_schema.jsonl");
-        let builder = ZipEntryBuilder::new(generated_schema_path.clone(), Compression::Deflate)
+        let builder = ZipEntryBuilder::new(generated_schema_path.into(), Compression::Deflate)
             .unix_permissions(ZIP_ENTRY_PERMISSIONS);
-        let mut entry_writer = self.writer.write_entry_stream(builder.build()).await?;
+        let mut entry_writer = self
+            .writer
+            .write_entry_stream(builder.build())
+            .await?
+            .compat_write();
         let generated_schema_str = generated_schema.inferred_shape.to_string();
         entry_writer
-            .compat_mut_write()
             .write_all(serde_json::to_string(&generated_schema_str)?.as_bytes())
             .await?;
-        entry_writer.compat_mut_write().write_all(b"\n").await?;
+        entry_writer.write_all(b"\n").await?;
         for (override_id, override_export_context) in generated_schema.overrides.into_iter() {
             let override_json =
                 json!({override_id.encode(): JsonValue::from(override_export_context)});
             entry_writer
-                .compat_mut_write()
                 .write_all(serde_json::to_string(&override_json)?.as_bytes())
                 .await?;
-            entry_writer.compat_mut_write().write_all(b"\n").await?;
+            entry_writer.write_all(b"\n").await?;
         }
-        entry_writer.close().await?;
+        entry_writer.into_inner().close().await?;
         Ok(())
     }
 

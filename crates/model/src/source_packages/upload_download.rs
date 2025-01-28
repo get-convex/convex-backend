@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::Context as AnyhowContext;
-use async_zip::{
+use async_zip_0_0_9::{
     read::stream::ZipFileReader,
     write::ZipFileWriter,
     Compression,

@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::Context;
-use async_zip::{
+use async_zip_0_0_9::{
     read::stream::ZipFileReader,
     write::ZipFileWriter,
     Compression,
@@ -404,7 +404,7 @@ mod tests {
         Context,
         Ok,
     };
-    use async_zip::read::mem::ZipFileReader;
+    use async_zip_0_0_9::read::mem::ZipFileReader;
     use common::runtime::testing::TestDriver;
     use futures::TryStreamExt;
     use runtime::prod::ProdRuntime;

@@ -1,24 +1,19 @@
 use std::{
     collections::BTreeMap,
+    io,
     str::FromStr,
     sync::LazyLock,
 };
 
 use anyhow::Context;
-use async_zip::{
-    error::ZipError,
-    read::{
-        seek::ZipFileReader,
-        ZipEntryReader,
-    },
+use async_zip_reader::{
+    ZipError,
+    ZipFileEntry,
+    ZipReader,
 };
 use bytes::Bytes;
 use common::{
-    async_compat::{
-        FuturesAsyncReadCompatExt,
-        TokioAsyncRead,
-        TokioAsyncReadCompatExt,
-    },
+    async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::tables::TABLES_TABLE,
     components::{
         ComponentName,
@@ -32,7 +27,6 @@ use futures::{
     io::BufReader,
     pin_mut,
     AsyncBufReadExt,
-    AsyncRead,
     AsyncReadExt,
     Future,
     StreamExt,
@@ -58,6 +52,7 @@ use shape_inference::{
     ShapeConfig,
 };
 use storage::StorageObjectReader;
+use tokio::io::AsyncBufReadExt as _;
 use value::{
     id_v6::DeveloperDocumentId,
     TableName,
@@ -88,12 +83,21 @@ static DOCUMENTS_PATTERN: LazyLock<Regex> =
 static STORAGE_FILE_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(.*/)?_storage/([^/.]+)(?:\.[^/]+)?$").unwrap());
 
-fn map_zip_error(e: ZipError) -> anyhow::Error {
-    match e {
-        // UpstreamReadError is probably a transient error from S3.
-        ZipError::UpstreamReadError(e) => anyhow::Error::from(e),
+fn map_zip_error(e: anyhow::Error) -> anyhow::Error {
+    if let Some(ZipError::Io(_)) = e.downcast_ref::<ZipError>() {
+        e
+    } else {
         // Everything else indicates a Zip file that cannot be parsed.
-        e => ErrorMetadata::bad_request("InvalidZip", format!("invalid zip file: {e}")).into(),
+        e.context(ErrorMetadata::bad_request("InvalidZip", "invalid zip file"))
+    }
+}
+
+fn map_zip_io_error(e: io::Error) -> anyhow::Error {
+    if e.kind() == io::ErrorKind::Other {
+        // S3 errors get mapped into ErrorKind::Other
+        e.into()
+    } else {
+        anyhow::Error::from(e).context(ErrorMetadata::bad_request("InvalidZip", "invalid zip file"))
     }
 }
 
@@ -217,15 +221,11 @@ pub async fn parse_objects<'a, Fut>(
         },
         ImportFormat::Zip => {
             let base_component_path = component_path;
-            let mut reader = stream_body().await?.compat();
-            let mut zip_reader = ZipFileReader::new(&mut reader)
+            let reader = stream_body().await?;
+            let mut zip_reader = ZipReader::new(reader.compat())
                 .await
                 .map_err(map_zip_error)?;
-            let filenames: Vec<_> = zip_reader
-                .entries()
-                .into_iter()
-                .map(|entry| entry.filename().to_string())
-                .collect();
+            let filenames: Vec<_> = zip_reader.file_names().await?;
             {
                 // First pass, all the things we can store in memory:
                 // a. _tables/documents.jsonl
@@ -245,8 +245,7 @@ pub async fn parse_objects<'a, Fut>(
                     if let Some((component_path, table_name)) = documents_table_name.clone()
                         && table_name == *TABLES_TABLE
                     {
-                        let entry_reader =
-                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                        let entry_reader = zip_reader.by_index(i).await.map_err(map_zip_error)?;
                         table_metadata.insert(
                             component_path,
                             parse_documents_jsonl(entry_reader, &base_component_path)
@@ -256,8 +255,7 @@ pub async fn parse_objects<'a, Fut>(
                     } else if let Some((component_path, table_name)) = documents_table_name
                         && table_name == *FILE_STORAGE_VIRTUAL_TABLE
                     {
-                        let entry_reader =
-                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                        let entry_reader = zip_reader.by_index(i).await.map_err(map_zip_error)?;
                         storage_metadata.insert(
                             component_path,
                             parse_documents_jsonl(entry_reader, &base_component_path)
@@ -269,14 +267,12 @@ pub async fn parse_objects<'a, Fut>(
                         &base_component_path,
                         &GENERATED_SCHEMA_PATTERN,
                     )? {
-                        let entry_reader =
-                            zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                        let entry_reader = zip_reader.by_index(i).await.map_err(map_zip_error)?;
                         tracing::info!(
                             "importing zip file containing generated_schema {table_name}"
                         );
-                        let entry_reader = BufReader::new(entry_reader.compat());
                         let generated_schema =
-                            parse_generated_schema(filename, entry_reader).await?;
+                            parse_generated_schema(filename, entry_reader.read()).await?;
                         generated_schemas
                             .entry(component_path.clone())
                             .or_default()
@@ -305,21 +301,22 @@ pub async fn parse_objects<'a, Fut>(
                                 parse_storage_filename(filename, &base_component_path)?
                                 && file_component_path == component_path
                             {
-                                let entry_reader =
-                                    zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                                let mut entry_reader =
+                                    zip_reader.by_index(i).await.map_err(map_zip_error)?.read();
                                 tracing::info!(
                                     "importing zip file containing storage file {}",
                                     storage_id.encode()
                                 );
-                                let mut entry_reader = entry_reader.compat();
-                                let mut buf = [0u8; 1024];
-                                while let bytes_read = entry_reader.read(&mut buf).await?
-                                    && bytes_read > 0
+                                while let buf =
+                                    entry_reader.fill_buf().await.map_err(map_zip_io_error)?
+                                    && !buf.is_empty()
                                 {
                                     yield ImportUnit::StorageFileChunk(
                                         storage_id,
-                                        Bytes::copy_from_slice(&buf[..bytes_read]),
+                                        Bytes::copy_from_slice(buf),
                                     );
+                                    let len = buf.len();
+                                    entry_reader.consume(len);
                                 }
                                 // In case it's an empty file, make sure we send at
                                 // least one chunk.
@@ -336,7 +333,7 @@ pub async fn parse_objects<'a, Fut>(
                     parse_documents_jsonl_table_name(filename, &base_component_path)?
                     && !table_name.is_system()
                 {
-                    let entry_reader = zip_reader.entry_reader(i).await.map_err(map_zip_error)?;
+                    let entry_reader = zip_reader.by_index(i).await.map_err(map_zip_error)?;
                     let stream = parse_documents_jsonl(entry_reader, &base_component_path);
                     pin_mut!(stream);
                     while let Some(unit) = stream.try_next().await? {
@@ -435,19 +432,24 @@ fn parse_documents_jsonl_table_name(
 }
 
 #[try_stream(ok = ImportUnit, error = anyhow::Error)]
-async fn parse_documents_jsonl<'a, R: TokioAsyncRead + Unpin>(
-    entry_reader: ZipEntryReader<'a, R>,
+async fn parse_documents_jsonl<'a>(
+    entry_reader: ZipFileEntry<'a>,
     base_component_path: &'a ComponentPath,
 ) {
     let (component_path, table_name) =
-        parse_documents_jsonl_table_name(entry_reader.entry().filename(), base_component_path)?
+        parse_documents_jsonl_table_name(entry_reader.name(), base_component_path)?
             .context("expected documents.jsonl file")?;
     tracing::info!("importing zip file containing table {table_name}");
     yield ImportUnit::NewTable(component_path, table_name);
-    let mut reader = BufReader::new(entry_reader.compat());
+    let mut reader = entry_reader.read();
     let mut line = String::new();
     let mut lineno = 1;
-    while reader.read_line(&mut line).await? > 0 {
+    while reader
+        .read_line(&mut line)
+        .await
+        .map_err(map_zip_io_error)?
+        > 0
+    {
         let v: serde_json::Value =
             serde_json::from_str(&line).map_err(|e| ImportError::JsonInvalidRow(lineno, e))?;
         yield ImportUnit::Object(v);
@@ -456,9 +458,9 @@ async fn parse_documents_jsonl<'a, R: TokioAsyncRead + Unpin>(
     }
 }
 
-async fn parse_generated_schema<T: ShapeConfig, R: AsyncRead + Unpin>(
+async fn parse_generated_schema<T: ShapeConfig, R: tokio::io::AsyncBufRead + Unpin>(
     filename: &str,
-    mut entry_reader: BufReader<R>,
+    mut entry_reader: R,
 ) -> anyhow::Result<GeneratedSchema<T>> {
     let mut line = String::new();
     let mut lineno = 1;

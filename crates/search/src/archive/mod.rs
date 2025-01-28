@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use async_zip::read::stream::ZipFileReader;
+use async_zip_0_0_9::read::stream::ZipFileReader;
 use futures::pin_mut;
 use tokio::{
     fs,

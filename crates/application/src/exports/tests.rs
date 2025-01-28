@@ -3,11 +3,13 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
+    io::Cursor,
     str,
     sync::Arc,
 };
 
 use anyhow::Context;
+use async_zip_reader::ZipReader;
 use bytes::Bytes;
 use common::{
     components::{
@@ -51,6 +53,7 @@ use storage::{
     Storage,
     StorageExt,
 };
+use tokio::io::AsyncReadExt;
 use usage_tracking::FunctionUsageTracker;
 use value::{
     assert_obj,
@@ -177,16 +180,16 @@ async fn test_export_zip(rt: TestRuntime) -> anyhow::Result<()> {
         .await?
         .context("object missing from storage")?;
     let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
     let mut zip_entries = BTreeMap::new();
-    let filenames: Vec<_> = zip_reader
-        .entries()
-        .into_iter()
-        .map(|entry| entry.filename().to_string())
-        .collect();
+    let filenames: Vec<_> = zip_reader.file_names().await?;
     for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.entry_reader(i).await?;
-        let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+        let entry_reader = zip_reader.by_index(i).await?;
+        let mut entry_contents = String::new();
+        entry_reader
+            .read()
+            .read_to_string(&mut entry_contents)
+            .await?;
         zip_entries.insert(filename, entry_contents);
     }
     assert_eq!(zip_entries, expected_export_entries);
@@ -291,16 +294,16 @@ async fn test_export_components(rt: TestRuntime) -> anyhow::Result<()> {
         .await?
         .context("object missing from storage")?;
     let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
     let mut zip_entries = BTreeMap::new();
-    let filenames: Vec<_> = zip_reader
-        .entries()
-        .into_iter()
-        .map(|entry| entry.filename().to_string())
-        .collect();
+    let filenames: Vec<_> = zip_reader.file_names().await?;
     for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.entry_reader(i).await?;
-        let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+        let entry_reader = zip_reader.by_index(i).await?;
+        let mut entry_contents = String::new();
+        entry_reader
+            .read()
+            .read_to_string(&mut entry_contents)
+            .await?;
         zip_entries.insert(filename, entry_contents);
     }
     assert_eq!(zip_entries, expected_export_entries);
@@ -348,16 +351,16 @@ async fn test_export_unmounted_components(rt: TestRuntime) -> anyhow::Result<()>
         .await?
         .context("object missing from storage")?;
     let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
     let mut zip_entries = BTreeSet::new();
-    let filenames: Vec<_> = zip_reader
-        .entries()
-        .into_iter()
-        .map(|entry| entry.filename().to_string())
-        .collect();
+    let filenames: Vec<_> = zip_reader.file_names().await?;
     for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.entry_reader(i).await?;
-        let _entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+        let entry_reader = zip_reader.by_index(i).await?;
+        let mut entry_contents = String::new();
+        entry_reader
+            .read()
+            .read_to_string(&mut entry_contents)
+            .await?;
         zip_entries.insert(filename);
     }
     assert_eq!(zip_entries, expected_export_entries);
@@ -442,16 +445,16 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
         .await?
         .context("object missing from storage")?;
     let stored_bytes = storage_stream.collect_as_bytes().await?;
-    let mut zip_reader = async_zip::read::mem::ZipFileReader::new(&stored_bytes).await?;
+    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
     let mut zip_entries = BTreeMap::new();
-    let filenames: Vec<_> = zip_reader
-        .entries()
-        .into_iter()
-        .map(|entry| entry.filename().to_string())
-        .collect();
+    let filenames: Vec<_> = zip_reader.file_names().await?;
     for (i, filename) in filenames.into_iter().enumerate() {
-        let entry_reader = zip_reader.entry_reader(i).await?;
-        let entry_contents = String::from_utf8(entry_reader.read_to_end_crc().await?)?;
+        let entry_reader = zip_reader.by_index(i).await?;
+        let mut entry_contents = String::new();
+        entry_reader
+            .read()
+            .read_to_string(&mut entry_contents)
+            .await?;
         zip_entries.insert(filename, entry_contents);
     }
     assert_eq!(zip_entries, expected_export_entries);
