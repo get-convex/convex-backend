@@ -1,3 +1,4 @@
+import * as dotenv from "dotenv";
 import { Context, logVerbose } from "../../bundler/context.js";
 import {
   deploymentNameFromAdminKeyOrCrash,
@@ -10,12 +11,14 @@ import { buildEnvironment } from "./envvars.js";
 import { checkAuthorization, performLogin } from "./login.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+  ENV_VAR_FILE_PATH,
   bigBrainAPI,
   bigBrainAPIMaybeThrows,
   getAuthHeaderForBigBrain,
   getConfiguredDeploymentName,
   getConfiguredDeploymentOrCrash,
   readAdminKeyFromEnvVar,
+  readDeploymentUrlFromEnvVar,
 } from "./utils/utils.js";
 
 export type DeploymentName = string;
@@ -165,13 +168,16 @@ export type DeploymentSelectionOptions = {
 export function deploymentSelectionFromOptions(
   options: DeploymentSelectionOptions,
 ): DeploymentSelection {
+  dotenv.config({ path: ENV_VAR_FILE_PATH });
+  dotenv.config();
   storeAdminKeyEnvVar(options.adminKey);
   const adminKey = readAdminKeyFromEnvVar();
-  if (options.url !== undefined) {
+  const url = options.url ?? readDeploymentUrlFromEnvVar();
+  if (url !== undefined) {
     if (adminKey) {
-      return { kind: "urlWithAdminKey", url: options.url, adminKey };
+      return { kind: "urlWithAdminKey", url, adminKey };
     }
-    return { kind: "urlWithLogin", url: options.url };
+    return { kind: "urlWithLogin", url };
   }
   if (options.previewName !== undefined) {
     return { kind: "previewName", previewName: options.previewName };

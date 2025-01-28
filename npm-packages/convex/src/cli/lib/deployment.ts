@@ -3,11 +3,12 @@ import { Context } from "../../bundler/context.js";
 import { changedEnvVarFile, getEnvVarRegex } from "./envvars.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+  ENV_VAR_FILE_PATH,
   readAdminKeyFromEnvVar,
+  readDeploymentUrlFromEnvVar,
 } from "./utils/utils.js";
 import { DeploymentType } from "./api.js";
 
-const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOYMENT_VAR_NAME = "CONVEX_DEPLOYMENT";
 
 // Return the "target" deployment name, from admin key or from CONVEX_DEPLOYMENT.
@@ -31,6 +32,17 @@ export function getConfiguredDeploymentFromEnvVar(): {
   const name = stripDeploymentTypePrefix(raw);
   const type = getDeploymentTypeFromConfiguredDeployment(raw);
   return { type, name };
+}
+
+export function getConfiguredCredentialsFromEnvVar(): {
+  url?: string | undefined;
+  adminKey?: string | undefined;
+} {
+  dotenv.config({ path: ENV_VAR_FILE_PATH });
+  dotenv.config();
+  const url = readDeploymentUrlFromEnvVar();
+  const adminKey = readAdminKeyFromEnvVar();
+  return { url, adminKey };
 }
 
 // Given a deployment string like "dev:tall-forest-1234"
