@@ -737,8 +737,8 @@ importers:
         specifier: ^27.0.0
         version: 27.5.2
       '@types/lodash':
-        specifier: ~4.14.191
-        version: 4.14.202
+        specifier: ~4.17.0
+        version: 4.17.14
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -1089,8 +1089,8 @@ importers:
         specifier: ^27.0.0
         version: 27.5.2
       '@types/lodash':
-        specifier: ~4.14.191
-        version: 4.14.202
+        specifier: ~4.17.0
+        version: 4.17.14
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -4250,8 +4250,8 @@ importers:
         specifier: ^27.0.0
         version: 27.5.2
       '@types/lodash':
-        specifier: ~4.14.191
-        version: 4.14.202
+        specifier: ~4.17.0
+        version: 4.17.14
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -9585,8 +9585,8 @@ packages:
   '@types/jwt-encode@1.0.3':
     resolution: {integrity: sha512-4IAoiMbBSbiUfYkBZYvj6Sj68d5qaaYeHfeoxQp5qpYkjOPcou9chpfEqw7OfoTQxsrS6HnTVN/RTCF866Z9sw==}
 
-  '@types/lodash@4.14.202':
-    resolution: {integrity: sha512-OvlIYQK9tNneDlS0VN54LLd5uiPCBOp7gS5Z0f1mjoJYBrtStzgmJBxONW3U6OZqdtNzZPmn9BS/7WI7BFFcFQ==}
+  '@types/lodash@4.17.14':
+    resolution: {integrity: sha512-jsxagdikDiDBeIRaPYtArcT8my4tN1og7MtMRquFT3XNA6axxyHDRUemqDz/taRDdOUn0GnGHRCuff4q48sW9A==}
 
   '@types/mdast@3.0.15':
     resolution: {integrity: sha512-LnwD+mUEfxWMa1QpDraczIn6k0Ee3SMicuYSSzS6ZYl2gKS09EClnJYGd8Du6rfc5r/GZEk5o1mRb8TaTj03sQ==}
@@ -27663,7 +27663,7 @@ snapshots:
       '@storybook/preview-api': 7.6.20
       '@storybook/theming': 7.6.20(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@storybook/types': 7.6.20
-      '@types/lodash': 4.14.202
+      '@types/lodash': 4.17.14
       color-convert: 2.0.1
       dequal: 2.0.3
       lodash: 4.17.21
@@ -29521,7 +29521,7 @@ snapshots:
 
   '@types/jwt-encode@1.0.3': {}
 
-  '@types/lodash@4.14.202': {}
+  '@types/lodash@4.17.14': {}
 
   '@types/mdast@3.0.15':
     dependencies:
@@ -44643,7 +44643,7 @@ snapshots:
   yup@0.32.11:
     dependencies:
       '@babel/runtime': 7.26.0
-      '@types/lodash': 4.14.202
+      '@types/lodash': 4.17.14
       lodash: 4.17.21
       lodash-es: 4.17.21
       nanoclone: 0.2.1
