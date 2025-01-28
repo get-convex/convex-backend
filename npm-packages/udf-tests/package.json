@@ -5,7 +5,7 @@
     "convex": "workspace:*",
     "shapes": "workspace:*",
     "id-encoding": "workspace:*",
-    "chai": "~4.3.7",
+    "chai": "~4.5.0",
     "chai-as-promised": "~7.1.1",
     "@types/chai-as-promised": "~7.1.5",
     "prettier": "3.4.2",
