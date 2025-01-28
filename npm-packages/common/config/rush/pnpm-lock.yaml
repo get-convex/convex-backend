@@ -449,7 +449,7 @@ importers:
         version: 1.0.0
       langchain:
         specifier: ^0.2.19
-        version: 0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.5.6(encoding@0.1.13))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+        version: 0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       modern-async:
         specifier: ^1.1.4
         version: 1.1.5
@@ -2909,14 +2909,14 @@ importers:
         specifier: ^5.0.2
         version: 5.3.3(@popperjs/core@2.11.8)
       chromadb:
-        specifier: '=1.5.6'
-        version: 1.5.6(encoding@0.1.13)
+        specifier: '=1.9.4'
+        version: 1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))
       convex:
         specifier: workspace:*
         version: link:../../convex
       langchain:
         specifier: ^0.2.19
-        version: 0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.5.6(encoding@0.1.13))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+        version: 0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       postmark:
         specifier: ~3.0.14
         version: 3.0.20
@@ -4066,7 +4066,7 @@ importers:
         version: 7.114.0
       langchain:
         specifier: ^0.2.19
-        version: 0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.5.6(encoding@0.1.13))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+        version: 0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       prettier:
         specifier: 3.4.2
         version: 3.4.2
@@ -11329,8 +11329,20 @@ packages:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
     engines: {node: '>=18'}
 
-  chromadb@1.5.6:
-    resolution: {integrity: sha512-RNIU77gkmVWumn947FcB5xBiDV55iIJCCrNvIe56yMSNU7pCF+l8VHJsJ1N7BH+/NGHD4CQbGrpI2pQinMDJ4g==}
+  chromadb@1.9.4:
+    resolution: {integrity: sha512-KtBy3uvZWV5+B6tlSYxwi8YW+Dv+qBs2spffSaamLeAHLn+N4ss6xoscLWDp5J1ImfscT8NFW1lGZlTZbs8Huw==}
+    engines: {node: '>=14.17.0'}
+    peerDependencies:
+      '@google/generative-ai': ^0.1.1
+      cohere-ai: ^5.0.0 || ^6.0.0 || ^7.0.0
+      openai: ^3.0.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@google/generative-ai':
+        optional: true
+      cohere-ai:
+        optional: true
+      openai:
+        optional: true
 
   chrome-trace-event@1.0.4:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
@@ -32242,9 +32254,12 @@ snapshots:
 
   chownr@3.0.0: {}
 
-  chromadb@1.5.6(encoding@0.1.13):
+  chromadb@1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)):
     dependencies:
+      cliui: 8.0.1
       isomorphic-fetch: 3.0.0(encoding@0.1.13)
+    optionalDependencies:
+      openai: 4.77.3(encoding@0.1.13)(zod@3.24.1)
     transitivePeerDependencies:
       - encoding
 
@@ -37709,7 +37724,7 @@ snapshots:
 
   kuler@2.0.0: {}
 
-  langchain@0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.5.6(encoding@0.1.13))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
+  langchain@0.2.19(@aws-sdk/client-s3@3.723.0)(@aws-sdk/credential-provider-node@3.723.0(@aws-sdk/client-sts@3.723.0))(@azure/storage-blob@12.18.0(encoding@0.1.13))(axios@1.7.9)(cheerio@1.0.0)(chromadb@1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)))(convex@..+convex)(encoding@0.1.13)(fast-xml-parser@4.5.1)(handlebars@4.7.8)(ignore@5.3.2)(ioredis@5.4.2)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))(playwright@1.49.1)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)):
     dependencies:
       '@langchain/core': 0.2.36(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))
       '@langchain/openai': 0.2.11(encoding@0.1.13)
@@ -37731,7 +37746,7 @@ snapshots:
       '@azure/storage-blob': 12.18.0(encoding@0.1.13)
       axios: 1.7.9
       cheerio: 1.0.0
-      chromadb: 1.5.6(encoding@0.1.13)
+      chromadb: 1.9.4(encoding@0.1.13)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))
       convex: link:../../convex
       fast-xml-parser: 4.5.1
       handlebars: 4.7.8
