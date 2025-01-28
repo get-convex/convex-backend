@@ -65,7 +65,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.5",
     "@jest/types": "^29.6.0",
-    "@playwright/test": "1.31.2",
+    "@playwright/test": "1.49.1",
     "@storybook/addon-essentials": "^7.6.16",
     "@storybook/addon-interactions": "^7.6.16",
     "@storybook/addon-links": "^7.6.16",
