@@ -77,6 +77,9 @@ usage_tracking = { path = "../../crates/usage_tracking" }
 value = { path = "../value" }
 vector = { path = "../vector" }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = { workspace = true }
+
 [dev-dependencies]
 authentication = { path = "../../crates/authentication", features = [
     "testing",

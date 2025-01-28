@@ -8,8 +8,6 @@ license = "LicenseRef-FSL-1.1-Apache-2.0"
 [dependencies]
 anyhow = { workspace = true }
 bytes = { workspace = true }
-common = { path = "../common" }
-runtime = { path = "../runtime" }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
@@ -21,6 +19,4 @@ workspace = true
 [dev-dependencies]
 async_zip = { workspace = true }
 async_zip_0_0_9 = { workspace = true }
-common = { path = "../common", features = ["testing"] }
 futures = { workspace = true }
-runtime = { path = "../runtime", features = ["testing"] }

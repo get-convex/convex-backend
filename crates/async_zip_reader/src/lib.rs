@@ -12,6 +12,7 @@ use std::{
     io::{
         self,
         Read,
+        Seek,
     },
     marker::PhantomData,
 };
@@ -19,11 +20,7 @@ use std::{
 use anyhow::Context as _;
 use bytes::Bytes;
 use tokio::{
-    io::{
-        AsyncBufRead,
-        AsyncRead,
-        AsyncSeek,
-    },
+    io::AsyncBufRead,
     sync::{
         mpsc,
         oneshot,
@@ -31,10 +28,7 @@ use tokio::{
     task::JoinHandle,
 };
 use tokio_stream::wrappers::ReceiverStream;
-use tokio_util::io::{
-    StreamReader,
-    SyncIoBridge,
-};
+use tokio_util::io::StreamReader;
 pub use zip::result::ZipError;
 
 pub struct ZipReader {
@@ -44,13 +38,13 @@ pub struct ZipReader {
 }
 
 impl ZipReader {
-    pub async fn new<R: AsyncRead + AsyncSeek + Unpin + Send + 'static>(
-        reader: R,
-    ) -> anyhow::Result<Self> {
+    /// Create a new thread and parse the given file (which should be a seekable
+    /// reader) as a zip file on that thread. The reader can use blocking
+    /// I/O.
+    pub async fn new<R: Read + Seek + Send + 'static>(reader: R) -> anyhow::Result<Self> {
         let (tx, rx) = mpsc::channel(8);
         let (init_tx, init_rx) = oneshot::channel();
-        let rt = tokio::runtime::Handle::current();
-        let handle = tokio::task::spawn_blocking(move || run_reader(rt, rx, reader, init_tx));
+        let handle = tokio::task::spawn_blocking(move || run_reader(rx, reader, init_tx));
         let num_entries = init_rx.await??;
         Ok(Self {
             num_entries,
@@ -143,13 +137,11 @@ enum ZipReaderMessage {
 
 const READ_BUF_SIZE: usize = 64 * 1024; // 64KiB
 
-fn run_reader<R: AsyncRead + AsyncSeek + Unpin + Send + 'static>(
-    rt: tokio::runtime::Handle,
+fn run_reader<R: Read + Seek>(
     mut rx: mpsc::Receiver<ZipReaderMessage>,
     reader: R,
     init_tx: oneshot::Sender<anyhow::Result<usize>>,
 ) {
-    let reader = SyncIoBridge::new_with_handle(reader, rt);
     let mut reader = match zip::read::ZipArchive::new(reader) {
         Ok(r) => {
             _ = init_tx.send(Ok(r.len()));

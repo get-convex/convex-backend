@@ -222,7 +222,8 @@ pub async fn parse_objects<'a, Fut>(
         ImportFormat::Zip => {
             let base_component_path = component_path;
             let reader = stream_body().await?;
-            let mut zip_reader = ZipReader::new(reader.compat())
+            let temp_file = copy_to_temp_file(reader).await?;
+            let mut zip_reader = ZipReader::new(std::io::BufReader::new(temp_file))
                 .await
                 .map_err(map_zip_error)?;
             let filenames: Vec<_> = zip_reader.file_names().await?;
@@ -343,6 +344,41 @@ pub async fn parse_objects<'a, Fut>(
             }
         },
     }
+}
+
+// Copy an object to disk so that we can more efficiently seek through the file.
+// TODO: write something that can efficiently seek through storage objects
+async fn copy_to_temp_file(reader: StorageObjectReader) -> anyhow::Result<std::fs::File> {
+    let size = reader.full_size();
+    let file = common::runtime::block_in_place(|| {
+        let file = tempfile::tempfile().context("Failed to create temp file")?;
+        #[cfg(target_os = "linux")]
+        unsafe {
+            use std::os::fd::AsRawFd;
+            if libc::fallocate64(
+                file.as_raw_fd(),
+                0, /* mode */
+                0, /* offset */
+                size as i64,
+            ) < 0
+            {
+                return Err(anyhow::Error::from(std::io::Error::last_os_error())
+                    .context(format!("Failed to fallocate {size} bytes")));
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            _ = size;
+        }
+        anyhow::Ok(file)
+    })?;
+    let mut tokio_file = tokio::fs::File::from_std(file);
+    tokio::io::copy_buf(&mut reader.compat(), &mut tokio_file)
+        .await
+        .context("Failed to copy snapshot to temp file")?;
+    // N.B.: it's ok that this file is seeked to the end because the ZipReader is
+    // immediately going to seek it anyway.
+    Ok(tokio_file.into_std().await)
 }
 
 pub fn parse_component_path(

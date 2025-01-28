@@ -735,6 +735,10 @@ async fn stream_object_with_retries(
 }
 
 impl StorageObjectReader {
+    pub fn full_size(&self) -> u64 {
+        self.full_size
+    }
+
     fn new_inner_reader_starting_at(
         storage: Arc<dyn Storage>,
         object_key: FullyQualifiedObjectKey,
@@ -781,6 +785,20 @@ impl futures::io::AsyncRead for StorageObjectReader {
     }
 }
 
+impl futures::io::AsyncBufRead for StorageObjectReader {
+    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<&[u8]>> {
+        self.project().inner.poll_fill_buf(cx)
+    }
+
+    fn consume(self: Pin<&mut Self>, amt: usize) {
+        let this = self.project();
+        *this.cursor += amt as u64;
+        this.inner.consume(amt);
+    }
+}
+
+// TODO: restore this impl, it is currently too inefficient
+#[cfg(any())]
 impl futures::io::AsyncSeek for StorageObjectReader {
     fn poll_seek(
         mut self: Pin<&mut Self>,
