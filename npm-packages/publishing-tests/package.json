@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@types/node": "^18.17.0",
-    "get-port": "~7.0.0",
+    "get-port": "~7.1.0",
     "prettier": "3.4.2",
     "typescript": "~5.0.3",
     "verdaccio": "^5.29.2",
