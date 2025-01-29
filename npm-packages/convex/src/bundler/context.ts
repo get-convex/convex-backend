@@ -3,6 +3,7 @@ import chalk from "chalk";
 import ora, { Ora } from "ora";
 import { Filesystem, nodeFs } from "./fs.js";
 import { format } from "util";
+import ProgressBar from "progress";
 
 // How the error should be handled when running `npx convex dev`.
 export type ErrorType =
@@ -150,6 +151,21 @@ export function logVerbose(ctx: Context, ...logged: any) {
   if (process.env.CONVEX_VERBOSE) {
     logMessage(ctx, `[verbose] ${new Date().toISOString()}`, ...logged);
   }
+}
+
+/**
+ * Returns a ProgressBar instance, and also handles clearing the spinner if necessary.
+ *
+ * The caller is responsible for calling `progressBar.tick()` and terminating the `progressBar`
+ * when it's done.
+ */
+export function startLogProgress(
+  ctx: Context,
+  format: string,
+  progressBarOptions: ProgressBar.ProgressBarOptions,
+): ProgressBar {
+  ctx.spinner?.clear();
+  return new ProgressBar(format, progressBarOptions);
 }
 
 // Start a spinner.

@@ -1,5 +1,11 @@
 import AdmZip from "adm-zip";
-import { Context, logMessage, logVerbose } from "../../../bundler/context.js";
+import {
+  Context,
+  logFinishedStep,
+  startLogProgress,
+  logVerbose,
+  logMessage,
+} from "../../../bundler/context.js";
 import {
   binariesDir,
   binaryZip,
@@ -18,6 +24,8 @@ import { createHash } from "crypto";
 import { components } from "@octokit/openapi-types";
 import { recursivelyDelete } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
+import ProgressBar from "progress";
+
 const LOCAL_BACKEND_INSTANCE_SECRET =
   "4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974";
 
@@ -148,21 +156,27 @@ async function downloadBinary(ctx: Context, version: string): Promise<string> {
   }
   const url = `https://github.com/get-convex/convex-backend/releases/download/${version}/${downloadPath}`;
   const response = await fetch(url);
-  if (response.status === 404) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: `Binary not found at ${url}.`,
-    });
+  const contentLength = parseInt(
+    response.headers.get("content-length") ?? "",
+    10,
+  );
+  let progressBar: ProgressBar | null = null;
+  if (!isNaN(contentLength) && contentLength !== 0 && process.stdout.isTTY) {
+    progressBar = startLogProgress(
+      ctx,
+      "Downloading Convex backend binary [:bar] :percent :etas",
+      {
+        width: 40,
+        total: contentLength,
+        clear: true,
+      },
+    );
   }
   if (response.status !== 200) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `Failed to download convex backend binary at ${url}.`,
-      errForSentry: new LocalDeploymentError(
-        `Failed to download convex backend binary at ${url}, status ${response.status}, body ${await response.text()}`,
-      ),
+      printedMessage: `Binary not found at ${url}.`,
     });
   }
   logMessage(ctx, "Downloading convex backend");
@@ -174,7 +188,15 @@ async function downloadBinary(ctx: Context, version: string): Promise<string> {
     ctx.fs.unlink(zipLocation);
   }
   const readable = Readable.fromWeb(response.body! as any);
-  await nodeFs.writeFileStream(zipLocation, readable);
+  await nodeFs.writeFileStream(zipLocation, readable, (chunk: any) => {
+    if (progressBar !== null) {
+      progressBar.tick(chunk.length);
+    }
+  });
+  if (progressBar) {
+    progressBar.terminate();
+    logFinishedStep(ctx, "Downloaded Convex backend binary");
+  }
   logVerbose(ctx, "Downloaded zip file");
 
   const zip = new AdmZip(zipLocation);

@@ -291,6 +291,9 @@ importers:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
+      '@types/progress':
+        specifier: ~2.0.7
+        version: 2.0.7
       '@types/react':
         specifier: ^18.0.0
         version: 18.3.18
@@ -396,6 +399,9 @@ importers:
       ora:
         specifier: ^8.1.1
         version: 8.1.1
+      progress:
+        specifier: ~2.0.3
+        version: 2.0.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -9671,6 +9677,9 @@ packages:
 
   '@types/pretty-hrtime@1.0.3':
     resolution: {integrity: sha512-nj39q0wAIdhwn7DGUyT9irmsKK1tV0bd5WFEhgpqNTMFZ8cE+jieuTphCW0tfdm47S2zVT5mr09B28b1chmQMA==}
+
+  '@types/progress@2.0.7':
+    resolution: {integrity: sha512-iadjw02vte8qWx7U0YM++EybBha2CQLPGu9iJ97whVgJUT5Zq9MjAPYUnbfRI2Kpehimf1QjFJYxD0t8nqzu5w==}
 
   '@types/prop-types@15.7.14':
     resolution: {integrity: sha512-gNMvNH49DJ7OJYv+KAKn0Xp45p8PLl6zo2YnvDIbTd4J6MER2BmWN49TG7n9LvkyihINxeKW8+3bfS2yDC9dzQ==}
@@ -29326,6 +29335,10 @@ snapshots:
   '@types/prettier@2.7.3': {}
 
   '@types/pretty-hrtime@1.0.3': {}
+
+  '@types/progress@2.0.7':
+    dependencies:
+      '@types/node': 18.19.70
 
   '@types/prop-types@15.7.14': {}
 

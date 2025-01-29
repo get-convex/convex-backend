@@ -145,12 +145,21 @@ class NodeFs implements Filesystem {
   // To avoid issues with filesystem events triggering for our own streamed file
   // writes, writeFileStream is intentionally not on the Filesystem interface
   // and not implemented by RecordingFs.
-  async writeFileStream(path: string, stream: Readable): Promise<void> {
+  async writeFileStream(
+    path: string,
+    stream: Readable,
+    onData?: (chunk: any) => void,
+  ): Promise<void> {
     // 'wx' means O_CREAT | O_EXCL | O_WRONLY
     // 0o644 means owner has readwrite access, everyone else has read access.
     const fileHandle = await fsPromises.open(path, "wx", 0o644);
     try {
       for await (const chunk of stream) {
+        // For some reason, adding `stream.on("data", onData)` causes issues with
+        // the stream, but calling a callback here works.
+        if (onData) {
+          onData(chunk);
+        }
         await fileHandle.write(chunk);
       }
     } finally {
