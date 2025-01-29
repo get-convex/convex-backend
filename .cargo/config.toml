@@ -15,8 +15,9 @@ rustflags = [
     "-Clink-arg=/FORCE:MULTIPLE",
     "-Clink-arg=/STACK:4194304",
     "-Ctarget-feature=+crt-static",
-    "-Clink-arg=/NODEFAULTLIB:libcmt",
-    "-Clink-arg=/NODEFAULTLIB:msvcrt"
+    "-Clink-arg=/DEFAULTLIB:libcmt",
+    "-Clink-arg=/DEFAULTLIB:libvcruntime",
+    "-Clink-arg=/DEFAULTLIB:libucrt"
 ]
 
 [target.'cfg(all())']
