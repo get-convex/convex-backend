@@ -13,7 +13,6 @@ use async_lru::async_lru::{
 };
 use bytesize::ByteSize;
 use common::{
-    async_compat::FuturesAsyncReadCompatExt,
     bounded_thread_pool::BoundedThreadPool,
     knobs::ARCHIVE_FETCH_TIMEOUT_SECONDS,
     runtime::{
@@ -26,7 +25,6 @@ use futures::{
     pin_mut,
     select_biased,
     FutureExt,
-    TryStreamExt,
 };
 use storage::{
     Storage,
@@ -144,14 +142,10 @@ impl<RT: Runtime> ArchiveFetcher<RT> {
             .get(&key)
             .await?
             .context(format!("{:?} not found in search storage", key))?
-            .stream;
+            .into_tokio_reader();
         let extract_archive_timer = metrics::extract_archive_timer();
         let extract_archive_result = self
-            .extract_archive(
-                search_file_type,
-                destination.clone(),
-                archive.into_async_read().compat(),
-            )
+            .extract_archive(search_file_type, destination.clone(), archive)
             .await;
         extract_archive_timer.finish();
 

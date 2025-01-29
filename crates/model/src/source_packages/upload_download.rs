@@ -13,7 +13,6 @@ use async_zip_0_0_9::{
 };
 use bytes::Bytes;
 use common::{
-    async_compat::FuturesAsyncReadCompatExt,
     sha256::{
         Sha256,
         Sha256Digest,
@@ -23,10 +22,7 @@ use common::{
         ObjectKey,
     },
 };
-use futures::{
-    StreamExt,
-    TryStreamExt,
-};
+use futures::StreamExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -171,9 +167,8 @@ pub async fn download_package(
     let stream = storage
         .get(&key)
         .await?
-        .context(format!("Src Pkg storage key not found?? {key:?}"))?
-        .stream;
-    let mut reader = ZipFileReader::new(stream.into_async_read().compat());
+        .context(format!("Src Pkg storage key not found?? {key:?}"))?;
+    let mut reader = ZipFileReader::new(stream.into_tokio_reader());
 
     let mut source = BTreeMap::new();
     let mut source_maps = BTreeMap::new();

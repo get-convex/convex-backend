@@ -14,6 +14,7 @@ use std::{
         OpenOptions,
     },
     io::{
+        self,
         Read,
         Seek,
         SeekFrom,
@@ -65,7 +66,6 @@ use futures::{
 };
 use futures_async_stream::try_stream;
 use http::Uri;
-use pin_project::pin_project;
 use serde_json::{
     json,
     Value as JsonValue,
@@ -76,7 +76,10 @@ use tokio::{
     sync::mpsc,
 };
 use tokio_stream::wrappers::ReceiverStream;
-use tokio_util::sync::PollSender;
+use tokio_util::{
+    io::StreamReader,
+    sync::PollSender,
+};
 use value::sha256::{
     Sha256,
     Sha256Digest,
@@ -98,7 +101,7 @@ impl From<String> for UploadId {
 
 pub struct StorageGetStream {
     pub content_length: i64,
-    pub stream: BoxStream<'static, futures::io::Result<bytes::Bytes>>,
+    pub stream: BoxStream<'static, io::Result<Bytes>>,
 }
 
 impl StorageGetStream {
@@ -118,6 +121,14 @@ impl StorageGetStream {
             "ContentLength mismatch"
         );
         Ok(content)
+    }
+
+    pub fn into_reader(self) -> IntoAsyncRead<BoxStream<'static, io::Result<Bytes>>> {
+        self.stream.into_async_read()
+    }
+
+    pub fn into_tokio_reader(self) -> StreamReader<BoxStream<'static, io::Result<Bytes>>, Bytes> {
+        StreamReader::new(self.stream)
     }
 }
 
@@ -520,39 +531,31 @@ impl AsyncWrite for ChannelWriter {
     }
 }
 
-/// Read and seek an object written to storage.
-#[pin_project]
-pub struct StorageObjectReader {
-    storage: Arc<dyn Storage>,
-    object_key: FullyQualifiedObjectKey,
-    full_size: u64,
-    cursor: u64,
-    #[pin]
-    inner: IntoAsyncRead<BoxStream<'static, futures::io::Result<Bytes>>>,
-}
-
 #[async_trait]
 pub trait StorageExt {
-    // TODO: FullyQualifiedObjectKey is an abstraction violation as it possibly
-    // reads from another `Storage` instance; get rid of it
-    async fn get_fq_object_reader(
-        &self,
-        object_key: &FullyQualifiedObjectKey,
-    ) -> anyhow::Result<StorageObjectReader>;
-    async fn get_reader(&self, object_key: &ObjectKey) -> anyhow::Result<StorageObjectReader>;
+    /// Gets a previously stored object.
+    async fn get(&self, key: &ObjectKey) -> anyhow::Result<Option<StorageGetStream>>;
     /// Gets a stream for a range of a previously stored object.
-    async fn get_fq_object_range(
-        &self,
-        key: &FullyQualifiedObjectKey,
-        bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
-    ) -> anyhow::Result<Option<StorageGetStream>>;
     async fn get_range(
         &self,
         key: &ObjectKey,
         bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
     ) -> anyhow::Result<Option<StorageGetStream>>;
-    /// Gets a previously stored object.
-    async fn get(&self, key: &ObjectKey) -> anyhow::Result<Option<StorageGetStream>>;
+
+    // Equivalents for the above taking fully qualified objects
+    // TODO: FullyQualifiedObjectKey is an abstraction violation as it possibly
+    // reads from another `Storage` instance; get rid of it
+    async fn get_fq_object(
+        &self,
+        object_key: &FullyQualifiedObjectKey,
+    ) -> anyhow::Result<Option<StorageGetStream>>;
+    async fn get_fq_object_range(
+        &self,
+        key: &FullyQualifiedObjectKey,
+        bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
+    ) -> anyhow::Result<Option<StorageGetStream>>;
+
+    // Implementation detail
     async fn get_small_range_with_retries(
         &self,
         key: &FullyQualifiedObjectKey,
@@ -562,33 +565,28 @@ pub trait StorageExt {
 
 #[async_trait]
 impl StorageExt for Arc<dyn Storage> {
-    async fn get_fq_object_reader(
-        &self,
-        object_key: &FullyQualifiedObjectKey,
-    ) -> anyhow::Result<StorageObjectReader> {
-        let full_size = self
-            .get_fq_object_attributes(object_key)
-            .await?
-            .with_context(|| format!("object {object_key:?} does not exist in {self:?}"))?
-            .size;
-        let inner =
-            StorageObjectReader::new_inner_reader_starting_at(self.clone(), object_key.clone(), 0);
-        Ok(StorageObjectReader {
-            storage: self.clone(),
-            object_key: object_key.clone(),
-            full_size,
-            cursor: 0,
-            inner,
-        })
+    async fn get(&self, key: &ObjectKey) -> anyhow::Result<Option<StorageGetStream>> {
+        self.get_range(
+            key,
+            (std::ops::Bound::Unbounded, std::ops::Bound::Unbounded),
+        )
+        .await
     }
 
-    async fn get_reader(&self, object_key: &ObjectKey) -> anyhow::Result<StorageObjectReader> {
-        self.get_fq_object_reader(&self.fully_qualified_key(object_key))
+    async fn get_range(
+        &self,
+        key: &ObjectKey,
+        bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
+    ) -> anyhow::Result<Option<StorageGetStream>> {
+        self.get_fq_object_range(&self.fully_qualified_key(key), bytes_range)
             .await
     }
 
-    async fn get(&self, key: &ObjectKey) -> anyhow::Result<Option<StorageGetStream>> {
-        self.get_range(
+    async fn get_fq_object(
+        &self,
+        key: &FullyQualifiedObjectKey,
+    ) -> anyhow::Result<Option<StorageGetStream>> {
+        self.get_fq_object_range(
             key,
             (std::ops::Bound::Unbounded, std::ops::Bound::Unbounded),
         )
@@ -657,15 +655,6 @@ impl StorageExt for Arc<dyn Storage> {
         }))
     }
 
-    async fn get_range(
-        &self,
-        key: &ObjectKey,
-        bytes_range: (std::ops::Bound<u64>, std::ops::Bound<u64>),
-    ) -> anyhow::Result<Option<StorageGetStream>> {
-        self.get_fq_object_range(&self.fully_qualified_key(key), bytes_range)
-            .await
-    }
-
     #[fastrace::trace]
     async fn get_small_range_with_retries(
         &self,
@@ -731,101 +720,6 @@ async fn stream_object_with_retries(
                 retries_remaining -= 1;
             },
         }
-    }
-}
-
-impl StorageObjectReader {
-    pub fn full_size(&self) -> u64 {
-        self.full_size
-    }
-
-    fn new_inner_reader_starting_at(
-        storage: Arc<dyn Storage>,
-        object_key: FullyQualifiedObjectKey,
-        starting_at_index: u64,
-    ) -> IntoAsyncRead<BoxStream<'static, futures::io::Result<Bytes>>> {
-        let get_range_fut = async move {
-            storage
-                .get_fq_object_range(
-                    &object_key,
-                    (
-                        std::ops::Bound::Included(starting_at_index),
-                        std::ops::Bound::Unbounded,
-                    ),
-                )
-                .await?
-                .with_context(|| format!("{object_key:?} not found"))
-        };
-        stream::once(get_range_fut)
-            .map(move |storage_get_stream| {
-                let storage_get_stream = storage_get_stream
-                    .map_err(|e| futures::io::Error::new(std::io::ErrorKind::Other, e))?;
-                futures::io::Result::Ok(storage_get_stream.stream)
-            })
-            .try_flatten()
-            .boxed()
-            .into_async_read()
-    }
-}
-
-impl futures::io::AsyncRead for StorageObjectReader {
-    fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-        buf: &mut [u8],
-    ) -> Poll<std::io::Result<usize>> {
-        match self.as_mut().project().inner.poll_read(cx, buf) {
-            Poll::Ready(Ok(bytes_read)) => {
-                self.cursor += bytes_read as u64;
-                Poll::Ready(Ok(bytes_read))
-            },
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-            Poll::Pending => Poll::Pending,
-        }
-    }
-}
-
-impl futures::io::AsyncBufRead for StorageObjectReader {
-    fn poll_fill_buf(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<&[u8]>> {
-        self.project().inner.poll_fill_buf(cx)
-    }
-
-    fn consume(self: Pin<&mut Self>, amt: usize) {
-        let this = self.project();
-        *this.cursor += amt as u64;
-        this.inner.consume(amt);
-    }
-}
-
-// TODO: restore this impl, it is currently too inefficient
-#[cfg(any())]
-impl futures::io::AsyncSeek for StorageObjectReader {
-    fn poll_seek(
-        mut self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        pos: SeekFrom,
-    ) -> Poll<std::io::Result<u64>> {
-        let new_cursor = match pos {
-            SeekFrom::Start(seek) => seek,
-            SeekFrom::Current(seek) => ((self.cursor as i64) + seek) as u64,
-            SeekFrom::End(seek) => ((self.full_size as i64) + seek) as u64,
-        };
-        if self.cursor == new_cursor {
-            return Poll::Ready(Ok(self.cursor));
-        }
-        tracing::debug!(
-            "storage object {:?} seeking from {} -> {}",
-            self.object_key,
-            self.cursor,
-            new_cursor
-        );
-        self.cursor = new_cursor;
-        self.inner = Self::new_inner_reader_starting_at(
-            self.storage.clone(),
-            self.object_key.clone(),
-            self.cursor,
-        );
-        Poll::Ready(Ok(self.cursor))
     }
 }
 

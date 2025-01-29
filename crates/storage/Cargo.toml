@@ -25,7 +25,6 @@ futures-async-stream = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 pb = { path = "../pb" }
-pin-project = { workspace = true }
 runtime = { path = "../runtime", optional = true }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

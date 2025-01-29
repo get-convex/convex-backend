@@ -7943,7 +7943,6 @@ dependencies = [
  "http-body-util",
  "parking_lot",
  "pb",
- "pin-project",
  "runtime",
  "serde_json",
  "tempfile",

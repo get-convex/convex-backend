@@ -18,17 +18,12 @@ use async_zip_0_0_9::{
 use bytes::Bytes;
 use cmd_util::env::env_config;
 use common::{
-    async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::index::{
         text_index::FragmentedTextSegment,
         vector_index::FragmentedVectorSegment,
     },
     runtime::Runtime,
     types::ObjectKey,
-};
-use futures::{
-    pin_mut,
-    TryStreamExt,
 };
 use storage::{
     ChannelWriter,
@@ -110,13 +105,7 @@ pub async fn download_single_file_original<P: AsRef<Path>>(
     path: P,
     storage: Arc<dyn Storage>,
 ) -> anyhow::Result<()> {
-    let stream = storage
-        .get(key)
-        .await?
-        .unwrap()
-        .stream
-        .into_async_read()
-        .compat();
+    let stream = storage.get(key).await?.unwrap().into_tokio_reader();
     let mut file = fs::File::create(path).await?;
     let mut reader = BufReader::with_capacity(2 << 16, stream);
     tokio::io::copy_buf(&mut reader, &mut file).await?;
@@ -134,10 +123,7 @@ pub async fn download_single_file_zip<P: AsRef<Path>>(
         .get(key)
         .await?
         .context(format!("Failed to find stored file! {key:?}"))?
-        .stream
-        .into_async_read()
-        .compat();
-    pin_mut!(stream);
+        .into_tokio_reader();
 
     // Open the target file
     let file = fs::File::create(path).await?;
@@ -406,7 +392,6 @@ mod tests {
     };
     use async_zip_0_0_9::read::mem::ZipFileReader;
     use common::runtime::testing::TestDriver;
-    use futures::TryStreamExt;
     use runtime::prod::ProdRuntime;
     use storage::{
         LocalDirStorage,
@@ -583,9 +568,12 @@ mod tests {
             upload_index_archive_from_path(&dir, storage.clone(), SearchFileType::Text).await?;
 
         // Read it back out from storage, into a buffer.
-        let uploaded_file = storage.get(&key).await?.context("Not found")?.stream;
-        let uploaded_file_byte_chunks: Vec<_> = uploaded_file.try_collect().await?;
-        let uploaded_file_bytes: Vec<u8> = uploaded_file_byte_chunks.concat();
+        let uploaded_file_bytes = storage
+            .get(&key)
+            .await?
+            .context("Not found")?
+            .collect_as_bytes()
+            .await?;
 
         // Ensure it's the same zip file we'd get from calling `write_index_archive`.
         let mut in_memory_bytes: Vec<u8> = Vec::new();

@@ -13,7 +13,6 @@ use async_zip_reader::{
 };
 use bytes::Bytes;
 use common::{
-    async_compat::FuturesAsyncReadCompatExt,
     bootstrap_model::tables::TABLES_TABLE,
     components::{
         ComponentName,
@@ -24,7 +23,6 @@ use common::{
 };
 use errors::ErrorMetadata;
 use futures::{
-    io::BufReader,
     pin_mut,
     AsyncBufReadExt,
     AsyncReadExt,
@@ -51,7 +49,7 @@ use shape_inference::{
     Shape,
     ShapeConfig,
 };
-use storage::StorageObjectReader;
+use storage::StorageGetStream;
 use tokio::io::AsyncBufReadExt as _;
 use value::{
     id_v6::DeveloperDocumentId,
@@ -143,13 +141,13 @@ pub async fn parse_objects<'a, Fut>(
     component_path: ComponentPath,
     stream_body: impl Fn() -> Fut + 'a,
 ) where
-    Fut: Future<Output = anyhow::Result<StorageObjectReader>> + 'a,
+    Fut: Future<Output = anyhow::Result<StorageGetStream>> + 'a,
 {
     match format {
         ImportFormat::Csv(table_name) => {
             let reader = stream_body().await?;
             yield ImportUnit::NewTable(component_path, table_name);
-            let mut reader = csv_async::AsyncReader::from_reader(reader);
+            let mut reader = csv_async::AsyncReader::from_reader(reader.into_reader());
             if !reader.has_headers() {
                 anyhow::bail!(ImportError::CsvMissingHeaders);
             }
@@ -184,9 +182,8 @@ pub async fn parse_objects<'a, Fut>(
             }
         },
         ImportFormat::JsonLines(table_name) => {
-            let reader = stream_body().await?;
+            let mut reader = stream_body().await?.into_reader();
             yield ImportUnit::NewTable(component_path, table_name);
-            let mut reader = BufReader::new(reader);
             let mut line = String::new();
             let mut lineno = 1;
             while reader
@@ -206,8 +203,9 @@ pub async fn parse_objects<'a, Fut>(
             let reader = stream_body().await?;
             yield ImportUnit::NewTable(component_path, table_name);
             let mut buf = Vec::new();
-            let mut truncated_reader =
-                reader.take((*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES as u64) + 1);
+            let mut truncated_reader = reader
+                .into_reader()
+                .take((*TRANSACTION_MAX_USER_WRITE_SIZE_BYTES as u64) + 1);
             truncated_reader.read_to_end(&mut buf).await?;
             if buf.len() > *TRANSACTION_MAX_USER_WRITE_SIZE_BYTES {
                 anyhow::bail!(ImportError::JsonArrayTooLarge(buf.len()));
@@ -348,8 +346,8 @@ pub async fn parse_objects<'a, Fut>(
 
 // Copy an object to disk so that we can more efficiently seek through the file.
 // TODO: write something that can efficiently seek through storage objects
-async fn copy_to_temp_file(reader: StorageObjectReader) -> anyhow::Result<std::fs::File> {
-    let size = reader.full_size();
+async fn copy_to_temp_file(reader: StorageGetStream) -> anyhow::Result<std::fs::File> {
+    let size = reader.content_length;
     let file = common::runtime::block_in_place(|| {
         let file = tempfile::tempfile().context("Failed to create temp file")?;
         #[cfg(target_os = "linux")]
@@ -359,7 +357,7 @@ async fn copy_to_temp_file(reader: StorageObjectReader) -> anyhow::Result<std::f
                 file.as_raw_fd(),
                 0, /* mode */
                 0, /* offset */
-                size as i64,
+                size,
             ) < 0
             {
                 return Err(anyhow::Error::from(std::io::Error::last_os_error())
@@ -373,7 +371,7 @@ async fn copy_to_temp_file(reader: StorageObjectReader) -> anyhow::Result<std::f
         anyhow::Ok(file)
     })?;
     let mut tokio_file = tokio::fs::File::from_std(file);
-    tokio::io::copy_buf(&mut reader.compat(), &mut tokio_file)
+    tokio::io::copy_buf(&mut reader.into_tokio_reader(), &mut tokio_file)
         .await
         .context("Failed to copy snapshot to temp file")?;
     // N.B.: it's ok that this file is seeked to the end because the ZipReader is

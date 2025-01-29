@@ -32,7 +32,6 @@ use serde::{
 };
 use serde_json::json;
 use storage::StorageExt;
-use tokio_util::io::StreamReader;
 use usage_tracking::{
     FunctionUsageTracker,
     StorageCallTracker,
@@ -145,7 +144,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
             file_stream.content_length as u64,
         );
         zip_snapshot_upload
-            .stream_full_file(path, StreamReader::new(file_stream.stream))
+            .stream_full_file(path, file_stream.into_tokio_reader())
             .await?;
     }
     Ok(())
