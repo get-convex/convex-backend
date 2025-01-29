@@ -2684,8 +2684,8 @@ importers:
         specifier: ^29.6.0
         version: 29.7.0(@types/node@18.19.70)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@swc/core@1.10.1(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
       js-sha256:
-        specifier: ~0.9.0
-        version: 0.9.0
+        specifier: ~0.11.0
+        version: 0.11.0
       prettier:
         specifier: 3.4.2
         version: 3.4.2
@@ -14963,8 +14963,8 @@ packages:
     resolution: {integrity: sha512-X2BB11YZtrRqY4EnQcLX5Rh373zbK4alC1FW7D7MBhL2gtcC17cTnr6DmfHZeS0s2rTHjUTMMHfG7gO8SSdw+g==}
     engines: {node: '>=0.10.0'}
 
-  js-sha256@0.9.0:
-    resolution: {integrity: sha512-sga3MHh9sgQN2+pJ9VYZ+1LPwXOxuBJBA5nrR5/ofPfuiJBE2hnjsaN8se8JznOmGLN2p49Pe5U/ttafcs/apA==}
+  js-sha256@0.11.0:
+    resolution: {integrity: sha512-6xNlKayMZvds9h1Y1VWc0fQHQ82BxTXizWPEtEeGvmOUYpBRy4gbWroHLpzowe6xiQhHpelCQiE7HEdznyBL9Q==}
 
   js-tiktoken@1.0.16:
     resolution: {integrity: sha512-nUVdO5k/M9llWpiaZlBBDdtmr6qWXwSD6fgaDu2zM8UP+OXxx9V37lFkI6w0/1IuaDx7WffZ37oYd9KvcWKElg==}
@@ -37052,7 +37052,7 @@ snapshots:
 
   js-levenshtein@1.1.6: {}
 
-  js-sha256@0.9.0: {}
+  js-sha256@0.11.0: {}
 
   js-tiktoken@1.0.16:
     dependencies:
