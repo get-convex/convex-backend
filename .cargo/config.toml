@@ -20,6 +20,12 @@ rustflags = [
     "-Clink-arg=/DEFAULTLIB:libucrt"
 ]
 
+[target.x86_64-pc-windows-msvc.env]
+ROCKSDB_LIB_DIR = { value = "", relative = true }
+LIBROCKSDB_STATIC = "1"
+ROCKSDB_STATIC_LIB = "1"
+RUSTFLAGS = "-Ctarget-feature=+crt-static"
+
 [target.'cfg(all())']
 rustflags = ["--cfg", "tokio_unstable"]
 
