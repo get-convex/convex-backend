@@ -32,7 +32,7 @@ RUN cargo build --release -p local_backend --bin convex-local-backend
 FROM ubuntu:22.04
 
 # Install dependencies
-RUN apt-get update && apt-get install -y libclang-dev libstdc++6 libc6
+RUN apt-get update && apt-get install -y libclang-dev libstdc++6 libc6 curl
 
 # Create a directory for the application
 WORKDIR /usr/local/bin

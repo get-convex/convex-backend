@@ -17,6 +17,10 @@ services:
     command:
       /convex/db.sqlite3 --local-storage /convex/storage --instance-name
       ${INSTANCE_NAME} --instance-secret ${INSTANCE_SECRET}
+    healthcheck:
+      test: curl -f http://localhost:3210/version
+      interval: 5s
+      start_period: 5s
 
   dashboard:
     build:
@@ -29,7 +33,8 @@ services:
       - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210
       - NEXT_PUBLIC_ADMIN_KEY=${ADMIN_KEY}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   data:
