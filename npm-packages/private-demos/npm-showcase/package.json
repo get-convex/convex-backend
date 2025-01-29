@@ -20,7 +20,7 @@
     "proxy-agent": "^6.4.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "sharp": "~0.32.5",
+    "sharp": "~0.33.0",
     "snowflake-sdk": "^1.8.0",
     "tiktoken": "^1.0.10",
     "@types/node-fetch": "^2.6.1",
