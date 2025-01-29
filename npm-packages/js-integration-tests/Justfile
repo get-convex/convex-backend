@@ -31,7 +31,7 @@ test-conductor *ARGS:
     just rush build -t .
     cargo build -p backend_harness --bin backend-harness \
     -p usher --bin usher \
-    -p backend --bin conductor \
+    -p conductor --bin conductor \
     -p funrun --bin funrun
     just _test-conductor "$@"
 
