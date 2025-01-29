@@ -7,16 +7,19 @@ services:
       dockerfile: Dockerfile.backend
     image: ghcr.io/get-convex/self-hosted-backend:latest
     ports:
-      - "3210:3210"
-      - "3211:3211"
+      - "${PORT:-3210}:${PORT:-3210}"
+      - "${SITE_PROXY_PORT:-3211}:${SITE_PROXY_PORT:-3211}"
     volumes:
       - ./data:/convex
     environment:
       - INSTANCE_NAME=${INSTANCE_NAME}
       - INSTANCE_SECRET=${INSTANCE_SECRET}
+      - CONVEX_RELEASE_VERSION_DEV=${CONVEX_RELEASE_VERSION_DEV}
+      - TMPDIR=/convex/tmp
     command:
       /convex/db.sqlite3 --local-storage /convex/storage --instance-name
-      ${INSTANCE_NAME} --instance-secret ${INSTANCE_SECRET}
+      ${INSTANCE_NAME} --instance-secret ${INSTANCE_SECRET} --port ${PORT:-3210}
+      --site-proxy-port ${SITE_PROXY_PORT:-3211}
     healthcheck:
       test: curl -f http://localhost:3210/version
       interval: 5s

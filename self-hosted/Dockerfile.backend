@@ -47,11 +47,13 @@ RUN ln -sf /usr/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm && \
 RUN ln -sf /usr/lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx && \
     chmod +x /usr/bin/npx
 COPY --from=build --chmod=744 /convex/target/release/convex-local-backend /usr/local/bin/convex-local-backend
+COPY run_backend.sh /usr/local/bin/run_backend.sh
+
 
 RUN chmod +x convex-local-backend
 
 # Set the backend as the executable
-ENTRYPOINT ["./convex-local-backend"]
+ENTRYPOINT ["./run_backend.sh"]
 
 # Expose the required ports
 EXPOSE 3210
