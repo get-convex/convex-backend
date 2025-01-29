@@ -39,20 +39,28 @@ npm run test
 npm run build
 ```
 
-### AI Chat
+## llms.txt
 
-To get AI chat working when running docs locally, you need to create
-`.env.local` file in this directory with a `CONVEX_URL` environment variable:
+This is a file that was manually generated using Firecrawl:
+https://www.firecrawl.dev/blog/How-to-Create-an-llms-txt-File-for-Any-Website
 
-```yaml
-CONVEX_URL="https://fantastic-otter-933.convex.cloud" # team: convex, project: ai-bot
-```
+You need to get an API key from Firecrawl and follow the instructions on that
+blog post above.
 
-#### Using your own AI Chat deployment
+I then did a few manual edits:
 
-Follow the README in `npm-packages/convex-ai-chat`.
+- Removed all Google Analytics references (simple regex find and replace)
+- Put the home page text at the top
+- Cleaned up youtube embeds output they were pretty messy.
 
-### Spell-checking in VS Code
+Otherwise it generated reasonably decent output. We should eventually make this
+more automated with every publish.
+
+See
+[here](https://linear.app/convex/issue/DX-1412/create-an-llmstxt-file-for-the-website-and-docs-page).
+For the full background.
+
+## Spell-checking in VS Code
 
 You can enable spell checking in VS Code by installing
 [Code Spell Checker](https://marketplace.visualstudio.com/items?itemName=streetsidesoftware.code-spell-checker).
