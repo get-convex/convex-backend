@@ -258,11 +258,7 @@ pub async fn make_app(
     let origin = config.convex_origin_url();
     let instance_name = config.name().clone();
 
-    // Start the beacon coroutine to help Convex improve the self-hosted product.
-    // This sends anonymous usage metrics like database version to help us
-    // understand how self-hosted instances are being used. You can opt in by
-    // setting CONVEX_ENABLE_BEACON=1
-    if std::env::var("CONVEX_ENABLE_BEACON").is_ok_and(|v| v == "1") {
+    if !config.disable_beacon {
         let beacon_future = beacon::start_beacon(runtime.clone(), database.clone());
         runtime.spawn("beacon_worker", beacon_future);
     }

@@ -34,10 +34,16 @@ use tokio::signal::{
 };
 
 fn main() -> Result<(), MainError> {
-    tracing::info!("Starting a local backend");
     let _guard = config_service();
     let config = LocalConfig::parse();
-    tracing::info!("Starting with config {:?}", config);
+    tracing::info!("Starting a Convex backend");
+    if !config.disable_beacon {
+        tracing::info!(
+            "The self-host Convex backend will periodically communicate with a remote beacon \
+             server. This is to help Convex understand and improve the product. You can disable \
+             this telemetry by setting the --disable-beacon flag."
+        );
+    }
     let sentry = sentry::init(sentry::ClientOptions {
         release: Some(format!("local-backend@{}", *SERVER_VERSION_STR).into()),
         ..Default::default()

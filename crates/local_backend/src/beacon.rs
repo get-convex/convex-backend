@@ -38,18 +38,22 @@ pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>)
             let globals = db_model.database_globals().await?;
 
             let client = Client::new();
-            let response = client
-                .post("https://api.convex.dev/api/self_host_beacon")
-                .json(&serde_json::json!({
-                    "document_id": globals.id().to_string(),
-                    "migration_version": globals.version,
-                    "compiled_revision": COMPILED_REVISION,
-                    "commit_timestamp": COMMIT_TIMESTAMP,
-                }))
-                .send()
-                .await?;
+            let sent_json = serde_json::json!({
+                "database_uuid": globals.id().to_string(),
+                "migration_version": globals.version,
+                "compiled_revision": COMPILED_REVISION,
+                "commit_timestamp": COMMIT_TIMESTAMP,
+            });
+            let url = "https://api.convex.dev/api/self_host_beacon";
+            let response = client.post(url).json(&sent_json).send().await?;
 
-            if !response.status().is_success() {
+            if response.status().is_success() {
+                tracing::info!(
+                    "Beacon request with json {sent_json} sent successfully to {url}. This \
+                     anonymized data is used to help Convex understand and improve the product. \
+                     You can disable this telemetry by setting the --disable-beacon flag."
+                );
+            } else {
                 tracing::warn!("Beacon request failed with status: {}", response.status());
             }
             Ok::<(), anyhow::Error>(())
