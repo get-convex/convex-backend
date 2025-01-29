@@ -325,8 +325,8 @@ importers:
         specifier: ^11.1.0
         version: 11.1.0
       deep-equal:
-        specifier: 2.1.0
-        version: 2.1.0
+        specifier: 2.2.3
+        version: 2.2.3
       depcheck:
         specifier: ~1.4.7
         version: 1.4.7
@@ -12237,8 +12237,9 @@ packages:
     resolution: {integrity: sha512-SUwdGfqdKOwxCPeVYjwSyRpJ7Z+fhpwIAtmCUdZIWZ/YP5R9WAsyuSgpLVDi9bjWoN2LXHNss/dk3urXtdQxGg==}
     engines: {node: '>=6'}
 
-  deep-equal@2.1.0:
-    resolution: {integrity: sha512-2pxgvWu3Alv1PoWEyVg7HS8YhGlUFUV7N5oOvfL6d+7xAmLSemMwv/c8Zv/i9KFzxV5Kt5CAvQc70fLwVuf4UA==}
+  deep-equal@2.2.3:
+    resolution: {integrity: sha512-ZIwpnevOurS8bpT4192sqAowWM76JDKSHYzMLty3BZGSswgq6pBaH3DhCSW5xVAZICZyKdOBPjwww5wfgT/6PA==}
+    engines: {node: '>= 0.4'}
 
   deep-extend@0.6.0:
     resolution: {integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==}
@@ -31046,7 +31047,7 @@ snapshots:
 
   aria-query@5.1.3:
     dependencies:
-      deep-equal: 2.1.0
+      deep-equal: 2.2.3
 
   aria-query@5.3.0:
     dependencies:
@@ -32915,14 +32916,17 @@ snapshots:
     dependencies:
       type-detect: 4.1.0
 
-  deep-equal@2.1.0:
+  deep-equal@2.2.3:
     dependencies:
+      array-buffer-byte-length: 1.0.2
       call-bind: 1.0.8
       es-get-iterator: 1.1.3
       get-intrinsic: 1.2.7
       is-arguments: 1.2.0
+      is-array-buffer: 3.0.5
       is-date-object: 1.1.0
       is-regex: 1.2.1
+      is-shared-array-buffer: 1.0.4
       isarray: 2.0.5
       object-is: 1.1.6
       object-keys: 1.1.1
