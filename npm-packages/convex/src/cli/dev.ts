@@ -7,7 +7,6 @@ import {
   logError,
   logFinishedStep,
   logMessage,
-  logOutput,
   logVerbose,
   logWarning,
   oneoffContext,
@@ -30,10 +29,6 @@ import { runFunctionAndLog, subscribe } from "./lib/run.js";
 import { Value } from "../values/index.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { runPush } from "./lib/components.js";
-import {
-  bigBrainEnableFeatureMetadata,
-  projectHasExistingDev,
-} from "./lib/localDeployment/bigBrain.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -67,8 +62,10 @@ export const dev = new Command("dev")
   .addOption(
     new Option(
       "--configure [choice]",
-      "Ignore existing configuration and configure new or existing project, interactively or set by --team <team_slug> and --project <project_slug>",
-    ).choices(["new", "existing"] as const),
+      "Ignore existing configuration and configure new or existing project, interactively or set by --team <team_slug>, --project <project_slug>, and --dev-deployment local|cloud",
+    )
+      .choices(["new", "existing"] as const)
+      .conflicts(["--local", "--cloud"]),
   )
   .addOption(
     new Option(
@@ -81,6 +78,15 @@ export const dev = new Command("dev")
       "--project <project_slug>",
       "The name of the project you'd like to configure",
     ).hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--dev-deployment <mode>",
+      "Use a local or cloud deployment for dev for this project",
+    )
+      .choices(["cloud", "local"] as const)
+      .conflicts(["--prod"])
+      .hideHelp(),
   )
   .option(
     "--once",
@@ -127,20 +133,30 @@ export const dev = new Command("dev")
   .addOption(new Option("--override-auth-client <id>").hideHelp())
   .addOption(new Option("--override-auth-username <username>").hideHelp())
   .addOption(new Option("--override-auth-password <password>").hideHelp())
-  .addOption(
-    new Option("--local", "Develop live against a locally running backend.")
-      .default(false)
-      .conflicts(["--prod", "--url", "--admin-key"])
-      .hideHelp(),
-  )
   .addOption(new Option("--local-cloud-port <port>").hideHelp())
   .addOption(new Option("--local-site-port <port>").hideHelp())
   .addOption(new Option("--local-backend-version <version>").hideHelp())
   .addOption(new Option("--local-force-upgrade").default(false).hideHelp())
   .addOption(new Option("--live-component-sources").hideHelp())
-  .addOption(new Option("--enable-feature-metadata").hideHelp())
-  .addOption(new Option("--has-existing-dev").hideHelp())
   .addOption(new Option("--partition-id <id>").hideHelp())
+  .addOption(
+    new Option(
+      "--local",
+      "Use local deployment regardless of last used backend. DB data will not be downloaded from any cloud deployment.",
+    )
+      .default(false)
+      .conflicts(["--prod", "--url", "--admin-key", "--cloud"])
+      .hideHelp(),
+  )
+  .addOption(
+    new Option(
+      "--cloud",
+      "Use cloud deployment regardles of last used backend. DB data will not be uploaded from local.",
+    )
+      .default(false)
+      .conflicts(["--prod", "--url", "--admin-key", "--local"])
+      .hideHelp(),
+  )
   .showHelpAfterError()
   .action(async (cmdOptions) => {
     const ctx = oneoffContext();
@@ -148,30 +164,6 @@ export const dev = new Command("dev")
       logVerbose(ctx, "Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
     });
-
-    // These two commands are temporary for testing, until they're hooked up, see ENG-8285
-    if (cmdOptions.enableFeatureMetadata) {
-      const enableFeatureMetadata = await bigBrainEnableFeatureMetadata(ctx);
-      logOutput(ctx, enableFeatureMetadata);
-      await ctx.flushAndExit(0);
-    }
-
-    if (cmdOptions.hasExistingDev) {
-      if (!cmdOptions.team || !cmdOptions.project) {
-        return await ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage: "Must specify --team and --project",
-        });
-      }
-      const hasExistingDev = await projectHasExistingDev(ctx, {
-        teamSlug: cmdOptions.team,
-        projectSlug: cmdOptions.project,
-      });
-      logOutput(ctx, hasExistingDev);
-      await ctx.flushAndExit(0);
-    }
-    /** End temp testing options */
 
     if (cmdOptions.runComponent && !cmdOptions.run) {
       return await ctx.crash({
@@ -191,12 +183,12 @@ export const dev = new Command("dev")
     }
 
     if (cmdOptions.configure === undefined) {
-      if (cmdOptions.team || cmdOptions.project)
+      if (cmdOptions.team || cmdOptions.project || cmdOptions.devDeployment)
         return await ctx.crash({
           exitCode: 1,
           errorType: "fatal",
           printedMessage:
-            "`--team and --project can can only be used with `--configure`.",
+            "`--team, --project, and --dev-deployment can can only be used with `--configure`.",
         });
     }
 
@@ -205,7 +197,7 @@ export const dev = new Command("dev")
       backendVersion?: string | undefined;
       forceUpgrade: boolean;
     } = { forceUpgrade: false };
-    if (!cmdOptions.local) {
+    if (!cmdOptions.local && cmdOptions.devDeployment !== "local") {
       if (
         cmdOptions.localCloudPort !== undefined ||
         cmdOptions.localSitePort !== undefined ||
@@ -216,7 +208,7 @@ export const dev = new Command("dev")
           exitCode: 1,
           errorType: "fatal",
           printedMessage:
-            "`--local-*` options can only be used with `--local`.",
+            "`--local-*` options can only be used with `--configure --dev-deployment local` or `--local`.",
         });
       }
     } else {

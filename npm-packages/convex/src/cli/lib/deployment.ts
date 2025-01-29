@@ -20,7 +20,7 @@ export function getTargetDeploymentName() {
 }
 
 export function getConfiguredDeploymentFromEnvVar(): {
-  type: "dev" | "prod" | "preview" | null;
+  type: "dev" | "prod" | "preview" | "local" | null;
   name: string | null;
 } {
   dotenv.config({ path: ENV_VAR_FILE_PATH });
@@ -56,7 +56,10 @@ export function stripDeploymentTypePrefix(deployment: string) {
 function getDeploymentTypeFromConfiguredDeployment(raw: string) {
   const typeRaw = raw.split(":")[0];
   const type =
-    typeRaw === "prod" || typeRaw === "dev" || typeRaw === "preview"
+    typeRaw === "prod" ||
+    typeRaw === "dev" ||
+    typeRaw === "preview" ||
+    typeRaw === "local"
       ? typeRaw
       : null;
   return type;

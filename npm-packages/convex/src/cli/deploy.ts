@@ -22,7 +22,7 @@ import { PushOptions } from "./lib/push.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   bigBrainAPI,
-  getConfiguredDeploymentName,
+  getConfiguredDeployment,
   readAdminKeyFromEnvVar,
 } from "./lib/utils/utils.js";
 import { spawnSync } from "child_process";
@@ -220,7 +220,7 @@ async function deployToNewPreviewDeployment(
     data: {
       projectSelection: await projectSelection(
         ctx,
-        await getConfiguredDeploymentName(ctx),
+        (await getConfiguredDeployment(ctx)).name,
         options.configuredDeployKey,
       ),
       identifier: previewName,

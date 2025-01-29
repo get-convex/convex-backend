@@ -31,9 +31,10 @@ import { finalizeConfiguration } from "./lib/init.js";
 import {
   bigBrainAPIMaybeThrows,
   functionsDir,
-  getConfiguredDeploymentName,
+  getConfiguredDeployment,
   hasProjects,
   logAndHandleFetchError,
+  selectDevDeploymentType,
   ThrowingFetchError,
   validateOrSelectProject,
   validateOrSelectTeam,
@@ -50,6 +51,16 @@ type DeploymentCredentials = {
   adminKey: string;
 };
 
+type ChosenConfiguration =
+  // `--configure new`
+  | "new"
+  // `--configure existing`
+  | "existing"
+  // `--configure`
+  | "ask"
+  // `--configure` was not specified
+  | null;
+
 /**
  * As of writing, this is used by:
  * - `npx convex dev`
@@ -59,10 +70,9 @@ type DeploymentCredentials = {
  */
 export async function deploymentCredentialsOrConfigure(
   ctx: Context,
-  chosenConfiguration: "new" | "existing" | "ask" | null,
+  chosenConfiguration: ChosenConfiguration,
   cmdOptions: {
     prod: boolean;
-    local: boolean;
     localOptions: {
       ports?: {
         cloud: number;
@@ -73,6 +83,9 @@ export async function deploymentCredentialsOrConfigure(
     };
     team?: string | undefined;
     project?: string | undefined;
+    devDeployment?: "cloud" | "local" | undefined;
+    local?: boolean | undefined;
+    cloud?: boolean | undefined;
     url?: string | undefined;
     adminKey?: string | undefined;
   },
@@ -92,18 +105,25 @@ export async function deploymentCredentialsOrConfigure(
     });
     return { ...credentials };
   }
-  const { projectSlug, teamSlug } = await selectProject(
+  const { projectSlug, teamSlug, devDeployment } = await selectProject(
     ctx,
     chosenConfiguration,
     {
       team: cmdOptions.team,
       project: cmdOptions.project,
+      devDeployment: cmdOptions.devDeployment,
+      local: cmdOptions.local,
+      cloud: cmdOptions.cloud,
       partitionId,
     },
   );
+
+  // TODO complain about any non-default cmdOptions.localOptions here
+  // because we're ignoring them if this isn't a local development.
+
   const deploymentOptions: DeploymentOptions = cmdOptions.prod
     ? { kind: "prod" }
-    : cmdOptions.local
+    : devDeployment === "local"
       ? { kind: "local", ...cmdOptions.localOptions }
       : { kind: "dev" };
   const {
@@ -155,21 +175,42 @@ async function handleManuallySetUrlAndAdminKey(
 
 async function selectProject(
   ctx: Context,
-  chosenConfiguration: "new" | "existing" | "ask" | null,
+  chosenConfiguration: ChosenConfiguration,
   cmdOptions: {
     team?: string | undefined;
     project?: string | undefined;
+    devDeployment?: "cloud" | "local" | undefined;
+    local?: boolean | undefined;
+    cloud?: boolean | undefined;
     partitionId?: number;
   },
-): Promise<{ teamSlug: string; projectSlug: string }> {
+): Promise<{
+  teamSlug: string;
+  projectSlug: string;
+  devDeployment: "cloud" | "local";
+}> {
   let result:
-    | { teamSlug: string; projectSlug: string }
+    | {
+        teamSlug: string;
+        projectSlug: string;
+        devDeployment: "cloud" | "local";
+      }
     | "AccessDenied"
     | null = null;
+
+  const forceDevDeployment = cmdOptions.cloud
+    ? "cloud"
+    : cmdOptions.local
+      ? "local"
+      : undefined;
+
   if (chosenConfiguration === null) {
     result = await getConfiguredProjectSlugs(ctx);
     if (result !== null && result !== "AccessDenied") {
-      return result;
+      return {
+        ...result,
+        ...(forceDevDeployment ? { devDeployment: forceDevDeployment } : {}),
+      };
     }
   }
   const reconfigure = result === "AccessDenied";
@@ -180,9 +221,9 @@ async function selectProject(
       : await askToConfigure(ctx, reconfigure);
   switch (choice) {
     case "new":
-      return selectNewProject(ctx, cmdOptions);
+      return selectNewProject(ctx, chosenConfiguration, cmdOptions);
     case "existing":
-      return selectExistingProject(ctx, cmdOptions);
+      return selectExistingProject(ctx, chosenConfiguration, cmdOptions);
     default:
       return await ctx.crash({
         exitCode: 1,
@@ -196,19 +237,20 @@ async function getConfiguredProjectSlugs(ctx: Context): Promise<
   | {
       projectSlug: string;
       teamSlug: string;
+      devDeployment: "cloud" | "local";
     }
   | "AccessDenied"
   | null
 > {
   // Try and infer the project from the deployment name
-  const deploymentName = await getConfiguredDeploymentName(ctx);
+  const { name: deploymentName, type } = await getConfiguredDeployment(ctx);
+  const devDeployment = type === "local" ? "local" : "cloud";
   if (deploymentName !== null) {
     const result = await getTeamAndProjectSlugForDeployment(ctx, {
       deploymentName,
-      kind: "cloud",
     });
     if (result !== null) {
-      return result;
+      return { ...result, devDeployment };
     } else {
       logFailure(
         ctx,
@@ -234,14 +276,14 @@ async function getConfiguredProjectSlugs(ctx: Context): Promise<
       );
       return "AccessDenied";
     }
-    return { teamSlug: team, projectSlug: project };
+    return { teamSlug: team, projectSlug: project, devDeployment: "cloud" };
   }
   return null;
 }
 
 async function getTeamAndProjectSlugForDeployment(
   ctx: Context,
-  selector: { deploymentName: string; kind: "local" | "cloud" },
+  selector: { deploymentName: string },
 ): Promise<{ teamSlug: string; projectSlug: string } | null> {
   try {
     const body = await bigBrainAPIMaybeThrows({
@@ -288,21 +330,42 @@ async function hasAccessToProject(
 const cwd = path.basename(process.cwd());
 async function selectNewProject(
   ctx: Context,
+  chosenConfiguration: ChosenConfiguration,
   config: {
     team?: string | undefined;
     project?: string | undefined;
+    devDeployment?: "cloud" | "local" | undefined;
+    cloud?: boolean | undefined;
+    local?: boolean | undefined;
     partitionId?: number | undefined;
   },
 ) {
   const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
     await validateOrSelectTeam(ctx, config.team, "Team:");
   let projectName: string = config.project || cwd;
+  let choseProjectInteractively = false;
   if (!config.project) {
     projectName = await promptString(ctx, {
       message: "Project name:",
       default: cwd,
     });
+    choseProjectInteractively = true;
   }
+
+  const { devDeployment } = await selectDevDeploymentType(ctx, {
+    chosenConfiguration,
+    newOrExisting: "new",
+    teamSlug: selectedTeam,
+    userHasChosenSomethingInteractively:
+      didChooseBetweenTeams || choseProjectInteractively,
+    projectSlug: undefined,
+    devDeploymentFromFlag: config.devDeployment,
+    forceDevDeployment: config.local
+      ? "local"
+      : config.cloud
+        ? "cloud"
+        : undefined,
+  });
 
   showSpinner(ctx, "Creating new Convex project...");
 
@@ -312,7 +375,8 @@ async function selectNewProject(
       teamSlug: selectedTeam,
       projectName,
       partitionId: config.partitionId,
-      deploymentTypeToProvision: "dev",
+      // We have to create some deployment initially for a project.
+      deploymentTypeToProvision: devDeployment === "local" ? "prod" : "dev",
     }));
   } catch (err) {
     logFailure(ctx, "Unable to create project.");
@@ -347,17 +411,29 @@ async function selectNewProject(
   await doInitCodegen(ctx, functionsPath, true);
   // Disable typechecking since there isn't any code yet.
   await doCodegen(ctx, functionsPath, "disable");
-  return { teamSlug, projectSlug };
+  return { teamSlug, projectSlug, devDeployment };
 }
 
 async function selectExistingProject(
   ctx: Context,
+  chosenConfiguration: ChosenConfiguration,
   config: {
     team?: string | undefined;
     project?: string | undefined;
+    devDeployment?: "cloud" | "local" | undefined;
+    local?: boolean | undefined;
+    cloud?: boolean | undefined;
   },
-): Promise<{ teamSlug: string; projectSlug: string }> {
-  const { teamSlug } = await validateOrSelectTeam(ctx, config.team, "Team:");
+): Promise<{
+  teamSlug: string;
+  projectSlug: string;
+  devDeployment: "cloud" | "local";
+}> {
+  const { teamSlug, chosen } = await validateOrSelectTeam(
+    ctx,
+    config.team,
+    "Team:",
+  );
 
   const projectSlug = await validateOrSelectProject(
     ctx,
@@ -373,6 +449,19 @@ async function selectExistingProject(
       printedMessage: "Run the command again to create a new project instead.",
     });
   }
+  const { devDeployment } = await selectDevDeploymentType(ctx, {
+    chosenConfiguration,
+    newOrExisting: "existing",
+    teamSlug,
+    projectSlug,
+    userHasChosenSomethingInteractively: chosen || !config.project,
+    devDeploymentFromFlag: config.devDeployment,
+    forceDevDeployment: config.local
+      ? "local"
+      : config.cloud
+        ? "cloud"
+        : undefined,
+  });
 
   showSpinner(ctx, `Reinitializing project ${projectSlug}...\n`);
 
@@ -383,7 +472,7 @@ async function selectExistingProject(
   await doCodegen(ctx, functionsPath, "disable");
 
   logFinishedStep(ctx, `Reinitialized project ${chalk.bold(projectSlug)}`);
-  return { teamSlug, projectSlug };
+  return { teamSlug, projectSlug, devDeployment };
 }
 
 async function askToConfigure(

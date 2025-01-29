@@ -10,5 +10,8 @@ export function printLocalDeploymentOnError(ctx: Context) {
     ctx,
     "Your error has been reported to our team, and we'll be working on it.",
   );
-  logMessage(ctx, "To opt out, remove `--local` from your command.");
+  logMessage(
+    ctx,
+    "To opt out, run `npx convex disable-local-deployments`. Then re-run your original command.",
+  );
 }

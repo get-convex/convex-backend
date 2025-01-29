@@ -27,6 +27,7 @@ import inquirer from "inquirer";
 import inquirerSearchList from "inquirer-search-list";
 import { format } from "util";
 import { functionSpec } from "./functionSpec.js";
+import { disableLocalDeployments } from "./disableLocalDev.js";
 import dns from "node:dns";
 
 const MINIMUM_MAJOR_VERSION = 16;
@@ -105,6 +106,7 @@ async function main() {
     .addCommand(logout)
     .addCommand(networkTest, { hidden: true })
     .addCommand(functionSpec)
+    .addCommand(disableLocalDeployments)
     .addHelpCommand("help <command>", "Show help for given <command>")
     .version(version)
     // Hide version and help so they don't clutter

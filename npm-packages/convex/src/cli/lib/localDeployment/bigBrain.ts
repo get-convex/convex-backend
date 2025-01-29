@@ -60,7 +60,7 @@ export async function bigBrainEnableFeatureMetadata(
 }
 
 /** Whether a project already has a cloud dev deployment for this user. */
-export async function projectHasExistingDev(
+export async function projectHasExistingCloudDev(
   ctx: Context,
   {
     projectSlug,

@@ -8,6 +8,7 @@ import {
   isPreviewDeployKey,
 } from "./deployment.js";
 import { buildEnvironment } from "./envvars.js";
+import { assertLocalBackendRunning } from "./localDeployment/run.js";
 import { checkAuthorization, performLogin } from "./login.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
@@ -15,8 +16,8 @@ import {
   bigBrainAPI,
   bigBrainAPIMaybeThrows,
   getAuthHeaderForBigBrain,
-  getConfiguredDeploymentName,
-  getConfiguredDeploymentOrCrash,
+  getConfiguredDeployment,
+  getConfiguredDeploymentNameOrCrash,
   readAdminKeyFromEnvVar,
   readDeploymentUrlFromEnvVar,
 } from "./utils/utils.js";
@@ -238,7 +239,7 @@ export async function fetchDeploymentCredentialsWithinCurrentProject(
           `See https://docs.convex.dev/production/hosting`,
       });
     }
-    const configuredDeployment = await getConfiguredDeploymentName(ctx);
+    const configuredDeployment = (await getConfiguredDeployment(ctx)).name;
     if (configuredDeployment === null) {
       return await ctx.crash({
         exitCode: 1,
@@ -481,7 +482,7 @@ export async function fetchDeploymentCredentialsProvisionProd(
     };
   }
 
-  const configuredDeployment = await getConfiguredDeploymentOrCrash(ctx);
+  const configuredDeployment = await getConfiguredDeploymentNameOrCrash(ctx);
   const result = await fetchExistingDevDeploymentCredentialsOrCrash(
     ctx,
     configuredDeployment,
@@ -490,6 +491,12 @@ export async function fetchDeploymentCredentialsProvisionProd(
     ctx,
     `Deployment URL: ${result.url}, Deployment Name: ${configuredDeployment}, Deployment Type: ${result.deploymentType}`,
   );
+  if (configuredDeployment?.startsWith("local-")) {
+    await assertLocalBackendRunning(ctx, {
+      url: result.url,
+      deploymentName: configuredDeployment,
+    });
+  }
   return {
     url: result.url,
     adminKey: result.adminKey,

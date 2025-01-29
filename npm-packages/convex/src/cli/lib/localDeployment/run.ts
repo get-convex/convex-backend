@@ -299,6 +299,45 @@ export async function runLocalBackend(
   };
 }
 
+/** Crash if correct local backend is not currently listening on the expected port. */
+export async function assertLocalBackendRunning(
+  ctx: Context,
+  args: {
+    url: string;
+    deploymentName: string;
+  },
+): Promise<void> {
+  logVerbose(ctx, `Checking local backend at ${args.url} is running`);
+  try {
+    const resp = await fetch(`${args.url}/instance_name`);
+    if (resp.status === 200) {
+      const text = await resp.text();
+      if (text !== args.deploymentName) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `A different local backend ${text} is running at ${args.url}`,
+        });
+      } else {
+        return;
+      }
+    } else {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Error response code received from local backend ${resp.status} ${resp.statusText}`,
+      });
+    }
+  } catch {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Local backend isn't running. (it's not listening at ${args.url})\nRun \`npx convex dev\` in another terminal first.`,
+    });
+  }
+}
+
+/** Wait for up to maxTimeSecs for the correct local backend to be running on the expected port. */
 export async function ensureBackendRunning(
   ctx: Context,
   args: {
@@ -314,7 +353,7 @@ export async function ensureBackendRunning(
   const deploymentUrl = localDeploymentUrl(args.cloudPort);
   let timeElapsedSecs = 0;
   let hasShownWaiting = false;
-  while (timeElapsedSecs < args.maxTimeSecs) {
+  while (timeElapsedSecs <= args.maxTimeSecs) {
     if (!hasShownWaiting && timeElapsedSecs > 2) {
       logMessage(ctx, "waiting for local backend to start...");
       hasShownWaiting = true;

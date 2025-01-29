@@ -5,13 +5,13 @@ import { fetchTeamAndProject } from "./api.js";
 import {
   bigBrainAPI,
   getAuthHeaderForBigBrain,
-  getConfiguredDeploymentName,
-  getConfiguredDeploymentOrCrash,
+  getConfiguredDeployment,
+  getConfiguredDeploymentNameOrCrash,
 } from "./utils/utils.js";
 
 async function warn(ctx: Context, title: string, subtitle: string) {
-  const configuredDeployment = await getConfiguredDeploymentOrCrash(ctx);
-  const { team } = await fetchTeamAndProject(ctx, configuredDeployment);
+  const name = await getConfiguredDeploymentNameOrCrash(ctx);
+  const { team } = await fetchTeamAndProject(ctx, name);
 
   logWarning(ctx, chalk.bold.yellow(title));
   logWarning(ctx, chalk.yellow(subtitle));
@@ -22,7 +22,7 @@ async function warn(ctx: Context, title: string, subtitle: string) {
 }
 
 async function teamUsageState(ctx: Context) {
-  const configuredDeployment = await getConfiguredDeploymentName(ctx);
+  const configuredDeployment = (await getConfiguredDeployment(ctx)).name;
   if (configuredDeployment === null) {
     return null;
   }

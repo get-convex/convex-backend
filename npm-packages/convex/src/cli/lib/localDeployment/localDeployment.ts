@@ -279,10 +279,14 @@ function printLocalDeploymentWelcomeMessage(ctx: Context) {
   );
   logMessage(
     ctx,
-    chalk.cyan("To learn more, read the docs: https://cvx.so/local-deployment"),
+    chalk.cyan(
+      "To learn more, read the docs: https://docs.convex.dev/cli/local-dev",
+    ),
   );
   logMessage(
     ctx,
-    chalk.cyan("To opt out at any time, remove `--local` from your command."),
+    chalk.cyan(
+      "To opt out at any time, run `npx convex disable-local-deployments`",
+    ),
   );
 }

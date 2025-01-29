@@ -21,7 +21,11 @@ import {
   getConfiguredDeploymentFromEnvVar,
   isPreviewDeployKey,
 } from "../deployment.js";
-import { promptSearch, promptYesNo } from "./prompts.js";
+import { promptOptions, promptSearch, promptYesNo } from "./prompts.js";
+import {
+  bigBrainEnableFeatureMetadata,
+  projectHasExistingCloudDev,
+} from "../localDeployment/bigBrain.js";
 
 const retryingFetch = fetchRetryFactory(fetch);
 
@@ -304,6 +308,78 @@ export async function validateOrSelectTeam(
     }
     return { teamSlug, chosen: false };
   }
+}
+
+export async function selectDevDeploymentType(
+  ctx: Context,
+  {
+    chosenConfiguration,
+    newOrExisting,
+    teamSlug,
+    projectSlug,
+    userHasChosenSomethingInteractively,
+    // from `--configure --dev-deployment local|cloud`
+    devDeploymentFromFlag,
+    // from `--cloud or --local`
+    forceDevDeployment,
+  }:
+    | {
+        chosenConfiguration: "new" | "existing" | "ask" | null;
+        newOrExisting: "existing";
+        teamSlug: string;
+        projectSlug: string;
+        userHasChosenSomethingInteractively: boolean;
+        devDeploymentFromFlag: "cloud" | "local" | undefined;
+        forceDevDeployment: "cloud" | "local" | undefined;
+      }
+    | {
+        chosenConfiguration: "new" | "existing" | "ask" | null;
+        newOrExisting: "new";
+        teamSlug: string;
+        // For new projects we don't know the project slug yet.
+        projectSlug: undefined;
+        userHasChosenSomethingInteractively: boolean;
+        devDeploymentFromFlag: "cloud" | "local" | undefined;
+        forceDevDeployment: "cloud" | "local" | undefined;
+      },
+): Promise<{ devDeployment: "cloud" | "local" }> {
+  if (forceDevDeployment) return { devDeployment: forceDevDeployment };
+  if (devDeploymentFromFlag) return { devDeployment: devDeploymentFromFlag };
+
+  if (newOrExisting === "existing" && chosenConfiguration === null) {
+    // Don't suggest local dev if developer already has a cloud deployment.
+    if (await projectHasExistingCloudDev(ctx, { projectSlug, teamSlug })) {
+      // TODO Expand rollout to offer local dev in this case. ENG-8307
+      return { devDeployment: "cloud" };
+    }
+  }
+
+  // To avoid breaking previously non-interactive flows, don't prompt if enough
+  // flags were specified for configure not to already have needed input.
+  if (chosenConfiguration !== "ask" && !userHasChosenSomethingInteractively) {
+    return { devDeployment: "cloud" };
+  }
+
+  // For creating a first project (no projects exist) or joining a first project
+  // (one project exists), always use cloud since it's a smoother experience.
+  const isFirstProject =
+    (await bigBrainEnableFeatureMetadata(ctx)).totalProjects.kind !==
+    "multiple";
+  if (isFirstProject) {
+    return { devDeployment: "cloud" };
+  }
+
+  // For now default is always cloud.
+  const devDeployment: "cloud" | "local" = await promptOptions(ctx, {
+    message:
+      "Use cloud or local dev deployment? For more see https://docs.convex.dev/cli/local-dev",
+    default: "cloud",
+    choices: [
+      { name: "cloud deployment", value: "cloud" },
+      { name: "local deployment (BETA)", value: "local" },
+    ],
+  });
+  return { devDeployment };
 }
 
 export async function hasProject(
@@ -788,10 +864,10 @@ export async function isInExistingProject(ctx: Context) {
   return !!parentConvexJson;
 }
 
-export async function getConfiguredDeploymentOrCrash(
+export async function getConfiguredDeploymentNameOrCrash(
   ctx: Context,
 ): Promise<string> {
-  const configuredDeployment = await getConfiguredDeploymentName(ctx);
+  const configuredDeployment = (await getConfiguredDeployment(ctx)).name;
   if (configuredDeployment !== null) {
     return configuredDeployment;
   }
@@ -803,7 +879,7 @@ export async function getConfiguredDeploymentOrCrash(
   });
 }
 
-export async function getConfiguredDeploymentName(ctx: Context) {
+export async function getConfiguredDeployment(ctx: Context) {
   const { parentPackageJson } = await findParentConfigs(ctx);
   if (parentPackageJson !== path.resolve("package.json")) {
     return await ctx.crash({
@@ -812,7 +888,7 @@ export async function getConfiguredDeploymentName(ctx: Context) {
       printedMessage: "Run this command from the root directory of a project.",
     });
   }
-  return getConfiguredDeploymentFromEnvVar().name;
+  return getConfiguredDeploymentFromEnvVar();
 }
 
 // `spawnAsync` is the async version of Node's `spawnSync` (and `spawn`).

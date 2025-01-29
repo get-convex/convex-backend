@@ -16,6 +16,7 @@ import {
   logError,
   logMessage,
   logOutput,
+  logVerbose,
 } from "../../bundler/context.js";
 import { typeCheckFunctionsInMode, TypeCheckMode } from "./typecheck.js";
 import { readProjectConfig } from "./config.js";
@@ -300,7 +301,7 @@ async function doReadmeCodegen(
 ) {
   const readmePath = path.join(functionsDir, "README.md");
   if (skipIfExists && ctx.fs.exists(readmePath)) {
-    logMessage(ctx, `Not overwriting README.md.`);
+    logVerbose(ctx, `Not overwriting README.md.`);
     return;
   }
   await writeFormattedFile(
@@ -322,7 +323,7 @@ async function doTsconfigCodegen(
 ) {
   const tsconfigPath = path.join(functionsDir, "tsconfig.json");
   if (skipIfExists && ctx.fs.exists(tsconfigPath)) {
-    logMessage(ctx, `Not overwriting tsconfig.json.`);
+    logVerbose(ctx, `Not overwriting tsconfig.json.`);
     return;
   }
   await writeFormattedFile(
