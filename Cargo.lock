@@ -4429,6 +4429,7 @@ dependencies = [
  "portpicker",
  "postgres",
  "rand 0.8.5",
+ "reqwest 0.12.7",
  "runtime",
  "search",
  "sentry",

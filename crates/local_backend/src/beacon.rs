@@ -19,6 +19,7 @@ use common::{
 };
 use database::Database;
 use model::database_globals::DatabaseGlobalsModel;
+use reqwest::Client;
 use runtime::prod::ProdRuntime;
 
 const COMPILED_REVISION: &str = env!("VERGEN_GIT_SHA");
@@ -36,15 +37,21 @@ pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>)
             let mut db_model = DatabaseGlobalsModel::new(&mut tx);
             let globals = db_model.database_globals().await?;
 
-            // For now, just log the beacon info since endpoint is TBD
-            tracing::info!(
-                "Beacon: document_id={:?}, database_version={}, compiled_revision={}, \
-                 commit_timestamp={}",
-                globals.id(),
-                globals.version,
-                COMPILED_REVISION,
-                COMMIT_TIMESTAMP,
-            );
+            let client = Client::new();
+            let response = client
+                .post("https://api.convex.dev/api/self_host_beacon")
+                .json(&serde_json::json!({
+                    "document_id": globals.id().to_string(),
+                    "migration_version": globals.version,
+                    "compiled_revision": COMPILED_REVISION,
+                    "commit_timestamp": COMMIT_TIMESTAMP,
+                }))
+                .send()
+                .await?;
+
+            if !response.status().is_success() {
+                tracing::warn!("Beacon request failed with status: {}", response.status());
+            }
             Ok::<(), anyhow::Error>(())
         }
         .await;

@@ -43,6 +43,7 @@ node_executor = { path = "../node_executor" }
 parking_lot = { workspace = true }
 postgres = { path = "../postgres" }
 rand = { workspace = true }
+reqwest = { workspace = true }
 runtime = { path = "../runtime" }
 search = { path = "../search" }
 sentry = { workspace = true }
