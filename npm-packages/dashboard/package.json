@@ -18,8 +18,8 @@
     "clean": "shx rm -rf .next",
     "corsAnywhere": "node cors-anywhere.js",
     "pullEnv": "vercel env pull .env.local",
-    "generateApiSpec": "npx openapi-typescript ./dashboard-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix",
-    "checkApiSpec": "npx openapi-typescript ./dashboard-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix --check || (echo 'Dashboard API spec check failed. Run `just format-js` to fix.'; false)"
+    "generateApiSpec": "openapi-typescript ./dashboard-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix",
+    "checkApiSpec": "openapi-typescript ./dashboard-openapi.json --output ./src/generatedApi.ts --root-types --root-types-no-schema-prefix --check || (echo 'Dashboard API spec check failed. Run `just format-js` to fix.'; false)"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "3.5.0",
