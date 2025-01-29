@@ -12,6 +12,7 @@ doctest = false
 anyhow = { workspace = true }
 byteorder = { workspace = true }
 chrono = { workspace = true }
+clap = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
 derive_more = { workspace = true }
