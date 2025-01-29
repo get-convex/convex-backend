@@ -1028,8 +1028,8 @@ importers:
         specifier: ^3.24.0
         version: 3.24.1
       zod-error:
-        specifier: 1.1.1
-        version: 1.1.1
+        specifier: 1.5.0
+        version: 1.5.0
     devDependencies:
       '@jest/types':
         specifier: ^29.6.0
@@ -20564,8 +20564,8 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
-  zod-error@1.1.1:
-    resolution: {integrity: sha512-2V93GFtoilz42nqbmr0l874x7Or9JNRF2wIwzC+RQlhRuVKExkdGmTMv9qeurIqR/3IsrNJb/jYRA3BgELfSKg==}
+  zod-error@1.5.0:
+    resolution: {integrity: sha512-zzopKZ/skI9iXpqCEPj+iLCKl9b88E43ehcU+sbRoHuwGd9F1IDVGQ70TyO6kmfiRL1g4IXkjsXK+g1gLYl4WQ==}
 
   zod-to-json-schema@3.24.1:
     resolution: {integrity: sha512-3h08nf3Vw3Wl3PK+q3ow/lIil81IT2Oa7YpQyUUDsEWbXveMesdfK1xBd2RhCkynwZndAxixji/7SYJJowr62w==}
@@ -44236,7 +44236,7 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod-error@1.1.1:
+  zod-error@1.5.0:
     dependencies:
       zod: 3.24.1
 

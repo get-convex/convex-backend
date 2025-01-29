@@ -73,7 +73,7 @@
     "tailwind-merge": "^1.14.0",
     "tailwind-variants": "~0.2.0",
     "zod": "^3.24.0",
-    "zod-error": "1.1.1"
+    "zod-error": "1.5.0"
   },
   "devDependencies": {
     "@jest/types": "^29.6.0",
