@@ -11,7 +11,13 @@ rustflags = ["-Ctarget-cpu=apple-m1"]
 [target.x86_64-pc-windows-msvc]
 # FORCE:MULTIPLE is a bit sketchy. v8 and rocksdb both export the same symbol.
 # This seems to work around it to build on windows, but it's not ideal.
-rustflags = ["-Clink-arg=/FORCE:MULTIPLE", "-Clink-arg=/STACK:4194304", "-Ctarget-feature=+crt-static"]
+rustflags = [
+    "-Clink-arg=/FORCE:MULTIPLE",
+    "-Clink-arg=/STACK:4194304",
+    "-Ctarget-feature=+crt-static",
+    "-Clink-arg=/NODEFAULTLIB:libcmt",
+    "-Clink-arg=/NODEFAULTLIB:msvcrt"
+]
 
 [target.'cfg(all())']
 rustflags = ["--cfg", "tokio_unstable"]
