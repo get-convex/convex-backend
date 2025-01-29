@@ -1,7 +1,6 @@
 import chalk from "chalk";
 import os from "os";
 import path from "path";
-import { z } from "zod";
 
 import { ProjectConfig } from "../config.js";
 
@@ -26,6 +25,7 @@ import {
   bigBrainEnableFeatureMetadata,
   projectHasExistingCloudDev,
 } from "../localDeployment/bigBrain.js";
+import { readGlobalConfig } from "./globalConfig.js";
 
 const retryingFetch = fetchRetryFactory(fetch);
 
@@ -372,7 +372,7 @@ export async function selectDevDeploymentType(
   // For now default is always cloud.
   const devDeployment: "cloud" | "local" = await promptOptions(ctx, {
     message:
-      "Use cloud or local dev deployment? For more see https://docs.convex.dev/cli/local-dev",
+      "Use cloud or local dev deployment? For more see https://docs.convex.dev/cli/local-deployments",
     default: "cloud",
     choices: [
       { name: "cloud deployment", value: "cloud" },
@@ -558,37 +558,6 @@ export function rootDirectory(): string {
   }
   return path.join(os.homedir(), dirName);
 }
-export function globalConfigPath(): string {
-  return path.join(rootDirectory(), "config.json");
-}
-
-async function readGlobalConfig(ctx: Context): Promise<GlobalConfig | null> {
-  const configPath = globalConfigPath();
-  let configFile;
-  try {
-    configFile = ctx.fs.readUtf8File(configPath);
-  } catch {
-    return null;
-  }
-  try {
-    const schema = z.object({
-      accessToken: z.string().min(1),
-    });
-    const config: GlobalConfig = schema.parse(JSON.parse(configFile));
-    return config;
-  } catch (err) {
-    // Print an error an act as if the file does not exist.
-    logError(
-      ctx,
-      chalk.red(
-        `Failed to parse global config in ${configPath} with error ${
-          err as any
-        }.`,
-      ),
-    );
-    return null;
-  }
-}
 
 export function readDeploymentUrlFromEnvVar(): string | undefined {
   return process.env[CONVEX_SELF_SERVE_DEPLOYMENT_URL_VAR_NAME] ?? undefined;
@@ -604,7 +573,7 @@ export async function getAuthHeaderForBigBrain(
   if (process.env.CONVEX_OVERRIDE_ACCESS_TOKEN) {
     return `Bearer ${process.env.CONVEX_OVERRIDE_ACCESS_TOKEN}`;
   }
-  const globalConfig = await readGlobalConfig(ctx);
+  const globalConfig = readGlobalConfig(ctx);
   if (globalConfig) {
     return `Bearer ${globalConfig.accessToken}`;
   }
@@ -712,10 +681,6 @@ export async function bigBrainAPIMaybeThrows({
     return await res.json();
   }
 }
-
-export type GlobalConfig = {
-  accessToken: string;
-};
 
 /**
  * Polls an arbitrary function until a condition is met.

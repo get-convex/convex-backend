@@ -1,8 +1,5 @@
 import { errors, BaseClient, custom } from "openid-client";
 import {
-  globalConfigPath,
-  rootDirectory,
-  GlobalConfig,
   getAuthHeaderForBigBrain,
   bigBrainAPI,
   logAndHandleFetchError,
@@ -25,8 +22,12 @@ import {
 import { Issuer } from "openid-client";
 import { hostname } from "os";
 import { execSync } from "child_process";
-import os from "os";
 import { promptString, promptYesNo } from "./utils/prompts.js";
+import {
+  formatPathForPrinting,
+  globalConfigPath,
+  modifyGlobalConfig,
+} from "./utils/globalConfig.js";
 
 const SCOPE = "openid email profile";
 /// This value was created long ago, and cannot be changed easily.
@@ -38,33 +39,6 @@ const AUDIENCE = "https://console.convex.dev/api/";
 custom.setHttpOptionsDefaults({
   timeout: parseInt(process.env.OPENID_CLIENT_TIMEOUT || "10000"),
 });
-
-async function writeGlobalConfig(ctx: Context, config: GlobalConfig) {
-  const dirName = rootDirectory();
-  ctx.fs.mkdir(dirName, { allowExisting: true });
-  const path = globalConfigPath();
-  try {
-    ctx.fs.writeUtf8File(path, JSON.stringify(config));
-  } catch (err) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem data",
-      errForSentry: err,
-      printedMessage: chalk.red(
-        `Failed to write auth config to ${path} with error: ${err as any}`,
-      ),
-    });
-  }
-  logFinishedStep(ctx, `Saved credentials to ${formatPathForPrinting(path)}`);
-}
-
-function formatPathForPrinting(path: string) {
-  const homedir = os.homedir();
-  if (process.platform === "darwin" && path.startsWith(homedir)) {
-    return path.replace(homedir, "~");
-  }
-  return path;
-}
 
 export async function checkAuthorization(
   ctx: Context,
@@ -408,7 +382,9 @@ export async function performLogin(
   });
   const globalConfig = { accessToken: data.accessToken };
   try {
-    await writeGlobalConfig(ctx, globalConfig);
+    await modifyGlobalConfig(ctx, globalConfig);
+    const path = globalConfigPath();
+    logFinishedStep(ctx, `Saved credentials to ${formatPathForPrinting(path)}`);
   } catch (err: unknown) {
     return await ctx.crash({
       exitCode: 1,

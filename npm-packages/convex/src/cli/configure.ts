@@ -45,6 +45,7 @@ import { projectDashboardUrl } from "./dashboard.js";
 import { doCodegen, doInitCodegen } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 import { promptOptions, promptString } from "./lib/utils/prompts.js";
+import { readGlobalConfig } from "./lib/utils/globalConfig.js";
 
 type DeploymentCredentials = {
   url: string;
@@ -105,6 +106,17 @@ export async function deploymentCredentialsOrConfigure(
     });
     return { ...credentials };
   }
+
+  const config = readGlobalConfig(ctx);
+  const globallyForceCloud = !!config?.optOutOfLocalDevDeploymentsUntilBetaOver;
+  if (globallyForceCloud && cmdOptions.local) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "Can't specify --local when local deployments are disabled on this machine. Run `npx convex disable-local-deployments --undo-global` to allow use of --local.",
+    });
+  }
   const { projectSlug, teamSlug, devDeployment } = await selectProject(
     ctx,
     chosenConfiguration,
@@ -112,8 +124,8 @@ export async function deploymentCredentialsOrConfigure(
       team: cmdOptions.team,
       project: cmdOptions.project,
       devDeployment: cmdOptions.devDeployment,
-      local: cmdOptions.local,
-      cloud: cmdOptions.cloud,
+      local: globallyForceCloud ? false : cmdOptions.local,
+      cloud: globallyForceCloud ? true : cmdOptions.cloud,
       partitionId,
     },
   );

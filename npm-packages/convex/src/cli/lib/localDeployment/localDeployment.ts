@@ -280,7 +280,7 @@ function printLocalDeploymentWelcomeMessage(ctx: Context) {
   logMessage(
     ctx,
     chalk.cyan(
-      "To learn more, read the docs: https://docs.convex.dev/cli/local-dev",
+      "To learn more, read the docs: https://docs.convex.dev/cli/local-deployments",
     ),
   );
   logMessage(

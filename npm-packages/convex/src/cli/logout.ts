@@ -1,7 +1,7 @@
 import { Command } from "@commander-js/extra-typings";
 import { logFinishedStep, oneoffContext } from "../bundler/context.js";
-import { globalConfigPath } from "./lib/utils/utils.js";
 import { recursivelyDelete } from "./lib/fsUtils.js";
+import { globalConfigPath } from "./lib/utils/globalConfig.js";
 
 export const logout = new Command("logout")
   .description("Log out of Convex on this machine")
