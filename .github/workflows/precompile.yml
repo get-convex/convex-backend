@@ -60,7 +60,6 @@ jobs:
       - name: Install JS
         run: |
           just rush install
-          just rush build
 
       - name: Precompute release name
         id: release_name
