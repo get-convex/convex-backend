@@ -60,7 +60,8 @@
     "zod": "^3.24.0",
     "swr-openapi": "~5.0.0",
     "openapi-fetch": "~0.13.0",
-    "react-sparklines": "~1.7.0"
+    "react-sparklines": "~1.7.0",
+    "posthog-js": "~1.211.3"
   },
   "devDependencies": {
     "@babel/core": "^7.20.5",

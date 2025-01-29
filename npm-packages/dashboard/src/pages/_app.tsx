@@ -2,7 +2,7 @@
 import "../../../dashboard-common/src/styles/globals.css";
 import type { AppProps } from "next/app";
 import { useAuth0 } from "hooks/useAuth0";
-import { useRouter } from "next/router";
+import { Router, useRouter } from "next/router";
 import React, { useEffect } from "react";
 import { setUser, ErrorBoundary } from "@sentry/nextjs";
 import {
@@ -36,6 +36,8 @@ import {
   ThemeProvider,
 } from "dashboard-common";
 import { CurrentDeploymentDashboardLayout } from "layouts/DeploymentDashboardLayout";
+import posthog from "posthog-js";
+import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { Fallback } from "./500";
 
 // LaunchDarkly cleaned up their API and not longer exposes this type
@@ -94,56 +96,107 @@ export default function App({ Component, pageProps }: AppProps) {
         <meta name="description" content="Manage your Convex apps" />
         <Favicon />
       </Head>
-      <ThemeProvider attribute="class" disableTransitionOnChange>
-        <ThemeConsumer />
-        <UserProvider user={pageProps.user}>
-          <RefreshSession />
-          <SentryUserProvider>
-            <ErrorBoundary fallback={Fallback}>
-              <SWRConfig value={{ ...swrConfig(), fallback: { initialData } }}>
-                <ToastContainer />
+      <PostHogProvider>
+        <ThemeProvider attribute="class" disableTransitionOnChange>
+          <ThemeConsumer />
+          <UserProvider user={pageProps.user}>
+            <RefreshSession />
+            <SentryUserProvider>
+              <ErrorBoundary fallback={Fallback}>
+                <SWRConfig
+                  value={{ ...swrConfig(), fallback: { initialData } }}
+                >
+                  <ToastContainer />
 
-                {inUnauthedRoute ? (
-                  <Component {...pageProps} />
-                ) : (
-                  <MaybeLaunchDarklyProvider>
-                    <LaunchDarklyConsumer>
-                      <div className="flex h-screen flex-col">
-                        <DashboardHeader />
-                        {inDeployment ? (
-                          <DeploymentInfoProvider>
-                            <MaybeDeploymentApiProvider>
-                              <CurrentDeploymentDashboardLayout>
-                                <ErrorBoundary
-                                  fallback={Fallback}
-                                  key={pathWithoutQueryString}
-                                >
-                                  <Component {...pageProps} />
-                                </ErrorBoundary>
-                              </CurrentDeploymentDashboardLayout>
-                            </MaybeDeploymentApiProvider>
-                          </DeploymentInfoProvider>
-                        ) : (
-                          <DashboardLayout>
-                            <ErrorBoundary
-                              fallback={Fallback}
-                              key={pathWithoutQueryString}
-                            >
-                              <Component {...pageProps} />
-                            </ErrorBoundary>
-                          </DashboardLayout>
-                        )}
-                      </div>
-                    </LaunchDarklyConsumer>
-                  </MaybeLaunchDarklyProvider>
-                )}
-              </SWRConfig>
-            </ErrorBoundary>
-          </SentryUserProvider>
-        </UserProvider>
-      </ThemeProvider>
+                  {inUnauthedRoute ? (
+                    <Component {...pageProps} />
+                  ) : (
+                    <MaybeLaunchDarklyProvider>
+                      <LaunchDarklyConsumer>
+                        <div className="flex h-screen flex-col">
+                          <DashboardHeader />
+                          {inDeployment ? (
+                            <DeploymentInfoProvider>
+                              <MaybeDeploymentApiProvider>
+                                <CurrentDeploymentDashboardLayout>
+                                  <ErrorBoundary
+                                    fallback={Fallback}
+                                    key={pathWithoutQueryString}
+                                  >
+                                    <Component {...pageProps} />
+                                  </ErrorBoundary>
+                                </CurrentDeploymentDashboardLayout>
+                              </MaybeDeploymentApiProvider>
+                            </DeploymentInfoProvider>
+                          ) : (
+                            <DashboardLayout>
+                              <ErrorBoundary
+                                fallback={Fallback}
+                                key={pathWithoutQueryString}
+                              >
+                                <Component {...pageProps} />
+                              </ErrorBoundary>
+                            </DashboardLayout>
+                          )}
+                        </div>
+                      </LaunchDarklyConsumer>
+                    </MaybeLaunchDarklyProvider>
+                  )}
+                </SWRConfig>
+              </ErrorBoundary>
+            </SentryUserProvider>
+          </UserProvider>
+        </ThemeProvider>
+      </PostHogProvider>
     </>
   );
+}
+
+function PostHogProvider({ children }: { children: React.ReactElement }) {
+  const profile = useProfile();
+
+  useEffect(() => {
+    // Only initialize PostHog in production.
+    if (process.env.NODE_ENV !== "production") {
+      return;
+    }
+
+    // Note that this is the 'Project API Key' from PostHog, which is write-only
+    // and PostHog says is safe to use in public apps.
+    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    const api_host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+
+    if (!key || !api_host) {
+      return;
+    }
+
+    // See https://posthog.com/docs/libraries/js#config
+    posthog.init(key, {
+      api_host,
+      ui_host: "https://us.posthog.com/",
+      // Set to true to log PostHog events to the console.
+      debug: true,
+      // Since we're using the pages router, this captures the initial pageview.
+      capture_pageview: true,
+    });
+
+    // Capture pageview events on route change.
+    const handleRouteChange = () => posthog?.capture("$pageview");
+    Router.events.on("routeChangeComplete", handleRouteChange);
+
+    return () => {
+      Router.events.off("routeChangeComplete", handleRouteChange);
+    };
+  }, []);
+
+  // Identify the user with their profile details.
+  useEffect(() => {
+    if (profile) {
+      posthog?.identify(profile.id.toString());
+    }
+  }, [profile]);
+
+  return <PHProvider client={posthog}>{children}</PHProvider>;
 }
 
 function SentryUserProvider({ children }: { children: React.ReactElement }) {
