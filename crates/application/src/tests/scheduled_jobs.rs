@@ -6,6 +6,7 @@ use std::{
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
+        ComponentId,
         ComponentPath,
         PublicFunctionPath,
     },
@@ -310,7 +311,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
     application.commit_test(tx).await?;
 
     // Run a mutation that has a canceled parent job and schedules
-    let parent_scheduled_job = Some(job_id.into());
+    let parent_scheduled_job = Some((ComponentId::test_user(), job_id.into()));
     application
         .mutation_udf(
             RequestId::new(),

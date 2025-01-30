@@ -93,6 +93,7 @@ message FrameData {
 
 message ExecutionContext {
     optional string parent_scheduled_job = 1;
+    optional string parent_scheduled_job_component_id = 5;
     optional string request_id = 2;
     optional string execution_id = 3;
     optional bool is_root = 4;
@@ -141,10 +142,12 @@ message FunctionCaller {
 
 message SchedulerFunctionCaller {
   common.DeveloperDocumentId job_id = 1;
+  optional string component_id = 2;
 }
 
 message ActionFunctionCaller {
   common.DeveloperDocumentId parent_scheduled_job = 1;
+  optional string component_id = 2;
 }
 
 message RedactedJsError {

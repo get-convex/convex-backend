@@ -700,11 +700,20 @@ impl<T> FromRequestParts<T> for ExtractExecutionContext {
             .map(|s| s.parse())
             .transpose()
             .context("Invalid scheduled job id")?;
+        let parent_component_id = ComponentId::deserialize_from_string(
+            parts
+                .headers
+                .get("Convex-Parent-Scheduled-Job-Component-Id")
+                .map(|v| v.to_str())
+                .transpose()
+                .context("Parent scheduled job component id must be a string")?,
+        )
+        .context("Invalid parent scheduled job component id")?;
 
         Ok(Self(ExecutionContext::new_from_parts(
             request_id,
             execution_id,
-            parent_job_id,
+            parent_job_id.map(|id| (parent_component_id, id)),
             is_root,
         )))
     }

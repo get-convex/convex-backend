@@ -126,6 +126,7 @@ export type ExecutionContext = {
   executionId: string | undefined;
   isRoot: boolean | undefined;
   parentScheduledJob: string | null;
+  parentScheduledJobComponentId: string | null;
 };
 
 export type ExecuteResponseInner =

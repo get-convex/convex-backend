@@ -163,6 +163,10 @@ export class SyscallsImpl {
       headers["Convex-Parent-Scheduled-Job"] =
         this.executionContext.parentScheduledJob;
     }
+    if (this.executionContext.parentScheduledJobComponentId !== null) {
+      headers["Convex-Parent-Scheduled-Job-Component-Id"] =
+        this.executionContext.parentScheduledJobComponentId;
+    }
     headers["Convex-Request-Id"] = this.executionContext.requestId;
     if (this.executionContext.executionId !== undefined) {
       headers["Convex-Execution-Id"] = this.executionContext.executionId;

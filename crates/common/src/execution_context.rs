@@ -20,7 +20,10 @@ use value::{
     sha256,
 };
 
-use crate::types::FunctionCaller;
+use crate::{
+    components::ComponentId,
+    types::FunctionCaller,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -31,7 +34,7 @@ pub struct ExecutionContext {
     // function ExecutionId.
     pub execution_id: ExecutionId,
     /// The id of the scheduled job that triggered this UDF, if any.
-    pub parent_scheduled_job: Option<DeveloperDocumentId>,
+    pub parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
     /// False if this function was called as part of a request (e.g. action
     /// calling a mutation) TODO: This is a stop gap solution. The richer
     /// version of this would be something like parent_execution_id:
@@ -52,7 +55,7 @@ impl ExecutionContext {
     pub fn new_from_parts(
         request_id: RequestId,
         execution_id: ExecutionId,
-        parent_scheduled_job: Option<DeveloperDocumentId>,
+        parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
         is_root: bool,
     ) -> Self {
         Self {
@@ -82,7 +85,9 @@ impl HeapSize for ExecutionContext {
     fn heap_size(&self) -> usize {
         self.request_id.heap_size()
             + self.execution_id.heap_size()
-            + self.parent_scheduled_job.heap_size()
+            + self
+                .parent_scheduled_job
+                .map_or(0, |(_, document_id)| document_id.heap_size())
             + self.is_root.heap_size()
     }
 }
@@ -205,10 +210,13 @@ impl HeapSize for ExecutionId {
 
 impl From<ExecutionContext> for pb::common::ExecutionContext {
     fn from(value: ExecutionContext) -> Self {
+        let (parent_component_id, parent_document_id) = value.parent_scheduled_job.unzip();
         pb::common::ExecutionContext {
             request_id: Some(value.request_id.into()),
             execution_id: Some(value.execution_id.to_string()),
-            parent_scheduled_job: value.parent_scheduled_job.map(|id| id.into()),
+            parent_scheduled_job_component_id: parent_component_id
+                .and_then(|id| id.serialize_to_string()),
+            parent_scheduled_job: parent_document_id.map(Into::into),
             is_root: Some(value.is_root),
         }
     }
@@ -218,13 +226,17 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
     type Error = anyhow::Error;
 
     fn try_from(value: pb::common::ExecutionContext) -> Result<Self, Self::Error> {
+        let parent_component_id = ComponentId::deserialize_from_string(
+            value.parent_scheduled_job_component_id.as_deref(),
+        )?;
+        let parent_document_id = value.parent_scheduled_job.map(|s| s.parse()).transpose()?;
         Ok(Self {
             request_id: RequestId::from_str(&value.request_id.context("Missing request id")?)?,
             execution_id: match &value.execution_id {
                 Some(e) => ExecutionId::from_str(e)?,
                 None => ExecutionId::new(),
             },
-            parent_scheduled_job: value.parent_scheduled_job.map(|s| s.parse()).transpose()?,
+            parent_scheduled_job: parent_document_id.map(|id| (parent_component_id, id)),
             is_root: value.is_root.unwrap_or_default(),
         })
     }
@@ -232,11 +244,13 @@ impl TryFrom<pb::common::ExecutionContext> for ExecutionContext {
 
 impl From<ExecutionContext> for JsonValue {
     fn from(value: ExecutionContext) -> Self {
+        let (parent_component_id, parent_document_id) = value.parent_scheduled_job.unzip();
         json!({
             "requestId": String::from(value.request_id),
             "executionId": value.execution_id.to_string(),
             "isRoot": value.is_root,
-            "parentScheduledJob": value.parent_scheduled_job.map(|id| id.to_string()),
+            "parentScheduledJob": parent_document_id.map(|id| id.to_string()),
+            "parentScheduledJobComponentId": parent_component_id.unwrap_or(ComponentId::Root).serialize_to_string(),
         })
     }
 }

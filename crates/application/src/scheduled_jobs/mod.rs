@@ -14,7 +14,10 @@ use std::{
 
 use common::{
     backoff::Backoff,
-    components::PublicFunctionPath,
+    components::{
+        ComponentId,
+        PublicFunctionPath,
+    },
     document::ParsedDocument,
     errors::{
         report_error,
@@ -505,11 +508,13 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         );
         let identity = tx.inert_identity();
         let namespace = tx.table_mapping().tablet_namespace(job_id.tablet_id)?;
+        let component_id = ComponentId::from(namespace);
 
         // Since we don't specify the function type when we schedule, we have to
         // use the analyzed result.
         let caller = FunctionCaller::Scheduler {
             job_id: job_id.into(),
+            component_id,
         };
         let path = job.path.clone();
         let udf_type = match ModuleModel::new(&mut tx)

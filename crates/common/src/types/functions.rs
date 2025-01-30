@@ -20,7 +20,10 @@ use value::{
 
 use super::HttpActionRoute;
 use crate::{
-    components::CanonicalizedComponentFunctionPath,
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentId,
+    },
     version::ClientVersion,
 };
 
@@ -152,9 +155,10 @@ pub enum FunctionCaller {
     Cron,
     Scheduler {
         job_id: DeveloperDocumentId,
+        component_id: ComponentId,
     },
     Action {
-        parent_scheduled_job: Option<DeveloperDocumentId>,
+        parent_scheduled_job: Option<(ComponentId, DeveloperDocumentId)>,
     },
     #[cfg(any(test, feature = "testing"))]
     #[proptest(weight = 0)]
@@ -177,7 +181,7 @@ impl FunctionCaller {
         .cloned()
     }
 
-    pub fn parent_scheduled_job(&self) -> Option<DeveloperDocumentId> {
+    pub fn parent_scheduled_job(&self) -> Option<(ComponentId, DeveloperDocumentId)> {
         match self {
             FunctionCaller::SyncWorker(_)
             | FunctionCaller::HttpApi(_)
@@ -186,7 +190,10 @@ impl FunctionCaller {
             | FunctionCaller::Cron => None,
             #[cfg(any(test, feature = "testing"))]
             FunctionCaller::Test => None,
-            FunctionCaller::Scheduler { job_id } => Some(*job_id),
+            FunctionCaller::Scheduler {
+                job_id,
+                component_id,
+            } => Some((*component_id, *job_id)),
             FunctionCaller::Action {
                 parent_scheduled_job,
             } => *parent_scheduled_job,
@@ -274,17 +281,25 @@ impl From<FunctionCaller> for pb::common::FunctionCaller {
             },
             FunctionCaller::HttpEndpoint => pb::common::function_caller::Caller::HttpEndpoint(()),
             FunctionCaller::Cron => pb::common::function_caller::Caller::Cron(()),
-            FunctionCaller::Scheduler { job_id } => {
+            FunctionCaller::Scheduler {
+                job_id,
+                component_id,
+            } => {
                 let caller = pb::common::SchedulerFunctionCaller {
                     job_id: Some(job_id.into()),
+                    component_id: component_id.serialize_to_string(),
                 };
                 pb::common::function_caller::Caller::Scheduler(caller)
             },
             FunctionCaller::Action {
                 parent_scheduled_job,
             } => {
+                let (component_id, document_id) = parent_scheduled_job.unzip();
                 let caller = pb::common::ActionFunctionCaller {
-                    parent_scheduled_job: parent_scheduled_job.map(|job_id| job_id.into()),
+                    parent_scheduled_job: document_id.map(|job_id| job_id.into()),
+                    component_id: component_id
+                        .unwrap_or(ComponentId::Root)
+                        .serialize_to_string(),
                 };
                 pb::common::function_caller::Caller::Action(caller)
             },
@@ -316,19 +331,28 @@ impl TryFrom<pb::common::FunctionCaller> for FunctionCaller {
             },
             Some(pb::common::function_caller::Caller::Cron(())) => FunctionCaller::Cron,
             Some(pb::common::function_caller::Caller::Scheduler(caller)) => {
-                let pb::common::SchedulerFunctionCaller { job_id } = caller;
+                let pb::common::SchedulerFunctionCaller {
+                    job_id,
+                    component_id,
+                } = caller;
                 let job_id = job_id.context("Missing `job_id` field")?.try_into()?;
-                FunctionCaller::Scheduler { job_id }
+                let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
+                FunctionCaller::Scheduler {
+                    job_id,
+                    component_id,
+                }
             },
             Some(pb::common::function_caller::Caller::Action(caller)) => {
                 let pb::common::ActionFunctionCaller {
                     parent_scheduled_job,
+                    component_id,
                 } = caller;
                 let parent_scheduled_job = parent_scheduled_job
                     .map(|job_id| job_id.try_into())
                     .transpose()?;
+                let component_id = ComponentId::deserialize_from_string(component_id.as_deref())?;
                 FunctionCaller::Action {
-                    parent_scheduled_job,
+                    parent_scheduled_job: parent_scheduled_job.map(|job_id| (component_id, job_id)),
                 }
             },
             None => anyhow::bail!("Missing `caller` field"),

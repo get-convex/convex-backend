@@ -231,13 +231,29 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             original_scheduled_ts,
             ScheduledJobAttempts::default(),
         )?;
-        let job = if let Some(parent_scheduled_job) = context.parent_scheduled_job {
-            let table_mapping = self.tx.table_mapping();
-            let parent_scheduled_job = parent_scheduled_job
-                .to_resolved(table_mapping.namespace(self.namespace).number_to_tablet())?;
-            if let Some(parent_scheduled_job_state) =
-                self.check_status(parent_scheduled_job).await?
-            {
+        let job = if let Some((parent_component_id, parent_scheduled_job)) =
+            context.parent_scheduled_job
+        {
+            let table_mapping = self.tx.table_mapping().clone();
+            let current_namespace = self.namespace;
+            let parent_namespace = TableNamespace::from(parent_component_id);
+            let mut get_parent_scheduled_job_state = async |namespace: TableNamespace| {
+                let Ok(parent_scheduled_job) = parent_scheduled_job
+                    .to_resolved(table_mapping.namespace(namespace).number_to_tablet())
+                else {
+                    return anyhow::Ok(None);
+                };
+                self.check_status(parent_scheduled_job).await
+            };
+            // Try both `parent_namespace` and `self.namespace` because there may be
+            // version skew where `parent_namespace` is incorrectly the Root namespace.
+            // TODO: once version skew is not an issue, only check `parent_namespace`.
+            let parent_scheduled_job_state =
+                match get_parent_scheduled_job_state(parent_namespace).await? {
+                    Some(state) => Some(state),
+                    None => get_parent_scheduled_job_state(current_namespace).await?,
+                };
+            if let Some(parent_scheduled_job_state) = parent_scheduled_job_state {
                 match parent_scheduled_job_state {
                     ScheduledJobState::Pending
                     | ScheduledJobState::InProgress
