@@ -21,10 +21,11 @@ rustflags = [
 ]
 
 [target.x86_64-pc-windows-msvc.env]
+RUSTFLAGS = "-Ctarget-feature=+crt-static"
 ROCKSDB_LIB_DIR = ""
 LIBROCKSDB_STATIC = "1"
 ROCKSDB_STATIC_LIB = "1"
-RUSTFLAGS = "-Ctarget-feature=+crt-static"
+VCPKG_ALL_STATIC = "1"
 
 [target.'cfg(all())']
 rustflags = ["--cfg", "tokio_unstable"]
