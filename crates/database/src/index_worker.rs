@@ -89,7 +89,6 @@ use keybroker::Identity;
 use maplit::btreeset;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::log;
 use value::{
     DeveloperDocumentId,
     InternalDocumentId,
@@ -226,14 +225,14 @@ impl<RT: Runtime> IndexWorker<RT> {
         };
         async move {
             if !*ENABLE_INDEX_BACKFILL {
-                log::error!("Forcibly disabling index backfill, exiting IndexWorker...");
+                tracing::error!("Forcibly disabling index backfill, exiting IndexWorker...");
                 return;
             }
             loop {
                 if let Err(e) = worker.run().await {
                     report_error(&mut e.context("IndexWorker died")).await;
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
-                    log::error!(
+                    tracing::error!(
                         "IndexWorker died, num_failures: {}. Backing off for {}ms",
                         worker.backoff.failures(),
                         delay.as_millis()
@@ -273,7 +272,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     && e.is_occ()
                 {
                     let delay = worker.backoff.fail(&mut worker.runtime.rng());
-                    log::error!(
+                    tracing::error!(
                         "IndexWorker died, num_failures: {}. Backing off for {}ms",
                         worker.backoff.failures(),
                         delay.as_millis()
@@ -294,7 +293,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     /// `IndexWorker::new_terminating`, the return type is specified as
     /// `anyhow::Result<()>` because `!` unifies with `()`.
     async fn run(&mut self) -> anyhow::Result<()> {
-        log::info!("Starting IndexWorker");
+        tracing::info!("Starting IndexWorker");
         loop {
             let status = log_worker_starting("IndexWorker");
             // Get all the documents from the `_index` table.
@@ -328,7 +327,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                     }
                 }
             }
-            log::info!(
+            tracing::info!(
                 "{num_to_backfill} database indexes to backfill @ {}",
                 tx.begin_timestamp()
             );
@@ -353,7 +352,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 continue;
             }
             log_num_indexes_to_backfill(0);
-            log::info!("IndexWorker loop completed successfully, going to sleep");
+            tracing::info!("IndexWorker loop completed successfully, going to sleep");
             #[cfg(any(test, feature = "testing"))]
             if self.should_terminate {
                 return Ok(());
@@ -363,7 +362,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             let token = tx.into_token()?;
             let subscription = self.database.subscribe(token).await?;
             subscription.wait_for_invalidation().await;
-            log::info!("IndexWorker resuming after index subscription notification");
+            tracing::info!("IndexWorker resuming after index subscription notification");
             self.backoff.reset();
         }
     }
@@ -397,7 +396,7 @@ impl<RT: Runtime> IndexWorker<RT> {
 
         if !needs_backfill.is_empty() {
             let table_name = table_mapping.tablet_to_name()(tablet_id)?;
-            log::info!(
+            tracing::info!(
                 "Starting backfill of {} indexes for {table_name}: {needs_backfill:?}",
                 needs_backfill.len()
             );
@@ -427,7 +426,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             retention.insert(*index_id, (index_name, indexed_fields));
         }
         if let Some(min_begin_ts) = min_begin_ts {
-            log::info!(
+            tracing::info!(
                 "Started running retention for {} indexes: {retention:?}",
                 retention.len()
             );
@@ -591,7 +590,7 @@ impl<RT: Runtime> IndexWorker<RT> {
         self.database
             .commit_with_write_source(tx, "index_worker_finish_backfill")
             .await?;
-        log::info!("Finished backfill of index {}", name);
+        tracing::info!("Finished backfill of index {}", name);
         log_index_backfilled();
         Ok(())
     }
@@ -985,7 +984,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                     .write(vec![], chunk, ConflictStrategy::Overwrite)
                     .await?;
                 if last_logged.elapsed()? >= Duration::from_secs(60) {
-                    log::info!(
+                    tracing::info!(
                         "Backfilled {} index entries of index {}",
                         num_entries_written,
                         index_selector,
