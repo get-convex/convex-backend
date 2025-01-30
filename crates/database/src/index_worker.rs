@@ -587,10 +587,17 @@ impl<RT: Runtime> IndexWorker<RT> {
         SystemMetadataModel::new_global(&mut tx)
             .replace(full_index_id, index_metadata.into_value().try_into()?)
             .await?;
+        let table_name = tx.table_mapping().tablet_name(*name.table())?;
         self.database
             .commit_with_write_source(tx, "index_worker_finish_backfill")
             .await?;
         tracing::info!("Finished backfill of index {}", name);
+        if is_index_on_system_table || is_system_index_on_user_table {
+            tracing::info!(
+                "Finished backfill of system index {table_name}.{}",
+                name.descriptor()
+            );
+        }
         log_index_backfilled();
         Ok(())
     }

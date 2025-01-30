@@ -1,4 +1,6 @@
 use std::{
+    borrow::Cow,
+    fmt,
     sync::Arc,
     time::Duration,
 };
@@ -51,6 +53,25 @@ use crate::{
 
 const INITIAL_BACKOFF: Duration = Duration::from_secs(60);
 const MAX_BACKOFF: Duration = Duration::from_secs(3600);
+
+pub enum MigrationCompletionCriterion {
+    /// Committing the migration in migrations.rs is sufficient.
+    MigrationComplete(DatabaseVersion),
+    /// Some other log line printed out, e.g. by a background worker creating
+    /// a new index or a backfill.
+    LogLine(Cow<'static, str>),
+}
+
+impl fmt::Display for MigrationCompletionCriterion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MigrationCompletionCriterion::MigrationComplete(version) => {
+                write!(f, "Wait for log line 'Migrated {version}'")
+            },
+            MigrationCompletionCriterion::LogLine(line) => write!(f, "Wait for log line '{line}'"),
+        }
+    }
+}
 
 // The version for the format of the database. We support all previous
 // migrations unless explicitly dropping support.
@@ -135,6 +156,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                     self.db
                         .commit_with_write_source(tx, "migrate_persisted_version")
                         .await?;
+                    tracing::info!("Migrated {}", new_version);
                 },
                 DATABASE_VERSION => {
                     tracing::info!("db metadata version up to date at {}", DATABASE_VERSION);
@@ -156,7 +178,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
     }
 
     async fn perform_migration(&self, to_version: DatabaseVersion) -> anyhow::Result<()> {
-        match to_version {
+        let completion_criterion = match to_version {
             1..=104 => panic!("Transition too old!"),
             105 => {
                 // Delete all exports in non-zip formats (CleanJsonl and InternalJson)
@@ -174,7 +196,8 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 let exports_by_state_index = system_index(&EXPORTS_TABLE, "by_state");
                 IndexModel::new(&mut tx)
                     .drop_system_index(TableNamespace::Global, exports_by_state_index)
-                    .await?
+                    .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             106 => {
                 // Ugh - try 105 again but actually commit the transaction
@@ -202,6 +225,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_106")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             107 => {
                 let mut tx = self.db.begin_system().await?;
@@ -217,6 +241,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_107")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             108 => {
                 // Drop the exports_by_requestor index to prepare to recreate it
@@ -229,6 +254,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_108")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             109 => {
                 // Drop the exports_by_requestor index AGAIN
@@ -240,10 +266,14 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_109")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             110 => {
                 // Empty migration corresponding to _exports.by_requestor
                 // creation
+                MigrationCompletionCriterion::LogLine(
+                    "Finished backfill of system index _exports.by_requestor".into(),
+                )
             },
             111 => {
                 let virtual_tables_table: TableName = "_virtual_tables"
@@ -256,6 +286,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_111")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             112 => {
                 // Read in / write out exports table to process new expiration_ts
@@ -272,6 +303,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_112")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             113 => {
                 // Read in / write out imports table to process new requestor column.
@@ -287,6 +319,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 self.db
                     .commit_with_write_source(tx, "migration_113")
                     .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             114 => {
                 // Read in / write out deployment audit logs table to process new requestor, and
@@ -307,6 +340,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                         .commit_with_write_source(tx_inner, "migration_114")
                         .await?;
                 }
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             115 => {
                 // Read in / write out deployment audit logs table to process new
@@ -336,10 +370,17 @@ impl<RT: Runtime> MigrationWorker<RT> {
                         .commit_with_write_source(tx_inner, "migration_115")
                         .await?;
                 }
+                MigrationCompletionCriterion::MigrationComplete(to_version)
             },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),
         };
+        tracing::warn!(
+            "Executing Migration {}/{}. {}",
+            to_version,
+            DATABASE_VERSION,
+            completion_criterion
+        );
         Ok(())
     }
 }
