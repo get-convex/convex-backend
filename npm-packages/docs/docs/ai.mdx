@@ -1,0 +1,47 @@
+---
+title: AI Code Generation
+hide_table_of_contents: true
+---
+
+Convex is designed around a small set of composable abstractions with strong
+guarantees that result in code that is not only faster to write, it’s easier to
+read and maintain, whether written by a team member or an LLM. Key features make
+sure you get bug-free AI generated code:
+
+1. **Queries are Just TypeScript** Your database queries are pure TypeScript
+   functions with end-to-end type safety and IDE support. This means AI can
+   generate database code using the large training set of TypeScript code
+   without switching to SQL.
+1. **Less Code for the Same Work** Since so much infrastructure and boiler plate
+   is automatically manged by Convex there is less code to write, and thus less
+   code to get wrong.
+1. **Automatic Reactivity** The reactive system automatically tracks data
+   dependencies and updates your UI. AI doesn't need to manually manage
+   subscriptions, WebSocket connections, or complex state synchronization—Convex
+   handles all of this automatically.
+1. **Transactional Guarantees** Queries are read-only and mutations run in
+   transactions. These constraints make it nearly impossible for AI to write
+   code that could corrupt your data or leave your app in an inconsistent state.
+
+Together, these features mean AI can focus on your business logic while Convex's
+guarantees prevent common failure modes.
+
+## Convex AI rules
+
+AI code generation is most effective when you provide it with a set of rules to
+follow.
+
+If you're using Cursor, add the model specific `.mdc` files in your project's
+`.cursor/rules` directory.
+
+- [Anthropic (Claude) Cursor Rules](https://convex.link/anthropic_convex_rules.mdc)
+- [OpenAI Cursor Rules](https://convex.link/openai_convex_rules.mdc)
+
+For all other IDEs, you can add the following to your rules or memories.
+
+- [Anthropic (Claude) Rules](https://convex.link/anthropic_convex_rules.txt)
+- [OpenAI Rules](https://convex.link/openai_convex_rules.txt)
+
+We're constantly working on improving the quality of these rules for Convex by
+using rigorous evals. You can help by
+[contributing to our evals repo](https://github.com/get-convex/convex-evals).

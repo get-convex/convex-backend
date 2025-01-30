@@ -27,6 +27,7 @@
     "Deduped",
     "denormalize",
     "dotenvy",
+    "evals",
     "Finalizer",
     "Fivetran",
     "gapless",
