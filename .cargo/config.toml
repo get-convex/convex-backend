@@ -17,7 +17,9 @@ rustflags = [
     "-Ctarget-feature=+crt-static",
     "-Clink-arg=/DEFAULTLIB:libcmt",
     "-Clink-arg=/DEFAULTLIB:libvcruntime",
-    "-Clink-arg=/DEFAULTLIB:libucrt"
+    "-Clink-arg=/DEFAULTLIB:libucrt",
+    "-Clink-arg=/NODEFAULTLIB:msvcrt",
+    "-Clink-arg=/NODEFAULTLIB:msvcprt"
 ]
 
 [target.x86_64-pc-windows-msvc.env]
