@@ -19,15 +19,29 @@ rustflags = [
     "-Clink-arg=/DEFAULTLIB:libvcruntime",
     "-Clink-arg=/DEFAULTLIB:libucrt",
     "-Clink-arg=/NODEFAULTLIB:msvcrt",
-    "-Clink-arg=/NODEFAULTLIB:msvcprt"
+    "-Clink-arg=/NODEFAULTLIB:msvcprt",
+    "-Clink-arg=/NODEFAULTLIB:libcmt.dll",
+    "-Clink-arg=/NODEFAULTLIB:msvcrtd",
+    "-Clink-arg=/NODEFAULTLIB:msvcprtd",
+    "-Ctarget-feature=+crt-static",
+    "-Zpanic-abort-tests",
+    "-Clto=yes"
 ]
 
 [target.x86_64-pc-windows-msvc.env]
-RUSTFLAGS = "-Ctarget-feature=+crt-static"
 ROCKSDB_LIB_DIR = ""
 LIBROCKSDB_STATIC = "1"
 ROCKSDB_STATIC_LIB = "1"
 VCPKG_ALL_STATIC = "1"
+VCPKGRS_DYNAMIC = "0"
+RUSTFLAGS = "-Ctarget-feature=+crt-static"
+# For native-tls
+OPENSSL_STATIC = "1"
+OPENSSL_NO_VENDOR = "0"
+# For any dependencies using cmake
+CMAKE_STATIC_VCRT = "True"
+# For any dependencies using pkg-config
+PKG_CONFIG_ALL_STATIC = "1"
 
 [target.'cfg(all())']
 rustflags = ["--cfg", "tokio_unstable"]
