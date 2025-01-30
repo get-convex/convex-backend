@@ -51,6 +51,7 @@ COPY run_backend.sh /usr/local/bin/run_backend.sh
 
 
 RUN chmod +x convex-local-backend
+RUN chmod +x run_backend.sh
 
 # Set the backend as the executable
 ENTRYPOINT ["./run_backend.sh"]
