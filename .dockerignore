@@ -1,0 +1,36 @@
+# Start by ignoring everything
+**/*
+
+# Keep the Justfile
+!/Justfile
+
+# Rust-related includes
+!/Cargo.*
+!/crates*/*
+!/.cargo/*
+!/rust-toolchain
+!/self-hosted/*
+
+# Node/NPM-related includes
+!/.nvmrc
+!/npm-packages*/*
+!/scripts/*
+
+# Re-exclude common build/cache directories that might exist under the included directories above.
+# Docker uses the last matching-pattern for any file.
+# Node/NPM
+**/node_modules/
+**/.output/
+**/.next/
+**/.vercel
+**/*.log
+
+# Build outputs
+**/dist/
+**/tmpDist*/
+**/temp/
+**/.docusaurus/
+/npm-packages/docs/build/
+/npm-packages/docs/static/
+**/.mypy_cache/
+**/__pycache__/
