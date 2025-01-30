@@ -661,8 +661,8 @@ importers:
         specifier: 1.8.11
         version: 1.8.11(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       recharts:
-        specifier: 2.14.1
-        version: 2.14.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 2.15.0
+        version: 2.15.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       swr:
         specifier: ^2.2.1
         version: 2.3.0(react@18.3.1)
@@ -1004,8 +1004,8 @@ importers:
         specifier: ^1.0.8
         version: 1.0.9(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       recharts:
-        specifier: 2.14.1
-        version: 2.14.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 2.15.0
+        version: 2.15.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       saffron:
         specifier: get-convex/saffron#af61963a3840ddd6e72f44cf320f56ff4b8d0b39
         version: '@cloudflare/saffron@https://codeload.github.com/get-convex/saffron/tar.gz/af61963a3840ddd6e72f44cf320f56ff4b8d0b39'
@@ -17862,12 +17862,12 @@ packages:
   recharts-scale@0.4.5:
     resolution: {integrity: sha512-kivNFO+0OcUNu7jQquLXAxz1FIwZj8nrj+YkOKc5694NbjCvcT6aSZiIzNzd2Kul4o4rTto8QVR9lMNtxD4G1w==}
 
-  recharts@2.14.1:
-    resolution: {integrity: sha512-xtWulflkA+/xu4/QClBdtZYN30dbvTHjxjkh5XTMrH/CQ3WGDDPHHa/LLKCbgoqz0z3UaSH2/blV1i6VNMeh1g==}
+  recharts@2.15.0:
+    resolution: {integrity: sha512-cIvMxDfpAmqAmVgc4yb7pgm/O1tmmkl/CjrvXuW+62/+7jj/iF9Ykm+hb/UJt42TREHMyd3gb+pkgoa2MxgDIw==}
     engines: {node: '>=14'}
     peerDependencies:
-      react: ^16.0.0 || ^17.0.0 || ^18.0.0
-      react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0
+      react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   rechoir@0.6.2:
     resolution: {integrity: sha512-HFM8rkZ+i3zrV+4LQjwQ0W+ez98pApMGM3HUrN04j3CqzPOzl9nmP15Y8YXNm8QHGv/eacOVEjqhmWpkRV0NAw==}
@@ -40577,7 +40577,7 @@ snapshots:
     dependencies:
       decimal.js-light: 2.5.1
 
-  recharts@2.14.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  recharts@2.15.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       clsx: 2.1.1
       eventemitter3: 4.0.7

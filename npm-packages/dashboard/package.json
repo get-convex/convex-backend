@@ -52,7 +52,7 @@
     "react-table": "7.8.0",
     "react-use": "~17.6.0",
     "react-window": "1.8.11",
-    "recharts": "2.14.1",
+    "recharts": "2.15.0",
     "swr": "^2.2.1",
     "system-udfs": "workspace:*",
     "tailwind-merge": "^1.14.0",
