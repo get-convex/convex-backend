@@ -13,6 +13,7 @@ mod http;
 mod random;
 mod storage;
 mod stream;
+mod structured_clone;
 mod text;
 mod time;
 mod validate_args;
@@ -43,6 +44,7 @@ use deno_core::{
 };
 use rand_chacha::ChaCha12Rng;
 use sourcemap::SourceMap;
+use structured_clone::op_structured_clone;
 use uuid::Uuid;
 use validate_returns::op_validate_returns;
 use value::{
@@ -389,6 +391,7 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "textEncoder/normalizeLabel" => op_text_encoder_normalize_label(provider, args, rv)?,
         "atob" => op_atob(provider, args, rv)?,
         "btoa" => op_btoa(provider, args, rv)?,
+        "structuredClone" => op_structured_clone(provider, args.get(1), rv)?,
         "environmentVariables/get" => op_environment_variables_get(provider, args, rv)?,
         "getTableMappingWithoutSystemTables" => {
             op_get_table_mapping_without_system_tables(provider, args, rv)?

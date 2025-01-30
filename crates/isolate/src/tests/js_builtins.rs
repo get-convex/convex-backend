@@ -207,3 +207,16 @@ async fn test_set_timeout(rt: TestRuntime) -> anyhow::Result<()> {
         Ok(())
     }).await
 }
+
+#[convex_macro::test_runtime]
+async fn test_structured_clone(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t: UdfTestType| {
+        must_let!(let ConvexValue::String(r) = t.query("js_builtins/structuredClone", assert_obj!()).await?);
+        assert_eq!(String::from(r), "success".to_string());
+
+        let e = t.query_js_error("js_builtins/structuredClone:withTransfer", assert_obj!()).await?;
+        assert_contains(&e, "structuredClone with transfer not supported");
+        Ok(())
+    })
+    .await
+}

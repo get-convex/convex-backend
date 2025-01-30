@@ -56,6 +56,7 @@ import type * as js_builtins_request from "../js_builtins/request.js";
 import type * as js_builtins_response from "../js_builtins/response.js";
 import type * as js_builtins_setTimeout from "../js_builtins/setTimeout.js";
 import type * as js_builtins_stream from "../js_builtins/stream.js";
+import type * as js_builtins_structuredClone from "../js_builtins/structuredClone.js";
 import type * as js_builtins_testHelpers from "../js_builtins/testHelpers.js";
 import type * as js_builtins_textEncoder from "../js_builtins/textEncoder.js";
 import type * as js_builtins_url from "../js_builtins/url.js";
@@ -131,6 +132,7 @@ declare const fullApi: ApiFromModules<{
   "js_builtins/response": typeof js_builtins_response;
   "js_builtins/setTimeout": typeof js_builtins_setTimeout;
   "js_builtins/stream": typeof js_builtins_stream;
+  "js_builtins/structuredClone": typeof js_builtins_structuredClone;
   "js_builtins/testHelpers": typeof js_builtins_testHelpers;
   "js_builtins/textEncoder": typeof js_builtins_textEncoder;
   "js_builtins/url": typeof js_builtins_url;

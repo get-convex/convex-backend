@@ -17,6 +17,7 @@ import { setupSourceMapping } from "./errors.js";
 import { throwUncatchableDeveloperError } from "./helpers.js";
 import { getBlob, getResponse, storeBlob, storeRequest } from "./storage.js";
 import { performOp } from "udf-syscall-ffi";
+import { setupStructuredClone } from "./02_structured_clone.js";
 
 /**
  * Set up the global object for a UDF context with deterministic Convex APIs.
@@ -39,6 +40,7 @@ export function setup(global: any) {
   setupDOMException(global);
   setupConsole(global);
   setupEvent(global);
+  setupStructuredClone(global);
   setupTimers(global);
   setupAbortSignal(global);
   setupStreams(global);
