@@ -4,12 +4,12 @@ hidden: false
 sidebar_position: 200
 ---
 
-Let's walk through everything that needs to happen from first creating a project
+Let's walk through everything that needs to happen from creating a new project
 to launching your app in production.
 
-This doc assumes you are working building an app with Convex and React and you
-already have a basic React app already up and running. You can always follow one
-of our [quickstarts](/docs/quickstarts.mdx) to get up and running quickly.
+This doc assumes you are building an app with Convex and React and you already
+have a basic React app already up and running. You can follow one of our
+[quickstarts](/docs/quickstarts.mdx) to set this up.
 
 ## Installing and running Convex
 
@@ -28,13 +28,18 @@ npx convex dev
 The first time you run the `npx convex dev` command you'll be asked to:
 
 1. Create an account if it doesn't exist
+   1. This adds your credentials to your `~/.convex/config.json` file. You can
+      run `npx convex logout` to log your machine out of the account in the
+      future.
 1. Create a new Convex project if it doesn't exist
-1. Provision a new personal development deployment for this project for you
-   1. Deployment details will automatically be added to your `.env.local` file
-      so future runs of `npx convex dev` will know what dev deployment to
-      connect to.
-   1. A `convex/` folder will be created (if it doesn't exist), where you'll
-      write your Convex backend functions.
+
+Then Convex will automatically provision a new personal development deployment
+for this project for you:
+
+1.  Deployment details will automatically be added to your `.env.local` file so
+    future runs of `npx convex dev` will know what dev deployment to connect to.
+1.  A `convex/` folder will be created (if it doesn't exist), where you'll write
+    your Convex backend functions.
 
 <div className="center-image" style={{ maxWidth: "149px" }}>
   ![Convex directory in your app](/img/convex-directory.png)
@@ -43,9 +48,9 @@ The first time you run the `npx convex dev` command you'll be asked to:
 ## Developing your app
 
 Keep the `npx convex dev` command running while you're working on your Convex
-app. This continuously pushes backend code written in the `convex/` folder to
-your dev server. It also keeps the necessary TypeScript types up-to-date as you
-write your backend code.
+app. This continuously pushes backend code you write in the `convex/` folder to
+your dev deployment. It also keeps the necessary TypeScript types up-to-date as
+you write your backend code.
 
 You can then add new new server functions to your Convex backend:
 
@@ -72,8 +77,10 @@ When you write and save this code in your editor, several things happen:
 1. The `npx convex dev` command uploads the contents of your `convex/` directory
    to your dev deployment.
 1. Your Convex dev deployment analyzes your code and finds all Convex functions.
-   In this example, it determines that `tasks.getTaskList` is a public query
+   In this example, it determines that `tasks.getTaskList` is a new public query
    function.
+1. If there are any changes to the [schema](/docs/database/schemas.mdx), the
+   deployment will automatically enforce them.
 1. The `npx convex dev` command updates generated TypeScript code in the
    `convex/_generated` directory to provide end to end type safety for your
    functions.
@@ -81,9 +88,9 @@ When you write and save this code in your editor, several things happen:
 <Admonition type="tip">
   Check in everything in your `convex/_generated/` directory. This it ensures
   that your code immediately type checks and runs without having to first run
-  `npx convex dev`. It's particularly useful for non backend developers on your
-  team to write frontend code that type checks against the deployed server
-  functions.
+  `npx convex dev`. It's particularly useful when non-backend developers are
+  writing frontend code and want to ensure their code type checks against
+  currently deployed backend code.
 </Admonition>
 
 Once this is done you can use your new server function in your frontend:
@@ -98,8 +105,9 @@ export function App() {
 }
 ```
 
-If you have other configuration like schemas, crons, or auth in your `convex/`
-folder, Convex ensures that they are applied and enforced on your backend.
+If you have other configuration like [crons](/docs/scheduling/cron-jobs.mdx) or
+[auth](/docs/auth.mdx) in your `convex/` folder, Convex ensures that they are
+applied and enforced on your backend.
 
 ## Convex dashboard
 
