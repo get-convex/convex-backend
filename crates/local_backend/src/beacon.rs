@@ -10,7 +10,10 @@
 //! This is similar to Sentry's self-hosted telemetry approach, focusing on
 //! anonymous and privacy-preserving metrics.
 
-use std::time::Duration;
+use std::time::{
+    Duration,
+    SystemTime,
+};
 
 use common::{
     backoff::Backoff,
@@ -29,6 +32,7 @@ const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
 
 pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>) {
     tracing::info!("Starting beacon coroutine...");
+    let start_time = SystemTime::now();
     let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
 
     loop {
@@ -38,11 +42,17 @@ pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>)
             let globals = db_model.database_globals().await?;
 
             let client = Client::new();
+            let uptime = SystemTime::now()
+                .duration_since(start_time)
+                .unwrap_or_default()
+                .as_secs();
+
             let sent_json = serde_json::json!({
                 "database_uuid": globals.id().to_string(),
                 "migration_version": globals.version,
                 "compiled_revision": COMPILED_REVISION,
                 "commit_timestamp": COMMIT_TIMESTAMP,
+                "uptime": uptime,
             });
             let url = "https://api.convex.dev/api/self_host_beacon";
             let response = client.post(url).json(&sent_json).send().await?;
