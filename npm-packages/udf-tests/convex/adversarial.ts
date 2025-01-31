@@ -385,5 +385,5 @@ export const simpleQuery = query(async ({ db }) => {
 });
 
 export const invokeFunctionDirectly = query(async (ctx) => {
-  await simpleQuery(ctx, {});
+  await (simpleQuery as any)(ctx, {});
 });

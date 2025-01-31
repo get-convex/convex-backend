@@ -349,8 +349,6 @@ export type RegisteredMutation<
   Args extends DefaultFunctionArgs,
   Returns,
 > = {
-  (ctx: GenericMutationCtx<any>, args: Args): Returns;
-
   isConvexFunction: true;
   isMutation: true;
 
@@ -380,8 +378,6 @@ export type RegisteredQuery<
   Args extends DefaultFunctionArgs,
   Returns,
 > = {
-  (ctx: GenericQueryCtx<any>, args: Args): Returns;
-
   isConvexFunction: true;
   isQuery: true;
 
@@ -411,8 +407,6 @@ export type RegisteredAction<
   Args extends DefaultFunctionArgs,
   Returns,
 > = {
-  (ctx: GenericActionCtx<any>, args: Args): Returns;
-
   isConvexFunction: true;
   isAction: true;
 
@@ -438,7 +432,6 @@ export type RegisteredAction<
  * @public
  */
 export type PublicHttpAction = {
-  (ctx: GenericActionCtx<any>, request: Request): Promise<Response>;
   isHttp: true;
 
   /** @internal */
