@@ -78,7 +78,7 @@ jobs:
           unset ROCKSDB_LIB_DIR
           unset SODIUM_USE_PKG_CONFIG
           unset SNAPPY_LIB_DIR
-          cargo build --release -p local_backend --bin convex-local-backend
+          RUSTFLAGS="-Clink-arg=/VERBOSE" cargo build -vv --release -p local_backend --bin convex-local-backend
           mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
 
       - name: Zip backend into arch
