@@ -30,7 +30,11 @@ const COMMIT_TIMESTAMP: &str = env!("VERGEN_GIT_COMMIT_TIMESTAMP");
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
 
-pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>) {
+pub async fn start_beacon(
+    runtime: ProdRuntime,
+    database: Database<ProdRuntime>,
+    beacon_tag: String,
+) {
     tracing::info!("Starting beacon coroutine...");
     let start_time = SystemTime::now();
     let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
@@ -53,6 +57,7 @@ pub async fn start_beacon(runtime: ProdRuntime, database: Database<ProdRuntime>)
                 "compiled_revision": COMPILED_REVISION,
                 "commit_timestamp": COMMIT_TIMESTAMP,
                 "uptime": uptime,
+                "beacon_tag": beacon_tag,
             });
             let url = "https://api.convex.dev/api/self_host_beacon";
             let response = client.post(url).json(&sent_json).send().await?;
