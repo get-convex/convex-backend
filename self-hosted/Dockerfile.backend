@@ -67,12 +67,12 @@ RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked j
 COPY --from=chef /tmp/recipe.json recipe.json
 # Use cargo-chef to build dependencies from the recipe created in the first stage
 # This step will be cached unless dependencies change
-RUN --mount=type=cache,target=/convex/target/ cargo chef cook --release --recipe-path recipe.json
+RUN --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ cargo chef cook --release --recipe-path recipe.json
 # Now copy everything else over -- we've minimized the set of files that cause a full `rush install` or `cargo build` to run.
 COPY . .
 
 # Build the convex-local-backend binary
-RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked --mount=type=cache,target=/convex/target/ <<EOF
+RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
 cargo build --release -p local_backend --bin convex-local-backend
 cp target/release/convex-local-backend .
 EOF
