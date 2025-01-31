@@ -1,0 +1,47 @@
+{
+  "name": "dashboard-self-hosted",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run build:generated && next dev --port 6790",
+    "build": "npm run build:generated && next build",
+    "build:generated": "python3 ../dashboard-common/scripts/build-convexServerTypes.py",
+    "start": "next start -p 6791",
+    "lint": "next lint --max-warnings 0 --dir src/ && tsc",
+    "lint:fix": "next lint --fix --max-warnings 0 --dir src/"
+  },
+  "dependencies": {
+    "convex": "workspace:*",
+    "dashboard-common": "workspace:*",
+    "next": "14.2.21",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "system-udfs": "workspace:*"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.6",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "autoprefixer": "^10.4.13",
+    "dotenv": "^16.4.7",
+    "eslint": "^8.29.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-airbnb-typescript": "^17.0.0",
+    "eslint-config-next": "~13.4.16",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.30.0",
+    "eslint-plugin-jsx-a11y": "^6.6.0",
+    "eslint-plugin-prettier": "^4.1.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-tailwindcss": "~3.12.1",
+    "postcss": "^8.4.19",
+    "prettier": "3.4.2",
+    "prettier-plugin-tailwindcss": "~0.3.0",
+    "tailwind-scrollbar": "3.0.3",
+    "tailwindcss": "^3.2.4",
+    "typescript": "~5.0.3"
+  }
+}

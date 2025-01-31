@@ -2,9 +2,9 @@ import { format, parse } from "date-fns";
 import { cn } from "lib/cn";
 import { useEffect, useRef, useState } from "react";
 import { usePopper } from "react-popper";
-import { TextInput } from "dashboard-common";
-import { Calendar } from "../../../../elements/Calendar";
-import { useInteractOutside } from "../../lib/useInteractOutside";
+import { Calendar } from "elements/Calendar";
+import { useInteractOutside } from "features/data/lib/useInteractOutside";
+import { TextInput } from "elements/TextInput";
 
 const dateTimeFormat = "M/d/yyyy, h:mm:ss aa";
 

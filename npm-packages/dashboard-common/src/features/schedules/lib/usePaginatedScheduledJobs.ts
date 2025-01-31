@@ -10,11 +10,11 @@ import {
 import { useMount } from "react-use";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import udfs from "udfs";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { useGlobalLocalStorage } from "../../../lib/useGlobalLocalStorage";
-import { useNents } from "../../../lib/useNents";
-import { toast } from "../../../lib/utils";
-import { useAdminKey, useDeploymentUrl } from "../../../lib/deploymentApi";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
+import { useNents } from "lib/useNents";
+import { toast } from "lib/utils";
+import { useAdminKey, useDeploymentUrl } from "lib/deploymentApi";
 
 export const SCHEDULED_JOBS_PAGE_SIZE = 50;
 

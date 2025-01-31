@@ -7,8 +7,8 @@ import {
   isUndefined,
   Node,
   ObjectPropertyNode,
-} from "./types";
-import { Walker } from "./ast";
+} from "elements/ObjectEditor/ast/types";
+import { Walker } from "elements/ObjectEditor/ast/ast";
 
 // This function walks an AST when the mode is "patchDocuments".
 export function walkPatchDocuments(node: Node, validator?: ValidatorJSON) {

@@ -4,13 +4,13 @@ import { GearIcon } from "@radix-ui/react-icons";
 import {
   DeploymentEventContent,
   ActionText,
-} from "../../../elements/DeploymentEventContent";
-import { ITEM_SIZE } from "./LogListItem";
-import { Button } from "../../../elements/Button";
-import { formatDateTime } from "../../../lib/format";
-import { DeploymentAuditLogEvent } from "../../../lib/useDeploymentAuditLog";
-import { DetailPanel } from "../../../elements/DetailPanel";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+} from "elements/DeploymentEventContent";
+import { ITEM_SIZE } from "features/logs/components/LogListItem";
+import { Button } from "elements/Button";
+import { formatDateTime } from "lib/format";
+import { DeploymentAuditLogEvent } from "lib/useDeploymentAuditLog";
+import { DetailPanel } from "elements/DetailPanel";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 
 export function DeploymentEventListItem({
   event,

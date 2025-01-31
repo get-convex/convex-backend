@@ -9,13 +9,6 @@ import {
 } from "react";
 import { FixedSizeList } from "react-window";
 
-import {
-  LoadingLogo,
-  LoadingTransition,
-  Button,
-  Sheet,
-  DeploymentInfoContext,
-} from "dashboard-common";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
 import classNames from "classnames";
@@ -25,21 +18,28 @@ import {
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Shape } from "shapes";
-import { useSelectionState } from "../lib/useSelectionState";
-import { useDataToolbarActions } from "../lib/useDataToolbarActions";
-import { useTableFilters } from "../lib/useTableFilters";
-import { useToolPopup } from "../lib/useToolPopup";
-import { useAuthorizeProdEdits } from "../lib/useAuthorizeProdEdits";
-import { usePatchDocumentField } from "./Table/utils/usePatchDocumentField";
-import { Table, TableSkeleton } from "./Table/Table";
-import { DataToolbar, DataToolbarSkeleton } from "./DataToolbar/DataToolbar";
-import { EmptyDataContent } from "./EmptyData";
-import { useDataColumns } from "./Table/utils/useDataColumns";
-import { useQueryFilteredTable } from "./Table/utils/useQueryFilteredTable";
-import { useSingleTableSchemaStatus } from "./TableSchema";
-import { DataFilters } from "./DataFilters/DataFilters";
-import { useTableFields } from "./Table/utils/useTableFields";
-import { useDefaultDocument } from "../lib/useDefaultDocument";
+import { LoadingLogo, LoadingTransition } from "elements/Loading";
+import { Sheet } from "elements/Sheet";
+import { Button } from "elements/Button";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useSelectionState } from "features/data/lib/useSelectionState";
+import { useDataToolbarActions } from "features/data/lib/useDataToolbarActions";
+import { useTableFilters } from "features/data/lib/useTableFilters";
+import { useToolPopup } from "features/data/lib/useToolPopup";
+import { useAuthorizeProdEdits } from "features/data/lib/useAuthorizeProdEdits";
+import { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
+import { Table, TableSkeleton } from "features/data/components/Table/Table";
+import {
+  DataToolbar,
+  DataToolbarSkeleton,
+} from "features/data/components/DataToolbar/DataToolbar";
+import { EmptyDataContent } from "features/data/components/EmptyData";
+import { useDataColumns } from "features/data/components/Table/utils/useDataColumns";
+import { useQueryFilteredTable } from "features/data/components/Table/utils/useQueryFilteredTable";
+import { useSingleTableSchemaStatus } from "features/data/components/TableSchema";
+import { DataFilters } from "features/data/components/DataFilters/DataFilters";
+import { useTableFields } from "features/data/components/Table/utils/useTableFields";
+import { useDefaultDocument } from "features/data/lib/useDefaultDocument";
 
 export function DataContent({
   tableName,

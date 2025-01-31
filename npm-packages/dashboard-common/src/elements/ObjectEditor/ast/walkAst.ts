@@ -1,11 +1,15 @@
 import { Parser } from "acorn";
 import { ValidatorJSON } from "convex/values";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { Node, ExpressionNode, isUndefined } from "./types";
-import { walkPatchDocuments } from "./walkPatchDocuments";
-import { Walker } from "./ast";
-import { walkMultipleDocuments } from "./walkMultipleDocuments";
-import { IdWalker } from "./astIds";
+import {
+  Node,
+  ExpressionNode,
+  isUndefined,
+} from "elements/ObjectEditor/ast/types";
+import { walkPatchDocuments } from "elements/ObjectEditor/ast/walkPatchDocuments";
+import { Walker } from "elements/ObjectEditor/ast/ast";
+import { walkMultipleDocuments } from "elements/ObjectEditor/ast/walkMultipleDocuments";
+import { IdWalker } from "elements/ObjectEditor/ast/astIds";
 
 export type WalkAstOptions = {
   validator?: ValidatorJSON;

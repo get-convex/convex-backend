@@ -2,22 +2,19 @@ import { endOfDay, endOfToday, startOfDay } from "date-fns";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useContext, useEffect, useState } from "react";
-import { DeploymentEventContent } from "../../../elements/DeploymentEventContent";
-import {
-  DateRangePicker,
-  useDateFilters,
-} from "../../../elements/DateRangePicker";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { DeploymentEventContent } from "elements/DeploymentEventContent";
+import { DateRangePicker, useDateFilters } from "elements/DateRangePicker";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 import {
   DeploymentAuditLogEvent,
   DeploymentAuditLogFilters,
   usePaginatedDeploymentEvents,
-} from "../../../lib/useDeploymentAuditLog";
-import { Loading } from "../../../elements/Loading";
-import { toast } from "../../../lib/utils";
-import { Sheet } from "../../../elements/Sheet";
-import { PageContent } from "../../../elements/PageContent";
-import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
+} from "lib/useDeploymentAuditLog";
+import { Loading } from "elements/Loading";
+import { toast } from "lib/utils";
+import { Sheet } from "elements/Sheet";
+import { PageContent } from "elements/PageContent";
+import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
 
 const INITIAL_EVENTS_TO_LOAD = 10;
 const PAGE_SIZE = 10;

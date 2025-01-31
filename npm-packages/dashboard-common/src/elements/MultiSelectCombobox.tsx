@@ -9,7 +9,7 @@ import classNames from "classnames";
 import { cn } from "lib/cn";
 import { useHoverDirty } from "react-use";
 import { test } from "fuzzy";
-import { Button } from "./Button";
+import { Button } from "elements/Button";
 
 export function MultiSelectCombobox({
   options,

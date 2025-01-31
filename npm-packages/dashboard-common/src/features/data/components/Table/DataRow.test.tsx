@@ -7,10 +7,10 @@ import * as nextRouter from "next/router";
 import { GenericDocument } from "convex/server";
 import udfs from "udfs";
 import { useMemo } from "react";
-import { useDataColumns } from "./utils/useDataColumns";
-import { DataRow } from "./DataRow";
-import { ConnectedDeploymentContext } from "../../../../lib/deploymentContext";
-import { mockConvexReactClient } from "../../../../lib/mockConvexReactClient";
+import { useDataColumns } from "features/data/components/Table/utils/useDataColumns";
+import { DataRow } from "features/data/components/Table/DataRow";
+import { ConnectedDeploymentContext } from "lib/deploymentContext";
+import { mockConvexReactClient } from "lib/mockConvexReactClient";
 
 const mockRouter = jest
   .fn()

@@ -10,10 +10,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { LoadingTransition } from "./Loading";
-import { ChartData, ChartDataSource } from "../lib/charts/types";
-import { Callout } from "./Callout";
-import { ChartTooltip } from "./ChartTooltip";
+import { LoadingTransition } from "elements/Loading";
+import { ChartData, ChartDataSource } from "lib/charts/types";
+import { Callout } from "elements/Callout";
+import { ChartTooltip } from "elements/ChartTooltip";
 
 export function BigChart({
   dataSources,

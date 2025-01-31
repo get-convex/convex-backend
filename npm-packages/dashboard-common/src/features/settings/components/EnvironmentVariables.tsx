@@ -19,11 +19,11 @@ import {
   useState,
 } from "react";
 import { z } from "zod";
-import { Spinner } from "../../../elements/Spinner";
-import { Callout } from "../../../elements/Callout";
-import { Button } from "../../../elements/Button";
-import { copyTextToClipboard, toast } from "../../../lib/utils";
-import { TextInput } from "../../../elements/TextInput";
+import { Spinner } from "elements/Spinner";
+import { Callout } from "elements/Callout";
+import { Button } from "elements/Button";
+import { copyTextToClipboard, toast } from "lib/utils";
+import { TextInput } from "elements/TextInput";
 
 const MAX_NUMBER_OF_ENV_VARS = 100;
 

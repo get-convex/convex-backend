@@ -1,12 +1,9 @@
 import React from "react";
-import {
-  useDeploymentAuthHeader,
-  useDeploymentUrl,
-} from "../../../lib/deploymentApi";
-import { ChartModal } from "../../../elements/ChartModal";
-import { calcBuckets } from "../../../lib/charts/buckets";
-import { TableMetric, tableRate } from "../../../lib/appMetrics";
-import { ChartData } from "../../../lib/charts/types";
+import { useDeploymentAuthHeader, useDeploymentUrl } from "lib/deploymentApi";
+import { ChartModal } from "elements/ChartModal";
+import { calcBuckets } from "lib/charts/buckets";
+import { TableMetric, tableRate } from "lib/appMetrics";
+import { ChartData } from "lib/charts/types";
 
 const useChartData =
   (

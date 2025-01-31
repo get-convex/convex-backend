@@ -1,8 +1,8 @@
 import FunnelIcon from "@heroicons/react/24/outline/FunnelIcon";
 import { ChevronUpIcon, ChevronDownIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
-import { filterMenuId } from "./DataFilters";
+import { Button } from "elements/Button";
+import { filterMenuId } from "features/data/components/DataFilters/DataFilters";
 
 export function FilterButton({
   filters,

@@ -4,10 +4,56 @@ import userEvent from "@testing-library/user-event";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import * as nextRouter from "next/router";
-import { FileStorageView, Uploader, useUploadFiles } from "./FileStorageView";
-import { mockConvexReactClient } from "../../../lib/mockConvexReactClient";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { deploymentInfo } from "../../../pages/_app";
+import {
+  FileStorageView,
+  Uploader,
+  useUploadFiles,
+} from "features/files/components/FileStorageView";
+import { mockConvexReactClient } from "lib/mockConvexReactClient";
+import { DeploymentInfo, DeploymentInfoContext } from "lib/deploymentContext";
+
+const deploymentInfo: DeploymentInfo = {
+  ok: true,
+  deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
+  adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
+  useCurrentTeam: () => ({
+    id: 0,
+    name: "Team",
+    slug: "team",
+  }),
+  useTeamMembers: () => [],
+  useTeamEntitlements: () => ({
+    auditLogsEnabled: true,
+  }),
+  useCurrentUsageBanner: () => null,
+  useCurrentProject: () => ({
+    id: 0,
+    name: "Project",
+    slug: "project",
+    teamId: 0,
+  }),
+  useLogDeploymentEvent: () => () => {},
+  useCurrentDeployment: () => ({
+    id: 0,
+    name: "local",
+    deploymentType: "prod",
+    projectId: 0,
+    kind: "local",
+    previewIdentifier: null,
+  }),
+  useHasProjectAdminPermissions: () => true,
+  useIsDeploymentPaused: () => false,
+  useProjectEnvironmentVariables: () => ({ configs: [] }),
+  CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
+    <div>{sourceCloudBackupId}</div>
+  ),
+  TeamMemberLink: () => <div />,
+  useTeamUsageState: () => "Default",
+  teamsURI: "/",
+  projectsURI: "/",
+  deploymentsURI: "/",
+  isSelfHosted: true,
+};
 
 const mockRouter = jest
   .fn()

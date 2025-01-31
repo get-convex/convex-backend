@@ -1,8 +1,9 @@
-import { TimestampDistance, Loading } from "dashboard-common";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
 import { cn } from "lib/cn";
-import { HealthCard } from "../../../elements/HealthCard";
+import { HealthCard } from "elements/HealthCard";
+import { TimestampDistance } from "elements/TimestampDistance";
+import { Loading } from "elements/Loading";
 
 export function LastDeployed() {
   const lastPushEvent = useQuery(udfs.deploymentEvents.lastPushEvent, {});

@@ -1,14 +1,14 @@
 import React from "react";
 import { useSize } from "react-use";
 import { cn } from "lib/cn";
-import { SchedulerStatus } from "../../../elements/SchedulerStatus";
-import { FailureRate } from "./FailureRate";
-import { CacheHitRate } from "./CacheHitRate";
-import { ExceptionReporting } from "./ExceptionReporting";
-import { LogStreams } from "./LogStreams";
-import { LastDeployed } from "./LastDeployed";
-import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
-import { PageContent } from "../../../elements/PageContent";
+import { SchedulerStatus } from "elements/SchedulerStatus";
+import { FailureRate } from "features/health/components/FailureRate";
+import { CacheHitRate } from "features/health/components/CacheHitRate";
+import { ExceptionReporting } from "features/health/components/ExceptionReporting";
+import { LogStreams } from "features/health/components/LogStreams";
+import { LastDeployed } from "features/health/components/LastDeployed";
+import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
+import { PageContent } from "elements/PageContent";
 
 export function HealthView({
   header,

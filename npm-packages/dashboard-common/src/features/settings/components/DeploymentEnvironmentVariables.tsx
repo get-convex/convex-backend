@@ -8,12 +8,12 @@ import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common"
 import {
   EnvironmentVariables,
   BaseEnvironmentVariable,
-} from "./EnvironmentVariables";
-import { useUpdateEnvVars } from "../lib/api";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { Button } from "../../../elements/Button";
-import { Sheet } from "../../../elements/Sheet";
-import { ProjectEnvVarConfig } from "../lib/types";
+} from "features/settings/components/EnvironmentVariables";
+import { useUpdateEnvVars } from "features/settings/lib/api";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { Button } from "elements/Button";
+import { Sheet } from "elements/Sheet";
+import { ProjectEnvVarConfig } from "features/settings/lib/types";
 
 export function DeploymentEnvironmentVariables() {
   const { useCurrentDeployment, useHasProjectAdminPermissions, projectsURI } =

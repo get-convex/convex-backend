@@ -1,11 +1,4 @@
 import classNames from "classnames";
-import {
-  ClosePanelButton,
-  Tooltip,
-  Button,
-  PageContent,
-  DeploymentInfoContext,
-} from "dashboard-common";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { ReactNode, useContext, useRef, useState } from "react";
@@ -21,11 +14,29 @@ import {
   PanelResizeHandle,
 } from "react-resizable-panels";
 import { DragHandleDots2Icon } from "@radix-ui/react-icons";
-import { cn } from "../lib/cn";
-import { Fallback } from "../pages/500";
+import { cn } from "lib/cn";
 
-// eslint-disable-next-line import/no-relative-packages
-import deprecationInfo from "../../../../crates/common/deprecation.json";
+import { Callout } from "elements/Callout";
+import { PageContent } from "elements/PageContent";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { Tooltip } from "elements/Tooltip";
+import { ClosePanelButton } from "elements/ClosePanelButton";
+import { Button } from "elements/Button";
+
+function Fallback({ error }: { error: Error | null }) {
+  return (
+    <div className="h-full grow">
+      <div className="flex h-full flex-col items-center justify-center">
+        <Callout variant="error">
+          <div className="flex flex-col gap-2">
+            <p>We encountered an error loading this page.</p>
+            {error && <code>{error.toString()}</code>}
+          </div>
+        </Callout>
+      </div>
+    </div>
+  );
+}
 
 export function SidebarDetailLayout({
   sidebarComponent,
@@ -91,7 +102,7 @@ export function SidebarDetailLayout({
 }
 
 function NpmConvexServerVersionBanner() {
-  const upgradeRequiredVersion = deprecationInfo.npm.upgradeRequired;
+  const upgradeRequiredVersion = "0.19.1";
   const currentVersion = useQuery(udfs.getVersion.default);
   const [dismissedVersion, setDismissedVersion] = useLocalStorage<string>(
     "dismissedVersionNotification",

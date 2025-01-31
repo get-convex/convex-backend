@@ -3,7 +3,7 @@ import { usePaginatedQuery } from "convex/react";
 import udfs from "udfs";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { useEffect, useContext } from "react";
-import { DeploymentInfoContext } from "./deploymentContext";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 
 export type DeploymentAuditLogEvent = Doc<"_deployment_audit_log"> & {
   memberName: string;

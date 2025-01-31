@@ -1,10 +1,10 @@
 import { Dialog, Transition } from "@headlessui/react";
-import { ClosePanelButton } from "dashboard-common";
 import { GenericDocument } from "convex/server";
 import isEqual from "lodash/isEqual";
 import { Fragment, useState } from "react";
 import { ValidatorJSON } from "convex/values";
-import { JavascriptDocumentsForm } from "./JavascriptDocumentsForm";
+import { JavascriptDocumentsForm } from "features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
+import { ClosePanelButton } from "elements/ClosePanelButton";
 
 export function EditFieldsPanel({
   allRowsSelected,

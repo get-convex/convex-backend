@@ -1,4 +1,4 @@
-import { parseEnvVars } from "./EnvironmentVariables";
+import { parseEnvVars } from "features/settings/components/EnvironmentVariables";
 
 describe("EnvironmentVariables", () => {
   describe("parseEnvVars", () => {

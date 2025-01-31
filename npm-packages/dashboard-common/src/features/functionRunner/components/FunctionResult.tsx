@@ -1,20 +1,22 @@
 import { LockOpen2Icon, PlayIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Button, DeploymentInfoContext, toast } from "dashboard-common";
 import type { FunctionResult as FunctionResultType } from "convex/browser";
 import { useContext, useEffect, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { Value } from "convex/values";
-import { RequestFilter } from "../../../lib/appMetrics";
-import { Spinner } from "../../../elements/Spinner";
-import { ComponentId } from "../../../lib/useNents";
-import { Result } from "./Result";
+import { Button } from "elements/Button";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { toast } from "lib/utils";
+import { RequestFilter } from "lib/appMetrics";
+import { Spinner } from "elements/Spinner";
+import { ComponentId } from "lib/useNents";
+import { Result } from "features/functionRunner/components/Result";
 import {
   useRunHistory,
   RunHistoryItem,
   useImpersonatedUser,
   useIsImpersonating,
-} from "./RunHistory";
+} from "features/functionRunner/components/RunHistory";
 
 // This is a hook because we want to return composable components that can be arranged
 // vertically or horizontally.

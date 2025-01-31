@@ -2,7 +2,7 @@ import { Value } from "convex/values";
 import * as Base64 from "base64-js";
 // @ts-expect-error
 import isValidIdentifier from "is-valid-identifier";
-import { prettier } from "./format";
+import { prettier } from "lib/format";
 
 function stringify(value: Value): string {
   // TODO: Remove this branch when we have more type-safety.

@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { Sheet, Button, toast, TextInput } from "dashboard-common";
 import { useState } from "react";
 import { ToastContainer } from "elements/ToastContainer";
+import { toast } from "lib/utils";
+import { Sheet } from "elements/Sheet";
+import { TextInput } from "elements/TextInput";
+import { Button } from "elements/Button";
 
 export default {
   component: ToastContainer,

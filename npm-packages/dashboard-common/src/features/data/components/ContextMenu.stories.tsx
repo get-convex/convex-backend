@@ -1,8 +1,8 @@
 import { StoryObj } from "@storybook/react";
 import { useRef, useState } from "react";
 import { ExternalLinkIcon, StarIcon, TrashIcon } from "@radix-ui/react-icons";
-import { ContextMenu } from "./ContextMenu";
-import { useContextMenuTrigger } from "../lib/useContextMenuTrigger";
+import { ContextMenu } from "features/data/components/ContextMenu";
+import { useContextMenuTrigger } from "features/data/lib/useContextMenuTrigger";
 
 export default { component: ContextMenu };
 

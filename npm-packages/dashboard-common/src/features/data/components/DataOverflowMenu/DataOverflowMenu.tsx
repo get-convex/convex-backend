@@ -6,10 +6,11 @@ import {
   CodeIcon,
   CardStackIcon,
 } from "@radix-ui/react-icons";
-import { DeploymentInfoContext, useNents } from "dashboard-common";
 import { useContext } from "react";
-import { Menu, MenuItem } from "../../../../elements/Menu";
-import { TableSchemaStatus } from "../TableSchema";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useNents } from "lib/useNents";
+import { Menu, MenuItem } from "elements/Menu";
+import { TableSchemaStatus } from "features/data/components/TableSchema";
 
 export function DataOverflowMenu({
   tableSchemaStatus,

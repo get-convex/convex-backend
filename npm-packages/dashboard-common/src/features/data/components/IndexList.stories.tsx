@@ -1,9 +1,9 @@
 import { StoryObj } from "@storybook/react";
-import { IndexesList as IndexList } from "./IndexList";
+import { IndexesList as IndexList } from "features/data/components/IndexList";
 
 export default { component: IndexList };
 
-export const Loading: StoryObj<typeof IndexList> = {
+export const LoadingStory: StoryObj<typeof IndexList> = {
   args: { indexes: undefined },
 };
 

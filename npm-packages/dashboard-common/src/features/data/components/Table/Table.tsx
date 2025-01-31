@@ -23,28 +23,33 @@ import {
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import withScrolling from "react-dnd-scrolling";
-import { DeploymentInfoContext, LoadingLogo, useNents } from "dashboard-common";
 import {
   ImperativePanelHandle,
   Panel,
   PanelGroup,
 } from "react-resizable-panels";
 import { cn } from "lib/cn";
-import { ResizeHandle } from "../../../../layouts/SidebarDetailLayout";
-import { useTableDensity } from "../../lib/useTableDensity";
-import { InfiniteScrollList } from "../../../../elements/InfiniteScrollList";
-import { SelectionState } from "../../lib/useSelectionState";
-import { usePatchDocumentField } from "./utils/usePatchDocumentField";
-import { DataRow } from "./DataRow";
-import { TableScrollbar } from "./TableScrollbar";
-import { useTrackColumnWidths } from "./utils/useTrackColumnWidths";
-import type { PopupState } from "../../lib/useToolPopup";
-import { useMaintainScrollPositionOnChange } from "./utils/useMaintainScrollPositionOnChange";
-import { TableContextMenu, useTableContextMenuState } from "./TableContextMenu";
-import { TableHeader } from "./TableHeader";
-import { useStoredColumnOrder } from "./utils/useDataColumns";
-import { ViewDocument } from "./ViewDocument";
-import { pageSize } from "./utils/useQueryFilteredTable";
+import { ResizeHandle } from "layouts/SidebarDetailLayout";
+import { useTableDensity } from "features/data/lib/useTableDensity";
+import { InfiniteScrollList } from "elements/InfiniteScrollList";
+import { SelectionState } from "features/data/lib/useSelectionState";
+import { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
+import { DataRow } from "features/data/components/Table/DataRow";
+import { TableScrollbar } from "features/data/components/Table/TableScrollbar";
+import { useTrackColumnWidths } from "features/data/components/Table/utils/useTrackColumnWidths";
+import type { PopupState } from "features/data/lib/useToolPopup";
+import { useMaintainScrollPositionOnChange } from "features/data/components/Table/utils/useMaintainScrollPositionOnChange";
+import {
+  TableContextMenu,
+  useTableContextMenuState,
+} from "features/data/components/Table/TableContextMenu";
+import { TableHeader } from "features/data/components/Table/TableHeader";
+import { useStoredColumnOrder } from "features/data/components/Table/utils/useDataColumns";
+import { ViewDocument } from "features/data/components/Table/ViewDocument";
+import { pageSize } from "features/data/components/Table/utils/useQueryFilteredTable";
+import { LoadingLogo } from "elements/Loading";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useNents } from "lib/useNents";
 
 const ScrollingComponent = withScrolling("div");
 

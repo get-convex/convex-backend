@@ -3,14 +3,15 @@ import {
   useMutation,
 } from "convex/react";
 import { GenericId, Value, ConvexError } from "convex/values";
-import { toast, useNents } from "dashboard-common";
 import { useRouter } from "next/router";
 import udfs from "udfs";
 import { useCallback } from "react";
 import omitBy from "lodash/omitBy";
 import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { useInvalidateShapes } from "../../../lib/api";
+import { useNents } from "lib/useNents";
+import { toast } from "lib/utils";
+import { useInvalidateShapes } from "features/data/lib/api";
 
 export function usePatchDocumentField(tableName: string) {
   const router = useRouter();

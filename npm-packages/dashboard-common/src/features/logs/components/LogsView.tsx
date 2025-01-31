@@ -1,8 +1,8 @@
-import { DeploymentPageTitle } from "../../../elements/DeploymentPageTitle";
-import { LoadingTransition } from "../../../elements/Loading";
-import { PageContent } from "../../../elements/PageContent";
-import { useNents } from "../../../lib/useNents";
-import { Logs } from "./Logs";
+import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
+import { LoadingTransition } from "elements/Loading";
+import { PageContent } from "elements/PageContent";
+import { useNents } from "lib/useNents";
+import { Logs } from "features/logs/components/Logs";
 
 export function LogsView() {
   const { nents, selectedNent } = useNents();

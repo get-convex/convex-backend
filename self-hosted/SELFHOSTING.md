@@ -38,10 +38,12 @@ started.
 # Self Hosting Guide
 
 First, you'll want to be get the
-[convex-local-backend binary](./README.md#running-the-convex-backend). You can
-either build from source or use the precompiled binaries. Note that in order to
-self host properly, you will need to clone the `convex-backend` repository and
-get set up with rust, in order to use some of the administrative executables.
+[convex-local-backend binary](../crates/local_backend/README.md#running-the-convex-backend).
+
+You can either build from source or use the precompiled binaries. Note that in
+order to self host properly, you will need to clone the `convex-backend`
+repository and get set up with rust, in order to use some of the administrative
+executables.
 
 ## Select an instance name
 
@@ -79,7 +81,7 @@ It will look like
 Use the instance name and instance secret to start your backend.
 
 ```sh
-./convex-local-backend -- --instance-name flying-fox-123 --instance-secret 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
+./convex-local-backend --instance-name flying-fox-123 --instance-secret 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
 ```
 
 You can run `./convex-local-backend --help` to see other options for things like
@@ -100,7 +102,7 @@ docker compose pull
 docker compose up
 ```
 
-Visit the dashboard at `http://localhost:6790` and use the CLI to push functions
+Visit the dashboard at `http://localhost:6791` and use the CLI to push functions
 with the `--admin-key $ADMIN_KEY` and `--url http://127.0.0.1:3210` flags.
 
 ## Push code to your backend

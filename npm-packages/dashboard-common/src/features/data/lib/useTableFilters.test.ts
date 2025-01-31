@@ -2,7 +2,10 @@ import { renderHook, act } from "@testing-library/react";
 import mockRouter from "next-router-mock";
 import { encodeURI } from "js-base64";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
-import { useFilterMap, useTableFilters } from "./useTableFilters";
+import {
+  useFilterMap,
+  useTableFilters,
+} from "features/data/lib/useTableFilters";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 describe("useTableFilters", () => {

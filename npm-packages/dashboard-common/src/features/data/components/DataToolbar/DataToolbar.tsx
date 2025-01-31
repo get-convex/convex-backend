@@ -7,19 +7,22 @@ import {
 import classNames from "classnames";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useContext } from "react";
-import { Button } from "../../../../elements/Button";
-import { LoadingTransition } from "../../../../elements/Loading";
-import { Tooltip } from "../../../../elements/Tooltip";
-import { Spinner } from "../../../../elements/Spinner";
-import { useShowGlobalRunner } from "../../../functionRunner/lib/functionRunner";
-import { DeploymentInfoContext } from "../../../../lib/deploymentContext";
-import { useNents } from "../../../../lib/useNents";
-import { PopupState } from "../../lib/useToolPopup";
-import { useEnabledDebounced } from "../../lib/useEnabledDebounced";
-import { FilterButton } from "../DataFilters/FilterButton";
-import { DataOverflowMenu } from "../DataOverflowMenu/DataOverflowMenu";
-import { isTableMissingFromSchema, useActiveSchema } from "../../lib/helpers";
-import { TableSchemaStatus } from "../TableSchema";
+import { Button } from "elements/Button";
+import { LoadingTransition } from "elements/Loading";
+import { Tooltip } from "elements/Tooltip";
+import { Spinner } from "elements/Spinner";
+import { useShowGlobalRunner } from "features/functionRunner/lib/functionRunner";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useNents } from "lib/useNents";
+import { PopupState } from "features/data/lib/useToolPopup";
+import { useEnabledDebounced } from "features/data/lib/useEnabledDebounced";
+import { FilterButton } from "features/data/components/DataFilters/FilterButton";
+import { DataOverflowMenu } from "features/data/components/DataOverflowMenu/DataOverflowMenu";
+import {
+  isTableMissingFromSchema,
+  useActiveSchema,
+} from "features/data/lib/helpers";
+import { TableSchemaStatus } from "features/data/components/TableSchema";
 
 export type DataToolbarProps = {
   popupState: PopupState;

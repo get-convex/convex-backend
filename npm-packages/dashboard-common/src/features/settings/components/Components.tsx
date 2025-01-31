@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { TrashIcon } from "@radix-ui/react-icons";
-import { useDeleteComponent } from "../lib/api";
-import { Sheet } from "../../../elements/Sheet";
-import { Nent } from "../../../lib/useNents";
-import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
-import { Button } from "../../../elements/Button";
+import { useDeleteComponent } from "features/settings/lib/api";
+import { Sheet } from "elements/Sheet";
+import { Nent } from "lib/useNents";
+import { ConfirmationDialog } from "elements/ConfirmationDialog";
+import { Button } from "elements/Button";
 
 export function Components({ nents }: { nents: Nent[] }) {
   const sortedNents = [...nents]

@@ -1,7 +1,7 @@
 import { convexToJson, Value } from "convex/values";
 import { useCallback, useEffect, useRef, useState } from "react";
 import sizeof from "object-sizeof";
-import { ReadonlyCode, type ReadonlyCodeProps } from "../elements/ReadonlyCode";
+import { ReadonlyCode, type ReadonlyCodeProps } from "elements/ReadonlyCode";
 
 const MAX_CODE_SIZE_KB = 10;
 
@@ -29,7 +29,7 @@ export function usePrettyReadonlyCode(
     // Create a worker to stringify Values asynchronously as prettier-formatting large blocks of code
     // is expensive.
     workerRef.current = new Worker(
-      new URL("../../workers/prettierWorker", import.meta.url),
+      new URL("../workers/prettierWorker", import.meta.url),
     );
 
     // Receive messages from the worker.

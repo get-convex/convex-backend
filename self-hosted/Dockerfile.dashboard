@@ -6,10 +6,10 @@ WORKDIR /app
 RUN git clone https://github.com/get-convex/convex-backend.git .
 
 # Install dependencies and build
-WORKDIR /app/npm-packages/dashboard-common
+WORKDIR /app/npm-packages/dashboard-self-hosted
 RUN npm install -g @microsoft/rush
 RUN rush update
+RUN rush build -t dashboard-self-hosted
 
-EXPOSE 6790
-# TODO: Use production command here
-CMD ["npm", "run", "dev"]
+EXPOSE 6791
+CMD ["npm", "start"]

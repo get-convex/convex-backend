@@ -9,11 +9,11 @@ import {
   CartesianGrid,
 } from "recharts";
 
-import { ChartDataSource, ChartData } from "../../../lib/charts/types";
-import { HealthCard } from "../../../elements/HealthCard";
-import { ChartTooltip } from "../../../elements/ChartTooltip";
-import { timeLabel } from "../../../elements/BigChart";
-import { LoadingTransition } from "../../../elements/Loading";
+import { ChartDataSource, ChartData } from "lib/charts/types";
+import { HealthCard } from "elements/HealthCard";
+import { ChartTooltip } from "elements/ChartTooltip";
+import { timeLabel } from "elements/BigChart";
+import { LoadingTransition } from "elements/Loading";
 
 export function SingleGraph({
   title,

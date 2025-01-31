@@ -1,5 +1,5 @@
-import { DeploymentSettingsLayout } from "../../../layouts/DeploymentSettingsLayout";
-import { AuthConfig } from "./AuthConfig";
+import { DeploymentSettingsLayout } from "layouts/DeploymentSettingsLayout";
+import { AuthConfig } from "features/settings/components/AuthConfig";
 
 export function AuthenticationView() {
   return (

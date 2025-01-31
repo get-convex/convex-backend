@@ -1,11 +1,12 @@
 import { Cursor, GenericDocument } from "convex/server";
 import { ConvexError } from "convex/values";
-import { toast, useNents } from "dashboard-common";
 import { captureException } from "@sentry/nextjs";
 import { useMutation } from "convex/react";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
-import { useInvalidateShapes, useDeleteTables } from "./api";
+import { useInvalidateShapes, useDeleteTables } from "features/data/lib/api";
+import { useNents } from "lib/useNents";
+import { toast } from "lib/utils";
 
 export function useDataToolbarActions({
   tableName,

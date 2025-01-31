@@ -6,14 +6,57 @@ import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common"
 import {
   DeploymentEnvironmentVariables,
   diffEnvironmentVariables,
-} from "./DeploymentEnvironmentVariables";
-import { mockConvexReactClient } from "../../../lib/mockConvexReactClient";
+} from "features/settings/components/DeploymentEnvironmentVariables";
+import { mockConvexReactClient } from "lib/mockConvexReactClient";
 import {
   ConnectedDeploymentContext,
+  DeploymentInfo,
   DeploymentInfoContext,
-} from "../../../lib/deploymentContext";
-import { ProjectEnvVarConfig } from "../lib/types";
-import { deploymentInfo } from "../../../pages/_app";
+} from "lib/deploymentContext";
+import { ProjectEnvVarConfig } from "features/settings/lib/types";
+
+const deploymentInfo: DeploymentInfo = {
+  ok: true,
+  deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
+  adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
+  useCurrentTeam: () => ({
+    id: 0,
+    name: "Team",
+    slug: "team",
+  }),
+  useTeamMembers: () => [],
+  useTeamEntitlements: () => ({
+    auditLogsEnabled: true,
+  }),
+  useCurrentUsageBanner: () => null,
+  useCurrentProject: () => ({
+    id: 0,
+    name: "Project",
+    slug: "project",
+    teamId: 0,
+  }),
+  useCurrentDeployment: () => ({
+    id: 0,
+    name: "local",
+    deploymentType: "prod",
+    projectId: 0,
+    kind: "local",
+    previewIdentifier: null,
+  }),
+  useHasProjectAdminPermissions: () => true,
+  useIsDeploymentPaused: () => false,
+  useProjectEnvironmentVariables: () => ({ configs: [] }),
+  CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
+    <div>{sourceCloudBackupId}</div>
+  ),
+  useLogDeploymentEvent: () => () => {},
+  TeamMemberLink: () => <div />,
+  useTeamUsageState: () => "Default",
+  teamsURI: "/",
+  projectsURI: "/",
+  deploymentsURI: "/",
+  isSelfHosted: true,
+};
 
 const createEnvironmentVariable = (
   name: string,

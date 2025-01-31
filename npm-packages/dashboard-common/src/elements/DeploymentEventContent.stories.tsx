@@ -2,7 +2,7 @@
 // TODO: CX-4916 fix the types in this file.
 import { StoryObj } from "@storybook/react";
 import { Id } from "system-udfs/convex/_generated/dataModel";
-import { DeploymentEventContent } from "./DeploymentEventContent";
+import { DeploymentEventContent } from "elements/DeploymentEventContent";
 
 export default { component: DeploymentEventContent };
 

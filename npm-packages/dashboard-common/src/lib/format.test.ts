@@ -5,7 +5,7 @@ import {
   displaySchema,
   displaySchemaFromShapes,
   prettier,
-} from "./format";
+} from "lib/format";
 
 type ShapeTypes = Shape["type"];
 

@@ -1,14 +1,15 @@
-import { Loading, ClosePanelButton } from "dashboard-common";
 import { Fragment } from "react";
 import { Transition, Dialog } from "@headlessui/react";
 import Link from "next/link";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { IndexList } from "./IndexList";
+import { ClosePanelButton } from "elements/ClosePanelButton";
+import { Loading } from "elements/Loading";
+import { IndexList } from "features/data/components/IndexList";
 import {
   TableSchemaContainer,
   useSingleTableSchemaStatus,
-} from "./TableSchema";
-import { ConvexSchemaFilePath } from "./ConvexSchemaFilePath";
+} from "features/data/components/TableSchema";
+import { ConvexSchemaFilePath } from "features/data/components/ConvexSchemaFilePath";
 
 export function TableSchemaAndIndexes({
   tableName,

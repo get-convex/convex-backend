@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { ReadonlyCode } from "./ReadonlyCode";
+import { ReadonlyCode } from "elements/ReadonlyCode";
 
 export default {
   component: ReadonlyCode,

@@ -2,14 +2,14 @@ import { CheckCircledIcon, CrossCircledIcon } from "@radix-ui/react-icons";
 import { memo, useRef } from "react";
 import { FunctionResult } from "convex/browser";
 import classNames from "classnames";
-import { entryOutput, useLogsForSingleFunction } from "../../../lib/useLogs";
-import { LogLinesOutput } from "../../../elements/LogOutput";
-import { usePrettyReadonlyCode } from "../../../lib/usePrettyReadonlyCode";
-import { Spinner } from "../../../elements/Spinner";
-import { RequestFilter } from "../../../lib/appMetrics";
-import { msFormat } from "../../../lib/format";
-import { CopyButton } from "../../../elements/CopyButton";
-import { LiveTimestampDistance } from "../../../elements/TimestampDistance";
+import { entryOutput, useLogsForSingleFunction } from "lib/useLogs";
+import { LogLinesOutput } from "elements/LogOutput";
+import { usePrettyReadonlyCode } from "lib/usePrettyReadonlyCode";
+import { Spinner } from "elements/Spinner";
+import { RequestFilter } from "lib/appMetrics";
+import { msFormat } from "lib/format";
+import { CopyButton } from "elements/CopyButton";
+import { LiveTimestampDistance } from "elements/TimestampDistance";
 
 export const Result = memo(ResultImpl);
 

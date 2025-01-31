@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { KeyboardShortcut } from "./KeyboardShortcut";
+import { KeyboardShortcut } from "elements/KeyboardShortcut";
 
 const meta: Meta<typeof KeyboardShortcut> = {
   component: KeyboardShortcut,

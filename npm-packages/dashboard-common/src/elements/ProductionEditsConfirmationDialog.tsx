@@ -1,4 +1,4 @@
-import { ConfirmationDialog } from "./ConfirmationDialog";
+import { ConfirmationDialog } from "elements/ConfirmationDialog";
 
 export function ProductionEditsConfirmationDialog({
   onClose,

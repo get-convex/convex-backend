@@ -1,19 +1,20 @@
-import "../styles/globals.css";
+// eslint-disable-next-line import/no-relative-packages
+import "../../../dashboard-common/src/styles/globals.css";
 import { AppProps } from "next/app";
 import Head from "next/head";
-import { Favicon } from "elements/Favicon";
-import { ThemeConsumer } from "elements/ThemeConsumer";
-import { ThemeProvider } from "next-themes";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { ToastContainer } from "../elements/ToastContainer";
 import {
   DeploymentApiProvider,
   DeploymentInfo,
   DeploymentInfoContext,
   WaitForDeploymentApi,
-} from "../lib/deploymentContext";
-import { DeploymentDashboardLayout } from "../layouts/DeploymentDashboardLayout";
+  ToastContainer,
+  DeploymentDashboardLayout,
+  ThemeConsumer,
+  Favicon,
+  ThemeProvider,
+} from "dashboard-common";
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -42,7 +43,7 @@ export default function App({ Component, pageProps }: AppProps) {
   );
 }
 
-export const deploymentInfo: DeploymentInfo = {
+const deploymentInfo: DeploymentInfo = {
   ok: true,
   deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
   adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
@@ -90,12 +91,6 @@ export const deploymentInfo: DeploymentInfo = {
 };
 
 function DeploymentInfoProvider({ children }: { children: React.ReactNode }) {
-  if (deploymentInfo.ok && !deploymentInfo.deploymentUrl) {
-    throw new Error("Missing NEXT_PUBLIC_DEPLOYMENT_URL");
-  }
-  if (deploymentInfo.ok && !deploymentInfo.adminKey) {
-    throw new Error("Missing NEXT_PUBLIC_ADMIN_KEY");
-  }
   return (
     <DeploymentInfoContext.Provider value={deploymentInfo}>
       {children}

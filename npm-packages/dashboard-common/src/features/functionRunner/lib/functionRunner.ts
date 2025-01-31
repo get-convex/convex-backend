@@ -4,11 +4,11 @@ import { useRouter } from "next/router";
 import {
   useModuleFunctions,
   displayNameToIdentifier,
-} from "../../../lib/functions/FunctionsProvider";
-import { ModuleFunction } from "../../../lib/functions/types";
-import { ComponentId, useNents } from "../../../lib/useNents";
-import { useTableMetadata } from "../../../lib/useTableMetadata";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+} from "lib/functions/FunctionsProvider";
+import { ModuleFunction } from "lib/functions/types";
+import { ComponentId, useNents } from "lib/useNents";
+import { useTableMetadata } from "lib/useTableMetadata";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 
 export const useCurrentGloballyOpenFunction =
   createGlobalState<ModuleFunction | null>(null);

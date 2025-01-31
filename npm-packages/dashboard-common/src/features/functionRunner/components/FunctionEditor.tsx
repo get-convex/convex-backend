@@ -1,7 +1,6 @@
 import { BeforeMount, Editor } from "@monaco-editor/react";
 import { PlayIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Button, Loading, stringifyValue } from "dashboard-common";
 import { FunctionResult } from "convex/browser";
 import { useQuery } from "convex/react";
 // special case: too annoying to move convexServerTypes to a separate file right now
@@ -9,13 +8,20 @@ import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import udfs from "udfs";
 import { Uri } from "monaco-editor/esm/vs/editor/editor.api";
-import { SchemaJson, displaySchema } from "../../../lib/format";
-import { useRunTestFunction } from "../lib/client";
+import { Button } from "elements/Button";
+import { Loading } from "elements/Loading";
+import { stringifyValue } from "lib/stringifyValue";
+import { SchemaJson, displaySchema } from "lib/format";
+import { useRunTestFunction } from "features/functionRunner/lib/client";
+import { Spinner } from "elements/Spinner";
+import { ComponentId } from "lib/useNents";
+import { Result } from "features/functionRunner/components/Result";
+import {
+  RunHistory,
+  RunHistoryItem,
+  useRunHistory,
+} from "features/functionRunner/components/RunHistory";
 import convexServerTypes from "../../../lib/generated/convexServerTypes.json";
-import { Spinner } from "../../../elements/Spinner";
-import { ComponentId } from "../../../lib/useNents";
-import { Result } from "./Result";
-import { RunHistory, RunHistoryItem, useRunHistory } from "./RunHistory";
 
 // Used for typechecking
 const globals = `
@@ -55,7 +61,7 @@ declare global {
 
 // Used when bundling and at runtime
 const preamble = `
-import { query, internalQuery } from "convex:/_system/repl/wrappers.js";
+import { query, internalQuery } from "convex:/_system/repl/wrappers";
 `;
 
 const generatedServer = `import { DataModelFromSchemaDefinition, GenericQueryCtx } from "../convex/server";

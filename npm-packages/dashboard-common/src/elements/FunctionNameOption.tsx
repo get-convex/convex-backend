@@ -5,9 +5,9 @@ import { cn } from "lib/cn";
 import {
   displayName,
   functionIdentifierFromValue,
-} from "../lib/functions/generateFileTree";
-import { Tooltip } from "./Tooltip";
-import { PuzzlePieceIcon } from "./icons";
+} from "lib/functions/generateFileTree";
+import { Tooltip } from "elements/Tooltip";
+import { PuzzlePieceIcon } from "elements/icons";
 
 function splitFunctionName(functionName: string) {
   for (const method of ROUTABLE_HTTP_METHODS) {

@@ -9,7 +9,7 @@ import {
   FilterValidationError,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { maximumRowsRead } from "system-udfs/convex/_system/paginationLimits";
-import { useNents } from "dashboard-common";
+import { useNents } from "lib/useNents";
 
 const isGenericDocument = (
   result: GenericDocument | FilterValidationError,

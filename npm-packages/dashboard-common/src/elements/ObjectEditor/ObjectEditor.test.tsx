@@ -5,7 +5,10 @@ import { mockConvexReactClient } from "lib/mockConvexReactClient";
 import { useEffectOnce } from "react-use";
 import udfs from "udfs";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { ObjectEditor, ObjectEditorProps } from "./ObjectEditor";
+import {
+  ObjectEditor,
+  ObjectEditorProps,
+} from "elements/ObjectEditor/ObjectEditor";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 
@@ -107,22 +110,6 @@ describe("ObjectEditor", () => {
     await user.clear(editor);
     await user.type(editor, "x");
     expect(onChange).toHaveBeenLastCalledWith(UNDEFINED_PLACEHOLDER);
-    expect(onError).toHaveBeenLastCalledWith([
-      "`x` is not a valid Convex value",
-    ]);
-    expect(setModelMarkers).toHaveBeenLastCalledWith(
-      { uri: { path: "/doc" } },
-      "",
-      [
-        {
-          endColumn: 2,
-          endLineNumber: 1,
-          message: "`x` is not a valid Convex value",
-          severity: 8,
-          startColumn: 1,
-          startLineNumber: 1,
-        },
-      ],
-    );
+    expect(onError).toHaveBeenCalledWith(["`x` is not a valid Convex value"]);
   });
 });

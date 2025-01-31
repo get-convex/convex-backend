@@ -12,28 +12,28 @@ import {
   Link2Icon,
 } from "@radix-ui/react-icons";
 import { Portal, Transition } from "@headlessui/react";
-import { useTableDensity } from "../../../lib/useTableDensity";
+import { useTableDensity } from "features/data/lib/useTableDensity";
 
-import { ProductionEditsConfirmationDialog } from "../../../../../elements/ProductionEditsConfirmationDialog";
+import { ProductionEditsConfirmationDialog } from "elements/ProductionEditsConfirmationDialog";
 
-import { KeyboardShortcut } from "../../../../../elements/KeyboardShortcut";
-import { DataDetail } from "./DataDetail";
-import { CellEditor } from "./CellEditor";
-import { DataCellValue } from "./DataCellValue";
+import { KeyboardShortcut } from "elements/KeyboardShortcut";
+import { DataDetail } from "features/data/components/Table/DataCell/DataDetail";
+import { CellEditor } from "features/data/components/Table/DataCell/CellEditor";
+import { DataCellValue } from "features/data/components/Table/DataCell/DataCellValue";
 
-import type { usePatchDocumentField } from "../utils/usePatchDocumentField";
-import { arrowKeyHandler } from "../utils/arrowKeyHandler";
+import type { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
+import { arrowKeyHandler } from "features/data/components/Table/utils/arrowKeyHandler";
 import {
   OpenContextMenu,
   useActionHotkeys,
   useCellActions,
-} from "./utils/cellActions";
-import { usePasteListener } from "./utils/usePasteListener";
-import { useTrackCellChanges } from "./utils/useTrackCellChanges";
-import { useValidator } from "./utils/useValidator";
-import { SchemaJson } from "../../../../../lib/format";
-import { stringifyValue } from "../../../../../lib/stringifyValue";
-import { Button } from "../../../../../elements/Button";
+} from "features/data/components/Table/DataCell/utils/cellActions";
+import { usePasteListener } from "features/data/components/Table/DataCell/utils/usePasteListener";
+import { useTrackCellChanges } from "features/data/components/Table/DataCell/utils/useTrackCellChanges";
+import { useValidator } from "features/data/components/Table/DataCell/utils/useValidator";
+import { SchemaJson } from "lib/format";
+import { stringifyValue } from "lib/stringifyValue";
+import { Button } from "elements/Button";
 
 export type DataCellProps = {
   value: Value;

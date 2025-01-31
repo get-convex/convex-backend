@@ -4,21 +4,21 @@ import classNames from "classnames";
 import { useContext, useState } from "react";
 import udfs from "udfs";
 import { cn } from "lib/cn";
-import { useInvalidateShapes } from "../lib/api";
-import { TextInput } from "../../../elements/TextInput";
+import { useInvalidateShapes } from "features/data/lib/api";
+import { TextInput } from "elements/TextInput";
 import {
   isTableMissingFromSchema,
   useActiveSchema,
   validateConvexIdentifier,
-} from "../lib/helpers";
-import { TableTab } from "./TableTab";
-import { TableMetadata } from "../../../lib/useTableMetadata";
-import { NentSwitcher } from "../../../elements/NentSwitcher";
-import { Loading } from "../../../elements/Loading";
-import { Button } from "../../../elements/Button";
-import { useNents } from "../../../lib/useNents";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { toast } from "../../../lib/utils";
+} from "features/data/lib/helpers";
+import { TableTab } from "features/data/components/TableTab";
+import { TableMetadata } from "lib/useTableMetadata";
+import { NentSwitcher } from "elements/NentSwitcher";
+import { Loading } from "elements/Loading";
+import { Button } from "elements/Button";
+import { useNents } from "lib/useNents";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { toast } from "lib/utils";
 
 export function DataSidebar({
   tableData,

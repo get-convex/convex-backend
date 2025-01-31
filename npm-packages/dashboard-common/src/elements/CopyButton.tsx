@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { CopyIcon } from "@radix-ui/react-icons";
-import { copyTextToClipboard } from "../lib/utils";
-import { Button } from "./Button";
+import { copyTextToClipboard } from "lib/utils";
+import { Button } from "elements/Button";
 
 export function CopyButton({
   text,

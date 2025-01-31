@@ -3,14 +3,14 @@ import { LockClosedIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { cn } from "lib/cn";
 import { Disclosure } from "@headlessui/react";
-import { ModuleFunction } from "../../../lib/functions/types";
-import { useCurrentOpenFunction } from "../../../lib/functions/FunctionsProvider";
-import { useCurrentGloballyOpenFunction } from "../../functionRunner/lib/functionRunner";
-import { FunctionIcon } from "../../../elements/icons";
-import { Tooltip } from "../../../elements/Tooltip";
-import { Button } from "../../../elements/Button";
-import { sidebarLinkClassNames } from "../../../elements/Sidebar";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { ModuleFunction } from "lib/functions/types";
+import { useCurrentOpenFunction } from "lib/functions/FunctionsProvider";
+import { useCurrentGloballyOpenFunction } from "features/functionRunner/lib/functionRunner";
+import { FunctionIcon } from "elements/icons";
+import { Tooltip } from "elements/Tooltip";
+import { Button } from "elements/Button";
+import { sidebarLinkClassNames } from "elements/Sidebar";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 
 export function FunctionItem({
   item,

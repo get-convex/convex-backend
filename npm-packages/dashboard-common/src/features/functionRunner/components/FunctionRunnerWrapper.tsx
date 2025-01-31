@@ -5,17 +5,17 @@ import { useEffect, useCallback, useContext } from "react";
 import { usePrevious } from "react-use";
 import udfs from "udfs";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Button } from "../../../elements/Button";
-import { FunctionIcon } from "../../../elements/icons";
-import { toast } from "../../../lib/utils";
+import { Button } from "elements/Button";
+import { FunctionIcon } from "elements/icons";
+import { toast } from "lib/utils";
 import {
   useHideGlobalRunner,
   useIsGlobalRunnerShown,
   useShowGlobalRunner,
   useGlobalRunnerSelectedItem,
-} from "../lib/functionRunner";
-import { GlobalFunctionTester } from "./FunctionTester";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+} from "features/functionRunner/lib/functionRunner";
+import { GlobalFunctionTester } from "features/functionRunner/components/FunctionTester";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 
 export function FunctionRunnerWrapper({
   isVertical,

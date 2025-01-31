@@ -1,6 +1,8 @@
-import { Callout, Spinner, Tooltip } from "dashboard-common";
 import React from "react";
-import { Index, useTableIndexes } from "../lib/api";
+import { Index, useTableIndexes } from "features/data/lib/api";
+import { Callout } from "elements/Callout";
+import { Spinner } from "elements/Spinner";
+import { Tooltip } from "elements/Tooltip";
 
 function IndexRow({ index }: { index: Index }) {
   const { type, fields } = getIndexDescription(index);

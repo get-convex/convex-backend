@@ -5,9 +5,10 @@ import { GenericDocument } from "convex/server";
 import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
 import Link from "next/link";
-import { ClosePanelButton, useNents } from "dashboard-common";
 import { createGlobalState } from "react-use";
-import { JavascriptDocumentsForm } from "./JavascriptDocumentsForm";
+import { JavascriptDocumentsForm } from "features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
+import { ClosePanelButton } from "elements/ClosePanelButton";
+import { useNents } from "lib/useNents";
 
 export type EditDocumentPanelProps = {
   onClose: () => void;

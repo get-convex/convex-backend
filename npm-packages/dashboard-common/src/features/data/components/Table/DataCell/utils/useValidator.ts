@@ -1,8 +1,8 @@
-import { SchemaJson } from "../../../../../../lib/format";
+import { SchemaJson } from "lib/format";
 import {
   documentValidatorForTable,
   validatorForColumn,
-} from "../../utils/validators";
+} from "features/data/components/Table/utils/validators";
 
 export function useValidator(
   activeSchema: SchemaJson | null,

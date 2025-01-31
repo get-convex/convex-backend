@@ -9,8 +9,11 @@ import { ConvexProvider } from "convex/react";
 import udfs from "udfs";
 import userEvent from "@testing-library/user-event";
 import { mockConvexReactClient } from "lib/mockConvexReactClient";
-import { MockMonaco } from "../../MockMonaco.test";
-import { EditDocumentPanel, useDocumentDrafts } from "./EditDocumentPanel";
+import { MockMonaco } from "features/data/components/MockMonaco.test";
+import {
+  EditDocumentPanel,
+  useDocumentDrafts,
+} from "features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
 
 jest.mock("@monaco-editor/react", () => (p: any) => MockMonaco(p));
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));

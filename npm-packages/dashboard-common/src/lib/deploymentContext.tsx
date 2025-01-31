@@ -12,8 +12,8 @@ import {
 import { useRouter } from "next/router";
 import { captureMessage } from "@sentry/nextjs";
 import { cn } from "lib/cn";
-import { LoadingLogo } from "../elements/Loading";
-import { ProjectEnvVarConfig } from "../features/settings/lib/types";
+import { LoadingLogo } from "elements/Loading";
+import { ProjectEnvVarConfig } from "features/settings/lib/types";
 
 export const PROVISION_PROD_PAGE_NAME = "production";
 

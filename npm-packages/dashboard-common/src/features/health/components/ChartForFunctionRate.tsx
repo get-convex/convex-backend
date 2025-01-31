@@ -1,10 +1,5 @@
 import classNames from "classnames";
 import { format } from "date-fns";
-import {
-  Button,
-  LoadingTransition,
-  FunctionNameOption,
-} from "dashboard-common";
 import { useState } from "react";
 import {
   ResponsiveContainer,
@@ -17,11 +12,14 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from "recharts";
-import { ChartTooltip } from "../../../elements/ChartTooltip";
-import { useDeploymentAuditLogs } from "../../../lib/useDeploymentAuditLog";
-import { timeLabel } from "../../../elements/BigChart";
-import { ChartData } from "../../../lib/charts/types";
-import { DeploymentTimes } from "./DeploymentTimes";
+import { ChartTooltip } from "elements/ChartTooltip";
+import { useDeploymentAuditLogs } from "lib/useDeploymentAuditLog";
+import { timeLabel } from "elements/BigChart";
+import { ChartData } from "lib/charts/types";
+import { DeploymentTimes } from "features/health/components/DeploymentTimes";
+import { Button } from "elements/Button";
+import { FunctionNameOption } from "elements/FunctionNameOption";
+import { LoadingTransition } from "elements/Loading";
 
 export function ChartForFunctionRate({
   chartData,

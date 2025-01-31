@@ -1,5 +1,5 @@
 import { StoryObj } from "@storybook/react";
-import { DateTimePicker } from "./DateTimePicker";
+import { DateTimePicker } from "features/data/components/FilterEditor/DateTimePicker";
 
 export const Primary: StoryObj<typeof DateTimePicker> = {
   args: {

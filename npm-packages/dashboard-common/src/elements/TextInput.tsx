@@ -1,7 +1,7 @@
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import React, { forwardRef } from "react";
-import { Button } from "./Button";
+import { Button } from "elements/Button";
 
 type InputProps = {
   label?: string;

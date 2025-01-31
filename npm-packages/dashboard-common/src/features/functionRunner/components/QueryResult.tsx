@@ -2,7 +2,6 @@ import { convexToJson } from "convex/values";
 import { ConvexReactClient, useSubscription } from "convex/react";
 import isEqual from "lodash/isEqual";
 import { useMemo, useState } from "react";
-import { Tooltip } from "dashboard-common";
 import { StopIcon } from "@radix-ui/react-icons";
 import { FunctionResult } from "convex/browser";
 import {
@@ -11,8 +10,9 @@ import {
   getFunctionName,
   makeFunctionReference,
 } from "convex/server";
-import * as FunctionTypes from "../../../lib/functions/types";
-import { Result } from "./Result";
+import { Tooltip } from "elements/Tooltip";
+import * as FunctionTypes from "lib/functions/types";
+import { Result } from "features/functionRunner/components/Result";
 
 export function QueryResult({
   module,

@@ -1,7 +1,7 @@
 import { Tab as HeadlessTab } from "@headlessui/react";
 import classNames from "classnames";
 import { Fragment, PropsWithChildren } from "react";
-import { Button, ButtonProps } from "./Button";
+import { Button, ButtonProps } from "elements/Button";
 
 export function Tab({
   disabled,

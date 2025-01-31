@@ -2,9 +2,9 @@ import { ReactNode, useContext } from "react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { useDeploymentUrl } from "../../../lib/deploymentApi";
-import { CopyTextButton } from "../../../elements/CopyTextButton";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useDeploymentUrl } from "lib/deploymentApi";
+import { CopyTextButton } from "elements/CopyTextButton";
 
 // dev/prod sometimes isn't initially loaded.
 // Optimize for no flash on prod.

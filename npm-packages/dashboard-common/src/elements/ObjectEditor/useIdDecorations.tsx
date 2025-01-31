@@ -9,15 +9,15 @@ import { GenericDocument } from "convex/server";
 import { SourceLocation } from "acorn";
 import { captureMessage } from "@sentry/nextjs";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api";
-import { stringifyValue } from "../../lib/stringifyValue";
+import { stringifyValue } from "lib/stringifyValue";
 import {
   copyTextToClipboard,
   documentHref,
   getReferencedTableName,
   toast,
-} from "../../lib/utils";
-import { useNents } from "../../lib/useNents";
-import { LiteralNode } from "./ast/types";
+} from "lib/utils";
+import { useNents } from "lib/useNents";
+import { LiteralNode } from "elements/ObjectEditor/ast/types";
 
 export function useIdDecorations(
   monaco: Parameters<BeforeMount>[0] | undefined,

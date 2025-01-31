@@ -1,12 +1,12 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useMount } from "react-use";
-import { Sheet } from "../../../elements/Sheet";
-import { Loading } from "../../../elements/Loading";
-import { ReadonlyCode } from "../../../elements/ReadonlyCode";
-import { useSourceCode } from "../../../lib/functions/useSourceCode";
-import { SourceMissingPanel } from "../../../elements/SourceMissingPanel";
-import type { ModuleFunction } from "../../../lib/functions/types";
+import { Sheet } from "elements/Sheet";
+import { Loading } from "elements/Loading";
+import { ReadonlyCode } from "elements/ReadonlyCode";
+import { useSourceCode } from "lib/functions/useSourceCode";
+import { SourceMissingPanel } from "elements/SourceMissingPanel";
+import type { ModuleFunction } from "lib/functions/types";
 
 export function FileEditor({
   moduleFunction,

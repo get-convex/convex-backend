@@ -2,13 +2,58 @@ import { screen, render } from "@testing-library/react";
 import { useRouter } from "next/router";
 import userEvent from "@testing-library/user-event";
 import { useMemo } from "react";
-import { deploymentInfo } from "pages/_app";
-import { useTableFilters } from "../../lib/useTableFilters";
-import { useToolPopup } from "../../lib/useToolPopup";
-import { useAuthorizeProdEdits } from "../../lib/useAuthorizeProdEdits";
-import { DataToolbar, DataToolbarProps } from "./DataToolbar";
-import { DeploymentInfoContext } from "../../../../lib/deploymentContext";
-import { FunctionsContext } from "../../../../lib/functions/FunctionsProvider";
+import { useTableFilters } from "features/data/lib/useTableFilters";
+import { useToolPopup } from "features/data/lib/useToolPopup";
+import { useAuthorizeProdEdits } from "features/data/lib/useAuthorizeProdEdits";
+import {
+  DataToolbar,
+  DataToolbarProps,
+} from "features/data/components/DataToolbar/DataToolbar";
+import { DeploymentInfo, DeploymentInfoContext } from "lib/deploymentContext";
+import { FunctionsContext } from "lib/functions/FunctionsProvider";
+
+const deploymentInfo: DeploymentInfo = {
+  ok: true,
+  deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
+  adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
+  useCurrentTeam: () => ({
+    id: 0,
+    name: "Team",
+    slug: "team",
+  }),
+  useTeamMembers: () => [],
+  useTeamEntitlements: () => ({
+    auditLogsEnabled: true,
+  }),
+  useCurrentUsageBanner: () => null,
+  useCurrentProject: () => ({
+    id: 0,
+    name: "Project",
+    slug: "project",
+    teamId: 0,
+  }),
+  useLogDeploymentEvent: () => () => {},
+  useCurrentDeployment: () => ({
+    id: 0,
+    name: "local",
+    deploymentType: "prod",
+    projectId: 0,
+    kind: "local",
+    previewIdentifier: null,
+  }),
+  useHasProjectAdminPermissions: () => true,
+  useIsDeploymentPaused: () => false,
+  useProjectEnvironmentVariables: () => ({ configs: [] }),
+  CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
+    <div>{sourceCloudBackupId}</div>
+  ),
+  TeamMemberLink: () => <div />,
+  useTeamUsageState: () => "Default",
+  teamsURI: "/",
+  projectsURI: "/",
+  deploymentsURI: "/",
+  isSelfHosted: true,
+};
 
 jest.mock("convex/react", () => ({
   useQuery: jest.fn(),

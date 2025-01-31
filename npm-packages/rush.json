@@ -529,6 +529,10 @@
       "projectFolder": "dashboard-common"
     },
     {
+      "packageName": "dashboard-self-hosted",
+      "projectFolder": "dashboard-self-hosted"
+    },
+    {
       "packageName": "udf-runtime",
       "projectFolder": "udf-runtime"
     },

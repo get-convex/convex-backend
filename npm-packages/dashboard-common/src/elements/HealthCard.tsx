@@ -5,9 +5,9 @@ import {
 } from "@radix-ui/react-icons";
 import { cn } from "lib/cn";
 import React from "react";
-import { Sheet } from "./Sheet";
-import { Tooltip } from "./Tooltip";
-import { LoadingTransition } from "./Loading";
+import { Sheet } from "elements/Sheet";
+import { Tooltip } from "elements/Tooltip";
+import { LoadingTransition } from "elements/Loading";
 
 export function HealthCard({
   title,

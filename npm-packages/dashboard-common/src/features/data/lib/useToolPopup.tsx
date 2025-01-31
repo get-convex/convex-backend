@@ -4,17 +4,17 @@ import { Cursor, GenericDocument } from "convex/server";
 import { ConvexError, ValidatorJSON } from "convex/values";
 import { useState } from "react";
 import udfs from "udfs";
-import { useNents } from "dashboard-common";
 import { SchemaJson } from "system-udfs/convex/_system/frontend/lib/filters";
-import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
-import { ProductionEditsConfirmationDialog } from "../../../elements/ProductionEditsConfirmationDialog";
-import { useInvalidateShapes } from "./api";
-import { ClearTableConfirmation } from "../components/DataToolbar/ClearTableConfirmation";
-import { EditDocumentPanel } from "../components/Table/EditDocumentPanel/EditDocumentPanel";
-import { EditFieldsPanel } from "../components/Table/EditDocumentPanel/EditFieldsPanel";
-import { TableMetrics } from "../components/TableMetrics";
-import { TableSchemaAndIndexes } from "../components/TableSchemaAndIndexes";
-import { useDefaultDocument } from "./useDefaultDocument";
+import { useNents } from "lib/useNents";
+import { ConfirmationDialog } from "elements/ConfirmationDialog";
+import { ProductionEditsConfirmationDialog } from "elements/ProductionEditsConfirmationDialog";
+import { useInvalidateShapes } from "features/data/lib/api";
+import { ClearTableConfirmation } from "features/data/components/DataToolbar/ClearTableConfirmation";
+import { EditDocumentPanel } from "features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
+import { EditFieldsPanel } from "features/data/components/Table/EditDocumentPanel/EditFieldsPanel";
+import { TableMetrics } from "features/data/components/TableMetrics";
+import { TableSchemaAndIndexes } from "features/data/components/TableSchemaAndIndexes";
+import { useDefaultDocument } from "features/data/lib/useDefaultDocument";
 
 export type PopupState = ReturnType<typeof useToolPopup>;
 

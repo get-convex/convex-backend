@@ -1,6 +1,9 @@
 import { ValidatorJSON, Value } from "convex/values";
-import { Walker } from "./ast";
-import { ArrayNode, ConvexValidationError } from "./types";
+import { Walker } from "elements/ObjectEditor/ast/ast";
+import {
+  ArrayNode,
+  ConvexValidationError,
+} from "elements/ObjectEditor/ast/types";
 
 export function walkMultipleDocuments(
   array: ArrayNode,

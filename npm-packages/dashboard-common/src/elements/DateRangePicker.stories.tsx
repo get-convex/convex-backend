@@ -1,5 +1,5 @@
 import { StoryObj } from "@storybook/react";
-import { DateRangePicker } from "./DateRangePicker";
+import { DateRangePicker } from "elements/DateRangePicker";
 
 export const Primary: StoryObj<typeof DateRangePicker> = {
   args: {

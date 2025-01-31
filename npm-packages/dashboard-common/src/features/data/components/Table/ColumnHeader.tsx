@@ -1,18 +1,18 @@
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Tooltip } from "dashboard-common";
 import { GenericDocument } from "convex/server";
 import { HeaderGroup } from "react-table";
 import { useDrop, useDrag } from "react-dnd";
 import { useEffect, useRef } from "react";
 import omit from "lodash/omit";
-import { useContextMenuTrigger } from "../../lib/useContextMenuTrigger";
-import { useTableDensity } from "../../lib/useTableDensity";
-import { Checkbox } from "../../../../elements/Checkbox";
-import { identifierNeedsEscape } from "../../lib/helpers";
-import { emptyColumnName } from "./utils/useDataColumns";
-import { DataCellProps } from "./DataCell/DataCell";
-import { columnWidthToString } from "./DataRow";
+import { useContextMenuTrigger } from "features/data/lib/useContextMenuTrigger";
+import { useTableDensity } from "features/data/lib/useTableDensity";
+import { Checkbox } from "elements/Checkbox";
+import { identifierNeedsEscape } from "features/data/lib/helpers";
+import { emptyColumnName } from "features/data/components/Table/utils/useDataColumns";
+import { DataCellProps } from "features/data/components/Table/DataCell/DataCell";
+import { columnWidthToString } from "features/data/components/Table/DataRow";
+import { Tooltip } from "elements/Tooltip";
 
 type ColumnHeaderProps = {
   column: HeaderGroup<GenericDocument>;

@@ -16,6 +16,9 @@
 !/npm-packages*/*
 !/scripts/*
 
+# Never use a build cache for the docker image
+/npm-packages/common/config/rush/build-cache.json
+
 # Re-exclude common build/cache directories that might exist under the included directories above.
 # Docker uses the last matching-pattern for any file.
 # Node/NPM

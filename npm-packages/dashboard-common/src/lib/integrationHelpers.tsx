@@ -15,12 +15,12 @@ import {
 } from "system-udfs/convex/schema";
 import Link from "next/link";
 import classNames from "classnames";
-import { WebhookIcon } from "../elements/icons";
-import { DatadogLogo } from "./logos/DatadogLogo";
-import { AxiomLogo } from "./logos/AxiomLogo";
-import { SentryLogo } from "./logos/SentryLogo";
-import { AirbyteLogo } from "./logos/AirbyteLogo";
-import { FivetranLogo } from "./logos/FivetranLogo";
+import { WebhookIcon } from "elements/icons";
+import { DatadogLogo } from "lib/logos/DatadogLogo";
+import { AxiomLogo } from "lib/logos/AxiomLogo";
+import { SentryLogo } from "lib/logos/SentryLogo";
+import { AirbyteLogo } from "lib/logos/AirbyteLogo";
+import { FivetranLogo } from "lib/logos/FivetranLogo";
 
 export type SinkStatus = Doc<"_log_sinks">["status"];
 

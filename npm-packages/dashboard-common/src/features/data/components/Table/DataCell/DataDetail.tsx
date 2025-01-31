@@ -1,7 +1,8 @@
 import { Value } from "convex/values";
 
-import { ReadonlyCode, stringifyValue } from "dashboard-common";
-import { DetailPanel } from "../../../../../elements/DetailPanel";
+import { DetailPanel } from "elements/DetailPanel";
+import { ReadonlyCode } from "elements/ReadonlyCode";
+import { stringifyValue } from "lib/stringifyValue";
 
 export function DataDetail({
   value,

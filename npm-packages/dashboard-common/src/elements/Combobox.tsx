@@ -4,7 +4,7 @@ import { CaretSortIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { cn } from "lib/cn";
 import isEqual from "lodash/isEqual";
 import { test } from "fuzzy";
-import { Button, ButtonProps } from "./Button";
+import { Button, ButtonProps } from "elements/Button";
 
 export type Option<T> = { label: string; value: T };
 

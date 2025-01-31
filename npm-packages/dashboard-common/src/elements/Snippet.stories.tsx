@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { Snippet } from "./Snippet";
+import { Snippet } from "elements/Snippet";
 
 export default {
   component: Snippet,

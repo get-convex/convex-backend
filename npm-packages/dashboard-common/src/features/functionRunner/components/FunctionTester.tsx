@@ -19,22 +19,22 @@ import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patch
 import {
   itemIdentifier,
   useModuleFunctions,
-} from "../../../lib/functions/FunctionsProvider";
-import { Button } from "../../../elements/Button";
-import { Tooltip } from "../../../elements/Tooltip";
-import { ClosePanelButton } from "../../../elements/ClosePanelButton";
-import { Combobox, Option } from "../../../elements/Combobox";
-import { FunctionNameOption } from "../../../elements/FunctionNameOption";
+} from "lib/functions/FunctionsProvider";
+import { Button } from "elements/Button";
+import { Tooltip } from "elements/Tooltip";
+import { ClosePanelButton } from "elements/ClosePanelButton";
+import { Combobox, Option } from "elements/Combobox";
+import { FunctionNameOption } from "elements/FunctionNameOption";
 import {
   displayName,
   functionIdentifierFromValue,
   functionIdentifierValue,
-} from "../../../lib/functions/generateFileTree";
-import { ModuleFunction } from "../../../lib/functions/types";
-import { defaultValueForValidator } from "../../../lib/defaultValueForValidator";
-import { ObjectEditor } from "../../../elements/ObjectEditor/ObjectEditor";
-import { NENT_APP_PLACEHOLDER, useNents } from "../../../lib/useNents";
-import { NentNameOption } from "../../../elements/NentSwitcher";
+} from "lib/functions/generateFileTree";
+import { ModuleFunction } from "lib/functions/types";
+import { defaultValueForValidator } from "lib/defaultValueForValidator";
+import { ObjectEditor } from "elements/ObjectEditor/ObjectEditor";
+import { NENT_APP_PLACEHOLDER, useNents } from "lib/useNents";
+import { NentNameOption } from "elements/NentSwitcher";
 import {
   CustomQuery,
   findFirstWritingFunction,
@@ -42,18 +42,18 @@ import {
   useGlobalRunnerSelectedItem,
   useHideGlobalRunner,
   useIsGlobalRunnerShown,
-} from "../lib/functionRunner";
-import { useFunctionEditor } from "./FunctionEditor";
-import { useFunctionResult } from "./FunctionResult";
-import { QueryResult } from "./QueryResult";
+} from "features/functionRunner/lib/functionRunner";
+import { useFunctionEditor } from "features/functionRunner/components/FunctionEditor";
+import { useFunctionResult } from "features/functionRunner/components/FunctionResult";
+import { QueryResult } from "features/functionRunner/components/QueryResult";
 import {
   RunHistory,
   RunHistoryItem,
   useImpersonatedUser,
   useIsImpersonating,
-} from "./RunHistory";
-import { useGlobalReactClient } from "../lib/client";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+} from "features/functionRunner/components/RunHistory";
+import { useGlobalReactClient } from "features/functionRunner/lib/client";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 
 const CUSTOM_TEST_QUERY_PLACEHOLDER =
   "__CONVEX_PLACEHOLDER_custom_test_query_1255035852";

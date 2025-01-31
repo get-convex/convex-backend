@@ -37,8 +37,9 @@ import {
 import classNames from "classnames";
 import { ChevronRightIcon } from "@radix-ui/react-icons";
 import { UrlObject } from "url";
-import { Button, TooltipSide } from "dashboard-common";
-import { Key, KeyboardShortcut } from "../../../elements/KeyboardShortcut";
+import { Button } from "elements/Button";
+import { TooltipSide } from "elements/Tooltip";
+import { Key, KeyboardShortcut } from "elements/KeyboardShortcut";
 
 const ContextMenuContext = React.createContext<{
   getItemProps: (

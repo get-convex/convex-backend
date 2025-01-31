@@ -2,14 +2,14 @@ import { useCallback, useContext, useMemo } from "react";
 import { Shape, shapeSchema } from "shapes";
 import useSWR, { BareFetcher, Middleware, useSWRConfig } from "swr";
 import { z } from "zod";
-import { useNents } from "./useNents";
+import { useNents } from "lib/useNents";
 import {
   ConnectedDeploymentContext,
   DeploymentInfoContext,
-} from "./deploymentContext";
-import { deploymentFetch } from "./fetching";
-import { isUserTableName } from "./utils";
-import { displayName } from "./functions/generateFileTree";
+} from "lib/deploymentContext";
+import { deploymentFetch } from "lib/fetching";
+import { isUserTableName } from "lib/utils";
+import { displayName } from "lib/functions/generateFileTree";
 
 export function useDeploymentUrl(): string {
   const { deployment } = useContext(ConnectedDeploymentContext);

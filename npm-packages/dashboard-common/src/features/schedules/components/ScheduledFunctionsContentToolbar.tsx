@@ -2,23 +2,23 @@ import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { useContext, useState } from "react";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
-import { useCancelAllJobs } from "../lib/api";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { useCancelAllJobs } from "features/schedules/lib/api";
+import { DeploymentInfoContext } from "lib/deploymentContext";
 import {
   itemIdentifier,
   useCurrentOpenFunction,
   useModuleFunctions,
-} from "../../../lib/functions/FunctionsProvider";
-import { Combobox } from "../../../elements/Combobox";
+} from "lib/functions/FunctionsProvider";
+import { Combobox } from "elements/Combobox";
 import {
   displayName,
   functionIdentifierFromValue,
   functionIdentifierValue,
-} from "../../../lib/functions/generateFileTree";
-import { FunctionNameOption } from "../../../elements/FunctionNameOption";
-import { Button } from "../../../elements/Button";
-import { SchedulerStatus } from "../../../elements/SchedulerStatus";
-import { ConfirmationDialog } from "../../../elements/ConfirmationDialog";
+} from "lib/functions/generateFileTree";
+import { FunctionNameOption } from "elements/FunctionNameOption";
+import { Button } from "elements/Button";
+import { SchedulerStatus } from "elements/SchedulerStatus";
+import { ConfirmationDialog } from "elements/ConfirmationDialog";
 
 export function ScheduledFunctionsContentToolbar({
   jobs,

@@ -19,21 +19,24 @@ import { Transition, Dialog } from "@headlessui/react";
 import isEqual from "lodash/isEqual";
 import difference from "lodash/difference";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
-import { DeploymentEventListItem } from "./DeploymentEventListItem";
-import { ITEM_SIZE, LogListItem } from "./LogListItem";
-import { LogToolbar } from "./LogToolbar";
-import { filterLogs } from "../lib/filterLogs";
-import { UdfLog } from "../../../lib/useLogs";
-import { InterleavedLog, interleaveLogs } from "../lib/interleaveLogs";
-import { DeploymentAuditLogEvent } from "../../../lib/useDeploymentAuditLog";
-import { NENT_APP_PLACEHOLDER, Nent } from "../../../lib/useNents";
-import { Sheet } from "../../../elements/Sheet";
-import { Tooltip } from "../../../elements/Tooltip";
-import { InfiniteScrollList } from "../../../elements/InfiniteScrollList";
-import { Button } from "../../../elements/Button";
-import { ClosePanelButton } from "../../../elements/ClosePanelButton";
-import { CopyTextButton } from "../../../elements/CopyTextButton";
-import { TextInput } from "../../../elements/TextInput";
+import { DeploymentEventListItem } from "features/logs/components/DeploymentEventListItem";
+import { ITEM_SIZE, LogListItem } from "features/logs/components/LogListItem";
+import { LogToolbar } from "features/logs/components/LogToolbar";
+import { filterLogs } from "features/logs/lib/filterLogs";
+import { UdfLog } from "lib/useLogs";
+import {
+  InterleavedLog,
+  interleaveLogs,
+} from "features/logs/lib/interleaveLogs";
+import { DeploymentAuditLogEvent } from "lib/useDeploymentAuditLog";
+import { NENT_APP_PLACEHOLDER, Nent } from "lib/useNents";
+import { Sheet } from "elements/Sheet";
+import { Tooltip } from "elements/Tooltip";
+import { InfiniteScrollList } from "elements/InfiniteScrollList";
+import { Button } from "elements/Button";
+import { ClosePanelButton } from "elements/ClosePanelButton";
+import { CopyTextButton } from "elements/CopyTextButton";
+import { TextInput } from "elements/TextInput";
 
 export type LogListProps = {
   logs?: UdfLog[];

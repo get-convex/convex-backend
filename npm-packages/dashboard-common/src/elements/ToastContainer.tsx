@@ -1,5 +1,5 @@
-import { useTheme } from "dashboard-common";
 import { Toaster } from "sonner";
+import { useTheme } from "elements/ThemeConsumer";
 
 export function ToastContainer() {
   const { resolvedTheme } = useTheme();

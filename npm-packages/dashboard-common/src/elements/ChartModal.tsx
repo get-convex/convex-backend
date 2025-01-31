@@ -1,7 +1,7 @@
 import React from "react";
-import { Modal } from "./Modal";
-import { BigChart } from "./BigChart";
-import { ChartDataSource } from "../lib/charts/types";
+import { Modal } from "elements/Modal";
+import { BigChart } from "elements/BigChart";
+import { ChartDataSource } from "lib/charts/types";
 
 export function ChartModal({
   onClose,

@@ -1,6 +1,6 @@
-import { HealthCard } from "../../../elements/HealthCard";
-import { useTopKFunctionMetrics } from "../../../lib/appMetrics";
-import { ChartForFunctionRate } from "./ChartForFunctionRate";
+import { HealthCard } from "elements/HealthCard";
+import { useTopKFunctionMetrics } from "lib/appMetrics";
+import { ChartForFunctionRate } from "features/health/components/ChartForFunctionRate";
 
 export function FailureRate() {
   const chartData = useTopKFunctionMetrics("failurePercentage");

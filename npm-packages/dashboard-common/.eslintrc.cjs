@@ -166,7 +166,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ["src/pages/**/*.tsx", "src/**/*.stories.tsx"],
+      files: ["src/**/*.stories.tsx"],
       rules: {
         "import/no-default-export": "off",
       },

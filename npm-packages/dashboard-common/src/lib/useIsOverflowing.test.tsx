@@ -1,6 +1,6 @@
 import React from "react";
 import { renderHook } from "@testing-library/react";
-import { useIsOverflowing } from "./useIsOverflowing";
+import { useIsOverflowing } from "lib/useIsOverflowing";
 
 type FakeElement = {
   scrollWidth: number;

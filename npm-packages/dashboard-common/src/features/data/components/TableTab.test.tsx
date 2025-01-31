@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import mockRouter from "next-router-mock";
-import { TableTab } from "./TableTab";
+import { TableTab } from "features/data/components/TableTab";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 

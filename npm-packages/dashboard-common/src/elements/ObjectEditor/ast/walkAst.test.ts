@@ -1,10 +1,10 @@
 import { ValidatorJSON, Value } from "convex/values";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import * as Base64 from "base64-js";
-import { stringifyValue } from "../../../lib/stringifyValue";
-import { walkAst } from "./walkAst";
-import { SchemaValidationErrorCode } from "./types";
-import { validateConvexFieldName } from "./ast";
+import { stringifyValue } from "lib/stringifyValue";
+import { walkAst } from "elements/ObjectEditor/ast/walkAst";
+import { SchemaValidationErrorCode } from "elements/ObjectEditor/ast/types";
+import { validateConvexFieldName } from "elements/ObjectEditor/ast/ast";
 
 const validators: Record<string, ValidatorJSON> = {
   number: { type: "number" },

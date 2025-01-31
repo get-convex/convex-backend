@@ -1,6 +1,6 @@
 import classNames from "classnames";
-import { UdfLogOutput as Output } from "../lib/useLogs";
-import { LogLevel } from "./LogLevel";
+import { UdfLogOutput as Output } from "lib/useLogs";
+import { LogLevel } from "elements/LogLevel";
 
 export function LogOutput({
   output,

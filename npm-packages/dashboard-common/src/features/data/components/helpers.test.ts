@@ -1,5 +1,5 @@
 import { Shape } from "shapes";
-import { defaultValueForShape, sortColumns } from "../lib/helpers";
+import { defaultValueForShape, sortColumns } from "features/data/lib/helpers";
 
 describe("helpers", () => {
   it("sorts _id first and _creationTime last", () => {

@@ -1,5 +1,5 @@
 import { isId } from "id-encoding";
-import { Node, LiteralNode } from "./types";
+import { Node, LiteralNode } from "elements/ObjectEditor/ast/types";
 
 export class IdWalker {
   private ids: LiteralNode[] = [];

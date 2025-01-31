@@ -3,9 +3,9 @@ import {
   FunctionExecutionCompletion,
   FunctionExecutionProgess,
 } from "system-udfs/convex/_system/frontend/common";
-import { entryOutcome, entryOutput, processLogs } from "./useLogs";
-import { functionIdentifierValue } from "./functions/generateFileTree";
-import { formatDateTime } from "./format";
+import { entryOutcome, entryOutput, processLogs } from "lib/useLogs";
+import { functionIdentifierValue } from "lib/functions/generateFileTree";
+import { formatDateTime } from "lib/format";
 
 function createExecutionCompletion(
   overrides: Partial<FunctionExecutionCompletion>,

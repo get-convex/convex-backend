@@ -1,17 +1,14 @@
 import { format } from "date-fns";
-import {
-  useDeploymentAuthHeader,
-  useDeploymentUrl,
-} from "../../../lib/deploymentApi";
-import { SingleGraph } from "./SingleGraph";
-import { useCurrentOpenFunction } from "../../../lib/functions/FunctionsProvider";
+import { useDeploymentAuthHeader, useDeploymentUrl } from "lib/deploymentApi";
+import { SingleGraph } from "features/functions/components/SingleGraph";
+import { useCurrentOpenFunction } from "lib/functions/FunctionsProvider";
 import {
   UdfMetric,
   udfRate,
   cacheHitPercentage,
   latencyPercentiles,
-} from "../../../lib/appMetrics";
-import { calcBuckets } from "../../../lib/charts/buckets";
+} from "lib/appMetrics";
+import { calcBuckets } from "lib/charts/buckets";
 
 export function PerformanceGraphs() {
   const currentOpenFunction = useCurrentOpenFunction();

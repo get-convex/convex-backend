@@ -2,8 +2,8 @@
 import { Node as AcornNode, Position, SourceLocation } from "acorn";
 import { ValidatorJSON, Value } from "convex/values";
 import type { editor } from "monaco-editor";
-import { displayValidatorPretty } from "../../../lib/format";
-import { typeForValue } from "./helpers";
+import { displayValidatorPretty } from "lib/format";
+import { typeForValue } from "elements/ObjectEditor/ast/helpers";
 
 export type Node =
   | ProgramNode

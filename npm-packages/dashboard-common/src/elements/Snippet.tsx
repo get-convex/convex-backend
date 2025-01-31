@@ -1,8 +1,8 @@
 import { CopyIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { useCallback } from "react";
-import { Button } from "./Button";
-import { useCopy } from "../lib/useCopy";
+import { Button } from "elements/Button";
+import { useCopy } from "lib/useCopy";
 
 type Props = {
   value: string;

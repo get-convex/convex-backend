@@ -6,14 +6,14 @@ import { useSessionStorage } from "react-use";
 import { lt } from "semver";
 import udfs from "udfs";
 import { UdfType } from "system-udfs/convex/_system/frontend/common";
-import { CopyTextButton } from "../../../elements/CopyTextButton";
-import { FunctionRunnerDisabledWhilePaused } from "./FunctionRunnerDisabledWhilePaused";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { useShowGlobalRunner } from "../../functionRunner/lib/functionRunner";
-import { ModuleFunction } from "../../../lib/functions/types";
-import { Loading } from "../../../elements/Loading";
-import { ProductionEditsConfirmationDialog } from "../../../elements/ProductionEditsConfirmationDialog";
-import { Button } from "../../../elements/Button";
+import { CopyTextButton } from "elements/CopyTextButton";
+import { FunctionRunnerDisabledWhilePaused } from "features/functions/components/FunctionRunnerDisabledWhilePaused";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useShowGlobalRunner } from "features/functionRunner/lib/functionRunner";
+import { ModuleFunction } from "lib/functions/types";
+import { Loading } from "elements/Loading";
+import { ProductionEditsConfirmationDialog } from "elements/ProductionEditsConfirmationDialog";
+import { Button } from "elements/Button";
 
 export function FunctionSummary({
   currentOpenFunction,

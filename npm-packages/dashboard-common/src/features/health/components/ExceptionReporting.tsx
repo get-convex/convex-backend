@@ -1,4 +1,4 @@
-import { IntegrationStatus } from "./IntegrationStatus";
+import { IntegrationStatus } from "features/health/components/IntegrationStatus";
 
 export function ExceptionReporting() {
   return (

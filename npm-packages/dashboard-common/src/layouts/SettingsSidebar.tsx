@@ -1,10 +1,10 @@
 import classNames from "classnames";
 import React, { useContext } from "react";
 import { ExternalLinkIcon, LockClosedIcon } from "@radix-ui/react-icons";
-import { DeploymentPageTitle } from "../elements/DeploymentPageTitle";
-import { DeploymentInfoContext } from "../lib/deploymentContext";
-import { SidebarLink } from "../elements/Sidebar";
-import { useNents } from "../lib/useNents";
+import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { SidebarLink } from "elements/Sidebar";
+import { useNents } from "lib/useNents";
 
 export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   "url-and-deploy-key": "URL & Deploy Key",

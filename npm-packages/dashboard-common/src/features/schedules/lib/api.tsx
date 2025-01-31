@@ -1,10 +1,10 @@
 import { useContext } from "react";
 import Link from "next/link";
-import { useAdminKey, useDeploymentUrl } from "../../../lib/deploymentApi";
-import { useNents } from "../../../lib/useNents";
-import { reportHttpError, toast } from "../../../lib/utils";
-import { DeploymentInfoContext } from "../../../lib/deploymentContext";
-import { displayName } from "../../../lib/functions/generateFileTree";
+import { useAdminKey, useDeploymentUrl } from "lib/deploymentApi";
+import { useNents } from "lib/useNents";
+import { reportHttpError, toast } from "lib/utils";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { displayName } from "lib/functions/generateFileTree";
 
 export function useCancelAllJobs(): (udfPath?: string) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();

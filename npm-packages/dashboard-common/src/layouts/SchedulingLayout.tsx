@@ -1,7 +1,7 @@
 import { Tab as HeadlessTab } from "@headlessui/react";
 import { useRouter } from "next/router";
-import { NentSwitcher } from "../elements/NentSwitcher";
-import { Tab } from "../elements/Tab";
+import { NentSwitcher } from "elements/NentSwitcher";
+import { Tab } from "elements/Tab";
 
 export function SchedulingLayout({ children }: { children: React.ReactNode }) {
   const { pathname, query } = useRouter();

@@ -15,16 +15,19 @@ import {
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
-import { useFilterHistory } from "../../lib/useTableFilters";
-import { FilterEditor, FilterState } from "../FilterEditor/FilterEditor";
+import { useFilterHistory } from "features/data/lib/useTableFilters";
+import {
+  FilterEditor,
+  FilterState,
+} from "features/data/components/FilterEditor/FilterEditor";
 import {
   documentValidatorForTable,
   validatorForColumn,
-} from "../Table/utils/validators";
-import { SchemaJson } from "../../../../lib/format";
-import { Sheet } from "../../../../elements/Sheet";
-import { Button } from "../../../../elements/Button";
-import { Tooltip } from "../../../../elements/Tooltip";
+} from "features/data/components/Table/utils/validators";
+import { SchemaJson } from "lib/format";
+import { Sheet } from "elements/Sheet";
+import { Button } from "elements/Button";
+import { Tooltip } from "elements/Tooltip";
 
 export const filterMenuId = "filterMenu";
 export function DataFilters({

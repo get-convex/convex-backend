@@ -1,7 +1,7 @@
-import { DeploymentPageTitle } from "../../../../elements/DeploymentPageTitle";
-import { SchedulingLayout } from "../../../../layouts/SchedulingLayout";
-import { CronJobsProvider } from "../../lib/CronsProvider";
-import { CronJobsContent } from "./CronJobsContent";
+import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
+import { SchedulingLayout } from "layouts/SchedulingLayout";
+import { CronJobsProvider } from "features/schedules/lib/CronsProvider";
+import { CronJobsContent } from "features/schedules/components/crons/CronJobsContent";
 
 export function CronsView() {
   return (

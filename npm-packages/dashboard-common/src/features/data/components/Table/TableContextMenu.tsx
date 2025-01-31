@@ -15,18 +15,19 @@ import {
   Filter,
   typeOf,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { useNents, stringifyValue } from "dashboard-common";
 import { UrlObject } from "url";
-import { Key } from "../../../../elements/KeyboardShortcut";
-import { ContextMenu } from "../ContextMenu";
-import { PopupState } from "../../lib/useToolPopup";
-import { operatorOptions } from "../FilterEditor/FilterEditor";
+import { Key } from "elements/KeyboardShortcut";
+import { ContextMenu } from "features/data/components/ContextMenu";
+import { PopupState } from "features/data/lib/useToolPopup";
+import { operatorOptions } from "features/data/components/FilterEditor/FilterEditor";
 import {
   ActionHotkeysProps,
   OpenContextMenu,
   TableContextMenuState,
   useActionHotkeys,
-} from "./DataCell/utils/cellActions";
+} from "features/data/components/Table/DataCell/utils/cellActions";
+import { stringifyValue } from "lib/stringifyValue";
+import { useNents } from "lib/useNents";
 
 export function useTableContextMenuState(): {
   contextMenuState: TableContextMenuState | null;

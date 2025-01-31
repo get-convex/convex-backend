@@ -2,8 +2,8 @@ import { useQuery } from "convex/react";
 import { useMemo } from "react";
 import udfs from "udfs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
-import { useInvalidateSourceCode } from "../deploymentApi";
-import { ComponentId, useNents } from "../useNents";
+import { useInvalidateSourceCode } from "lib/deploymentApi";
+import { ComponentId, useNents } from "lib/useNents";
 
 export function useListModules(): Map<string, Module> | undefined {
   const { selectedNent } = useNents();

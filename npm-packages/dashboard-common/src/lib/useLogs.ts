@@ -8,12 +8,12 @@ import {
   LogLevel,
 } from "system-udfs/convex/_system/frontend/common";
 import uniqueId from "lodash/uniqueId";
-import { useDeploymentAuthHeader, useDeploymentUrl } from "./deploymentApi";
-import { RequestFilter, streamFunctionLogs } from "./appMetrics";
-import { backoffWithJitter } from "./utils";
-import { formatDateTime } from "./format";
-import { functionIdentifierValue } from "./functions/generateFileTree";
-import { displayNameToIdentifier } from "./functions/FunctionsProvider";
+import { useDeploymentAuthHeader, useDeploymentUrl } from "lib/deploymentApi";
+import { RequestFilter, streamFunctionLogs } from "lib/appMetrics";
+import { backoffWithJitter } from "lib/utils";
+import { formatDateTime } from "lib/format";
+import { functionIdentifierValue } from "lib/functions/generateFileTree";
+import { displayNameToIdentifier } from "lib/functions/FunctionsProvider";
 
 // backoffWithJitter's initial backoff is 500ms
 // 500 + 1000 + 2000 + 4000 -> Toast a connection error after 7.5s

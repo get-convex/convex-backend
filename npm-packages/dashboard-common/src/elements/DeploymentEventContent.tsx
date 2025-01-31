@@ -14,14 +14,14 @@ import {
   cronDiffType,
   schemaDiffType,
 } from "system-udfs/convex/tableDefs/deploymentAuditLogTable";
-import { SchemaJson, displaySchema } from "../lib/format";
-import { DeploymentAuditLogEvent } from "../lib/useDeploymentAuditLog";
-import { DeploymentInfoContext } from "../lib/deploymentContext";
-import { TimestampDistance } from "./TimestampDistance";
-import { Button } from "./Button";
-import { ReadonlyCodeDiff } from "./ReadonlyCode";
-import { NentNameOption } from "./NentSwitcher";
-import { NENT_APP_PLACEHOLDER } from "../lib/useNents";
+import { SchemaJson, displaySchema } from "lib/format";
+import { DeploymentAuditLogEvent } from "lib/useDeploymentAuditLog";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { TimestampDistance } from "elements/TimestampDistance";
+import { Button } from "elements/Button";
+import { ReadonlyCodeDiff } from "elements/ReadonlyCode";
+import { NentNameOption } from "elements/NentSwitcher";
+import { NENT_APP_PLACEHOLDER } from "lib/useNents";
 
 function useSchemaCode(schema: null | string): string {
   return useMemo(() => {

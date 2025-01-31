@@ -2,23 +2,18 @@
   "name": "dashboard-common",
   "version": "0.1.0",
   "private": true,
-  "exports": {
-    ".": {
-      "types": "./src/index.js",
-      "default": "./src/index"
-    }
-  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
   "scripts": {
-    "dev": "npm run build:generated && next dev --port 6790",
-    "build": "npm run build:generated && tsc --noEmit",
+    "build": "npm run build:generated && tsc && tsc-alias",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
-    "build:next": "npm run build:generated && next build",
     "test": "npm run build:generated && jest",
-    "start": "next start",
     "storybook": "storybook dev -s ./public -p 6006",
     "build-storybook": "storybook build",
-    "lint": "next lint --max-warnings 0 --dir src/ && tsc",
-    "lint:fix": "next lint --fix --max-warnings 0 --dir src/"
+    "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'",
+    "lint:fix": "eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.0",
@@ -96,6 +91,7 @@
     "@testing-library/user-event": "~14.4.3",
     "@types/jest": "^27.0.0",
     "@types/lodash": "~4.17.0",
+    "@types/next": "~9.0.0",
     "@types/node": "^18.17.0",
     "@types/prettier-old-sync": "npm:@types/prettier@2.7.3",
     "@types/react": "^18.0.0",
@@ -127,8 +123,8 @@
     "prettier": "3.4.2",
     "prettier-plugin-tailwindcss": "~0.3.0",
     "storybook": "^7.6.16",
-    "tailwind-scrollbar": "3.0.3",
     "tailwindcss": "^3.2.4",
+    "tsc-alias": "~1.8.10",
     "typescript": "~5.0.3"
   }
 }

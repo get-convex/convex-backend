@@ -1,10 +1,10 @@
 import { captureException } from "@sentry/nextjs";
 import { Cursor } from "convex/server";
-import { toast } from "dashboard-common";
 import { useState } from "react";
 import { useMountedState } from "react-use";
-import { useInvalidateShapes } from "../../lib/api";
-import { ConfirmationDialog } from "../../../../elements/ConfirmationDialog";
+import { useInvalidateShapes } from "features/data/lib/api";
+import { ConfirmationDialog } from "elements/ConfirmationDialog";
+import { toast } from "lib/utils";
 
 export function ClearTableConfirmation({
   numRows,

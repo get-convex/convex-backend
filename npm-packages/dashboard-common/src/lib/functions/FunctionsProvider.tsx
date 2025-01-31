@@ -9,12 +9,12 @@ import {
   generateFileTreeAllNents,
   processAnalyzedModuleFunction,
   ROOT_PATH,
-} from "./generateFileTree";
-import { ModuleFunction } from "./types";
-import { useListModulesAllNents } from "./useListModules";
-import { createContextHook } from "../createContextHook";
-import { ComponentId, Nent, useNents } from "../useNents";
-import { LoadingLogo } from "../../elements/Loading";
+} from "lib/functions/generateFileTree";
+import { ModuleFunction } from "lib/functions/types";
+import { useListModulesAllNents } from "lib/functions/useListModules";
+import { createContextHook } from "lib/createContextHook";
+import { ComponentId, Nent, useNents } from "lib/useNents";
+import { LoadingLogo } from "elements/Loading";
 
 const [FunctionsContext, useFunctions] = createContextHook<
   Map<ComponentId, Map<string, Module>>

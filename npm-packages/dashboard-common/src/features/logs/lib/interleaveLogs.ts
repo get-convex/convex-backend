@@ -1,5 +1,5 @@
-import { UdfLog } from "../../../lib/useLogs";
-import { DeploymentAuditLogEvent } from "../../../lib/useDeploymentAuditLog";
+import { UdfLog } from "lib/useLogs";
+import { DeploymentAuditLogEvent } from "lib/useDeploymentAuditLog";
 
 export type InterleavedLog =
   | {

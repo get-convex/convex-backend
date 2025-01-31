@@ -2,8 +2,8 @@ import { Module } from "system-udfs/convex/_system/frontend/common";
 import {
   modulesToModuleFunctions,
   displayNameToIdentifier,
-} from "../../../lib/functions/FunctionsProvider";
-import { findFunction } from "../lib/functionRunner";
+} from "lib/functions/FunctionsProvider";
+import { findFunction } from "features/functionRunner/lib/functionRunner";
 
 describe("FunctionTester", () => {
   it("finds function with default export + folder with same name", () => {

@@ -1,7 +1,7 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { Shape } from "shapes";
-import { ShowSchema } from "./ShowSchema";
-import { SchemaJson } from "../../../lib/format";
+import { ShowSchema } from "features/data/components/ShowSchema";
+import { SchemaJson } from "lib/format";
 
 export default {
   component: ShowSchema,

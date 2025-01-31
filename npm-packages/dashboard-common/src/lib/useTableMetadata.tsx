@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from "react";
 import { Shape } from "shapes";
 import { NextRouter, useRouter } from "next/router";
-import { useTableShapes } from "./deploymentApi";
+import { useTableShapes } from "lib/deploymentApi";
 
 export type TableMetadata = {
   name: string | null;

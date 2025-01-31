@@ -1,13 +1,13 @@
 import React, { ReactNode, useContext, useRef } from "react";
 import { HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { useMeasure } from "react-use";
-import { SettingsSidebar, SettingsPageKind } from "./SettingsSidebar";
-import { PageContent } from "../elements/PageContent";
-import { Popover } from "../elements/Popover";
-import { Button } from "../elements/Button";
-import { DeploymentInfoContext } from "../lib/deploymentContext";
-import { useIsOverflowing } from "../lib/useIsOverflowing";
-import { Tooltip } from "../elements/Tooltip";
+import { SettingsSidebar, SettingsPageKind } from "layouts/SettingsSidebar";
+import { PageContent } from "elements/PageContent";
+import { Popover } from "elements/Popover";
+import { Button } from "elements/Button";
+import { DeploymentInfoContext } from "lib/deploymentContext";
+import { useIsOverflowing } from "lib/useIsOverflowing";
+import { Tooltip } from "elements/Tooltip";
 
 export function DeploymentSettingsLayout({
   page,

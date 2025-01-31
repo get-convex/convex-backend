@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { TimestampDistance } from "./TimestampDistance";
+import { TimestampDistance } from "elements/TimestampDistance";
 
 export default {
   component: TimestampDistance,
