@@ -30,7 +30,6 @@ services:
       - "${DASHBOARD_PORT:-6791}:6791"
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:${PORT:-3210}
-      - NEXT_PUBLIC_ADMIN_KEY=${ADMIN_KEY}
     depends_on:
       backend:
         condition: service_healthy

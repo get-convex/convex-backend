@@ -9,6 +9,9 @@ RUN git clone https://github.com/get-convex/convex-backend.git .
 WORKDIR /app/npm-packages/dashboard-self-hosted
 RUN npm install -g @microsoft/rush
 RUN rush update
+# NEXT_PUBLIC_DEPLOYMENT_URL is baked into the nextjs build
+# TODO: Make this configurable at runtime
+ENV NEXT_PUBLIC_DEPLOYMENT_URL="http://127.0.0.1:3210"
 RUN rush build -t dashboard-self-hosted
 
 EXPOSE 6791
