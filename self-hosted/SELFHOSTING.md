@@ -95,11 +95,17 @@ convex in Docker.
 
 ```sh
 cd self-hosted
-# Add your INSTANCE_NAME, INSTANCE_SECRET, and ADMIN_KEY to an .env file
 # Pull the latest docker images
 docker compose pull
 # Run the containers
 docker compose up
+```
+
+Once your Convex backend is running in Docker, you can ask it to generate admin
+keys.
+
+```sh
+docker exec convex-local-backend ./generate_admin_key.sh
 ```
 
 Visit the dashboard at `http://localhost:6791` and use the CLI to push functions
