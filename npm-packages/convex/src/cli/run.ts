@@ -1,6 +1,6 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
-import { watchAndPush } from "./dev.js";
+import { watchAndPush } from "./lib/dev.js";
 import {
   fetchDeploymentCredentialsProvisionProd,
   deploymentSelectionFromOptions,

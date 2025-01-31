@@ -159,7 +159,7 @@ export async function deploymentCredentialsOrConfigure(
   return { deploymentName, url, adminKey };
 }
 
-async function handleManuallySetUrlAndAdminKey(
+export async function handleManuallySetUrlAndAdminKey(
   ctx: Context,
   cmdOptions: { url: string; adminKey: string },
 ) {

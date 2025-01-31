@@ -21,6 +21,7 @@ import { logs } from "./logs.js";
 import { networkTest } from "./network_test.js";
 import { convexExport } from "./convexExport.js";
 import { convexImport } from "./convexImport.js";
+import { selfHost } from "./selfHost.js";
 import { env } from "./env.js";
 import { data } from "./data.js";
 import inquirer from "inquirer";
@@ -88,6 +89,7 @@ async function main() {
     .addCommand(login, { hidden: true })
     .addCommand(init, { hidden: true })
     .addCommand(reinit, { hidden: true })
+    .addCommand(selfHost, { hidden: true })
     .addCommand(dev)
     .addCommand(deploy)
     .addCommand(deployments, { hidden: true })
