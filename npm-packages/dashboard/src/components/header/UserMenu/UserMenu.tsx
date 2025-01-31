@@ -1,25 +1,15 @@
-import { Menu, MenuLink, Tooltip, useTheme } from "dashboard-common";
-import {
-  GearIcon,
-  SunIcon,
-  MoonIcon,
-  LightningBoltIcon,
-  PersonIcon,
-  ExitIcon,
-} from "@radix-ui/react-icons";
+import { Menu, MenuLink, Tooltip, ToggleTheme } from "dashboard-common";
+import { GearIcon, PersonIcon, ExitIcon } from "@radix-ui/react-icons";
 import { useAuth0 } from "hooks/useAuth0";
 import Image from "next/image";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import { useProfile } from "api/profile";
-import { cn } from "lib/cn";
-import startCase from "lodash/startCase";
 import { useRouter } from "next/router";
 
 export function UserMenu() {
   const { user } = useAuth0();
   const profile = useProfile();
-  const { theme: currentTheme, setTheme } = useTheme();
   const team = useCurrentTeam();
   const project = useCurrentProject();
   const router = useRouter();
@@ -73,28 +63,7 @@ export function UserMenu() {
           </div>
         </MenuLink>
       </Tooltip>
-      <div className="flex items-center justify-between px-3 py-1">
-        <span className="select-none">Theme</span>
-        <fieldset className="flex items-center rounded-full border">
-          <ThemeRadioInput
-            currentTheme={currentTheme}
-            setTheme={setTheme}
-            theme="system"
-            className="rounded-l-full"
-          />
-          <ThemeRadioInput
-            currentTheme={currentTheme}
-            setTheme={setTheme}
-            theme="light"
-          />
-          <ThemeRadioInput
-            currentTheme={currentTheme}
-            setTheme={setTheme}
-            theme="dark"
-            className="rounded-r-full"
-          />
-        </fieldset>
-      </div>
+      <ToggleTheme />
       {team ? (
         <>
           <hr className="mx-4" />
@@ -137,53 +106,5 @@ export function UserMenu() {
         </div>
       </MenuLink>
     </Menu>
-  );
-}
-
-function ThemeRadioInput({
-  currentTheme,
-  setTheme,
-  className,
-  theme,
-}: {
-  currentTheme?: string;
-  setTheme: (theme: string) => void;
-  className?: string;
-  theme: string;
-}) {
-  const icon =
-    theme === "light" ? (
-      <SunIcon />
-    ) : theme === "dark" ? (
-      <MoonIcon />
-    ) : (
-      <LightningBoltIcon />
-    );
-
-  return (
-    <>
-      <input
-        id={`${theme}-theme`}
-        type="radio"
-        onChange={() => setTheme(theme)}
-        checked={!currentTheme || currentTheme === theme}
-        hidden
-      />
-      <Tooltip tip={startCase(theme)} wrapsButton>
-        <label
-          aria-label="System Theme"
-          htmlFor={`${theme}-theme`}
-          className={cn(
-            "p-1.5 cursor-pointer",
-            currentTheme === theme
-              ? "bg-util-accent text-white"
-              : "hover:bg-background-tertiary",
-            className,
-          )}
-        >
-          {icon}
-        </label>
-      </Tooltip>
-    </>
   );
 }

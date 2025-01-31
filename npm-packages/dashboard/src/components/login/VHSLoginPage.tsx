@@ -1,7 +1,7 @@
 import Image from "next/image";
 import classNames from "classnames";
 import { useState } from "react";
-import { ConvexLogo } from "elements/ConvexLogo";
+import Logo from "images/convex-light.svg";
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
 import loginBackground from "../../../public/vhs-bg.png";
 import loading from "../../../public/vhs-loading.gif";
@@ -106,10 +106,11 @@ function TVPanel({ isVHSAnimationDone }: { isVHSAnimationDone: boolean }) {
         </>
       ) : (
         <>
-          <ConvexLogo
-            className="absolute left-[40px] top-[80px] z-50 fill-black dark:fill-black"
+          <Logo
             width={225}
             height={75}
+            className="absolute left-[40px] top-[80px] z-50 fill-black dark:fill-black"
+            alt="Convex Logo"
           />
           <Image
             src={loginBackground.src}

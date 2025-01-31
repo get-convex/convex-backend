@@ -68,6 +68,7 @@ export * from "elements/Button";
 export * from "elements/Callout";
 export * from "elements/ChartTooltip";
 export * from "elements/Checkbox";
+export * from "elements/ConvexLogo";
 export * from "elements/ClosePanelButton";
 export * from "elements/Combobox";
 export * from "elements/ConfirmationDialog";
@@ -89,6 +90,7 @@ export { SidebarLink, sidebarLinkClassNames } from "elements/Sidebar";
 export * from "elements/Snippet";
 export * from "elements/Spinner";
 export * from "elements/TextInput";
+export * from "elements/ToggleTheme";
 export * from "elements/TimestampDistance";
 export * from "elements/Tooltip";
 

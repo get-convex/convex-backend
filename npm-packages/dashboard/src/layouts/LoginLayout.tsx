@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { ConvexLogo } from "elements/ConvexLogo";
+import { ConvexLogo } from "dashboard-common";
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
 
 import FlourishTop from "components/login/images/flourish-top.svg";
