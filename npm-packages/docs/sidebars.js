@@ -130,8 +130,8 @@ const sidebars = {
     },
     {
       type: "doc",
-      id: "open-source",
-      className: "convex-sidebar-open-source",
+      id: "self-hosting",
+      className: "convex-sidebar-self-hosting",
     },
     {
       type: "html",

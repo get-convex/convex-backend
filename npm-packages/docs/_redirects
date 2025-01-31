@@ -106,3 +106,4 @@
 /auth/custom-auth                   /auth/advanced/custom-auth
 /functions/args-validation          /functions/validation
 /zen                                /understanding/zen
+/open-source                        /self-hosting

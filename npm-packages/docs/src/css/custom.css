@@ -701,7 +701,7 @@ html[data-theme="dark"] .convex-menu-header {
   --convex-icon: url("../../static/img/sidebar-icons/magnifying-glass.svg");
 }
 
-.convex-sidebar-open-source {
+.convex-sidebar-self-hosting {
   --convex-icon: url("../../static/img/github-logo.svg");
 }
 
