@@ -30,7 +30,7 @@ services:
       dockerfile: Dockerfile.dashboard
     image: ghcr.io/get-convex/self-hosted-dashboard:latest
     ports:
-      - "6790:6790"
+      - "${DASHBOARD_PORT:-6790}:6790"
     environment:
       - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210
       - NEXT_PUBLIC_ADMIN_KEY=${ADMIN_KEY}
