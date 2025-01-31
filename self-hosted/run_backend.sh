@@ -26,11 +26,17 @@ echo "$INSTANCE_SECRET" > "$CREDENTIALS_DIR/instance_secret"
 INSTANCE_NAME=${INSTANCE_NAME:-$(cat "$CREDENTIALS_DIR/instance_name" 2>/dev/null || echo "convex-self-hosted")}
 echo "$INSTANCE_NAME" > "$CREDENTIALS_DIR/instance_name"
 
-# TODO: We should not be passing the ports from environment variables, but this is a quick fix for now
+# --port and --site-proxy-port are internal to the container, so we pick them to
+# avoid conflicts in the container.
+# --convex-origin and --convex-site are how the backend can be contacted from
+# the outside world. They show up in storage urls, action callbacks, etc.
+
 exec ./convex-local-backend "$@" \
     --instance-name "$INSTANCE_NAME" \
     --instance-secret "$INSTANCE_SECRET" \
     --local-storage "$STORAGE_DIR" \
-    --port "$PORT" \
-    --site-proxy-port "$SITE_PROXY_PORT" \
+    --port 3210 \
+    --site-proxy-port 3211 \
+    --convex-origin "$CONVEX_CLOUD_ORIGIN" \
+    --convex-site "$CONVEX_SITE_ORIGIN" \
     "$SQLITE_DB"

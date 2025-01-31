@@ -4,8 +4,8 @@ services:
   backend:
     image: ghcr.io/get-convex/self-hosted-backend:latest
     ports:
-      - "${PORT:-3210}:${PORT:-3210}"
-      - "${SITE_PROXY_PORT:-3211}:${SITE_PROXY_PORT:-3211}"
+      - "${PORT:-3210}:3210"
+      - "${SITE_PROXY_PORT:-3211}:3211"
     volumes:
       - data:/convex/data
     environment:
@@ -13,14 +13,11 @@ services:
       - INSTANCE_SECRET=${INSTANCE_SECRET}
       - CONVEX_RELEASE_VERSION_DEV=${CONVEX_RELEASE_VERSION_DEV}
       - ACTIONS_USER_TIMEOUT_SECS=${ACTIONS_USER_TIMEOUT_SECS}
-      - URL_BASE=${URL_BASE:-http://127.0.0.1}
-      - CONVEX_CLOUD_ORIGIN=${URL_BASE}:${PORT}
-      - CONVEX_SITE_ORIGIN=${URL_BASE}:${SITE_PROXY_PORT}
-      - PORT=${PORT}
-      - SITE_PROXY_PORT=${SITE_PROXY_PORT}
+      - CONVEX_CLOUD_ORIGIN=${URL_BASE:-http://127.0.0.1}:${PORT:-3210}
+      - CONVEX_SITE_ORIGIN=${URL_BASE:-http://127.0.0.1}:${SITE_PROXY_PORT:-3211}
     container_name: convex-local-backend
     healthcheck:
-      test: curl -f http://localhost:$${PORT}/version
+      test: curl -f http://localhost:3210/version
       interval: 5s
       start_period: 5s
 
@@ -32,7 +29,7 @@ services:
     ports:
       - "${DASHBOARD_PORT:-6791}:6791"
     environment:
-      - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:3210
+      - NEXT_PUBLIC_DEPLOYMENT_URL=http://127.0.0.1:${PORT:-3210}
       - NEXT_PUBLIC_ADMIN_KEY=${ADMIN_KEY}
     depends_on:
       backend:
