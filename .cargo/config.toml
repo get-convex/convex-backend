@@ -18,14 +18,10 @@ rustflags = [
     "-Clink-arg=/DEFAULTLIB:libcmt",
     "-Clink-arg=/DEFAULTLIB:libvcruntime",
     "-Clink-arg=/DEFAULTLIB:libucrt",
-    "-Clink-arg=/NODEFAULTLIB:msvcrt",
-    "-Clink-arg=/NODEFAULTLIB:msvcprt",
-    "-Clink-arg=/NODEFAULTLIB:libcmt.dll",
-    "-Clink-arg=/NODEFAULTLIB:LIBCMT",
-    "-Clink-arg=/NODEFAULTLIB:LIBCPMT",
-    "-Clink-arg=/NODEFAULTLIB:msvcrtd",
-    "-Clink-arg=/NODEFAULTLIB:msvcprtd",
-    "-Ctarget-feature=+crt-static",
+    "-Clink-arg=/NODEFAULTLIB:msvcrt",     # dynamic C runtime
+    "-Clink-arg=/NODEFAULTLIB:msvcprt",    # dynamic C++ runtime
+    "-Clink-arg=/NODEFAULTLIB:msvcrtd",    # dynamic debug C runtime  
+    "-Clink-arg=/NODEFAULTLIB:msvcprtd",   # dynamic debug C++ runtime
     "-Zpanic-abort-tests"
 ]
 
