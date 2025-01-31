@@ -6,8 +6,9 @@
 </picture>
 </p>
 
-[Convex](https://convex.dev) is the backend-as-a-service for fullstack app
-development. Thoughtfully curated components, optimized by experts.
+[Convex](https://convex.dev) is the open-source reactive database for web app
+developers. Fetch data and perform business logic with strong consistency by
+writing pure TypeScript.
 
 Convex replaces your database, server functions, scheduling, storage, vector
 search, etc. It includes
@@ -24,17 +25,59 @@ a generous free tier and provides a seamless, reliable, cost-effective platform
 that allows you to focus on building your application without worrying about
 infrastructure.
 
-You can also opt to self-host Convex. There is a
-[self-hosting guide](./self-hosted/SELFHOSTING.md) available with some guidance.
-Community support for self-hosting is available in the `#open-source` channel in
-the [Convex Discord](https://discord.gg/convex).
-
 Development of the Convex backend is led by the Convex team. We
 [welcome bug fixes](./CONTRIBUTING.md) and
 [love receiving feedback](https://discord.gg/convex). We keep this repository
 synced with any internal development work within a handful of days.
 
-## Getting started
+## Self Hosting
+
+You can also opt to self-host Convex. Convex works with a variety of tools
+including Neon, Fly.io, RDS, sqlite, postgres, and more. There is a
+[self-hosting guide](./self-hosted/SELFHOSTING.md) available with some guidance.
+Community support for self-hosting is available in the `#open-source` channel in
+the [Convex Discord](https://discord.gg/convex).
+
+## Documentation
+
+For full documentation visit [docs.convex.dev](https://docs.convex.dev).
+
+To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
+
+## Community & Support
+
+- [Discord](https://convex.dev/community). Best for: sharing your applications,
+  hanging out with the community, and help with building on Convex
+- GitHub Issues. Best for: surfacing bugs and errors you encounter while
+  building and using the open source Convex backend
+
+## Running on your own machine
+
+Instead of self-hosting via docker, you can run the Convex backend locally on
+your own machine.
+
+## Using prebuilt binaries
+
+You can download the latest precompiled binary release from
+[Releases](https://github.com/get-convex/convex-backend/releases). Only Apple
+x64, Apple Arm64 (Apple silicon), and Linux x64 binaries are currently available
+for download.
+
+_Note: On MacOS you might need to hold the `option` key and double click the
+binary file in Finder once, to circumvent the
+[Gatekeeper](https://support.apple.com/en-us/102445) warning._
+
+Then you can run it:
+
+```sh
+./convex-local-backend
+```
+
+Adjust the path based on where you downloaded the binary to or add it to your
+`PATH`. The backend will store its database in the directory where it is
+executed **from** (not where the binary file lives).
+
+## Building from source
 
 To get started, clone this repo:
 
@@ -77,29 +120,6 @@ To [build the backend from source](#building-from-source):
   - We manage the packages in a monorepo using [Rush](https://rushjs.io/).
 - Convex JavaScript dependencies
   - `just rush install`
-
-## Running the Convex Backend
-
-### Using prebuilt binaries
-
-You can download the latest precompiled binary release from
-[Releases](https://github.com/get-convex/convex-backend/releases). Only Apple
-x64, Apple Arm64 (Apple silicon), and Linux x64 binaries are currently available
-for download.
-
-_Note: On MacOS you might need to hold the `option` key and double click the
-binary file in Finder once, to circumvent the
-[Gatekeeper](https://support.apple.com/en-us/102445) warning._
-
-Then you can run it:
-
-```sh
-./convex-local-backend
-```
-
-Adjust the path based on where you downloaded the binary to or add it to your
-`PATH`. The backend will store its database in the directory where it is
-executed **from** (not where the binary file lives).
 
 ### Building from source
 
@@ -160,34 +180,13 @@ _The following CLI commands may be useful when interacting with your backend:_
 - `just convex import` - Allows you to import tables
 - `just convex export` - Allows you to export tables
 
-## Documentation
-
-For full documentation visit [docs.convex.dev](https://docs.convex.dev).
-
-To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
-
-## Community & Support
-
-- [Discord](https://convex.dev/community). Best for: sharing your applications,
-  hanging out with the community, and help with building on Convex
-- GitHub Issues. Best for: surfacing bugs and errors you encounter while
-  building and using the open source Convex backend
-
 ## Disclaimers
 
-- The Convex local backend is designed for use in local development and testing.
-  Please exercise caution if attempting to use it for production usage. Convex
-  can't offer support or guarantees for that experience - you're on your own
-  there. If you do choose to go down that route, make sure to change your admin
-  key from the defaults in the repo.
-- The Convex local backend doesn't have backward compatibility guarantees for
-  CLI compatibility. Once a feature is released in a CLI, the backend will
-  support it from that point on, but newer CLI features may not work with older
-  backends. Unreleased/beta features won't have any guarantees.
-- Convex local backend does not support robust backend migrations. We'll always
-  ensure things will work if you wipe your local database and start from
-  scratch. We do not provide support for upgrading an existing local-backend to
-  a newer version.
+- If you choose to self-host, we recommend following the self-hosting guide. If
+  you are going off the beaten path, make sure to change your instance secret
+  and admin key from the defaults in the repo.
+- Migrating to a new version of self-hosted requires carefully following the
+  migration guide in our release notes.
 - If you're using both the local backend and the hosted cloud platform, make
   sure to run `npx convex dev` or `just convex dev` before you start testing
   your client. The `dev` command will take care of updating your `.env.local`
@@ -195,6 +194,15 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
 - Convex is battle tested most thoroughly on Linux and Mac. On Windows, it has
   less experience. If you run into issues, please message us on
   [Discord](https://convex.dev/community) in the #open-source channel.
+- Convex local-backend and self-host products contain a beacon to help Convex
+  improve the product. The information is minimal and anonymous and helpful to
+  Convex, but if you really want to disable it, you can set the
+  `--disable-beacon` flag on the backend binary. The beacon's messages print in
+  the log and only include
+  - A random identifier for your deployment (not used elsewhere)
+  - Migration version of your database
+  - Git rev of the backend
+  - Uptime of the backend
 
 ## Repository layout
 
