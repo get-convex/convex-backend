@@ -131,7 +131,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             (Some(export), None) => {
                 tracing::info!("Export requested.");
                 let _status = log_worker_starting("ExportWorker");
-                let timer = export_timer();
+                let timer = export_timer(&self.instance_name);
                 let ts = self.database.now_ts_for_reads();
                 let in_progress_export = (*export).clone().in_progress(*ts)?;
                 let in_progress_export_doc = SystemMetadataModel::new_global(&mut tx)
@@ -151,7 +151,7 @@ impl<RT: Runtime> ExportWorker<RT> {
             (None, Some(export)) => {
                 tracing::info!("In progress export restarting...");
                 let _status = log_worker_starting("ExportWorker");
-                let timer = export_timer();
+                let timer = export_timer(&self.instance_name);
                 self.export(export).await?;
                 timer.finish();
                 return Ok(());
