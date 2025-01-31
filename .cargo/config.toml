@@ -29,8 +29,6 @@ rustflags = [
 ]
 
 [target.x86_64-pc-windows-msvc.env]
-ROCKSDB_LIB_DIR = ""
-LIBROCKSDB_STATIC = "1"
 ROCKSDB_STATIC_LIB = "1"
 VCPKG_ALL_STATIC = "1"
 VCPKGRS_DYNAMIC = "0"
@@ -42,6 +40,12 @@ OPENSSL_NO_VENDOR = "0"
 CMAKE_STATIC_VCRT = "True"
 # For any dependencies using pkg-config
 PKG_CONFIG_ALL_STATIC = "1"
+LIBROCKSDB_STATIC = "1"
+ROCKSDB_LIB_DIR = ""
+SODIUM_STATIC = "1"
+SODIUM_LIB_DIR = ""
+RUSTY_V8_MIRROR = "https://github.com/denoland/rusty_v8/releases/download"
+V8_STATIC = "1"
 
 [target.'cfg(all())']
 rustflags = ["--cfg", "tokio_unstable"]
