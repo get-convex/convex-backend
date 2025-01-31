@@ -18,8 +18,9 @@ services:
       - CONVEX_SITE_ORIGIN=${URL_BASE}:${SITE_PROXY_PORT}
       - PORT=${PORT}
       - SITE_PROXY_PORT=${SITE_PROXY_PORT}
+    container_name: convex-local-backend
     healthcheck:
-      test: curl -f http://localhost:3210/version
+      test: curl -f http://localhost:$${PORT}/version
       interval: 5s
       start_period: 5s
 

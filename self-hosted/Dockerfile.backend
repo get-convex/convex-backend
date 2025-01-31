@@ -75,9 +75,11 @@ COPY . .
 RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
 cargo build --release -p local_backend --bin convex-local-backend
 cp target/release/convex-local-backend .
+cargo build --release -p keybroker --bin generate_key
+cp target/release/generate_key .
 EOF
 ARG debug
-RUN if [[ -z "$debug" ]]; then strip ./convex-local-backend; fi
+RUN if [[ -z "$debug" ]]; then strip ./convex-local-backend; strip ./generate_key; fi
 
 # Final stage: Creates minimal runtime image with only necessary components
 # Uses Ubuntu Noble (24.04) as the base image
@@ -102,11 +104,8 @@ RUN ln -sf /usr/lib/node_modules/npm/bin/npm-cli.js /usr/bin/npm && \
 RUN ln -sf /usr/lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx && \
     chmod +x /usr/bin/npx
 COPY --from=build --chmod=744 /convex/convex-local-backend .
+COPY --from=build --chmod=744 /convex/generate_key .
 COPY --chmod=744 self-hosted/run_backend.sh .
-
-
-RUN chmod +x convex-local-backend
-RUN chmod +x run_backend.sh
 
 VOLUME /convex/data
 
