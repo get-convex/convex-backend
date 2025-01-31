@@ -1,27 +1,13 @@
 # Convex Docs
 
-This powers the [Convex Docs](https://docs.convex.dev). This is an up-to-date
-export of the documentation. It may not build in the open source repo - since it
-was designed to run inside the Convex internal environment. Feel free to use and
-modify the docs. We'll fix the docs build process eventually.
-
 This website is built using [Docusaurus 2](https://docusaurus.io/), a modern
 static website generator.
-
-## Installation
-
-As mentioned in the "JavaScript packages" section in the top-level `README.md`,
-you'll need to use `rush` to install dependencies. Don't run `npm install`
-directly, run the following Rush command instead:
-
-```console
-just rush install
-```
 
 ## Local Development
 
 ```console
-just run-docs
+just rush install
+npm run dev
 ```
 
 This command starts a local dev server and opens up a browser window. Most
