@@ -24,8 +24,7 @@ rustflags = [
     "-Clink-arg=/NODEFAULTLIB:msvcrtd",
     "-Clink-arg=/NODEFAULTLIB:msvcprtd",
     "-Ctarget-feature=+crt-static",
-    "-Zpanic-abort-tests",
-    "-Clto=yes"
+    "-Zpanic-abort-tests"
 ]
 
 [target.x86_64-pc-windows-msvc.env]
