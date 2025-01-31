@@ -13,9 +13,7 @@ formatted with [prettier](https://prettier.io/).
 Run tests with
 
 ```
-cargo test
-cargo test --manifest-path sync_types
-cargo test --manifest-path value
+cargo test -p {crate}
 ```
 
 Convex is a fast moving project developed by a dedicated team. We're excited to
@@ -33,3 +31,8 @@ integrate. For any larger or more fundamental changes, get in touch with us on
 Discord before you put in too much work to see if it's consistent with our short
 term plan. We think carefully about how our APIs contribute to a cohesive
 product, so chatting up front goes a long way.
+
+# Docs contributions
+
+Docs are located in the `npm-packages/docs` directory. See the README there for
+more info.
