@@ -6,9 +6,10 @@
 </picture>
 </p>
 
-[Convex](https://convex.dev) is the open-source reactive database for web app
-developers. Fetch data and perform business logic with strong consistency by
-writing pure TypeScript.
+[Convex](https://convex.dev) is the open-source reactive database designed to
+make life easy for web app developers, whether you're a human or an LLM. Fetch
+data and perform business logic with strong consistency by writing pure
+TypeScript.
 
 Convex replaces your database, server functions, scheduling, storage, vector
 search, etc. It includes
