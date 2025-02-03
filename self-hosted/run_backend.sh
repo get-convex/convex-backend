@@ -10,6 +10,17 @@ mkdir -p "$TMPDIR" "$STORAGE_DIR"
 
 source ./read_credentials.sh
 
+# Determine database configuration
+if [ -n "$DATABASE_URL" ]; then
+    # If DATABASE_URL is set, use Postgres
+    DB_SPEC="$DATABASE_URL"
+    DB_FLAGS=(--db postgres-v5)
+else
+    # Otherwise fallback to SQLite
+    DB_SPEC="$SQLITE_DB"
+    DB_FLAGS=()
+fi
+
 # --port and --site-proxy-port are internal to the container, so we pick them to
 # avoid conflicts in the container.
 # --convex-origin and --convex-site are how the backend can be contacted from
@@ -23,4 +34,5 @@ exec ./convex-local-backend "$@" \
     --site-proxy-port 3211 \
     --convex-origin "$CONVEX_CLOUD_ORIGIN" \
     --convex-site "$CONVEX_SITE_ORIGIN" \
-    "$SQLITE_DB"
+    "${DB_FLAGS[@]}" \
+    "$DB_SPEC"
