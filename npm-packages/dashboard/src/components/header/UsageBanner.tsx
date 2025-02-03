@@ -158,9 +158,9 @@ function getVariantDetails(variant: Variant): {
       return {
         title:
           "Your projects are approaching the Starter plan limits. Consider upgrading to avoid service interruption.",
-        containerClass: "bg-blue-100 dark:text-white",
+        containerClass: "bg-blue-100 dark:bg-blue-900",
         primaryButtonClass: "",
-        secondaryButtonClass: "text-blue-900 dark:text-white",
+        secondaryButtonClass: "text-blue-900 text-content-primary",
         icon: InfoCircledIcon,
       };
     case "Exceeded":
