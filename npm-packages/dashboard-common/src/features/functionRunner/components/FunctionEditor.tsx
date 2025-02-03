@@ -61,7 +61,7 @@ declare global {
 
 // Used when bundling and at runtime
 const preamble = `
-import { query, internalQuery } from "convex:/_system/repl/wrappers";
+import { query, internalQuery } from "convex:/_system/repl/wrappers.js";
 `;
 
 const generatedServer = `import { DataModelFromSchemaDefinition, GenericQueryCtx } from "../convex/server";
