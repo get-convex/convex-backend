@@ -1,10 +1,15 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context;
+use bytes::Bytes;
 use common::{
     self,
     components::ComponentPath,
     document::ParsedDocument,
+    knobs::{
+        EXPORT_MAX_INFLIGHT_PREFETCH_BYTES,
+        EXPORT_STORAGE_GET_CONCURRENCY,
+    },
     persistence::LatestDocument,
     runtime::Runtime,
     types::{
@@ -13,8 +18,14 @@ use common::{
         TableName,
     },
 };
+use fastrace::{
+    future::FutureExt,
+    Span,
+};
 use futures::{
     pin_mut,
+    stream,
+    StreamExt,
     TryStreamExt,
 };
 use mime2ext::mime2ext;
@@ -32,6 +43,7 @@ use serde::{
 };
 use serde_json::json;
 use storage::StorageExt;
+use tokio_util::io::StreamReader;
 use usage_tracking::{
     FunctionUsageTracker,
     StorageCallTracker,
@@ -96,56 +108,83 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     table_upload.complete().await?;
 
     let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
-    let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
-    pin_mut!(stream);
-    while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-        let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
-        let virtual_storage_id = file_storage_entry.id().developer_id;
-        // Add an extension, which isn't necessary for anything and might be incorrect,
-        // but allows the file to be viewed at a glance in most cases.
-        let extension_guess = file_storage_entry
-            .content_type
-            .as_ref()
-            .and_then(mime2ext)
-            .map(|extension| format!(".{extension}"))
-            .unwrap_or_default();
-        let path = format!(
-            "{path_prefix}{}/{}{extension_guess}",
-            *FILE_STORAGE_VIRTUAL_TABLE,
-            virtual_storage_id.encode()
-        );
-        let file_stream = worker
-            .file_storage
-            .get(&file_storage_entry.storage_key)
-            .await?
-            .with_context(|| {
-                format!(
-                    "file missing from storage: {} with key {:?}",
-                    file_storage_entry.developer_id().encode(),
-                    file_storage_entry.storage_key,
-                )
-            })?;
+    let max_prefetch_bytes = *EXPORT_MAX_INFLIGHT_PREFETCH_BYTES;
+    let inflight_bytes_semaphore = tokio::sync::Semaphore::new(max_prefetch_bytes);
+    let files_stream = table_iterator
+        .stream_documents_in_table(*tablet_id, *by_id, None)
+        .map_ok(|LatestDocument { value: doc, .. }| async {
+            let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
+            let virtual_storage_id = file_storage_entry.id().developer_id;
+            // Add an extension, which isn't necessary for anything and might be incorrect,
+            // but allows the file to be viewed at a glance in most cases.
+            let extension_guess = file_storage_entry
+                .content_type
+                .as_ref()
+                .and_then(mime2ext)
+                .map(|extension| format!(".{extension}"))
+                .unwrap_or_default();
+            let path = format!(
+                "{path_prefix}{}/{}{extension_guess}",
+                *FILE_STORAGE_VIRTUAL_TABLE,
+                virtual_storage_id.encode()
+            );
+            let file_stream = worker
+                .file_storage
+                .get(&file_storage_entry.storage_key)
+                .await?
+                .with_context(|| {
+                    format!(
+                        "file missing from storage: {} with key {:?}",
+                        file_storage_entry.developer_id().encode(),
+                        file_storage_entry.storage_key,
+                    )
+                })?;
 
-        let content_type = file_storage_entry
-            .content_type
-            .as_ref()
-            .map(|ct| ct.parse())
-            .transpose()?;
-        usage.track_storage_call(
-            component_path.clone(),
-            requestor.usage_tag(),
-            file_storage_entry.storage_id.clone(),
-            content_type,
-            file_storage_entry.sha256.clone(),
-        );
-        usage.track_storage_egress_size(
-            component_path.clone(),
-            requestor.usage_tag().to_string(),
-            file_stream.content_length as u64,
-        );
+            let content_type = file_storage_entry
+                .content_type
+                .as_ref()
+                .map(|ct| ct.parse())
+                .transpose()?;
+            usage.track_storage_call(
+                component_path.clone(),
+                requestor.usage_tag(),
+                file_storage_entry.storage_id.clone(),
+                content_type,
+                file_storage_entry.sha256.clone(),
+            );
+            usage.track_storage_egress_size(
+                component_path.clone(),
+                requestor.usage_tag().to_string(),
+                file_stream.content_length as u64,
+            );
+
+            if (file_stream.content_length as usize) < max_prefetch_bytes {
+                let permit = inflight_bytes_semaphore
+                    .acquire_many(file_stream.content_length as u32)
+                    .await?;
+                // Prefetch the file before passing it to the zip writer.
+                // This can happen in parallel with other files.
+                let bytes: Vec<Bytes> = file_stream
+                    .stream
+                    .try_collect()
+                    .in_span(Span::enter_with_local_parent("prefetch_storage_file"))
+                    .await?;
+                let stream = StreamReader::new(stream::iter(bytes.into_iter().map(Ok)).boxed());
+                Ok((path, stream, Some(permit)))
+            } else {
+                // Just stream this file serially.
+                // Note that fetching won't start until the reader is first polled (which won't
+                // happen until it's passed to `stream_full_file`).
+                Ok((path, file_stream.into_tokio_reader(), None))
+            }
+        })
+        .try_buffered(*EXPORT_STORAGE_GET_CONCURRENCY); // Note that this will return entries in an arbitrary order
+    pin_mut!(files_stream);
+    while let Some((path, file_stream, permit)) = files_stream.try_next().await? {
         zip_snapshot_upload
-            .stream_full_file(path, file_stream.into_tokio_reader())
+            .stream_full_file(path, file_stream)
             .await?;
+        drop(permit);
     }
     Ok(())
 }

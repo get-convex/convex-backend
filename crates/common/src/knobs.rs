@@ -1247,3 +1247,20 @@ pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
 /// manner, or that we may exhaust CPU on the physical host
 pub static INSTANCE_LOADER_CONCURRENCY: LazyLock<usize> =
     LazyLock::new(|| env_config("INSTANCE_LOADER_CONCURRENCY", 32));
+
+/// The max number of storage files that can be fetched concurrently during
+/// export. Concurrency is also limited by `EXPORT_MAX_INFLIGHT_PREFETCH_BYTES`.
+pub static EXPORT_STORAGE_GET_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("EXPORT_STORAGE_GET_CONCURRENCY", 128).max(1));
+
+/// The max number of bytes that can be prefetched concurrently from storage
+/// files during export.
+///
+/// Files larger than this will be not be fetched concurrently with other files.
+pub static EXPORT_MAX_INFLIGHT_PREFETCH_BYTES: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "EXPORT_MAX_INFLIGHT_PREFETCH_BYTES",
+        32 * 1024 * 1024, // 32MiB
+    )
+    .clamp(1, u32::MAX as usize)
+});

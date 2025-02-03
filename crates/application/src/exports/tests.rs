@@ -465,6 +465,78 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[convex_macro::test_runtime]
+async fn test_export_many_storage_files(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+    let storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let file_storage: Arc<dyn Storage> = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let mut export_worker = ExportWorker::new_test(
+        rt.clone(),
+        db.clone(),
+        storage.clone(),
+        file_storage.clone(),
+    );
+    let file_storage_wrapper = FileStorage {
+        database: db.clone(),
+        transactional_file_storage: TransactionalFileStorage::new(
+            rt,
+            file_storage,
+            ConvexOrigin::from("origin".to_string()),
+        ),
+    };
+
+    // Write a lot of storage files.
+    let usage_tracker = FunctionUsageTracker::new();
+    let mut ids = vec![];
+    for i in 0..256 {
+        let id = file_storage_wrapper
+            .store_file(
+                TableNamespace::test_user(),
+                None,
+                None,
+                futures::stream::iter([Ok(format!("file{i}").into_bytes())]),
+                None,
+                &usage_tracker,
+            )
+            .await?;
+        ids.push(id);
+    }
+
+    let (_, zip_object_key, _) = export_inner(
+        &mut export_worker,
+        ExportFormat::Zip {
+            include_storage: true,
+        },
+        ExportRequestor::SnapshotExport,
+        |_| async { Ok(()) },
+    )
+    .await?;
+
+    // Check that all the files made it into the zip.
+    let storage_stream = storage
+        .get(&zip_object_key)
+        .await?
+        .context("object missing from storage")?;
+    let stored_bytes = storage_stream.collect_as_bytes().await?;
+    let mut zip_reader = ZipReader::new(Cursor::new(stored_bytes)).await?;
+    let filenames: Vec<_> = zip_reader.file_names().await?;
+    for (i, id) in ids.into_iter().enumerate() {
+        let zip_index = filenames
+            .iter()
+            .position(|f| *f == format!("_storage/{id}"))
+            .context("storage file missing")?;
+        let entry_reader = zip_reader.by_index(zip_index).await?;
+        let mut entry_contents = String::new();
+        entry_reader
+            .read()
+            .read_to_string(&mut entry_contents)
+            .await?;
+        assert_eq!(entry_contents, format!("file{i}"));
+    }
+
+    Ok(())
+}
+
 // Regression test: previously we were trying to export documents from deleted
 // tables and table_mapping was failing.
 #[convex_macro::test_runtime]
