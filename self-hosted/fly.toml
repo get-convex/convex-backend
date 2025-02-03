@@ -1,0 +1,30 @@
+# fly.toml app configuration file generated for self-hosted-backend on 2025-02-03T12:02:03-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'self-hosted-backend'
+primary_region = 'sjc'
+
+[build]
+  image = 'ghcr.io/get-convex/self-hosted-backend-amd64:latest'
+
+[env]
+  TMPDIR = '/convex/data/tmp'
+
+[[mounts]]
+  source = 'convex_data'
+  destination = '/convex/data'
+
+[http_service]
+  internal_port = 3210
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

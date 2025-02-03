@@ -1,0 +1,32 @@
+# fly.toml app configuration file generated for self-hosted-dashboard on 2025-01-30T16:23:32-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'self-hosted-dashboard'
+primary_region = 'sjc'
+
+[build]
+image = 'ghcr.io/get-convex/self-hosted-dashboard-amd64:latest'
+
+[env]
+NEXT_PUBLIC_DEPLOYMENT_URL = 'https://self-hosted-backend.fly.dev'
+
+[[services]]
+internal_port = 6790
+protocol = "tcp"
+
+[[services.ports]]
+handlers = ["http"]
+port = 80
+force_https = true
+
+[[services.ports]]
+handlers = ["tls", "http"]
+port = 443
+
+[[vm]]
+# TODO: Reduce this once dashboard Dockerfile is cleaned up.
+memory = '4gb'
+cpu_kind = 'performance'
+cpus = 1
