@@ -98,6 +98,7 @@ The valid user attributes are:
 | phoneNumberVerified | boolean                                  |
 | address             | string                                   |
 | updatedAt           | string (in the form of an RFC 3339 date) |
+| customClaims        | object                                   |
 
 \*These attributes are required.
 

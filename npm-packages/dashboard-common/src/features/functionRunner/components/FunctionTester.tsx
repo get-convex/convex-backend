@@ -78,6 +78,7 @@ const impersonatedUserSchema = z.object({
   phoneNumberVerified: z.boolean().optional(),
   address: z.string().optional(),
   updatedAt: z.string().optional(),
+  customClaims: z.record(z.string()).optional(),
 });
 
 const SUPPORTED_FUNCTION_TYPES = new Set(["Query", "Mutation", "Action"]);
