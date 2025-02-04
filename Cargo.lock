@@ -205,7 +205,7 @@ dependencies = [
  "http_client",
  "humansize",
  "isolate",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "keybroker",
  "libc",
  "lru 0.12.0",
@@ -1377,7 +1377,7 @@ dependencies = [
  "hyper 1.3.1",
  "hyper-util",
  "imbl",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "jsonschema",
  "maplit",
  "metrics",
@@ -2041,7 +2041,7 @@ dependencies = [
  "humansize",
  "imbl",
  "indexing",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "keybroker",
  "maplit",
  "metrics",
@@ -3940,7 +3940,7 @@ dependencies = [
  "fastrace",
  "futures",
  "imbl",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "metrics",
  "must-let",
  "runtime",
@@ -4098,7 +4098,7 @@ dependencies = [
  "http-body-util",
  "humansize",
  "hyper 1.3.1",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "keybroker",
  "maplit",
  "metrics",
@@ -4167,9 +4167,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.13.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -4938,7 +4938,7 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "hex",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "metrics",
  "mysql_async",
  "prometheus",
@@ -5837,7 +5837,7 @@ dependencies = [
  "futures",
  "futures-async-stream",
  "hex",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "metrics",
  "native-tls",
  "postgres-native-tls",
@@ -6145,7 +6145,7 @@ checksum = "5bb182580f71dd070f88d01ce3de9f4da5021db7115d2e1c3605a754153b77c1"
 dependencies = [
  "bytes",
  "heck 0.5.0",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -6165,7 +6165,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18bec9b0adc4eba778b33684b7ba3e7137789434769ee3ce3930463ef904cfca"
 dependencies = [
  "anyhow",
- "itertools 0.13.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.95",
@@ -7136,7 +7136,7 @@ dependencies = [
  "imbl",
  "imbl_slab",
  "indexing",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "levenshtein_automata",
  "maplit",
  "metrics",
@@ -7617,7 +7617,7 @@ dependencies = [
  "base64 0.13.1",
  "cmd_util",
  "convex_sync_types",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "maplit",
  "proptest",
  "serde",
