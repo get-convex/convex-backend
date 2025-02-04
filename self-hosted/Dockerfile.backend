@@ -89,6 +89,7 @@ RUN if [[ -z "$debug" ]]; then strip ./convex-local-backend; strip ./generate_ke
 # Uses Ubuntu Noble (24.04) as the base image
 FROM ubuntu:noble
 LABEL org.opencontainers.repository=https://github.com/get-convex/convex-backend
+LABEL org.opencontainers.image.revision=${VERGEN_GIT_SHA}
 
 WORKDIR /convex
 
