@@ -51,10 +51,21 @@ Visit the dashboard at `http://localhost:6791`. Using your admin key, push code
 to your backend. Admin key should be kept secure to just the developers who are
 administering the application on your backend.
 
+In your Convex project, add your url and admin key to a `.env.local` file (which
+should not be committed to source control):
+
 ```sh
-cd your_project
-npm install
-npx convex dev --admin-key 'flying-fox-123|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8' --url "http://127.0.0.1:3210"
+CONVEX_SELF_HOST_DEPLOYMENT_URL='http://127.0.0.1:3210'
+CONVEX_DEPLOY_KEY='<your deploy key>'
+```
+
+Now you can run commands in your Convex project, to push code, run queries,
+import data, etc.
+
+```sh
+npx convex dev
+npx convex run <run args>
+npx convex import <import args>
 ```
 
 # Self Hosting Via Running Binary Directly
@@ -114,7 +125,7 @@ and other configuration.
 ### Run the dashboard
 
 You can run the dashboard locally with `just rush install` and `npm run dev`
-from `npm-packages/dashboard-common`.
+from `npm-packages/dashboard-self-hosted`.
 
 ### Use your backend.
 
