@@ -6,9 +6,6 @@ COPY ./npm-packages ./npm-packages
 # Install dependencies and build
 WORKDIR /app/npm-packages/dashboard-self-hosted
 RUN rush install
-# NEXT_PUBLIC_DEPLOYMENT_URL is baked into the nextjs build
-# TODO: Make this configurable at runtime
-ENV NEXT_PUBLIC_DEPLOYMENT_URL="http://127.0.0.1:3210"
 ENV NODE_ENV=production
 RUN rush build -t dashboard-self-hosted
 RUN rush-pnpm deploy --filter=dashboard-self-hosted --prod /tmp/deploy
