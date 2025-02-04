@@ -159,7 +159,7 @@ tower-http = { version = "0.6", features = [ "trace", "cors", "decompression-br"
 tracing = "0.1"
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
-tracy-client = { version = "0.17.0", default-features = false, features = [ "fibers" ] }
+tracy-client = { version = "0.18.0", default-features = false, features = [ "fibers" ] }
 tungstenite = { version = "0.21.0", features = [ "url", "native-tls-vendored" ] }
 url = "2.5.4"
 urlencoding = "2.1.3"
