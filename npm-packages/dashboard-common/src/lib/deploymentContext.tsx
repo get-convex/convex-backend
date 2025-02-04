@@ -407,7 +407,7 @@ function DeploymentWithConnectionState({
 function LocalDeploymentDisconnectOverlay() {
   return (
     <div
-      className="absolute z-50 flex h-screen w-screen items-center justify-center"
+      className="absolute z-50 flex h-full w-full items-center justify-center"
       style={{
         backdropFilter: "blur(0.5rem)",
       }}

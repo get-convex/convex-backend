@@ -116,18 +116,20 @@ export default function App({ Component, pageProps }: AppProps) {
                         <div className="flex h-screen flex-col">
                           <DashboardHeader />
                           {inDeployment ? (
-                            <DeploymentInfoProvider>
-                              <MaybeDeploymentApiProvider>
-                                <CurrentDeploymentDashboardLayout>
-                                  <ErrorBoundary
-                                    fallback={Fallback}
-                                    key={pathWithoutQueryString}
-                                  >
-                                    <Component {...pageProps} />
-                                  </ErrorBoundary>
-                                </CurrentDeploymentDashboardLayout>
-                              </MaybeDeploymentApiProvider>
-                            </DeploymentInfoProvider>
+                            <div className="relative flex h-full flex-col">
+                              <DeploymentInfoProvider>
+                                <MaybeDeploymentApiProvider>
+                                  <CurrentDeploymentDashboardLayout>
+                                    <ErrorBoundary
+                                      fallback={Fallback}
+                                      key={pathWithoutQueryString}
+                                    >
+                                      <Component {...pageProps} />
+                                    </ErrorBoundary>
+                                  </CurrentDeploymentDashboardLayout>
+                                </MaybeDeploymentApiProvider>
+                              </DeploymentInfoProvider>
+                            </div>
                           ) : (
                             <DashboardLayout>
                               <ErrorBoundary
