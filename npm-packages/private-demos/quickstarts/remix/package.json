@@ -15,7 +15,7 @@
     "@remix-run/react": "^2.9.1",
     "@remix-run/serve": "^2.9.1",
     "convex": "^1.11.2",
-    "isbot": "^4.1.0",
+    "isbot": "^5.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
