@@ -64,7 +64,7 @@
     "sonner": "^1.4.0",
     "swr": "^2.2.1",
     "system-udfs": "workspace:*",
-    "supports-color": "8.1.1",
+    "supports-color": "10.0.0",
     "tailwind-merge": "^1.14.0",
     "tailwind-variants": "~0.2.0",
     "zod": "^3.24.0",
