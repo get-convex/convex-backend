@@ -397,19 +397,16 @@ async function fetchDeploymentCredentialsWithinCurrentProjectInner(
         ctx,
         configuredAdminKey!,
       );
-      let url = await deriveUrlFromAdminKey(ctx, configuredAdminKey!);
-      // We cannot derive the deployment URL from the deploy key
-      // when running against local big brain, so use the name to get the URL.
-      if (process.env.CONVEX_PROVISION_HOST !== undefined) {
-        url = await bigBrainAPI({
-          ctx,
-          method: "POST",
-          url: "deployment/url_for_key",
-          data: {
-            deployKey: configuredAdminKey,
-          },
-        });
-      }
+      // We cannot derive the deployment URL from the deploy key, because it
+      // might be a custom domain. Ask big brain for the URL.
+      const url = await bigBrainAPI({
+        ctx,
+        method: "POST",
+        url: "deployment/url_for_key",
+        data: {
+          deployKey: configuredAdminKey,
+        },
+      });
       const deploymentType = deploymentTypeFromAdminKey(configuredAdminKey!);
       return {
         adminKey: configuredAdminKey,
@@ -616,12 +613,4 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
     });
   }
   return credentialsAsDevCredentials(credentials);
-}
-
-// This returns the the url of the deployment from an admin key in the format
-//      "tall-forest-1234|1a2b35123541"
-//   or "prod:tall-forest-1234|1a2b35123541"
-async function deriveUrlFromAdminKey(ctx: Context, adminKey: string) {
-  const deploymentName = await deploymentNameFromAdminKeyOrCrash(ctx, adminKey);
-  return `https://${deploymentName}.convex.cloud`;
 }
