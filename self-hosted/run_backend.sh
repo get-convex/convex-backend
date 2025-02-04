@@ -34,5 +34,6 @@ exec ./convex-local-backend "$@" \
     --site-proxy-port 3211 \
     --convex-origin "$CONVEX_CLOUD_ORIGIN" \
     --convex-site "$CONVEX_SITE_ORIGIN" \
+    --beacon-tag "self-host-docker" \
     "${DB_FLAGS[@]}" \
     "$DB_SPEC"

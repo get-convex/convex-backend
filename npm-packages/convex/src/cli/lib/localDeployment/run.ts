@@ -319,6 +319,8 @@ export async function runLocalBackend(
     LOCAL_BACKEND_INSTANCE_SECRET,
     "--local-storage",
     path.join(deploymentDir, "convex_local_storage"),
+    "--beacon-tag",
+    "cli-local-dev",
     path.join(deploymentDir, "convex_local_backend.sqlite3"),
   ];
 
