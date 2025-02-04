@@ -77,8 +77,8 @@ importers:
         specifier: ^9.1.0
         version: 9.1.0(eslint@8.57.1)
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1337,8 +1337,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1380,8 +1380,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1420,8 +1420,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1460,8 +1460,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1503,8 +1503,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1543,8 +1543,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1583,8 +1583,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1623,8 +1623,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1676,8 +1676,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1728,8 +1728,8 @@ importers:
         specifier: ~13.4.16
         version: 13.4.19(eslint@8.57.1)(typescript@5.0.4)
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -1789,8 +1789,8 @@ importers:
         specifier: ~13.4.16
         version: 13.4.19(eslint@8.57.1)(typescript@5.0.4)
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1854,8 +1854,8 @@ importers:
         specifier: ^16.4.7
         version: 16.4.7
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1882,8 +1882,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       vite:
         specifier: ^5.4.12
         version: 5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0)
@@ -1907,8 +1907,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       vite:
         specifier: ^5.4.12
         version: 5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0)
@@ -1959,8 +1959,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -1999,8 +1999,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2039,8 +2039,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2079,8 +2079,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2122,8 +2122,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2165,8 +2165,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2208,8 +2208,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2251,8 +2251,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2294,8 +2294,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2337,8 +2337,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2380,8 +2380,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2420,8 +2420,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2463,8 +2463,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2506,8 +2506,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2555,8 +2555,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2595,8 +2595,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -2641,8 +2641,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3203,8 +3203,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3237,8 +3237,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3296,8 +3296,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       vite:
         specifier: ^5.4.12
         version: 5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0)
@@ -3349,8 +3349,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       vite:
         specifier: ^5.4.12
         version: 5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0)
@@ -3398,8 +3398,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3545,8 +3545,8 @@ importers:
         specifier: ~13.4.16
         version: 13.4.19(eslint@8.57.1)(typescript@5.0.4)
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -3633,8 +3633,8 @@ importers:
         specifier: ^8.29.0
         version: 8.57.1
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
@@ -3673,8 +3673,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3928,8 +3928,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3968,8 +3968,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4008,8 +4008,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: 5.0.4
         version: 5.0.4
@@ -4061,8 +4061,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4101,8 +4101,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@18.19.70)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4159,8 +4159,8 @@ importers:
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))
       npm-run-all2:
-        specifier: ^5.0.0
-        version: 5.0.2
+        specifier: ^7.0.0
+        version: 7.0.2
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -15174,6 +15174,10 @@ packages:
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
 
+  json-parse-even-better-errors@4.0.0:
+    resolution: {integrity: sha512-lR4MXjGNgkJc7tkQ97kb2nuEMnNCyU//XYVH0MKTGcXEiSudQ5MKGKen3C5QubYy0vmq+JGitUg92uuywGEwIA==}
+    engines: {node: ^18.17.0 || >=20.5.0}
+
   json-schema-to-ts@1.6.4:
     resolution: {integrity: sha512-pR4yQ9DHz6itqswtHCm26mw45FSNfQ9rEQjosaZErhn5J3J2sIViQiz8rDaezjKAhFGpmsoczYVBgGHzFw/stA==}
 
@@ -16486,9 +16490,13 @@ packages:
     resolution: {integrity: sha512-DlL+XwOy3NxAQ8xuC0okPgK46iuVNAK01YN7RueYBqqFeGsBjV9XmCAzAdgt+667bCl5kPh9EqKKDwnaPG1I7A==}
     engines: {node: '>=10'}
 
-  npm-run-all2@5.0.2:
-    resolution: {integrity: sha512-S2G6FWZ3pNWAAKm2PFSOtEAG/N+XO/kz3+9l6V91IY+Y3XFSt7Lp7DV92KCgEboEW0hRTu0vFaMe4zXDZYaOyA==}
-    engines: {node: '>= 10'}
+  npm-normalize-package-bin@4.0.0:
+    resolution: {integrity: sha512-TZKxPvItzai9kN9H/TkmCtx/ZN/hvr3vUycjlfmH0ootY9yFBzNOpiXAdIn1Iteqsvk4lQn6B5PTrt+n6h8k/w==}
+    engines: {node: ^18.17.0 || >=20.5.0}
+
+  npm-run-all2@7.0.2:
+    resolution: {integrity: sha512-7tXR+r9hzRNOPNTvXegM+QzCuMjzUIIq66VDunL6j60O4RrExx32XUhlrS7UK4VcdGw5/Wxzb3kfNcFix9JKDA==}
+    engines: {node: ^18.17.0 || >=20.5.0, npm: '>= 9'}
     hasBin: true
 
   npm-run-path@4.0.1:
@@ -16970,8 +16978,8 @@ packages:
     resolution: {integrity: sha512-M7BAV6Rlcy5u+m6oPhAPFgJTzAioX/6B0DxyvDlo9l8+T3nLKbrczg2WLUyzd45L8RqfUMyGPzekbMvX2Ldkwg==}
     engines: {node: '>=12'}
 
-  pidtree@0.5.0:
-    resolution: {integrity: sha512-9nxspIM7OpZuhBxPg73Zvyq7j1QMPMPsGKTqRc2XOaFQauDvoNz9fM1Wdkjmeo7l9GXOZiRs97sPkuayl39wjA==}
+  pidtree@0.6.0:
+    resolution: {integrity: sha512-eG2dWTVw5bzqGRztnHExczNxt5VGsE6OwTeCG3fdUf9KBsZzO3R5OIIIzWR+iZA0NtZ+RDVdaoE2dK1cn6jH4g==}
     engines: {node: '>=0.10'}
     hasBin: true
 
@@ -17952,6 +17960,10 @@ packages:
 
   read-cache@1.0.0:
     resolution: {integrity: sha512-Owdv/Ft7IjOgm/i0xvNDZ1LrRANRfew4b2prF3OWMQLxLfu3bS8FVhCsrSCMK4lR56Y9ya+AThoTpDCTxCmpRA==}
+
+  read-package-json-fast@4.0.0:
+    resolution: {integrity: sha512-qpt8EwugBWDw2cgE2W+/3oxC+KTez2uSVR8JU9Q36TXPAGCaozfQUs59v4j4GFpWTaw0i6hAZSvOmu1J0uOEUg==}
+    engines: {node: ^18.17.0 || >=20.5.0}
 
   read-pkg-up@7.0.1:
     resolution: {integrity: sha512-zK0TB7Xd6JpCLmlLmufqykGE+/TlOePD6qKClNW7hHDKFh/J7/7gCWGR7joEQEW1bKq3a3yUZSObOoWLFQ4ohg==}
@@ -20520,6 +20532,11 @@ packages:
   which@4.0.0:
     resolution: {integrity: sha512-GlaYyEb07DPxYCKhKzplCWBJtvxZcZMrL+4UkrTSJHHPyZU4mYYTv3qaOe77H7EODLSSopAUFAc6W8U4yqvscg==}
     engines: {node: ^16.13.0 || >=18.0.0}
+    hasBin: true
+
+  which@5.0.0:
+    resolution: {integrity: sha512-JEdGzHwwkrbWoGOlIHqQ5gtprKGOenpDHpxE9zVR1bWbOtYRyPPHMe9FaP6x61CmNaTThSkb0DAJte5jD+DmzQ==}
+    engines: {node: ^18.17.0 || >=20.5.0}
     hasBin: true
 
   why-is-node-running@2.3.0:
@@ -37429,6 +37446,8 @@ snapshots:
 
   json-parse-even-better-errors@2.3.1: {}
 
+  json-parse-even-better-errors@4.0.0: {}
+
   json-schema-to-ts@1.6.4:
     dependencies:
       '@types/json-schema': 7.0.15
@@ -39084,15 +39103,18 @@ snapshots:
 
   normalize-url@6.1.0: {}
 
-  npm-run-all2@5.0.2:
+  npm-normalize-package-bin@4.0.0: {}
+
+  npm-run-all2@7.0.2:
     dependencies:
-      ansi-styles: 5.2.0
+      ansi-styles: 6.2.1
       cross-spawn: 7.0.6
       memorystream: 0.3.1
-      minimatch: 3.1.2
-      pidtree: 0.5.0
-      read-pkg: 5.2.0
+      minimatch: 9.0.5
+      pidtree: 0.6.0
+      read-package-json-fast: 4.0.0
       shell-quote: 1.8.2
+      which: 5.0.0
 
   npm-run-path@4.0.1:
     dependencies:
@@ -39631,7 +39653,7 @@ snapshots:
 
   picomatch@4.0.2: {}
 
-  pidtree@0.5.0: {}
+  pidtree@0.6.0: {}
 
   pify@2.3.0: {}
 
@@ -40716,6 +40738,11 @@ snapshots:
   read-cache@1.0.0:
     dependencies:
       pify: 2.3.0
+
+  read-package-json-fast@4.0.0:
+    dependencies:
+      json-parse-even-better-errors: 4.0.0
+      npm-normalize-package-bin: 4.0.0
 
   read-pkg-up@7.0.1:
     dependencies:
@@ -44289,6 +44316,10 @@ snapshots:
       isexe: 2.0.0
 
   which@4.0.0:
+    dependencies:
+      isexe: 3.1.1
+
+  which@5.0.0:
     dependencies:
       isexe: 3.1.1
 

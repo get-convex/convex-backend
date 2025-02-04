@@ -27,7 +27,7 @@
     "clsx": "1.2.1",
     "eslint-config-next": "~13.4.16",
     "eslint": "^8.29.0",
-    "npm-run-all2": "^5.0.0",
+    "npm-run-all2": "^7.0.0",
     "postcss": "^8.4.19",
     "tailwind-merge": "^1.14.0",
     "tailwindcss-animate": "^1.0.7",
