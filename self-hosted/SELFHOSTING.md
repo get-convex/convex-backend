@@ -126,3 +126,53 @@ cd your_project
 npm install
 npx convex dev --admin-key 'flying-fox-123|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8' --url "http://127.0.0.1:3210"
 ```
+
+# Upgrading your self-hosted backend on a production instance.
+
+In order to safely migrate to a new version of self-hosted, there are two
+options.
+
+## Option 1: Export/Import your database (higher downtime + easy, recommended)
+
+1. Take down external traffic to your backend
+2. Export your database with `npx convex export`
+3. Save your environment variables with `npx convex env list` (or via
+   dashboard).
+4. Upgrade the backend docker image (or binary)
+5. Import from your backup with `npx convex import --replace-all`
+6. Bring back your environment variables with `npx convex env set` (or via
+   dashboard)
+7. Bring back external traffic to your backend
+
+Given that exports/imports can be expensive if you have a lot of data, this can
+incur downtime. You can get a sense of how much downtime safely, by running an
+export while your self-hosted instance is up. For smaller instances, this may be
+quick and easy.
+
+However to safely avoid losing data, it's important that the final export is
+done after load is stopped from your instance, since exports are taken at a
+snapshot in time.
+
+## Option 2: Upgrade in-place (lower downtime)
+
+This is a more manual, more fiddly process, but it incurs less downtime. If you
+choose to go this route, please be careful, and feel free to reach out for
+guidance.
+
+You will need to upgrade through each intermediate binary revision specified via
+`git log crates/model/src/migrations.rs`.
+
+Each upgrade will incur a small amount of downtime, but the underlying database
+will be upgraded in-place while your app still functions. You need to allow the
+backend to run at each intermediate revision until it is ready.
+
+Look for loglines like this - and follow those instructions to complete the
+in-place upgrade. Each migration will let you know which logline to wait for to
+determine that the in-place upgrade is complete.
+
+```
+Executing Migration 114/115. MigrationComplete(115)
+```
+
+Please feel free to reach out to us on [Discord](https://convex.dev/community)
+if you have any questions.
