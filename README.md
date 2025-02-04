@@ -7,9 +7,8 @@
 </p>
 
 [Convex](https://convex.dev) is the open-source reactive database designed to
-make life easy for web app developers, whether you're a human or an LLM. Fetch
-data and perform business logic with strong consistency by writing pure
-TypeScript.
+make life easy for web app developers, whether human or LLM. Fetch data and
+perform business logic with strong consistency by writing pure TypeScript.
 
 Convex replaces your database, server functions, scheduling, storage, vector
 search, etc. It includes
@@ -24,7 +23,8 @@ The best way to get started with Convex is to follow the
 The **[Convex managed hosted product](https://www.convex.dev/plans).** includes
 a generous free tier and provides a seamless, reliable, cost-effective platform
 that allows you to focus on building your application without worrying about
-infrastructure.
+infrastructure. Many small applications and side-projects can operate entirely
+on the free tier with zero cost and zero maintenance.
 
 Development of the Convex backend is led by the Convex team. We
 [welcome bug fixes](./CONTRIBUTING.md) and
@@ -33,9 +33,11 @@ synced with any internal development work within a handful of days.
 
 ## Self Hosting
 
-You can also opt to self-host Convex. Convex works with a variety of tools
-including Neon, Fly.io, RDS, sqlite, postgres, and more. There is a
-[self-hosting guide](./self-hosted/SELFHOSTING.md) available with some guidance.
+You can also opt to self-host Convex. The self-hosted product includes most
+features of the cloud product, including the dashboard and CLI. Self-hosted
+Convex works well with a variety of tools including Neon, Fly.io, Vercel,
+Netlify, RDS, Sqlite, Postgres, and more. There is a
+[self-hosting guide](./self-hosted/SELFHOSTING.md) available with instructions.
 Community support for self-hosting is available in the `#open-source` channel in
 the [Convex Discord](https://discord.gg/convex).
 
@@ -56,27 +58,6 @@ To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
 
 Instead of self-hosting via docker, you can run the Convex backend locally on
 your own machine.
-
-## Using prebuilt binaries
-
-You can download the latest precompiled binary release from
-[Releases](https://github.com/get-convex/convex-backend/releases). Only Apple
-x64, Apple Arm64 (Apple silicon), and Linux x64 binaries are currently available
-for download.
-
-_Note: On MacOS you might need to hold the `option` key and double click the
-binary file in Finder once, to circumvent the
-[Gatekeeper](https://support.apple.com/en-us/102445) warning._
-
-Then you can run it:
-
-```sh
-./convex-local-backend
-```
-
-Adjust the path based on where you downloaded the binary to or add it to your
-`PATH`. The backend will store its database in the directory where it is
-executed **from** (not where the binary file lives).
 
 ## Building from source
 
