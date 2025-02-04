@@ -2,6 +2,8 @@
 # This Dockerfile builds the self-hosted version of the Convex backend
 # It creates a minimal runtime image that can run a local Convex instance
 
+ARG VERGEN_GIT_SHA
+ARG VERGEN_GIT_COMMIT_TIMESTAMP
 
 # cargo-chef is used to cache Rust dependencies and build artifacts
 # It creates a recipe of our dependencies first, then builds them in a separate stage
@@ -72,11 +74,12 @@ RUN --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/loc
 COPY . .
 
 # Build the convex-local-backend binary
+# Must redeclare these as environment variables so that they are available
 ARG VERGEN_GIT_SHA
 ARG VERGEN_GIT_COMMIT_TIMESTAMP
+ENV VERGEN_GIT_SHA=${VERGEN_GIT_SHA}
+ENV VERGEN_GIT_COMMIT_TIMESTAMP=${VERGEN_GIT_COMMIT_TIMESTAMP}
 RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
-export VERGEN_GIT_SHA=${VERGEN_GIT_SHA}
-export VERGEN_GIT_COMMIT_TIMESTAMP=${VERGEN_GIT_COMMIT_TIMESTAMP}
 cargo build --release -p local_backend --bin convex-local-backend
 cp target/release/convex-local-backend .
 cargo build --release -p keybroker --bin generate_key
@@ -88,6 +91,7 @@ RUN if [[ -z "$debug" ]]; then strip ./convex-local-backend; strip ./generate_ke
 # Final stage: Creates minimal runtime image with only necessary components
 # Uses Ubuntu Noble (24.04) as the base image
 FROM ubuntu:noble
+ARG VERGEN_GIT_SHA
 LABEL org.opencontainers.repository=https://github.com/get-convex/convex-backend
 LABEL org.opencontainers.image.revision=${VERGEN_GIT_SHA}
 
