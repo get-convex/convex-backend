@@ -7,13 +7,13 @@ app = 'self-hosted-dashboard'
 primary_region = 'sjc'
 
 [build]
-image = 'ghcr.io/get-convex/self-hosted-dashboard-amd64:latest'
+image = 'ghcr.io/get-convex/self-hosted-dashboard:latest'
 
 [env]
 NEXT_PUBLIC_DEPLOYMENT_URL = 'https://self-hosted-backend.fly.dev'
 
 [[services]]
-internal_port = 6790
+internal_port = 6791
 protocol = "tcp"
 
 [[services.ports]]

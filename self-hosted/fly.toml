@@ -7,24 +7,24 @@ app = 'self-hosted-backend'
 primary_region = 'sjc'
 
 [build]
-  image = 'ghcr.io/get-convex/self-hosted-backend-amd64:latest'
+image = 'ghcr.io/get-convex/self-hosted-backend:latest'
 
 [env]
-  TMPDIR = '/convex/data/tmp'
+TMPDIR = '/convex/data/tmp'
 
 [[mounts]]
-  source = 'convex_data'
-  destination = '/convex/data'
+source = 'convex_data'
+destination = '/convex/data'
 
 [http_service]
-  internal_port = 3210
-  force_https = true
-  auto_stop_machines = 'stop'
-  auto_start_machines = true
-  min_machines_running = 1
-  processes = ['app']
+internal_port = 3210
+force_https = true
+auto_stop_machines = 'stop'
+auto_start_machines = true
+min_machines_running = 1
+processes = ['app']
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
+memory = '1gb'
+cpu_kind = 'shared'
+cpus = 1
