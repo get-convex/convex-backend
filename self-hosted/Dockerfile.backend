@@ -72,7 +72,11 @@ RUN --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/loc
 COPY . .
 
 # Build the convex-local-backend binary
+ARG VERGEN_GIT_SHA
+ARG VERGEN_GIT_COMMIT_TIMESTAMP
 RUN --mount=type=cache,target=/convex/npm-packages/common/temp/,sharing=locked --mount=type=cache,target=/convex/target/ --mount=type=cache,target=/usr/local/cargo/git/db --mount=type=cache,target=/usr/local/cargo/registry/ <<EOF
+export VERGEN_GIT_SHA=${VERGEN_GIT_SHA}
+export VERGEN_GIT_COMMIT_TIMESTAMP=${VERGEN_GIT_COMMIT_TIMESTAMP}
 cargo build --release -p local_backend --bin convex-local-backend
 cp target/release/convex-local-backend .
 cargo build --release -p keybroker --bin generate_key
