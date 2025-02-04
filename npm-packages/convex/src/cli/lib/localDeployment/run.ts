@@ -60,28 +60,124 @@ async function _ensureBackendBinaryDownloaded(
 }
 
 /**
- * Finds the latest version of the convex backend that has a binary matching
- * this platform.
+ * Parse the HTTP header like
+ * link: <https://api.github.com/repositories/1300192/issues?page=2>; rel="prev", <https://api.github.com/repositories/1300192/issues?page=4>; rel="next", <https://api.github.com/repositories/1300192/issues?page=515>; rel="last", <https://api.github.com/repositories/1300192/issues?page=1>; rel="first"
+ * into an object.
+ * https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api?apiVersion=2022-11-28#using-link-headers
  */
-async function findLatestVersionWithBinary(ctx: Context): Promise<string> {
-  logVerbose(ctx, `Finding latest convex backend binary`);
-  let releases: GitHubRelease[] = [];
+function parseLinkHeader(header: string): {
+  prev?: string;
+  next?: string;
+  first?: string;
+  last?: string;
+} {
+  const links: { [key: string]: string } = {};
+  const parts = header.split(",");
+  for (const part of parts) {
+    const section = part.split(";");
+    if (section.length !== 2) {
+      continue;
+    }
+    const url = section[0].trim().slice(1, -1);
+    const rel = section[1].trim().slice(5, -1);
+    links[rel] = url;
+  }
+  return links;
+}
+
+/**
+ * Finds the latest version of the convex backend that has a binary that works
+ * on this platform.
+ */
+export async function findLatestVersionWithBinary(
+  ctx: Context,
+): Promise<string> {
+  const targetName = getDownloadPath();
+  logVerbose(
+    ctx,
+    `Finding latest stable release containing binary named ${targetName}`,
+  );
+  let latestVersion: string | undefined;
+  let nextUrl =
+    "https://api.github.com/repos/get-convex/convex-backend/releases?per_page=30";
+
   try {
-    releases = (await (
-      await fetch(
-        "https://api.github.com/repos/get-convex/convex-backend/releases",
-      )
-    ).json()) as GitHubRelease[];
-    if (releases.length < 1) {
+    while (nextUrl) {
+      const response = await fetch(nextUrl);
+
+      if (!response.ok) {
+        const text = await response.text();
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `GitHub API returned ${response.status}: ${text}`,
+          errForSentry: new LocalDeploymentError(
+            `GitHub API returned ${response.status}: ${text}`,
+          ),
+        });
+      }
+
+      const releases = (await response.json()) as GitHubRelease[];
+      if (releases.length === 0) {
+        break;
+      }
+
+      for (const release of releases) {
+        // Track the latest stable version we've seen even if it doesn't have our binary
+        if (!latestVersion && !release.prerelease && !release.draft) {
+          latestVersion = release.tag_name;
+          logVerbose(ctx, `Latest stable version is ${latestVersion}`);
+        }
+
+        // Only consider stable releases
+        if (!release.prerelease && !release.draft) {
+          // Check if this release has our binary
+          if (release.assets.find((asset) => asset.name === targetName)) {
+            logVerbose(
+              ctx,
+              `Latest stable version with appropriate binary is ${release.tag_name}`,
+            );
+            return release.tag_name;
+          }
+
+          logVerbose(
+            ctx,
+            `Version ${release.tag_name} does not contain a ${targetName}, checking previous version`,
+          );
+        }
+      }
+
+      // Get the next page URL from the Link header
+      const linkHeader = response.headers.get("Link");
+      if (!linkHeader) {
+        break;
+      }
+
+      const links = parseLinkHeader(linkHeader);
+      nextUrl = links["next"] || "";
+    }
+
+    // If we get here, we didn't find any suitable releases
+    if (!latestVersion) {
       return await ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: "Found no convex backend releases.",
+        printedMessage:
+          "Found no non-draft, non-prerelease convex backend releases.",
         errForSentry: new LocalDeploymentError(
-          "Found no convex backend releases.",
+          "Found no non-draft, non-prerelease convex backend releases.",
         ),
       });
     }
+
+    // If we found stable releases but none had our binary
+    const message = `Failed to find a convex backend release that contained ${targetName}.`;
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: message,
+      errForSentry: new LocalDeploymentError(message),
+    });
   } catch (e) {
     return await ctx.crash({
       exitCode: 1,
@@ -90,33 +186,6 @@ async function findLatestVersionWithBinary(ctx: Context): Promise<string> {
       errForSentry: new LocalDeploymentError(e?.toString()),
     });
   }
-  const targetName = getDownloadPath();
-  const latest = releases[0]!;
-  const latestVersion = latest.tag_name;
-  logVerbose(ctx, `Latest version is ${latestVersion}`);
-
-  let versionWithBinary: string;
-  while (true) {
-    const release = releases.shift()!;
-    if (release.assets.find((asset) => asset.name === targetName)) {
-      versionWithBinary = release.tag_name;
-      break;
-    }
-    if (!releases.length) {
-      const message = `Failed to find a convex backend release that contained ${targetName}.`;
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: message,
-        errForSentry: new LocalDeploymentError(message),
-      });
-    }
-    logVerbose(
-      ctx,
-      `Version ${release.tag_name} does not contain a ${targetName}, trying previous version ${releases[0].tag_name}`,
-    );
-  }
-  return versionWithBinary;
 }
 
 /**

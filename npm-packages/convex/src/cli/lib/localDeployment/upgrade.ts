@@ -56,6 +56,10 @@ export async function handlePotentialUpgrade(
       ports: args.ports,
     });
   }
+  logVerbose(
+    ctx,
+    `Considering upgrade from ${args.oldVersion} to ${args.newVersion}`,
+  );
   const confirmed =
     args.forceUpgrade ||
     (await promptYesNo(ctx, {
