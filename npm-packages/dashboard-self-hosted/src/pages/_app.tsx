@@ -38,7 +38,10 @@ import React, {
   useState,
 } from "react";
 
-export default function App({ Component, pageProps }: AppProps) {
+function App({
+  Component,
+  pageProps: { deploymentUrl, ...pageProps },
+}: AppProps & { pageProps: { deploymentUrl: string } }) {
   return (
     <>
       <Head>
@@ -50,7 +53,7 @@ export default function App({ Component, pageProps }: AppProps) {
         <ThemeConsumer />
         <ToastContainer />
         <div className="flex h-screen flex-col">
-          <DeploymentInfoProvider>
+          <DeploymentInfoProvider deploymentUrl={deploymentUrl}>
             <DeploymentApiProvider deploymentOverride="local">
               <WaitForDeploymentApi>
                 <DeploymentDashboardLayout>
@@ -65,10 +68,39 @@ export default function App({ Component, pageProps }: AppProps) {
   );
 }
 
-const deploymentInfo: DeploymentInfo = {
+App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
+  // On server-side, get from process.env
+  if (ctx.req) {
+    const deploymentUrl = process.env.NEXT_PUBLIC_DEPLOYMENT_URL;
+    if (!deploymentUrl) {
+      throw new Error(
+        "NEXT_PUBLIC_DEPLOYMENT_URL environment variable is not set",
+      );
+    }
+    return {
+      pageProps: {
+        deploymentUrl,
+      },
+    };
+  }
+
+  // On client-side navigation, get from window.__NEXT_DATA__
+  const deploymentUrl = window.__NEXT_DATA__?.props?.pageProps?.deploymentUrl;
+  if (!deploymentUrl) {
+    throw new Error("deploymentUrl not found in __NEXT_DATA__");
+  }
+
+  return {
+    pageProps: {
+      deploymentUrl,
+    },
+  };
+};
+
+export default App;
+
+const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   ok: true,
-  deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
-  adminKey: "",
   useCurrentTeam: () => ({
     id: 0,
     name: "Team",
@@ -112,15 +144,27 @@ const deploymentInfo: DeploymentInfo = {
   isSelfHosted: true,
 };
 
-function DeploymentInfoProvider({ children }: { children: React.ReactNode }) {
+function DeploymentInfoProvider({
+  children,
+  deploymentUrl,
+}: {
+  children: React.ReactNode;
+  deploymentUrl: string;
+}) {
   const [adminKey, setAdminKey] = useSessionStorage("adminKey", "");
   const [draftAdminKey, setDraftAdminKey] = useState<string>("");
 
   const [showKey, setShowKey] = useState(false);
 
   const finalValue: DeploymentInfo = useMemo(
-    () => ({ ...deploymentInfo, ok: true, adminKey }) as DeploymentInfo,
-    [adminKey],
+    () =>
+      ({
+        ...deploymentInfo,
+        ok: true,
+        adminKey,
+        deploymentUrl,
+      }) as DeploymentInfo,
+    [adminKey, deploymentUrl],
   );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);

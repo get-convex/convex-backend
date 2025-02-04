@@ -36,6 +36,14 @@
       "description": "Invoke the 'npm run test-esm' command in each package.",
       "enableParallelism": true,
       "ignoreMissingScript": true
+    },
+    {
+      "commandKind": "bulk",
+      "name": "build",
+      "summary": "Build all projects",
+      "description": "Run build command in each project",
+      "enableParallelism": true,
+      "allowWarningsInSuccessfulBuild": true
     }
     // {
     //   /**
