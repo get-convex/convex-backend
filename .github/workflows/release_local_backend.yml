@@ -1,0 +1,106 @@
+name: Release Self-Hosted Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_latest:
+        description: 'Tag image as latest'
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build backend image
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    runs-on: [self-hosted, aws, "${{ matrix.arch }}", xlarge]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get UTC ISO8601 timestamp
+        run: echo "COMMIT_TIMESTAMP=$(git log -1 --format='%aI' | date -f - --utc '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
+        id: build-image
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: .
+          file: self-hosted/Dockerfile.backend
+          tags: |
+            ghcr.io/get-convex/self-hosted-backend
+          cache-from: type=gha,mode=max
+          cache-to: type=gha,mode=max
+          outputs: push-by-digest=true,type=image,push=true
+          provenance: false
+          build-args: |
+            VERGEN_GIT_SHA=${{ github.sha }}
+            VERGEN_GIT_COMMIT_TIMESTAMP=${{ env.COMMIT_TIMESTAMP }}
+
+      - name: Write digest
+        uses: cloudposse/github-action-matrix-outputs-write@v1
+        id: digest
+        with:
+          matrix-step-name: ${{ github.job }}
+          matrix-key: ${{ matrix.arch }}
+          outputs: |-
+            digest: ${{ steps.build-image.outputs.digest }}
+
+  read:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: cloudposse/github-action-matrix-outputs-read@v1
+        id: read
+        with:
+          matrix-step-name: build
+    outputs:
+      result: "${{ steps.read.outputs.result }}"
+
+  push:
+    name: Push merged image manifest
+    needs: [read]
+    runs-on: [self-hosted, aws, x64, medium]
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Push manifest
+        run: |
+          docker manifest create ghcr.io/get-convex/self-hosted-backend:${{ github.sha }} \
+            --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.x64 }} \
+            --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.arm64 }}
+          docker manifest push ghcr.io/get-convex/self-hosted-backend:${{ github.sha }}
+          
+          if [[ "${{ github.event.inputs.tag_latest }}" == "true" ]]; then
+            docker manifest create ghcr.io/get-convex/self-hosted-backend:latest \
+              --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.x64 }} \
+              --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.arm64 }}
+            docker manifest push ghcr.io/get-convex/self-hosted-backend:latest
+          fi
