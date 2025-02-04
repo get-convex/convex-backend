@@ -6,7 +6,7 @@ FSL-1.1-Apache-2.0
 
 ## Notice
 
-Copyright 2024 Convex, Inc.
+Copyright 2025 Convex, Inc.
 
 ## Terms and Conditions
 
