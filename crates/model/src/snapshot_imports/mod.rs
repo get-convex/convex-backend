@@ -225,11 +225,11 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
     pub async fn cancel_import(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
         let current_state = self.must_get_state(id).await?;
         match current_state {
-            ImportState::Uploaded | ImportState::WaitingForConfirmation { .. } => {
+            ImportState::Uploaded
+            | ImportState::WaitingForConfirmation { .. }
+            | ImportState::InProgress { .. } => {
                 self.fail_import(id, "Import canceled".to_string()).await?
             },
-            // TODO: support cancelling imports in progress
-            ImportState::InProgress { .. } => anyhow::bail!("Cannot cancel an import in progress"),
             ImportState::Completed { .. } => anyhow::bail!(ErrorMetadata::bad_request(
                 "CannotCancelImport",
                 "Cannot cancel an import that has completed"

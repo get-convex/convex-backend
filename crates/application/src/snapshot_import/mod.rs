@@ -377,6 +377,7 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
             table_mapping_for_import,
             usage,
             audit_log_event,
+            Some(snapshot_import.id()),
             snapshot_import.requestor.clone(),
         )
         .await?;
@@ -687,6 +688,7 @@ pub async fn clear_tables<RT: Runtime>(
         table_mapping_for_import,
         usage,
         DeploymentAuditLogEvent::ClearTables,
+        None,
         ImportRequestor::SnapshotImport,
     )
     .await?;
@@ -841,6 +843,7 @@ async fn finalize_import<RT: Runtime>(
     table_mapping_for_import: TableMappingForImport,
     usage: FunctionUsageTracker,
     audit_log_event: DeploymentAuditLogEvent,
+    import_id: Option<ResolvedDocumentId>,
     requestor: ImportRequestor,
 ) -> anyhow::Result<(Timestamp, u64)> {
     let tables_affected = table_mapping_for_import.tables_affected();
@@ -861,6 +864,29 @@ async fn finalize_import<RT: Runtime>(
             "snapshot_import_finalize",
             |tx| {
                 async {
+                    if let Some(import_id) = import_id {
+                        // Only finalize the import if it's in progress.
+                        let mut snapshot_import_model = SnapshotImportModel::new(tx);
+                        let snapshot_import_state =
+                            snapshot_import_model.must_get_state(import_id).await?;
+                        match snapshot_import_state {
+                            ImportState::InProgress { .. } => {},
+                            // This can happen if the import was canceled or somehow retried after
+                            // completion. These errors won't show up to
+                            // the user because they are already terminal states,
+                            // so we won't transition to a new state due to this error.
+                            ImportState::Failed(e) => anyhow::bail!("Import failed: {e}"),
+                            ImportState::Completed { .. } => {
+                                anyhow::bail!("Import already completed")
+                            },
+                            // Indicates a bug -- we shouldn't be finalizing an import that hasn't
+                            // started yet.
+                            ImportState::Uploaded | ImportState::WaitingForConfirmation { .. } => {
+                                anyhow::bail!("Import is not in progress")
+                            },
+                        }
+                    }
+
                     let mut documents_deleted = 0;
                     for tablet_id in table_mapping_for_import.to_delete.keys() {
                         let namespace = tx.table_mapping().tablet_namespace(*tablet_id)?;

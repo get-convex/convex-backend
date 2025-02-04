@@ -112,14 +112,18 @@ function ImportStateBody({
       );
     case "in_progress":
       return (
-        <div className="flex flex-col">
-          {snapshotImport.state.checkpoint_messages.map((message: string) => (
+        <div>
+          <CancelImportButton importId={snapshotImport._id} />
+          <div className="flex flex-col">
+            {snapshotImport.state.checkpoint_messages.map((message: string) => (
+              <div className="flex items-center gap-2">
+                <CheckIcon /> {message}
+              </div>
+            ))}
             <div className="flex items-center gap-2">
-              <CheckIcon /> {message}
+              <Spinner className="ml-0" />{" "}
+              {snapshotImport.state.progress_message}
             </div>
-          ))}
-          <div className="flex items-center gap-2">
-            <Spinner className="ml-0" /> {snapshotImport.state.progress_message}
           </div>
         </div>
       );
@@ -371,7 +375,7 @@ export function SnapshotImport() {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4">
           <div>
-            <h3 className="mb-2">Snapshot Import</h3>
+            <h3 className="mb-2">Snapshot Import and Cloud Restore</h3>
             <p className="text-content-primary">
               Import tables into your database from a snapshot.{" "}
               <Link

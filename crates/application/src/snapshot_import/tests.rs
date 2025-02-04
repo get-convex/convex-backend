@@ -1293,3 +1293,73 @@ async fn run_csv_import(
     .await
     .map(|_| ())
 }
+
+#[convex_macro::test_runtime]
+async fn test_cancel_in_progress_import(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    let table_name = "table1";
+    let test_csv = r#"
+a,b
+"foo","bar"
+"#;
+
+    let hold_guard = pause_controller.hold("before_finalize_import");
+
+    let mut import_fut = run_csv_import(&app, table_name, test_csv).boxed();
+
+    select! {
+        r = import_fut.as_mut().fuse() => {
+            anyhow::bail!("import finished before pausing: {r:?}");
+        },
+        pause_guard = hold_guard.wait_for_blocked().fuse() => {
+            let pause_guard = pause_guard.unwrap();
+
+            // Cancel the import while it's in progress
+            let mut tx = app.begin(new_admin_id()).await?;
+            let mut import_model = model::snapshot_imports::SnapshotImportModel::new(&mut tx);
+
+            // Find the in-progress import
+            let snapshot_import = import_model.import_in_state(ImportState::InProgress {
+                progress_message: String::new(),
+                checkpoint_messages: vec![],
+            }).await?.context("No in-progress import found")?;
+
+            import_model.cancel_import(snapshot_import.id()).await?;
+            app.commit_test(tx).await?;
+
+            pause_guard.unpause();
+        },
+    }
+
+    let err = import_fut.await.unwrap_err();
+    assert!(err.is_bad_request());
+    assert!(
+        err.msg().contains("Import canceled"),
+        "Unexpected error message: {}",
+        err.msg()
+    );
+
+    // Verify the import was actually canceled
+    let mut tx = app.begin(new_admin_id()).await?;
+    let mut import_model = model::snapshot_imports::SnapshotImportModel::new(&mut tx);
+    let snapshot_import = import_model
+        .import_in_state(ImportState::Failed("Import was canceled".into()))
+        .await?
+        .context("No failed import found")?;
+    assert!(matches!(
+        snapshot_import.state.clone(),
+        ImportState::Failed(msg) if msg == "Import canceled"
+    ));
+    // Verify no data written
+    let table_name = TableName::from_str(table_name)?;
+    let table_size = tx
+        .must_count(TableNamespace::test_user(), &table_name)
+        .await?;
+    assert_eq!(table_size, 0);
+    assert!(!TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));
+
+    Ok(())
+}
