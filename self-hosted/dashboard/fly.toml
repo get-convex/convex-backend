@@ -26,7 +26,6 @@ handlers = ["tls", "http"]
 port = 443
 
 [[vm]]
-# TODO: Reduce this once dashboard Dockerfile is cleaned up.
-memory = '4gb'
-cpu_kind = 'performance'
+memory = '1gb'
+cpu_kind = 'shared'
 cpus = 1
