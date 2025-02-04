@@ -34,6 +34,7 @@ const nextConfig = {
   swcMinify: true,
   transpilePackages: [],
   reactStrictMode: true,
+  output: "standalone",
   async headers() {
     return [
       {
