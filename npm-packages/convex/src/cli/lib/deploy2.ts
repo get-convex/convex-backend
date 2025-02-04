@@ -3,8 +3,11 @@ import {
   Context,
   logError,
   logFailure,
+  logFinishedStep,
   logVerbose,
+  showSpinner,
 } from "../../bundler/context.js";
+import { spawnSync } from "child_process";
 import {
   deploymentFetch,
   ErrorData,
@@ -29,6 +32,9 @@ import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { promisify } from "node:util";
 import zlib from "node:zlib";
+import { PushOptions } from "./push.js";
+import { runPush } from "./components.js";
+import { suggestedEnvVarName } from "./envvars.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -298,4 +304,101 @@ export async function reportPushCompleted(
       "Error: Unable to report push completed to " + url + ": " + error,
     );
   }
+}
+
+export async function deployToDeployment(
+  ctx: Context,
+  credentials: {
+    url: string;
+    adminKey: string;
+  },
+  options: {
+    verbose?: boolean | undefined;
+    dryRun?: boolean | undefined;
+    yes?: boolean | undefined;
+    typecheck: "enable" | "try" | "disable";
+    typecheckComponents: boolean;
+    codegen: "enable" | "disable";
+    cmd?: string | undefined;
+    cmdUrlEnvVarName?: string | undefined;
+
+    debugBundlePath?: string | undefined;
+    debug?: boolean | undefined;
+    writePushRequest?: string | undefined;
+    liveComponentSources?: boolean | undefined;
+    partitionId?: string | undefined;
+  },
+) {
+  const { url, adminKey } = credentials;
+  await runCommand(ctx, { ...options, url });
+
+  const pushOptions: PushOptions = {
+    adminKey,
+    verbose: !!options.verbose,
+    dryRun: !!options.dryRun,
+    typecheck: options.typecheck,
+    typecheckComponents: options.typecheckComponents,
+    debug: !!options.debug,
+    debugBundlePath: options.debugBundlePath,
+    codegen: options.codegen === "enable",
+    url,
+    writePushRequest: options.writePushRequest,
+    liveComponentSources: !!options.liveComponentSources,
+  };
+  showSpinner(
+    ctx,
+    `Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`,
+  );
+  await runPush(ctx, pushOptions);
+  logFinishedStep(
+    ctx,
+    `${
+      options.dryRun ? "Would have deployed" : "Deployed"
+    } Convex functions to ${url}`,
+  );
+}
+
+export async function runCommand(
+  ctx: Context,
+  options: {
+    cmdUrlEnvVarName?: string | undefined;
+    cmd?: string | undefined;
+    dryRun?: boolean | undefined;
+    url: string;
+  },
+) {
+  if (options.cmd === undefined) {
+    return;
+  }
+
+  const urlVar =
+    options.cmdUrlEnvVarName ?? (await suggestedEnvVarName(ctx)).envVar;
+  showSpinner(
+    ctx,
+    `Running '${options.cmd}' with environment variable "${urlVar}" set...${
+      options.dryRun ? " [dry run]" : ""
+    }`,
+  );
+  if (!options.dryRun) {
+    const env = { ...process.env };
+    env[urlVar] = options.url;
+    const result = spawnSync(options.cmd, {
+      env,
+      stdio: "inherit",
+      shell: true,
+    });
+    if (result.status !== 0) {
+      await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem data",
+        printedMessage: `'${options.cmd}' failed`,
+      });
+    }
+  }
+  logFinishedStep(
+    ctx,
+    `${options.dryRun ? "Would have run" : "Ran"} "${
+      options.cmd
+    }" with environment variable "${urlVar}" set`,
+  );
 }

@@ -4,6 +4,8 @@ import { handleManuallySetUrlAndAdminKey } from "./configure.js";
 import { devAgainstDeployment } from "./lib/dev.js";
 import { normalizeDevOptions } from "./lib/command.js";
 import { getConfiguredCredentialsFromEnvVar } from "./lib/deployment.js";
+import { storeAdminKeyEnvVar } from "./lib/api.js";
+import { deployToDeployment } from "./lib/deploy2.js";
 
 export const selfHost = new Command("self-host");
 
@@ -17,6 +19,7 @@ selfHost
       "  3. Runs the provided function (if `--run` is used)\n" +
       "  4. Watches for file changes, and repeats step 2\n",
   )
+  .allowExcessArguments(false)
   .addDevOptions()
   .option(
     "--admin-key <adminKey>",
@@ -35,13 +38,37 @@ selfHost
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
 
-    const credentials = await selfHostCredentials(ctx, cmdOptions);
+    const credentials = await selfHostCredentials(ctx, true, cmdOptions);
 
     await devAgainstDeployment(ctx, credentials, devOptions);
   });
 
+selfHost
+  .command("deploy")
+  .summary("Deploy to your deployment")
+  .description("Deploy to your deployment.")
+  .allowExcessArguments(false)
+  .addDeployOptions()
+  .option(
+    "--admin-key <adminKey>",
+    "An admin key for the deployment. Can alternatively be set as `CONVEX_DEPLOY_KEY` environment variable.",
+  )
+  .option(
+    "--url <url>",
+    "The url of the deployment. Can alternatively be set as `CONVEX_SELF_HOST_DEPLOYMENT_URL` environment variable.",
+  )
+  .action(async (cmdOptions) => {
+    const ctx = oneoffContext();
+
+    storeAdminKeyEnvVar(cmdOptions.adminKey);
+    const credentials = await selfHostCredentials(ctx, false, cmdOptions);
+
+    await deployToDeployment(ctx, credentials, cmdOptions);
+  });
+
 async function selfHostCredentials(
   ctx: OneoffCtx,
+  writeEnvVarsToFile: boolean,
   cmdOptions: {
     adminKey?: string;
     url?: string;
@@ -51,11 +78,13 @@ async function selfHostCredentials(
   const urlOverride = cmdOptions.url ?? envVarCredentials.url;
   const adminKeyOverride = cmdOptions.adminKey ?? envVarCredentials.adminKey;
   if (urlOverride !== undefined && adminKeyOverride !== undefined) {
-    const credentials = await handleManuallySetUrlAndAdminKey(ctx, {
-      url: urlOverride,
-      adminKey: adminKeyOverride,
-    });
-    return { ...credentials };
+    if (writeEnvVarsToFile) {
+      await handleManuallySetUrlAndAdminKey(ctx, {
+        url: urlOverride,
+        adminKey: adminKeyOverride,
+      });
+    }
+    return { url: urlOverride, adminKey: adminKeyOverride };
   }
   return await ctx.crash({
     exitCode: 1,

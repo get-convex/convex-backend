@@ -51,6 +51,27 @@ declare module "@commander-js/extra-typings" {
         liveComponentSources?: boolean;
       }
     >;
+
+    /**
+     * Adds common options for deploy-related commands.
+     */
+    addDeployOptions(): Command<
+      Args,
+      Opts & {
+        verbose?: boolean;
+        dryRun?: boolean;
+        yes?: boolean;
+        typecheck: "enable" | "try" | "disable";
+        typecheckComponents: boolean;
+        codegen: "enable" | "disable";
+        cmd?: string;
+        cmdUrlEnvVarName?: string;
+        debugBundlePath?: string;
+        debug?: boolean;
+        writePushRequest?: string;
+        liveComponentSources?: boolean;
+      }
+    >;
   }
 }
 
@@ -188,3 +209,49 @@ export async function normalizeDevOptions(
     liveComponentSources: !!cmdOptions.liveComponentSources,
   };
 }
+
+Command.prototype.addDeployOptions = function () {
+  return this.option("-v, --verbose", "Show full listing of changes")
+    .option(
+      "--dry-run",
+      "Print out the generated configuration without deploying to your Convex deployment",
+    )
+    .option("-y, --yes", "Skip confirmation prompt when running locally")
+    .addOption(
+      new Option(
+        "--typecheck <mode>",
+        `Whether to check TypeScript files with \`tsc --noEmit\` before deploying.`,
+      )
+        .choices(["enable", "try", "disable"] as const)
+        .default("try" as const),
+    )
+    .option(
+      "--typecheck-components",
+      "Check TypeScript files within component implementations with `tsc --noEmit`.",
+      false,
+    )
+    .addOption(
+      new Option(
+        "--codegen <mode>",
+        "Whether to regenerate code in `convex/_generated/` before pushing.",
+      )
+        .choices(["enable", "disable"] as const)
+        .default("enable" as const),
+    )
+    .addOption(
+      new Option(
+        "--cmd <command>",
+        "Command to run as part of deploying your app (e.g. `vite build`). This command can depend on the environment variables specified in `--cmd-url-env-var-name` being set.",
+      ),
+    )
+    .addOption(
+      new Option(
+        "--cmd-url-env-var-name <name>",
+        "Environment variable name to set Convex deployment URL (e.g. `VITE_CONVEX_URL`) when using `--cmd`",
+      ),
+    )
+    .addOption(new Option("--debug-bundle-path <path>").hideHelp())
+    .addOption(new Option("--debug").hideHelp())
+    .addOption(new Option("--write-push-request <writePushRequest>").hideHelp())
+    .addOption(new Option("--live-component-sources").hideHelp());
+};

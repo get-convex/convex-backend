@@ -25,7 +25,6 @@ import {
   getConfiguredDeployment,
   readAdminKeyFromEnvVar,
 } from "./lib/utils/utils.js";
-import { spawnSync } from "child_process";
 import { runFunctionAndLog } from "./lib/run.js";
 import { usageStateWarning } from "./lib/usage.js";
 import {
@@ -35,6 +34,7 @@ import {
 } from "./lib/deployment.js";
 import { runPush } from "./lib/components.js";
 import { promptYesNo } from "./lib/utils/prompts.js";
+import { deployToDeployment, runCommand } from "./lib/deploy2.js";
 
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
@@ -43,45 +43,7 @@ export const deploy = new Command("deploy")
       "Deploys to a preview deployment if the `CONVEX_DEPLOY_KEY` environment variable is set to a Preview Deploy Key.",
   )
   .allowExcessArguments(false)
-  .option("-v, --verbose", "Show full listing of changes")
-  .option(
-    "--dry-run",
-    "Print out the generated configuration without deploying to your Convex deployment",
-  )
-  .option("-y, --yes", "Skip confirmation prompt when running locally")
-  .addOption(
-    new Option(
-      "--typecheck <mode>",
-      `Whether to check TypeScript files with \`tsc --noEmit\` before deploying.`,
-    )
-      .choices(["enable", "try", "disable"] as const)
-      .default("try" as const),
-  )
-  .option(
-    "--typecheck-components",
-    "Check TypeScript files within component implementations with `tsc --noEmit`.",
-    false,
-  )
-  .addOption(
-    new Option(
-      "--codegen <mode>",
-      "Whether to regenerate code in `convex/_generated/` before pushing.",
-    )
-      .choices(["enable", "disable"] as const)
-      .default("enable" as const),
-  )
-  .addOption(
-    new Option(
-      "--cmd <command>",
-      "Command to run as part of deploying your app (e.g. `vite build`). This command can depend on the environment variables specified in `--cmd-url-env-var-name` being set.",
-    ),
-  )
-  .addOption(
-    new Option(
-      "--cmd-url-env-var-name <name>",
-      "Environment variable name to set Convex deployment URL (e.g. `VITE_CONVEX_URL`) when using `--cmd`",
-    ),
-  )
+  .addDeployOptions()
   .addOption(
     new Option(
       "--preview-run <functionName>",
@@ -103,12 +65,9 @@ export const deploy = new Command("deploy")
       .default("enable" as const)
       .hideHelp(),
   )
-  .addOption(new Option("--debug-bundle-path <path>").hideHelp())
-  .addOption(new Option("--debug").hideHelp())
   // Hidden options to pass in admin key and url for tests and local development
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
-  .addOption(new Option("--write-push-request <writePushRequest>").hideHelp()) // Option used for tests in backend
   .addOption(
     new Option(
       "--preview-name <name>",
@@ -117,7 +76,6 @@ export const deploy = new Command("deploy")
       .hideHelp()
       .conflicts("preview-create"),
   )
-  .addOption(new Option("--live-component-sources").hideHelp())
   .addOption(new Option("--partition-id <id>").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
@@ -330,77 +288,7 @@ async function deployToExistingDeployment(
     }
   }
 
-  await runCommand(ctx, { ...options, url });
-
-  const pushOptions: PushOptions = {
-    adminKey,
-    verbose: !!options.verbose,
-    dryRun: !!options.dryRun,
-    typecheck: options.typecheck,
-    typecheckComponents: options.typecheckComponents,
-    debug: !!options.debug,
-    debugBundlePath: options.debugBundlePath,
-    codegen: options.codegen === "enable",
-    url,
-    writePushRequest: options.writePushRequest,
-    liveComponentSources: !!options.liveComponentSources,
-  };
-  showSpinner(
-    ctx,
-    `Deploying to ${url}...${options.dryRun ? " [dry run]" : ""}`,
-  );
-  await runPush(ctx, pushOptions);
-  logFinishedStep(
-    ctx,
-    `${
-      options.dryRun ? "Would have deployed" : "Deployed"
-    } Convex functions to ${url}`,
-  );
-}
-
-async function runCommand(
-  ctx: Context,
-  options: {
-    cmdUrlEnvVarName?: string | undefined;
-    cmd?: string | undefined;
-    dryRun?: boolean | undefined;
-    url: string;
-  },
-) {
-  if (options.cmd === undefined) {
-    return;
-  }
-
-  const urlVar =
-    options.cmdUrlEnvVarName ?? (await suggestedEnvVarName(ctx)).envVar;
-  showSpinner(
-    ctx,
-    `Running '${options.cmd}' with environment variable "${urlVar}" set...${
-      options.dryRun ? " [dry run]" : ""
-    }`,
-  );
-  if (!options.dryRun) {
-    const env = { ...process.env };
-    env[urlVar] = options.url;
-    const result = spawnSync(options.cmd, {
-      env,
-      stdio: "inherit",
-      shell: true,
-    });
-    if (result.status !== 0) {
-      await ctx.crash({
-        exitCode: 1,
-        errorType: "invalid filesystem data",
-        printedMessage: `'${options.cmd}' failed`,
-      });
-    }
-  }
-  logFinishedStep(
-    ctx,
-    `${options.dryRun ? "Would have run" : "Ran"} "${
-      options.cmd
-    }" with environment variable "${urlVar}" set`,
-  );
+  await deployToDeployment(ctx, { url, adminKey }, options);
 }
 
 async function askToConfirmPush(
