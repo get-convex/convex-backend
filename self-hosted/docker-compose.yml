@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   backend:
     image: ghcr.io/get-convex/self-hosted-backend:latest
@@ -9,10 +7,10 @@ services:
     volumes:
       - data:/convex/data
     environment:
-      - INSTANCE_NAME=${INSTANCE_NAME}
-      - INSTANCE_SECRET=${INSTANCE_SECRET}
-      - CONVEX_RELEASE_VERSION_DEV=${CONVEX_RELEASE_VERSION_DEV}
-      - ACTIONS_USER_TIMEOUT_SECS=${ACTIONS_USER_TIMEOUT_SECS}
+      - INSTANCE_NAME=${INSTANCE_NAME:-}
+      - INSTANCE_SECRET=${INSTANCE_SECRET:-}
+      - CONVEX_RELEASE_VERSION_DEV=${CONVEX_RELEASE_VERSION_DEV:-}
+      - ACTIONS_USER_TIMEOUT_SECS=${ACTIONS_USER_TIMEOUT_SECS:-}
       - CONVEX_CLOUD_ORIGIN=${URL_BASE:-http://127.0.0.1}:${PORT:-3210}
       - CONVEX_SITE_ORIGIN=${URL_BASE:-http://127.0.0.1}:${SITE_PROXY_PORT:-3211}
     container_name: convex-local-backend
