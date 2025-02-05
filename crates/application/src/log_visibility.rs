@@ -19,16 +19,24 @@ pub trait LogVisibility<RT: Runtime>: Send + Sync {
     ) -> anyhow::Result<bool>;
 }
 
-pub struct AllowLogging;
+pub struct RedactLogsToClient {
+    redact: bool,
+}
+
+impl RedactLogsToClient {
+    pub fn new(redact: bool) -> Self {
+        Self { redact }
+    }
+}
 
 #[async_trait]
-impl<RT: Runtime> LogVisibility<RT> for AllowLogging {
+impl<RT: Runtime> LogVisibility<RT> for RedactLogsToClient {
     async fn should_redact_logs_and_error(
         &self,
         _tx: &mut Transaction<RT>,
         _identity: Identity,
         _allowed_visibility: AllowedVisibility,
     ) -> anyhow::Result<bool> {
-        Ok(false)
+        Ok(self.redact)
     }
 }

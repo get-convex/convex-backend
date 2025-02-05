@@ -19,7 +19,7 @@ use ::storage::{
 };
 use application::{
     api::ApplicationApi,
-    log_visibility::AllowLogging,
+    log_visibility::RedactLogsToClient,
     Application,
     QueryCache,
 };
@@ -246,7 +246,7 @@ pub async fn make_app(
         persistence,
         actions,
         Arc::new(NoopLogSender),
-        Arc::new(AllowLogging),
+        Arc::new(RedactLogsToClient::new(config.redact_logs_to_client)),
         Arc::new(ApplicationAuth::new(
             key_broker.clone(),
             Arc::new(NullAccessTokenAuth),

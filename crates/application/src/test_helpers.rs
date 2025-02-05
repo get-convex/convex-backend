@@ -108,7 +108,7 @@ use crate::{
         SchemaStatus,
         StartPushRequest,
     },
-    log_visibility::AllowLogging,
+    log_visibility::RedactLogsToClient,
     scheduled_jobs::ScheduledJobExecutor,
     Application,
 };
@@ -275,7 +275,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             Arc::new(persistence.clone()),
             actions,
             Arc::new(NoopLogSender),
-            Arc::new(AllowLogging),
+            Arc::new(RedactLogsToClient::new(false)),
             Arc::new(ApplicationAuth::new(
                 kb.clone(),
                 Arc::new(NullAccessTokenAuth),

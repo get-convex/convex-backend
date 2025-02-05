@@ -86,6 +86,15 @@ pub struct LocalConfig {
     /// A tag to identify the self-hosted instance.
     #[clap(long, hide = true, default_value = "self-host")]
     pub beacon_tag: String,
+
+    /// If set, logs will be redacted from clients. Set this on production
+    /// deployments, to prevent information like stacktraces of serverside
+    /// code from being leaked to clients.
+    ///
+    /// On development deployments, it can be helpful to have this information
+    /// reach the client for debugging purposes.
+    #[clap(long, default_value = "false")]
+    pub redact_logs_to_client: bool,
 }
 
 impl fmt::Debug for LocalConfig {
