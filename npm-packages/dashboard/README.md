@@ -74,23 +74,6 @@ GitHub pull requests.
 
 ### Integration tests
 
-#### Run playwright tests
-
-the hardcoded credentials are for local development web-servers only
-
-You need to set some env vars to provide credentials, see the "How to run
-dashboard E2E tests locally" note in 1password for the full text you can copy.
-
-```
-npm run test:e2e
-```
-
-The dashboard uses playwright for end-to-end testing to reduce regressions
-between backend/big-brain and the dashboard.
-
-These tests are also run in CI against the latest vercel preview for your
-branch.
-
 ## Bundle size
 
 You can analyze the bundle size of the dashboard by running

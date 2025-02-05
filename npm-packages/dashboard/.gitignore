@@ -37,7 +37,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-playwright/.auth
 .env*.local
 
 src/hooks/generated

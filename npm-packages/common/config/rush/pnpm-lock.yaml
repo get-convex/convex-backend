@@ -679,9 +679,6 @@ importers:
       '@jest/types':
         specifier: ^29.6.0
         version: 29.6.3
-      '@playwright/test':
-        specifier: 1.49.1
-        version: 1.49.1
       '@storybook/addon-essentials':
         specifier: ^7.6.16
         version: 7.6.20(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -26149,6 +26146,7 @@ snapshots:
   '@playwright/test@1.49.1':
     dependencies:
       playwright: 1.49.1
+    optional: true
 
   '@pmmmwh/react-refresh-webpack-plugin@0.5.15(react-refresh@0.14.2)(type-fest@4.31.0)(webpack-dev-server@4.15.2(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)(webpack@5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack-hot-middleware@2.26.1)(webpack@5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
     dependencies:
@@ -39681,13 +39679,15 @@ snapshots:
 
   pkginfo@0.4.1: {}
 
-  playwright-core@1.49.1: {}
+  playwright-core@1.49.1:
+    optional: true
 
   playwright@1.49.1:
     dependencies:
       playwright-core: 1.49.1
     optionalDependencies:
       fsevents: 2.3.2
+    optional: true
 
   please-upgrade-node@3.2.0:
     dependencies:
