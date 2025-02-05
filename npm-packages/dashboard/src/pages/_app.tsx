@@ -177,7 +177,7 @@ function PostHogProvider({ children }: { children: React.ReactElement }) {
       api_host,
       ui_host: "https://us.posthog.com/",
       // Set to true to log PostHog events to the console.
-      debug: true,
+      debug: false,
       // Since we're using the pages router, this captures the initial pageview.
       capture_pageview: true,
     });
