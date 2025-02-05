@@ -13,6 +13,8 @@ import {
 } from "./lib/utils/utils.js";
 import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
 import { runInDeployment } from "./lib/run.js";
+import { importIntoDeployment } from "./lib/convexImport.js";
+import { exportFromDeployment } from "./lib/convexExport.js";
 
 export const selfHost = new Command("self-host");
 
@@ -162,5 +164,63 @@ selfHost
       typecheckComponents: options.typecheckComponents,
       codegen: options.codegen === "enable",
       liveComponentSources: !!options.liveComponentSources,
+    });
+  });
+
+selfHost
+  .command("import")
+  .summary("Import data from a file to your deployment")
+  .description(
+    "Import data from a file to your Convex deployment.\n\n" +
+      "  From a snapshot: `npx convex import snapshot.zip`\n" +
+      "  For a single table: `npx convex import --table tableName file.json`",
+  )
+  .allowExcessArguments(false)
+  .addImportOptions()
+  .addSelfHostOptions()
+  .showHelpAfterError()
+  .action(async (filePath, options) => {
+    const ctx = oneoffContext();
+
+    const { adminKey, url: deploymentUrl } = await selfHostCredentials(
+      ctx,
+      true,
+      options,
+    );
+
+    await importIntoDeployment(ctx, filePath, {
+      ...options,
+      deploymentUrl,
+      adminKey,
+      deploymentNotice: "",
+      snapshotImportDashboardLink: undefined,
+    });
+  });
+
+selfHost
+  .command("export")
+  .summary("Export data from your deployment to a ZIP file")
+  .description(
+    "Export data, and optionally file storage, from your Convex deployment to a ZIP file.",
+  )
+  .allowExcessArguments(false)
+  .addExportOptions()
+  .addSelfHostOptions()
+  .showHelpAfterError()
+  .action(async (options) => {
+    const ctx = oneoffContext();
+
+    const { adminKey, url: deploymentUrl } = await selfHostCredentials(
+      ctx,
+      true,
+      options,
+    );
+
+    await exportFromDeployment(ctx, {
+      ...options,
+      deploymentUrl,
+      adminKey,
+      deploymentNotice: "",
+      snapshotExportDashboardLink: undefined,
     });
   });

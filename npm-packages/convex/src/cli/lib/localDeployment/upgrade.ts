@@ -16,13 +16,13 @@ import {
 import {
   downloadSnapshotExport,
   startSnapshotExport,
-} from "../../convexExport.js";
+} from "../convexExport.js";
 import { deploymentFetch, logAndHandleFetchError } from "../utils/utils.js";
 import {
   confirmImport,
   uploadForImport,
   waitForStableImportState,
-} from "../../convexImport.js";
+} from "../convexImport.js";
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { recursivelyDelete } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
@@ -166,7 +166,6 @@ async function handleUpgrade(
     ctx.fs.unlink(exportPath);
   }
   const snaphsotExportState = await startSnapshotExport(ctx, {
-    deploymentName: args.deploymentName,
     deploymentUrl,
     adminKey: args.adminKey,
     includeStorage: true,

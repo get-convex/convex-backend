@@ -90,7 +90,7 @@ declare module "@commander-js/extra-typings" {
     >;
 
     /**
-     * Adds options for the `run` command.
+     * Adds options and arguments for the `run` command.
      */
     addRunOptions(): Command<
       [...Args, string, string | undefined],
@@ -103,6 +103,33 @@ declare module "@commander-js/extra-typings" {
         codegen: "enable" | "disable";
         component?: string;
         liveComponentSources?: boolean;
+      }
+    >;
+
+    /**
+     * Adds options for the `import` command.
+     */
+    addImportOptions(): Command<
+      [...Args, string],
+      Opts & {
+        table?: string;
+        format?: "csv" | "jsonLines" | "jsonArray" | "zip";
+        replace?: boolean;
+        append?: boolean;
+        replaceAll?: boolean;
+        yes?: boolean;
+        component?: string;
+      }
+    >;
+
+    /**
+     * Adds options for the `export` command.
+     */
+    addExportOptions(): Command<
+      Args,
+      Opts & {
+        path: string;
+        includeFileStorage?: boolean;
       }
     >;
   }
@@ -357,5 +384,70 @@ Command.prototype.addRunOptions = function () {
         ),
       )
       .addOption(new Option("--live-component-sources").hideHelp())
+  );
+};
+
+Command.prototype.addImportOptions = function () {
+  return this.argument("<path>", "Path to the input file")
+    .addOption(
+      new Option(
+        "--table <table>",
+        "Destination table name. Required if format is csv, jsonLines, or jsonArray. Not supported if format is zip.",
+      ),
+    )
+    .addOption(
+      new Option(
+        "--replace",
+        "Replace all existing data in any of the imported tables",
+      )
+        .conflicts("--append")
+        .conflicts("--replace-all"),
+    )
+    .addOption(
+      new Option("--append", "Append imported data to any existing tables")
+        .conflicts("--replace-all")
+        .conflicts("--replace"),
+    )
+    .addOption(
+      new Option(
+        "--replace-all",
+        "Replace all existing data in the deployment with the imported tables,\n" +
+          "  deleting tables that don't appear in the import file or the schema,\n" +
+          "  and clearing tables that appear in the schema but not in the import file",
+      )
+        .conflicts("--append")
+        .conflicts("--replace"),
+    )
+    .option(
+      "-y, --yes",
+      "Skip confirmation prompt when import leads to deleting existing documents",
+    )
+    .addOption(
+      new Option(
+        "--format <format>",
+        "Input file format. This flag is only required if the filename is missing an extension.\n" +
+          "- CSV files must have a header, and each row's entries are interpreted either as a (floating point) number or a string.\n" +
+          "- JSON files must be an array of JSON objects.\n" +
+          "- JSONLines files must have a JSON object per line.\n" +
+          "- ZIP files must have one directory per table, containing <table>/documents.jsonl. Snapshot exports from the Convex dashboard have this format.",
+      ).choices(["csv", "jsonLines", "jsonArray", "zip"]),
+    )
+    .addOption(
+      new Option(
+        "--component <path>",
+        "Path to the component in the component tree defined in convex.config.ts",
+      ),
+    );
+};
+
+Command.prototype.addExportOptions = function () {
+  return this.requiredOption(
+    "--path <zipFilePath>",
+    "Exports data into a ZIP file at this path, which may be a directory or unoccupied .zip path",
+  ).addOption(
+    new Option(
+      "--include-file-storage",
+      "Includes stored files (https://dashboard.convex.dev/deployment/files) in a _storage folder within the ZIP file",
+    ),
   );
 };
