@@ -91,12 +91,10 @@ where
                     let e = e.into();
                     if e.chain().any(|cause| matches!(
                         cause.downcast_ref(),
-                        Some(mysql_async::Error::Driver(DriverError::PoolDisconnected))
-                    )) {
-                        panic!("{}", format!("MySQL pool disconnected: {e:#}"));
-                    } else if e.chain().any(|cause| matches!(
-                        cause.downcast_ref(),
-                        Some(mysql_async::Error::Io(_))
+                        Some(
+                            mysql_async::Error::Driver(DriverError::PoolDisconnected)
+                            | mysql_async::Error::Io(_)
+                        )
                     )) {
                         Err(e.context(ErrorMetadata::operational_internal_server_error()))
                     } else {
