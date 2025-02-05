@@ -24,11 +24,6 @@ synced with any internal development work within a handful of days.
 
 # Self Hosting Via Docker [recommended]
 
-Select a name for your instance. In the cloud product, this takes the form of
-something like "flying-fox-123". You can select whatever you want here. A good
-practice would be to pick something that matches the domain you host from,
-though it is not critical.
-
 You'll need to have [Docker](https://docs.docker.com/desktop/) installed to run
 convex in Docker.
 
@@ -103,11 +98,11 @@ With the instance name and instance secret, generate an admin key. Admin key is
 required to push code to the backend and take other administrator operations.
 
 ```sh
-cargo run -p keybroker --bin generate_key -- flying-fox-123 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
+cargo run -p keybroker --bin generate_key -- convex-self-hosted 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
 ```
 
 It will look like
-`flying-fox-123|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8`
+`convex-self-hosted|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8`
 
 ### Run your backend instance
 
@@ -118,7 +113,7 @@ Adjust the path based on where you downloaded the binary to or add it to your
 Use the instance name and instance secret to start your backend.
 
 ```sh
-./convex-local-backend --instance-name flying-fox-123 --instance-secret 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
+./convex-local-backend --instance-name convex-self-hosted --instance-secret 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
 ```
 
 You can run `./convex-local-backend --help` to see other options for things like
@@ -138,7 +133,7 @@ to just the developers who are administering the application on your backend.
 ```sh
 cd your_project
 npm install
-npx convex dev --url "http://127.0.0.1:3210" --admin-key 'flying-fox-123|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8'
+npx convex dev --url "http://127.0.0.1:3210" --admin-key 'convex-self-hosted|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8'
 ```
 
 # Upgrading your self-hosted backend on a production instance.
