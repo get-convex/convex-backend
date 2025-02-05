@@ -135,7 +135,7 @@ to just the developers who are administering the application on your backend.
 ```sh
 cd your_project
 npm install
-npx convex dev --admin-key 'flying-fox-123|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8' --url "http://127.0.0.1:3210"
+npx convex dev --url "http://127.0.0.1:3210" --admin-key 'flying-fox-123|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8'
 ```
 
 # Upgrading your self-hosted backend on a production instance.
