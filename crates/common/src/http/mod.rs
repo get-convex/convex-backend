@@ -870,6 +870,8 @@ pub static CONVEX_DOMAIN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?<instance>[A-Za-z0-9-]+)(\.[A-Za-z0-9-]+)?\.convex\.(?<tld>cloud|site)$")
         .unwrap()
 });
+pub static LOCAL_DEPLOYMENT_NAME_PII_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"deployment/local-([^/]*)/").unwrap());
 
 pub fn resolve_convex_domain(uri: &Uri) -> anyhow::Result<Option<ResolvedHostname>> {
     let host = uri.host().context("URI does not have valid host")?;
@@ -1111,16 +1113,22 @@ async fn log_middleware(
 
     let path_and_query_str = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or(path);
 
-    let uri_for_logging = match uri.query() {
-        None => path_and_query_str,
-        Some(query) => {
-            if query.contains("adminKey=") {
-                // Remove the entire query string to avoid logging the admin key
-                path
-            } else {
-                path_and_query_str
-            }
-        },
+    let uri_for_logging: Cow<str> = if let Some(query) = uri.query() {
+        if query.contains("adminKey=") {
+            // Remove the entire query string to avoid logging the admin key
+            Cow::Borrowed(path)
+        } else {
+            Cow::Borrowed(path_and_query_str)
+        }
+    } else {
+        Cow::Borrowed(path_and_query_str)
+    };
+
+    // Then handle PII in path if present
+    let uri_for_logging = if path.contains("deployment/local-") {
+        LOCAL_DEPLOYMENT_NAME_PII_REGEX.replace(&uri_for_logging, r"deployment/local-*/")
+    } else {
+        uri_for_logging
     };
     tracing::info!(
         target: "convex-cloud-http",
