@@ -1,31 +1,22 @@
-import { reportHttpError, toast } from "dashboard-common";
+import { toast } from "dashboard-common";
 import { useCallback } from "react";
 import { useSWRConfig } from "swr";
-import { fireGoogleAnalyticsEvent } from "elements/GoogleAnalytics";
-import { useRouter } from "next/router";
-import { useAuthHeader } from "./fetching";
+import { reportHttpError, useAuthHeader } from "./fetching";
 
 type MutateOptions = {
   url: string;
   mutateKey?: string;
   successToast?: string;
-  method?: "POST" | "PUT";
   toastOnError?: boolean;
-  redirectTo?: string;
-  googleAnalyticsEvent?: string;
 };
 
 // Makes a mutative API request, handling errors and toasts.
 export function useMutation<Request>({
   url,
-  method = "POST",
   mutateKey,
   successToast,
   toastOnError = true,
-  googleAnalyticsEvent,
-  redirectTo,
 }: MutateOptions): (body: Request) => Promise<globalThis.Response> {
-  const router = useRouter();
   const { mutate } = useSWRConfig();
   const authHeader = useAuthHeader();
   return useCallback(
@@ -41,7 +32,7 @@ export function useMutation<Request>({
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}${url}`,
         {
-          method,
+          method: "POST",
           headers: {
             Authorization: authHeader,
             "Content-Type": "application/json",
@@ -51,40 +42,15 @@ export function useMutation<Request>({
       );
       if (!response.ok) {
         const error = await response.json();
-        reportHttpError(method, url, error);
+        reportHttpError("POST", url, error);
         toastOnError && toast("error", error.message, error.message);
         throw error;
       } else {
-        redirectTo && (await router.push(redirectTo));
         mutateKey && (await mutate([mutateKey, authHeader]));
         successToast && toast("success", successToast);
-        googleAnalyticsEvent && fireGoogleAnalyticsEvent(googleAnalyticsEvent);
         return response;
       }
     },
-    [
-      authHeader,
-      googleAnalyticsEvent,
-      method,
-      mutate,
-      mutateKey,
-      redirectTo,
-      router,
-      successToast,
-      toastOnError,
-      url,
-    ],
-  );
-}
-
-// Convenience wrapper for converting the JSON response to a parameterized `Response` type.
-export function useMutationWithResponse<Request, Response>(
-  options: MutateOptions,
-): (body: Request) => Promise<Response> {
-  const mutate = useMutation<Request>(options);
-  return useCallback(
-    async (request: Request): Promise<Response> =>
-      (await mutate(request)).json(),
-    [mutate],
+    [authHeader, mutate, mutateKey, successToast, toastOnError, url],
   );
 }

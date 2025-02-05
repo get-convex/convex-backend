@@ -1,5 +1,4 @@
-import { captureException } from "@sentry/nextjs";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   CartesianGrid,
   Legend,
@@ -14,6 +13,7 @@ import { LoadingTransition } from "@common/elements/Loading";
 import { ChartData, ChartDataSource } from "@common/lib/charts/types";
 import { Callout } from "@common/elements/Callout";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function BigChart({
   dataSources,
@@ -32,6 +32,8 @@ export function BigChart({
 
   const [startDate] = useState(initStartDate);
   const [endDate] = useState(initEndDate);
+
+  const { captureException } = useContext(DeploymentInfoContext);
 
   useEffect(() => {
     async function getChartData() {
@@ -55,7 +57,7 @@ export function BigChart({
       }
     }
     void getChartData();
-  }, [dataSources, startDate, endDate]);
+  }, [dataSources, startDate, endDate, captureException]);
 
   return (
     <div className="flex flex-col gap-6 pt-4">

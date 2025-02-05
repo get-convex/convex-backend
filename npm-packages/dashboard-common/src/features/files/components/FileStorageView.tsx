@@ -6,7 +6,6 @@ import {
   TrashIcon,
   UploadIcon,
 } from "@radix-ui/react-icons";
-import * as Sentry from "@sentry/nextjs";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import Link from "next/link";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -240,7 +239,6 @@ export function useUploadFiles() {
       }
       return { status: "success", name: file.name };
     } catch (err) {
-      Sentry.captureException(err);
       return { status: "failure", name: file.name };
     }
   }

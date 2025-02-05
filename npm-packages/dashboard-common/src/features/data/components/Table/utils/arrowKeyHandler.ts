@@ -1,5 +1,3 @@
-import { captureMessage } from "@sentry/nextjs";
-
 function newDirection(
   { colIndex, rowIndex }: { colIndex: number; rowIndex: number },
   key: string,
@@ -14,7 +12,6 @@ function newDirection(
     case "ArrowDown":
       return { newColIndex: colIndex, newRowIndex: rowIndex + 1 };
     default:
-      captureMessage(`Unexpected key ${key}`);
       return { newColIndex: colIndex, newRowIndex: rowIndex };
   }
 }

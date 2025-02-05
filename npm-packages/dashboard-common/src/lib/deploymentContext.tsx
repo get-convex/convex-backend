@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
-import { captureMessage } from "@sentry/nextjs";
 import { cn } from "@common/lib/cn";
 import { LoadingLogo } from "@common/elements/Loading";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
@@ -25,6 +24,13 @@ export type DeploymentInfo = (
     }
   | { ok: false; errorCode: string; errorMessage: string }
 ) & {
+  captureMessage: (msg: string) => void;
+  captureException: (e: any) => void;
+  reportHttpError: (
+    method: string,
+    url: string,
+    error: { code: string; message: string },
+  ) => void;
   useCurrentTeam():
     | {
         id: number;
@@ -73,6 +79,7 @@ export type DeploymentInfo = (
     memberId?: number | null;
     name: string;
   }): JSX.Element;
+  ErrorBoundary(props: { children: ReactNode }): JSX.Element;
   teamsURI: string;
   projectsURI: string;
   deploymentsURI: string;
@@ -247,6 +254,8 @@ export function DeploymentApiProvider({
     }
   }, [router.isReady, router.query, deploymentOverride]);
 
+  const deploymentInfoContext = useContext(DeploymentInfoContext);
+
   const connected = useConnectedDeployment(deploymentName);
   // eslint-disable-next-line react/jsx-no-constructed-context-values
   let value: MaybeConnectedDeployment = {
@@ -273,7 +282,7 @@ export function DeploymentApiProvider({
       errorKind: "DoesNotExist",
     };
   } else if (connected && !connected?.ok) {
-    captureMessage(
+    deploymentInfoContext?.captureMessage(
       `Can't connect to deployment ${connected?.errorCode} ${connected?.errorMessage}`,
     );
   }

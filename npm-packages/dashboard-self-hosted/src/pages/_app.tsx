@@ -28,15 +28,9 @@ import {
   MenuItem,
   TextInput,
   Button,
-  Sheet,
 } from "dashboard-common";
-import React, {
-  ErrorInfo,
-  ReactNode,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { ErrorBoundary } from "components/ErrorBoundary";
 
 function App({
   Component,
@@ -101,6 +95,17 @@ export default App;
 
 const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   ok: true,
+  captureMessage: console.error,
+  captureException: console.error,
+  reportHttpError: (
+    method: string,
+    url: string,
+    error: { code: string; message: string },
+  ) => {
+    console.error(
+      `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+    );
+  },
   useCurrentTeam: () => ({
     id: 0,
     name: "Team",
@@ -137,6 +142,9 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     <div>{sourceCloudBackupId}</div>
   ),
   TeamMemberLink: () => <div />,
+  ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
+    <ErrorBoundary>{children}</ErrorBoundary>
+  ),
   useTeamUsageState: () => "Default",
   teamsURI: "/",
   projectsURI: "/",
@@ -244,69 +252,4 @@ function Header({ onLogout }: { onLogout: () => void }) {
       </Menu>
     </header>
   );
-}
-
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  error?: Error;
-}
-
-class ErrorBoundary extends React.Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = {};
-  }
-
-  static getDerivedStateFromError(e: Error): ErrorBoundaryState {
-    return { error: e };
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
-  }
-
-  render() {
-    const { error } = this.state;
-    const { children } = this.props;
-    if (error) {
-      return (
-        <div className="flex h-screen w-screen flex-col items-center justify-center gap-4">
-          <h3>Something went wrong</h3>
-          <div className="flex flex-col items-center gap-2">
-            {error.message.includes("not permitted") && (
-              <p role="alert" className="text-sm">
-                Your admin key may be invalid. Please try logging in again.
-              </p>
-            )}
-            <Button
-              className="w-fit"
-              icon={<ExitIcon />}
-              size="xs"
-              onClick={() => {
-                window.sessionStorage.setItem("adminKey", "");
-                window.location.reload();
-              }}
-              variant="neutral"
-            >
-              Log Out
-            </Button>
-          </div>
-          <Sheet className="max-h-[50vh] w-[50rem] max-w-[80vw] overflow-auto font-mono text-sm">
-            {error.message}
-            <pre>
-              <code>{error.stack}</code>
-            </pre>
-          </Sheet>
-        </div>
-      );
-    }
-
-    return children;
-  }
 }

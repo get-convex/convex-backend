@@ -9,6 +9,8 @@ import {
   TableContextMenuProps,
 } from "@common/features/data/components/Table/TableContextMenu";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 
@@ -72,9 +74,11 @@ describe("TableContextMenu", () => {
 
   const renderWithProvider = (props: Partial<TableContextMenuProps> = {}) =>
     render(
-      <ConvexProvider client={mockClient}>
-        <TableContextMenu {...defaultProps} {...props} />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <TableContextMenu {...defaultProps} {...props} />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
   beforeEach(() => {

@@ -1,10 +1,10 @@
-import { captureException } from "@sentry/nextjs";
 import { Cursor } from "convex/server";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { useMountedState } from "react-use";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
 import { toast } from "@common/lib/utils";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function ClearTableConfirmation({
   numRows,
@@ -48,6 +48,8 @@ export function ClearTableConfirmation({
   const isMounted = useMountedState();
 
   const invalidateShapes = useInvalidateShapes();
+
+  const { captureException } = useContext(DeploymentInfoContext);
 
   return (
     <ConfirmationDialog

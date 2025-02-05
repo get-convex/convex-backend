@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/nextjs";
 import { usePaginatedQuery } from "convex/react";
 import udfs from "udfs";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
@@ -50,12 +49,6 @@ function processDeploymentAuditLogEvent(
     case "snapshot_import":
       break;
     default:
-      // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
-      Sentry.captureMessage(
-        `Unexpected deployment audit log with action ${
-          (auditLogEvent as any).action
-        }`,
-      );
       return null;
   }
 

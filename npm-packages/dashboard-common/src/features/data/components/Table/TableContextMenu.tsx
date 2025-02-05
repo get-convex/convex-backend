@@ -1,4 +1,3 @@
-import * as Sentry from "@sentry/nextjs";
 import {
   ClipboardCopyIcon,
   EnterFullScreenIcon,
@@ -8,7 +7,7 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 import FunnelIcon from "@heroicons/react/24/outline/FunnelIcon";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 import { GenericDocument } from "convex/server";
 import { Value, convexToJson } from "convex/values";
 import {
@@ -28,6 +27,7 @@ import {
 } from "@common/features/data/components/Table/DataCell/utils/cellActions";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useTableContextMenuState(): {
   contextMenuState: TableContextMenuState | null;
@@ -88,6 +88,8 @@ export function TableContextMenu({
     selectedNent && selectedNent.state !== "active"
   );
 
+  const { captureMessage } = useContext(DeploymentInfoContext);
+
   const disableEditDoc = !canManageTable || isInUnmountedComponent;
   const disableEdit =
     state?.selectedCell?.column.startsWith("_") || disableEditDoc;
@@ -113,9 +115,7 @@ export function TableContextMenu({
         const selectedRowId = state.selectedCell?.rowId;
         const document = data.find((row) => row._id === selectedRowId);
         if (!document) {
-          Sentry.captureMessage(
-            "Can’t find the right-clicked document in data",
-          );
+          captureMessage("Can’t find the right-clicked document in data");
           return;
         }
       }
@@ -383,8 +383,9 @@ function FilterWithSubmenu({
   addDraftFilter: (newFilter: Filter) => void;
   defaultDocument: GenericDocument;
 }) {
+  const { captureMessage } = useContext(DeploymentInfoContext);
   if (!state.selectedCell) {
-    Sentry.captureMessage("No selected cell in FilterWithSubmenu");
+    captureMessage("No selected cell in FilterWithSubmenu");
     return null;
   }
   return (

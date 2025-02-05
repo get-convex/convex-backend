@@ -7,7 +7,6 @@ import { useRouter } from "next/router";
 import { cn } from "@common/lib/cn";
 import { GenericDocument } from "convex/server";
 import { SourceLocation } from "acorn";
-import { captureMessage } from "@sentry/nextjs";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import {
@@ -69,7 +68,6 @@ export function useIdDecorations(
       .getModels()
       ?.find((m) => path.replace(":", "_") === m.uri.path.slice(1));
     if (!model) {
-      captureMessage(`Model not found in Monaco editor for path: ${path}`);
       return;
     }
 

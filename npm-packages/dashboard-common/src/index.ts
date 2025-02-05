@@ -4,12 +4,7 @@
  */
 
 // General dashboard exports
-export {
-  reportHttpError,
-  toast,
-  dismissToast,
-  backoffWithJitter,
-} from "@common/lib/utils";
+export { toast, dismissToast, backoffWithJitter } from "@common/lib/utils";
 export * from "@common/lib/fetching";
 export * from "@common/lib/useGlobalLocalStorage";
 export * from "@common/lib/useCopy";

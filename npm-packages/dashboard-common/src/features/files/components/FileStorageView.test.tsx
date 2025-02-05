@@ -10,53 +10,8 @@ import {
   useUploadFiles,
 } from "@common/features/files/components/FileStorageView";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
-import {
-  DeploymentInfo,
-  DeploymentInfoContext,
-} from "@common/lib/deploymentContext";
-
-const deploymentInfo: DeploymentInfo = {
-  ok: true,
-  deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
-  adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
-  useCurrentTeam: () => ({
-    id: 0,
-    name: "Team",
-    slug: "team",
-  }),
-  useTeamMembers: () => [],
-  useTeamEntitlements: () => ({
-    auditLogsEnabled: true,
-  }),
-  useCurrentUsageBanner: () => null,
-  useCurrentProject: () => ({
-    id: 0,
-    name: "Project",
-    slug: "project",
-    teamId: 0,
-  }),
-  useLogDeploymentEvent: () => () => {},
-  useCurrentDeployment: () => ({
-    id: 0,
-    name: "local",
-    deploymentType: "prod",
-    projectId: 0,
-    kind: "local",
-    previewIdentifier: null,
-  }),
-  useHasProjectAdminPermissions: () => true,
-  useIsDeploymentPaused: () => false,
-  useProjectEnvironmentVariables: () => ({ configs: [] }),
-  CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
-    <div>{sourceCloudBackupId}</div>
-  ),
-  TeamMemberLink: () => <div />,
-  useTeamUsageState: () => "Default",
-  teamsURI: "/",
-  projectsURI: "/",
-  deploymentsURI: "/",
-  isSelfHosted: true,
-};
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 const mockRouter = jest
   .fn()
@@ -100,7 +55,7 @@ describe("FileStorageContent", () => {
     const setup = () =>
       act(() =>
         render(
-          <DeploymentInfoContext.Provider value={deploymentInfo}>
+          <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
             <ConvexProvider client={mockClient}>
               <FileStorageView />
             </ConvexProvider>
@@ -140,7 +95,7 @@ describe("FileStorageContent", () => {
     const setup = () =>
       act(() =>
         render(
-          <DeploymentInfoContext.Provider value={deploymentInfo}>
+          <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
             <ConvexProvider client={mockClient}>
               <UploaderWithLogic />
             </ConvexProvider>

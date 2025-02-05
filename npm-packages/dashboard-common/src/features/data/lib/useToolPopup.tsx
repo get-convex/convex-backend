@@ -1,8 +1,7 @@
-import { captureMessage } from "@sentry/nextjs";
 import { useMutation } from "convex/react";
 import { Cursor, GenericDocument } from "convex/server";
 import { ConvexError, ValidatorJSON } from "convex/values";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import udfs from "udfs";
 import { SchemaJson } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useNents } from "@common/lib/useNents";
@@ -15,6 +14,7 @@ import { EditFieldsPanel } from "@common/features/data/components/Table/EditDocu
 import { TableMetrics } from "@common/features/data/components/TableMetrics";
 import { TableSchemaAndIndexes } from "@common/features/data/components/TableSchemaAndIndexes";
 import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export type PopupState = ReturnType<typeof useToolPopup>;
 
@@ -197,6 +197,7 @@ function EditSingleDocumentPanel({
   const replaceDocument = useMutation(udfs.replaceDocument.default);
   const invalidateShapes = useInvalidateShapes();
   const { selectedNent } = useNents();
+  const { captureMessage } = useContext(DeploymentInfoContext);
 
   return (
     <EditDocumentPanel

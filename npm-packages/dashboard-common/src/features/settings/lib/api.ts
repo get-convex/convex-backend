@@ -5,8 +5,11 @@ import {
   useDeploymentAuthHeader,
   useDeploymentUrl,
 } from "@common/lib/deploymentApi";
-import { reportHttpError, toast } from "@common/lib/utils";
-import { ConnectedDeploymentContext } from "@common/lib/deploymentContext";
+import { toast } from "@common/lib/utils";
+import {
+  ConnectedDeploymentContext,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
 
 export function useUpdateEnvVars(): (
   changes: {
@@ -16,6 +19,7 @@ export function useUpdateEnvVars(): (
 ) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
   return async (changes) => {
     const body = JSON.stringify({ changes });
     const res = await fetch(
@@ -40,6 +44,7 @@ export function useUpdateEnvVars(): (
 export function useDeleteComponent() {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
   return useCallback(
     async (id: Id<"_components">) => {
       const res = await fetch(`${deploymentUrl}/api/delete_component`, {
@@ -56,7 +61,7 @@ export function useDeleteComponent() {
         toast("error", err.message);
       }
     },
-    [deploymentUrl, adminKey],
+    [deploymentUrl, adminKey, reportHttpError],
   );
 }
 
@@ -69,6 +74,7 @@ export function useChangeDeploymentState(): (
   }
   const deploymentUrl = useDeploymentUrl();
   const authHeader = useDeploymentAuthHeader();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
   return async (newState) => {
     const body = JSON.stringify({ newState });
     const res = await fetch(`${deploymentUrl}/api/change_deployment_state`, {

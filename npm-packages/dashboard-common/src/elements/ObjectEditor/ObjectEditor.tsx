@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import isArray from "lodash/isArray";
 import isPlainObject from "lodash/isPlainObject";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { captureMessage } from "@sentry/nextjs";
 import { useMount } from "react-use";
 import { useRouter } from "next/router";
 import { stringifyValue } from "@common/lib/stringifyValue";
@@ -333,7 +332,6 @@ function setErrorMarkers(
     .getModels()
     ?.find((m) => path.replace(":", "_") === m.uri.path.slice(1));
   if (!model) {
-    captureMessage(`Model not found in Monaco editor for path: ${path}`);
     return;
   }
   monaco.editor.setModelMarkers(model, "", markers);

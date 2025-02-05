@@ -12,7 +12,6 @@ import {
   ConnectedDeploymentContext,
   DeploymentInfoContext,
   DeploymentInfo,
-  reportHttpError,
   useAdminKey,
   useDeploymentAuthHeader,
   useDeploymentUrl,
@@ -33,6 +32,13 @@ import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { CloudImport } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { logDeploymentEvent } from "convex-analytics";
+import {
+  ErrorBoundary,
+  captureException,
+  captureMessage,
+} from "@sentry/nextjs";
+import { reportHttpError } from "hooks/fetching";
+import { Fallback } from "pages/500";
 import { useAccessToken } from "./useServerSideData";
 import { useCurrentProject } from "../api/projects";
 import { useTeamUsageState } from "./useTeamUsageState";
@@ -41,6 +47,10 @@ import { useProjectEnvironmentVariables } from "./api";
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+function DeploymentErrorBoundary({ children }: { children: React.ReactNode }) {
+  return <ErrorBoundary fallback={Fallback}>{children}</ErrorBoundary>;
+}
 
 export function DeploymentInfoProvider({
   children,
@@ -69,6 +79,9 @@ export function DeploymentInfoProvider({
       );
       setDeploymentInfo({
         ...info,
+        captureMessage,
+        captureException,
+        reportHttpError,
         useCurrentTeam,
         useCurrentProject,
         useCurrentUsageBanner,
@@ -82,6 +95,7 @@ export function DeploymentInfoProvider({
         useLogDeploymentEvent,
         TeamMemberLink,
         CloudImport,
+        ErrorBoundary: DeploymentErrorBoundary,
         teamsURI,
         projectsURI,
         deploymentsURI,

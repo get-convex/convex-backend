@@ -1,6 +1,5 @@
 import { Cursor, GenericDocument } from "convex/server";
 import { ConvexError } from "convex/values";
-import { captureException } from "@sentry/nextjs";
 import { useMutation } from "convex/react";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
@@ -10,6 +9,8 @@ import {
 } from "@common/features/data/lib/api";
 import { useNents } from "@common/lib/useNents";
 import { toast } from "@common/lib/utils";
+import { useContext } from "react";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useDataToolbarActions({
   tableName,
@@ -33,6 +34,7 @@ export function useDataToolbarActions({
   ) => Promise<{ continueCursor: Cursor; deleted: number; hasMore: boolean }>;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
 } {
+  const { captureException } = useContext(DeploymentInfoContext);
   const invalidateShapes = useInvalidateShapes();
 
   const documentAdd = useMutation(udfs.addDocument.default);

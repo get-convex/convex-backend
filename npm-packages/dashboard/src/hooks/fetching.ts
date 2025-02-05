@@ -1,5 +1,5 @@
 import { Middleware } from "swr";
-import { captureException } from "@sentry/nextjs";
+import { captureException, captureMessage } from "@sentry/nextjs";
 import { deploymentFetch, translateResponse } from "dashboard-common";
 import { useAccessToken } from "./useServerSideData";
 
@@ -100,3 +100,13 @@ export const bigBrainAuth: Middleware =
 
     return useSWRNext(swrKey, fetcher, { ...config, fallbackData });
   };
+
+export const reportHttpError = (
+  method: string,
+  url: string,
+  error: { code: string; message: string },
+) => {
+  captureMessage(
+    `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+  );
+};

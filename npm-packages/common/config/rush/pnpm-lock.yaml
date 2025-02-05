@@ -612,9 +612,6 @@ importers:
       formik:
         specifier: ~2.2.9
         version: 2.2.10(react@18.3.1)
-      js-base64:
-        specifier: ~3.7.4
-        version: 3.7.7
       launchdarkly-react-client-sdk:
         specifier: ^3.0.4
         version: 3.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -633,9 +630,6 @@ importers:
       posthog-js:
         specifier: ~1.211.3
         version: 1.211.3
-      prop-types:
-        specifier: ~15.8.1
-        version: 15.8.1
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -651,9 +645,6 @@ importers:
       react-sparklines:
         specifier: ~1.7.0
         version: 1.7.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-table:
-        specifier: 7.8.0
-        version: 7.8.0(react@18.3.1)
       react-use:
         specifier: ~17.6.0
         version: 17.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -901,9 +892,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ~1.1.0
         version: 1.1.7(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@sentry/nextjs':
-        specifier: 7.120.2
-        version: 7.120.2(encoding@0.1.13)(next@14.2.21(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(supports-color@10.0.0)(webpack@5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))
       '@tanstack/react-table':
         specifier: ~8.20.6
         version: 8.20.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -26929,7 +26917,7 @@ snapshots:
       '@sentry/types': 7.120.2
       '@sentry/utils': 7.120.2
 
-  '@sentry/cli@1.77.3(encoding@0.1.13)(supports-color@10.0.0)':
+  '@sentry/cli@1.77.3(encoding@0.1.13)':
     dependencies:
       https-proxy-agent: 5.0.1(supports-color@10.0.0)
       mkdirp: 0.5.6
@@ -26968,7 +26956,7 @@ snapshots:
       '@sentry/types': 7.120.2
       '@sentry/utils': 7.120.2
       '@sentry/vercel-edge': 7.120.2
-      '@sentry/webpack-plugin': 1.21.0(encoding@0.1.13)(supports-color@10.0.0)
+      '@sentry/webpack-plugin': 1.21.0(encoding@0.1.13)
       chalk: 3.0.0
       next: 14.2.21(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
@@ -26977,29 +26965,6 @@ snapshots:
       stacktrace-parser: 0.1.10
     optionalDependencies:
       webpack: 5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.18.20)
-    transitivePeerDependencies:
-      - encoding
-      - supports-color
-
-  '@sentry/nextjs@7.120.2(encoding@0.1.13)(next@14.2.21(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(supports-color@10.0.0)(webpack@5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15)))':
-    dependencies:
-      '@rollup/plugin-commonjs': 24.0.0(rollup@2.79.2)
-      '@sentry/core': 7.120.2
-      '@sentry/integrations': 7.120.2
-      '@sentry/node': 7.120.2
-      '@sentry/react': 7.120.2(react@18.3.1)
-      '@sentry/types': 7.120.2
-      '@sentry/utils': 7.120.2
-      '@sentry/vercel-edge': 7.120.2
-      '@sentry/webpack-plugin': 1.21.0(encoding@0.1.13)(supports-color@10.0.0)
-      chalk: 3.0.0
-      next: 14.2.21(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react: 18.3.1
-      resolve: 1.22.8
-      rollup: 2.79.2
-      stacktrace-parser: 0.1.10
-    optionalDependencies:
-      webpack: 5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15))
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -27052,9 +27017,9 @@ snapshots:
       '@sentry/types': 7.120.2
       '@sentry/utils': 7.120.2
 
-  '@sentry/webpack-plugin@1.21.0(encoding@0.1.13)(supports-color@10.0.0)':
+  '@sentry/webpack-plugin@1.21.0(encoding@0.1.13)':
     dependencies:
-      '@sentry/cli': 1.77.3(encoding@0.1.13)(supports-color@10.0.0)
+      '@sentry/cli': 1.77.3(encoding@0.1.13)
       webpack-sources: 3.2.3
     transitivePeerDependencies:
       - encoding

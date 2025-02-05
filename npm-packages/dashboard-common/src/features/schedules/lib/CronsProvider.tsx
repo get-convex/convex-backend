@@ -1,5 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
 import {
@@ -12,6 +11,7 @@ import { useInMemoryDocumentCache } from "@common/features/schedules/lib/useInMe
 import { useListModules } from "@common/lib/functions/useListModules";
 import { createContextHook } from "@common/lib/createContextHook";
 import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 type CronJobsContextType = {
   cronsModule: Module | undefined;
@@ -30,6 +30,7 @@ export function CronJobsProviderWithCronHistory({
 }: {
   children: ReactNode;
 }) {
+  const { captureMessage } = useContext(DeploymentInfoContext);
   // Get functions
   const modules = useListModules();
   // Get cron jobs
@@ -82,16 +83,14 @@ export function CronJobsProviderWithCronHistory({
         .map((identifier) => {
           const cronJob = cronJobsMap.get(identifier)!;
           if (!cronJob) {
-            Sentry.captureMessage(
-              `No CronJob found for CronSpec ${identifier}`,
-            );
+            captureMessage(`No CronJob found for CronSpec ${identifier}`);
           }
           return cronJob;
         })
         .filter((x) => x), // remove empty
       cronsModuleInner,
     ];
-  }, [modules, cronJobs, cronJobRuns]);
+  }, [cronJobs, modules, cronJobRuns, captureMessage]);
 
   return (
     <CronJobsContext.Provider

@@ -8,14 +8,14 @@ import { PathsWithMethod } from "openapi-typescript-helpers";
 import { createMutateHook, createQueryHook } from "swr-openapi";
 import isMatch from "lodash/isMatch";
 import { fireGoogleAnalyticsEvent } from "elements/GoogleAnalytics";
-import { reportHttpError, toast } from "dashboard-common";
+import { toast } from "dashboard-common";
 import type { paths as BigBrainPaths } from "generatedApi";
 import { SWRConfiguration } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCallback, useEffect } from "react";
 import { usePrevious } from "react-use";
-import { getGoogleAnalyticsClientId } from "../hooks/fetching";
+import { getGoogleAnalyticsClientId, reportHttpError } from "../hooks/fetching";
 
 export const client = createClient<BigBrainPaths>({
   baseUrl: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard`,

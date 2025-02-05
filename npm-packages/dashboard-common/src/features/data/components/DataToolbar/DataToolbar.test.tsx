@@ -9,54 +9,9 @@ import {
   DataToolbar,
   DataToolbarProps,
 } from "@common/features/data/components/DataToolbar/DataToolbar";
-import {
-  DeploymentInfo,
-  DeploymentInfoContext,
-} from "@common/lib/deploymentContext";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { FunctionsContext } from "@common/lib/functions/FunctionsProvider";
-
-const deploymentInfo: DeploymentInfo = {
-  ok: true,
-  deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
-  adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
-  useCurrentTeam: () => ({
-    id: 0,
-    name: "Team",
-    slug: "team",
-  }),
-  useTeamMembers: () => [],
-  useTeamEntitlements: () => ({
-    auditLogsEnabled: true,
-  }),
-  useCurrentUsageBanner: () => null,
-  useCurrentProject: () => ({
-    id: 0,
-    name: "Project",
-    slug: "project",
-    teamId: 0,
-  }),
-  useLogDeploymentEvent: () => () => {},
-  useCurrentDeployment: () => ({
-    id: 0,
-    name: "local",
-    deploymentType: "prod",
-    projectId: 0,
-    kind: "local",
-    previewIdentifier: null,
-  }),
-  useHasProjectAdminPermissions: () => true,
-  useIsDeploymentPaused: () => false,
-  useProjectEnvironmentVariables: () => ({ configs: [] }),
-  CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
-    <div>{sourceCloudBackupId}</div>
-  ),
-  TeamMemberLink: () => <div />,
-  useTeamUsageState: () => "Default",
-  teamsURI: "/",
-  projectsURI: "/",
-  deploymentsURI: "/",
-  isSelfHosted: true,
-};
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 jest.mock("convex/react", () => ({
   useQuery: jest.fn(),
@@ -121,7 +76,9 @@ describe("DataToolbar", () => {
     // @ts-expect-error
     useRouter.mockReturnValue({ query, replace: jest.fn() });
     return render(
-      <Toolbar componentProps={componentProps} hookProps={hookProps} />,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <Toolbar componentProps={componentProps} hookProps={hookProps} />,
+      </DeploymentInfoContext.Provider>,
     );
   };
 
@@ -156,35 +113,34 @@ describe("DataToolbar", () => {
       activeSchema: null,
       ...hookProps,
     });
+
     return (
-      <DeploymentInfoContext.Provider value={deploymentInfo}>
-        <FunctionsContext.Provider value={useMemo(() => new Map(), [])}>
-          {popupState.popupEl}
-          <DataToolbar
-            popupState={popupState}
-            hasFilters={hasFilters}
-            filters={filters}
-            setShowFilters={jest.fn()}
-            showFilters={false}
-            tableName={tableName}
-            numRowsLoaded={0}
-            isProd={false}
-            isLoadingMore={false}
-            tableSchemaStatus={{
-              tableName,
-              isDefined: false,
-              referencedByTable: undefined,
-              isValidationRunning: false,
-            }}
-            deleteRows={jest.fn()}
-            selectedRowsIds={new Set()}
-            allRowsSelected={false}
-            selectedDocument={undefined}
-            {...hookProps}
-            {...componentProps}
-          />
-        </FunctionsContext.Provider>
-      </DeploymentInfoContext.Provider>
+      <FunctionsContext.Provider value={useMemo(() => new Map(), [])}>
+        {popupState.popupEl}
+        <DataToolbar
+          popupState={popupState}
+          hasFilters={hasFilters}
+          filters={filters}
+          setShowFilters={jest.fn()}
+          showFilters={false}
+          tableName={tableName}
+          numRowsLoaded={0}
+          isProd={false}
+          isLoadingMore={false}
+          tableSchemaStatus={{
+            tableName,
+            isDefined: false,
+            referencedByTable: undefined,
+            isValidationRunning: false,
+          }}
+          deleteRows={jest.fn()}
+          selectedRowsIds={new Set()}
+          allRowsSelected={false}
+          selectedDocument={undefined}
+          {...hookProps}
+          {...componentProps}
+        />
+      </FunctionsContext.Provider>
     );
   }
 

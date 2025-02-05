@@ -1,6 +1,5 @@
-import { useCallback } from "react";
+import { useCallback, useContext } from "react";
 import useSWR, { useSWRConfig } from "swr";
-import { reportHttpError } from "@common/lib/utils";
 import {
   useDeploymentUrl,
   useAdminKey,
@@ -10,6 +9,7 @@ import {
 } from "@common/lib/deploymentApi";
 import { deploymentFetch } from "@common/lib/fetching";
 import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useDeleteTables(): (
   tableNames: string[],
@@ -17,6 +17,7 @@ export function useDeleteTables(): (
 ) => Promise<{ success: false; error: string } | { success: true }> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
 
   return async (tableNames: string[], componentId: string | null) => {
     const body = JSON.stringify({ tableNames, componentId });

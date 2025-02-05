@@ -5,7 +5,6 @@ import { ReactNode, useContext, useRef, useState } from "react";
 import { useLocalStorage } from "react-use";
 import { gt } from "semver";
 import udfs from "udfs";
-import { ErrorBoundary } from "@sentry/nextjs";
 import { useRouter } from "next/router";
 import {
   ImperativePanelHandle,
@@ -16,27 +15,11 @@ import {
 import { DragHandleDots2Icon } from "@radix-ui/react-icons";
 import { cn } from "@common/lib/cn";
 
-import { Callout } from "@common/elements/Callout";
 import { PageContent } from "@common/elements/PageContent";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Tooltip } from "@common/elements/Tooltip";
 import { ClosePanelButton } from "@common/elements/ClosePanelButton";
 import { Button } from "@common/elements/Button";
-
-function Fallback({ error }: { error: Error | null }) {
-  return (
-    <div className="h-full grow">
-      <div className="flex h-full flex-col items-center justify-center">
-        <Callout variant="error">
-          <div className="flex flex-col gap-2">
-            <p>We encountered an error loading this page.</p>
-            {error && <code>{error.toString()}</code>}
-          </div>
-        </Callout>
-      </div>
-    </div>
-  );
-}
 
 export function SidebarDetailLayout({
   sidebarComponent,
@@ -53,6 +36,8 @@ export function SidebarDetailLayout({
 
   const [collapsed, setCollapsed] = useState(false);
   const panelRef = useRef<ImperativePanelHandle>(null);
+
+  const { ErrorBoundary } = useContext(DeploymentInfoContext);
 
   return (
     <div className="flex h-full grow items-stretch overflow-hidden">
@@ -88,7 +73,7 @@ export function SidebarDetailLayout({
           defaultSize={80}
         >
           <PageContent>
-            <ErrorBoundary fallback={Fallback} key={cleanPath}>
+            <ErrorBoundary key={cleanPath}>
               <div className="h-full animate-fadeInFromLoading overflow-auto">
                 {contentComponent}
               </div>

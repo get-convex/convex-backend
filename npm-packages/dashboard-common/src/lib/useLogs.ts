@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { captureException } from "@sentry/nextjs";
 import {
   FunctionExecution,
   UdfType,
@@ -221,7 +220,6 @@ function queryFunctionLogs(
         if (e instanceof DOMException && e.code === DOMException.ABORT_ERR) {
           return;
         }
-        captureException(e);
         numFailures += 1;
         // Give it some time before we show an error to avoid looking extra broken due to transient
         // connectivity or backend errors (e.g. a backend restart during a push).

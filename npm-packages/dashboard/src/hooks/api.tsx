@@ -53,7 +53,6 @@ export function useUpdateProjectEnvVars(projectId?: number) {
     url: `/api/dashboard/projects/${projectId}/environment_variables/update_batch`,
     mutateKey: `/api/dashboard/projects/${projectId}/environment_variables/list`,
     successToast: "Environment variables updated.",
-    method: "POST",
   });
 }
 

@@ -1,7 +1,6 @@
-import { ReactNode, useMemo } from "react";
+import { ReactNode, useContext, useMemo } from "react";
 import { useRouter } from "next/router";
 import { cn } from "@common/lib/cn";
-import { captureMessage } from "@sentry/nextjs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
 import { createGlobalState } from "react-use";
 import {
@@ -15,6 +14,7 @@ import { useListModulesAllNents } from "@common/lib/functions/useListModules";
 import { createContextHook } from "@common/lib/createContextHook";
 import { ComponentId, Nent, useNents } from "@common/lib/useNents";
 import { LoadingLogo } from "@common/elements/Loading";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 const [FunctionsContext, useFunctions] = createContextHook<
   Map<ComponentId, Map<string, Module>>
@@ -149,6 +149,7 @@ export function useCurrentOpenFunction() {
 export function useModuleFunctions(): ModuleFunction[] {
   const modules = useFunctions();
   const { nents } = useNents();
+  const { captureMessage } = useContext(DeploymentInfoContext);
 
   return useMemo(() => {
     if (!nents) {
@@ -159,7 +160,7 @@ export function useModuleFunctions(): ModuleFunction[] {
     }
 
     return modulesToModuleFunctions(modules, nents);
-  }, [modules, nents]);
+  }, [captureMessage, modules, nents]);
 }
 
 // Exported for testing only
@@ -190,6 +191,7 @@ export function useRootEntries() {
   const modules = useFunctions();
   const [searchTerm] = useFunctionSearchTerm();
   const { selectedNent, nents } = useNents();
+  const { captureMessage } = useContext(DeploymentInfoContext);
 
   const rootEntries = useMemo(() => {
     if (!nents) {
@@ -221,7 +223,7 @@ export function useRootEntries() {
     }
 
     return rootDirectory?.children ?? [];
-  }, [modules, nents, searchTerm, selectedNent]);
+  }, [captureMessage, modules, nents, searchTerm, selectedNent]);
   return rootEntries;
 }
 

@@ -2,7 +2,7 @@ import { useContext } from "react";
 import Link from "next/link";
 import { useAdminKey, useDeploymentUrl } from "@common/lib/deploymentApi";
 import { useNents } from "@common/lib/useNents";
-import { reportHttpError, toast } from "@common/lib/utils";
+import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { displayName } from "@common/lib/functions/generateFileTree";
 
@@ -10,7 +10,7 @@ export function useCancelAllJobs(): (udfPath?: string) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
   const { selectedNent } = useNents();
-  const { deploymentsURI } = useContext(DeploymentInfoContext);
+  const { deploymentsURI, reportHttpError } = useContext(DeploymentInfoContext);
 
   return async (udfPath?: string) => {
     const body = JSON.stringify({
@@ -65,6 +65,7 @@ export function useCancelJob(): (
 ) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
+  const { reportHttpError } = useContext(DeploymentInfoContext);
 
   return async (id: string, componentId: string | null) => {
     const body = JSON.stringify({ id, componentId });
