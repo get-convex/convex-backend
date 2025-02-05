@@ -24,7 +24,6 @@ import {
   CONVEX_DEPLOYMENT_VAR_NAME,
   DeploymentDetails,
   eraseDeploymentEnvVar,
-  getConfiguredCredentialsFromEnvVar,
   writeDeploymentEnvVar,
 } from "./lib/deployment.js";
 import { finalizeConfiguration } from "./lib/init.js";
@@ -96,13 +95,10 @@ export async function deploymentCredentialsOrConfigure(
     deploymentName?: DeploymentName;
   }
 > {
-  const envVarCredentials = getConfiguredCredentialsFromEnvVar();
-  const urlOverride = cmdOptions.url ?? envVarCredentials.url;
-  const adminKeyOverride = cmdOptions.adminKey ?? envVarCredentials.adminKey;
-  if (urlOverride !== undefined && adminKeyOverride !== undefined) {
+  if (cmdOptions.url !== undefined && cmdOptions.adminKey !== undefined) {
     const credentials = await handleManuallySetUrlAndAdminKey(ctx, {
-      url: urlOverride,
-      adminKey: adminKeyOverride,
+      url: cmdOptions.url,
+      adminKey: cmdOptions.adminKey,
     });
     return { ...credentials };
   }

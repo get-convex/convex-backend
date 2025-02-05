@@ -58,8 +58,8 @@ In your Convex project, add your url and admin key to a `.env.local` file (which
 should not be committed to source control):
 
 ```sh
-CONVEX_SELF_HOST_DEPLOYMENT_URL='http://127.0.0.1:3210'
-CONVEX_DEPLOY_KEY='<your deploy key>'
+CONVEX_SELF_HOST_URL='http://127.0.0.1:3210'
+CONVEX_SELF_HOST_ADMIN_KEY='<your deploy key>'
 ```
 
 Now you can run commands in your Convex project, to push code, run queries,

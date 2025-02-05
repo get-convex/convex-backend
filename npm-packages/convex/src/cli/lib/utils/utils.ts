@@ -35,8 +35,8 @@ export const provisionHost =
 const BIG_BRAIN_URL = `${provisionHost}/api/`;
 export const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
-export const CONVEX_SELF_HOST_DEPLOYMENT_URL_VAR_NAME =
-  "CONVEX_SELF_HOST_DEPLOYMENT_URL";
+export const CONVEX_SELF_HOST_URL_VAR_NAME = "CONVEX_SELF_HOST_URL";
+export const CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME = "CONVEX_SELF_HOST_ADMIN_KEY";
 const MAX_RETRIES = 6;
 // After 3 retries, log a progress message that we're retrying the request
 const RETRY_LOG_THRESHOLD = 3;
@@ -557,10 +557,6 @@ export function rootDirectory(): string {
     dirName = ".convex";
   }
   return path.join(os.homedir(), dirName);
-}
-
-export function readDeploymentUrlFromEnvVar(): string | undefined {
-  return process.env[CONVEX_SELF_HOST_DEPLOYMENT_URL_VAR_NAME] ?? undefined;
 }
 
 export function readAdminKeyFromEnvVar(): string | undefined {

@@ -5,7 +5,6 @@ import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   ENV_VAR_FILE_PATH,
   readAdminKeyFromEnvVar,
-  readDeploymentUrlFromEnvVar,
 } from "./utils/utils.js";
 import { DeploymentType } from "./api.js";
 
@@ -32,17 +31,6 @@ export function getConfiguredDeploymentFromEnvVar(): {
   const name = stripDeploymentTypePrefix(raw);
   const type = getDeploymentTypeFromConfiguredDeployment(raw);
   return { type, name };
-}
-
-export function getConfiguredCredentialsFromEnvVar(): {
-  url?: string | undefined;
-  adminKey?: string | undefined;
-} {
-  dotenv.config({ path: ENV_VAR_FILE_PATH });
-  dotenv.config();
-  const url = readDeploymentUrlFromEnvVar();
-  const adminKey = readAdminKeyFromEnvVar();
-  return { url, adminKey };
 }
 
 // Given a deployment string like "dev:tall-forest-1234"

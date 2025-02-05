@@ -10,8 +10,8 @@ fly launch
 fly ssh console --app self-hosted-backend --command "./generate_admin_key.sh"
 
 # Write these environment variables to .env.local
-CONVEX_SELF_HOST_DEPLOYMENT_URL='<NEXT_PUBLIC_DEPLOYMENT_URL>'
-CONVEX_DEPLOY_KEY='<your-admin-key>'
+CONVEX_SELF_HOST_URL='<NEXT_PUBLIC_DEPLOYMENT_URL>'
+CONVEX_SELF_HOST_ADMIN_KEY='<your-admin-key>'
 # Push your Convex functions
 npx convex deploy
 # Visit the dashboard - you should see your functions and be able to edit data, run functions, etc.

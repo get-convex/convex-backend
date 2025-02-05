@@ -19,7 +19,6 @@ import {
   getConfiguredDeployment,
   getConfiguredDeploymentNameOrCrash,
   readAdminKeyFromEnvVar,
-  readDeploymentUrlFromEnvVar,
 } from "./utils/utils.js";
 
 export type DeploymentName = string;
@@ -173,7 +172,7 @@ export function deploymentSelectionFromOptions(
   dotenv.config();
   storeAdminKeyEnvVar(options.adminKey);
   const adminKey = readAdminKeyFromEnvVar();
-  const url = options.url ?? readDeploymentUrlFromEnvVar();
+  const url = options.url;
   if (url !== undefined) {
     if (adminKey) {
       return { kind: "urlWithAdminKey", url, adminKey };

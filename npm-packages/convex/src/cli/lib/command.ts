@@ -1,5 +1,9 @@
 import { Command, Option, OptionValues } from "@commander-js/extra-typings";
 import { OneoffCtx } from "../../bundler/context.js";
+import {
+  CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME,
+  CONVEX_SELF_HOST_URL_VAR_NAME,
+} from "./utils/utils.js";
 
 declare module "@commander-js/extra-typings" {
   interface Command<Args extends any[] = [], Opts extends OptionValues = {}> {
@@ -53,7 +57,7 @@ declare module "@commander-js/extra-typings" {
     >;
 
     /**
-     * Adds common options for deploy-related commands.
+     * Adds options for the `deploy` command.
      */
     addDeployOptions(): Command<
       Args,
@@ -74,7 +78,19 @@ declare module "@commander-js/extra-typings" {
     >;
 
     /**
-     * Adds common options and arguments for run-related commands.
+     * Adds options for `self-host` subcommands.
+     */
+    addSelfHostOptions(): Command<
+      Args,
+      Opts & {
+        url?: string;
+        adminKey?: string;
+        env?: string;
+      }
+    >;
+
+    /**
+     * Adds options for the `run` command.
      */
     addRunOptions(): Command<
       [...Args, string, string | undefined],
@@ -271,6 +287,21 @@ Command.prototype.addDeployOptions = function () {
     .addOption(new Option("--debug").hideHelp())
     .addOption(new Option("--write-push-request <writePushRequest>").hideHelp())
     .addOption(new Option("--live-component-sources").hideHelp());
+};
+
+Command.prototype.addSelfHostOptions = function () {
+  return this.option(
+    "--admin-key <adminKey>",
+    `An admin key for the deployment. Can alternatively be set as \`${CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME}\` environment variable.`,
+  )
+    .option(
+      "--url <url>",
+      `The url of the deployment. Can alternatively be set as \`${CONVEX_SELF_HOST_URL_VAR_NAME}\` environment variable.`,
+    )
+    .option(
+      "--env <env>",
+      `Path to a custom file of environment variables, containing \`${CONVEX_SELF_HOST_URL_VAR_NAME}\` and \`${CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME}\`.`,
+    );
 };
 
 Command.prototype.addRunOptions = function () {
