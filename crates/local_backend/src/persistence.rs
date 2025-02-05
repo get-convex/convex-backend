@@ -31,7 +31,11 @@ pub async fn connect_persistence(
 ) -> anyhow::Result<Arc<dyn Persistence>> {
     let require_ssl = !do_not_require_ssl;
     let persistence: Arc<dyn Persistence> = match db {
-        DbDriverTag::Sqlite => Arc::new(SqlitePersistence::new(db_spec, false)?),
+        DbDriverTag::Sqlite => {
+            let persistence = Arc::new(SqlitePersistence::new(db_spec, false)?);
+            tracing::info!("Connected to SQLite at {db_spec}");
+            persistence
+        },
         DbDriverTag::Postgres(version) | DbDriverTag::PostgresAwsIam(version) => {
             let options = PostgresOptions {
                 allow_read_only: false,
@@ -43,7 +47,9 @@ pub async fn connect_persistence(
                 db,
                 require_ssl,
             )?;
-            Arc::new(PostgresPersistence::new(args.url.as_str(), options).await?)
+            let persistence = Arc::new(PostgresPersistence::new(args.url.as_str(), options).await?);
+            tracing::info!("Connected to Postgres database: {} ", args.db_name);
+            persistence
         },
         DbDriverTag::MySql(version) | DbDriverTag::MySqlAwsIam(version) => {
             let options = MySqlOptions {
@@ -57,19 +63,21 @@ pub async fn connect_persistence(
                 db,
                 require_ssl,
             )?;
-            Arc::new(
+            let persistence = Arc::new(
                 MySqlPersistence::new(
                     Arc::new(ConvexMySqlPool::new(
                         &args.url,
                         options.use_prepared_statements,
                         Some(runtime),
                     )?),
-                    args.db_name,
+                    args.db_name.clone(),
                     options,
                     shutdown_signal,
                 )
                 .await?,
-            )
+            );
+            tracing::info!("Connected to MySQL database: {} ", args.db_name);
+            persistence
         },
     };
     Ok(persistence)

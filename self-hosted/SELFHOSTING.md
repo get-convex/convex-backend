@@ -66,6 +66,48 @@ npx convex run <run args>
 npx convex import <import args>
 ```
 
+# Self Hosting with [Fly.io](https://fly.io/)
+
+```sh
+# From the self-hosted directory, deploy the backend.
+fly launch
+# Copy and paste the url that is output to set NEXT_PUBLIC_DEPLOYMENT_URL in the dashboard/fly.toml file.
+
+cd dashboard
+fly launch
+# Visit the dashboard at the url output from the fly deploy command.
+# Generate admin key to login to the dashboard.
+fly ssh console --app self-hosted-backend --command "./generate_admin_key.sh"
+
+# In your frontend app directory
+npm install convex@alpha
+# Write these environment variables to .env.local
+CONVEX_SELF_HOST_URL='<NEXT_PUBLIC_DEPLOYMENT_URL>'
+CONVEX_SELF_HOST_ADMIN_KEY='<your-admin-key>'
+# Push your Convex functions
+npx convex self-host deploy
+# Visit the dashboard - you should see your functions and be able to edit data, run functions, etc.
+```
+
+## Connecting to [Neon Postgres](https://neon.tech)
+
+Create a project on Neon. Copy the connection string from the Neon dashboard.
+
+```sh
+export DATABASE_CONNECTION='<connection string>'
+
+# Create the database
+psql $DATABASE_CONNECTION -c "CREATE DATABASE convex_self_hosted"
+
+# Strip database name and query params from the connection string. It should end in neon.tech
+export DATABASE_URL=$(echo $DATABASE_CONNECTION | sed -E 's/\/[^/]+(\?.*)?$//')
+fly secrets set DATABASE_URL=$DATABASE_URL
+
+# Check that the database is connected to your self-hosted convex backend.
+# There should be a line like "Connected to Postgres" in the logs.
+fly logs
+```
+
 # Self Hosting Via Running Binary Directly
 
 ### Get convex-local-backend Binary
