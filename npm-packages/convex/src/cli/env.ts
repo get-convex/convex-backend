@@ -1,25 +1,19 @@
 import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
-import {
-  Context,
-  logFailure,
-  logFinishedStep,
-  logMessage,
-  logOutput,
-  oneoffContext,
-} from "../bundler/context.js";
+import { Context, oneoffContext } from "../bundler/context.js";
 import {
   DeploymentSelectionOptions,
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsWithinCurrentProject,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
-import { runSystemQuery } from "./lib/run.js";
+import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import {
-  deploymentFetch,
-  ensureHasConvexDependency,
-  logAndHandleFetchError,
-} from "./lib/utils/utils.js";
+  envGetInDeployment,
+  envListInDeployment,
+  envRemoveInDeployment,
+  envSetInDeployment,
+} from "./lib/env.js";
 
 const envSet = new Command("set")
   // Pretend value is required
@@ -37,38 +31,33 @@ const envSet = new Command("set")
     const options = cmd.optsWithGlobals();
     const ctx = oneoffContext();
     await ensureHasConvexDependency(ctx, "env set");
-    const [name, value] = await allowEqualsSyntax(
-      ctx,
-      originalName,
-      originalValue,
-    );
-    const where = await callUpdateEnvironmentVariables(ctx, options, [
-      { name, value },
-    ]);
-    const formatted = /\s/.test(value) ? `"${value}"` : value;
-    logFinishedStep(
-      ctx,
-      `Successfully set ${chalk.bold(name)} to ${chalk.bold(formatted)}${where}`,
-    );
+    const deployment = await selectEnvDeployment(ctx, options);
+    await envSetInDeployment(ctx, deployment, originalName, originalValue);
   });
 
-async function allowEqualsSyntax(
+async function selectEnvDeployment(
   ctx: Context,
-  name: string,
-  value: string | undefined,
+  options: DeploymentSelectionOptions,
 ) {
-  if (value === undefined) {
-    if (/^[a-zA-Z][a-zA-Z0-9_]+=/.test(name)) {
-      return name.split("=", 2);
-    } else {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: "error: missing required argument 'value'",
-      });
-    }
-  }
-  return [name, value];
+  const deploymentSelection = deploymentSelectionFromOptions(options);
+  const { adminKey, url, deploymentName, deploymentType } =
+    await fetchDeploymentCredentialsWithinCurrentProject(
+      ctx,
+      deploymentSelection,
+    );
+  const deploymentNotice =
+    deploymentType !== undefined || deploymentName !== undefined
+      ? ` (on${
+          deploymentType !== undefined ? " " + chalk.bold(deploymentType) : ""
+        } deployment${
+          deploymentName !== undefined ? " " + chalk.bold(deploymentName) : ""
+        })`
+      : "";
+  return {
+    deploymentUrl: url,
+    adminKey,
+    deploymentNotice,
+  };
 }
 
 const envGet = new Command("get")
@@ -81,26 +70,8 @@ const envGet = new Command("get")
     const ctx = oneoffContext();
     await ensureHasConvexDependency(ctx, "env get");
     const options = cmd.optsWithGlobals();
-    const deploymentSelection = deploymentSelectionFromOptions(options);
-    const { adminKey, url } =
-      await fetchDeploymentCredentialsWithinCurrentProject(
-        ctx,
-        deploymentSelection,
-      );
-
-    const envVar = (await runSystemQuery(ctx, {
-      deploymentUrl: url,
-      adminKey,
-      functionName: "_system/cli/queryEnvironmentVariables:get",
-      componentPath: undefined,
-      args: { name: envVarName },
-    })) as EnvVar | null;
-    if (envVar === null) {
-      logFailure(ctx, `Environment variable "${envVarName}" not found.`);
-      return;
-    }
-    const { value } = envVar;
-    logOutput(ctx, `${value}`);
+    const deployment = await selectEnvDeployment(ctx, options);
+    await envGetInDeployment(ctx, deployment, envVarName);
   });
 
 const envRemove = new Command("remove")
@@ -118,10 +89,8 @@ const envRemove = new Command("remove")
     const ctx = oneoffContext();
     const options = cmd.optsWithGlobals();
     await ensureHasConvexDependency(ctx, "env remove");
-    const where = await callUpdateEnvironmentVariables(ctx, options, [
-      { name },
-    ]);
-    logFinishedStep(ctx, `Successfully unset ${chalk.bold(name)}${where}`);
+    const deployment = await selectEnvDeployment(ctx, options);
+    await envRemoveInDeployment(ctx, deployment, name);
   });
 
 const envList = new Command("list")
@@ -133,70 +102,9 @@ const envList = new Command("list")
     const ctx = oneoffContext();
     await ensureHasConvexDependency(ctx, "env list");
     const options = cmd.optsWithGlobals();
-    const deploymentSelection = deploymentSelectionFromOptions(options);
-    const { adminKey, url } =
-      await fetchDeploymentCredentialsWithinCurrentProject(
-        ctx,
-        deploymentSelection,
-      );
-
-    const envs = (await runSystemQuery(ctx, {
-      deploymentUrl: url,
-      adminKey,
-      functionName: "_system/cli/queryEnvironmentVariables",
-      componentPath: undefined,
-      args: {},
-    })) as EnvVar[];
-    if (envs.length === 0) {
-      logMessage(ctx, "No environment variables set.");
-      return;
-    }
-    for (const { name, value } of envs) {
-      logOutput(ctx, `${name}=${value}`);
-    }
+    const deployment = await selectEnvDeployment(ctx, options);
+    await envListInDeployment(ctx, deployment);
   });
-
-type EnvVarChange = {
-  name: string;
-  value?: string;
-};
-
-type EnvVar = {
-  name: string;
-  value: string;
-};
-
-async function callUpdateEnvironmentVariables(
-  ctx: Context,
-  options: DeploymentSelectionOptions,
-  changes: EnvVarChange[],
-) {
-  const deploymentSelection = deploymentSelectionFromOptions(options);
-  const { adminKey, url, deploymentName, deploymentType } =
-    await fetchDeploymentCredentialsWithinCurrentProject(
-      ctx,
-      deploymentSelection,
-    );
-  const fetch = deploymentFetch(ctx, {
-    deploymentUrl: url,
-    adminKey,
-  });
-  try {
-    await fetch("/api/update_environment_variables", {
-      body: JSON.stringify({ changes }),
-      method: "POST",
-    });
-    return deploymentType !== undefined || deploymentName !== undefined
-      ? ` (on${
-          deploymentType !== undefined ? " " + chalk.bold(deploymentType) : ""
-        } deployment${
-          deploymentName !== undefined ? " " + chalk.bold(deploymentName) : ""
-        })`
-      : "";
-  } catch (e) {
-    return await logAndHandleFetchError(ctx, e);
-  }
-}
 
 export const env = new Command("env")
   .summary("Set and view environment variables")

@@ -15,6 +15,8 @@ import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
 import { runInDeployment } from "./lib/run.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
 import { exportFromDeployment } from "./lib/convexExport.js";
+import { envListInDeployment, envRemoveInDeployment } from "./lib/env.js";
+import { envGetInDeployment, envSetInDeployment } from "./lib/env.js";
 
 export const selfHost = new Command("self-host");
 
@@ -224,3 +226,98 @@ selfHost
       snapshotExportDashboardLink: undefined,
     });
   });
+
+async function selfHostEnvDeployment(
+  ctx: Context,
+  options: {
+    env?: string;
+    adminKey?: string;
+    url?: string;
+  },
+) {
+  const deployment = await selfHostCredentials(ctx, true, options);
+  return {
+    deploymentUrl: deployment.url,
+    adminKey: deployment.adminKey,
+    deploymentNotice: "",
+  };
+}
+
+const envSet = new Command("set")
+  // Pretend value is required
+  .usage("[options] <name> <value>")
+  .arguments("<name> [value]")
+  .summary("Set a variable")
+  .description(
+    "Set a variable: `npx convex env set NAME value`\n" +
+      "If the variable already exists, its value is updated.\n\n" +
+      "A single `NAME=value` argument is also supported.",
+  )
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .action(async (originalName, originalValue, _options, cmd) => {
+    const options = cmd.optsWithGlobals();
+    const ctx = oneoffContext();
+    const deployment = await selfHostEnvDeployment(ctx, options);
+    await envSetInDeployment(ctx, deployment, originalName, originalValue);
+  });
+
+const envGet = new Command("get")
+  .arguments("<name>")
+  .summary("Print a variable's value")
+  .description("Print a variable's value: `npx convex env get NAME`")
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .action(async (envVarName, _options, cmd) => {
+    const ctx = oneoffContext();
+    const options = cmd.optsWithGlobals();
+    const deployment = await selfHostEnvDeployment(ctx, options);
+    await envGetInDeployment(ctx, deployment, envVarName);
+  });
+
+const envRemove = new Command("remove")
+  .alias("rm")
+  .alias("unset")
+  .arguments("<name>")
+  .summary("Unset a variable")
+  .description(
+    "Unset a variable: `npx convex env remove NAME`\n" +
+      "If the variable doesn't exist, the command doesn't do anything and succeeds.",
+  )
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .action(async (name, _options, cmd) => {
+    const ctx = oneoffContext();
+    const options = cmd.optsWithGlobals();
+    const deployment = await selfHostEnvDeployment(ctx, options);
+    await envRemoveInDeployment(ctx, deployment, name);
+  });
+
+const envList = new Command("list")
+  .summary("List all variables")
+  .description("List all variables: `npx convex env list`")
+  .configureHelp({ showGlobalOptions: true })
+  .allowExcessArguments(false)
+  .action(async (_options, cmd) => {
+    const ctx = oneoffContext();
+    const options = cmd.optsWithGlobals();
+    const deployment = await selfHostEnvDeployment(ctx, options);
+    await envListInDeployment(ctx, deployment);
+  });
+
+selfHost
+  .command("env")
+  .summary("Set and view environment variables")
+  .description(
+    "Set and view environment variables on your deployment\n\n" +
+      "  Set a variable: `npx convex env set NAME value`\n" +
+      "  Unset a variable: `npx convex env remove NAME`\n" +
+      "  List all variables: `npx convex env list`\n" +
+      "  Print a variable's value: `npx convex env get NAME`",
+  )
+  .addCommand(envSet)
+  .addCommand(envGet)
+  .addCommand(envRemove)
+  .addCommand(envList)
+  .addHelpCommand(false)
+  .addSelfHostOptions();
