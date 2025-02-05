@@ -1,25 +1,25 @@
 import React, { useContext, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
-import { SidebarDetailLayout } from "layouts/SidebarDetailLayout";
-import { EmptyData } from "features/data/components/EmptyData";
+import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
+import { EmptyData } from "@common/features/data/components/EmptyData";
 import {
   DataContent,
   DataContentSkeleton,
-} from "features/data/components/DataContent";
+} from "@common/features/data/components/DataContent";
 import {
   DataSidebar,
   DataSideBarSkeleton,
-} from "features/data/components/DataSidebar";
-import { ShowSchema } from "features/data/components/ShowSchema";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useTableMetadataAndUpdateURL } from "lib/useTableMetadata";
-import { useNents } from "lib/useNents";
-import { SchemaJson } from "lib/format";
-import { useTableShapes } from "lib/deploymentApi";
-import { Modal } from "elements/Modal";
-import { LoadingTransition } from "elements/Loading";
-import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
+} from "@common/features/data/components/DataSidebar";
+import { ShowSchema } from "@common/features/data/components/ShowSchema";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
+import { useNents } from "@common/lib/useNents";
+import { SchemaJson } from "@common/lib/format";
+import { useTableShapes } from "@common/lib/deploymentApi";
+import { Modal } from "@common/elements/Modal";
+import { LoadingTransition } from "@common/elements/Loading";
+import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 
 export function DataView() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);

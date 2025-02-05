@@ -3,9 +3,9 @@ import classNames from "classnames";
 import {
   useFunctionSearchTerm,
   useRootEntries,
-} from "lib/functions/FunctionsProvider";
-import { FileTree } from "features/functions/components/FileTree";
-import { NentSwitcher } from "elements/NentSwitcher";
+} from "@common/lib/functions/FunctionsProvider";
+import { FileTree } from "@common/features/functions/components/FileTree";
+import { NentSwitcher } from "@common/elements/NentSwitcher";
 
 export function DirectorySidebar({
   onChangeFunction,

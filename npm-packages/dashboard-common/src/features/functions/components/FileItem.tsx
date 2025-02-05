@@ -1,11 +1,11 @@
 import { Disclosure } from "@headlessui/react";
 import { CodeIcon } from "@radix-ui/react-icons";
-import type { File } from "lib/functions/types";
+import type { File } from "@common/lib/functions/types";
 import {
   DirectoryItem,
   FunctionItem,
-} from "features/functions/components/FunctionItem";
-import { useCurrentOpenFunction } from "lib/functions/FunctionsProvider";
+} from "@common/features/functions/components/FunctionItem";
+import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
 
 export function FileItem({
   file,

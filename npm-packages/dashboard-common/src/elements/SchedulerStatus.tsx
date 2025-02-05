@@ -1,13 +1,13 @@
 import { formatDistance } from "date-fns";
 import { useContext, useState } from "react";
 import { BarChartIcon, ResetIcon } from "@radix-ui/react-icons";
-import { cn } from "lib/cn";
-import { HealthCard } from "elements/HealthCard";
-import { useSchedulerLag } from "lib/appMetrics";
-import { ChartForFunctionRate } from "features/health/components/ChartForFunctionRate";
-import { BigMetric } from "elements/BigMetric";
-import { Button } from "elements/Button";
-import { DeploymentInfoContext } from "lib/deploymentContext";
+import { cn } from "@common/lib/cn";
+import { HealthCard } from "@common/elements/HealthCard";
+import { useSchedulerLag } from "@common/lib/appMetrics";
+import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
+import { BigMetric } from "@common/elements/BigMetric";
+import { Button } from "@common/elements/Button";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function SchedulerStatus({ small = false }: { small?: boolean }) {
   const lag = useSchedulerLag();

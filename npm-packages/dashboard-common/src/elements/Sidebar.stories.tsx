@@ -7,7 +7,7 @@ import {
   PersonIcon,
   Cross1Icon,
 } from "@radix-ui/react-icons";
-import { Sidebar } from "elements/Sidebar";
+import { Sidebar } from "@common/elements/Sidebar";
 
 export default {
   component: Sidebar,

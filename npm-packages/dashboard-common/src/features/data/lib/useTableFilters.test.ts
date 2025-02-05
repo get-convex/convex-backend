@@ -5,7 +5,7 @@ import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filter
 import {
   useFilterMap,
   useTableFilters,
-} from "features/data/lib/useTableFilters";
+} from "@common/features/data/lib/useTableFilters";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 describe("useTableFilters", () => {

@@ -2,9 +2,9 @@ import { useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import omit from "lodash/omit";
-import { sidebarLinkClassNames } from "elements/Sidebar";
-import { Tooltip } from "elements/Tooltip";
-import { useIsOverflowing } from "lib/useIsOverflowing";
+import { sidebarLinkClassNames } from "@common/elements/Sidebar";
+import { Tooltip } from "@common/elements/Tooltip";
+import { useIsOverflowing } from "@common/lib/useIsOverflowing";
 
 export function TableTab({
   selectedTable,

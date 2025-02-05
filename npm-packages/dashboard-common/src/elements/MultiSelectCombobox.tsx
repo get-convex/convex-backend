@@ -6,10 +6,10 @@ import {
 import { Combobox } from "@headlessui/react";
 import React, { useRef, useState } from "react";
 import classNames from "classnames";
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 import { useHoverDirty } from "react-use";
 import { test } from "fuzzy";
-import { Button } from "elements/Button";
+import { Button } from "@common/elements/Button";
 
 export function MultiSelectCombobox({
   options,

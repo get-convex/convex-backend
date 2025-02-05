@@ -16,18 +16,18 @@ import {
   typeOf,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { UrlObject } from "url";
-import { Key } from "elements/KeyboardShortcut";
-import { ContextMenu } from "features/data/components/ContextMenu";
-import { PopupState } from "features/data/lib/useToolPopup";
-import { operatorOptions } from "features/data/components/FilterEditor/FilterEditor";
+import { Key } from "@common/elements/KeyboardShortcut";
+import { ContextMenu } from "@common/features/data/components/ContextMenu";
+import { PopupState } from "@common/features/data/lib/useToolPopup";
+import { operatorOptions } from "@common/features/data/components/FilterEditor/FilterEditor";
 import {
   ActionHotkeysProps,
   OpenContextMenu,
   TableContextMenuState,
   useActionHotkeys,
-} from "features/data/components/Table/DataCell/utils/cellActions";
-import { stringifyValue } from "lib/stringifyValue";
-import { useNents } from "lib/useNents";
+} from "@common/features/data/components/Table/DataCell/utils/cellActions";
+import { stringifyValue } from "@common/lib/stringifyValue";
+import { useNents } from "@common/lib/useNents";
 
 export function useTableContextMenuState(): {
   contextMenuState: TableContextMenuState | null;

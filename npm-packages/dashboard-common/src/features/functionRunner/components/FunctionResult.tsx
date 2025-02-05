@@ -4,19 +4,19 @@ import type { FunctionResult as FunctionResultType } from "convex/browser";
 import { useContext, useEffect, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { Value } from "convex/values";
-import { Button } from "elements/Button";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { toast } from "lib/utils";
-import { RequestFilter } from "lib/appMetrics";
-import { Spinner } from "elements/Spinner";
-import { ComponentId } from "lib/useNents";
-import { Result } from "features/functionRunner/components/Result";
+import { Button } from "@common/elements/Button";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { toast } from "@common/lib/utils";
+import { RequestFilter } from "@common/lib/appMetrics";
+import { Spinner } from "@common/elements/Spinner";
+import { ComponentId } from "@common/lib/useNents";
+import { Result } from "@common/features/functionRunner/components/Result";
 import {
   useRunHistory,
   RunHistoryItem,
   useImpersonatedUser,
   useIsImpersonating,
-} from "features/functionRunner/components/RunHistory";
+} from "@common/features/functionRunner/components/RunHistory";
 
 // This is a hook because we want to return composable components that can be arranged
 // vertically or horizontally.

@@ -1,8 +1,8 @@
 import React, { ReactNode, useState } from "react";
-import { TextInput } from "elements/TextInput";
-import { Button } from "elements/Button";
-import { Spinner } from "elements/Spinner";
-import { Modal } from "elements/Modal";
+import { TextInput } from "@common/elements/TextInput";
+import { Button } from "@common/elements/Button";
+import { Spinner } from "@common/elements/Spinner";
+import { Modal } from "@common/elements/Modal";
 
 export function ConfirmationDialog({
   onClose,

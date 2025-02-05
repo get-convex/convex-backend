@@ -5,10 +5,10 @@ import { Shape } from "shapes";
 import { parseAndFilterToSingleTable } from "system-udfs/convex/_system/frontend/lib/filters";
 import udfs from "udfs";
 import { Value } from "convex/values";
-import { defaultValueForShape } from "features/data/lib/helpers";
-import { useTableShapes } from "lib/deploymentApi";
-import { useNents } from "lib/useNents";
-import { defaultValueForValidator } from "lib/defaultValueForValidator";
+import { defaultValueForShape } from "@common/features/data/lib/helpers";
+import { useTableShapes } from "@common/lib/deploymentApi";
+import { useNents } from "@common/lib/useNents";
+import { defaultValueForValidator } from "@common/lib/defaultValueForValidator";
 
 export const useDefaultDocument = (tableName: string): GenericDocument => {
   const { tables } = useTableShapes();

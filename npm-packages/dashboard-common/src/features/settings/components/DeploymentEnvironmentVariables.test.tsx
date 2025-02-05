@@ -6,14 +6,14 @@ import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common"
 import {
   DeploymentEnvironmentVariables,
   diffEnvironmentVariables,
-} from "features/settings/components/DeploymentEnvironmentVariables";
-import { mockConvexReactClient } from "lib/mockConvexReactClient";
+} from "@common/features/settings/components/DeploymentEnvironmentVariables";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import {
   ConnectedDeploymentContext,
   DeploymentInfo,
   DeploymentInfoContext,
-} from "lib/deploymentContext";
-import { ProjectEnvVarConfig } from "features/settings/lib/types";
+} from "@common/lib/deploymentContext";
+import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 
 const deploymentInfo: DeploymentInfo = {
   ok: true,

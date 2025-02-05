@@ -4,20 +4,20 @@ import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import udfs from "udfs";
 import { useRouter } from "next/router";
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 import { GenericDocument } from "convex/server";
 import { SourceLocation } from "acorn";
 import { captureMessage } from "@sentry/nextjs";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api";
-import { stringifyValue } from "lib/stringifyValue";
+import { stringifyValue } from "@common/lib/stringifyValue";
 import {
   copyTextToClipboard,
   documentHref,
   getReferencedTableName,
   toast,
-} from "lib/utils";
-import { useNents } from "lib/useNents";
-import { LiteralNode } from "elements/ObjectEditor/ast/types";
+} from "@common/lib/utils";
+import { useNents } from "@common/lib/useNents";
+import { LiteralNode } from "@common/elements/ObjectEditor/ast/types";
 
 export function useIdDecorations(
   monaco: Parameters<BeforeMount>[0] | undefined,

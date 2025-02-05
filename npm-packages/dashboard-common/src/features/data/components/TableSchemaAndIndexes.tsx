@@ -2,14 +2,14 @@ import { Fragment } from "react";
 import { Transition, Dialog } from "@headlessui/react";
 import Link from "next/link";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { ClosePanelButton } from "elements/ClosePanelButton";
-import { Loading } from "elements/Loading";
-import { IndexList } from "features/data/components/IndexList";
+import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { Loading } from "@common/elements/Loading";
+import { IndexList } from "@common/features/data/components/IndexList";
 import {
   TableSchemaContainer,
   useSingleTableSchemaStatus,
-} from "features/data/components/TableSchema";
-import { ConvexSchemaFilePath } from "features/data/components/ConvexSchemaFilePath";
+} from "@common/features/data/components/TableSchema";
+import { ConvexSchemaFilePath } from "@common/features/data/components/ConvexSchemaFilePath";
 
 export function TableSchemaAndIndexes({
   tableName,

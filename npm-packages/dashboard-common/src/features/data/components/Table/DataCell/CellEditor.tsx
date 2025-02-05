@@ -2,9 +2,9 @@ import { ValidatorJSON, Value } from "convex/values";
 import { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { ObjectEditor } from "elements/ObjectEditor/ObjectEditor";
-import { KeyboardShortcut } from "elements/KeyboardShortcut";
-import { useTableDensity } from "features/data/lib/useTableDensity";
+import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
+import { KeyboardShortcut } from "@common/elements/KeyboardShortcut";
+import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 
 export type CellEditorProps = {
   value?: Value;

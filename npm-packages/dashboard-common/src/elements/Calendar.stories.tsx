@@ -1,5 +1,5 @@
 import { StoryFn, StoryObj } from "@storybook/react";
-import { Calendar } from "elements/Calendar";
+import { Calendar } from "@common/elements/Calendar";
 
 export const Single: StoryObj<typeof Calendar> = {
   args: {

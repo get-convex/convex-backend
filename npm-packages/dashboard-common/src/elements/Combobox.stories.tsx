@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { ComponentProps, useState } from "react";
-import { Combobox } from "elements/Combobox";
+import { Combobox } from "@common/elements/Combobox";
 
 export default {
   component: Combobox,

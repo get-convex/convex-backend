@@ -1,5 +1,5 @@
 import { StoryObj } from "@storybook/react";
-import { IndexesList as IndexList } from "features/data/components/IndexList";
+import { IndexesList as IndexList } from "@common/features/data/components/IndexList";
 
 export default { component: IndexList };
 

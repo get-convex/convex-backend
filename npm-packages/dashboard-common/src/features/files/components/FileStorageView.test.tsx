@@ -8,9 +8,12 @@ import {
   FileStorageView,
   Uploader,
   useUploadFiles,
-} from "features/files/components/FileStorageView";
-import { mockConvexReactClient } from "lib/mockConvexReactClient";
-import { DeploymentInfo, DeploymentInfoContext } from "lib/deploymentContext";
+} from "@common/features/files/components/FileStorageView";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import {
+  DeploymentInfo,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
 
 const deploymentInfo: DeploymentInfo = {
   ok: true,

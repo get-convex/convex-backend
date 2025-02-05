@@ -2,14 +2,14 @@ import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import {
   NoScheduledJobs,
   NoScheduledJobsForFunction,
-} from "features/schedules/components/emptyStates";
+} from "@common/features/schedules/components/emptyStates";
 import {
   JOB_ITEM_SIZE,
   ScheduledFunctionsListItem,
-} from "features/schedules/components/ScheduledFunctionsListItem";
-import { SCHEDULED_JOBS_PAGE_SIZE } from "features/schedules/lib/usePaginatedScheduledJobs";
-import { InfiniteScrollList } from "elements/InfiniteScrollList";
-import { ModuleFunction } from "lib/functions/types";
+} from "@common/features/schedules/components/ScheduledFunctionsListItem";
+import { SCHEDULED_JOBS_PAGE_SIZE } from "@common/features/schedules/lib/usePaginatedScheduledJobs";
+import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
+import { ModuleFunction } from "@common/lib/functions/types";
 
 export function ScheduledFunctionsList({
   hasScheduledJobs,

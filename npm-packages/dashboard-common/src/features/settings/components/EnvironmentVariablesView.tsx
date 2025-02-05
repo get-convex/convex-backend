@@ -1,5 +1,5 @@
-import { DeploymentSettingsLayout } from "layouts/DeploymentSettingsLayout";
-import { DeploymentEnvironmentVariables } from "features/settings/components/DeploymentEnvironmentVariables";
+import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
+import { DeploymentEnvironmentVariables } from "@common/features/settings/components/DeploymentEnvironmentVariables";
 
 export function EnvironmentVariablesView() {
   return (

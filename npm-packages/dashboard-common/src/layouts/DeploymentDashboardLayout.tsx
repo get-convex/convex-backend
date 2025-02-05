@@ -12,13 +12,13 @@ import Link from "next/link";
 import { useContext, useState } from "react";
 import udfs from "udfs";
 import classNames from "classnames";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
-import { useCollapseSidebarState } from "lib/useCollapseSidebarState";
-import { PulseIcon } from "elements/icons";
-import { Sidebar } from "elements/Sidebar";
-import { FunctionRunnerWrapper } from "features/functionRunner/components/FunctionRunnerWrapper";
-import { FunctionsProvider } from "lib/functions/FunctionsProvider";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+import { useCollapseSidebarState } from "@common/lib/useCollapseSidebarState";
+import { PulseIcon } from "@common/elements/icons";
+import { Sidebar } from "@common/elements/Sidebar";
+import { FunctionRunnerWrapper } from "@common/features/functionRunner/components/FunctionRunnerWrapper";
+import { FunctionsProvider } from "@common/lib/functions/FunctionsProvider";
 
 type LayoutProps = {
   children: JSX.Element;

@@ -1,4 +1,4 @@
-import { stringifyValue } from "lib/stringifyValue";
+import { stringifyValue } from "@common/lib/stringifyValue";
 
 describe("stringifyValue", () => {
   test.each([

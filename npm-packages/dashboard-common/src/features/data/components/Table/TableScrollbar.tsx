@@ -1,7 +1,7 @@
 import { RefObject, useCallback, useEffect, useState } from "react";
 import { useWindowSize } from "react-use";
 import { FixedSizeList } from "react-window";
-import { useTableDensity } from "features/data/lib/useTableDensity";
+import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 
 const MIN_SCROLLBAR_SIZE = 12;
 

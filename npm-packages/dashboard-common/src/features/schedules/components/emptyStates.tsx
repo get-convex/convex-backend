@@ -1,7 +1,7 @@
 import { StopwatchIcon } from "@radix-ui/react-icons";
-import { EmptySection } from "elements/EmptySection";
-import { useCurrentOpenFunction } from "lib/functions/FunctionsProvider";
-import { displayName } from "lib/functions/generateFileTree";
+import { EmptySection } from "@common/elements/EmptySection";
+import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
+import { displayName } from "@common/lib/functions/generateFileTree";
 
 export function NoScheduledJobs() {
   return (

@@ -8,17 +8,17 @@ import {
 } from "system-udfs/convex/_system/frontend/common";
 import { ExternalLinkIcon, GearIcon } from "@radix-ui/react-icons";
 import { useContext } from "react";
-import { HealthCard } from "elements/HealthCard";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { Button } from "elements/Button";
-import { Tooltip } from "elements/Tooltip";
-import { Loading } from "elements/Loading";
+import { HealthCard } from "@common/elements/HealthCard";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { Button } from "@common/elements/Button";
+import { Tooltip } from "@common/elements/Tooltip";
+import { Loading } from "@common/elements/Loading";
 import {
   integrationName,
   configToUrl,
   integrationUsingLegacyFormat,
   integrationToLogo,
-} from "lib/integrationHelpers";
+} from "@common/lib/integrationHelpers";
 
 export function IntegrationStatus({
   integrationTypes,

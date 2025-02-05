@@ -4,9 +4,12 @@ import { captureException } from "@sentry/nextjs";
 import { useMutation } from "convex/react";
 import udfs from "udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
-import { useInvalidateShapes, useDeleteTables } from "features/data/lib/api";
-import { useNents } from "lib/useNents";
-import { toast } from "lib/utils";
+import {
+  useInvalidateShapes,
+  useDeleteTables,
+} from "@common/features/data/lib/api";
+import { useNents } from "@common/lib/useNents";
+import { toast } from "@common/lib/utils";
 
 export function useDataToolbarActions({
   tableName,

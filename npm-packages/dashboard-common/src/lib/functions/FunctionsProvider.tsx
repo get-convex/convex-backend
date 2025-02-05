@@ -1,6 +1,6 @@
 import { ReactNode, useMemo } from "react";
 import { useRouter } from "next/router";
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 import { captureMessage } from "@sentry/nextjs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
 import { createGlobalState } from "react-use";
@@ -9,12 +9,12 @@ import {
   generateFileTreeAllNents,
   processAnalyzedModuleFunction,
   ROOT_PATH,
-} from "lib/functions/generateFileTree";
-import { ModuleFunction } from "lib/functions/types";
-import { useListModulesAllNents } from "lib/functions/useListModules";
-import { createContextHook } from "lib/createContextHook";
-import { ComponentId, Nent, useNents } from "lib/useNents";
-import { LoadingLogo } from "elements/Loading";
+} from "@common/lib/functions/generateFileTree";
+import { ModuleFunction } from "@common/lib/functions/types";
+import { useListModulesAllNents } from "@common/lib/functions/useListModules";
+import { createContextHook } from "@common/lib/createContextHook";
+import { ComponentId, Nent, useNents } from "@common/lib/useNents";
+import { LoadingLogo } from "@common/elements/Loading";
 
 const [FunctionsContext, useFunctions] = createContextHook<
   Map<ComponentId, Map<string, Module>>

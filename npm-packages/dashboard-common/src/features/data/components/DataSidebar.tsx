@@ -3,22 +3,22 @@ import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
 import udfs from "udfs";
-import { cn } from "lib/cn";
-import { useInvalidateShapes } from "features/data/lib/api";
-import { TextInput } from "elements/TextInput";
+import { cn } from "@common/lib/cn";
+import { useInvalidateShapes } from "@common/features/data/lib/api";
+import { TextInput } from "@common/elements/TextInput";
 import {
   isTableMissingFromSchema,
   useActiveSchema,
   validateConvexIdentifier,
-} from "features/data/lib/helpers";
-import { TableTab } from "features/data/components/TableTab";
-import { TableMetadata } from "lib/useTableMetadata";
-import { NentSwitcher } from "elements/NentSwitcher";
-import { Loading } from "elements/Loading";
-import { Button } from "elements/Button";
-import { useNents } from "lib/useNents";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { toast } from "lib/utils";
+} from "@common/features/data/lib/helpers";
+import { TableTab } from "@common/features/data/components/TableTab";
+import { TableMetadata } from "@common/lib/useTableMetadata";
+import { NentSwitcher } from "@common/elements/NentSwitcher";
+import { Loading } from "@common/elements/Loading";
+import { Button } from "@common/elements/Button";
+import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { toast } from "@common/lib/utils";
 
 export function DataSidebar({
   tableData,

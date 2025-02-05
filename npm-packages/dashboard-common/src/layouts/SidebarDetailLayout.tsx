@@ -14,14 +14,14 @@ import {
   PanelResizeHandle,
 } from "react-resizable-panels";
 import { DragHandleDots2Icon } from "@radix-ui/react-icons";
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 
-import { Callout } from "elements/Callout";
-import { PageContent } from "elements/PageContent";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { Tooltip } from "elements/Tooltip";
-import { ClosePanelButton } from "elements/ClosePanelButton";
-import { Button } from "elements/Button";
+import { Callout } from "@common/elements/Callout";
+import { PageContent } from "@common/elements/PageContent";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { Tooltip } from "@common/elements/Tooltip";
+import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { Button } from "@common/elements/Button";
 
 function Fallback({ error }: { error: Error | null }) {
   return (

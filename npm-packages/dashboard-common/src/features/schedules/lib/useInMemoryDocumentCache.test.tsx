@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
-import { useInMemoryDocumentCache } from "features/schedules/lib/useInMemoryDocumentCache";
+import { useInMemoryDocumentCache } from "@common/features/schedules/lib/useInMemoryDocumentCache";
 
 type NameDoc = Pick<Doc<"_cron_jobs">, "_creationTime" | "_id" | "name">;
 let nextCreationTime = 1;

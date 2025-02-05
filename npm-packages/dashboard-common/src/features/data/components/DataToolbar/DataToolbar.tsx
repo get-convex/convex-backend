@@ -7,22 +7,22 @@ import {
 import classNames from "classnames";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useContext } from "react";
-import { Button } from "elements/Button";
-import { LoadingTransition } from "elements/Loading";
-import { Tooltip } from "elements/Tooltip";
-import { Spinner } from "elements/Spinner";
-import { useShowGlobalRunner } from "features/functionRunner/lib/functionRunner";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useNents } from "lib/useNents";
-import { PopupState } from "features/data/lib/useToolPopup";
-import { useEnabledDebounced } from "features/data/lib/useEnabledDebounced";
-import { FilterButton } from "features/data/components/DataFilters/FilterButton";
-import { DataOverflowMenu } from "features/data/components/DataOverflowMenu/DataOverflowMenu";
+import { Button } from "@common/elements/Button";
+import { LoadingTransition } from "@common/elements/Loading";
+import { Tooltip } from "@common/elements/Tooltip";
+import { Spinner } from "@common/elements/Spinner";
+import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useNents } from "@common/lib/useNents";
+import { PopupState } from "@common/features/data/lib/useToolPopup";
+import { useEnabledDebounced } from "@common/features/data/lib/useEnabledDebounced";
+import { FilterButton } from "@common/features/data/components/DataFilters/FilterButton";
+import { DataOverflowMenu } from "@common/features/data/components/DataOverflowMenu/DataOverflowMenu";
 import {
   isTableMissingFromSchema,
   useActiveSchema,
-} from "features/data/lib/helpers";
-import { TableSchemaStatus } from "features/data/components/TableSchema";
+} from "@common/features/data/lib/helpers";
+import { TableSchemaStatus } from "@common/features/data/components/TableSchema";
 
 export type DataToolbarProps = {
   popupState: PopupState;

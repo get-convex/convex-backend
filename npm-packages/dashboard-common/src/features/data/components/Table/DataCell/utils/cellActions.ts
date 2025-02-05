@@ -6,13 +6,13 @@ import { UrlObject } from "url";
 
 import { GenericDocument } from "convex/server";
 import { Value } from "convex/values";
-import { Target } from "features/data/components/ContextMenu";
-import { useContextMenuTrigger } from "features/data/lib/useContextMenuTrigger";
+import { Target } from "@common/features/data/components/ContextMenu";
+import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 
-import { useIdReferenceLink } from "features/data/components/Table/DataCell/utils/useIdReferenceLink";
-import { copyTextToClipboard } from "lib/utils";
-import { stringifyValue } from "lib/stringifyValue";
-import { useNents } from "lib/useNents";
+import { useIdReferenceLink } from "@common/features/data/components/Table/DataCell/utils/useIdReferenceLink";
+import { copyTextToClipboard } from "@common/lib/utils";
+import { stringifyValue } from "@common/lib/stringifyValue";
+import { useNents } from "@common/lib/useNents";
 
 // Handles most of the logic for interacting with a cell in the table.
 // This includes opening the context menu, copying values, editing values, etc.

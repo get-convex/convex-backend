@@ -4,13 +4,13 @@ import {
 } from "system-udfs/convex/_system/frontend/common";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { test } from "fuzzy";
-import { ComponentId, Nent } from "lib/useNents";
+import { ComponentId, Nent } from "@common/lib/useNents";
 import {
   File,
   FileOrFolder,
   Folder,
   ModuleFunction,
-} from "lib/functions/types";
+} from "@common/lib/functions/types";
 
 export const ROOT_PATH = "";
 

@@ -1,8 +1,8 @@
 import {
   functionIdentifierFromValue,
   functionIdentifierValue,
-} from "lib/functions/generateFileTree";
-import { UdfLog } from "lib/useLogs";
+} from "@common/lib/functions/generateFileTree";
+import { UdfLog } from "@common/lib/useLogs";
 
 export const ALL_LEVELS = ["DEBUG", "INFO", "WARN", "ERROR", "FAILURE"];
 

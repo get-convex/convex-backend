@@ -1,6 +1,6 @@
-import { HealthCard } from "elements/HealthCard";
-import { useTopKFunctionMetrics } from "lib/appMetrics";
-import { ChartForFunctionRate } from "features/health/components/ChartForFunctionRate";
+import { HealthCard } from "@common/elements/HealthCard";
+import { useTopKFunctionMetrics } from "@common/lib/appMetrics";
+import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 
 export function CacheHitRate() {
   const chartData = useTopKFunctionMetrics("cacheHitPercentage");

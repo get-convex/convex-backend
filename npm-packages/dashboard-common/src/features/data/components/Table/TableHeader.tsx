@@ -2,8 +2,8 @@ import { HeaderGroup } from "react-table";
 import { GenericDocument } from "convex/server";
 import classNames from "classnames";
 import omit from "lodash/omit";
-import { ColumnHeader } from "features/data/components/Table/ColumnHeader";
-import { DataCellProps } from "features/data/components/Table/DataCell/DataCell";
+import { ColumnHeader } from "@common/features/data/components/Table/ColumnHeader";
+import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
 
 export function TableHeader({
   headerGroups,

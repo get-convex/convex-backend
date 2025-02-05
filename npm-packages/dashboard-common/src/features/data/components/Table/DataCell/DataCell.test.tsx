@@ -6,12 +6,12 @@ import mockRouter from "next-router-mock";
 import { ConvexProvider } from "convex/react";
 import udfs from "udfs";
 import userEvent from "@testing-library/user-event";
-import { MockMonaco } from "features/data/components/MockMonaco.test";
+import { MockMonaco } from "@common/features/data/components/MockMonaco.test";
 import {
   DataCell,
   DataCellProps,
-} from "features/data/components/Table/DataCell/DataCell";
-import { mockConvexReactClient } from "lib/mockConvexReactClient";
+} from "@common/features/data/components/Table/DataCell/DataCell";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 jest.mock("@monaco-editor/react", () => (p: any) => MockMonaco(p));

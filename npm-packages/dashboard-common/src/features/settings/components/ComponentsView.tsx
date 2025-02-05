@@ -1,7 +1,7 @@
-import { LoadingTransition } from "elements/Loading";
-import { DeploymentSettingsLayout } from "layouts/DeploymentSettingsLayout";
-import { useNents } from "lib/useNents";
-import { Components } from "features/settings/components/Components";
+import { LoadingTransition } from "@common/elements/Loading";
+import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
+import { useNents } from "@common/lib/useNents";
+import { Components } from "@common/features/settings/components/Components";
 
 export function ComponentsView() {
   const { nents } = useNents();

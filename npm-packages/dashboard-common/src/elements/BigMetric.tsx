@@ -1,4 +1,4 @@
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 import { ReactNode } from "react";
 
 export type MetricHealth = "healthy" | "warning" | "error";

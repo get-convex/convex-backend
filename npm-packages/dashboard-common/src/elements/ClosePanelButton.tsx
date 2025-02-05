@@ -1,6 +1,6 @@
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { forwardRef } from "react";
-import { Button } from "elements/Button";
+import { Button } from "@common/elements/Button";
 
 export const ClosePanelButton = forwardRef<
   HTMLElement,

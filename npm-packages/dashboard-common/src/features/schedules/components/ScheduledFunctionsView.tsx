@@ -1,7 +1,7 @@
-import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
-import { SchedulingLayout } from "layouts/SchedulingLayout";
-import { useCurrentOpenFunction } from "lib/functions/FunctionsProvider";
-import { ScheduledFunctionsContent } from "features/schedules/components/ScheduledFunctionsContent";
+import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { SchedulingLayout } from "@common/layouts/SchedulingLayout";
+import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
+import { ScheduledFunctionsContent } from "@common/features/schedules/components/ScheduledFunctionsContent";
 
 export function ScheduledFunctionsView() {
   const currentOpenFunction = useCurrentOpenFunction();

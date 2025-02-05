@@ -1,10 +1,10 @@
 import { useRef } from "react";
-import { usePaginatedScheduledJobs } from "features/schedules/lib/usePaginatedScheduledJobs";
-import { ScheduledFunctionsContentToolbar } from "features/schedules/components/ScheduledFunctionsContentToolbar";
-import { ScheduledFunctionsListHeader } from "features/schedules/components/ScheduledFunctionsListHeader";
-import { ScheduledFunctionsList } from "features/schedules/components/ScheduledFunctionsList";
-import { Sheet } from "elements/Sheet";
-import { ModuleFunction } from "lib/functions/types";
+import { usePaginatedScheduledJobs } from "@common/features/schedules/lib/usePaginatedScheduledJobs";
+import { ScheduledFunctionsContentToolbar } from "@common/features/schedules/components/ScheduledFunctionsContentToolbar";
+import { ScheduledFunctionsListHeader } from "@common/features/schedules/components/ScheduledFunctionsListHeader";
+import { ScheduledFunctionsList } from "@common/features/schedules/components/ScheduledFunctionsList";
+import { Sheet } from "@common/elements/Sheet";
+import { ModuleFunction } from "@common/lib/functions/types";
 
 export function ScheduledFunctionsContent({
   currentOpenFunction,

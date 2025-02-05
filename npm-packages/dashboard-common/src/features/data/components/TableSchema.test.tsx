@@ -2,8 +2,8 @@ import { screen, render } from "@testing-library/react";
 import { useRouter } from "next/router";
 import { Shape } from "shapes";
 import { useQuery } from "convex/react";
-import { MockMonaco } from "features/data/components/MockMonaco.test";
-import { TableSchemaContainer } from "features/data/components/TableSchema";
+import { MockMonaco } from "@common/features/data/components/MockMonaco.test";
+import { TableSchemaContainer } from "@common/features/data/components/TableSchema";
 
 jest.mock("next/router", () => ({
   useRouter: jest.fn(),

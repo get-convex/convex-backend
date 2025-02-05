@@ -1,16 +1,16 @@
 import { useMemo } from "react";
 import { Shape } from "shapes";
 import { Tab as HeadlessTab } from "@headlessui/react";
-import { Tab } from "elements/Tab";
-import { ConvexSchemaFilePath } from "features/data/components/ConvexSchemaFilePath";
+import { Tab } from "@common/elements/Tab";
+import { ConvexSchemaFilePath } from "@common/features/data/components/ConvexSchemaFilePath";
 import {
   GenerateSchema,
   CodeTransformation,
   LineHighlighter,
-} from "features/data/components/GenerateSchema";
-import { SchemaJson, displaySchema } from "lib/format";
-import { ReadonlyCode } from "elements/ReadonlyCode";
-import { Spinner } from "elements/Spinner";
+} from "@common/features/data/components/GenerateSchema";
+import { SchemaJson, displaySchema } from "@common/lib/format";
+import { ReadonlyCode } from "@common/elements/ReadonlyCode";
+import { Spinner } from "@common/elements/Spinner";
 
 export function ShowSchema({
   activeSchema,

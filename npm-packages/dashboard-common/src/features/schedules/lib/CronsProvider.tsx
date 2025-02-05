@@ -8,10 +8,10 @@ import {
   CronJobWithLastRun,
   CronJobLog,
 } from "system-udfs/convex/_system/frontend/common";
-import { useInMemoryDocumentCache } from "features/schedules/lib/useInMemoryDocumentCache";
-import { useListModules } from "lib/functions/useListModules";
-import { createContextHook } from "lib/createContextHook";
-import { useNents } from "lib/useNents";
+import { useInMemoryDocumentCache } from "@common/features/schedules/lib/useInMemoryDocumentCache";
+import { useListModules } from "@common/lib/functions/useListModules";
+import { createContextHook } from "@common/lib/createContextHook";
+import { useNents } from "@common/lib/useNents";
 
 type CronJobsContextType = {
   cronsModule: Module | undefined;

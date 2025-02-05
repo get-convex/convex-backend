@@ -8,8 +8,8 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { Tooltip } from "elements/Tooltip";
-import { Button } from "elements/Button";
+import { Tooltip } from "@common/elements/Tooltip";
+import { Button } from "@common/elements/Button";
 
 export type SidebarItem = {
   key: string | null;

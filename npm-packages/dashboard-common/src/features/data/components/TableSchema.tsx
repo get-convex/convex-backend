@@ -3,11 +3,11 @@ import { useMemo } from "react";
 import { Shape } from "shapes";
 import udfs from "udfs";
 import { parseAndFilterToSingleTable } from "system-udfs/convex/_system/frontend/lib/filters";
-import { SchemaJson } from "lib/format";
-import { useNents } from "lib/useNents";
-import { useTableShapes } from "lib/deploymentApi";
-import { LoadingTransition } from "elements/Loading";
-import { ShowSchema } from "features/data/components/ShowSchema";
+import { SchemaJson } from "@common/lib/format";
+import { useNents } from "@common/lib/useNents";
+import { useTableShapes } from "@common/lib/deploymentApi";
+import { LoadingTransition } from "@common/elements/Loading";
+import { ShowSchema } from "@common/features/data/components/ShowSchema";
 
 export interface TableSchemaStatus {
   tableName: string;

@@ -13,21 +13,21 @@ import { Row } from "react-table";
 import classNames from "classnames";
 import { useFirstMountState, usePrevious } from "react-use";
 import { areEqual } from "react-window";
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 import omit from "lodash/omit";
-import { useContextMenuTrigger } from "features/data/lib/useContextMenuTrigger";
-import { Target } from "features/data/components/ContextMenu";
-import { useTableDensity } from "features/data/lib/useTableDensity";
-import { TableCheckbox } from "features/data/components/Table/TableCheckbox";
+import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
+import { Target } from "@common/features/data/components/ContextMenu";
+import { useTableDensity } from "@common/features/data/lib/useTableDensity";
+import { TableCheckbox } from "@common/features/data/components/Table/TableCheckbox";
 import {
   DataCell,
   DataCellProps,
-} from "features/data/components/Table/DataCell/DataCell";
-import { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
-import { arrowKeyHandler } from "features/data/components/Table/utils/arrowKeyHandler";
-import { toggleAdjacent } from "features/data/components/Table/utils/toggleAdjacent";
-import { SchemaJson } from "lib/format";
-import { Loading } from "elements/Loading";
+} from "@common/features/data/components/Table/DataCell/DataCell";
+import { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
+import { arrowKeyHandler } from "@common/features/data/components/Table/utils/arrowKeyHandler";
+import { toggleAdjacent } from "@common/features/data/components/Table/utils/toggleAdjacent";
+import { SchemaJson } from "@common/lib/format";
+import { Loading } from "@common/elements/Loading";
 
 type DataRowProps = {
   data: {

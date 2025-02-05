@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { PlusIcon } from "@radix-ui/react-icons";
-import { Button } from "elements/Button";
+import { Button } from "@common/elements/Button";
 
 export default {
   component: Button,

@@ -5,9 +5,9 @@ import { convexToJson, jsonToConvex } from "convex/values";
 import { useReducer, useCallback, useContext } from "react";
 import { createGlobalState, usePrevious } from "react-use";
 import { Id } from "system-udfs/convex/_generated/dataModel";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useDeploymentUrl, useAdminKey } from "lib/deploymentApi";
-import { useDeepEqualsEffect } from "lib/useDeepEqualsEffect";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useDeploymentUrl, useAdminKey } from "@common/lib/deploymentApi";
+import { useDeepEqualsEffect } from "@common/lib/useDeepEqualsEffect";
 
 const useGlobalReactClientState = createGlobalState<ConvexReactClient>();
 

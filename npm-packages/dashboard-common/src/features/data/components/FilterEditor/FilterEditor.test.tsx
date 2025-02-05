@@ -1,13 +1,13 @@
 import { screen, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { mockConvexReactClient } from "lib/mockConvexReactClient";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { ConvexProvider } from "convex/react";
 import udfs from "udfs";
-import { MockMonaco } from "features/data/components/MockMonaco.test";
+import { MockMonaco } from "@common/features/data/components/MockMonaco.test";
 import {
   FilterEditor,
   FilterEditorProps,
-} from "features/data/components/FilterEditor/FilterEditor";
+} from "@common/features/data/components/FilterEditor/FilterEditor";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))

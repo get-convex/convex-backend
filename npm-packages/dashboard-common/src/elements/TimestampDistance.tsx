@@ -1,7 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
-import { useRefresh } from "lib/useRefresh";
-import { cn } from "lib/cn";
-import { Tooltip } from "elements/Tooltip";
+import { useRefresh } from "@common/lib/useRefresh";
+import { cn } from "@common/lib/cn";
+import { Tooltip } from "@common/elements/Tooltip";
 
 export function TimestampDistance({
   prefix = "",

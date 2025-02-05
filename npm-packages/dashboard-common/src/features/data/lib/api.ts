@@ -1,15 +1,15 @@
 import { useCallback } from "react";
 import useSWR, { useSWRConfig } from "swr";
-import { reportHttpError } from "lib/utils";
+import { reportHttpError } from "@common/lib/utils";
 import {
   useDeploymentUrl,
   useAdminKey,
   useDeploymentAuthHeader,
   deploymentAuthMiddleware,
   useDeploymentIsDisconnected,
-} from "lib/deploymentApi";
-import { deploymentFetch } from "lib/fetching";
-import { useNents } from "lib/useNents";
+} from "@common/lib/deploymentApi";
+import { deploymentFetch } from "@common/lib/fetching";
+import { useNents } from "@common/lib/useNents";
 
 export function useDeleteTables(): (
   tableNames: string[],

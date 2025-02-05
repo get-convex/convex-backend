@@ -1,17 +1,17 @@
 import { GenericDocument } from "convex/server";
 import { useState } from "react";
-import { TextInput } from "elements/TextInput";
-import { ProductionEditsConfirmationDialog } from "elements/ProductionEditsConfirmationDialog";
-import { EditDocumentField } from "features/data/components/Table/EditDocumentField";
+import { TextInput } from "@common/elements/TextInput";
+import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
+import { EditDocumentField } from "@common/features/data/components/Table/EditDocumentField";
 import {
   documentValidatorForTable,
   validatorForColumn,
-} from "features/data/components/Table/utils/validators";
-import { SchemaJson } from "lib/format";
-import { useNents } from "lib/useNents";
-import { CopyButton } from "elements/CopyButton";
-import { stringifyValue } from "lib/stringifyValue";
-import { Button } from "elements/Button";
+} from "@common/features/data/components/Table/utils/validators";
+import { SchemaJson } from "@common/lib/format";
+import { useNents } from "@common/lib/useNents";
+import { CopyButton } from "@common/elements/CopyButton";
+import { stringifyValue } from "@common/lib/stringifyValue";
+import { Button } from "@common/elements/Button";
 
 export function ViewDocument({
   rows,

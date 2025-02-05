@@ -1,11 +1,11 @@
 import classNames from "classnames";
 import React, { useEffect, useRef } from "react";
-import { LogStatusLine } from "features/logs/components/LogStatusLine";
-import { UdfLog } from "lib/useLogs";
-import { FunctionNameOption } from "elements/FunctionNameOption";
-import { LogLevel } from "elements/LogLevel";
-import { LogOutput } from "elements/LogOutput";
-import { msFormat } from "lib/format";
+import { LogStatusLine } from "@common/features/logs/components/LogStatusLine";
+import { UdfLog } from "@common/lib/useLogs";
+import { FunctionNameOption } from "@common/elements/FunctionNameOption";
+import { LogLevel } from "@common/elements/LogLevel";
+import { LogOutput } from "@common/elements/LogOutput";
+import { msFormat } from "@common/lib/format";
 
 type LogListItemProps = {
   log: UdfLog;

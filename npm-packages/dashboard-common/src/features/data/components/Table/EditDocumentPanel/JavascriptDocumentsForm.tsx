@@ -5,9 +5,9 @@ import { ValidatorJSON, Value } from "convex/values";
 import isPlainObject from "lodash/isPlainObject";
 import omitBy from "lodash/omitBy";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { ObjectEditor } from "elements/ObjectEditor/ObjectEditor";
-import { Button } from "elements/Button";
-import { Spinner } from "elements/Spinner";
+import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
+import { Button } from "@common/elements/Button";
+import { Spinner } from "@common/elements/Spinner";
 
 function isDocument(
   value: Value | undefined,

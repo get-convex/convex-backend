@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { ComponentProps, useState } from "react";
-import { TextInput } from "elements/TextInput";
+import { TextInput } from "@common/elements/TextInput";
 
 export default {
   component: TextInput,

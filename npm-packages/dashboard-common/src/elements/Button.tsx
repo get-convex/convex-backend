@@ -2,7 +2,7 @@ import classNames from "classnames";
 import Link, { LinkProps } from "next/link";
 import { tv } from "tailwind-variants";
 import { forwardRef } from "react";
-import { Tooltip, TooltipSide } from "elements/Tooltip";
+import { Tooltip, TooltipSide } from "@common/elements/Tooltip";
 
 export type ButtonProps = {
   children?: React.ReactNode;

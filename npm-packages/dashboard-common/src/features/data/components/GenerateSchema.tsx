@@ -2,11 +2,11 @@ import Link from "next/link";
 import React, { useMemo } from "react";
 import { Shape } from "shapes";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { ConvexSchemaFilePath } from "features/data/components/ConvexSchemaFilePath";
-import { HighlightLines, ReadonlyCode } from "elements/ReadonlyCode";
-import { displaySchemaFromShapes } from "lib/format";
-import { Callout } from "elements/Callout";
-import { CopyButton } from "elements/CopyButton";
+import { ConvexSchemaFilePath } from "@common/features/data/components/ConvexSchemaFilePath";
+import { HighlightLines, ReadonlyCode } from "@common/elements/ReadonlyCode";
+import { displaySchemaFromShapes } from "@common/lib/format";
+import { Callout } from "@common/elements/Callout";
+import { CopyButton } from "@common/elements/CopyButton";
 
 export type LineHighlighter = (code: string) => HighlightLines;
 export type CodeTransformation = (code: string) => string;

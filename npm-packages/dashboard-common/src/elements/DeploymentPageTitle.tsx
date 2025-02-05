@@ -1,6 +1,6 @@
 import Head from "next/head";
 import { useContext } from "react";
-import { DeploymentInfoContext } from "lib/deploymentContext";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function DeploymentPageTitle({
   title,

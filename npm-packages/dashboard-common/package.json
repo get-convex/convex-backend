@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.js",
+  "types": "./src/index.ts",
   "sideEffects": false,
   "scripts": {
-    "build": "npm run build:generated && tsc && tsc-alias",
+    "build": "npm run build:generated && tsc --noEmit",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
     "test": "npm run build:generated && jest",
     "storybook": "storybook dev -s ./public -p 6006",
@@ -124,7 +124,7 @@
     "prettier-plugin-tailwindcss": "~0.3.0",
     "storybook": "^7.6.16",
     "tailwindcss": "^3.2.4",
-    "tsc-alias": "~1.8.10",
+    "tailwind-scrollbar": "3.0.3",
     "typescript": "~5.0.3"
   }
 }

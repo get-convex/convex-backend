@@ -1,6 +1,6 @@
 import { useCopyToClipboard } from "react-use";
 import { useEffect } from "react";
-import { toast } from "lib/utils";
+import { toast } from "@common/lib/utils";
 
 export function useCopy(copying: string) {
   const [copyState, copyToClipboard] = useCopyToClipboard();

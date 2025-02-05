@@ -2,15 +2,18 @@ import { screen, render } from "@testing-library/react";
 import { useRouter } from "next/router";
 import userEvent from "@testing-library/user-event";
 import { useMemo } from "react";
-import { useTableFilters } from "features/data/lib/useTableFilters";
-import { useToolPopup } from "features/data/lib/useToolPopup";
-import { useAuthorizeProdEdits } from "features/data/lib/useAuthorizeProdEdits";
+import { useTableFilters } from "@common/features/data/lib/useTableFilters";
+import { useToolPopup } from "@common/features/data/lib/useToolPopup";
+import { useAuthorizeProdEdits } from "@common/features/data/lib/useAuthorizeProdEdits";
 import {
   DataToolbar,
   DataToolbarProps,
-} from "features/data/components/DataToolbar/DataToolbar";
-import { DeploymentInfo, DeploymentInfoContext } from "lib/deploymentContext";
-import { FunctionsContext } from "lib/functions/FunctionsProvider";
+} from "@common/features/data/components/DataToolbar/DataToolbar";
+import {
+  DeploymentInfo,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
+import { FunctionsContext } from "@common/lib/functions/FunctionsProvider";
 
 const deploymentInfo: DeploymentInfo = {
   ok: true,

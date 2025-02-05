@@ -9,11 +9,11 @@ export {
   toast,
   dismissToast,
   backoffWithJitter,
-} from "lib/utils";
-export * from "lib/fetching";
-export * from "lib/useGlobalLocalStorage";
-export * from "lib/useCopy";
-export * from "lib/useIsOverflowing";
+} from "@common/lib/utils";
+export * from "@common/lib/fetching";
+export * from "@common/lib/useGlobalLocalStorage";
+export * from "@common/lib/useCopy";
+export * from "@common/lib/useIsOverflowing";
 export {
   formatBytes,
   formatNumber,
@@ -21,24 +21,24 @@ export {
   formatDate,
   msFormat,
   toNumericUTC,
-} from "lib/format";
+} from "@common/lib/format";
 
 // Deployment-related exports for Insights
-export { useFunctionUrl } from "lib/deploymentApi";
+export { useFunctionUrl } from "@common/lib/deploymentApi";
 export {
   functionIdentifierFromValue,
   functionIdentifierValue,
-} from "lib/functions/generateFileTree";
-export * from "lib/useNents";
-export { useDeploymentAuditLogs } from "lib/useDeploymentAuditLog";
+} from "@common/lib/functions/generateFileTree";
+export * from "@common/lib/useNents";
+export { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
 export {
   useModuleFunctions,
   itemIdentifier,
-} from "lib/functions/FunctionsProvider";
-export { documentHref } from "lib/utils";
-export * from "elements/FunctionNameOption";
-export * from "elements/HealthCard";
-export * from "features/health/components/DeploymentTimes";
+} from "@common/lib/functions/FunctionsProvider";
+export { documentHref } from "@common/lib/utils";
+export * from "@common/elements/FunctionNameOption";
+export * from "@common/elements/HealthCard";
+export * from "@common/features/health/components/DeploymentTimes";
 
 // Re-used in the cloud dashboard for deployment pages
 export {
@@ -47,11 +47,11 @@ export {
   ConnectedDeploymentContext,
   DeploymentApiProvider,
   WaitForDeploymentApi,
-} from "lib/deploymentContext";
+} from "@common/lib/deploymentContext";
 export type {
   DeploymentInfo,
   DeploymentApiProviderProps,
-} from "lib/deploymentContext";
+} from "@common/lib/deploymentContext";
 
 // These are used for some deployment-related settings pages
 // that are not available in the self-hosted dashboard.
@@ -59,62 +59,62 @@ export {
   useDeploymentUrl,
   useDeploymentAuthHeader,
   useAdminKey,
-} from "lib/deploymentApi";
-export * from "lib/integrationHelpers";
-export * from "lib/stringifyValue";
+} from "@common/lib/deploymentApi";
+export * from "@common/lib/integrationHelpers";
+export * from "@common/lib/stringifyValue";
 
 // Re-usable elements
-export * from "elements/Button";
-export * from "elements/Callout";
-export * from "elements/ChartTooltip";
-export * from "elements/Checkbox";
-export * from "elements/ConvexLogo";
-export * from "elements/ClosePanelButton";
-export * from "elements/Combobox";
-export * from "elements/ConfirmationDialog";
-export * from "elements/CopyButton";
-export * from "elements/CopyTextButton";
-export * from "elements/DateRangePicker";
-export * from "elements/DetailPanel";
-export * from "elements/EmptySection";
-export { PuzzlePieceIcon } from "elements/icons";
-export * from "elements/Loading";
-export * from "elements/Menu";
-export * from "elements/Modal";
-export * from "elements/MultiSelectCombobox";
-export * from "elements/PageContent";
-export * from "elements/Popover";
-export * from "elements/ReadonlyCode";
-export * from "elements/Sheet";
-export { SidebarLink, sidebarLinkClassNames } from "elements/Sidebar";
-export * from "elements/Snippet";
-export * from "elements/Spinner";
-export * from "elements/TextInput";
-export * from "elements/ToggleTheme";
-export * from "elements/TimestampDistance";
-export * from "elements/Tooltip";
+export * from "@common/elements/Button";
+export * from "@common/elements/Callout";
+export * from "@common/elements/ChartTooltip";
+export * from "@common/elements/Checkbox";
+export * from "@common/elements/ConvexLogo";
+export * from "@common/elements/ClosePanelButton";
+export * from "@common/elements/Combobox";
+export * from "@common/elements/ConfirmationDialog";
+export * from "@common/elements/CopyButton";
+export * from "@common/elements/CopyTextButton";
+export * from "@common/elements/DateRangePicker";
+export * from "@common/elements/DetailPanel";
+export * from "@common/elements/EmptySection";
+export { PuzzlePieceIcon } from "@common/elements/icons";
+export * from "@common/elements/Loading";
+export * from "@common/elements/Menu";
+export * from "@common/elements/Modal";
+export * from "@common/elements/MultiSelectCombobox";
+export * from "@common/elements/PageContent";
+export * from "@common/elements/Popover";
+export * from "@common/elements/ReadonlyCode";
+export * from "@common/elements/Sheet";
+export { SidebarLink, sidebarLinkClassNames } from "@common/elements/Sidebar";
+export * from "@common/elements/Snippet";
+export * from "@common/elements/Spinner";
+export * from "@common/elements/TextInput";
+export * from "@common/elements/ToggleTheme";
+export * from "@common/elements/TimestampDistance";
+export * from "@common/elements/Tooltip";
 
 // For rendering the dashboard itself -- consider refactoring into a basic provider
-export * from "elements/Favicon";
-export * from "elements/ToastContainer";
-export * from "elements/ThemeConsumer";
+export * from "@common/elements/Favicon";
+export * from "@common/elements/ToastContainer";
+export * from "@common/elements/ThemeConsumer";
 
 // For rendering deployment pages in self-hosted dashboard
-export * from "layouts/DeploymentDashboardLayout";
-export * from "layouts/DeploymentSettingsLayout";
-export * from "features/health/components/HealthView";
-export * from "features/data/components/DataView";
-export * from "features/functions/components/FunctionsView";
-export * from "features/files/components/FileStorageView";
-export * from "features/logs/components/LogsView";
-export * from "features/history/components/HistoryView";
-export * from "features/schedules/components/ScheduledFunctionsView";
-export * from "features/schedules/components/crons/CronsView";
-export * from "features/settings/components/EnvironmentVariablesView";
-export * from "features/settings/components/AuthenticationView";
-export * from "features/settings/components/ComponentsView";
+export * from "@common/layouts/DeploymentDashboardLayout";
+export * from "@common/layouts/DeploymentSettingsLayout";
+export * from "@common/features/health/components/HealthView";
+export * from "@common/features/data/components/DataView";
+export * from "@common/features/functions/components/FunctionsView";
+export * from "@common/features/files/components/FileStorageView";
+export * from "@common/features/logs/components/LogsView";
+export * from "@common/features/history/components/HistoryView";
+export * from "@common/features/schedules/components/ScheduledFunctionsView";
+export * from "@common/features/schedules/components/crons/CronsView";
+export * from "@common/features/settings/components/EnvironmentVariablesView";
+export * from "@common/features/settings/components/AuthenticationView";
+export * from "@common/features/settings/components/ComponentsView";
 
-export * from "features/settings/components/DeploymentUrl";
-export * from "features/settings/components/EnvironmentVariables";
-export * from "features/settings/components/DeploymentEnvironmentVariables";
-export * from "features/settings/lib/types";
+export * from "@common/features/settings/components/DeploymentUrl";
+export * from "@common/features/settings/components/EnvironmentVariables";
+export * from "@common/features/settings/components/DeploymentEnvironmentVariables";
+export * from "@common/features/settings/lib/types";

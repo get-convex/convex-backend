@@ -10,9 +10,9 @@ import {
   getFunctionName,
   makeFunctionReference,
 } from "convex/server";
-import { Tooltip } from "elements/Tooltip";
-import * as FunctionTypes from "lib/functions/types";
-import { Result } from "features/functionRunner/components/Result";
+import { Tooltip } from "@common/elements/Tooltip";
+import * as FunctionTypes from "@common/lib/functions/types";
+import { Result } from "@common/features/functionRunner/components/Result";
 
 export function QueryResult({
   module,

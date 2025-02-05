@@ -13,8 +13,8 @@ import {
   TemplateLiteralNode,
   CallExpressionNode,
   ConvexSchemaValidationError,
-} from "elements/ObjectEditor/ast/types";
-import { isValidValue } from "elements/ObjectEditor/ast/helpers";
+} from "@common/elements/ObjectEditor/ast/types";
+import { isValidValue } from "@common/elements/ObjectEditor/ast/helpers";
 
 function unsupportedSyntax(n: Node) {
   return {

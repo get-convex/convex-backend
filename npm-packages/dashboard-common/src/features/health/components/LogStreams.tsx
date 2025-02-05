@@ -1,4 +1,4 @@
-import { IntegrationStatus } from "features/health/components/IntegrationStatus";
+import { IntegrationStatus } from "@common/features/health/components/IntegrationStatus";
 
 export function LogStreams() {
   return (

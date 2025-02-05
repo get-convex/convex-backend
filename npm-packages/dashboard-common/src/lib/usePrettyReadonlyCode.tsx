@@ -1,7 +1,10 @@
 import { convexToJson, Value } from "convex/values";
 import { useCallback, useEffect, useRef, useState } from "react";
 import sizeof from "object-sizeof";
-import { ReadonlyCode, type ReadonlyCodeProps } from "elements/ReadonlyCode";
+import {
+  ReadonlyCode,
+  type ReadonlyCodeProps,
+} from "@common/elements/ReadonlyCode";
 
 const MAX_CODE_SIZE_KB = 10;
 

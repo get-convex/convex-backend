@@ -16,21 +16,21 @@ import {
   CronJob,
   CronJobLog,
 } from "system-udfs/convex/_system/frontend/common";
-import { FileModal } from "features/schedules/components/crons/FileModal";
-import { CronsTable } from "features/schedules/components/crons/CronsTable";
-import { useCronJobs } from "features/schedules/lib/CronsProvider";
-import { useSourceCode } from "lib/functions/useSourceCode";
-import { Button } from "elements/Button";
-import { PageContent } from "elements/PageContent";
-import { LoadingTransition } from "elements/Loading";
-import { Sheet } from "elements/Sheet";
-import { Tooltip } from "elements/Tooltip";
-import { useFunctionUrl } from "lib/deploymentApi";
-import { formatDateTime, msFormat } from "lib/format";
-import { displayName } from "lib/functions/generateFileTree";
-import { LogLinesOutput } from "elements/LogOutput";
-import { entryOutput } from "lib/useLogs";
-import { EmptySection } from "elements/EmptySection";
+import { FileModal } from "@common/features/schedules/components/crons/FileModal";
+import { CronsTable } from "@common/features/schedules/components/crons/CronsTable";
+import { useCronJobs } from "@common/features/schedules/lib/CronsProvider";
+import { useSourceCode } from "@common/lib/functions/useSourceCode";
+import { Button } from "@common/elements/Button";
+import { PageContent } from "@common/elements/PageContent";
+import { LoadingTransition } from "@common/elements/Loading";
+import { Sheet } from "@common/elements/Sheet";
+import { Tooltip } from "@common/elements/Tooltip";
+import { useFunctionUrl } from "@common/lib/deploymentApi";
+import { formatDateTime, msFormat } from "@common/lib/format";
+import { displayName } from "@common/lib/functions/generateFileTree";
+import { LogLinesOutput } from "@common/elements/LogOutput";
+import { entryOutput } from "@common/lib/useLogs";
+import { EmptySection } from "@common/elements/EmptySection";
 
 export function CronJobsContent() {
   const { loading, cronJobs, cronsModule, cronJobRuns } = useCronJobs();

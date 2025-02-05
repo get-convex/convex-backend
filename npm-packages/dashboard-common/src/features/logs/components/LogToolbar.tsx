@@ -1,9 +1,9 @@
 import difference from "lodash/difference";
-import { MultiSelectCombobox } from "elements/MultiSelectCombobox";
-import { NentNameOption } from "elements/NentSwitcher";
-import { functionIdentifierFromValue } from "lib/functions/generateFileTree";
-import { FunctionNameOption } from "elements/FunctionNameOption";
-import { NENT_APP_PLACEHOLDER } from "lib/useNents";
+import { MultiSelectCombobox } from "@common/elements/MultiSelectCombobox";
+import { NentNameOption } from "@common/elements/NentSwitcher";
+import { functionIdentifierFromValue } from "@common/lib/functions/generateFileTree";
+import { FunctionNameOption } from "@common/elements/FunctionNameOption";
+import { NENT_APP_PLACEHOLDER } from "@common/lib/useNents";
 
 export function LogToolbar({
   functions,

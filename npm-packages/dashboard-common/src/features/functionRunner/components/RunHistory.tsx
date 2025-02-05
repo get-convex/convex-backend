@@ -10,11 +10,11 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import { useContext, useEffect, useState } from "react";
 import { createGlobalState } from "react-use";
-import { useFunctionUrl } from "lib/deploymentApi";
-import { ComponentId } from "lib/useNents";
-import { Button } from "elements/Button";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
+import { useFunctionUrl } from "@common/lib/deploymentApi";
+import { ComponentId } from "@common/lib/useNents";
+import { Button } from "@common/elements/Button";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 
 // Keep track of a single user across instances of FunctionTester
 export const useImpersonatedUser = createGlobalState<UserIdentityAttributes>({

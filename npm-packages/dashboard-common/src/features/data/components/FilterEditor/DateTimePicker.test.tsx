@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DateTimePicker } from "features/data/components/FilterEditor/DateTimePicker";
+import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
 
 describe("DateTimePicker", () => {
   const mockOnChange = jest.fn();

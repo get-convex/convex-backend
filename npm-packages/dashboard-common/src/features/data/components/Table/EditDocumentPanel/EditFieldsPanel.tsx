@@ -3,8 +3,8 @@ import { GenericDocument } from "convex/server";
 import isEqual from "lodash/isEqual";
 import { Fragment, useState } from "react";
 import { ValidatorJSON } from "convex/values";
-import { JavascriptDocumentsForm } from "features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
-import { ClosePanelButton } from "elements/ClosePanelButton";
+import { JavascriptDocumentsForm } from "@common/features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
+import { ClosePanelButton } from "@common/elements/ClosePanelButton";
 
 export function EditFieldsPanel({
   allRowsSelected,

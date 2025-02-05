@@ -5,14 +5,14 @@ import { HeaderGroup } from "react-table";
 import { useDrop, useDrag } from "react-dnd";
 import { useEffect, useRef } from "react";
 import omit from "lodash/omit";
-import { useContextMenuTrigger } from "features/data/lib/useContextMenuTrigger";
-import { useTableDensity } from "features/data/lib/useTableDensity";
-import { Checkbox } from "elements/Checkbox";
-import { identifierNeedsEscape } from "features/data/lib/helpers";
-import { emptyColumnName } from "features/data/components/Table/utils/useDataColumns";
-import { DataCellProps } from "features/data/components/Table/DataCell/DataCell";
-import { columnWidthToString } from "features/data/components/Table/DataRow";
-import { Tooltip } from "elements/Tooltip";
+import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
+import { useTableDensity } from "@common/features/data/lib/useTableDensity";
+import { Checkbox } from "@common/elements/Checkbox";
+import { identifierNeedsEscape } from "@common/features/data/lib/helpers";
+import { emptyColumnName } from "@common/features/data/components/Table/utils/useDataColumns";
+import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
+import { columnWidthToString } from "@common/features/data/components/Table/DataRow";
+import { Tooltip } from "@common/elements/Tooltip";
 
 type ColumnHeaderProps = {
   column: HeaderGroup<GenericDocument>;

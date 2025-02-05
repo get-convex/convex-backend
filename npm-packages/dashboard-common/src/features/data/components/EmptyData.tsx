@@ -1,12 +1,12 @@
 import { PlusIcon, TableIcon } from "@radix-ui/react-icons";
 import { useContext } from "react";
-import { CreateNewTable } from "features/data/components/DataSidebar";
-import { EmptySection } from "elements/EmptySection";
-import { useNents } from "lib/useNents";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useTableMetadata } from "lib/useTableMetadata";
-import { Loading } from "elements/Loading";
-import { Button } from "elements/Button";
+import { CreateNewTable } from "@common/features/data/components/DataSidebar";
+import { EmptySection } from "@common/elements/EmptySection";
+import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useTableMetadata } from "@common/lib/useTableMetadata";
+import { Loading } from "@common/elements/Loading";
+import { Button } from "@common/elements/Button";
 
 export function EmptyData() {
   return (

@@ -6,9 +6,9 @@ import isEqual from "lodash/isEqual";
 import omitBy from "lodash/omitBy";
 import Link from "next/link";
 import { createGlobalState } from "react-use";
-import { JavascriptDocumentsForm } from "features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
-import { ClosePanelButton } from "elements/ClosePanelButton";
-import { useNents } from "lib/useNents";
+import { JavascriptDocumentsForm } from "@common/features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
+import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { useNents } from "@common/lib/useNents";
 
 export type EditDocumentPanelProps = {
   onClose: () => void;

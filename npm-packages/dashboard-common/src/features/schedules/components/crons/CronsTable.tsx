@@ -10,22 +10,22 @@ import {
   CronJobLog,
   CronJobWithLastRun,
 } from "system-udfs/convex/_system/frontend/common";
-import { useWasmCron } from "features/schedules/lib/useWasmCron";
+import { useWasmCron } from "@common/features/schedules/lib/useWasmCron";
 import {
   prettierSaffron,
   scheduleAsCron,
   scheduleLiteral,
-} from "features/schedules/lib/cronHelpers";
-import { stringifyValue } from "lib/stringifyValue";
-import { prettier } from "lib/format";
-import { Tooltip } from "elements/Tooltip";
-import { useFunctionUrl } from "lib/deploymentApi";
-import { displayName } from "lib/functions/generateFileTree";
-import { LiveTimestampDistance } from "elements/TimestampDistance";
-import { Button } from "elements/Button";
-import { DetailPanel } from "elements/DetailPanel";
-import { ReadonlyCode } from "elements/ReadonlyCode";
-import { Sheet } from "elements/Sheet";
+} from "@common/features/schedules/lib/cronHelpers";
+import { stringifyValue } from "@common/lib/stringifyValue";
+import { prettier } from "@common/lib/format";
+import { Tooltip } from "@common/elements/Tooltip";
+import { useFunctionUrl } from "@common/lib/deploymentApi";
+import { displayName } from "@common/lib/functions/generateFileTree";
+import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
+import { Button } from "@common/elements/Button";
+import { DetailPanel } from "@common/elements/DetailPanel";
+import { ReadonlyCode } from "@common/elements/ReadonlyCode";
+import { Sheet } from "@common/elements/Sheet";
 
 const COLUMN_STYLES = [
   { fontWeight: "500", flex: "2 0 80px", fontSize: "0.875rem" },

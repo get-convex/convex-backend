@@ -1,14 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { mockConvexReactClient } from "lib/mockConvexReactClient";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { useEffectOnce } from "react-use";
 import udfs from "udfs";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import {
   ObjectEditor,
   ObjectEditorProps,
-} from "elements/ObjectEditor/ObjectEditor";
+} from "@common/elements/ObjectEditor/ObjectEditor";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 

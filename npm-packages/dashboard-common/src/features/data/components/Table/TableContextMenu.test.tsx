@@ -7,8 +7,8 @@ import userEvent from "@testing-library/user-event";
 import {
   TableContextMenu,
   TableContextMenuProps,
-} from "features/data/components/Table/TableContextMenu";
-import { mockConvexReactClient } from "lib/mockConvexReactClient";
+} from "@common/features/data/components/Table/TableContextMenu";
+import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 

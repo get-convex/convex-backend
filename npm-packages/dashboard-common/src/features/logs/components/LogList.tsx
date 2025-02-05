@@ -19,24 +19,27 @@ import { Transition, Dialog } from "@headlessui/react";
 import isEqual from "lodash/isEqual";
 import difference from "lodash/difference";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
-import { DeploymentEventListItem } from "features/logs/components/DeploymentEventListItem";
-import { ITEM_SIZE, LogListItem } from "features/logs/components/LogListItem";
-import { LogToolbar } from "features/logs/components/LogToolbar";
-import { filterLogs } from "features/logs/lib/filterLogs";
-import { UdfLog } from "lib/useLogs";
+import { DeploymentEventListItem } from "@common/features/logs/components/DeploymentEventListItem";
+import {
+  ITEM_SIZE,
+  LogListItem,
+} from "@common/features/logs/components/LogListItem";
+import { LogToolbar } from "@common/features/logs/components/LogToolbar";
+import { filterLogs } from "@common/features/logs/lib/filterLogs";
+import { UdfLog } from "@common/lib/useLogs";
 import {
   InterleavedLog,
   interleaveLogs,
-} from "features/logs/lib/interleaveLogs";
-import { DeploymentAuditLogEvent } from "lib/useDeploymentAuditLog";
-import { NENT_APP_PLACEHOLDER, Nent } from "lib/useNents";
-import { Sheet } from "elements/Sheet";
-import { Tooltip } from "elements/Tooltip";
-import { InfiniteScrollList } from "elements/InfiniteScrollList";
-import { Button } from "elements/Button";
-import { ClosePanelButton } from "elements/ClosePanelButton";
-import { CopyTextButton } from "elements/CopyTextButton";
-import { TextInput } from "elements/TextInput";
+} from "@common/features/logs/lib/interleaveLogs";
+import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
+import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
+import { Sheet } from "@common/elements/Sheet";
+import { Tooltip } from "@common/elements/Tooltip";
+import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
+import { Button } from "@common/elements/Button";
+import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { CopyTextButton } from "@common/elements/CopyTextButton";
+import { TextInput } from "@common/elements/TextInput";
 
 export type LogListProps = {
   logs?: UdfLog[];

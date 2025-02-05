@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react";
 import { useRef } from "react";
-import { useMaintainScrollPositionOnChange } from "features/data/components/Table/utils/useMaintainScrollPositionOnChange";
+import { useMaintainScrollPositionOnChange } from "@common/features/data/components/Table/utils/useMaintainScrollPositionOnChange";
 
 const ROW_HEIGHT = 24;
 

@@ -1,5 +1,5 @@
-import { cn } from "lib/cn";
-import { Snippet } from "elements/Snippet";
+import { cn } from "@common/lib/cn";
+import { Snippet } from "@common/elements/Snippet";
 
 type CalloutVariant = "instructions" | "error" | "localDev" | "upsell";
 

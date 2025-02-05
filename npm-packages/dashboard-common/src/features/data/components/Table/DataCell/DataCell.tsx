@@ -12,28 +12,28 @@ import {
   Link2Icon,
 } from "@radix-ui/react-icons";
 import { Portal, Transition } from "@headlessui/react";
-import { useTableDensity } from "features/data/lib/useTableDensity";
+import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 
-import { ProductionEditsConfirmationDialog } from "elements/ProductionEditsConfirmationDialog";
+import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
 
-import { KeyboardShortcut } from "elements/KeyboardShortcut";
-import { DataDetail } from "features/data/components/Table/DataCell/DataDetail";
-import { CellEditor } from "features/data/components/Table/DataCell/CellEditor";
-import { DataCellValue } from "features/data/components/Table/DataCell/DataCellValue";
+import { KeyboardShortcut } from "@common/elements/KeyboardShortcut";
+import { DataDetail } from "@common/features/data/components/Table/DataCell/DataDetail";
+import { CellEditor } from "@common/features/data/components/Table/DataCell/CellEditor";
+import { DataCellValue } from "@common/features/data/components/Table/DataCell/DataCellValue";
 
-import type { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
-import { arrowKeyHandler } from "features/data/components/Table/utils/arrowKeyHandler";
+import type { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
+import { arrowKeyHandler } from "@common/features/data/components/Table/utils/arrowKeyHandler";
 import {
   OpenContextMenu,
   useActionHotkeys,
   useCellActions,
-} from "features/data/components/Table/DataCell/utils/cellActions";
-import { usePasteListener } from "features/data/components/Table/DataCell/utils/usePasteListener";
-import { useTrackCellChanges } from "features/data/components/Table/DataCell/utils/useTrackCellChanges";
-import { useValidator } from "features/data/components/Table/DataCell/utils/useValidator";
-import { SchemaJson } from "lib/format";
-import { stringifyValue } from "lib/stringifyValue";
-import { Button } from "elements/Button";
+} from "@common/features/data/components/Table/DataCell/utils/cellActions";
+import { usePasteListener } from "@common/features/data/components/Table/DataCell/utils/usePasteListener";
+import { useTrackCellChanges } from "@common/features/data/components/Table/DataCell/utils/useTrackCellChanges";
+import { useValidator } from "@common/features/data/components/Table/DataCell/utils/useValidator";
+import { SchemaJson } from "@common/lib/format";
+import { stringifyValue } from "@common/lib/stringifyValue";
+import { Button } from "@common/elements/Button";
 
 export type DataCellProps = {
   value: Value;

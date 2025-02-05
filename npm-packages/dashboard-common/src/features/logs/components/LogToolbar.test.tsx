@@ -1,8 +1,8 @@
-import { functionIdentifierValue } from "lib/functions/generateFileTree";
+import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import {
   functionsForSelectedNents,
   selectNentOption,
-} from "features/logs/components/LogToolbar";
+} from "@common/features/logs/components/LogToolbar";
 
 describe("selectNentOption", () => {
   const nents = ["_App", "nent1", "nent2"];

@@ -1,6 +1,6 @@
 import { Value } from "convex/values";
 import { useEffect } from "react";
-import { walkAst } from "elements/ObjectEditor/ast/walkAst";
+import { walkAst } from "@common/elements/ObjectEditor/ast/walkAst";
 
 export function usePasteListener(
   cellRef: React.RefObject<HTMLDivElement>,

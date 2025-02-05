@@ -9,7 +9,7 @@ import {
   isValidFilter,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import isEqual from "lodash/isEqual";
-import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 
 // Global state keeping track of filters for all tables.
 export const useFilterMap = createGlobalState(

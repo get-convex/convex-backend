@@ -16,7 +16,11 @@
     "jsx": "preserve",
     "incremental": true,
     "baseUrl": "src",
-    "customConditions": ["convex-internal-types"]
+    "customConditions": ["convex-internal-types"],
+    "paths": {
+      "dashboard-common": ["../dashboard-common/src"],
+      "@common/*": ["../../dashboard-common/src/*"]
+    }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]

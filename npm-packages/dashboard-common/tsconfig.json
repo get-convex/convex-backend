@@ -7,10 +7,6 @@
     "skipLibCheck": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "emitDeclarationOnly": false,
     "esModuleInterop": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -20,9 +16,13 @@
     "baseUrl": "./src",
     "rootDir": "./src",
     "customConditions": ["convex-internal-types"],
-    "outDir": "dist",
-    "isolatedModules": true
+    "isolatedModules": true,
+    "noEmit": true,
+    "outDir": "./dist",
+    "paths": {
+      "@common/*": ["*"]
+    }
   },
   "include": ["src/**/*", "src/*", "next-env.d.ts"],
-  "exclude": ["node_modules", "src/**/*.stories.tsx", "dist"]
+  "exclude": ["node_modules", "src/**/*.stories.tsx"]
 }

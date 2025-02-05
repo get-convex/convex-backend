@@ -5,11 +5,11 @@ import {
   Node,
   ExpressionNode,
   isUndefined,
-} from "elements/ObjectEditor/ast/types";
-import { walkPatchDocuments } from "elements/ObjectEditor/ast/walkPatchDocuments";
-import { Walker } from "elements/ObjectEditor/ast/ast";
-import { walkMultipleDocuments } from "elements/ObjectEditor/ast/walkMultipleDocuments";
-import { IdWalker } from "elements/ObjectEditor/ast/astIds";
+} from "@common/elements/ObjectEditor/ast/types";
+import { walkPatchDocuments } from "@common/elements/ObjectEditor/ast/walkPatchDocuments";
+import { Walker } from "@common/elements/ObjectEditor/ast/ast";
+import { walkMultipleDocuments } from "@common/elements/ObjectEditor/ast/walkMultipleDocuments";
+import { IdWalker } from "@common/elements/ObjectEditor/ast/astIds";
 
 export type WalkAstOptions = {
   validator?: ValidatorJSON;

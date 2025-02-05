@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Modal } from "elements/Modal";
-import { ReadonlyCode } from "elements/ReadonlyCode";
-import { SourceMissingPanel } from "elements/SourceMissingPanel";
+import { Modal } from "@common/elements/Modal";
+import { ReadonlyCode } from "@common/elements/ReadonlyCode";
+import { SourceMissingPanel } from "@common/elements/SourceMissingPanel";
 
 type Props = {
   onClose: () => void;

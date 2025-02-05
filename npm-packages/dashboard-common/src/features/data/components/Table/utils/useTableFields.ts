@@ -4,8 +4,8 @@ import { GenericDocument } from "convex/server";
 import {
   topLevelFieldsForValidator,
   useSingleTableEnforcedSchema,
-} from "features/data/components/TableSchema";
-import { sortColumns } from "features/data/lib/helpers";
+} from "@common/features/data/components/TableSchema";
+import { sortColumns } from "@common/features/data/lib/helpers";
 
 export function useTableFields(
   tableName: string,

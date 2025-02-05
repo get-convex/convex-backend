@@ -9,9 +9,9 @@ import { useCallback } from "react";
 import omitBy from "lodash/omitBy";
 import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { useNents } from "lib/useNents";
-import { toast } from "lib/utils";
-import { useInvalidateShapes } from "features/data/lib/api";
+import { useNents } from "@common/lib/useNents";
+import { toast } from "@common/lib/utils";
+import { useInvalidateShapes } from "@common/features/data/lib/api";
 
 export function usePatchDocumentField(tableName: string) {
   const router = useRouter();

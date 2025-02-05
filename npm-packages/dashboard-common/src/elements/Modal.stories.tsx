@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { Modal } from "elements/Modal";
+import { Modal } from "@common/elements/Modal";
 
 export default {
   component: Modal,

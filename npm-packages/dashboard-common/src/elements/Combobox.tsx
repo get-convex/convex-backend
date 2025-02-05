@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Combobox as HeadlessCombobox } from "@headlessui/react";
 import { CaretSortIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
-import { cn } from "lib/cn";
+import { cn } from "@common/lib/cn";
 import isEqual from "lodash/isEqual";
 import { test } from "fuzzy";
-import { Button, ButtonProps } from "elements/Button";
+import { Button, ButtonProps } from "@common/elements/Button";
 
 export type Option<T> = { label: string; value: T };
 

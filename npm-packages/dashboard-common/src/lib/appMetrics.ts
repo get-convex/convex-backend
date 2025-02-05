@@ -4,13 +4,13 @@ import {
   FunctionExecution,
   UdfType,
 } from "system-udfs/convex/_system/frontend/common";
-import { deploymentFetch } from "lib/fetching";
+import { deploymentFetch } from "@common/lib/fetching";
 import {
   useDeploymentIsDisconnected,
   useDeploymentUrl,
   useDeploymentAuthHeader,
-} from "lib/deploymentApi";
-import { functionIdentifierValue } from "lib/functions/generateFileTree";
+} from "@common/lib/deploymentApi";
+import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 
 export type UdfMetric = "invocations" | "errors" | "cacheHits" | "cacheMisses";
 export type TableMetric = "rowsRead" | "rowsWritten";

@@ -8,19 +8,19 @@ import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import udfs from "udfs";
 import { Uri } from "monaco-editor/esm/vs/editor/editor.api";
-import { Button } from "elements/Button";
-import { Loading } from "elements/Loading";
-import { stringifyValue } from "lib/stringifyValue";
-import { SchemaJson, displaySchema } from "lib/format";
-import { useRunTestFunction } from "features/functionRunner/lib/client";
-import { Spinner } from "elements/Spinner";
-import { ComponentId } from "lib/useNents";
-import { Result } from "features/functionRunner/components/Result";
+import { Button } from "@common/elements/Button";
+import { Loading } from "@common/elements/Loading";
+import { stringifyValue } from "@common/lib/stringifyValue";
+import { SchemaJson, displaySchema } from "@common/lib/format";
+import { useRunTestFunction } from "@common/features/functionRunner/lib/client";
+import { Spinner } from "@common/elements/Spinner";
+import { ComponentId } from "@common/lib/useNents";
+import { Result } from "@common/features/functionRunner/components/Result";
 import {
   RunHistory,
   RunHistoryItem,
   useRunHistory,
-} from "features/functionRunner/components/RunHistory";
+} from "@common/features/functionRunner/components/RunHistory";
 import convexServerTypes from "../../../lib/generated/convexServerTypes.json";
 
 // Used for typechecking

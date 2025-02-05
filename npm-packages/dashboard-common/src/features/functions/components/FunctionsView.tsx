@@ -3,15 +3,15 @@ import { CodeIcon } from "@radix-ui/react-icons";
 import {
   useCurrentOpenFunction,
   useModuleFunctions,
-} from "lib/functions/FunctionsProvider";
-import { DirectorySidebar } from "features/functions/components/DirectorySidebar";
-import { FileEditor } from "features/functions/components/FileEditor";
-import { FunctionSummary } from "features/functions/components/FunctionSummary";
-import { PerformanceGraphs } from "features/functions/components/PerformanceGraphs";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { SidebarDetailLayout } from "layouts/SidebarDetailLayout";
-import { EmptySection } from "elements/EmptySection";
-import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
+} from "@common/lib/functions/FunctionsProvider";
+import { DirectorySidebar } from "@common/features/functions/components/DirectorySidebar";
+import { FileEditor } from "@common/features/functions/components/FileEditor";
+import { FunctionSummary } from "@common/features/functions/components/FunctionSummary";
+import { PerformanceGraphs } from "@common/features/functions/components/PerformanceGraphs";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
+import { EmptySection } from "@common/elements/EmptySection";
+import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 
 export function FunctionsView() {
   return (

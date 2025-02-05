@@ -28,28 +28,28 @@ import {
   Panel,
   PanelGroup,
 } from "react-resizable-panels";
-import { cn } from "lib/cn";
-import { ResizeHandle } from "layouts/SidebarDetailLayout";
-import { useTableDensity } from "features/data/lib/useTableDensity";
-import { InfiniteScrollList } from "elements/InfiniteScrollList";
-import { SelectionState } from "features/data/lib/useSelectionState";
-import { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
-import { DataRow } from "features/data/components/Table/DataRow";
-import { TableScrollbar } from "features/data/components/Table/TableScrollbar";
-import { useTrackColumnWidths } from "features/data/components/Table/utils/useTrackColumnWidths";
-import type { PopupState } from "features/data/lib/useToolPopup";
-import { useMaintainScrollPositionOnChange } from "features/data/components/Table/utils/useMaintainScrollPositionOnChange";
+import { cn } from "@common/lib/cn";
+import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
+import { useTableDensity } from "@common/features/data/lib/useTableDensity";
+import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
+import { SelectionState } from "@common/features/data/lib/useSelectionState";
+import { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
+import { DataRow } from "@common/features/data/components/Table/DataRow";
+import { TableScrollbar } from "@common/features/data/components/Table/TableScrollbar";
+import { useTrackColumnWidths } from "@common/features/data/components/Table/utils/useTrackColumnWidths";
+import type { PopupState } from "@common/features/data/lib/useToolPopup";
+import { useMaintainScrollPositionOnChange } from "@common/features/data/components/Table/utils/useMaintainScrollPositionOnChange";
 import {
   TableContextMenu,
   useTableContextMenuState,
-} from "features/data/components/Table/TableContextMenu";
-import { TableHeader } from "features/data/components/Table/TableHeader";
-import { useStoredColumnOrder } from "features/data/components/Table/utils/useDataColumns";
-import { ViewDocument } from "features/data/components/Table/ViewDocument";
-import { pageSize } from "features/data/components/Table/utils/useQueryFilteredTable";
-import { LoadingLogo } from "elements/Loading";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useNents } from "lib/useNents";
+} from "@common/features/data/components/Table/TableContextMenu";
+import { TableHeader } from "@common/features/data/components/Table/TableHeader";
+import { useStoredColumnOrder } from "@common/features/data/components/Table/utils/useDataColumns";
+import { ViewDocument } from "@common/features/data/components/Table/ViewDocument";
+import { pageSize } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
+import { LoadingLogo } from "@common/elements/Loading";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useNents } from "@common/lib/useNents";
 
 const ScrollingComponent = withScrolling("div");
 

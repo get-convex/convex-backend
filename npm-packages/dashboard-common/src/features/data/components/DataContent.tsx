@@ -18,28 +18,31 @@ import {
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Shape } from "shapes";
-import { LoadingLogo, LoadingTransition } from "elements/Loading";
-import { Sheet } from "elements/Sheet";
-import { Button } from "elements/Button";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { useSelectionState } from "features/data/lib/useSelectionState";
-import { useDataToolbarActions } from "features/data/lib/useDataToolbarActions";
-import { useTableFilters } from "features/data/lib/useTableFilters";
-import { useToolPopup } from "features/data/lib/useToolPopup";
-import { useAuthorizeProdEdits } from "features/data/lib/useAuthorizeProdEdits";
-import { usePatchDocumentField } from "features/data/components/Table/utils/usePatchDocumentField";
-import { Table, TableSkeleton } from "features/data/components/Table/Table";
+import { LoadingLogo, LoadingTransition } from "@common/elements/Loading";
+import { Sheet } from "@common/elements/Sheet";
+import { Button } from "@common/elements/Button";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useSelectionState } from "@common/features/data/lib/useSelectionState";
+import { useDataToolbarActions } from "@common/features/data/lib/useDataToolbarActions";
+import { useTableFilters } from "@common/features/data/lib/useTableFilters";
+import { useToolPopup } from "@common/features/data/lib/useToolPopup";
+import { useAuthorizeProdEdits } from "@common/features/data/lib/useAuthorizeProdEdits";
+import { usePatchDocumentField } from "@common/features/data/components/Table/utils/usePatchDocumentField";
+import {
+  Table,
+  TableSkeleton,
+} from "@common/features/data/components/Table/Table";
 import {
   DataToolbar,
   DataToolbarSkeleton,
-} from "features/data/components/DataToolbar/DataToolbar";
-import { EmptyDataContent } from "features/data/components/EmptyData";
-import { useDataColumns } from "features/data/components/Table/utils/useDataColumns";
-import { useQueryFilteredTable } from "features/data/components/Table/utils/useQueryFilteredTable";
-import { useSingleTableSchemaStatus } from "features/data/components/TableSchema";
-import { DataFilters } from "features/data/components/DataFilters/DataFilters";
-import { useTableFields } from "features/data/components/Table/utils/useTableFields";
-import { useDefaultDocument } from "features/data/lib/useDefaultDocument";
+} from "@common/features/data/components/DataToolbar/DataToolbar";
+import { EmptyDataContent } from "@common/features/data/components/EmptyData";
+import { useDataColumns } from "@common/features/data/components/Table/utils/useDataColumns";
+import { useQueryFilteredTable } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
+import { useSingleTableSchemaStatus } from "@common/features/data/components/TableSchema";
+import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
+import { useTableFields } from "@common/features/data/components/Table/utils/useTableFields";
+import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
 
 export function DataContent({
   tableName,

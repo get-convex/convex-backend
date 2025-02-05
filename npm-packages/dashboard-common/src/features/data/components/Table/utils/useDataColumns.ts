@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { GenericDocument } from "convex/server";
 import { useLocalStorage } from "react-use";
-import { isInCommonUTCTimestampRange } from "features/data/lib/helpers";
-import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
+import { isInCommonUTCTimestampRange } from "@common/features/data/lib/helpers";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 
 const MIN_COLUMN_WIDTH = 50;
 // Accounts for different locales, prevents truncation if _creationTime is the last column

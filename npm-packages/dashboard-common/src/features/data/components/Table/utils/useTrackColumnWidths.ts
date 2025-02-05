@@ -1,4 +1,4 @@
-import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useEffect } from "react";
 import { TableState } from "react-table";
 import { usePrevious } from "react-use";

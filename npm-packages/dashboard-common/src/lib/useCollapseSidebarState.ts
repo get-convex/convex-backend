@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useWindowSize } from "react-use";
-import { useGlobalLocalStorage } from "lib/useGlobalLocalStorage";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 
 export function useCollapseSidebarState() {
   const { width } = useWindowSize();

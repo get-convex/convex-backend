@@ -1,10 +1,10 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 import { FolderIcon, FolderOpenIcon } from "@heroicons/react/24/outline";
 import { Disclosure } from "@headlessui/react";
-import { FileItem } from "features/functions/components/FileItem";
-import { DirectoryItem } from "features/functions/components/FunctionItem";
-import type { FileOrFolder, Folder } from "lib/functions/types";
-import { useCurrentOpenFunction } from "lib/functions/FunctionsProvider";
+import { FileItem } from "@common/features/functions/components/FileItem";
+import { DirectoryItem } from "@common/features/functions/components/FunctionItem";
+import type { FileOrFolder, Folder } from "@common/lib/functions/types";
+import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
 
 type FileTreeProps = {
   tree: FileOrFolder[];

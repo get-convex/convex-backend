@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Menu, MenuItem, MenuLink, MenuProps } from "elements/Menu";
+import { Menu, MenuItem, MenuLink, MenuProps } from "@common/elements/Menu";
 
 describe("Menu", () => {
   beforeEach(jest.clearAllMocks);

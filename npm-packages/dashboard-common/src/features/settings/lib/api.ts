@@ -4,9 +4,9 @@ import {
   useAdminKey,
   useDeploymentAuthHeader,
   useDeploymentUrl,
-} from "lib/deploymentApi";
-import { reportHttpError, toast } from "lib/utils";
-import { ConnectedDeploymentContext } from "lib/deploymentContext";
+} from "@common/lib/deploymentApi";
+import { reportHttpError, toast } from "@common/lib/utils";
+import { ConnectedDeploymentContext } from "@common/lib/deploymentContext";
 
 export function useUpdateEnvVars(): (
   changes: {

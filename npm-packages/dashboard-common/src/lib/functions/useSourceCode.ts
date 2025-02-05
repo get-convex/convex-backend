@@ -1,10 +1,10 @@
 import useSWR, { BareFetcher } from "swr";
-import { useNents } from "lib/useNents";
+import { useNents } from "@common/lib/useNents";
 import {
   deploymentAuthMiddleware,
   useDeploymentIsDisconnected,
-} from "lib/deploymentApi";
-import { deploymentFetch } from "lib/fetching";
+} from "@common/lib/deploymentApi";
+import { deploymentFetch } from "@common/lib/fetching";
 
 export function useSourceCode(path: string) {
   const { selectedNent } = useNents();

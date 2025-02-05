@@ -6,7 +6,7 @@ import Editor, {
 } from "@monaco-editor/react";
 import { RefObject, useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { editorOptions } from "elements/ObjectEditor/ObjectEditor";
+import { editorOptions } from "@common/elements/ObjectEditor/ObjectEditor";
 
 // The editor will have a height of 100% and will scroll.
 type ParentHeight = {

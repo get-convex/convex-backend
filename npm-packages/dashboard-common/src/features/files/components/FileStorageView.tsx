@@ -20,22 +20,22 @@ import {
   flexRender,
   createColumnHelper,
 } from "@tanstack/react-table";
-import { toast } from "lib/utils";
-import { NentSwitcher } from "elements/NentSwitcher";
-import { useNents } from "lib/useNents";
-import { DeploymentInfoContext } from "lib/deploymentContext";
-import { Button, buttonClasses } from "elements/Button";
-import { Tooltip } from "elements/Tooltip";
-import { Spinner } from "elements/Spinner";
-import { Checkbox } from "elements/Checkbox";
-import { formatBytes } from "lib/format";
-import { Loading } from "elements/Loading";
-import { EmptySection } from "elements/EmptySection";
-import { Sheet } from "elements/Sheet";
-import { ConfirmationDialog } from "elements/ConfirmationDialog";
-import { useCopy } from "lib/useCopy";
-import { DeploymentPageTitle } from "elements/DeploymentPageTitle";
-import { PageContent } from "elements/PageContent";
+import { toast } from "@common/lib/utils";
+import { NentSwitcher } from "@common/elements/NentSwitcher";
+import { useNents } from "@common/lib/useNents";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { Button, buttonClasses } from "@common/elements/Button";
+import { Tooltip } from "@common/elements/Tooltip";
+import { Spinner } from "@common/elements/Spinner";
+import { Checkbox } from "@common/elements/Checkbox";
+import { formatBytes } from "@common/lib/format";
+import { Loading } from "@common/elements/Loading";
+import { EmptySection } from "@common/elements/EmptySection";
+import { Sheet } from "@common/elements/Sheet";
+import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import { useCopy } from "@common/lib/useCopy";
+import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
+import { PageContent } from "@common/elements/PageContent";
 
 const columnHelper = createColumnHelper<FileMetadata>();
 
