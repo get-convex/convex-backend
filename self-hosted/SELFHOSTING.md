@@ -6,10 +6,10 @@
 </picture>
 </p>
 
-** [Convex managed hosted product](https://www.convex.dev/plans).** The hosted
-product includes a generous free tier and provides a seamless, reliable,
-cost-effective platform that allows you to focus on building your application
-without worrying about infrastructure.
+The [Convex managed hosted](https://www.convex.dev/plans) product includes a
+generous free tier and provides a seamless, reliable, cost-effective platform
+that allows you to focus on building your application without worrying about
+infrastructure.
 
 That being said, we understand that won't work for everyone. You are welcome to
 self-host Convex on your own infrastructure instead.

@@ -10,49 +10,43 @@
 make life easy for web app developers, whether human or LLM. Fetch data and
 perform business logic with strong consistency by writing pure TypeScript.
 
-Convex replaces your database, server functions, scheduling, storage, vector
-search, etc. It includes
-[a set of client libraries](https://github.com/get-convex/) that deeply
-integrate with your frontend application code to provide fully consistent
-caching and real-time updates out of the box. All you need to do is write your
-application code.
-
-The best way to get started with Convex is to follow the
-[getting started guides in the Convex docs](https://docs.convex.dev/).
-
-The **[Convex managed hosted product](https://www.convex.dev/plans).** includes
-a generous free tier and provides a seamless, reliable, cost-effective platform
-that allows you to focus on building your application without worrying about
-infrastructure. Many small applications and side-projects can operate entirely
-on the free tier with zero cost and zero maintenance.
+Convex provides a database, a place to write your server functions, and client
+libraries. It makes it easy to build and scale dynamic live-updating apps.
+[Read the docs to learn more](https://docs.convex.dev/understanding/).
 
 Development of the Convex backend is led by the Convex team. We
 [welcome bug fixes](./CONTRIBUTING.md) and
 [love receiving feedback](https://discord.gg/convex). We keep this repository
 synced with any internal development work within a handful of days.
 
+## Getting Started
+
+Visit our [documentation](https://docs.convex.dev/) to learn more about Convex
+and follow our getting started guides.
+
+The easiest way to build with Convex is through our
+[cloud platform](https://www.convex.dev/plans), which includes a generous free
+tier and lets you focus on building your application without worrying about
+infrastructure. Many small applications and side-projects can operate entirely
+on the free tier with zero cost and zero maintenance.
+
 ## Self Hosting
 
-You can also opt to self-host Convex. The self-hosted product includes most
-features of the cloud product, including the dashboard and CLI. Self-hosted
-Convex works well with a variety of tools including Neon, Fly.io, Vercel,
-Netlify, RDS, Sqlite, Postgres, and more. There is a
-[self-hosting guide](./self-hosted/SELFHOSTING.md) available with instructions.
-Community support for self-hosting is available in the `#open-source` channel in
-the [Convex Discord](https://discord.gg/convex).
+The self-hosted product includes most features of the cloud product, including
+the dashboard and CLI. Self-hosted Convex works well with a variety of tools
+including Neon, Fly.io, Vercel, Netlify, RDS, Sqlite, Postgres, and more.
 
-## Documentation
-
-For full documentation visit [docs.convex.dev](https://docs.convex.dev).
-
-To see how to contribute, visit [Contributing.md](./CONTRIBUTING.md).
+You can either use Docker (recommended) or a prebuilt binary to self host
+Convex. Check out our [self-hosting guide](./self-hosted/SELFHOSTING.md) for
+detailed instructions. Community support for self-hosting is available in the
+`#open-source` channel on [Discord](https://discord.gg/convex).
 
 ## Community & Support
 
-- [Discord](https://convex.dev/community). Best for: sharing your applications,
-  hanging out with the community, and help with building on Convex
-- GitHub Issues. Best for: surfacing bugs and errors you encounter while
-  building and using the open source Convex backend
+- Join our [Discord community](https://discord.gg/convex) for help and
+  discussions.
+- Report issues when building and using the open source Convex backend through
+  [GitHub Issues](https://github.com/get-convex/convex-backend/issues)
 
 ## Building from source
 
@@ -66,11 +60,10 @@ See [BUILD.md](./BUILD.md).
 - Convex is battle tested most thoroughly on Linux and Mac. On Windows, it has
   less experience. If you run into issues, please message us on
   [Discord](https://convex.dev/community) in the #open-source channel.
-- Convex local-backend and self-host products contain a beacon to help Convex
-  improve the product. The information is minimal and anonymous and helpful to
-  Convex, but if you really want to disable it, you can set the
-  `--disable-beacon` flag on the backend binary. The beacon's messages print in
-  the log and only include
+- Convex self-hosted builds contain a beacon to help Convex improve the improve
+  the product. The information is minimal and anonymous and helpful to Convex,
+  but if you really want to disable it, you can set the `--disable-beacon` flag
+  on the backend binary. The beacon's messages print in the log and only include
   - A random identifier for your deployment (not used elsewhere)
   - Migration version of your database
   - Git rev of the backend
