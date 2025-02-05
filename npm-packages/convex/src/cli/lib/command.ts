@@ -72,6 +72,23 @@ declare module "@commander-js/extra-typings" {
         liveComponentSources?: boolean;
       }
     >;
+
+    /**
+     * Adds common options and arguments for run-related commands.
+     */
+    addRunOptions(): Command<
+      [...Args, string, string | undefined],
+      Opts & {
+        watch?: boolean;
+        push?: boolean;
+        identity?: string;
+        typecheck: "enable" | "try" | "disable";
+        typecheckComponents: boolean;
+        codegen: "enable" | "disable";
+        component?: string;
+        liveComponentSources?: boolean;
+      }
+    >;
   }
 }
 
@@ -254,4 +271,60 @@ Command.prototype.addDeployOptions = function () {
     .addOption(new Option("--debug").hideHelp())
     .addOption(new Option("--write-push-request <writePushRequest>").hideHelp())
     .addOption(new Option("--live-component-sources").hideHelp());
+};
+
+Command.prototype.addRunOptions = function () {
+  return (
+    this.argument(
+      "functionName",
+      "identifier of the function to run, like `listMessages` or `dir/file:myFunction`",
+    )
+      .argument(
+        "[args]",
+        "JSON-formatted arguments object to pass to the function.",
+      )
+      .option(
+        "-w, --watch",
+        "Watch a query, printing its result if the underlying data changes. Given function must be a query.",
+      )
+      .option("--push", "Push code to deployment before running the function.")
+      .addOption(
+        new Option(
+          "--identity <identity>",
+          'JSON-formatted UserIdentity object, e.g. \'{ name: "John", address: "0x123" }\'',
+        ),
+      )
+      // For backwards compatibility we still support --no-push which is a noop
+      .addOption(new Option("--no-push").hideHelp())
+      // Options for the deploy that --push does
+      .addOption(
+        new Option(
+          "--typecheck <mode>",
+          `Whether to check TypeScript files with \`tsc --noEmit\`.`,
+        )
+          .choices(["enable", "try", "disable"] as const)
+          .default("try" as const),
+      )
+      .option(
+        "--typecheck-components",
+        "Check TypeScript files within component implementations with `tsc --noEmit`.",
+        false,
+      )
+      .addOption(
+        new Option(
+          "--codegen <mode>",
+          "Regenerate code in `convex/_generated/`",
+        )
+          .choices(["enable", "disable"] as const)
+          .default("enable" as const),
+      )
+      .addOption(
+        new Option(
+          "--component <path>",
+          "Path to the component in the component tree defined in convex.config.ts. " +
+            "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
+        ),
+      )
+      .addOption(new Option("--live-component-sources").hideHelp())
+  );
 };

@@ -6,6 +6,7 @@ import { normalizeDevOptions } from "./lib/command.js";
 import { getConfiguredCredentialsFromEnvVar } from "./lib/deployment.js";
 import { storeAdminKeyEnvVar } from "./lib/api.js";
 import { deployToDeployment } from "./lib/deploy2.js";
+import { runInDeployment } from "./lib/run.js";
 
 export const selfHost = new Command("self-host");
 
@@ -95,3 +96,42 @@ async function selfHostCredentials(
       "or environment variables CONVEX_SELF_HOST_DEPLOYMENT_URL and CONVEX_DEPLOY_KEY",
   });
 }
+
+selfHost
+  .command("run")
+  .description("Run a function (query, mutation, or action) on your deployment")
+  .allowExcessArguments(false)
+  .addRunOptions()
+  .option(
+    "--admin-key <adminKey>",
+    "An admin key for the deployment. Can alternatively be set as `CONVEX_DEPLOY_KEY` environment variable.",
+  )
+  .option(
+    "--url <url>",
+    "The url of the deployment. Can alternatively be set as `CONVEX_SELF_HOST_DEPLOYMENT_URL` environment variable.",
+  )
+  .showHelpAfterError()
+  .action(async (functionName, argsString, options) => {
+    const ctx = oneoffContext();
+
+    const { adminKey, url: deploymentUrl } = await selfHostCredentials(
+      ctx,
+      false,
+      options,
+    );
+
+    await runInDeployment(ctx, {
+      deploymentUrl,
+      adminKey,
+      functionName,
+      argsString: argsString ?? "{}",
+      componentPath: options.component,
+      identityString: options.identity,
+      push: !!options.push,
+      watch: !!options.watch,
+      typecheck: options.typecheck,
+      typecheckComponents: options.typecheckComponents,
+      codegen: options.codegen === "enable",
+      liveComponentSources: !!options.liveComponentSources,
+    });
+  });

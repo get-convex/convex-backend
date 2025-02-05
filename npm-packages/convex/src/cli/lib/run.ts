@@ -14,11 +14,13 @@ import {
   logFinishedStep,
   logMessage,
   logOutput,
+  OneoffCtx,
 } from "../../bundler/context.js";
 import { waitForever, waitUntilCalled } from "./utils/utils.js";
 import JSON5 from "json5";
 import path from "path";
 import { readProjectConfig } from "./config.js";
+import { watchAndPush } from "./dev.js";
 
 export async function runFunctionAndLog(
   ctx: Context,
@@ -387,4 +389,49 @@ export async function subscribe(
       new Promise((resolve) => setTimeout(resolve, oneDay)),
     ]);
   }
+}
+
+export async function runInDeployment(
+  ctx: OneoffCtx,
+  args: {
+    deploymentUrl: string;
+    adminKey: string;
+    functionName: string;
+    argsString: string;
+    identityString?: string;
+    push: boolean;
+    watch: boolean;
+    typecheck: "enable" | "try" | "disable";
+    typecheckComponents: boolean;
+    codegen: boolean;
+    componentPath: string | undefined;
+    liveComponentSources: boolean;
+  },
+) {
+  if (args.push) {
+    await watchAndPush(
+      ctx,
+      {
+        url: args.deploymentUrl,
+        adminKey: args.adminKey,
+        verbose: false,
+        dryRun: false,
+        typecheck: args.typecheck,
+        typecheckComponents: args.typecheckComponents,
+        debug: false,
+        codegen: args.codegen,
+        liveComponentSources: args.liveComponentSources,
+      },
+      {
+        once: true,
+        traceEvents: false,
+        untilSuccess: true,
+      },
+    );
+  }
+
+  if (args.watch) {
+    return await subscribeAndLog(ctx, args);
+  }
+  return await runFunctionAndLog(ctx, args);
 }
