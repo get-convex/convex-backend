@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_latest:
-        description: 'Tag image as latest'
+        description: "Tag image as latest"
         type: boolean
         default: false
         required: true
@@ -48,8 +48,12 @@ jobs:
           file: self-hosted/Dockerfile.backend
           tags: |
             ghcr.io/get-convex/self-hosted-backend
-          cache-from: type=gha,mode=max
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=s3,name=self-hosted-backend-${{ matrix.arch }}-${{ github.sha }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=self-hosted-backend-${{ matrix.arch }}-${{ github.ref_name }},prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+          cache-to: |
+            type=s3,name=self-hosted-backend-${{ matrix.arch }}-${{ github.sha }},mode=max,prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+            type=s3,name=self-hosted-backend-${{ matrix.arch }}-${{ github.ref_name }},mode=max,prefix=buildkit,region=${{ vars.AWS_REGION }},bucket=${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
           outputs: push-by-digest=true,type=image,push=true
           provenance: false
           build-args: |
@@ -97,7 +101,7 @@ jobs:
             --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.x64 }} \
             --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.arm64 }}
           docker manifest push ghcr.io/get-convex/self-hosted-backend:${{ github.sha }}
-          
+
           if [[ "${{ github.event.inputs.tag_latest }}" == "true" ]]; then
             docker manifest create ghcr.io/get-convex/self-hosted-backend:latest \
               --amend ghcr.io/get-convex/self-hosted-backend@${{ fromJson(needs.read.outputs.result).digest.x64 }} \
