@@ -47,9 +47,12 @@ keys for use from the dashboard/CLI.
 docker exec convex-local-backend ./generate_admin_key.sh
 ```
 
-Visit the dashboard at `http://localhost:6791`. Using your admin key, push code
-to your backend. Admin key should be kept secure to just the developers who are
-administering the application on your backend.
+Using your admin key, push code to your backend. Admin key should be kept secure
+to just the developers who are administering the application on your backend.
+
+Visit the dashboard at `http://localhost:6791`. The backend listens on
+`http://127.0.0.1:3210`. The backend's http actions are available at
+`http://127.0.0.1:3211`.
 
 In your Convex project, add your url and admin key to a `.env.local` file (which
 should not be committed to source control):
