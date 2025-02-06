@@ -9,7 +9,7 @@ import {
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import Link from "next/link";
 import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { FileMetadata } from "system-udfs/convex/_system/frontend/fileStorageV2";
 import Image from "next/image";

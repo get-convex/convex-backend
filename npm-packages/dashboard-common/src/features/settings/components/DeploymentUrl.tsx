@@ -1,7 +1,7 @@
 import { ReactNode, useContext } from "react";
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useDeploymentUrl } from "@common/lib/deploymentApi";
 import { CopyTextButton } from "@common/elements/CopyTextButton";

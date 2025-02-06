@@ -5,7 +5,7 @@ import React, {
   useContext,
   createContext,
 } from "react";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { useFunctionUrl } from "dashboard-common/lib/deploymentApi";
 import { Button } from "dashboard-common/elements/Button";

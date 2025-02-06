@@ -2,7 +2,7 @@ import { BeforeMount } from "@monaco-editor/react";
 import { useQuery } from "convex/react";
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useRouter } from "next/router";
 import { cn } from "@common/lib/cn";
 import { GenericDocument } from "convex/server";

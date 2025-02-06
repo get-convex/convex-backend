@@ -1,7 +1,7 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { ConvexProvider } from "convex/react";
 import { ComponentProps } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 

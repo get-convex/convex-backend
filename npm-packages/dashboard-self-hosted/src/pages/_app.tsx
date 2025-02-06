@@ -3,7 +3,7 @@ import "../../../dashboard-common/src/styles/globals.css";
 import { AppProps } from "next/app";
 import Head from "next/head";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { useSessionStorage } from "react-use";
 import {
   EnterIcon,

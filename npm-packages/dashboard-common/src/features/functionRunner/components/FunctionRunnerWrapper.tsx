@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { useRouter } from "next/router";
 import { useEffect, useCallback, useContext } from "react";
 import { usePrevious } from "react-use";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useHotkeys } from "react-hotkeys-hook";
 import { Button } from "@common/elements/Button";
 import { FunctionIcon } from "@common/elements/icons";

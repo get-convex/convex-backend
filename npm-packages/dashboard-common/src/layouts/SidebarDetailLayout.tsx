@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ReactNode, useContext, useRef, useState } from "react";
 import { useLocalStorage } from "react-use";
 import { gt } from "semver";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useRouter } from "next/router";
 import {
   ImperativePanelHandle,

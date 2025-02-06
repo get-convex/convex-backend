@@ -1,7 +1,7 @@
 import { ConvexProvider } from "convex/react";
 import { act, render, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import * as nextRouter from "next/router";
 import {

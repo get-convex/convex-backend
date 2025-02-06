@@ -1,7 +1,7 @@
 import { Cursor, GenericDocument } from "convex/server";
 import { ConvexError } from "convex/values";
 import { useMutation } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import {
   useInvalidateShapes,

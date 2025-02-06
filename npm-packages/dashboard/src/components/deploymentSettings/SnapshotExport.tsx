@@ -6,7 +6,7 @@ import { Sheet } from "dashboard-common/elements/Sheet";
 import { useGetZipExport } from "hooks/deploymentApi";
 import { Fragment } from "react";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { useCurrentDeployment } from "api/deployments";
 import { CompletedExport } from "system-udfs/convex/_system/frontend/common";
 

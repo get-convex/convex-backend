@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 import { useMemo } from "react";
 import { Shape } from "shapes";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { parseAndFilterToSingleTable } from "system-udfs/convex/_system/frontend/lib/filters";
 import { SchemaJson } from "@common/lib/format";
 import { useNents } from "@common/lib/useNents";

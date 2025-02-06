@@ -10,7 +10,7 @@ import {
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { useContext, useState } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import classNames from "classnames";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";

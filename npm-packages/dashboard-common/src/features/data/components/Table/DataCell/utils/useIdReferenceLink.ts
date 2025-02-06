@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { Value } from "convex/values";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { useNents } from "@common/lib/useNents";
 import { documentHref, getReferencedTableName } from "@common/lib/utils";

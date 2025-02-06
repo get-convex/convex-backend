@@ -4,7 +4,7 @@ import { getByRole, render } from "@testing-library/react";
 import { Value } from "convex/values";
 import mockRouter from "next-router-mock";
 import { ConvexProvider } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import userEvent from "@testing-library/user-event";
 import { MockMonaco } from "@common/features/data/components/MockMonaco.test";
 import {

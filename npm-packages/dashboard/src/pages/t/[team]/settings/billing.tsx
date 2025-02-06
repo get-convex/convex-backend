@@ -12,7 +12,7 @@ import { Team } from "generatedApi";
 import { Plans } from "components/billing/Plans";
 import { SubscriptionOverview } from "components/billing/SubscriptionOverview";
 import { ErrorBoundary } from "@sentry/nextjs";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 import { UpgradePlanContentContainer } from "components/billing/UpgradePlanContent";
 import { useProfile } from "api/profile";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";

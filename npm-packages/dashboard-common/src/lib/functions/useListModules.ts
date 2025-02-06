@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import { useMemo } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Module } from "system-udfs/convex/_system/frontend/common";
 import { useInvalidateSourceCode } from "@common/lib/deploymentApi";
 import { ComponentId, useNents } from "@common/lib/useNents";

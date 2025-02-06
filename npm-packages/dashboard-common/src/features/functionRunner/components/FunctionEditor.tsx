@@ -6,7 +6,7 @@ import { useQuery } from "convex/react";
 // special case: too annoying to move convexServerTypes to a separate file right now
 import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Uri } from "monaco-editor/esm/vs/editor/editor.api";
 import { Button } from "@common/elements/Button";
 import { Loading } from "@common/elements/Loading";

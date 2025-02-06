@@ -10,7 +10,7 @@ import { useDeleteProject } from "api/projects";
 import sum from "lodash/sum";
 import { useQuery } from "convex/react";
 import { ProjectDetails, Team } from "generatedApi";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { useUsageTeamDailyCallsByTag } from "hooks/usageMetrics";
 import { isoDateString } from "elements/UsagePeriodSelector";
 import { useState } from "react";

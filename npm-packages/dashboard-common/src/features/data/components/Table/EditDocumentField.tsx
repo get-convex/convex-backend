@@ -1,7 +1,7 @@
 import { useMutation } from "convex/react";
 import { GenericDocument } from "convex/server";
 import { useId, useState } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";

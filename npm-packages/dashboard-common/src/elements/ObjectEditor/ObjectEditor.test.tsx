@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { useEffectOnce } from "react-use";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import {
   ObjectEditor,

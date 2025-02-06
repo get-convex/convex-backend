@@ -10,7 +10,7 @@ import { useProjectById } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRememberLastViewedDeployment } from "hooks/useLastViewed";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 import { useRouter } from "next/router";
 import {
   DeploymentResponse,

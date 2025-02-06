@@ -10,7 +10,7 @@ import {
 import { FixedSizeList } from "react-window";
 
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import classNames from "classnames";
 import {
   Filter,

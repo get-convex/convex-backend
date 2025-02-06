@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useMount } from "react-use";
 import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useNents } from "@common/lib/useNents";

@@ -1,6 +1,6 @@
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useRouter } from "next/router";
 import {
   IntegrationConfig,

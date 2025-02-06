@@ -13,7 +13,7 @@ import { Sheet } from "dashboard-common/elements/Sheet";
 import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { formatDistanceStrict } from "date-fns";
 import Link from "next/link";

@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { ConvexProvider } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { FilterEditor } from "@common/features/data/components/FilterEditor/FilterEditor";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 

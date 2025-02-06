@@ -6,7 +6,7 @@ import { BackupResponse, useListCloudBackups } from "api/backups";
 import { Loading } from "dashboard-common/elements/Loading";
 import { EmptySection } from "dashboard-common/elements/EmptySection";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { BackupListItem, progressMessageForBackup } from "./BackupListItem";
 import { BackupDeploymentSelector } from "./BackupDeploymentSelector";
 import { useLatestRestore } from "./BackupRestoreStatus";

@@ -2,7 +2,7 @@ import { useMutation } from "convex/react";
 import { Cursor, GenericDocument } from "convex/server";
 import { ConvexError, ValidatorJSON } from "convex/values";
 import { useContext, useState } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { SchemaJson } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useNents } from "@common/lib/useNents";
 import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";

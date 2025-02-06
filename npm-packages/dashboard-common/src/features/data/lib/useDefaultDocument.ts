@@ -3,7 +3,7 @@ import { GenericDocument } from "convex/server";
 import { useMemo } from "react";
 import { Shape } from "shapes";
 import { parseAndFilterToSingleTable } from "system-udfs/convex/_system/frontend/lib/filters";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Value } from "convex/values";
 import { defaultValueForShape } from "@common/features/data/lib/helpers";
 import { useTableShapes } from "@common/lib/deploymentApi";

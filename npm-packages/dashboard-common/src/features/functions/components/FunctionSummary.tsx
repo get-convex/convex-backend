@@ -4,7 +4,7 @@ import classNames from "classnames";
 import { useContext, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { lt } from "semver";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { UdfType } from "system-udfs/convex/_system/frontend/common";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { FunctionRunnerDisabledWhilePaused } from "@common/features/functions/components/FunctionRunnerDisabledWhilePaused";

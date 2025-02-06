@@ -5,7 +5,7 @@ import { Button } from "dashboard-common/elements/Button";
 import { Callout } from "dashboard-common/elements/Callout";
 import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { useTeamUsageState } from "hooks/useTeamUsageState";
 import { useChangeDeploymentState } from "hooks/deploymentApi";
 import Link from "next/link";

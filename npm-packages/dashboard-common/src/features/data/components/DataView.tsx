@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
 import { EmptyData } from "@common/features/data/components/EmptyData";
 import {

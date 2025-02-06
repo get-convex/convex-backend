@@ -13,7 +13,7 @@ import {
 import { Avatar } from "elements/Avatar";
 import { useScrolling, useWindowSize } from "react-use";
 import { usePopper } from "react-popper";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 import { logEvent } from "convex-analytics";
 import { SafeZone } from "elements/SafeZone";
 import { DeploymentDisplay } from "elements/DeploymentDisplay";

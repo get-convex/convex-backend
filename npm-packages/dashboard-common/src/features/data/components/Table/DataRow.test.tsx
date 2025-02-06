@@ -5,7 +5,7 @@ import { useSet } from "react-use";
 import { useResizeColumns, useTable } from "react-table";
 import * as nextRouter from "next/router";
 import { GenericDocument } from "convex/server";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useMemo } from "react";
 import { useDataColumns } from "@common/features/data/components/Table/utils/useDataColumns";
 import { DataRow } from "@common/features/data/components/Table/DataRow";

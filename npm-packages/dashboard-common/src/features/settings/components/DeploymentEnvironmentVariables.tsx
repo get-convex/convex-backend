@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { InfoCircledIcon } from "@radix-ui/react-icons";

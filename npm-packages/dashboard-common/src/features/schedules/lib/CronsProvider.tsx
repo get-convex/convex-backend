@@ -1,6 +1,6 @@
 import { ReactNode, useContext, useMemo } from "react";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import {
   CronSpec,
   Module,

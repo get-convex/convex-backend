@@ -6,7 +6,7 @@ import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { useDeployments } from "api/deployments";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { DeploymentResponse, Team } from "generatedApi";
 import { FullDeploymentName } from "./BackupListItem";

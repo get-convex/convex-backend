@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { ConvexProvider } from "convex/react";
 import mockRouter from "next-router-mock";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { EnvironmentVariable } from "system-udfs/convex/_system/frontend/common";
 import {
   DeploymentEnvironmentVariables,

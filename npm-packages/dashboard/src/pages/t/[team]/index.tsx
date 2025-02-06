@@ -18,7 +18,7 @@ import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import Head from "next/head";
 import { useState } from "react";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 
 export { getServerSideProps } from "lib/ssr";
 

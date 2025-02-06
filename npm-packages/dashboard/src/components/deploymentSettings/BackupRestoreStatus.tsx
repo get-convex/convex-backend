@@ -8,7 +8,7 @@ import { useConfirmImport } from "hooks/deploymentApi";
 import { useEffect, useState } from "react";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { DeploymentResponse, Team } from "generatedApi";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { CheckCircledIcon, CrossCircledIcon } from "@radix-ui/react-icons";
 import { ProgressBar } from "elements/ProgressBar";
 import { useListCloudBackups, BackupResponse } from "api/backups";

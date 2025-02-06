@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { Integrations } from "components/integrations/Integrations";
 import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";

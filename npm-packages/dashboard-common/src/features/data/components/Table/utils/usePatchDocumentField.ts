@@ -4,7 +4,7 @@ import {
 } from "convex/react";
 import { GenericId, Value, ConvexError } from "convex/values";
 import { useRouter } from "next/router";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useCallback } from "react";
 import omitBy from "lodash/omitBy";
 import { isFilterValidationError } from "system-udfs/convex/_system/frontend/lib/filters";

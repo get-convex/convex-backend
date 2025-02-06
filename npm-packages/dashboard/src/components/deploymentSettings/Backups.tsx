@@ -22,7 +22,7 @@ import {
 } from "generatedApi";
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "dashboard-common/udfs";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
 import { BackupList } from "./BackupList";

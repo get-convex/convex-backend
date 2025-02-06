@@ -1,7 +1,7 @@
 import Link from "next/link";
 import React from "react";
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Sheet } from "@common/elements/Sheet";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 

@@ -1,5 +1,5 @@
 import { useQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { cn } from "@common/lib/cn";
 import { HealthCard } from "@common/elements/HealthCard";
 import { TimestampDistance } from "@common/elements/TimestampDistance";

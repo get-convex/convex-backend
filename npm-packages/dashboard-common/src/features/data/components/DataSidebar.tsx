@@ -2,7 +2,7 @@ import { CodeIcon, PlusIcon } from "@radix-ui/react-icons";
 import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { cn } from "@common/lib/cn";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { TextInput } from "@common/elements/TextInput";

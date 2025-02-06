@@ -6,7 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { ConvexProvider } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import userEvent from "@testing-library/user-event";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { MockMonaco } from "@common/features/data/components/MockMonaco.test";

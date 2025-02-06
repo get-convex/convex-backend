@@ -1,5 +1,5 @@
 import { usePaginatedQuery } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { useEffect, useContext } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";

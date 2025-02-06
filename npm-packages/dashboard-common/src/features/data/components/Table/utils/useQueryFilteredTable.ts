@@ -2,7 +2,7 @@ import { GenericDocument } from "convex/server";
 import { useRouter } from "next/router";
 import { useMemo, useCallback, useRef, useEffect, useState } from "react";
 import { usePaginatedQuery, PaginationStatus } from "convex/react";
-import udfs from "udfs";
+import udfs from "@common/udfs";
 import { useCounter, useIdle, usePrevious } from "react-use";
 import {
   isFilterValidationError,
