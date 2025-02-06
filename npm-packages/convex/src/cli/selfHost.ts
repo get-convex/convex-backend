@@ -1,5 +1,5 @@
 import * as dotenv from "dotenv";
-import { Command } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { Context, logVerbose, oneoffContext } from "../bundler/context.js";
 import { handleManuallySetUrlAndAdminKey } from "./configure.js";
 import { devAgainstDeployment } from "./lib/dev.js";
@@ -15,6 +15,7 @@ import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
 import { runInDeployment } from "./lib/run.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
 import { exportFromDeployment } from "./lib/convexExport.js";
+import { functionSpecForDeployment } from "./lib/functionSpec.js";
 import { dataInDeployment } from "./lib/data.js";
 import {
   envGetInDeployment,
@@ -350,5 +351,24 @@ selfHost
       deploymentNotice: "",
       tableName,
       ...options,
+    });
+  });
+
+selfHost
+  .command("function-spec")
+  .summary("List function metadata from your deployment")
+  .description("List argument and return values to your Convex functions.")
+  .allowExcessArguments(false)
+  .addOption(new Option("--file", "Output as JSON to a file."))
+  .addSelfHostOptions()
+  .showHelpAfterError()
+  .action(async (options) => {
+    const ctx = oneoffContext();
+    const credentials = await selfHostCredentials(ctx, true, options);
+
+    await functionSpecForDeployment(ctx, {
+      deploymentUrl: credentials.url,
+      adminKey: credentials.adminKey,
+      file: !!options.file,
     });
   });

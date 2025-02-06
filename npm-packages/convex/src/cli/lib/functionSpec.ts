@@ -1,0 +1,35 @@
+import chalk from "chalk";
+import { logOutput } from "../../bundler/context.js";
+import { runSystemQuery } from "./run.js";
+import { Context } from "../../bundler/context.js";
+
+export async function functionSpecForDeployment(
+  ctx: Context,
+  options: {
+    deploymentUrl: string;
+    adminKey: string;
+    file: boolean;
+  },
+) {
+  const functions = (await runSystemQuery(ctx, {
+    deploymentUrl: options.deploymentUrl,
+    adminKey: options.adminKey,
+    functionName: "_system/cli/modules:apiSpec",
+    componentPath: undefined,
+    args: {},
+  })) as any[];
+
+  const output = JSON.stringify(
+    { url: options.deploymentUrl, functions: functions },
+    null,
+    2,
+  );
+
+  if (options.file) {
+    const fileName = `function_spec_${Date.now().valueOf()}.json`;
+    ctx.fs.writeUtf8File(fileName, output);
+    logOutput(ctx, chalk.green(`Wrote function spec to ${fileName}`));
+  } else {
+    logOutput(ctx, output);
+  }
+}

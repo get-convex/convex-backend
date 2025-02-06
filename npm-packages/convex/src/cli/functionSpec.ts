@@ -1,12 +1,11 @@
-import chalk from "chalk";
-import { logOutput, oneoffContext } from "../bundler/context.js";
+import { oneoffContext } from "../bundler/context.js";
 import {
   deploymentSelectionFromOptions,
   fetchDeploymentCredentialsWithinCurrentProject,
 } from "./lib/api.js";
-import { runSystemQuery } from "./lib/run.js";
 import { Command, Option } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
+import { functionSpecForDeployment } from "./lib/functionSpec.js";
 
 export const functionSpec = new Command("function-spec")
   .summary("List function metadata from your deployment")
@@ -30,25 +29,9 @@ export const functionSpec = new Command("function-spec")
         deploymentSelection,
       );
 
-    const functions = (await runSystemQuery(ctx, {
+    await functionSpecForDeployment(ctx, {
       deploymentUrl,
       adminKey,
-      functionName: "_system/cli/modules:apiSpec",
-      componentPath: undefined,
-      args: {},
-    })) as any[];
-
-    const output = JSON.stringify(
-      { url: deploymentUrl, functions: functions },
-      null,
-      2,
-    );
-
-    if (options.file) {
-      const fileName = `function_spec_${Date.now().valueOf()}.json`;
-      ctx.fs.writeUtf8File(fileName, output);
-      logOutput(ctx, chalk.green(`Wrote function spec to ${fileName}`));
-    } else {
-      logOutput(ctx, output);
-    }
+      file: !!options.file,
+    });
   });
