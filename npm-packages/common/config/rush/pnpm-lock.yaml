@@ -902,8 +902,8 @@ importers:
         specifier: ^2.3.2
         version: 2.5.1
       clsx:
-        specifier: 1.2.1
-        version: 1.2.1
+        specifier: 2.1.1
+        version: 2.1.1
       convex:
         specifier: workspace:*
         version: link:../convex
@@ -1713,8 +1713,8 @@ importers:
         specifier: ^0.7.0
         version: 0.7.1
       clsx:
-        specifier: 1.2.1
-        version: 1.2.1
+        specifier: 2.1.1
+        version: 2.1.1
       eslint:
         specifier: ^8.29.0
         version: 8.57.1
@@ -2671,8 +2671,8 @@ importers:
         specifier: ^10.4.13
         version: 10.4.20(postcss@8.4.49)
       clsx:
-        specifier: 1.2.1
-        version: 1.2.1
+        specifier: 2.1.1
+        version: 2.1.1
       convex:
         specifier: workspace:*
         version: link:../convex
@@ -3530,8 +3530,8 @@ importers:
         specifier: ^0.7.0
         version: 0.7.1
       clsx:
-        specifier: 1.2.1
-        version: 1.2.1
+        specifier: 2.1.1
+        version: 2.1.1
       eslint:
         specifier: ^8.29.0
         version: 8.57.1
