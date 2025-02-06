@@ -71,6 +71,10 @@ or the [schema](/docs/database/schemas.mdx), the new versions are pushed to your
 dev deployment and the [generated types](/generated-api/) in `convex/_generated`
 are updated.
 
+It's also possible to
+[run a Convex deployment locally](/docs/cli/local-deployments-for-dev.mdx) for
+development.
+
 ### Open the dashboard
 
 ```sh

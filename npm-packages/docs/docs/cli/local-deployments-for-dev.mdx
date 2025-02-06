@@ -1,0 +1,99 @@
+---
+title: "Local Deployments for Development"
+slug: "local-deployments"
+sidebar_label: "Local Deployments"
+---
+
+Instead of syncing code to a Convex dev deployment hosted in the cloud, you can
+develop against a deployment running on your own computer. You can even use the
+Convex dashboard with local deployments!
+
+## Background on Deployments in Convex
+
+Each Convex deployment contains its own data, functions, scheduled functions,
+etc. A project has one production deployment, one cloud deployment for
+development per team member, and potentially many transient
+[preview deployments](/docs/testing.mdx).
+
+Running the deployment you're syncing code to during development on your own
+machine makes code sync faster and means resources like functions calls and
+database bandwidth don't count against
+[the quotas for your Convex plan](https://www.convex.dev/pricing).
+
+Local deployments are not recommended for production use: they're development
+deployments, i.e. logs for function results and full stack traces for error
+responses are sent to connected clients. For information about self-hosting a
+production deployment instead, see the
+[convex-backend GitHub repo](https://github.com/get-convex/convex-backend).
+
+## Using local deployments
+
+<BetaAdmonition feature="Local deployments" verb="are" />
+
+While using local deployments, the local Convex backend runs as a subprocess of
+the `npx convex dev` command and exits when that command is stopped. This means
+a `convex dev` command must be running in order to run other commands like
+`npx convex run` against this local deployment.
+
+State for local backends is stored the `~/.convex/convex-backend-state/`
+directory.
+
+### Using a Local Deployments for a New Project
+
+When creating a new project you can choose to start out with local development
+right away by choosing this option during project creation.
+
+In addition to downloading the Convex backend binary and pushing your code to
+it, this command updates the `CONVEX_DEPLOYMENT` environment variable in your
+`.env.local` file so clients like webapps you're developing and Convex CLI
+commands like `npx convex dev` and `npx convex run` know to use the local
+deployment.
+
+### Enabling for an Existing Project
+
+To use a local deployment for an existing project, run:
+
+```sh
+npx convex dev --local --once
+```
+
+You'll also always be given the option for a local deployment if you run
+`npx convex dev --configure --ask`. Other flows may assume you want a cloud
+deployment in some situations, for example when connecting to a project for
+which you already have a cloud development deployment.
+
+### Disabling
+
+To stop using local developments for a project, run the following:
+
+```sh
+npx convex disable-local-dev
+```
+
+Remember your cloud dev deployment and each local dev deployment are completely
+separate, so contain different data. When switching between deployments you may
+wish to [export and re-import](/database/import-export/import-export.mdx) the
+data to keep using it.
+
+## Limitations
+
+- **No Public URL** - Cloud deployments have public URL to receive incoming HTTP
+  requests from services like Twilio, but local deployments listen for HTTP
+  requests on your own computer. Similarly, you can't power websites with Convex
+  WebSocket connections unless your users browsers know how to reach your
+  computer. Set up a proxy like ngrok or use a cloud deployment for these uses
+  cases.
+
+- **Node actions require specific Node.js versions** - Running Node.js actions
+  (actions defined in files with `"use node;"`) requires having Node.js 18
+  installed, since this is the version of Node.js used in production when
+  Node.js actions run in AWS Lambda functions. To resolve this you can install
+  and set up [nvm](https://github.com/nvm-sh/nvm) and then install Node.js
+  version 18. You don't need to use Node.js 18 for the rest of your project.
+
+- **Node.js actions run directly on your computer** - Like a normal Node.js
+  server, code running in Node.js actions has unrestricted filesystem access.
+  Queries, mutations, and Convex runtime actions still run in isolated
+  environments.
+
+- Logs get cleared out every time a `npx convex dev` command is restarted.
