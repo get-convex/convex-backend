@@ -58,12 +58,18 @@ CONVEX_SELF_HOST_ADMIN_KEY='<your deploy key>'
 ```
 
 Now you can run commands in your Convex project, to push code, run queries,
-import data, etc.
+import data, etc. To use these commands, you'll need the latest alpha version of
+Convex.
 
 ```sh
-npx convex dev
-npx convex run <run args>
-npx convex import <import args>
+npm install convex@alpha
+```
+
+```sh
+npx convex self-host dev
+npx convex self-host run <run args>
+npx convex self-host import <import args>
+npx convex self-host --help  # see all available commands
 ```
 
 By default, the backend will store its data in a volume managed by Docker. Note
