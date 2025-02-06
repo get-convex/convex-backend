@@ -2,7 +2,6 @@ import * as base64 from "js-base64";
 import { ReactNode } from "react";
 import { toast as sonnerToast } from "sonner";
 import * as IdEncoding from "id-encoding";
-import { NextRouter } from "next/router";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 
 export function dismissToast(id: string) {
@@ -72,7 +71,7 @@ export function getReferencedTableName(
 }
 
 export function documentHref(
-  router: NextRouter,
+  deploymentsURI: string,
   tableName: string,
   id: string,
   componentId?: string,
@@ -80,9 +79,6 @@ export function documentHref(
   pathname: string;
   query: { [key: string]: string };
 } {
-  const projectsURI = `/t/${router.query.team}/${router.query.project}`;
-  const { query } = router;
-
   const filter: FilterExpression = {
     clauses: [
       {
@@ -95,9 +91,8 @@ export function documentHref(
   };
 
   return {
-    pathname: `${projectsURI}/${router.query.deploymentName}/data`,
+    pathname: `${deploymentsURI}/data`,
     query: {
-      ...query,
       table: tableName,
       filters: base64.encodeURI(JSON.stringify(filter)),
       ...(componentId ? { component: componentId } : {}),

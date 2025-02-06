@@ -14,6 +14,8 @@ import {
   EditDocumentPanel,
   useDocumentDrafts,
 } from "@common/features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 jest.mock("@monaco-editor/react", () => (p: any) => MockMonaco(p));
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
@@ -34,14 +36,16 @@ describe("EditDocumentPanel", () => {
 
   test("renders the default document", async () => {
     render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={jest.fn()}
-          onSave={jest.fn()}
-          defaultDocument={{ ari: 1 }}
-          tableName="myTable"
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={jest.fn()}
+            onSave={jest.fn()}
+            defaultDocument={{ ari: 1 }}
+            tableName="myTable"
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     const editor = screen.getByTestId("mockMonaco");
@@ -70,14 +74,16 @@ describe("EditDocumentPanel", () => {
   test("saves the document", async () => {
     const onSave = jest.fn();
     render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={jest.fn()}
-          onSave={onSave}
-          defaultDocument={{ ari: 1 }}
-          tableName="myTable"
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={jest.fn()}
+            onSave={onSave}
+            defaultDocument={{ ari: 1 }}
+            tableName="myTable"
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     const editor = screen.getByTestId("mockMonaco");
@@ -111,14 +117,16 @@ describe("EditDocumentPanel", () => {
   test("closes when closed in add document mode", async () => {
     const onClose = jest.fn();
     render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={onClose}
-          onSave={jest.fn()}
-          defaultDocument={{ ari: 1 }}
-          tableName="myTable"
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={onClose}
+            onSave={jest.fn()}
+            defaultDocument={{ ari: 1 }}
+            tableName="myTable"
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     const closeButton = screen.getByTestId("close-panel-button");
@@ -140,15 +148,17 @@ describe("EditDocumentPanel", () => {
     });
     const onClose = jest.fn();
     render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={onClose}
-          onSave={jest.fn()}
-          defaultDocument={{ _id: "123", ari: 1 }}
-          tableName="myTable"
-          editing
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={onClose}
+            onSave={jest.fn()}
+            defaultDocument={{ _id: "123", ari: 1 }}
+            tableName="myTable"
+            editing
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     const closeButton = screen.getByTestId("close-panel-button");
@@ -170,14 +180,16 @@ describe("EditDocumentPanel", () => {
     });
 
     const { unmount } = render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={jest.fn()}
-          onSave={jest.fn()}
-          defaultDocument={{ ari: 1 }}
-          tableName="myTable"
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={jest.fn()}
+            onSave={jest.fn()}
+            defaultDocument={{ ari: 1 }}
+            tableName="myTable"
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     const editor = screen.getByTestId("mockMonaco");
@@ -195,14 +207,16 @@ describe("EditDocumentPanel", () => {
     unmount();
 
     const { unmount: unmount2 } = render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={jest.fn()}
-          onSave={jest.fn()}
-          defaultDocument={{ ari: 1 }}
-          tableName="notMyTable"
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={jest.fn()}
+            onSave={jest.fn()}
+            defaultDocument={{ ari: 1 }}
+            tableName="notMyTable"
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     // Should display the default document for another table and not reuse the draft
@@ -215,14 +229,16 @@ describe("EditDocumentPanel", () => {
     unmount2();
 
     render(
-      <ConvexProvider client={mockClient}>
-        <EditDocumentPanel
-          onClose={jest.fn()}
-          onSave={jest.fn()}
-          defaultDocument={{ ari: 1 }}
-          tableName="myTable"
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <EditDocumentPanel
+            onClose={jest.fn()}
+            onSave={jest.fn()}
+            defaultDocument={{ ari: 1 }}
+            tableName="myTable"
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
     // Should display the draft for the table
     await waitFor(() =>

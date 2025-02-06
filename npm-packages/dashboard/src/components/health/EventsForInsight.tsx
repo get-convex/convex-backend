@@ -1,3 +1,4 @@
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { Disclosure } from "@headlessui/react";
 import {
   CaretDownIcon,
@@ -30,7 +31,7 @@ import {
 import { rootComponentPath } from "hooks/usageMetrics";
 import { cn } from "lib/cn";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import { useContext } from "react";
 
 export function EventsForInsight({
   insight,
@@ -389,12 +390,12 @@ function EventOccDocumentId({
   event: OCCEventData;
   componentId: ComponentId | undefined;
 }) {
-  const router = useRouter();
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
   return (
     <div className="flex w-60">
       <Link
         href={documentHref(
-          router,
+          deploymentsURI,
           insight.occTableName,
           event.occDocumentId,
           componentId || undefined,

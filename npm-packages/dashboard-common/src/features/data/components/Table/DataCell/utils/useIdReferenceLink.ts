@@ -1,10 +1,11 @@
 import { useQuery } from "convex/react";
 import { Value } from "convex/values";
-import { useRouter } from "next/router";
 import udfs from "udfs";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { useNents } from "@common/lib/useNents";
 import { documentHref, getReferencedTableName } from "@common/lib/utils";
+import { useContext } from "react";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useIdReferenceLink(value: Value, columnName: string) {
   const stringValue = typeof value === "string" ? value : stringifyValue(value);
@@ -15,7 +16,7 @@ export function useIdReferenceLink(value: Value, columnName: string) {
   const referencedTableName = getReferencedTableName(tableMapping, value);
   const isReference = referencedTableName !== null;
 
-  const router = useRouter();
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
 
   if (columnName === "_id") {
     return undefined;
@@ -23,7 +24,7 @@ export function useIdReferenceLink(value: Value, columnName: string) {
 
   const link =
     isReference && referencedTableName
-      ? documentHref(router, referencedTableName, stringValue)
+      ? documentHref(deploymentsURI, referencedTableName, stringValue)
       : undefined;
 
   return link;

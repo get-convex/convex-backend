@@ -1,18 +1,16 @@
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import Link from "next/link";
-import { useRouter } from "next/router";
+import { useContext } from "react";
 
 export function FunctionRunnerDisabledWhilePaused() {
-  const { query } = useRouter();
-  const teamSlug = query.team as string;
-  const projectSlug = query.project as string;
-  const deploymentName = query.deploymentName as string;
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
   return (
     <>
       The function runner is not available while the deployment is paused. To
       resume your deployment, go to{" "}
       <Link
         passHref
-        href={`/t/${teamSlug}/${projectSlug}/${deploymentName}/settings/pause-deployment`}
+        href={`${deploymentsURI}/settings/pause-deployment`}
         className="text-content-link underline hover:underline"
       >
         settings.

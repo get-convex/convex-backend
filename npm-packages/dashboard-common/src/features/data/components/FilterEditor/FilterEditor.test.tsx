@@ -8,6 +8,8 @@ import {
   FilterEditor,
   FilterEditorProps,
 } from "@common/features/data/components/FilterEditor/FilterEditor";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -25,28 +27,30 @@ describe("FilterEditor", () => {
 
   const setup = (props?: Partial<FilterEditorProps>) =>
     render(
-      <ConvexProvider client={mockClient}>
-        <FilterEditor
-          fields={[
-            "_id",
-            "_creationTime",
-            "myColumn",
-            "anotherColumn",
-            "myColumn2",
-          ]}
-          defaultDocument={{
-            myColumn: 0,
-            anotherColumn: "stringy",
-            myColumn2: 0,
-          }}
-          onChange={onChange}
-          onDelete={jest.fn()}
-          onError={jest.fn()}
-          onApplyFilters={jest.fn()}
-          onAdd={jest.fn()}
-          {...props}
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <FilterEditor
+            fields={[
+              "_id",
+              "_creationTime",
+              "myColumn",
+              "anotherColumn",
+              "myColumn2",
+            ]}
+            defaultDocument={{
+              myColumn: 0,
+              anotherColumn: "stringy",
+              myColumn2: 0,
+            }}
+            onChange={onChange}
+            onDelete={jest.fn()}
+            onError={jest.fn()}
+            onApplyFilters={jest.fn()}
+            onAdd={jest.fn()}
+            {...props}
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
   it("should save valid filter", async () => {

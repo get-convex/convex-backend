@@ -9,8 +9,12 @@ import udfs from "udfs";
 import { useMemo } from "react";
 import { useDataColumns } from "@common/features/data/components/Table/utils/useDataColumns";
 import { DataRow } from "@common/features/data/components/Table/DataRow";
-import { ConnectedDeploymentContext } from "@common/lib/deploymentContext";
+import {
+  ConnectedDeploymentContext,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 const mockRouter = jest
   .fn()
@@ -27,9 +31,11 @@ const deployment: ConnectedDeployment = {};
 
 function TestContainer({ initialState }: { initialState: boolean[] }) {
   return (
-    <ConvexProvider client={mockClient}>
-      <InnerContainer initialState={initialState} />
-    </ConvexProvider>
+    <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+      <ConvexProvider client={mockClient}>
+        <InnerContainer initialState={initialState} />
+      </ConvexProvider>
+    </DeploymentInfoContext.Provider>
   );
 }
 

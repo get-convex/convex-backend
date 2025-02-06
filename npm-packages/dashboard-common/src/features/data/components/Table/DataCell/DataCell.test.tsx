@@ -12,6 +12,8 @@ import {
   DataCellProps,
 } from "@common/features/data/components/Table/DataCell/DataCell";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 jest.mock("@monaco-editor/react", () => (p: any) => MockMonaco(p));
@@ -90,9 +92,11 @@ describe("DataCell", () => {
 
   const renderWithProvider = (props: Partial<DataCellProps> = {}) =>
     render(
-      <ConvexProvider client={mockClient}>
-        <DataCell {...defaultProps} {...props} />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={mockClient}>
+          <DataCell {...defaultProps} {...props} />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
   it("renders without crashing", () => {
@@ -335,7 +339,7 @@ describe("DataCell", () => {
       await user.keyboard("{Control>}g");
       expect(window.open).toHaveBeenCalledTimes(1);
       expect(window.open).toHaveBeenCalledWith(
-        "http://localhost/t/myTeam/myProject/myDeployment/data?filters=eyJjbGF1c2VzIjpbeyJpZCI6IjAiLCJmaWVsZCI6Il9pZCIsIm9wIjoiZXEiLCJ2YWx1ZSI6Imo1N2J5bnBxaGdqZGpjZm0yZHhwajNqN3Z4Nzc0czFoIn1dfQ&team=myTeam&project=myProject&deploymentName=myDeployment&table=testTable",
+        "http://localhost/data?table=testTable&filters=eyJjbGF1c2VzIjpbeyJpZCI6IjAiLCJmaWVsZCI6Il9pZCIsIm9wIjoiZXEiLCJ2YWx1ZSI6Imo1N2J5bnBxaGdqZGpjZm0yZHhwajNqN3Z4Nzc0czFoIn1dfQ",
         "_blank",
       );
     });
@@ -350,7 +354,7 @@ describe("DataCell", () => {
       await user.keyboard("{Meta>}g");
       expect(window.open).toHaveBeenCalledTimes(1);
       expect(window.open).toHaveBeenCalledWith(
-        "http://localhost/t/myTeam/myProject/myDeployment/data?filters=eyJjbGF1c2VzIjpbeyJpZCI6IjAiLCJmaWVsZCI6Il9pZCIsIm9wIjoiZXEiLCJ2YWx1ZSI6Imo1N2J5bnBxaGdqZGpjZm0yZHhwajNqN3Z4Nzc0czFoIn1dfQ&team=myTeam&project=myProject&deploymentName=myDeployment&table=testTable",
+        "http://localhost/data?table=testTable&filters=eyJjbGF1c2VzIjpbeyJpZCI6IjAiLCJmaWVsZCI6Il9pZCIsIm9wIjoiZXEiLCJ2YWx1ZSI6Imo1N2J5bnBxaGdqZGpjZm0yZHhwajNqN3Z4Nzc0czFoIn1dfQ",
         "_blank",
       );
     });
@@ -374,9 +378,15 @@ describe("DataCell", () => {
       expect(cell).not.toHaveClass("animate-highlight");
 
       rerender(
-        <ConvexProvider client={mockClient}>
-          <DataCell {...defaultProps} didRowChange={false} value="new value" />
-        </ConvexProvider>,
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ConvexProvider client={mockClient}>
+            <DataCell
+              {...defaultProps}
+              didRowChange={false}
+              value="new value"
+            />
+          </ConvexProvider>
+        </DeploymentInfoContext.Provider>,
       );
 
       const cellAfter = getByTestId("cell-editor-button");
@@ -393,9 +403,15 @@ describe("DataCell", () => {
       expect(cell).not.toHaveClass("animate-highlight");
 
       rerender(
-        <ConvexProvider client={mockClient}>
-          <DataCell {...defaultProps} didRowChange={false} value="test value" />
-        </ConvexProvider>,
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <ConvexProvider client={mockClient}>
+            <DataCell
+              {...defaultProps}
+              didRowChange={false}
+              value="test value"
+            />
+          </ConvexProvider>
+        </DeploymentInfoContext.Provider>,
       );
 
       const cellAfter = getByTestId("cell-editor-button");

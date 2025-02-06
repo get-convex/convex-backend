@@ -69,7 +69,7 @@ export function SettingsSidebar({
         {/* On larger screens, this is a sidebar and not a popover menu. */}
         {allowedPages.map((page) => (
           <SidebarLink
-            href={`${deploymentsURI}settings/${page === "url-and-deploy-key" ? "" : page}`}
+            href={`${deploymentsURI}/settings/${page === "url-and-deploy-key" ? "" : page}`}
             isActive={page === selectedPage}
             key={page}
             disabled={

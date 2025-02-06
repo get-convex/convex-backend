@@ -9,6 +9,8 @@ import {
   ObjectEditor,
   ObjectEditorProps,
 } from "@common/elements/ObjectEditor/ObjectEditor";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 
@@ -73,16 +75,18 @@ describe("ObjectEditor", () => {
     convexClient: ConvexReactClient = mockClient,
   ) => {
     render(
-      <ConvexProvider client={convexClient}>
-        <ObjectEditor
-          defaultValue={null}
-          onChange={onChange}
-          onError={onError}
-          path="doc"
-          mode="editField"
-          {...props}
-        />
-      </ConvexProvider>,
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <ConvexProvider client={convexClient}>
+          <ObjectEditor
+            defaultValue={null}
+            onChange={onChange}
+            onError={onError}
+            path="doc"
+            mode="editField"
+            {...props}
+          />
+        </ConvexProvider>
+      </DeploymentInfoContext.Provider>,
     );
 
     editor = screen.getByRole("textbox");

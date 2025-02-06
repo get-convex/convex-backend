@@ -43,8 +43,8 @@ export const mockDeploymentInfo: DeploymentInfo = {
   ),
   TeamMemberLink: () => <div />,
   useTeamUsageState: () => "Default",
-  teamsURI: "/",
-  projectsURI: "/",
-  deploymentsURI: "/",
+  teamsURI: "",
+  projectsURI: "",
+  deploymentsURI: "",
   isSelfHosted: true,
 };

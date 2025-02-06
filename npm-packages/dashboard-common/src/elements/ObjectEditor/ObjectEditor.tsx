@@ -6,15 +6,21 @@ import Editor, {
 import { ValidatorJSON, Value } from "convex/values";
 import { useTheme } from "next-themes";
 import isEqual from "lodash/isEqual";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import isArray from "lodash/isArray";
 import isPlainObject from "lodash/isPlainObject";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import { useMount } from "react-use";
-import { useRouter } from "next/router";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { cn } from "@common/lib/cn";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   ConvexSchemaValidationError,
   ConvexValidationError,
@@ -79,8 +85,6 @@ export function ObjectEditor(props: ObjectEditorProps) {
     shouldSurfaceValidatorErrors = false,
     showTableNames = false,
   } = props;
-
-  const router = useRouter();
 
   const indentTopLevel = mode === "addDocuments" || mode === "editDocument";
   const [monaco, setMonaco] = useState<Parameters<BeforeMount>[0]>();
@@ -183,6 +187,8 @@ export function ObjectEditor(props: ObjectEditorProps) {
     ],
   );
 
+  const { deploymentsURI } = useContext(DeploymentInfoContext);
+
   const { resolvedTheme: currentTheme } = useTheme();
   const prefersDark = currentTheme === "dark";
   return (
@@ -234,7 +240,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
           setMonaco(m);
         }}
         onMount={(editor, m) => {
-          registerIdCommands(m, router);
+          registerIdCommands(m, deploymentsURI);
 
           if (disableFind) {
             editor.addAction({

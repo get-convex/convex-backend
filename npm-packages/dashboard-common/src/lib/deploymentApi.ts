@@ -104,7 +104,7 @@ export function useFunctionUrl(udfPath: string, componentId?: string | null) {
   const { selectedNent } = useNents();
   const nent = componentId !== undefined ? componentId : selectedNent?.id;
   const componentQuery = nent ? `&component=${nent}` : "";
-  return `${deploymentsURI}functions?function=${display}${componentQuery}`;
+  return `${deploymentsURI}/functions?function=${display}${componentQuery}`;
 }
 
 export const deploymentAuthMiddleware: Middleware =

@@ -40,31 +40,31 @@ export function DeploymentDashboardLayout({
       key: null,
       label: "Health",
       Icon: PulseIcon,
-      href: uriPrefix,
+      href: `${uriPrefix}/`,
     },
     {
       key: "data",
       label: "Data",
       Icon: TableIcon,
-      href: `${uriPrefix}data`,
+      href: `${uriPrefix}/data`,
     },
     {
       key: `functions`,
       label: "Functions",
       Icon: CodeIcon,
-      href: `${uriPrefix}functions`,
+      href: `${uriPrefix}/functions`,
     },
     {
       key: "files",
       label: "Files",
       Icon: FileIcon,
-      href: `${uriPrefix}files`,
+      href: `${uriPrefix}/files`,
     },
     {
       key: "schedules",
       label: "Schedules",
       Icon: StopwatchIcon,
-      href: `${uriPrefix}schedules/functions`,
+      href: `${uriPrefix}/schedules/functions`,
     },
     {
       key: "logs",
@@ -72,7 +72,7 @@ export function DeploymentDashboardLayout({
       Icon: (props: any) => (
         <TextAlignBottomIcon {...props} style={{ marginTop: "-4px" }} />
       ),
-      href: `${uriPrefix}logs`,
+      href: `${uriPrefix}/logs`,
     },
   ];
 
@@ -88,7 +88,7 @@ export function DeploymentDashboardLayout({
           key: "history",
           label: "History",
           Icon: CounterClockwiseClockIcon,
-          href: `${uriPrefix}history`,
+          href: `${uriPrefix}/history`,
           disabled: !auditLogsEnabled,
           tooltip: auditLogsEnabled
             ? undefined
@@ -164,7 +164,7 @@ function PauseBanner() {
       This deployment is paused. Resume your deployment on the{" "}
       <Link
         passHref
-        href={`${deploymentsURI}settings/pause-deployment`}
+        href={`${deploymentsURI}/settings/pause-deployment`}
         className="text-content-link hover:underline dark:underline"
       >
         settings

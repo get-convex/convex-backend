@@ -34,7 +34,7 @@ export function HistoryView() {
 
 function History() {
   const router = useRouter();
-  const { useCurrentTeam, useTeamEntitlements } = useContext(
+  const { useCurrentTeam, useTeamEntitlements, teamsURI } = useContext(
     DeploymentInfoContext,
   );
   const team = useCurrentTeam();
@@ -61,7 +61,7 @@ function History() {
       "Deployment history is only available on paid plans.",
       "upsell",
     );
-    void router.push(`/t/${router.query.team}/settings/billing`);
+    void router.push(`${teamsURI}/settings/billing`);
     return null;
   }
 

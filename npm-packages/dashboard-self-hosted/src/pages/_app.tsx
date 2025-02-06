@@ -146,9 +146,9 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     <ErrorBoundary>{children}</ErrorBoundary>
   ),
   useTeamUsageState: () => "Default",
-  teamsURI: "/",
-  projectsURI: "/",
-  deploymentsURI: "/",
+  teamsURI: "",
+  projectsURI: "",
+  deploymentsURI: "",
   isSelfHosted: true,
 };
 

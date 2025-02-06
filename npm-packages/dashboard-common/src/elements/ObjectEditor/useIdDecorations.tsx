@@ -288,7 +288,7 @@ const COPY_DOCUMENT_COMMAND = "copyDocument";
 
 export function registerIdCommands(
   monaco: Parameters<BeforeMount>[0],
-  router: ReturnType<typeof useRouter>,
+  deploymentsURI: string,
 ) {
   monaco.editor.registerCommand(
     GO_TO_DOCUMENT_COMMAND,
@@ -300,10 +300,10 @@ export function registerIdCommands(
         componentId: string | null;
       },
     ) => {
-      const href = documentHref(router, args.tableName, args.id);
+      const href = documentHref(deploymentsURI, args.tableName, args.id);
       const query = `${href.query.component ? `component=${href.query.component}&` : ""}table=${href.query.table}&filters=${href.query.filters}`;
-      const newPage = `${window.location.pathname.split("/").slice(0, 5).join("/")}/data?${query}`;
-      window.open(`${window.location.origin + newPage}`, "_blank");
+      const url = `${deploymentsURI}/data?${query}`;
+      window.open(`${window.location.origin}${url}`, "_blank");
     },
   );
 
