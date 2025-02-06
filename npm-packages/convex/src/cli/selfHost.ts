@@ -15,6 +15,7 @@ import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
 import { runInDeployment } from "./lib/run.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
 import { exportFromDeployment } from "./lib/convexExport.js";
+import { logsForDeployment } from "./lib/logs.js";
 import { functionSpecForDeployment } from "./lib/functionSpec.js";
 import { dataInDeployment } from "./lib/data.js";
 import {
@@ -370,5 +371,24 @@ selfHost
       deploymentUrl: credentials.url,
       adminKey: credentials.adminKey,
       file: !!options.file,
+    });
+  });
+
+selfHost
+  .command("logs")
+  .summary("Watch logs from your deployment")
+  .description("Stream function logs from your Convex deployment.")
+  .allowExcessArguments(false)
+  .addLogsOptions()
+  .addSelfHostOptions()
+  .showHelpAfterError()
+  .action(async (cmdOptions) => {
+    const ctx = oneoffContext();
+
+    const credentials = await selfHostCredentials(ctx, true, cmdOptions);
+    await logsForDeployment(ctx, credentials, {
+      history: cmdOptions.history,
+      success: cmdOptions.success,
+      deploymentNotice: "",
     });
   });

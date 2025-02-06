@@ -3,6 +3,7 @@ import { OneoffCtx } from "../../bundler/context.js";
 import {
   CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME,
   CONVEX_SELF_HOST_URL_VAR_NAME,
+  parseInteger,
   parsePositiveInteger,
 } from "./utils/utils.js";
 
@@ -143,6 +144,17 @@ declare module "@commander-js/extra-typings" {
         limit: number;
         order: "asc" | "desc";
         component?: string;
+      }
+    >;
+
+    /**
+     * Adds options for the `logs` command.
+     */
+    addLogsOptions(): Command<
+      Args,
+      Opts & {
+        history: number;
+        success: boolean;
       }
     >;
   }
@@ -490,4 +502,16 @@ Command.prototype.addDataOptions = function () {
       ).hideHelp(),
     )
     .argument("[table]", "If specified, list documents in this table.");
+};
+
+Command.prototype.addLogsOptions = function () {
+  return this.option(
+    "--history [n]",
+    "Show `n` most recent logs. Defaults to showing all available logs.",
+    parseInteger,
+  ).option(
+    "--success",
+    "Print a log line for every successful function execution",
+    false,
+  );
 };

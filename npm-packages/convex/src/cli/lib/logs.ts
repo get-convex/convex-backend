@@ -12,6 +12,25 @@ const MAX_UDF_STREAM_FAILURE_COUNT = 5;
 
 type LogDestination = "stdout" | "stderr";
 
+export async function logsForDeployment(
+  ctx: Context,
+  credentials: {
+    url: string;
+    adminKey: string;
+  },
+  options: {
+    success: boolean;
+    history: number;
+    deploymentNotice: string;
+  },
+) {
+  logMessage(ctx, chalk.yellow(`Watching logs${options.deploymentNotice}...`));
+  await watchLogs(ctx, credentials.url, credentials.adminKey, "stdout", {
+    history: options.history,
+    success: options.success,
+  });
+}
+
 export async function watchLogs(
   ctx: Context,
   url: string,
