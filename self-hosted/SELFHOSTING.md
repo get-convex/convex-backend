@@ -87,9 +87,25 @@ From the self-hosted directory, deploy the backend.
 fly launch
 ```
 
-Copy and paste the url that is output to set `NEXT_PUBLIC_DEPLOYMENT_URL` in the
-dashboard/fly.toml file. Also remember the fly app name, which will appear as
-`https://<fly-app-name>.fly.dev` in the url.
+Note the URL of the app that gets printed out, which will be of the form
+`https://<app-name>.fly.dev` (no trailing slash).
+
+In the fly.toml file, change the env variables `CONVEX_CLOUD_ORIGIN` and
+`CONVEX_SITE_ORIGIN` to:
+
+```sh
+CONVEX_CLOUD_ORIGIN="<fly app url>"
+CONVEX_SITE_ORIGIN="<fly app url>/http"
+```
+
+And re-deploy to pick up the changes.
+
+```sh
+fly deploy
+```
+
+Copy and paste the fly url to set `NEXT_PUBLIC_DEPLOYMENT_URL` in the
+dashboard/fly.toml file.
 
 ```sh
 cd dashboard
@@ -100,7 +116,7 @@ Visit the dashboard at the url output from the fly deploy command. Generate
 admin key to login to the dashboard.
 
 ```sh
-fly ssh console --app $FLY_APP_NAME --command "./generate_admin_key.sh"
+fly ssh console --command "./generate_admin_key.sh"
 ```
 
 In your frontend app directory
