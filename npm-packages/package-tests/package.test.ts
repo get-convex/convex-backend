@@ -43,6 +43,14 @@ test("all old installations work", async () => {
   expect(version1dot16).equal("1.16.2");
 });
 
+// TODO as these the same?
+type OmitCallSignature<T> = T extends {
+  (...args: any[]): any;
+  [key: string]: any;
+}
+  ? { [K in keyof T as K extends `${string}` ? K : never]: T[K] }
+  : T;
+
 type RemoveCallSignature<T> = {
   // eslint-disable-next-line @typescript-eslint/ban-types
   [K in keyof T as T[K] extends Function ? K : never]: T[K];
@@ -97,6 +105,34 @@ describe("Assignability", () => {
     const myHttpAction = server1dot16.httpActionGeneric((_ctx, _r: Request) =>
       Promise.resolve(new Response("asdf")),
     );
+    // @ts-expect-error Known issue: vector search has a recursive type in it.
     const _httpAction: serverMain.PublicHttpAction = myHttpAction;
+
+    // workaround: remove vector search
+    type ClientHttpCtx = Omit<
+      server1dot16.GenericActionCtx<any>,
+      "vectorSearch"
+    > & {
+      vectorSearch: unknown;
+    };
+    type ClientExportedHttpCtx = Omit<
+      server1dot16.GenericActionCtx<any>,
+      "vectorSearch"
+    > & {
+      vectorSearch: any;
+    };
+    type ClientHttpAction = OmitCallSignature<server1dot16.PublicHttpAction> & {
+      (ctx: ClientExportedHttpCtx, request: Request): Promise<Response>;
+    };
+    const clientHttpAction = server1dot16.httpActionGeneric as (
+      func: (ctx: ClientHttpCtx, request: Request) => Promise<Response>,
+    ) => ClientHttpAction;
+
+    // A client can export httpActions directly
+    const myHttpActionVectorSearchRemoved = clientHttpAction(async (_) => {
+      return new Response("OK");
+    });
+    const _httpAction2: serverMain.PublicHttpAction =
+      myHttpActionVectorSearchRemoved;
   });
 });

@@ -87,7 +87,7 @@ export async function invokeFunction<
 function dontCallDirectly(
   funcType: string,
   handler: (ctx: any, args: any) => any,
-): unknown {
+) {
   return (ctx: any, args: any) => {
     globalThis.console.warn(
       "Convex functions should not directly call other Convex functions. Consider calling a helper function instead. " +
