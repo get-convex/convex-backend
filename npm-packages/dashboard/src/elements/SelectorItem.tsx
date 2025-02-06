@@ -3,7 +3,8 @@ import {
   ChevronDownIcon,
   SewingPinFilledIcon,
 } from "@radix-ui/react-icons";
-import { Button, Tooltip } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { HTMLAttributeAnchorTarget, ReactNode } from "react";
 import Link, { LinkProps } from "next/link";
 import { cn } from "lib/cn";

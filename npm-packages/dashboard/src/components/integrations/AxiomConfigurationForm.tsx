@@ -10,12 +10,10 @@ import {
 import { AxiomConfig } from "system-udfs/convex/_system/frontend/common";
 import { axiomConfig } from "system-udfs/convex/schema";
 import { Infer } from "convex/values";
-import {
-  Combobox,
-  Button,
-  integrationUsingLegacyFormat,
-  TextInput,
-} from "dashboard-common";
+import { Combobox } from "dashboard-common/elements/Combobox";
+import { Button } from "dashboard-common/elements/Button";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { integrationUsingLegacyFormat } from "dashboard-common/lib/integrationHelpers";
 import { useState } from "react";
 import { useCreateAxiomSink } from "../../hooks/deploymentApi";
 

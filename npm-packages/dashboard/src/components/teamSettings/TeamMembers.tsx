@@ -1,5 +1,6 @@
 import { EnvelopeClosedIcon } from "@radix-ui/react-icons";
-import { Callout, Loading } from "dashboard-common";
+import { Callout } from "dashboard-common/elements/Callout";
+import { Loading } from "dashboard-common/elements/Loading";
 import { useTeamMembers, useTeamEntitlements } from "api/teams";
 import { useTeamInvites } from "api/invitations";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";

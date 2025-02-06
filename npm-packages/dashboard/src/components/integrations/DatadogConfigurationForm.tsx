@@ -7,13 +7,10 @@ import { datadogConfig } from "system-udfs/convex/schema";
 import { EyeNoneIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { useCurrentProject } from "api/projects";
 import { useState } from "react";
-import {
-  TextInput,
-  Button,
-  Combobox,
-  Option,
-  integrationUsingLegacyFormat,
-} from "dashboard-common";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { Button } from "dashboard-common/elements/Button";
+import { Combobox, Option } from "dashboard-common/elements/Combobox";
+import { integrationUsingLegacyFormat } from "dashboard-common/lib/integrationHelpers";
 import { useCreateDatadogSink } from "hooks/deploymentApi";
 
 const siteLocationOptions: Option<DatadogSiteLocation>[] = [

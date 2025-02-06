@@ -1,4 +1,5 @@
-import { Loading, toast } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
+import { toast } from "dashboard-common/lib/utils";
 import { AuditLog } from "components/teamSettings/AuditLog";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { TeamSettingsLayout } from "layouts/TeamSettingsLayout";

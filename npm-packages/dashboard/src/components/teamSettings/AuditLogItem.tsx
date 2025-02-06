@@ -1,11 +1,9 @@
 import { Disclosure } from "@headlessui/react";
 import { ChevronUpIcon, ChevronDownIcon } from "@radix-ui/react-icons";
-import {
-  stringifyValue,
-  Button,
-  ReadonlyCode,
-  TimestampDistance,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { ReadonlyCode } from "dashboard-common/elements/ReadonlyCode";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { stringifyValue } from "dashboard-common/lib/stringifyValue";
 import {
   Team,
   MemberResponse,

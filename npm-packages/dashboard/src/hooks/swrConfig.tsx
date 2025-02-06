@@ -1,6 +1,6 @@
 import { SWRConfiguration } from "swr";
 import { captureException } from "@sentry/nextjs";
-import { backoffWithJitter, toast } from "dashboard-common";
+import { backoffWithJitter, toast } from "dashboard-common/lib/utils";
 import Link from "next/link";
 import React from "react";
 import { bigBrainAuth, fetchWithAuthHeader } from "./fetching";

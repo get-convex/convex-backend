@@ -1,4 +1,4 @@
-import { toast } from "dashboard-common";
+import { toast } from "dashboard-common/lib/utils";
 import { useCallback } from "react";
 import { useSWRConfig } from "swr";
 import { reportHttpError, useAuthHeader } from "./fetching";

@@ -1,5 +1,5 @@
 import { useListPlans } from "api/billing";
-import { Loading } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
 import { BusinessPlan } from "./planCards/BusinessPlan";
 import { OrbSelfServePlan } from "./planCards/OrbSelfServePlan";

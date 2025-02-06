@@ -1,4 +1,4 @@
-import { Tooltip } from "dashboard-common";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { ReactNode } from "react";
 import { IntegrationType } from "system-udfs/convex/_system/frontend/common";
 

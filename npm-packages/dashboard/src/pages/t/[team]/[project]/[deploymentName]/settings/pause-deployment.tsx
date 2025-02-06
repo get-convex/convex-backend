@@ -1,6 +1,7 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { DeploymentSettingsLayout } from "dashboard-common";
+
 import { PauseDeployment } from "components/deploymentSettings/PauseDeployment";
+import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
 
 export { getServerSideProps } from "lib/ssr";
 

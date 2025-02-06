@@ -8,7 +8,7 @@ import { PathsWithMethod } from "openapi-typescript-helpers";
 import { createMutateHook, createQueryHook } from "swr-openapi";
 import isMatch from "lodash/isMatch";
 import { fireGoogleAnalyticsEvent } from "elements/GoogleAnalytics";
-import { toast } from "dashboard-common";
+import { toast } from "dashboard-common/lib/utils";
 import type { paths as BigBrainPaths } from "generatedApi";
 import { SWRConfiguration } from "swr";
 import { useAccessToken } from "hooks/useServerSideData";

@@ -1,16 +1,13 @@
-import {
-  Button,
-  Tooltip,
-  Spinner,
-  TimestampDistance,
-  toast,
-  Sheet,
-  Callout,
-  LocalDevCallout,
-  Checkbox,
-  TextInput,
-  Popover,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { toast } from "dashboard-common/lib/utils";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
+import { Checkbox } from "dashboard-common/elements/Checkbox";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { Popover } from "dashboard-common/elements/Popover";
 import {
   useDisablePeriodicBackup,
   useGetPeriodicBackupConfig,

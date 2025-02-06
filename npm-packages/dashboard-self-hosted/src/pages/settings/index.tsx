@@ -1,9 +1,9 @@
+import { Sheet } from "dashboard-common/elements/Sheet";
 import {
-  Sheet,
   DeploymentUrl,
   HttpActionsUrl,
-  DeploymentSettingsLayout,
-} from "dashboard-common";
+} from "dashboard-common/features/settings/components/DeploymentUrl";
+import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
 
 export default function Settings() {
   return (

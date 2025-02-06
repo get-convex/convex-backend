@@ -1,4 +1,7 @@
-import { Button, LoadingTransition, Tooltip, Sheet } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { LoadingTransition } from "dashboard-common/elements/Loading";
 import { useCurrentProject } from "api/projects";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import {

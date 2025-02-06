@@ -1,17 +1,15 @@
 import useSWR, { SWRConfiguration } from "swr";
 import useSWRInfinite from "swr/infinite";
 
-import {
-  toast,
-  Button,
-  LocalDevCallout,
-  ProjectEnvVarConfig,
-} from "dashboard-common";
+import { toast } from "dashboard-common/lib/utils";
+import { Button } from "dashboard-common/elements/Button";
 import { SymbolIcon } from "@radix-ui/react-icons";
 import { captureMessage } from "@sentry/nextjs";
 import flatMap from "lodash/flatMap";
 import { useCallback } from "react";
 import { AuditLogAction, AuditLogEventResponse } from "generatedApi";
+import { LocalDevCallout } from "dashboard-common/elements/Callout";
+import { ProjectEnvVarConfig } from "dashboard-common/features/settings/lib/types";
 import { fetchWithAuthHeader, useAuthHeader } from "./fetching";
 import { useMutation } from "./useMutation";
 

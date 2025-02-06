@@ -1,4 +1,4 @@
-import { Loading } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
 
 export function TeamMemberListSkeleton() {
   return (

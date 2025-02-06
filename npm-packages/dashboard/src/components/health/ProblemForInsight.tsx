@@ -3,7 +3,8 @@ import {
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { InsightsSummaryData } from "api/insights";
-import { Button, formatNumberCompact, formatBytes } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { formatBytes, formatNumberCompact } from "dashboard-common/lib/format";
 import Link from "next/link";
 
 export function ProblemForInsight({

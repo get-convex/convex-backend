@@ -5,7 +5,11 @@ import {
   useUpdatePaymentMethod,
   useResumeSubscription,
 } from "api/billing";
-import { Loading, Button, Spinner, formatDate, Sheet } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Button } from "dashboard-common/elements/Button";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { formatDate } from "dashboard-common/lib/format";
+import { Sheet } from "dashboard-common/elements/Sheet";
 import { useFormik } from "formik";
 import { useStripeAddressSetup, useStripePaymentSetup } from "hooks/useStripe";
 import { Elements } from "@stripe/react-stripe-js";

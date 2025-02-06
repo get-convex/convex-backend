@@ -1,12 +1,10 @@
 import { Period, UsagePeriodSelector } from "elements/UsagePeriodSelector";
-import {
-  Combobox,
-  PuzzlePieceIcon,
-  Tooltip,
-  TextInput,
-} from "dashboard-common";
+import { Combobox } from "dashboard-common/elements/Combobox";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { TextInput } from "dashboard-common/elements/TextInput";
 import { useRouter } from "next/router";
 import { ProjectDetails } from "generatedApi";
+import { PuzzlePieceIcon } from "dashboard-common/elements/icons";
 
 export function TeamUsageToolbar({
   shownBillingPeriod,

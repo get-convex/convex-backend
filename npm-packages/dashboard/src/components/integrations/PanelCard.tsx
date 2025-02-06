@@ -1,16 +1,16 @@
 import classNames from "classnames";
 import { ExportIntegrationType } from "system-udfs/convex/_system/frontend/common";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import { Button } from "dashboard-common/elements/Button";
+import { Modal } from "dashboard-common/elements/Modal";
 import {
-  Button,
+  IntegrationUnavailableReason,
+  LogIntegration,
   ExceptionReportingIntegration,
   integrationToLogo,
-  IntegrationUnavailableReason,
-  LOG_STREAMS_DESCRIPTION,
-  LogIntegration,
   STREAMING_EXPORT_DESCRIPTION,
-  Modal,
-} from "dashboard-common";
+  LOG_STREAMS_DESCRIPTION,
+} from "dashboard-common/lib/integrationHelpers";
 import { useState, ReactNode, useCallback } from "react";
 import { IntegrationTitle } from "./IntegrationTitle";
 import { IntegrationOverflowMenu } from "./IntegrationOverflowMenu";

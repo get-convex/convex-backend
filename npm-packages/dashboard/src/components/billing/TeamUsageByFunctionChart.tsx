@@ -1,6 +1,7 @@
 import { ChevronDownIcon, DesktopIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Button, PuzzlePieceIcon, Tooltip } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
 import {
   QuantityType,
   formatQuantity,
@@ -20,6 +21,7 @@ import {
   Team,
   ProjectDetails,
 } from "generatedApi";
+import { PuzzlePieceIcon } from "dashboard-common/elements/icons";
 
 const ITEMS_SHOWN_INITIALLY = 6;
 

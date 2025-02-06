@@ -1,11 +1,9 @@
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
-import {
-  Callout,
-  WaitForDeploymentApi,
-  LoadingTransition,
-  ConfirmationDialog,
-  Checkbox,
-} from "dashboard-common";
+import { Callout } from "dashboard-common/elements/Callout";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Checkbox } from "dashboard-common/elements/Checkbox";
+import { LoadingTransition } from "dashboard-common/elements/Loading";
+import { WaitForDeploymentApi } from "dashboard-common/lib/deploymentContext";
 import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useDeleteProject } from "api/projects";

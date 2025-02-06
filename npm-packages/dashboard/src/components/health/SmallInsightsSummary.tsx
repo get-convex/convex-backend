@@ -6,7 +6,10 @@ import {
   useInsightsPeriod,
   useInsightsSummary,
 } from "api/insights";
-import { Button, Loading, Sheet, HealthCard } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { HealthCard } from "dashboard-common/elements/HealthCard";
 import {
   ChevronRightIcon,
   ExternalLinkIcon,

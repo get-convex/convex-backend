@@ -7,16 +7,11 @@ import {
 } from "react";
 import { useRouter } from "next/router";
 import {
-  DeploymentApiProviderProps,
-  DeploymentApiProvider,
-  ConnectedDeploymentContext,
-  DeploymentInfoContext,
-  DeploymentInfo,
   useAdminKey,
   useDeploymentAuthHeader,
   useDeploymentUrl,
-  toast,
-} from "dashboard-common";
+} from "dashboard-common/lib/deploymentApi";
+import { toast } from "dashboard-common/lib/utils";
 import {
   CompletedExport,
   DatadogSiteLocation,
@@ -39,6 +34,13 @@ import {
 } from "@sentry/nextjs";
 import { reportHttpError } from "hooks/fetching";
 import { Fallback } from "pages/500";
+import {
+  ConnectedDeploymentContext,
+  DeploymentApiProvider,
+  DeploymentApiProviderProps,
+  DeploymentInfo,
+  DeploymentInfoContext,
+} from "dashboard-common/lib/deploymentContext";
 import { useAccessToken } from "./useServerSideData";
 import { useCurrentProject } from "../api/projects";
 import { useTeamUsageState } from "./useTeamUsageState";

@@ -7,19 +7,12 @@ import React, {
 } from "react";
 import { cn } from "lib/cn";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import {
-  useNents,
-  useFunctionUrl,
-  Button,
-  itemIdentifier,
-  useModuleFunctions,
-  FunctionNameOption,
-  functionIdentifierFromValue,
-  functionIdentifierValue,
-  Sheet,
-  HealthView,
-  MultiSelectCombobox,
-} from "dashboard-common";
+import { useFunctionUrl } from "dashboard-common/lib/deploymentApi";
+import { Button } from "dashboard-common/elements/Button";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { MultiSelectCombobox } from "dashboard-common/elements/MultiSelectCombobox";
+import { FunctionNameOption } from "dashboard-common/elements/FunctionNameOption";
+import { HealthView } from "dashboard-common/features/health/components/HealthView";
 import {
   InsightsSummaryData,
   useInsightsPeriod,
@@ -27,6 +20,15 @@ import {
 } from "api/insights";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import {
+  itemIdentifier,
+  useModuleFunctions,
+} from "dashboard-common/lib/functions/FunctionsProvider";
+import {
+  functionIdentifierValue,
+  functionIdentifierFromValue,
+} from "dashboard-common/lib/functions/generateFileTree";
+import { useNents } from "dashboard-common/lib/useNents";
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";

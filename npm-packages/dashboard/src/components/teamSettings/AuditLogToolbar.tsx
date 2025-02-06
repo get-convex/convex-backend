@@ -1,4 +1,5 @@
-import { Combobox, Option, DateRangePicker } from "dashboard-common";
+import { Combobox, Option } from "dashboard-common/elements/Combobox";
+import { DateRangePicker } from "dashboard-common/elements/DateRangePicker";
 import startCase from "lodash/startCase";
 import { endOfToday, startOfDay } from "date-fns";
 import sortBy from "lodash/sortBy";

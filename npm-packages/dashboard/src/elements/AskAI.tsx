@@ -1,6 +1,6 @@
 import Script from "next/script";
 import { SparklesIcon } from "@heroicons/react/24/outline";
-import { Button } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
 
 export function AskAI() {
   return (

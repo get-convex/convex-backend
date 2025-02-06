@@ -1,4 +1,5 @@
-import { Button, TextInput } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { TextInput } from "dashboard-common/elements/TextInput";
 import { useFormik } from "formik";
 import { useCreateProfileEmail } from "api/profile";
 import * as Yup from "yup";

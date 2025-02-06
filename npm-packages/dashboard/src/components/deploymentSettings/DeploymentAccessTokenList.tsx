@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { TeamAccessTokenResponse } from "generatedApi";
 import { AccessTokenListKind } from "api/accessTokens";
-import { LoadingTransition } from "dashboard-common";
+
+import { LoadingTransition } from "dashboard-common/elements/Loading";
 import {
   GenerateDeployKeyWithNameButton,
   GenerateDeployKeyWithNameButtonProps,

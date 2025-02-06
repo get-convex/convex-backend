@@ -6,8 +6,9 @@ import {
   useDocumentsReadCountByHour,
   useOCCByHour,
 } from "api/insights";
-import { LoadingTransition } from "dashboard-common";
+
 import { Sparklines, SparklinesCurve } from "react-sparklines";
+import { LoadingTransition } from "dashboard-common/elements/Loading";
 
 export function SparklineForInsight({
   insight,

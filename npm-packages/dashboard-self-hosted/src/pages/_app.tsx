@@ -12,25 +12,24 @@ import {
   EyeOpenIcon,
   GearIcon,
 } from "@radix-ui/react-icons";
-import {
-  ConvexLogo,
-  DeploymentApiProvider,
-  DeploymentInfo,
-  DeploymentInfoContext,
-  WaitForDeploymentApi,
-  ToastContainer,
-  DeploymentDashboardLayout,
-  ThemeConsumer,
-  Favicon,
-  ToggleTheme,
-  Menu,
-  MenuItem,
-  TextInput,
-  Button,
-} from "dashboard-common";
+import { ConvexLogo } from "dashboard-common/elements/ConvexLogo";
+import { ToastContainer } from "dashboard-common/elements/ToastContainer";
+import { ThemeConsumer } from "dashboard-common/elements/ThemeConsumer";
+import { Favicon } from "dashboard-common/elements/Favicon";
+import { ToggleTheme } from "dashboard-common/elements/ToggleTheme";
+import { Menu, MenuItem } from "dashboard-common/elements/Menu";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { Button } from "dashboard-common/elements/Button";
 import { ThemeProvider } from "next-themes";
 import React, { useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "components/ErrorBoundary";
+import { DeploymentDashboardLayout } from "dashboard-common/layouts/DeploymentDashboardLayout";
+import {
+  DeploymentApiProvider,
+  WaitForDeploymentApi,
+  DeploymentInfo,
+  DeploymentInfoContext,
+} from "dashboard-common/lib/deploymentContext";
 
 function App({
   Component,

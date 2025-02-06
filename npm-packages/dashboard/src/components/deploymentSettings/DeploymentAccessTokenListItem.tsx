@@ -1,12 +1,10 @@
 import { EyeOpenIcon, EyeNoneIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { AccessTokenListKind, useDeleteAccessToken } from "api/accessTokens";
-import {
-  Button,
-  TimestampDistance,
-  Callout,
-  ConfirmationDialog,
-  CopyTextButton,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { Callout } from "dashboard-common/elements/Callout";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { CopyTextButton } from "dashboard-common/elements/CopyTextButton";
 import { TeamAccessTokenResponse } from "generatedApi";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useEffect, useState } from "react";

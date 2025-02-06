@@ -1,4 +1,4 @@
-import { Sheet } from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
 import { MemberEmailResponse } from "generatedApi";
 import { EmailList } from "./EmailList";
 

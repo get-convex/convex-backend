@@ -1,11 +1,11 @@
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 import {
-  Tooltip,
-  TimestampDistance,
+  LogIntegration,
   ExceptionReportingIntegration,
   integrationUsingLegacyFormat,
-  LogIntegration,
-} from "dashboard-common";
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+} from "dashboard-common/lib/integrationHelpers";
 import { HealthIndicator } from "./HealthIndicator";
 
 export function IntegrationStatus({

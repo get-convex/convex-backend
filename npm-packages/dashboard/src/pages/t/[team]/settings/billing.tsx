@@ -1,4 +1,6 @@
-import { Sheet, Callout, LocalDevCallout, Button } from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
+import { Button } from "dashboard-common/elements/Button";
 import { useTeamMembers } from "api/teams";
 import { useListPlans, useTeamOrbSubscription } from "api/billing";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";

@@ -1,14 +1,15 @@
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
-import {
-  functionIdentifierValue,
-  itemIdentifier,
-  useModuleFunctions,
-} from "dashboard-common";
+
 import { rootComponentPath, useUsageQuery } from "hooks/usageMetrics";
 import omit from "lodash/omit";
 import { useMemo } from "react";
 import { useRouter } from "next/router";
+import {
+  itemIdentifier,
+  useModuleFunctions,
+} from "dashboard-common/lib/functions/FunctionsProvider";
+import { functionIdentifierValue } from "dashboard-common/lib/functions/generateFileTree";
 
 const queryIds = {
   bytesRead: "5bebdf6d-921a-42dc-9ee6-2d5c577111b6",

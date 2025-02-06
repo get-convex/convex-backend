@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect } from "react";
-import { Loading } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { useCurrentTeam } from "api/teams";
 

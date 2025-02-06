@@ -1,13 +1,10 @@
 import { DeleteProjectModal } from "components/projects/modals/DeleteProjectModal";
-import {
-  PageContent,
-  Loading,
-  Button,
-  Sheet,
-  Callout,
-  LocalDevCallout,
-  DeploymentType,
-} from "dashboard-common";
+import { PageContent } from "dashboard-common/elements/PageContent";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Button } from "dashboard-common/elements/Button";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
+import { DeploymentType } from "dashboard-common/features/settings/components/DeploymentUrl";
 import { useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";

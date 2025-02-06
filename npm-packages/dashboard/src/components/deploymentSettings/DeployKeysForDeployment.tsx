@@ -10,8 +10,9 @@ import {
 import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
 import { DeploymentResponse, Team, ProjectDetails } from "generatedApi";
-import { DeploymentType } from "dashboard-common";
+
 import { useAccessToken } from "hooks/useServerSideData";
+import { DeploymentType } from "dashboard-common/features/settings/components/DeploymentUrl";
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
 
 function getAdminKeyPrefix(deployment: DeploymentResponse) {

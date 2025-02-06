@@ -5,18 +5,17 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Combobox } from "dashboard-common/elements/Combobox";
+import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
 import {
-  Button,
-  Tooltip,
-  Combobox,
-  Callout,
-  LocalDevCallout,
-  Sheet,
-  ConfirmationDialog,
-  TextInput,
   ENVIRONMENT_VARIABLES_ROW_CLASSES,
   ENVIRONMENT_VARIABLE_NAME_COLUMN,
-} from "dashboard-common";
+} from "dashboard-common/features/settings/components/EnvironmentVariables";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { TextInput } from "dashboard-common/elements/TextInput";
 import { useFormik } from "formik";
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
@@ -281,7 +280,7 @@ function DisplayVanityDomain({
         >
           <div className="flex h-[2.375rem] items-center truncate text-content-primary md:col-span-1">
             {vanityDomain.domain}
-            {vanityDomain.verificationTs && (
+            {vanityDomain.verificationTime && (
               <Tooltip
                 tip="This domain is verified and can receive traffic."
                 side="right"

@@ -1,5 +1,5 @@
 import { CodeLine } from "elements/CodeLine";
-import { Modal } from "dashboard-common";
+import { Modal } from "dashboard-common/elements/Modal";
 
 export function LostAccessModal({
   onClose,

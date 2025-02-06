@@ -1,6 +1,7 @@
 import classNames from "classnames";
 import { useState } from "react";
-import { buttonClasses, Spinner } from "dashboard-common";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { buttonClasses } from "dashboard-common/elements/Button";
 
 import GithubLogo from "./logos/github-logo.svg";
 

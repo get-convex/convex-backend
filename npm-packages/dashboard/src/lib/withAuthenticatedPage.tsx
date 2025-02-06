@@ -7,7 +7,9 @@ import type { InferGetServerSidePropsType, NextPage } from "next";
 import { getServerSideProps } from "lib/ssr";
 import { useEffect } from "react";
 import { useAccessToken, useInitialData } from "hooks/useServerSideData";
-import { LoadingLogo, Button, Callout } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Callout } from "dashboard-common/elements/Callout";
+import { LoadingLogo } from "dashboard-common/elements/Loading";
 import Link from "next/link";
 
 interface UserProps {

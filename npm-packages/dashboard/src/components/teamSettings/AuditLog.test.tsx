@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import mockRouter from "next-router-mock";
 import { endOfDay, parse, startOfDay } from "date-fns";
 import { act } from "react";
-import { DATE_FORMAT } from "dashboard-common";
+import { DATE_FORMAT } from "dashboard-common/elements/DateRangePicker";
+
 import { AuditLog } from "./AuditLog";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
@@ -28,11 +29,6 @@ jest.mock("../../hooks/api", () => ({
 
 jest.mock("api/teams", () => ({
   useTeamMembers: () => [],
-}));
-
-jest.mock("dashboard-common", () => ({
-  ...jest.requireActual("dashboard-common"),
-  DateRangePicker: jest.fn(),
 }));
 
 describe("AuditLog", () => {

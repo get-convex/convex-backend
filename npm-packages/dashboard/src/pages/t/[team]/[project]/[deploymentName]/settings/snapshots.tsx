@@ -1,7 +1,8 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { DeploymentSettingsLayout } from "dashboard-common";
+
 import { SnapshotExport } from "components/deploymentSettings/SnapshotExport";
 import { SnapshotImport } from "components/deploymentSettings/SnapshotImport";
+import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
 
 export { getServerSideProps } from "lib/ssr";
 

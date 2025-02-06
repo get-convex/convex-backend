@@ -1,8 +1,5 @@
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
-import {
-  WaitForDeploymentApi,
-  DeploymentDashboardLayout as CommonDeploymentDashboardLayout,
-} from "dashboard-common";
+
 import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";
@@ -14,6 +11,8 @@ import {
   useGlobalLDContext,
   useLDContextWithDeployment,
 } from "hooks/useLaunchDarklyContext";
+import { WaitForDeploymentApi } from "dashboard-common/lib/deploymentContext";
+import { DeploymentDashboardLayout as CommonDeploymentDashboardLayout } from "dashboard-common/layouts/DeploymentDashboardLayout";
 
 type LayoutProps = {
   children: JSX.Element;

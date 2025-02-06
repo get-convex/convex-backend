@@ -4,7 +4,9 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 import { Card, CardProps } from "elements/Card";
-import { Tooltip, Loading, TimestampDistance } from "dashboard-common";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Loading } from "dashboard-common/elements/Loading";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
 import { LostAccessModal } from "components/projects/modals/LostAccessModal";
 import { useDeploymentUris } from "hooks/useDeploymentUris";
 import classNames from "classnames";

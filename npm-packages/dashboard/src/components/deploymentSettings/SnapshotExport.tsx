@@ -1,5 +1,8 @@
 import { DownloadIcon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
-import { Button, Spinner, Callout, Sheet } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { Callout } from "dashboard-common/elements/Callout";
+import { Sheet } from "dashboard-common/elements/Sheet";
 import { useGetZipExport } from "hooks/deploymentApi";
 import { Fragment } from "react";
 import { useQuery } from "convex/react";

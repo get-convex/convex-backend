@@ -5,7 +5,8 @@ import { useProjects } from "api/projects";
 import { useCurrentTeam } from "api/teams";
 import Link from "next/link";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";
-import { Sheet, DeploymentType } from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { DeploymentType } from "dashboard-common/features/settings/components/DeploymentUrl";
 
 export function NonProdDeploymentWarning({
   deploymentType,

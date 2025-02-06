@@ -1,3 +1,3 @@
-import { FileStorageView } from "dashboard-common";
+import { FileStorageView } from "dashboard-common/features/files/components/FileStorageView";
 
 export default FileStorageView;

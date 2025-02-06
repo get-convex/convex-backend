@@ -1,3 +1,3 @@
-import { ComponentsView } from "dashboard-common";
+import { ComponentsView } from "dashboard-common/features/settings/components/ComponentsView";
 
 export default ComponentsView;

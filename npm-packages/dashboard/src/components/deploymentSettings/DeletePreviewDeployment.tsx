@@ -1,11 +1,9 @@
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useCurrentDeployment } from "api/deployments";
-import {
-  Button,
-  TimestampDistance,
-  Sheet,
-  ConfirmationDialog,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
 import { useDeletePreviewDeployment } from "hooks/api";
 import { useRouter } from "next/router";
 import { useState } from "react";

@@ -28,12 +28,10 @@ import { RefreshSession } from "components/login/RefreshSession";
 import { useDashboardVersion } from "hooks/api";
 import { useProfile } from "api/profile";
 import { useGlobalLDContext, useLDContext } from "hooks/useLaunchDarklyContext";
-import {
-  Favicon,
-  LoadingLogo,
-  ThemeConsumer,
-  ToastContainer,
-} from "dashboard-common";
+import { Favicon } from "dashboard-common/elements/Favicon";
+import { ThemeConsumer } from "dashboard-common/elements/ThemeConsumer";
+import { ToastContainer } from "dashboard-common/elements/ToastContainer";
+import { LoadingLogo } from "dashboard-common/elements/Loading";
 import { ThemeProvider } from "next-themes";
 import { CurrentDeploymentDashboardLayout } from "layouts/DeploymentDashboardLayout";
 import posthog from "posthog-js";

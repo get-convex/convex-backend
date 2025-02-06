@@ -1,10 +1,12 @@
 import classNames from "classnames";
-import { Loading, SidebarLink, PageContent } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
+import { PageContent } from "dashboard-common/elements/PageContent";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import startCase from "lodash/startCase";
 import Head from "next/head";
 import React from "react";
 import { Team } from "generatedApi";
+import { SidebarLink } from "dashboard-common/elements/Sidebar";
 
 export function TeamSettingsLayout({
   page: selectedPage,

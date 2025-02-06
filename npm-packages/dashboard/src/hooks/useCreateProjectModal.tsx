@@ -1,4 +1,8 @@
-import { Modal, TextInput, Button, Loading, Spinner } from "dashboard-common";
+import { Modal } from "dashboard-common/elements/Modal";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { Button } from "dashboard-common/elements/Button";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Spinner } from "dashboard-common/elements/Spinner";
 import { ReactElement, useState } from "react";
 import { useRouter } from "next/router";
 import { useFormik } from "formik";

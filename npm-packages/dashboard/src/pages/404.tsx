@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
 import { LoginLayout } from "layouts/LoginLayout";
 import { useRouter } from "next/router";
 

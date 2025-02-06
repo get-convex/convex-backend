@@ -1,6 +1,10 @@
 import { Middleware } from "swr";
 import { captureException, captureMessage } from "@sentry/nextjs";
-import { deploymentFetch, translateResponse } from "dashboard-common";
+
+import {
+  deploymentFetch,
+  translateResponse,
+} from "dashboard-common/lib/fetching";
 import { useAccessToken } from "./useServerSideData";
 
 export function useAuthHeader() {

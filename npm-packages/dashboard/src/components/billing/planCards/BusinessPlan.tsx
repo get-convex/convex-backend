@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { PlanCard } from "./PlanCard";
 

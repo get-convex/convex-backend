@@ -4,12 +4,10 @@ import {
   PlusIcon,
   RocketIcon,
 } from "@radix-ui/react-icons";
-import {
-  Button,
-  useGlobalLocalStorage,
-  Callout,
-  TextInput,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Callout } from "dashboard-common/elements/Callout";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { useGlobalLocalStorage } from "dashboard-common/lib/useGlobalLocalStorage";
 import { ProjectCard } from "components/projects/ProjectCard";
 import { useProjects } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";

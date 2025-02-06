@@ -3,7 +3,7 @@ import Link from "next/link";
 import classNames from "classnames";
 import { UrlObject } from "url";
 import { DotsVerticalIcon } from "@radix-ui/react-icons";
-import { Menu, MenuItem } from "dashboard-common";
+import { Menu, MenuItem } from "dashboard-common/elements/Menu";
 
 export type CardProps = {
   cardClassName?: string;

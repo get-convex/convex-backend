@@ -1,4 +1,4 @@
-import { Modal } from "dashboard-common";
+import { Modal } from "dashboard-common/elements/Modal";
 import { CreateTeamForm } from "./CreateTeamForm";
 
 export function CreateTeamModal({ onClose }: { onClose(): void }) {

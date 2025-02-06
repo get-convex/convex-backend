@@ -1,4 +1,5 @@
-import { Button, TextInput } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { TextInput } from "dashboard-common/elements/TextInput";
 import { useCreateTeam } from "api/teams";
 import { useFormik } from "formik";
 import { useRouter } from "next/router";

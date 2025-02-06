@@ -1,7 +1,7 @@
-import { PROVISION_PROD_PAGE_NAME } from "dashboard-common";
 import { useRouter } from "next/router";
 import { useTeams } from "api/teams";
 import { useDefaultDevDeployment, useDeployments } from "api/deployments";
+import { PROVISION_PROD_PAGE_NAME } from "dashboard-common/lib/deploymentContext";
 import { useLaunchDarkly } from "./useLaunchDarkly";
 
 export function useDeploymentUris(

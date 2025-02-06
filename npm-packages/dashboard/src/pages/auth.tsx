@@ -1,7 +1,9 @@
 import { LoginLayout } from "layouts/LoginLayout";
 import { useAuth0 } from "hooks/useAuth0";
 import classNames from "classnames";
-import { Snippet, Loading, Button } from "dashboard-common";
+import { Snippet } from "dashboard-common/elements/Snippet";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Button } from "dashboard-common/elements/Button";
 import { GoogleAnalytics } from "elements/GoogleAnalytics";
 import { useRouter } from "next/router";
 import { useAccessToken } from "hooks/useServerSideData";

@@ -1,4 +1,5 @@
-import { Loading, toast } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
+import { toast } from "dashboard-common/lib/utils";
 import { useDiscordAuthorize } from "api/discord";
 import { useAuthHeader } from "hooks/fetching";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";

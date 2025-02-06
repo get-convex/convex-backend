@@ -2,7 +2,8 @@ import { useQuery } from "convex/react";
 import udfs from "udfs";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { Integrations } from "components/integrations/Integrations";
-import { DeploymentSettingsLayout, LoadingTransition } from "dashboard-common";
+import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
+import { LoadingTransition } from "dashboard-common/elements/Loading";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 
 export { getServerSideProps } from "lib/ssr";

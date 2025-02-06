@@ -1,4 +1,4 @@
-import { Callout } from "dashboard-common";
+import { Callout } from "dashboard-common/elements/Callout";
 import Link from "next/link";
 
 export default function Custom500() {

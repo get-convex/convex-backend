@@ -1,6 +1,8 @@
 import { Listbox, Transition } from "@headlessui/react";
 import { CaretSortIcon, ChevronLeftIcon } from "@radix-ui/react-icons";
-import { Button, Loading, Tooltip } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { useDeployments } from "api/deployments";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";

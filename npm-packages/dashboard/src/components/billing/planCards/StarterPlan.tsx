@@ -1,10 +1,8 @@
-import {
-  Button,
-  Tooltip,
-  formatDate,
-  ConfirmationDialog,
-  Checkbox,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { formatDate } from "dashboard-common/lib/format";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Checkbox } from "dashboard-common/elements/Checkbox";
 import { useState } from "react";
 import Link from "next/link";
 import { useCancelSubscription } from "api/billing";

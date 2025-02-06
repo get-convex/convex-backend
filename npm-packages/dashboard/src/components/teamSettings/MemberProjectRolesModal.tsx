@@ -1,4 +1,8 @@
-import { Button, Tooltip, Spinner, Checkbox, Modal } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { Checkbox } from "dashboard-common/elements/Checkbox";
+import { Modal } from "dashboard-common/elements/Modal";
 import difference from "lodash/difference";
 import React, { useState } from "react";
 import type {

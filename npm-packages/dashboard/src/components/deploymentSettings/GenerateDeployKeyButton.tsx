@@ -1,12 +1,10 @@
-import {
-  Button,
-  Spinner,
-  toast,
-  Callout,
-  Modal,
-  TextInput,
-  CopyTextButton,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { toast } from "dashboard-common/lib/utils";
+import { Callout } from "dashboard-common/elements/Callout";
+import { Modal } from "dashboard-common/elements/Modal";
+import { TextInput } from "dashboard-common/elements/TextInput";
+import { CopyTextButton } from "dashboard-common/elements/CopyTextButton";
 import { useState } from "react";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";

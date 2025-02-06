@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
-import {
-  Sheet,
-  Loading,
-  Button,
-  Callout,
-  ConfirmationDialog,
-} from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { Loading } from "dashboard-common/elements/Loading";
+import { Button } from "dashboard-common/elements/Button";
+import { Callout } from "dashboard-common/elements/Callout";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
 import { useQuery } from "convex/react";
 import udfs from "udfs";
 import { useTeamUsageState } from "hooks/useTeamUsageState";

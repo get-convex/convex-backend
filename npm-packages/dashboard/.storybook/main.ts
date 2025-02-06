@@ -20,19 +20,16 @@ const config: StorybookConfig = {
     options: {
       webpackFinal: async (config) => {
         // Configure aliases
-        if (!config.resolve) {
-          config.resolve = {};
-        }
-        if (!config.resolve.alias) {
-          config.resolve.alias = {};
-        }
-        config.resolve.alias = {
-          ...config.resolve.alias,
-          "dashboard-common": path.resolve(
-            __dirname,
-            "../../dashboard-common/src",
-          ),
-          "@common": path.resolve(__dirname, "../../dashboard-common/src"),
+        config.resolve = {
+          ...config.resolve,
+          alias: {
+            ...config.resolve?.alias,
+            "dashboard-common": path.resolve(
+              __dirname,
+              "../../dashboard-common/src",
+            ),
+            "@common": path.resolve(__dirname, "../../dashboard-common/src"),
+          },
         };
 
         return config;

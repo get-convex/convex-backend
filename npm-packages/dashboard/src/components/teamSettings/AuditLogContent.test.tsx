@@ -18,10 +18,6 @@ jest.mock("../../elements/TeamMemberLink", () => ({
   __esModule: true,
   TeamMemberLink: jest.fn().mockReturnValue(<div>Mocked TeamMemberLink</div>),
 }));
-jest.mock("dashboard-common", () => ({
-  ...jest.requireActual("dashboard-common"),
-  DateRangePicker: jest.fn(),
-}));
 
 describe("AuditLogContent", () => {
   const team: Team = {

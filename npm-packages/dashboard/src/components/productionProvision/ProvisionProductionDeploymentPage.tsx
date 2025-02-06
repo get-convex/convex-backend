@@ -1,5 +1,5 @@
 import { useCurrentTeam } from "api/teams";
-import { Sheet } from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
 import { useProvisionDeployment } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { useRouter } from "next/router";

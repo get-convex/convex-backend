@@ -1,16 +1,15 @@
 import { DotsVerticalIcon, PlusIcon } from "@radix-ui/react-icons";
-import {
-  Button,
-  configToUrl,
-  ExceptionReportingIntegration,
-  integrationName,
-  LogIntegration,
-  Menu,
-  MenuItem,
-  ConfirmationDialog,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Menu, MenuItem } from "dashboard-common/elements/Menu";
+import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
 import { useDeleteSink } from "hooks/deploymentApi";
 import { useState } from "react";
+import {
+  LogIntegration,
+  ExceptionReportingIntegration,
+  integrationName,
+  configToUrl,
+} from "dashboard-common/lib/integrationHelpers";
 
 export function IntegrationOverflowMenu({
   integration,

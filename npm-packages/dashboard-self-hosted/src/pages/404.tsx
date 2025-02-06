@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
 
 export default function Custom404() {
   return (

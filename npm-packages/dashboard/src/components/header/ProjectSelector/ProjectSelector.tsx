@@ -3,7 +3,8 @@ import { ProjectDetails, Team } from "generatedApi";
 import classNames from "classnames";
 import React, { useRef, useState } from "react";
 import { useCurrentProject, useProjects } from "api/projects";
-import { Button, Popover } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Popover } from "dashboard-common/elements/Popover";
 import {
   CaretSortIcon,
   MixerHorizontalIcon,

@@ -1,8 +1,12 @@
 import { CopyIcon } from "@radix-ui/react-icons";
-import { Button, Tooltip, Sheet, useCopy, TextInput } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { TextInput } from "dashboard-common/elements/TextInput";
 import { useFormik } from "formik";
 import { Team } from "generatedApi";
 import * as Yup from "yup";
+import { useCopy } from "dashboard-common/lib/useCopy";
 
 export type TeamFormProps = {
   team: Team;

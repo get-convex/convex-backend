@@ -6,14 +6,12 @@ import {
   ExternalLinkIcon,
 } from "@radix-ui/react-icons";
 import { captureException, captureMessage } from "@sentry/nextjs";
-import {
-  Button,
-  ClosePanelButton,
-  Spinner,
-  toast,
-  Sheet,
-  TextInput,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { ClosePanelButton } from "dashboard-common/elements/ClosePanelButton";
+import { Spinner } from "dashboard-common/elements/Spinner";
+import { toast } from "dashboard-common/lib/utils";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { TextInput } from "dashboard-common/elements/TextInput";
 import { useFormik } from "formik";
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";

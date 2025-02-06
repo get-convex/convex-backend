@@ -2,7 +2,7 @@ import { BackupResponse, useGetCloudBackup } from "api/backups";
 import { useDeploymentById } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
 import { useProjectById } from "api/projects";
-import { Loading } from "dashboard-common";
+import { Loading } from "dashboard-common/elements/Loading";
 
 export function BackupIdentifier({ backup }: { backup: BackupResponse }) {
   const team = useCurrentTeam();

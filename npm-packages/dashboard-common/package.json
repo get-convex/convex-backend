@@ -3,8 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.js",
-  "types": "./src/index.ts",
   "sideEffects": false,
   "scripts": {
     "build": "npm run build:generated && tsc --noEmit",
