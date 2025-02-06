@@ -88,7 +88,8 @@ fly launch
 ```
 
 Copy and paste the url that is output to set `NEXT_PUBLIC_DEPLOYMENT_URL` in the
-dashboard/fly.toml file.
+dashboard/fly.toml file. Also remember the fly app name, which will appear as
+`https://<fly-app-name>.fly.dev` in the url.
 
 ```sh
 cd dashboard
@@ -99,7 +100,7 @@ Visit the dashboard at the url output from the fly deploy command. Generate
 admin key to login to the dashboard.
 
 ```sh
-fly ssh console --app self-hosted-backend --command "./generate_admin_key.sh"
+fly ssh console --app $FLY_APP_NAME --command "./generate_admin_key.sh"
 ```
 
 In your frontend app directory
@@ -118,7 +119,7 @@ CONVEX_SELF_HOST_ADMIN_KEY='<your-admin-key>'
 Push your Convex functions
 
 ```sh
-npx convex self-host deploy
+npx convex self-host dev
 ```
 
 Visit the dashboard - you should see your functions and be able to edit data,
@@ -130,7 +131,7 @@ Note that HTTP actions run on your fly app url under the `/http` path. For
 example:
 
 - If your fly app is deployed at `https://self-hosted-backend.fly.dev`
-- And you have an HTTP action named `sendEmail`
+- And you have an HTTP action named `/sendEmail`
 - You would call it at `https://self-hosted-backend.fly.dev/http/sendEmail`
 
 # Self Hosting on Postgres with [Neon](https://neon.tech)
