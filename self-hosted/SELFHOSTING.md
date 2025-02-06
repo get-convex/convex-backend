@@ -68,26 +68,57 @@ npx convex import <import args>
 
 # Self Hosting with [Fly.io](https://fly.io/)
 
-```sh
-# From the self-hosted directory, deploy the backend.
-fly launch
-# Copy and paste the url that is output to set NEXT_PUBLIC_DEPLOYMENT_URL in the dashboard/fly.toml file.
+From the self-hosted directory, deploy the backend.
 
+```sh
+fly launch
+```
+
+Copy and paste the url that is output to set `NEXT_PUBLIC_DEPLOYMENT_URL` in the
+dashboard/fly.toml file.
+
+```sh
 cd dashboard
 fly launch
-# Visit the dashboard at the url output from the fly deploy command.
-# Generate admin key to login to the dashboard.
-fly ssh console --app self-hosted-backend --command "./generate_admin_key.sh"
+```
 
-# In your frontend app directory
+Visit the dashboard at the url output from the fly deploy command. Generate
+admin key to login to the dashboard.
+
+```sh
+fly ssh console --app self-hosted-backend --command "./generate_admin_key.sh"
+```
+
+In your frontend app directory
+
+```sh
 npm install convex@alpha
-# Write these environment variables to .env.local
+```
+
+Write these environment variables to .env.local
+
+```sh
 CONVEX_SELF_HOST_URL='<NEXT_PUBLIC_DEPLOYMENT_URL>'
 CONVEX_SELF_HOST_ADMIN_KEY='<your-admin-key>'
-# Push your Convex functions
-npx convex self-host deploy
-# Visit the dashboard - you should see your functions and be able to edit data, run functions, etc.
 ```
+
+Push your Convex functions
+
+```sh
+npx convex self-host deploy
+```
+
+Visit the dashboard - you should see your functions and be able to edit data,
+run functions, etc.
+
+### HTTP Actions
+
+Note that HTTP actions run on your fly app url under the `/http` path. For
+example:
+
+- If your fly app is deployed at `https://self-hosted-backend.fly.dev`
+- And you have an HTTP action named `sendEmail`
+- You would call it at `https://self-hosted-backend.fly.dev/http/sendEmail`
 
 ## Connecting to [Neon Postgres](https://neon.tech)
 
@@ -107,6 +138,8 @@ fly secrets set DATABASE_URL=$DATABASE_URL
 # There should be a line like "Connected to Postgres" in the logs.
 fly logs
 ```
+
+These instructions should work for any Postgres database, not just Neon.
 
 # Self Hosting Via Running Binary Directly
 

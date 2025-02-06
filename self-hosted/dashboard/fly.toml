@@ -10,7 +10,7 @@ primary_region = 'sjc'
 image = 'ghcr.io/get-convex/self-hosted-dashboard:latest'
 
 [env]
-NEXT_PUBLIC_DEPLOYMENT_URL = 'https://self-hosted-backend.fly.dev'
+NEXT_PUBLIC_DEPLOYMENT_URL =
 
 [[services]]
 internal_port = 6791
