@@ -3,6 +3,7 @@ import { OneoffCtx } from "../../bundler/context.js";
 import {
   CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME,
   CONVEX_SELF_HOST_URL_VAR_NAME,
+  parsePositiveInteger,
 } from "./utils/utils.js";
 
 declare module "@commander-js/extra-typings" {
@@ -130,6 +131,18 @@ declare module "@commander-js/extra-typings" {
       Opts & {
         path: string;
         includeFileStorage?: boolean;
+      }
+    >;
+
+    /**
+     * Adds options for the `data` command.
+     */
+    addDataOptions(): Command<
+      [...Args, string | undefined],
+      Opts & {
+        limit: number;
+        order: "asc" | "desc";
+        component?: string;
       }
     >;
   }
@@ -450,4 +463,31 @@ Command.prototype.addExportOptions = function () {
       "Includes stored files (https://dashboard.convex.dev/deployment/files) in a _storage folder within the ZIP file",
     ),
   );
+};
+
+Command.prototype.addDataOptions = function () {
+  return this.addOption(
+    new Option(
+      "--limit <n>",
+      "List only the `n` the most recently created documents.",
+    )
+      .default(100)
+      .argParser(parsePositiveInteger),
+  )
+    .addOption(
+      new Option(
+        "--order <choice>",
+        "Order the documents by their `_creationTime`.",
+      )
+        .choices(["asc", "desc"])
+        .default("desc"),
+    )
+    .addOption(
+      new Option(
+        "--component <path>",
+        "Path to the component in the component tree defined in convex.config.ts.\n" +
+          "  By default, inspects data in the root component",
+      ).hideHelp(),
+    )
+    .argument("[table]", "If specified, list documents in this table.");
 };

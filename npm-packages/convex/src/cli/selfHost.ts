@@ -15,8 +15,13 @@ import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
 import { runInDeployment } from "./lib/run.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
 import { exportFromDeployment } from "./lib/convexExport.js";
-import { envListInDeployment, envRemoveInDeployment } from "./lib/env.js";
-import { envGetInDeployment, envSetInDeployment } from "./lib/env.js";
+import { dataInDeployment } from "./lib/data.js";
+import {
+  envGetInDeployment,
+  envSetInDeployment,
+  envListInDeployment,
+  envRemoveInDeployment,
+} from "./lib/env.js";
 
 export const selfHost = new Command("self-host");
 
@@ -321,3 +326,29 @@ selfHost
   .addCommand(envList)
   .addHelpCommand(false)
   .addSelfHostOptions();
+
+selfHost
+  .command("data")
+  .summary("List tables and print data from your database")
+  .description(
+    "Inspect your Convex deployment's database.\n\n" +
+      "  List tables: `npx convex data`\n" +
+      "  List documents in a table: `npx convex data tableName`",
+  )
+  .allowExcessArguments(false)
+  .addDataOptions()
+  .addSelfHostOptions()
+  .showHelpAfterError()
+  .action(async (tableName, options) => {
+    const ctx = oneoffContext();
+
+    const credentials = await selfHostCredentials(ctx, true, options);
+
+    await dataInDeployment(ctx, {
+      deploymentUrl: credentials.url,
+      adminKey: credentials.adminKey,
+      deploymentNotice: "",
+      tableName,
+      ...options,
+    });
+  });
