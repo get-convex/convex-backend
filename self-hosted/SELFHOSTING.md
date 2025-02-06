@@ -22,7 +22,7 @@ Development of the Convex backend is led by the Convex team. We
 [love receiving feedback](https://discord.gg/convex). We keep this repository
 synced with any internal development work within a handful of days.
 
-# Self Hosting Via Docker [recommended]
+# Self Hosting Via Docker
 
 You'll need to have [Docker](https://docs.docker.com/desktop/) installed to run
 convex in Docker.
@@ -65,6 +65,13 @@ npx convex dev
 npx convex run <run args>
 npx convex import <import args>
 ```
+
+By default, the backend will store its data in a volume managed by Docker. Note
+that you'll need to set up persistent storage on whatever cloud hosting platform
+you choose to run the Docker container on (e.g. AWS EBS). The default database
+is SQLite, but for production workloads, we recommend running Convex backed by
+Postgres. Follow [these instructions](#self-hosting-on-postgres-with-neon) to
+connect to Postgres.
 
 # Self Hosting with [Fly.io](https://fly.io/)
 
@@ -120,22 +127,40 @@ example:
 - And you have an HTTP action named `sendEmail`
 - You would call it at `https://self-hosted-backend.fly.dev/http/sendEmail`
 
-## Connecting to [Neon Postgres](https://neon.tech)
+# Self Hosting on Postgres with [Neon](https://neon.tech)
 
 Create a project on Neon. Copy the connection string from the Neon dashboard.
 
 ```sh
 export DATABASE_CONNECTION='<connection string>'
+```
 
-# Create the database
+Create the database
+
+```sh
 psql $DATABASE_CONNECTION -c "CREATE DATABASE convex_self_hosted"
+```
 
-# Strip database name and query params from the connection string. It should end in neon.tech
+Strip database name and query params from the connection string. It should end
+in neon.tech
+
+```sh
 export DATABASE_URL=$(echo $DATABASE_CONNECTION | sed -E 's/\/[^/]+(\?.*)?$//')
-fly secrets set DATABASE_URL=$DATABASE_URL
+```
 
-# Check that the database is connected to your self-hosted convex backend.
-# There should be a line like "Connected to Postgres" in the logs.
+Update your `DATABASE_URL` environment variable. If you're deploying on
+[Fly](https://fly.io):
+
+```sh
+fly secrets set DATABASE_URL=$DATABASE_URL
+```
+
+After you've deployed with the environment variable set, check that the database
+is connected to your self-hosted convex backend. There should be a line like
+"Connected to Postgres" in the logs. If you're deploying on
+[Fly](https://fly.io):
+
+```sh
 fly logs
 ```
 
