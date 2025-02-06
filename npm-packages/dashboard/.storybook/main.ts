@@ -1,4 +1,5 @@
 import { StorybookConfig } from "@storybook/types";
+import path from "path";
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.stories.mdx", "../src/**/*.stories.@(js|jsx|ts|tsx)"],
@@ -10,15 +11,33 @@ const config: StorybookConfig = {
     {
       name: "@storybook/addon-styling",
       options: {
-        postCss: {
-          implementation: require("postcss"),
-        },
+        postCss: true,
       },
     },
   ],
   framework: {
     name: "@storybook/nextjs",
-    options: {},
+    options: {
+      webpackFinal: async (config) => {
+        // Configure aliases
+        if (!config.resolve) {
+          config.resolve = {};
+        }
+        if (!config.resolve.alias) {
+          config.resolve.alias = {};
+        }
+        config.resolve.alias = {
+          ...config.resolve.alias,
+          "dashboard-common": path.resolve(
+            __dirname,
+            "../../dashboard-common/src",
+          ),
+          "@common": path.resolve(__dirname, "../../dashboard-common/src"),
+        };
+
+        return config;
+      },
+    },
   },
 };
 

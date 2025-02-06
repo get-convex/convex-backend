@@ -7,6 +7,7 @@ const config: StorybookConfig = {
     "@storybook/addon-essentials",
     "@storybook/addon-interactions",
     "@storybook/addon-themes",
+    "storybook-addon-next-router",
     {
       name: "@storybook/addon-styling",
       options: {

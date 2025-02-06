@@ -10,10 +10,13 @@
     "build": "npm run build:generated && tsc --noEmit",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
     "test": "npm run build:generated && jest",
-    "storybook": "storybook dev -s ./public -p 6006",
+    "storybook": "storybook dev -s ./public -p 6006 --no-open",
     "build-storybook": "storybook build",
     "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'",
     "lint:fix": "eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'"
+  },
+  "peerDependencies": {
+    "next-themes": "~0.4.0"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.0",
@@ -39,7 +42,6 @@
     "lodash": "~4.17.21",
     "monaco-editor": "0.40.0",
     "next": "14.2.21",
-    "next-themes": "~0.4.0",
     "object-sizeof": "~2.6.3",
     "prettier-old-sync": "npm:prettier@2.8.8",
     "react": "^18.0.0",
@@ -124,6 +126,7 @@
     "storybook": "^7.6.16",
     "tailwindcss": "^3.2.4",
     "tailwind-scrollbar": "3.0.3",
-    "typescript": "~5.0.3"
+    "typescript": "~5.0.3",
+    "storybook-addon-next-router": "~4.0.2"
   }
 }

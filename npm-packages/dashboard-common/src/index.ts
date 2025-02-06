@@ -104,7 +104,6 @@ export * from "@common/features/files/components/FileStorageView";
 export * from "@common/features/logs/components/LogsView";
 export * from "@common/features/history/components/HistoryView";
 export * from "@common/features/schedules/components/ScheduledFunctionsView";
-export * from "@common/features/schedules/components/crons/CronsView";
 export * from "@common/features/settings/components/EnvironmentVariablesView";
 export * from "@common/features/settings/components/AuthenticationView";
 export * from "@common/features/settings/components/ComponentsView";

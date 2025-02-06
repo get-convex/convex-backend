@@ -18,10 +18,17 @@
     "baseUrl": "src",
     "customConditions": ["convex-internal-types"],
     "paths": {
-      "dashboard-common": ["../dashboard-common/src"],
+      "dashboard-common": ["../../dashboard-common/src"],
+      "dashboard-common/*": ["../../dashboard-common/src/*"],
       "@common/*": ["../../dashboard-common/src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "next.config.js",
+    "postcss.config.js"
+  ],
   "exclude": ["node_modules"]
 }

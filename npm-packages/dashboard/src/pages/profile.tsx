@@ -1,6 +1,5 @@
 import { useAuth0 } from "hooks/useAuth0";
 import {
-  useTheme,
   Sheet,
   LoadingTransition,
   Button,
@@ -9,7 +8,7 @@ import {
   TextInput,
   ConfirmationDialog,
 } from "dashboard-common";
-
+import { useTheme } from "next-themes";
 import { RadioGroup } from "@headlessui/react";
 import classNames from "classnames";
 import { CheckCircledIcon } from "@radix-ui/react-icons";

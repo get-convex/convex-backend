@@ -1,8 +1,7 @@
 import React, { ReactNode } from "react";
 import { DecoratorHelpers } from "@storybook/addon-themes";
 import type { DecoratorFunction, Renderer } from "@storybook/types";
-import { ThemeProvider } from "dashboard-common";
-import { ReactRenderer } from "@storybook/react";
+import { ThemeProvider } from "next-themes";
 const { initializeThemeState, pluckThemeFromContext, useThemeParameters } =
   DecoratorHelpers;
 

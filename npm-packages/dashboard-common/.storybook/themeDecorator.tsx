@@ -2,7 +2,6 @@ import React, { ReactNode } from "react";
 import { DecoratorHelpers } from "@storybook/addon-themes";
 import type { DecoratorFunction, Renderer } from "@storybook/types";
 import { ThemeProvider } from "next-themes";
-import { ReactRenderer } from "@storybook/react";
 const { initializeThemeState, pluckThemeFromContext, useThemeParameters } =
   DecoratorHelpers;
 

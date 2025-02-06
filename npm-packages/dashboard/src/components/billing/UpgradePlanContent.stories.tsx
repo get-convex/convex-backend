@@ -1,6 +1,6 @@
 import React from "react";
 import { Meta, StoryObj } from "@storybook/react";
-import { Callout } from "dashboard-common";
+import { Callout } from "dashboard-common/elements/Callout";
 import { UpgradePlanContent } from "./UpgradePlanContent";
 
 export default {

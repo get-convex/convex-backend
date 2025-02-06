@@ -1,15 +1,12 @@
 import { StoryObj } from "@storybook/react";
 import { useEffect, useState } from "react";
-import { Sheet } from "dashboard-common";
 import { ProgressBar } from "./ProgressBar";
 
 export default {
   component: ProgressBar,
   args: { ariaLabel: "Progress" },
   render: (args: Parameters<typeof ProgressBar>[0]) => (
-    <Sheet>
-      <ProgressBar {...args} />
-    </Sheet>
+    <ProgressBar {...args} />
   ),
 };
 
@@ -43,9 +40,5 @@ function Animation() {
     }, 800);
     return () => clearInterval(interval);
   }, []);
-  return (
-    <Sheet>
-      <ProgressBar fraction={value / 100} ariaLabel="Progress" />
-    </Sheet>
-  );
+  return <ProgressBar fraction={value / 100} ariaLabel="Progress" />;
 }

@@ -1,10 +1,8 @@
-import {
-  Button,
-  TimestampDistance,
-  formatNumberCompact,
-  Callout,
-  Modal,
-} from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { Callout } from "dashboard-common/elements/Callout";
+import { Modal } from "dashboard-common/elements/Modal";
+import { formatNumberCompact } from "dashboard-common/lib/format";
 import { useQuery } from "convex/react";
 import { useConfirmImport } from "hooks/deploymentApi";
 import { useEffect, useState } from "react";

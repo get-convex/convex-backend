@@ -22,13 +22,13 @@ import {
   DeploymentDashboardLayout,
   ThemeConsumer,
   Favicon,
-  ThemeProvider,
   ToggleTheme,
   Menu,
   MenuItem,
   TextInput,
   Button,
 } from "dashboard-common";
+import { ThemeProvider } from "next-themes";
 import React, { useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "components/ErrorBoundary";
 

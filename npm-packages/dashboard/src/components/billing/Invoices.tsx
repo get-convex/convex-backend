@@ -1,7 +1,8 @@
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Button, Sheet } from "dashboard-common";
+import { Button } from "dashboard-common/elements/Button";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { cn } from "dashboard-common/lib/cn";
 import { InvoiceResponse } from "generatedApi";
-import { cn } from "lib/cn";
 
 const headerClass = "text-left text-xs text-content-secondary font-normal py-2";
 

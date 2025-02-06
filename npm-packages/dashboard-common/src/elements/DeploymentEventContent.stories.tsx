@@ -3,8 +3,19 @@
 import { StoryObj } from "@storybook/react";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { DeploymentEventContent } from "@common/elements/DeploymentEventContent";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
-export default { component: DeploymentEventContent };
+export default {
+  component: DeploymentEventContent,
+  decorators: [
+    (Story) => (
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <Story />
+      </DeploymentInfoContext.Provider>
+    ),
+  ],
+};
 
 export const CreateEnvironmentVariable: StoryObj<
   typeof DeploymentEventContent

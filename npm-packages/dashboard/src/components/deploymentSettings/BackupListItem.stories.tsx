@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { DeploymentResponse, Team } from "generatedApi";
-import { Sheet } from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
 import { useAccessToken } from "hooks/useServerSideData";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { BackupResponse } from "api/backups";

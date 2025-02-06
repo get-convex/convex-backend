@@ -6,7 +6,7 @@ import {
 import { useCreateSetupIntent } from "api/billing";
 import { useState, useEffect, useCallback } from "react";
 import { Team } from "generatedApi";
-import { useTheme } from "dashboard-common";
+import { useTheme } from "next-themes";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY!);
 

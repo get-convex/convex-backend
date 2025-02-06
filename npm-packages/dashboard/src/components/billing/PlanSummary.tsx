@@ -1,15 +1,12 @@
-import {
-  Loading,
-  Tooltip,
-  formatBytes,
-  formatNumberCompact,
-  Sheet,
-} from "dashboard-common";
+import { Sheet } from "dashboard-common/elements/Sheet";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Loading } from "dashboard-common/elements/Loading";
+import { formatBytes, formatNumberCompact } from "dashboard-common/lib/format";
 import { UsageSummary } from "hooks/usageMetrics";
 import { ReactNode } from "react";
 import { TeamEntitlementsResponse } from "generatedApi";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
-import { cn } from "lib/cn";
+import { cn } from "dashboard-common/lib/cn";
 import Link from "next/link";
 
 export function PlanSummary({

@@ -1,3 +1,3 @@
-import { CronsView } from "dashboard-common";
+import { CronsView } from "dashboard-common/features/schedules/components/crons/CronsView";
 
 export default CronsView;

@@ -33,8 +33,8 @@ import {
   LoadingLogo,
   ThemeConsumer,
   ToastContainer,
-  ThemeProvider,
 } from "dashboard-common";
+import { ThemeProvider } from "next-themes";
 import { CurrentDeploymentDashboardLayout } from "layouts/DeploymentDashboardLayout";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";

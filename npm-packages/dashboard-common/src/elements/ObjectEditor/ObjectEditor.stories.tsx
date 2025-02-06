@@ -4,10 +4,10 @@ import udfs from "udfs";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 
-const mockClient = mockConvexReactClient().registerQueryFake(
-  udfs.listById.default,
-  ({ ids }) => ids.map(() => null),
-);
+const mockClient = mockConvexReactClient()
+  .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
+  .registerQueryFake(udfs.components.list, () => [])
+  .registerQueryFake(udfs.getTableMapping.default, () => null);
 
 export default {
   component: ObjectEditor,

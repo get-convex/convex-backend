@@ -2,9 +2,9 @@ import { DeploymentInfo } from "@common/lib/deploymentContext";
 
 export const mockDeploymentInfo: DeploymentInfo = {
   ok: true,
-  reportHttpError: jest.fn(),
-  captureException: jest.fn(),
-  captureMessage: jest.fn(),
+  reportHttpError: () => {},
+  captureException: () => {},
+  captureMessage: () => {},
   deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
   adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
   useCurrentTeam: () => ({
