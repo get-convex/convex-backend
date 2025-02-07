@@ -157,6 +157,18 @@ declare module "@commander-js/extra-typings" {
         success: boolean;
       }
     >;
+
+    /**
+     * Adds options for the `network-test` command.
+     */
+    addNetworkTestOptions(): Command<
+      Args,
+      Opts & {
+        timeout?: string;
+        ipFamily?: string;
+        speedTest?: boolean;
+      }
+    >;
   }
 }
 
@@ -514,4 +526,25 @@ Command.prototype.addLogsOptions = function () {
     "Print a log line for every successful function execution",
     false,
   );
+};
+
+Command.prototype.addNetworkTestOptions = function () {
+  return this.addOption(
+    new Option(
+      "--timeout <timeout>",
+      "Timeout in seconds for the network test (default: 30).",
+    ),
+  )
+    .addOption(
+      new Option(
+        "--ip-family <ipFamily>",
+        "IP family to use (ipv4, ipv6, or auto)",
+      ),
+    )
+    .addOption(
+      new Option(
+        "--speed-test",
+        "Perform a large echo test to measure network speed.",
+      ),
+    );
 };

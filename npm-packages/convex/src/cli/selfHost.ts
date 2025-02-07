@@ -1,6 +1,11 @@
 import * as dotenv from "dotenv";
 import { Command, Option } from "@commander-js/extra-typings";
-import { Context, logVerbose, oneoffContext } from "../bundler/context.js";
+import {
+  Context,
+  logVerbose,
+  oneoffContext,
+  showSpinner,
+} from "../bundler/context.js";
 import { handleManuallySetUrlAndAdminKey } from "./configure.js";
 import { devAgainstDeployment } from "./lib/dev.js";
 import { normalizeDevOptions } from "./lib/command.js";
@@ -24,6 +29,7 @@ import {
   envListInDeployment,
   envRemoveInDeployment,
 } from "./lib/env.js";
+import { runNetworkTestOnUrl, withTimeout } from "./lib/networkTest.js";
 
 export const selfHost = new Command("self-host");
 
@@ -392,3 +398,42 @@ selfHost
       deploymentNotice: "",
     });
   });
+
+selfHost
+  .command("network-test")
+  .description("Run a network test to Convex's servers")
+  .allowExcessArguments(false)
+  .addNetworkTestOptions()
+  .addSelfHostOptions()
+  .action(async (options) => {
+    const ctx = oneoffContext();
+    const timeoutSeconds = options.timeout
+      ? Number.parseFloat(options.timeout)
+      : 30;
+    await withTimeout(
+      ctx,
+      "Network test",
+      timeoutSeconds * 1000,
+      runNetworkTest(ctx, options),
+    );
+  });
+
+async function runNetworkTest(
+  ctx: Context,
+  options: {
+    url?: string | undefined;
+    timeout?: string;
+    ipFamily?: string;
+    speedTest?: boolean;
+  },
+) {
+  showSpinner(ctx, "Performing network test...");
+  const credentials = await selfHostCredentials(ctx, true, {
+    // adminKey is unused for network test, so it doesn't need to be provided.
+    // give a default to prevent errors
+    adminKey: "",
+    ...options,
+  });
+  const url = credentials.url;
+  await runNetworkTestOnUrl(ctx, url, options);
+}

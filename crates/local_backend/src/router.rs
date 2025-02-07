@@ -234,6 +234,10 @@ pub fn router(st: LocalAppState) -> Router {
         // /instance_name is used by the CLI and dashboard to check connectivity!
         .route("/instance_name", get(|| async move { instance_name }))
         .route("/instance_version", get(|| async move { version }))
+        .route("/echo", post(|body: axum::body::Body| async move { body })
+            // Limit requests to 128MiB to help mitigate DDoS attacks.
+            .layer(DefaultBodyLimit::max(128 * 1024 * 1024))
+        )
         .layer(cors())
         .with_state(st)
         .merge(migrated)
