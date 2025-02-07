@@ -625,8 +625,8 @@ importers:
         specifier: ~0.13.0
         version: 0.13.4
       posthog-js:
-        specifier: ~1.211.3
-        version: 1.211.3
+        specifier: ~1.213.0
+        version: 1.213.0
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -954,13 +954,13 @@ importers:
         version: 8.10.1(date-fns@2.30.0)(react@18.3.1)
       react-dnd:
         specifier: ~16.0.1
-        version: 16.0.1(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1)
+        version: 16.0.1(@types/hoist-non-react-statics@3.3.6)(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1)
       react-dnd-html5-backend:
         specifier: ~16.0.1
         version: 16.0.1
       react-dnd-scrolling:
         specifier: ~1.3.3
-        version: 1.3.10(react-dnd@16.0.1(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.3.10(react-dnd@16.0.1(@types/hoist-non-react-statics@3.3.6)(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-dom:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
@@ -2691,6 +2691,9 @@ importers:
       postcss:
         specifier: ^8.4.19
         version: 8.4.49
+      posthog-js:
+        specifier: ~1.213.0
+        version: 1.213.0
       prism-react-renderer:
         specifier: 1.3.5
         version: 1.3.5(react@18.3.1)
@@ -2700,6 +2703,9 @@ importers:
       react:
         specifier: ^18.0.0
         version: 18.3.1
+      react-cookie:
+        specifier: ~7.2.2
+        version: 7.2.2(react@18.3.1)
       react-dom:
         specifier: ^18.0.0
         version: 18.3.1(react@18.3.1)
@@ -9670,6 +9676,9 @@ packages:
 
   '@types/history@4.7.11':
     resolution: {integrity: sha512-qjDJRrmvBMiTx+jyLxvLfJU7UznFuokDv4f3WRuriHKERccVpFU+8XMQUAbDzoiJCsmexxRExQeMwwCdamSKDA==}
+
+  '@types/hoist-non-react-statics@3.3.6':
+    resolution: {integrity: sha512-lPByRJUer/iN/xa4qpyL0qmL11DqNW81iU/IG1S3uvRUq4oKagz8VCxZjiWkumgt66YT3vOdDgZ0o32sGKtCEw==}
 
   '@types/html-minifier-terser@6.1.0':
     resolution: {integrity: sha512-oh/6byDPnL1zeNXFrDXFLyZjkr1MsBG667IM792caf1L2UPOOMf65NFzjUH/ltyfwjAGfs1rsX1eftK0jC/KIg==}
@@ -17398,8 +17407,8 @@ packages:
     resolution: {integrity: sha512-OCVPnIObs4N29kxTjzLfUryOkvZEq+pf8jTF0lg8E7uETuWHA+v7j3c/xJmiqpX450191LlmZfUKkXxkTry7nA==}
     engines: {node: ^10 || ^12 || >=14}
 
-  posthog-js@1.211.3:
-    resolution: {integrity: sha512-QDAHMSyj0LKlrOhFNrHIlbuI1gL6zB5zyix22EtlAjj9d+FlvNRsOOpC9rjPydd6mQw4EHPtj74usma/nE7wNw==}
+  posthog-js@1.213.0:
+    resolution: {integrity: sha512-ELQWz/5D4yQO9pVbpqkIK9nVtPof34XaipNQ0n0Zou+8xN9qk58paPtYYTQdoRv2hf4MpJRIjgvSllZCmhYvaw==}
 
   postmark@3.0.20:
     resolution: {integrity: sha512-ujRyU3Jv2kM35Q2srdEHRhewmZkAMKOb6iXWDvLTxnSSc4LmAfUmnMZIWqaRIroS4TbwRQACi4gm8+NsWGlzhg==}
@@ -17716,6 +17725,11 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
+
+  react-cookie@7.2.2:
+    resolution: {integrity: sha512-e+hi6axHcw9VODoeVu8WyMWyoosa1pzpyjfvrLdF7CexfU+WSGZdDuRfHa4RJgTpfv3ZjdIpHE14HpYBieHFhg==}
+    peerDependencies:
+      react: '>= 16.3.0'
 
   react-day-picker@8.10.1:
     resolution: {integrity: sha512-TMx7fNbhLk15eqcMt+7Z7S2KF7mfTId/XJDjKE8f+IUcFn0l08/kI4FiYTL/0yuOLmEcbR4Fwe3GJf/NiiMnPA==}
@@ -19907,6 +19921,9 @@ packages:
 
   unist-util-visit@4.1.2:
     resolution: {integrity: sha512-MSd8OUGISqHdVvfY9TPhyK2VdUrPgxkUtWSuMHF6XAAFuL4LokseigBnZtPnJMu+FbynTkFNnFlyjxpVKujMRg==}
+
+  universal-cookie@7.2.2:
+    resolution: {integrity: sha512-fMiOcS3TmzP2x5QV26pIH3mvhexLIT0HmPa3V7Q7knRfT9HG6kTwq02HZGLPw0sAOXrAmotElGRvTLCMbJsvxQ==}
 
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
@@ -29450,6 +29467,11 @@ snapshots:
       '@types/unist': 2.0.11
 
   '@types/history@4.7.11': {}
+
+  '@types/hoist-non-react-statics@3.3.6':
+    dependencies:
+      '@types/react': 18.3.18
+      hoist-non-react-statics: 3.3.2
 
   '@types/html-minifier-terser@6.1.0': {}
 
@@ -40172,7 +40194,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  posthog-js@1.211.3:
+  posthog-js@1.213.0:
     dependencies:
       core-js: 3.40.0
       fflate: 0.4.8
@@ -40476,6 +40498,13 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
+  react-cookie@7.2.2(react@18.3.1):
+    dependencies:
+      '@types/hoist-non-react-statics': 3.3.6
+      hoist-non-react-statics: 3.3.2
+      react: 18.3.1
+      universal-cookie: 7.2.2
+
   react-day-picker@8.10.1(date-fns@2.30.0)(react@18.3.1):
     dependencies:
       date-fns: 2.30.0
@@ -40517,17 +40546,17 @@ snapshots:
     dependencies:
       dnd-core: 16.0.1
 
-  react-dnd-scrolling@1.3.10(react-dnd@16.0.1(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-dnd-scrolling@1.3.10(react-dnd@16.0.1(@types/hoist-non-react-statics@3.3.6)(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       hoist-non-react-statics: 3.3.2
       lodash.throttle: 4.1.1
       prop-types: 15.8.1
       raf: 3.4.1
       react: 18.3.1
-      react-dnd: 16.0.1(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1)
+      react-dnd: 16.0.1(@types/hoist-non-react-statics@3.3.6)(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1)
       react-dom: 18.3.1(react@18.3.1)
 
-  react-dnd@16.0.1(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1):
+  react-dnd@16.0.1(@types/hoist-non-react-statics@3.3.6)(@types/node@18.19.70)(@types/react@18.3.18)(react@18.3.1):
     dependencies:
       '@react-dnd/invariant': 4.0.2
       '@react-dnd/shallowequal': 4.0.2
@@ -40536,6 +40565,7 @@ snapshots:
       hoist-non-react-statics: 3.3.2
       react: 18.3.1
     optionalDependencies:
+      '@types/hoist-non-react-statics': 3.3.6
       '@types/node': 18.19.70
       '@types/react': 18.3.18
 
@@ -43322,6 +43352,11 @@ snapshots:
       '@types/unist': 2.0.11
       unist-util-is: 5.2.1
       unist-util-visit-parents: 5.1.3
+
+  universal-cookie@7.2.2:
+    dependencies:
+      '@types/cookie': 0.6.0
+      cookie: 0.7.2
 
   universalify@0.1.2: {}
 

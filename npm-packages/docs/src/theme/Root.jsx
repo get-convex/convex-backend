@@ -1,5 +1,6 @@
 import { logEvent } from "convex-analytics";
-import React, { useEffect, useState, createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import Analytics from "../components/Analytics/Analytics";
 
 function Root({ children }) {
   useEffect(() => {
@@ -30,6 +31,7 @@ function Root({ children }) {
   return (
     <DialectContext.Provider value={{ lang, setLang }}>
       {children}
+      <Analytics />
     </DialectContext.Provider>
   );
 }

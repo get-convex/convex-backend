@@ -55,7 +55,7 @@
     "swr-openapi": "~5.0.0",
     "openapi-fetch": "~0.13.0",
     "react-sparklines": "~1.7.0",
-    "posthog-js": "~1.211.3"
+    "posthog-js": "~1.213.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.5",

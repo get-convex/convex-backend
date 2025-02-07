@@ -40,8 +40,11 @@ const config = {
   },
   customFields: {
     // Make these environment variables available to the docs site.
+    NODE_ENV: process.env.NODE_ENV,
     KAPA_AI_PROJECT: process.env.KAPA_AI_PROJECT,
     KAPA_AI_KEY: process.env.KAPA_AI_KEY,
+    POST_HOG_KEY: process.env.POST_HOG_KEY,
+    POST_HOG_HOST: process.env.POST_HOG_HOST,
   },
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -347,6 +350,9 @@ const config = {
       "data-user-analytics-fingerprint-enabled": "true",
       async: true,
     },
+  ],
+  clientModules: [
+    require.resolve("./src/components/Analytics/analyticsModule.ts"),
   ],
 };
 
