@@ -426,19 +426,22 @@ pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
     ]
 }
 
-pub fn virtual_system_mapping() -> VirtualSystemMapping {
-    let mut mapping = VirtualSystemMapping::default();
-    for table in app_system_tables() {
-        if let Some((virtual_table_name, virtual_indexes, mapper)) = table.virtual_table() {
-            mapping.add_table(
-                virtual_table_name,
-                table.table_name(),
-                virtual_indexes,
-                mapper,
-            )
+pub fn virtual_system_mapping() -> &'static VirtualSystemMapping {
+    static MAPPING: LazyLock<VirtualSystemMapping> = LazyLock::new(|| {
+        let mut mapping = VirtualSystemMapping::default();
+        for table in app_system_tables() {
+            if let Some((virtual_table_name, virtual_indexes, mapper)) = table.virtual_table() {
+                mapping.add_table(
+                    virtual_table_name,
+                    table.table_name(),
+                    virtual_indexes,
+                    mapper,
+                )
+            }
         }
-    }
-    mapping
+        mapping
+    });
+    &MAPPING
 }
 
 #[cfg(test)]
@@ -493,7 +496,7 @@ mod test_default_table_numbers {
     async fn test_initialize_model(rt: TestRuntime) -> anyhow::Result<()> {
         let args = DbFixturesArgs {
             tp: Some(Arc::new(TestPersistence::new())),
-            virtual_system_mapping: virtual_system_mapping(),
+            virtual_system_mapping: virtual_system_mapping().clone(),
             ..Default::default()
         };
         // Initialize

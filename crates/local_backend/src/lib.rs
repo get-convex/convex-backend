@@ -149,7 +149,7 @@ pub async fn make_app(
         runtime.clone(),
         searcher.clone(),
         preempt_tx,
-        virtual_system_mapping(),
+        virtual_system_mapping().clone(),
         Arc::new(NoOpUsageEventLogger),
     )
     .await?;

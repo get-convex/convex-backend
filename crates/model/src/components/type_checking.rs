@@ -179,7 +179,7 @@ pub fn validate_component_args(
                     TableMapping::new().namespace(TableNamespace::by_component_TODO());
                 let virtual_system_mapping = virtual_system_mapping();
                 validator
-                    .check_value(value, &table_mapping, &virtual_system_mapping)
+                    .check_value(value, &table_mapping, virtual_system_mapping)
                     .map_err(|validator_error| {
                         ErrorMetadata::bad_request(
                             "TypecheckError",

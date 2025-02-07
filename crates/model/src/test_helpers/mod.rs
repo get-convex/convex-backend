@@ -22,7 +22,7 @@ impl<RT: Runtime> DbFixturesWithModel<RT> for DbFixtures<RT> {
         Self::new_with_model_and_args(
             rt,
             DbFixturesArgs {
-                virtual_system_mapping: virtual_system_mapping(),
+                virtual_system_mapping: virtual_system_mapping().clone(),
                 ..Default::default()
             },
         )

@@ -34,11 +34,8 @@ pub fn op_validate_returns<'b, P: OpProvider<'b>>(
     let function_result = ConvexValue::try_from(function_result)?;
 
     let table_mapping = provider.get_all_table_mappings()?;
-    match returns_validator.check_output(
-        &function_result,
-        &table_mapping,
-        &virtual_system_mapping(),
-    ) {
+    match returns_validator.check_output(&function_result, &table_mapping, virtual_system_mapping())
+    {
         Some(js_error) => Ok(json!({
             "valid": false,
             "message": format!("{}", js_error)

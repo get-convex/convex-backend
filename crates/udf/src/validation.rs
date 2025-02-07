@@ -429,11 +429,10 @@ impl ValidatedPathAndArgs {
         let table_mapping = &tx.table_mapping().namespace(path.component.into());
 
         // If the UDF has an args validator, check that these args match.
-        let args_validation_error = analyzed_function.args()?.check_args(
-            &args,
-            table_mapping,
-            &virtual_system_mapping(),
-        )?;
+        let args_validation_error =
+            analyzed_function
+                .args()?
+                .check_args(&args, table_mapping, virtual_system_mapping())?;
 
         if let Some(error) = args_validation_error {
             return Ok(Err(JsError::from_message(format!(
@@ -813,7 +812,7 @@ impl ValidatedUdfOutcome {
         };
 
         if let Some(js_err) =
-            returns_validator.check_output(&returns, table_mapping, &virtual_system_mapping())
+            returns_validator.check_output(&returns, table_mapping, virtual_system_mapping())
         {
             validated.result = Err(js_err);
         };
@@ -855,7 +854,7 @@ impl ValidatedActionOutcome {
         if let Ok(ref json_packed_value) = &validated.result {
             let output = json_packed_value.unpack();
             if let Some(js_err) =
-                returns_validator.check_output(&output, table_mapping, &virtual_system_mapping())
+                returns_validator.check_output(&output, table_mapping, virtual_system_mapping())
             {
                 validated.result = Err(js_err);
             }

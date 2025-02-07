@@ -103,7 +103,7 @@ pub async fn shapes2(
             // Table summaries are still bootstrapping, use `Unknown` in the meantime
             None => ReducedShape::Unknown,
         };
-        let json = dashboard_shape_json(&shape, &mapping, &virtual_system_mapping())?;
+        let json = dashboard_shape_json(&shape, &mapping, virtual_system_mapping())?;
         out.insert(String::from(table_name.clone()), json);
     }
     Ok(Json(out))

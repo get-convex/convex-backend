@@ -436,7 +436,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             database_index_snapshot,
             text_index_snapshot,
             retention_validator,
-            virtual_system_mapping(),
+            virtual_system_mapping().clone(),
             usage_tracker,
         )
     }

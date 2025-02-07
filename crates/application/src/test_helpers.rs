@@ -188,7 +188,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             rt.clone(),
             searcher.clone(),
             ShutdownSignal::panic(),
-            virtual_system_mapping(),
+            virtual_system_mapping().clone(),
             args.event_logger.unwrap_or(Arc::new(NoOpUsageEventLogger)),
         )
         .await?;

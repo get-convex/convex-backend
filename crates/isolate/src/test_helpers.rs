@@ -288,7 +288,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             DbFixturesArgs {
                 tp: Some(persistence.clone()),
                 searcher: Some(Arc::new(InProcessSearcher::new(rt.clone()).await?)),
-                virtual_system_mapping: virtual_system_mapping(),
+                virtual_system_mapping: virtual_system_mapping().clone(),
                 ..Default::default()
             },
         )
