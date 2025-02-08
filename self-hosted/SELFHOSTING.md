@@ -189,6 +189,16 @@ fly logs
 
 These instructions should work for any Postgres database, not just Neon.
 
+# Settings
+
+- You may opt out of the beacon we use to improve the product by setting the
+  environment variable `DISABLE_BEACON` to `true`. Read more about the beacon
+  [here](../crates/local_backend/README.md#disclaimers)
+- You can turn on log redaction by setting the environment variable
+  `REDACT_LOGS_TO_CLIENT` to `true`. This may be useful for hiding PII in
+  production deployments. This is turned on automatically in the cloud-hosted
+  product.
+
 # Self Hosting Via Running Binary Directly
 
 ### Get convex-local-backend Binary

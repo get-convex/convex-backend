@@ -35,5 +35,7 @@ exec ./convex-local-backend "$@" \
     --convex-origin "$CONVEX_CLOUD_ORIGIN" \
     --convex-site "$CONVEX_SITE_ORIGIN" \
     --beacon-tag "self-hosted-docker" \
+    ${DISABLE_BEACON:+--disable-beacon} \
+    --redact-logs-to-client "${REDACT_LOGS_TO_CLIENT:-false}" \
     "${DB_FLAGS[@]}" \
     "$DB_SPEC"
