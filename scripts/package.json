@@ -21,7 +21,7 @@
   },
   "overrides": {
     "@microsoft/rush": {
-      "@rushstack/heft-config-file": "0.16.3"
+      "@rushstack/heft-config-file": "0.15.8"
     }
   }
 }
