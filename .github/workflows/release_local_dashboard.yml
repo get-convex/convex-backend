@@ -42,7 +42,7 @@ jobs:
           DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
-          file: self-hosted/Dockerfile.dashboard
+          file: self-hosted/docker-build/Dockerfile.dashboard
           tags: |
             ghcr.io/get-convex/self-hosted-dashboard
           cache-from: |

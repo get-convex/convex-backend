@@ -45,7 +45,7 @@ jobs:
           DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
-          file: self-hosted/Dockerfile.backend
+          file: self-hosted/docker-build/Dockerfile.backend
           tags: |
             ghcr.io/get-convex/self-hosted-backend
           cache-from: |

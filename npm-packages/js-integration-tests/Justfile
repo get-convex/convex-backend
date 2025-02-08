@@ -46,7 +46,7 @@ test-self-hosted *ARGS:
     just rush build -t .
     cargo build -p backend_harness --bin backend-harness
     just _test self-hosted-backend "$@"
-    docker compose -f ../../self-hosted/docker-compose.yml down
+    docker compose -f ../../self-hosted/docker/docker-compose.yml down
 
 # Run tests without building the NPM packages or binaries
 _test *ARGS:

@@ -23,9 +23,6 @@ services:
       start_period: 5s
 
   dashboard:
-    build:
-      context: .
-      dockerfile: Dockerfile.dashboard
     image: ghcr.io/get-convex/self-hosted-dashboard:latest
     ports:
       - "${DASHBOARD_PORT:-6791}:6791"
