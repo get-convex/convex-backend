@@ -1,15 +1,18 @@
+import useIsBrowser from "@docusaurus/useIsBrowser";
 import { useAnalyticsCookies } from "@site/src/components/Analytics/useAnalyticsCookies";
-import React, { useEffect, useState } from "react";
+import React from "react";
 
 export default function CookieBanner() {
+  const isBrowser = useIsBrowser();
   const { allowsCookies, setAllowsCookies } = useAnalyticsCookies();
-  const [isDeployPreview, setIsDeployPreview] = useState(false);
 
-  useEffect(() => {
-    setIsDeployPreview(window.location.hostname.includes("netlify.app"));
-  }, []);
+  // Don't render during SSR.
+  if (!isBrowser) {
+    return null;
+  }
 
-  if (isDeployPreview || allowsCookies !== undefined) {
+  // Don't render if the user has accepted or rejected previously.
+  if (allowsCookies !== undefined) {
     return null;
   }
 

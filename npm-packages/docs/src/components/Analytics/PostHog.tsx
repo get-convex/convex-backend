@@ -23,6 +23,7 @@ export default function PostHog() {
     // write-only and PostHog says is safe to use in public apps.
     const key = siteConfig.customFields.POST_HOG_KEY as string;
     const api_host = siteConfig.customFields.POST_HOG_HOST as string;
+    // Note that this is a production build, which includes deploy previews.
     const isProduction = siteConfig.customFields.NODE_ENV === "production";
 
     if (!isProduction || !key || !api_host) {
