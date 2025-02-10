@@ -170,15 +170,19 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
                     .in_span(Span::enter_with_local_parent("prefetch_storage_file"))
                     .await?;
                 let stream = StreamReader::new(stream::iter(bytes.into_iter().map(Ok)).boxed());
-                Ok((path, stream, Some(permit)))
+                Ok((path, stream, permit))
             } else {
-                // Just stream this file serially.
+                // Wait until all other ongoing prefetches are finished, then stream this file
+                // serially.
+                let permit = inflight_bytes_semaphore
+                    .acquire_many(max_prefetch_bytes as u32)
+                    .await?;
                 // Note that fetching won't start until the reader is first polled (which won't
                 // happen until it's passed to `stream_full_file`).
-                Ok((path, file_stream.into_tokio_reader(), None))
+                Ok((path, file_stream.into_tokio_reader(), permit))
             }
         })
-        .try_buffered(*EXPORT_STORAGE_GET_CONCURRENCY); // Note that this will return entries in an arbitrary order
+        .try_buffer_unordered(*EXPORT_STORAGE_GET_CONCURRENCY); // Note that this will return entries in an arbitrary order
     pin_mut!(files_stream);
     while let Some((path, file_stream, permit)) = files_stream.try_next().await? {
         zip_snapshot_upload
