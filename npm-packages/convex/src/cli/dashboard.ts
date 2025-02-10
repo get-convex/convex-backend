@@ -28,6 +28,7 @@ export const dashboard = new Command("dashboard")
     const { deploymentName } = await fetchDeploymentCredentialsProvisionProd(
       ctx,
       deploymentSelection,
+      { ensureLocalRunning: false },
     );
 
     if (deploymentName === undefined) {
@@ -40,7 +41,7 @@ export const dashboard = new Command("dashboard")
       });
     }
 
-    const loginUrl = await deploymentDashboardUrlPage(deploymentName, "");
+    const loginUrl = deploymentDashboardUrlPage(deploymentName, "");
 
     if (options.open) {
       logMessage(

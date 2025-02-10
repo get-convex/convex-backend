@@ -444,10 +444,11 @@ async function fetchDeploymentCredentialsWithinCurrentProjectInner(
   }
 }
 
-// Run, Import
+// Run, Import, many others
 export async function fetchDeploymentCredentialsProvisionProd(
   ctx: Context,
   deploymentSelection: DeploymentSelection,
+  { ensureLocalRunning } = { ensureLocalRunning: true },
 ): Promise<{
   url: string;
   adminKey: AdminKey;
@@ -487,7 +488,7 @@ export async function fetchDeploymentCredentialsProvisionProd(
     ctx,
     `Deployment URL: ${result.url}, Deployment Name: ${configuredDeployment}, Deployment Type: ${result.deploymentType}`,
   );
-  if (configuredDeployment?.startsWith("local-")) {
+  if (ensureLocalRunning && configuredDeployment?.startsWith("local-")) {
     await assertLocalBackendRunning(ctx, {
       url: result.url,
       deploymentName: configuredDeployment,
