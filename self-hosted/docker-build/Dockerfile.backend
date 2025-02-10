@@ -39,7 +39,7 @@ RUN cargo install just
 WORKDIR /
 
 # Install Node.js from NodeSource repository
-# We extract the version from .nvmrc 
+# We extract the version from .nvmrc
 COPY .nvmrc /nvmrc
 RUN <<EOF
 # Extract major version (e.g., "18" from "18.x.x")
@@ -114,9 +114,9 @@ RUN ln -sf /usr/lib/node_modules/npm/bin/npx-cli.js /usr/bin/npx && \
     chmod +x /usr/bin/npx
 COPY --from=build --chmod=744 /convex/convex-local-backend .
 COPY --from=build --chmod=744 /convex/generate_key .
-COPY --chmod=744 self-hosted/read_credentials.sh .
-COPY --chmod=744 self-hosted/run_backend.sh .
-COPY --chmod=744 self-hosted/generate_admin_key.sh .
+COPY --chmod=744 self-hosted/docker-build/read_credentials.sh .
+COPY --chmod=744 self-hosted/docker-build/run_backend.sh .
+COPY --chmod=744 self-hosted/docker-build/generate_admin_key.sh .
 
 VOLUME /convex/data
 
