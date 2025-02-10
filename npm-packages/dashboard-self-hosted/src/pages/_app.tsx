@@ -64,7 +64,11 @@ function App({
 App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
   // On server-side, get from process.env
   if (ctx.req) {
-    const deploymentUrl = process.env.NEXT_PUBLIC_DEPLOYMENT_URL;
+    // Tolerate a trailing slash on the url e.g. https://example.com/ should be valid and stripped to https://example.com
+    const deploymentUrl = process.env.NEXT_PUBLIC_DEPLOYMENT_URL?.replace(
+      /\/$/,
+      "",
+    );
     if (!deploymentUrl) {
       throw new Error(
         "NEXT_PUBLIC_DEPLOYMENT_URL environment variable is not set",
