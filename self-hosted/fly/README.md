@@ -31,30 +31,53 @@ Steps:
    fly launch
    ```
 
-   Future deployments can be done with `fly deploy`.
+   Now you have a fly app that is running the Convex backend, where you can
+   deploy your app's Convex functions.
 
-2. Note the URL of the app that gets printed out, which will be of the form
+   Note the URL of the app that gets printed out, which will be of the form
    `https://<app-name>.fly.dev`.
 
-   In the fly.toml file, set the env variables `CONVEX_CLOUD_ORIGIN` and
-   `CONVEX_SITE_ORIGIN`. These environment variables are used by the backend so
-   it knows where it is hosted. Inside your Convex backend functions, you can
-   access the current URL with `process.env.CONVEX_CLOUD_URL` for the Convex
-   client API and `process.env.CONVEX_SITE_URL` for the HTTP API.
+2. Set the environment variables `CONVEX_CLOUD_ORIGIN` and `CONVEX_SITE_ORIGIN`
+   for your backend.
 
-   ```sh
-   CONVEX_CLOUD_ORIGIN="<fly-app-url>"
-   CONVEX_SITE_ORIGIN="<fly-app-url>/http"
+   These environment variables are used by the backend so it knows where it is
+   hosted. Inside your Convex backend functions, you can access the backend's
+   URL with `process.env.CONVEX_CLOUD_URL` for the Convex client API and
+   `process.env.CONVEX_SITE_URL` for the HTTP API.
+
+   **Using the fly.toml file:**
+
+   To save them in the fly.toml file, set them in the `[env]` section.
+
+   ```toml
+   ...
+   [env]
+   TMPDIR = '/convex/data/tmp'
+   CONVEX_CLOUD_ORIGIN = '<fly-app-url>'
+   CONVEX_SITE_ORIGIN = '<fly-app-url>/http'
+   ...
    ```
 
-   And re-deploy to pick up the changes.
+   Then re-deploy to pick up the changes.
 
    ```sh
    fly deploy
    ```
 
-   Copy and paste the fly url to set `NEXT_PUBLIC_DEPLOYMENT_URL` in the
-   dashboard/fly.toml file.
+   **Storing them as secrets:**
+
+   If you'd rather not save the env variables in the fly.toml file, you can set
+   them as secrets with `fly secrets set`. This can be useful if multiple
+   developers are working on the same repo where the fly.toml file is already
+   checked in, and they each have their own fly.io-hosted backend.
+
+   ```sh
+   fly secrets set CONVEX_CLOUD_ORIGIN="<fly-app-url>" CONVEX_SITE_ORIGIN="<fly-app-url>/http"
+   ```
+
+   Now your backend knows its base URL so it can generate URLs that point back
+   to itself. This is especially useful for libraries registering webhooks and
+   [Convex Auth](https://labs.convex.dev/auth) for generating auth callbacks.
 
 3. Check that the backend is running.
 
@@ -87,32 +110,32 @@ Steps:
 
    ```sh
    cd <your-frontend-app-directory>
-   npm install convex@alpha
+   npm install convex
    ```
 
    To continuously deploy code for development:
 
    ```sh
-   npx convex self-host dev
+   npx convex dev
    ```
 
    This will continuously deploy your Convex functions as you edit them. It will
    also set environment variables in `.env.local` for your frontend,
    like`VITE_CONVEX_URL`.
 
-   To deploy code once, e.g. for production:
+   To deploy code once:
 
    ```sh
-   npx convex self-host deploy --env-file <path to env file>
+   npx convex deploy
    ```
 
-   If you don't want to use a path, call it with the env variables set. It will
-   not read any .env file by default.
+   To deploy code to a different backend, you can pass the `--env-file` flag or
+   set the self-hosted environment variables before calling `npx convex deploy`.
 
    **Note:** It's up to you whether a backend is for development or production.
    There is no distinction within the instance. If you only have one backend,
-   you can run `npx convex self-host dev` or `npx convex self-host deploy`
-   depending on whether you want it to live-update or not.
+   you can run `npx convex dev` or `npx convex deploy` depending on whether you
+   want it to live-update or not.
 
    An extension of this is that you can have many backends for staging or
    previews. The difference will be in the environment variables.
@@ -123,7 +146,7 @@ Note that HTTP actions run on your fly app url under the `/http` path. For
 example:
 
 - If your fly app is deployed at `https://self-hosted-backend.fly.dev`
-- And you have an HTTP action named `/sendEmail`
+- And you have an HTTP action routed to `/sendEmail`
 - You would call it at `https://self-hosted-backend.fly.dev/http/sendEmail`
 
 ## Deploying the dashboard to Fly.io
@@ -138,22 +161,29 @@ to Fly.io.
    cd dashboard
    ```
 
-2. Update `NEXT_PUBLIC_DEPLOYMENT_URL` in the dashboard/fly.toml file to the url
-   of your fly-hosted backend, if you haven't already.
+2. Deploy the dashboard to Fly.io with the url to your fly-hosted backend.
+
+   **Saving the url in the fly.toml file:**
 
    ```sh
-   NEXT_PUBLIC_DEPLOYMENT_URL="<fly-app-url>"
+   fly launch -e NEXT_PUBLIC_DEPLOYMENT_URL="<fly-app-url>"
    ```
 
-3. Deploy the dashboard to Fly.io.
+   **Saving the url as a secret:**
+
+   If you'd rather not have the url in the fly.toml file, you can set it as a
+   secret. This can be useful if multiple developers are working on the same
+   repo where the fly.toml file is already checked in, and they each have their
+   own fly.io-hosted dashboard.
 
    ```sh
    fly launch
+   fly secrets set NEXT_PUBLIC_DEPLOYMENT_URL="<fly-app-url>"
    ```
 
    You should now be able to visit the dashboard at the url output by fly.
 
-4. Visit the dashboard and enter the admin key. To log in, it will need the
+3. Visit the dashboard and enter the admin key. To log in, it will need the
    admin key you generated earlier.
 
    You should see your tables, see and run functions, etc.

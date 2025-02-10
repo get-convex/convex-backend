@@ -9,9 +9,6 @@ primary_region = 'sjc'
 [build]
 image = 'ghcr.io/get-convex/self-hosted-dashboard:latest'
 
-[env]
-NEXT_PUBLIC_DEPLOYMENT_URL =
-
 [[services]]
 internal_port = 6791
 protocol = "tcp"
