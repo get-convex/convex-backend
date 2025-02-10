@@ -12,8 +12,8 @@ import { normalizeDevOptions } from "./lib/command.js";
 import { deployToDeployment } from "./lib/deploy2.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
-  CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME,
-  CONVEX_SELF_HOST_URL_VAR_NAME,
+  CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
   ENV_VAR_FILE_PATH,
 } from "./lib/utils/utils.js";
 import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
@@ -116,8 +116,8 @@ async function getConfiguredCredentialsFromEnvVar(
       For self-hosted deployments via \`npx convex self-host\`, unset the "${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}" environment variable.`,
     });
   }
-  const url = process.env[CONVEX_SELF_HOST_URL_VAR_NAME];
-  const adminKey = process.env[CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME];
+  const url = process.env[CONVEX_SELF_HOSTED_URL_VAR_NAME];
+  const adminKey = process.env[CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME];
   return { url, adminKey };
 }
 
@@ -146,7 +146,7 @@ async function selfHostCredentials(
     printedMessage:
       "Connect to self-hosted deployment with a url and admin key, " +
       "via flags --url and --admin-key, or environment variables " +
-      `"${CONVEX_SELF_HOST_URL_VAR_NAME}" and "${CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME}"`,
+      `"${CONVEX_SELF_HOSTED_URL_VAR_NAME}" and "${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME}"`,
   });
 }
 

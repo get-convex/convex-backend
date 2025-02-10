@@ -77,8 +77,8 @@ Steps:
    following variables:
 
    ```sh
-   CONVEX_SELF_HOST_URL='<fly-app-url>'
-   CONVEX_SELF_HOST_ADMIN_KEY='<your-admin-key>'
+   CONVEX_SELF_HOSTED_URL='<fly-app-url>'
+   CONVEX_SELF_HOSTED_ADMIN_KEY='<your-admin-key>'
    ```
 
 6. To deploy your Convex functions to the backend, you'll use the `convex` CLI.

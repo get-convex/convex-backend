@@ -1,8 +1,8 @@
 import { Command, Option, OptionValues } from "@commander-js/extra-typings";
 import { OneoffCtx } from "../../bundler/context.js";
 import {
-  CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME,
-  CONVEX_SELF_HOST_URL_VAR_NAME,
+  CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
   parseInteger,
   parsePositiveInteger,
 } from "./utils/utils.js";
@@ -356,15 +356,15 @@ Command.prototype.addDeployOptions = function () {
 Command.prototype.addSelfHostOptions = function () {
   return this.option(
     "--admin-key <adminKey>",
-    `An admin key for the deployment. Can alternatively be set as \`${CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME}\` environment variable.`,
+    `An admin key for the deployment. Can alternatively be set as \`${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME}\` environment variable.`,
   )
     .option(
       "--url <url>",
-      `The url of the deployment. Can alternatively be set as \`${CONVEX_SELF_HOST_URL_VAR_NAME}\` environment variable.`,
+      `The url of the deployment. Can alternatively be set as \`${CONVEX_SELF_HOSTED_URL_VAR_NAME}\` environment variable.`,
     )
     .option(
       "--env <env>",
-      `Path to a custom file of environment variables, containing \`${CONVEX_SELF_HOST_URL_VAR_NAME}\` and \`${CONVEX_SELF_HOST_ADMIN_KEY_VAR_NAME}\`.`,
+      `Path to a custom file of environment variables, containing \`${CONVEX_SELF_HOSTED_URL_VAR_NAME}\` and \`${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME}\`.`,
     );
 };
 
