@@ -55,24 +55,26 @@ export async function modifyGlobalConfig(ctx: Context, config: GlobalConfig) {
   let configFile;
   try {
     configFile = ctx.fs.readUtf8File(configPath);
-  } catch {
-    configFile = JSON.stringify({});
-  }
+    // totally fine for it not to exist
+    // eslint-disable-next-line no-empty
+  } catch {}
   // storedConfig may contain properties this version of the CLI doesn't understand.
   let storedConfig = {};
-  try {
-    storedConfig = JSON.parse(configFile);
-    schema.parse(storedConfig);
-  } catch (err) {
-    logError(
-      ctx,
-      chalk.red(
-        `Failed to parse global config in ${configPath} with error ${
-          err as any
-        }.`,
-      ),
-    );
-    storedConfig = {};
+  if (configFile) {
+    try {
+      storedConfig = JSON.parse(configFile);
+      schema.parse(storedConfig);
+    } catch (err) {
+      logError(
+        ctx,
+        chalk.red(
+          `Failed to parse global config in ${configPath} with error ${
+            err as any
+          }.`,
+        ),
+      );
+      storedConfig = {};
+    }
   }
   const newConfig: GlobalConfig = { ...storedConfig, ...config };
   await overrwriteGlobalConfig(ctx, newConfig);
