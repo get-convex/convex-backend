@@ -156,7 +156,13 @@ async function performDeviceAuthorization(
       `Opening ${verification_uri_complete} in your browser to log in...\n`,
     );
     try {
-      await open(verification_uri_complete);
+      const p = await open(verification_uri_complete);
+      p.once("error", () => {
+        changeSpinner(
+          ctx,
+          `Manually open ${verification_uri_complete} in your browser to log in.`,
+        );
+      });
       changeSpinner(ctx, "Waiting for the confirmation...");
     } catch {
       logError(ctx, chalk.red(`Unable to open browser.`));
