@@ -19,7 +19,7 @@ Install the `fly` CLI by following
 
 The backend "deploy" can mean two things:
 
-1. Deploying the Convex docker image to Fly.io.
+1. Deploying the Convex backend docker image to Fly.io.
 2. Deploying your app's Convex functions to the fly machine running Convex.
 
 Steps:
@@ -34,10 +34,13 @@ Steps:
    Future deployments can be done with `fly deploy`.
 
 2. Note the URL of the app that gets printed out, which will be of the form
-   `https://<app-name>.fly.dev` (no trailing slash).
+   `https://<app-name>.fly.dev`.
 
-   In the fly.toml file, change the env variables `CONVEX_CLOUD_ORIGIN` and
-   `CONVEX_SITE_ORIGIN` to:
+   In the fly.toml file, set the env variables `CONVEX_CLOUD_ORIGIN` and
+   `CONVEX_SITE_ORIGIN`. These environment variables are used by the backend so
+   it knows where it is hosted. Inside your Convex backend functions, you can
+   access the current URL with `process.env.CONVEX_CLOUD_URL` for the Convex
+   client API and `process.env.CONVEX_SITE_URL` for the HTTP API.
 
    ```sh
    CONVEX_CLOUD_ORIGIN="<fly-app-url>"
@@ -65,12 +68,13 @@ Steps:
 4. Generate an admin key.
 
    ```sh
-   fly ssh console --app <app-name> --command "./generate_admin_key.sh"
+   fly ssh console --command "./generate_admin_key.sh"
    ```
 
    This admin key will be used to authorize the CLI and access the dashboard.
 
-5. Inside your app, create a `.env.local` file with the following variables:
+5. Inside your app that uses Convex, create a `.env.local` file with the
+   following variables:
 
    ```sh
    CONVEX_SELF_HOST_URL='<fly-app-url>'
@@ -79,7 +83,7 @@ Steps:
 
 6. To deploy your Convex functions to the backend, you'll use the `convex` CLI.
 
-   In your frontend app directory, install `convex`.
+   If you don't already have Convex installed for your app, install it.
 
    ```sh
    cd <your-frontend-app-directory>
@@ -92,9 +96,9 @@ Steps:
    npx convex self-host dev
    ```
 
-   This will continuously deploy your functions as you edit them. It will also
-   set environment variables for your frontend, like `VITE_CONVEX_URL`. If you
-   only want to deploy once, run `npx convex self-host dev --once`.
+   This will continuously deploy your Convex functions as you edit them. It will
+   also set environment variables in `.env.local` for your frontend,
+   like`VITE_CONVEX_URL`.
 
    To deploy code once, e.g. for production:
 
@@ -102,7 +106,7 @@ Steps:
    npx convex self-host deploy --env-file <path to env file>
    ```
 
-   If you don't want to ues a path, call it with the env variables set. It will
+   If you don't want to use a path, call it with the env variables set. It will
    not read any .env file by default.
 
    **Note:** It's up to you whether a backend is for development or production.
@@ -125,8 +129,8 @@ example:
 ## Deploying the dashboard to Fly.io
 
 The dashboard allows you to see logs, read/write data, run functions, and more.
-You can run the dashboard locally (see [SELFHOSTING.md](SELFHOSTING.md)), or
-also deploy it to Fly.io.
+You can run the dashboard locally (see [here](../README.md)), or also deploy it
+to Fly.io.
 
 1. Go into the dashboard directory where you copied the self-hosted files.
 
@@ -135,8 +139,7 @@ also deploy it to Fly.io.
    ```
 
 2. Update `NEXT_PUBLIC_DEPLOYMENT_URL` in the dashboard/fly.toml file to the url
-   of your fly-hosted backend, if you haven't already. Make sure there is no
-   trailing slash.
+   of your fly-hosted backend, if you haven't already.
 
    ```sh
    NEXT_PUBLIC_DEPLOYMENT_URL="<fly-app-url>"
