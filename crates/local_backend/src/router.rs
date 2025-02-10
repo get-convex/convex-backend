@@ -226,19 +226,11 @@ pub fn router(st: LocalAppState) -> Router {
             runtime: st.application.runtime().clone(),
         });
 
-    let instance_name = st.instance_name.clone();
     let version = SERVER_VERSION_STR.to_string();
 
     Router::new()
         .nest("/api", api_routes)
-        // /instance_name is used by the CLI and dashboard to check connectivity!
-        .route("/instance_name", get(|| async move { instance_name }))
-        .route("/instance_version", get(|| async move { version }))
-        .route("/echo", post(|body: axum::body::Body| async move { body })
-            // Limit requests to 128MiB to help mitigate DDoS attacks.
-            .layer(DefaultBodyLimit::max(128 * 1024 * 1024))
-        )
-        .layer(cors())
+        .merge(health_check_routes(version))
         .with_state(st)
         .merge(migrated)
 }
@@ -345,6 +337,30 @@ where
         .route("/get_source_code", get(get_source_code))
         // Metrics routes
         .nest("/app_metrics", app_metrics_routes())
+}
+
+pub fn health_check_routes<S>(version: String) -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    Router::new()
+        .route(
+            "/instance_name",
+            get(|State(st): State<LocalAppState>| async move { st.instance_name.clone() }),
+        )
+        .route("/instance_version", get(|| async move { version }))
+        .route(
+            "/",
+            get(|| async { "This Convex deployment is running. See https://docs.convex.dev/." }),
+        )
+        .route(
+            "/echo",
+            post(|body: axum::body::Body| async move { body })
+        // Limit requests to 128MiB to help mitigate DDoS attacks.
+        .layer(DefaultBodyLimit::max(128 * 1024 * 1024)),
+        )
+        .layer(cors())
 }
 
 pub fn cors() -> CorsLayer {
