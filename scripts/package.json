@@ -6,7 +6,7 @@
   },
   "devDependencies": {
     "@microsoft/rush": "^5.125.1",
-    "@rushstack/lockfile-explorer": "^1.7.12",
+    "@rushstack/lockfile-explorer": "^1.7.16",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "dprint": "0.48.0",
@@ -22,6 +22,7 @@
   "overrides": {
     "@microsoft/rush": {
       "@rushstack/heft-config-file": "0.15.8"
-    }
+    },
+    "path-to-regexp@^0.1.10": "0.1.12"
   }
 }
