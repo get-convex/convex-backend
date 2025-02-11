@@ -24,6 +24,14 @@ auto_start_machines = true
 min_machines_running = 1
 processes = ['app']
 
+[[http_service.checks]]
+interval = '5s'
+timeout = '30s'
+grace_period = '5s'
+method = 'GET'
+path = '/version'
+protocol = 'http'
+
 [[vm]]
 memory = '1gb'
 cpu_kind = 'shared'
