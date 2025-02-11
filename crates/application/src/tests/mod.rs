@@ -1,4 +1,5 @@
 mod analyze;
+mod auth;
 mod auth_config;
 pub mod components;
 mod cron_jobs;

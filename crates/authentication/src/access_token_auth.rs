@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use errors::ErrorMetadata;
 use keybroker::Identity;
 
 /// Logic to check authorization based on Access Token
@@ -19,6 +20,9 @@ impl AccessTokenAuth for NullAccessTokenAuth {
         _instance_name: &str,
         _access_token: &str,
     ) -> anyhow::Result<Identity> {
-        anyhow::bail!("Access token authorization is not supported")
+        anyhow::bail!(ErrorMetadata::unauthenticated(
+            "BadAdminKey",
+            "The provided admin key was invalid for this instance",
+        ))
     }
 }

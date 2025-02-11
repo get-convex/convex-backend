@@ -769,9 +769,7 @@ impl KeyBroker {
     }
 
     pub fn is_encrypted_admin_key(&self, key: &str) -> bool {
-        let (_, encrypted_part) = split_admin_key(key)
-            .map(|(name, key)| (Some(remove_type_prefix_from_instance_name(name)), key))
-            .unwrap_or((None, key));
+        let encrypted_part = split_admin_key(key).map(|(_, key)| key).unwrap_or(key);
         let admin_key: Result<AdminKeyProto, _> = self
             .encryptor
             .decode_proto(ADMIN_KEY_VERSION, encrypted_part);
