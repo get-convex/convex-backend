@@ -25,6 +25,7 @@ use common::{
     knobs::{
         MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
         MAX_BACKEND_RPC_REQUEST_SIZE,
+        MAX_ECHO_BYTES,
         MAX_PUSH_BYTES,
     },
 };
@@ -359,7 +360,7 @@ where
             "/echo",
             post(|body: axum::body::Body| async move { body })
         // Limit requests to 128MiB to help mitigate DDoS attacks.
-        .layer(DefaultBodyLimit::max(128 * 1024 * 1024)),
+        .layer(DefaultBodyLimit::max(*MAX_ECHO_BYTES)),
         )
         .layer(cors())
 }

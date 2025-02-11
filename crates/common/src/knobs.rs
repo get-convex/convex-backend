@@ -1134,6 +1134,11 @@ pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
 pub static MAX_PUSH_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_PUSH_BYTES", 100_000_000));
 
+/// The limit on the request size to /echo. Limits requests to 128MiB to help
+/// mitigate DDoS attacks.
+pub static MAX_ECHO_BYTES: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_ECHO_BYTES", 128 * 1024 * 1024));
+
 /// Percentage of request traces that should sampled.
 ///
 /// Sampling config is a JSON object with the following format:
