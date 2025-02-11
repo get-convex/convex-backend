@@ -48,7 +48,10 @@ async function runNetworkTest(
   },
 ) {
   showSpinner(ctx, "Performing network test...");
-  const deploymentSelection = deploymentSelectionFromOptions(options);
+  const deploymentSelection = await deploymentSelectionFromOptions(
+    ctx,
+    options,
+  );
   const url = await loadUrl(ctx, deploymentSelection);
   await runNetworkTestOnUrl(ctx, url, options);
 }

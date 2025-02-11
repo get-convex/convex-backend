@@ -22,7 +22,10 @@ export const data = new Command("data")
   .showHelpAfterError()
   .action(async (tableName, options) => {
     const ctx = oneoffContext();
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
 
     const {
       adminKey,

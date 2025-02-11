@@ -21,6 +21,7 @@ import {
 import { PushOptions } from "./lib/push.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
   bigBrainAPI,
   getConfiguredDeployment,
   readAdminKeyFromEnvVar,
@@ -28,6 +29,7 @@ import {
 import { runFunctionAndLog } from "./lib/run.js";
 import { usageStateWarning } from "./lib/usage.js";
 import {
+  CONVEX_DEPLOYMENT_VAR_NAME,
   deploymentTypeFromAdminKey,
   getConfiguredDeploymentFromEnvVar,
   isPreviewDeployKey,
@@ -76,6 +78,14 @@ export const deploy = new Command("deploy")
       .hideHelp()
       .conflicts("preview-create"),
   )
+  .addOption(
+    new Option(
+      "--env-file <envFile>",
+      `Path to a custom file of environment variables, for choosing the \
+deployment, e.g. ${CONVEX_DEPLOYMENT_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+Same format as .env.local or .env files, and overrides them.`,
+    ),
+  )
   .addOption(new Option("--partition-id <id>").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
@@ -98,12 +108,11 @@ export const deploy = new Command("deploy")
       });
     }
 
-    await usageStateWarning(ctx);
-
     if (
       configuredDeployKey !== null &&
       isPreviewDeployKey(configuredDeployKey)
     ) {
+      await usageStateWarning(ctx);
       if (cmdOptions.previewName !== undefined) {
         await ctx.crash({
           exitCode: 1,
@@ -247,12 +256,16 @@ async function deployToExistingDeployment(
     writePushRequest?: string | undefined;
     liveComponentSources?: boolean | undefined;
     partitionId?: string | undefined;
+    envFile?: string | undefined;
   },
 ) {
-  const deploymentSelection = deploymentSelectionFromOptions({
+  const deploymentSelection = await deploymentSelectionFromOptions(ctx, {
     ...options,
-    prod: true,
+    implicitProd: true,
   });
+  if (deploymentSelection.kind !== "urlWithAdminKey") {
+    await usageStateWarning(ctx);
+  }
   const { name: configuredDeploymentName, type: configuredDeploymentType } =
     getConfiguredDeploymentFromEnvVar();
   const { adminKey, url, deploymentName, deploymentType } =

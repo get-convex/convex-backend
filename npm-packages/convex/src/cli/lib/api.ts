@@ -1,6 +1,7 @@
 import * as dotenv from "dotenv";
 import { Context, logVerbose } from "../../bundler/context.js";
 import {
+  CONVEX_DEPLOYMENT_VAR_NAME,
   deploymentNameFromAdminKeyOrCrash,
   deploymentTypeFromAdminKey,
   getConfiguredDeploymentFromEnvVar,
@@ -12,6 +13,8 @@ import { assertLocalBackendRunning } from "./localDeployment/run.js";
 import { checkAuthorization, performLogin } from "./login.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+  CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
   ENV_VAR_FILE_PATH,
   bigBrainAPI,
   bigBrainAPIMaybeThrows,
@@ -157,26 +160,56 @@ export function storeAdminKeyEnvVar(adminKeyOption?: string | null) {
 export type DeploymentSelectionOptions = {
   // Whether to default to prod
   prod?: boolean | undefined;
+  // Whether to default to prod implied by the command, not as an explicit
+  // choice by the user.
+  implicitProd?: boolean | undefined;
 
   previewName?: string | undefined;
   deploymentName?: string | undefined;
   url?: string | undefined;
   adminKey?: string | undefined;
   partitionId?: string | undefined;
+  envFile?: string | undefined;
 };
 
-export function deploymentSelectionFromOptions(
+export async function deploymentSelectionFromOptions(
+  ctx: Context,
   options: DeploymentSelectionOptions,
-): DeploymentSelection {
-  dotenv.config({ path: ENV_VAR_FILE_PATH });
-  dotenv.config();
+  extraCloudFlags: [string, string][] = [],
+): Promise<DeploymentSelection> {
+  if (options.envFile) {
+    // If --env-file is provided, use that instead of .env.local and .env.
+    dotenv.config({ path: options.envFile });
+  } else {
+    dotenv.config({ path: ENV_VAR_FILE_PATH });
+    dotenv.config();
+  }
   storeAdminKeyEnvVar(options.adminKey);
   const adminKey = readAdminKeyFromEnvVar();
   const url = options.url;
+  if (url !== undefined && adminKey !== undefined) {
+    return { kind: "urlWithAdminKey", url, adminKey };
+  }
+  const cloudFlags: [string, string][] = [
+    ["previewName", "--preview-name"],
+    ["prod", "--prod"],
+    ["deploymentName", "--deployment-name"],
+    ...extraCloudFlags,
+  ];
+  const selfHostedCredentials = await selfHostedCredentialsFromEnv(
+    ctx,
+    options,
+    cloudFlags,
+  );
+  if (selfHostedCredentials) {
+    return {
+      kind: "urlWithAdminKey",
+      url: selfHostedCredentials.selfHostedUrl,
+      adminKey: selfHostedCredentials.selfHostedAdminKey,
+    };
+  }
+  // Now we know we're not self-hosted, we can talk to cloud convex.
   if (url !== undefined) {
-    if (adminKey) {
-      return { kind: "urlWithAdminKey", url, adminKey };
-    }
     return { kind: "urlWithLogin", url };
   }
   if (options.previewName !== undefined) {
@@ -192,9 +225,63 @@ export function deploymentSelectionFromOptions(
     ? parseInt(options.partitionId)
     : undefined;
   return {
-    kind: options.prod === true ? "ownProd" : "ownDev",
+    kind:
+      options.prod === true || options.implicitProd === true
+        ? "ownProd"
+        : "ownDev",
     partitionId,
   };
+}
+
+export async function selfHostedCredentialsFromEnv(
+  ctx: Context,
+  options: { envFile?: string | undefined } & Record<string, unknown>,
+  cloudFlags: [string, string][],
+): Promise<
+  | {
+      selfHostedUrl: string;
+      selfHostedAdminKey: AdminKey;
+    }
+  | undefined
+> {
+  if (options.envFile) {
+    // If --env-file is provided, use that instead of .env.local and .env.
+    dotenv.config({ path: options.envFile });
+  } else {
+    dotenv.config({ path: ENV_VAR_FILE_PATH });
+    dotenv.config();
+  }
+  const selfHostedUrl = process.env[CONVEX_SELF_HOSTED_URL_VAR_NAME];
+  const selfHostedAdminKey = process.env[CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME];
+  if (!!selfHostedUrl !== !!selfHostedAdminKey) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Env variables ${CONVEX_SELF_HOSTED_URL_VAR_NAME} and ${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME} must be set together.`,
+    });
+  }
+  if (selfHostedUrl && selfHostedAdminKey) {
+    const configuredDeployment = getConfiguredDeploymentFromEnvVar();
+    // The SELF_HOSTED env variables and CONVEX_DEPLOYMENT are mutually exclusive.
+    if (configuredDeployment.name) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Env variable ${CONVEX_SELF_HOSTED_URL_VAR_NAME} indicates a self-hosted deployment, which is incompatible with cloud-hosted env variable ${CONVEX_DEPLOYMENT_VAR_NAME}. Remove one of them before running the command again.`,
+      });
+    }
+    for (const [flag, flagName] of cloudFlags) {
+      if (options[flag]) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Env variable ${CONVEX_SELF_HOSTED_URL_VAR_NAME} indicates a self-hosted deployment, which is incompatible with cloud-hosted flag ${flagName}. Remove one of them before running the command again.`,
+        });
+      }
+    }
+    return { selfHostedUrl, selfHostedAdminKey };
+  }
+  return undefined;
 }
 
 // Deploy

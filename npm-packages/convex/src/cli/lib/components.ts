@@ -82,7 +82,10 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
   );
 
   if (ctx.fs.exists(componentRootPath)) {
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
       deploymentSelection,

@@ -19,7 +19,10 @@ export const logs = new Command("logs")
   .action(async (cmdOptions) => {
     const ctx = oneoffContext();
 
-    const deploymentSelection = deploymentSelectionFromOptions(cmdOptions);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      cmdOptions,
+    );
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
       deploymentSelection,

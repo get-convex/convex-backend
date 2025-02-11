@@ -12,6 +12,7 @@ import {
   DeploymentName,
   fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows,
   createProject,
+  DeploymentSelection,
 } from "./lib/api.js";
 import {
   configFilepath,
@@ -72,6 +73,7 @@ export async function deploymentCredentialsOrConfigure(
   ctx: Context,
   chosenConfiguration: ChosenConfiguration,
   cmdOptions: {
+    deploymentSelection: DeploymentSelection;
     prod: boolean;
     localOptions: {
       ports?: {
@@ -88,6 +90,7 @@ export async function deploymentCredentialsOrConfigure(
     cloud?: boolean | undefined;
     url?: string | undefined;
     adminKey?: string | undefined;
+    envFile?: string | undefined;
   },
   partitionId?: number | undefined,
 ): Promise<
@@ -95,12 +98,23 @@ export async function deploymentCredentialsOrConfigure(
     deploymentName?: DeploymentName;
   }
 > {
-  if (cmdOptions.url !== undefined && cmdOptions.adminKey !== undefined) {
+  if (cmdOptions.deploymentSelection.kind === "urlWithAdminKey") {
     const credentials = await handleManuallySetUrlAndAdminKey(ctx, {
-      url: cmdOptions.url,
-      adminKey: cmdOptions.adminKey,
+      url: cmdOptions.deploymentSelection.url,
+      adminKey: cmdOptions.deploymentSelection.adminKey,
     });
     return { ...credentials };
+  }
+
+  if (
+    cmdOptions.deploymentSelection.kind !== "ownDev" &&
+    cmdOptions.deploymentSelection.kind !== "ownProd"
+  ) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Invalid deployment selection: ${cmdOptions.deploymentSelection.kind}.`,
+    });
   }
 
   const config = readGlobalConfig(ctx);
@@ -129,11 +143,12 @@ export async function deploymentCredentialsOrConfigure(
   // TODO complain about any non-default cmdOptions.localOptions here
   // because we're ignoring them if this isn't a local development.
 
-  const deploymentOptions: DeploymentOptions = cmdOptions.prod
-    ? { kind: "prod" }
-    : devDeployment === "local"
-      ? { kind: "local", ...cmdOptions.localOptions }
-      : { kind: "dev" };
+  const deploymentOptions: DeploymentOptions =
+    cmdOptions.deploymentSelection.kind === "ownProd"
+      ? { kind: "prod" }
+      : devDeployment === "local"
+        ? { kind: "local", ...cmdOptions.localOptions }
+        : { kind: "dev" };
   const {
     deploymentName,
     deploymentUrl: url,

@@ -24,7 +24,10 @@ export const dashboard = new Command("dashboard")
   .action(async (options) => {
     const ctx = oneoffContext();
 
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
     const { deploymentName } = await fetchDeploymentCredentialsProvisionProd(
       ctx,
       deploymentSelection,

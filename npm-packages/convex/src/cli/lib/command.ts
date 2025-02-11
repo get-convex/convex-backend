@@ -6,6 +6,7 @@ import {
   parseInteger,
   parsePositiveInteger,
 } from "./utils/utils.js";
+import { CONVEX_DEPLOYMENT_VAR_NAME } from "./deployment.js";
 
 declare module "@commander-js/extra-typings" {
   interface Command<Args extends any[] = [], Opts extends OptionValues = {}> {
@@ -181,6 +182,14 @@ Command.prototype.addDeploymentSelectionOptions = function (
       .hideHelp(),
   )
     .addOption(new Option("--admin-key <adminKey>").hideHelp())
+    .addOption(
+      new Option(
+        "--env-file <envFile>",
+        `Path to a custom file of environment variables, for choosing the \
+deployment, e.g. ${CONVEX_DEPLOYMENT_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+Same format as .env.local or .env files, and overrides them.`,
+      ),
+    )
     .addOption(
       new Option(
         "--prod",

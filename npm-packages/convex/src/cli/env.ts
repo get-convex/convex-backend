@@ -39,7 +39,10 @@ async function selectEnvDeployment(
   ctx: Context,
   options: DeploymentSelectionOptions,
 ) {
-  const deploymentSelection = deploymentSelectionFromOptions(options);
+  const deploymentSelection = await deploymentSelectionFromOptions(
+    ctx,
+    options,
+  );
   const { adminKey, url, deploymentName, deploymentType } =
     await fetchDeploymentCredentialsWithinCurrentProject(
       ctx,

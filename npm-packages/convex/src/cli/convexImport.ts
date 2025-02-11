@@ -27,7 +27,10 @@ export const convexImport = new Command("import")
 
     await ensureHasConvexDependency(ctx, "import");
 
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
 
     const deploymentNotice = options.prod
       ? ` in your ${chalk.bold("prod")} deployment`

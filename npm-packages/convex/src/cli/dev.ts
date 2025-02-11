@@ -5,6 +5,9 @@ import { checkAuthorization, performLogin } from "./lib/login.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { normalizeDevOptions } from "./lib/command.js";
 import { devAgainstDeployment } from "./lib/dev.js";
+import { deploymentSelectionFromOptions } from "./lib/api.js";
+import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
+import { CONVEX_SELF_HOSTED_URL_VAR_NAME } from "./lib/utils/utils.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -54,6 +57,14 @@ export const dev = new Command("dev")
       .default(false)
       .hideHelp(),
   )
+  .addOption(
+    new Option(
+      "--env-file <envFile>",
+      `Path to a custom file of environment variables, for choosing the \
+deployment, e.g. ${CONVEX_DEPLOYMENT_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+Same format as .env.local or .env files, and overrides them.`,
+    ),
+  )
   .addOption(new Option("--skip-push").default(false).hideHelp())
   .addOption(new Option("--admin-key <adminKey>").hideHelp())
   .addOption(new Option("--url <url>").hideHelp())
@@ -94,6 +105,20 @@ export const dev = new Command("dev")
     });
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
+
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      cmdOptions,
+      [
+        ["prod", "--prod"],
+        ["local", "--local"],
+        ["cloud", "--cloud"],
+        ["team", "--team"],
+        ["project", "--project"],
+        ["devDeployment", "--dev-deployment"],
+        ["configure", "--configure"],
+      ],
+    );
 
     if (cmdOptions.configure === undefined) {
       if (cmdOptions.team || cmdOptions.project || cmdOptions.devDeployment)
@@ -143,7 +168,7 @@ export const dev = new Command("dev")
       localOptions["forceUpgrade"] = cmdOptions.localForceUpgrade;
     }
 
-    if (!cmdOptions.url || !cmdOptions.adminKey) {
+    if (deploymentSelection.kind !== "urlWithAdminKey") {
       if (!(await checkAuthorization(ctx, false))) {
         await performLogin(ctx, cmdOptions);
       }
@@ -160,11 +185,14 @@ export const dev = new Command("dev")
       {
         ...cmdOptions,
         localOptions,
+        deploymentSelection,
       },
       partitionId,
     );
 
-    await usageStateWarning(ctx);
+    if (deploymentSelection.kind !== "urlWithAdminKey") {
+      await usageStateWarning(ctx);
+    }
 
     if (cmdOptions.skipPush) {
       return;

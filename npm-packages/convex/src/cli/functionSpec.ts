@@ -21,7 +21,10 @@ export const functionSpec = new Command("function-spec")
   .showHelpAfterError()
   .action(async (options) => {
     const ctx = oneoffContext();
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
 
     const { adminKey, url: deploymentUrl } =
       await fetchDeploymentCredentialsWithinCurrentProject(

@@ -23,7 +23,10 @@ export const convexExport = new Command("export")
   .action(async (options) => {
     const ctx = oneoffContext();
 
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
 
     const {
       adminKey,

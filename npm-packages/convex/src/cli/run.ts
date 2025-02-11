@@ -17,7 +17,10 @@ export const run = new Command("run")
   .action(async (functionName, argsString, options) => {
     const ctx = oneoffContext();
 
-    const deploymentSelection = deploymentSelectionFromOptions(options);
+    const deploymentSelection = await deploymentSelectionFromOptions(
+      ctx,
+      options,
+    );
 
     const {
       adminKey,
