@@ -152,8 +152,9 @@ example:
 ## Deploying the dashboard to Fly.io
 
 The dashboard allows you to see logs, read/write data, run functions, and more.
-You can run the dashboard locally (see [here](../README.md)), or also deploy it
-to Fly.io.
+You can run the dashboard locally (see
+[the self-hosting guide](../README.md#run-the-dashboard)), or also deploy it to
+Fly.io.
 
 1. Go into the dashboard directory where you copied the self-hosted files.
 

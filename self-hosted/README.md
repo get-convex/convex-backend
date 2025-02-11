@@ -12,12 +12,15 @@ that allows you to focus on building your application without worrying about
 infrastructure.
 
 That being said, we understand that won't work for everyone. You are welcome to
-self-host Convex on your own infrastructure instead.
+self-host Convex on your own infrastructure instead. We have developed a
+self-hostable version of Convex that works out-of-the-box backed by SQLite, and
+you can configure it to talk to any Postgres database. The dashboard is also
+self-hostable and includes the same features as the free tier. Self-hosted
+Convex will not scale as well as our managed product, but we will make sure it
+works and answer questions in the `#open-source` channel in the
+[Convex Discord](https://discord.gg/convex).
 
-Community support is available for self-hosted Convex in the `#open-source`
-channel in the [Convex Discord](https://discord.gg/convex).
-
-Development of the Convex backend is led by the Convex team. We
+We
 [welcome bug fixes](https://github.com/get-convex/convex-backend/blob/main/crates/convex/CONTRIBUTING.md)
 and [love receiving feedback](https://discord.gg/convex). We keep this
 repository synced with any internal development work within a handful of days.
@@ -32,7 +35,19 @@ See the [Fly instructions](./fly/README.md)
 
 # Self Hosting on Postgres with [Neon](https://neon.tech)
 
-Create a project on Neon. Copy the connection string from the Neon dashboard.
+Note: These instructions should work for any Postgres database, not just Neon.
+
+If you are moving from cloud-hosted Convex or a self-hosted Convex deployment
+backed by a different database, first run `npx convex export` to export your
+data.
+
+Create a project on Neon.
+
+⚡ **Performance Note**: Be sure to create your database in the same region as
+you plan to host your backend! The physical distance between your database and
+backend directly impacts latency.
+
+Copy the connection string from the Neon dashboard.
 
 ```sh
 export DATABASE_CONNECTION='<connection string>'
@@ -58,6 +73,8 @@ Update your `DATABASE_URL` environment variable. If you're deploying on
 fly secrets set DATABASE_URL=$DATABASE_URL
 ```
 
+(This command will automatically redeploy your Fly app).
+
 After you've deployed with the environment variable set, check that the database
 is connected to your self-hosted convex backend. There should be a line like
 "Connected to Postgres" in the logs. If you're deploying on
@@ -67,7 +84,11 @@ is connected to your self-hosted convex backend. There should be a line like
 fly logs
 ```
 
-These instructions should work for any Postgres database, not just Neon.
+Deploy your functions with `npx convex deploy`.
+
+If you are moving from cloud-hosted Convex or a self-hosted Convex deployment
+backed by a different database, you can run `npx convex import` to import the
+data you exported from your old database.
 
 # Settings
 

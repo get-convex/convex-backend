@@ -37,8 +37,8 @@ the dashboard and CLI. Self-hosted Convex works well with a variety of tools
 including Neon, Fly.io, Vercel, Netlify, RDS, Sqlite, Postgres, and more.
 
 You can either use Docker (recommended) or a prebuilt binary to self host
-Convex. Check out our [self-hosting guide](./self-hosted/SELFHOSTING.md) for
-detailed instructions. Community support for self-hosting is available in the
+Convex. Check out our [self-hosting guide](./self-hosted/README.md) for detailed
+instructions. Community support for self-hosting is available in the
 `#open-source` channel on [Discord](https://discord.gg/convex).
 
 ## Community & Support
