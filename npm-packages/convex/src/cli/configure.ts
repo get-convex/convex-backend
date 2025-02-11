@@ -108,7 +108,8 @@ export async function deploymentCredentialsOrConfigure(
 
   if (
     cmdOptions.deploymentSelection.kind !== "ownDev" &&
-    cmdOptions.deploymentSelection.kind !== "ownProd"
+    cmdOptions.deploymentSelection.kind !== "ownProd" &&
+    cmdOptions.deploymentSelection.kind !== "deployKey"
   ) {
     return await ctx.crash({
       exitCode: 1,
