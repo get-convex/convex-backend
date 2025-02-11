@@ -38,8 +38,7 @@ declare module "@commander-js/extra-typings" {
 
     /**
      * Adds options for the `dev` command that are not involved in picking a
-     * deployment, so they can be used by `npx convex dev` and
-     * `npx convex self-host dev`.
+     * deployment.
      */
     addDevOptions(): Command<
       Args,

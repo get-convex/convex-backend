@@ -116,17 +116,17 @@ Steps:
    To continuously deploy code for development:
 
    ```sh
-   npx convex self-host dev
+   npx convex dev
    ```
 
    This will continuously deploy your Convex functions as you edit them. It will
-   also set environment variables in `.env.local` for your frontend,
-   like`VITE_CONVEX_URL`.
+   also set environment variables in `.env.local` for your frontend, like
+   `VITE_CONVEX_URL`.
 
    To deploy code once:
 
    ```sh
-   npx convex self-host deploy --env-file <path to env file>
+   npx convex deploy --env-file <path to env file>
    ```
 
    To deploy code to a different backend, you can pass the `--env-file` flag or
@@ -134,8 +134,8 @@ Steps:
 
    **Note:** It's up to you whether a backend is for development or production.
    There is no distinction within the instance. If you only have one backend,
-   you can run `npx convex self-host dev` or `npx convex self-host deploy`
-   depending on whether you want it to live-update or not.
+   you can run `npx convex dev` or `npx convex deploy` depending on whether you
+   want it to live-update or not.
 
    An extension of this is that you can have many backends for staging or
    previews. The difference will be in the environment variables.

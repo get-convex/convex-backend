@@ -20,9 +20,6 @@ keys for use from the dashboard/CLI.
 docker exec convex-local-backend ./generate_admin_key.sh
 ```
 
-Using your admin key, push code to your backend. Admin key should be kept secure
-to just the developers who are administering the application on your backend.
-
 Visit the dashboard at `http://localhost:6791`. The backend listens on
 `http://127.0.0.1:3210`. The backend's http actions are available at
 `http://127.0.0.1:3211`.
@@ -32,7 +29,7 @@ should not be committed to source control):
 
 ```sh
 CONVEX_SELF_HOSTED_URL='http://127.0.0.1:3210'
-CONVEX_SELF_HOSTED_ADMIN_KEY='<your deploy key>'
+CONVEX_SELF_HOSTED_ADMIN_KEY='<your admin key>'
 ```
 
 Now you can run commands in your Convex project, to push code, run queries,
@@ -44,10 +41,10 @@ npm install convex@alpha
 ```
 
 ```sh
-npx convex self-host dev
-npx convex self-host run <run args>
-npx convex self-host import <import args>
-npx convex self-host --help  # see all available commands
+npx convex dev
+npx convex run <run args>
+npx convex import <import args>
+npx convex --help  # see all available commands
 ```
 
 By default, the backend will store its data in a volume managed by Docker. Note
