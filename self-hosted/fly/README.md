@@ -79,14 +79,9 @@ Steps:
    to itself. This is especially useful for libraries registering webhooks and
    [Convex Auth](https://labs.convex.dev/auth) for generating auth callbacks.
 
-3. Check that the backend is running.
-
-   ```sh
-   curl <fly-app-url>/instance_name
-   ```
-
-   You should see the instance name printed out, `convex-self-hosted` by
-   default. Check the logs with `fly logs` if it's not working.
+3. Check that the backend is running. Visit the `<fly-app-url>` and you should
+   see a message saying your backend is running! Check the logs with `fly logs`
+   if it's not working.
 
 4. Generate an admin key.
 
@@ -149,6 +144,19 @@ example:
 - And you have an HTTP action routed to `/sendEmail`
 - You would call it at `https://self-hosted-backend.fly.dev/http/sendEmail`
 
+### Database
+
+At this point, your data is stored in SQLite and your files are stored in the
+filesystem in your Fly volume. You can see them in the `data` folder if you run:
+
+```
+fly ssh console
+ls
+```
+
+To store your data in a Postgres database, see
+[these instructions](../README.md#self-hosting-on-postgres-with-neon)
+
 ## Deploying the dashboard to Fly.io
 
 The dashboard allows you to see logs, read/write data, run functions, and more.
@@ -185,6 +193,8 @@ Fly.io.
    You should now be able to visit the dashboard at the url output by fly.
 
 3. Visit the dashboard and enter the admin key. To log in, it will need the
-   admin key you generated earlier.
+   admin key you generated earlier. We recommend saving it in your password
+   manager for ease, but you can always regenerate it with
+   `fly ssh console --command "./generate_admin_key.sh"`.
 
-   You should see your tables, see and run functions, etc.
+   You should see your tables, functions, logs, etc.
