@@ -25,6 +25,23 @@ We
 and [love receiving feedback](https://discord.gg/convex). We keep this
 repository synced with any internal development work within a handful of days.
 
+# Where to start?
+
+- If you're new to Convex, we recommend getting started with our
+  [managed hosted product](https://www.convex.dev/plans) which has a generous
+  free tier.
+- If you're already familiar with Convex and want to self-host for local
+  development, we recommend using the [Docker setup](./docker/README.md).
+- If you're looking to host your production backend, we recommend following
+  [these instructions](./fly/README.md) to get set up with
+  [Fly](https://fly.io/). By default, the backend will run on SQLite, but for
+  production workloads, you may want to use Postgres instead. See
+  [these instructions](../README.md#self-hosting-on-postgres-with-neon) to
+  connect your backend to Postgres, and be aware that performance will depend on
+  how close your database is to your backend. The cloud-hosted product has the
+  best performance because our engineering team has optimized our infrastructure
+  with performance and scalability in mind.
+
 # Self Hosting Via Docker
 
 See the [Docker instructions](./docker/README.md)
