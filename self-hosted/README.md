@@ -117,6 +117,19 @@ data you exported from your old database.
   production deployments. This is turned on automatically in the cloud-hosted
   product.
 
+# Deploying your frontend app
+
+If you're deploying your frontend app on a platform like Vercel that
+[runs a command](https://docs.convex.dev/production/hosting/vercel#deploying-to-vercel)
+to build the app and deploy your Convex functions, you'll need to use the
+`SELF_HOSTED` environment variables instead.
+
+For example, instead of setting `CONVEX_DEPLOY_KEY`, you'll need to set
+`CONVEX_SELF_HOSTED_URL` to the url where your Convex backend is hosted and
+`CONVEX_SELF_HOSTED_ADMIN_KEY` to the admin key you generated with the
+`generate_admin_key.sh` script. (If you already ran `npx convex dev`, you should
+find these in your `.env.local` file.)
+
 # Self Hosting Via Running Binary Directly
 
 ### Get convex-local-backend Binary

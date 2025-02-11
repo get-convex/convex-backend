@@ -201,3 +201,7 @@ Fly.io.
    `fly ssh console --command "./generate_admin_key.sh"`.
 
    You should see your tables, functions, logs, etc.
+
+### Deploying your frontend app
+
+See [these instructions](../README.md#deploying-your-frontend-app).
