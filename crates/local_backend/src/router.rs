@@ -231,6 +231,7 @@ pub fn router(st: LocalAppState) -> Router {
     Router::new()
         .nest("/api", api_routes)
         .merge(health_check_routes(version))
+        .layer(cors())
         .with_state(st)
         .merge(migrated)
 }
