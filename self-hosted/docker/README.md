@@ -42,7 +42,7 @@ import data, etc. To use these commands, you'll need the latest alpha version of
 Convex.
 
 ```sh
-npm install convex@alpha
+npm install convex@latest
 ```
 
 ```sh

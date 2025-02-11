@@ -31,8 +31,11 @@ Steps:
    fly launch
    ```
 
-   Now you have a fly app that is running the Convex backend, where you can
-   deploy your app's Convex functions.
+   When prompted, hit 'y' to copy the configuration to your new app. Edit the
+   location to be in the same region as your database (if you're using
+   [Postgres](../README.md#self-hosting-on-postgres-with-neon)).Now you have a
+   fly app that is running the Convex backend, where you can deploy your app's
+   Convex functions.
 
    Note the URL of the app that gets printed out, which will be of the form
    `https://<app-name>.fly.dev`.
@@ -105,7 +108,7 @@ Steps:
 
    ```sh
    cd <your-frontend-app-directory>
-   npm install convex@alpha
+   npm install convex@latest
    ```
 
    To continuously deploy code for development:

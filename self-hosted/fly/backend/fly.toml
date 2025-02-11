@@ -4,7 +4,7 @@
 #
 
 app = 'self-hosted-backend'
-primary_region = 'sjc'
+primary_region = 'iad'
 
 [build]
 image = 'ghcr.io/get-convex/self-hosted-backend:latest'
