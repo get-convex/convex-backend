@@ -21,7 +21,9 @@ export default function Settings() {
           <h4 className="mb-4">Deploy Key</h4>
 
           <p className="text-content-secondary">
-            Deploy keys are not available for self-hosted deployments.
+            Deploy keys are not available for self-hosted deployments. Generate
+            an admin key instead using the generate_admin_key.sh script wherever
+            your backend is running.
           </p>
         </div>
       </Sheet>
