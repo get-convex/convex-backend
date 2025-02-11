@@ -6,6 +6,7 @@ export STORAGE_DIR=${STORAGE_DIR:-"$DATA_DIR/storage"}
 export SQLITE_DB=${SQLITE_DB:-"$DATA_DIR/db.sqlite3"}
 
 set -e
+set -x
 mkdir -p "$TMPDIR" "$STORAGE_DIR"
 
 source ./read_credentials.sh
