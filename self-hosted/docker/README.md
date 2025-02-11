@@ -3,8 +3,13 @@
 You'll need to have [Docker](https://docs.docker.com/desktop/) installed to run
 convex in Docker.
 
+Copy the
+[`docker-compose` file](https://github.com/get-convex/convex-backend/tree/main/self-hosted/docker/docker-compose.yml)
+to your local machine. You don't need to copy it into your project directory,
+but you can. `degit` is a tool for copying files from git repositories.
+
 ```sh
-cd self-hosted
+npx degit get-convex/convex-backend/self-hosted/docker/docker-compose.yml docker-compose.yml
 # Pull the latest docker images
 docker compose pull
 # Run the containers
