@@ -72,7 +72,7 @@ export function DeploymentInfoProvider({
   const projectSlug = router.query.project as string;
   const teamsURI = `/t/${selectedTeamSlug}`;
   const projectsURI = `${teamsURI}/${projectSlug}`;
-  const deploymentsURI = `${projectsURI}/${deploymentName}/`;
+  const deploymentsURI = `${projectsURI}/${deploymentName}`;
   useIsomorphicLayoutEffect(() => {
     const f = async () => {
       const info = await deploymentAuth(

@@ -105,7 +105,8 @@ export function FunctionRunnerWrapper({
           variant="unstyled"
           className={classNames(
             "fixed bottom-16 right-0",
-            "group flex items-center gap-2 rounded-l-2xl border-border-selected border-y border-l bg-background-secondary p-2",
+            "group flex items-center gap-2 rounded-l-2xl border-border-selected border-y border-l bg-background-secondary/85 p-2",
+            "backdrop-blur-[2px]",
             !isGlobalRunnerShown && "w-12 hover:w-40",
           )}
           onClick={() => {

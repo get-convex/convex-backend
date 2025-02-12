@@ -111,7 +111,7 @@ export default function App({ Component, pageProps }: AppProps) {
                   ) : (
                     <MaybeLaunchDarklyProvider>
                       <LaunchDarklyConsumer>
-                        <div className="flex h-screen flex-col">
+                        <div className="flex h-screen flex-col overflow-y-hidden">
                           <DashboardHeader />
                           {inDeployment ? (
                             <div className="relative flex h-full flex-col">
