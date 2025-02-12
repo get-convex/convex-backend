@@ -991,6 +991,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 
         let mut results = vec![];
 
+        let mut min_ts = Timestamp::MAX;
         for chunk in smart_chunks(&ids) {
             let mut params = vec![];
             for (id, ts) in chunk {
@@ -998,6 +999,7 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 params.push(internal_id_param(id.table().0).into());
                 params.push(internal_doc_id_param(*id).into());
                 params.push(i64::from(*ts).into());
+                min_ts = cmp::min(*ts, min_ts);
             }
             let result_stream = client
                 .query_stream(prev_rev_chunk(chunk.len()), params, chunk.len())
@@ -1007,12 +1009,10 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
                 results.push(result);
             }
         }
-        let mut min_ts = Timestamp::MAX;
         for row in results.into_iter() {
             let ts: i64 = row.get(6).unwrap();
             let ts = Timestamp::try_from(ts)?;
             let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
-            min_ts = cmp::min(ts, min_ts);
             anyhow::ensure!(result
                 .insert(
                     (id, ts),

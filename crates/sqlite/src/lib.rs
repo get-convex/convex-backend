@@ -493,6 +493,7 @@ impl PersistenceReader for SqlitePersistence {
         {
             let inner = self.inner.lock();
             for (id, ts) in ids {
+                min_ts = cmp::min(ts, min_ts);
                 let mut stmt = inner.connection.prepare(PREV_REV_QUERY)?;
                 let internal_id = id.internal_id();
                 let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
@@ -515,7 +516,6 @@ impl PersistenceReader for SqlitePersistence {
                         None
                     };
                     let prev_prev_ts = prev_prev_ts.map(Timestamp::try_from).transpose()?;
-                    min_ts = cmp::min(ts, min_ts);
                     out.insert(
                         (document_id, ts),
                         DocumentLogEntry {

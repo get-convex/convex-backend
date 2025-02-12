@@ -928,6 +928,7 @@ impl PersistenceReader for PostgresReader {
         // the pipeline at once.
         let mut result_futures = vec![];
 
+        let mut min_ts = Timestamp::MAX;
         for chunk in chunks.by_ref() {
             assert_eq!(chunk.len(), 8);
             let mut params = Vec::with_capacity(16);
@@ -935,6 +936,7 @@ impl PersistenceReader for PostgresReader {
                 params.push(Param::TableId(id.table()));
                 params.push(internal_doc_id_param(*id));
                 params.push(Param::Ts(i64::from(*ts)));
+                min_ts = cmp::min(*ts, min_ts);
             }
             result_futures.push(client.query_raw(&prev_rev_chunk, params));
         }
@@ -944,10 +946,10 @@ impl PersistenceReader for PostgresReader {
                 internal_doc_id_param(*id),
                 Param::Ts(i64::from(*ts)),
             ];
+            min_ts = cmp::min(*ts, min_ts);
             result_futures.push(client.query_raw(&prev_rev, params));
         }
         let mut result_stream = stream::iter(result_futures).buffered(*PIPELINE_QUERIES);
-        let mut min_ts = Timestamp::MAX;
         while let Some(row_stream) = result_stream.try_next().await? {
             futures::pin_mut!(row_stream);
             while let Some(row) = row_stream.try_next().await? {
