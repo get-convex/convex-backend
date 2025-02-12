@@ -2,12 +2,6 @@ import { ChevronDownIcon, DesktopIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { Button } from "dashboard-common/elements/Button";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
-import {
-  QuantityType,
-  formatQuantity,
-  formatQuantityCompact,
-} from "data/Charts/formatQuantity";
-import { BANDWIDTH_CATEGORIES } from "data/Charts/teamUsageCategories";
 import { useTeamEntitlements } from "api/teams";
 import {
   AggregatedFunctionMetrics,
@@ -22,6 +16,12 @@ import {
   ProjectDetails,
 } from "generatedApi";
 import { PuzzlePieceIcon } from "dashboard-common/elements/icons";
+import { BANDWIDTH_CATEGORIES } from "./lib/teamUsageCategories";
+import {
+  QuantityType,
+  formatQuantity,
+  formatQuantityCompact,
+} from "./lib/formatQuantity";
 
 const ITEMS_SHOWN_INITIALLY = 6;
 

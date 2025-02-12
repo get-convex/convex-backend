@@ -26,13 +26,17 @@ module.exports = {
         pattern: "lib/*",
       },
       {
-        type: "data",
-        pattern: "data/*",
-      },
-      {
         type: "components",
         pattern: "components/*",
         capture: ["feature"],
+      },
+      {
+        type: "providers",
+        pattern: "providers/*",
+      },
+      {
+        type: "api",
+        pattern: "api/*",
       },
       {
         type: "pages",
@@ -55,6 +59,14 @@ module.exports = {
             allow: ["hooks"],
           },
           {
+            from: "providers",
+            allow: ["providers"],
+          },
+          {
+            from: "api",
+            allow: ["api"],
+          },
+          {
             from: "elements",
             allow: ["elements"],
           },
@@ -64,14 +76,7 @@ module.exports = {
           },
           {
             from: "pages",
-            allow: [
-              "components",
-              "hooks",
-              "lib",
-              "elements",
-              "layouts",
-              "data",
-            ],
+            allow: ["components", "hooks", "lib", "elements", "layouts"],
           },
           {
             from: "layouts",
@@ -84,8 +89,6 @@ module.exports = {
               "hooks",
               "lib",
               "elements",
-              "layouts",
-              "data",
             ],
           },
         ],

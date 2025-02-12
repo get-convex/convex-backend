@@ -133,7 +133,7 @@ export const UpdateIndexes: StoryObj<typeof DeploymentEventContent> = {
   },
 };
 
-export const PauseDeployment: StoryObj<typeof DeploymentEventContent> = {
+export const PausingDeployment: StoryObj<typeof DeploymentEventContent> = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -149,7 +149,7 @@ export const PauseDeployment: StoryObj<typeof DeploymentEventContent> = {
   },
 };
 
-export const ResumeDeployment: StoryObj<typeof DeploymentEventContent> = {
+export const ResumingDeployment: StoryObj<typeof DeploymentEventContent> = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,

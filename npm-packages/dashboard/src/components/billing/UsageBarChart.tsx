@@ -13,14 +13,14 @@ import {
 import { useMemo } from "react";
 import groupBy from "lodash/groupBy";
 import sumBy from "lodash/sumBy";
+import { useMeasure } from "react-use";
+import { ChartTooltip } from "dashboard-common/elements/ChartTooltip";
+import { toNumericUTC } from "dashboard-common/lib/format";
 import {
   QuantityType,
   formatQuantity,
   formatQuantityCompact,
-} from "data/Charts/formatQuantity";
-import { useMeasure } from "react-use";
-import { ChartTooltip } from "dashboard-common/elements/ChartTooltip";
-import { toNumericUTC } from "dashboard-common/lib/format";
+} from "./lib/formatQuantity";
 import { UsageNoDataError } from "./TeamUsageError";
 
 // To avoid having a bar displayed too wide, we set a minimum amount of days for the chart’s x-axis span.

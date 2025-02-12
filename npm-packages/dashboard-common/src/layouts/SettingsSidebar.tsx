@@ -74,12 +74,10 @@ export function SettingsSidebar({
             key={page}
             disabled={
               shouldLock(page) ||
-              (isSelfHosted &&
-                ["backups", "integrations", "pause-deployment"].includes(page))
+              (isSelfHosted && ["backups", "integrations"].includes(page))
             }
             tip={
-              ["backups", "integrations", "pause-deployment"].includes(page) &&
-              isSelfHosted
+              ["backups", "integrations"].includes(page) && isSelfHosted
                 ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
                 : undefined
             }

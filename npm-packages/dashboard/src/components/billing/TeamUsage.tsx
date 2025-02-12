@@ -32,7 +32,9 @@ import sumBy from "lodash/sumBy";
 import { Tab } from "@headlessui/react";
 import classNames from "classnames";
 import { Period } from "elements/UsagePeriodSelector";
-import { formatQuantity } from "data/Charts/formatQuantity";
+import { useRouter } from "next/router";
+import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,
   BANDWIDTH_CATEGORIES,
@@ -40,9 +42,7 @@ import {
   TAG_CATEGORIES,
   FILE_BANDWIDTH_CATEGORIES,
   FILE_STORAGE_CATEGORIES,
-} from "data/Charts/teamUsageCategories";
-import { useRouter } from "next/router";
-import { ExternalLinkIcon } from "@radix-ui/react-icons";
+} from "./lib/teamUsageCategories";
 import { FunctionBreakdownSelector } from "./FunctionBreakdownSelector";
 import {
   FunctionBreakdownMetric,

@@ -139,7 +139,7 @@ jest.mock("api/profile", () => {
   };
 });
 
-jest.mock("hooks/deploymentApi.tsx", () => ({
+jest.mock("hooks/deploymentApi", () => ({
   useGetZipExport: jest.fn().mockReturnValue(jest.fn()),
 }));
 

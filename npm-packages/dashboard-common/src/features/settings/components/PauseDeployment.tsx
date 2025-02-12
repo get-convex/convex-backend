@@ -1,17 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Button } from "dashboard-common/elements/Button";
-import { Callout } from "dashboard-common/elements/Callout";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import React, { useContext, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
-import { useTeamUsageState } from "hooks/useTeamUsageState";
-import { useChangeDeploymentState } from "hooks/deploymentApi";
 import Link from "next/link";
-import { useCurrentDeployment } from "api/deployments";
-import { useCurrentTeam } from "api/teams";
-import { useHasProjectAdminPermissions } from "api/roles";
+import { Sheet } from "@common/elements/Sheet";
+import { Loading } from "@common/elements/Loading";
+import { Button } from "@common/elements/Button";
+import { Callout } from "@common/elements/Callout";
+import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import udfs from "@common/udfs";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { useChangeDeploymentState } from "../lib/api";
 
 // TODO insert link to docs here
 const RESUME_EXPLANATION: string[] = [
@@ -28,6 +25,9 @@ const PAUSE_EXPLANATION: string[] = [
 
 export function PauseDeployment() {
   const deploymentState = useQuery(udfs.deploymentState.deploymentState);
+  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
+    DeploymentInfoContext,
+  );
   const deployment = useCurrentDeployment();
   const deploymentType = deployment?.deploymentType ?? "prod";
   const [paused, setPaused] = useState(false);
@@ -38,7 +38,6 @@ export function PauseDeployment() {
   );
   const canPauseOrResume =
     deployment?.deploymentType !== "prod" || hasAdminPermissions;
-  const isLocalDeployment = deployment?.kind === "local";
 
   const changeDeploymentState = useChangeDeploymentState();
   useEffect(() => {
@@ -53,6 +52,9 @@ export function PauseDeployment() {
     return isPaused ? "Resume" : "Pause";
   }
 
+  const { useCurrentTeam, useTeamUsageState } = useContext(
+    DeploymentInfoContext,
+  );
   // Prevent direct access to this page if the team is disabled/paused
   const team = useCurrentTeam();
   const teamUsageState = useTeamUsageState(team?.id ?? null);
@@ -108,13 +110,11 @@ export function PauseDeployment() {
               className="lg:order-2"
               variant={paused ? "primary" : "danger"}
               onClick={() => setShowConfirmation(true)}
-              disabled={!canPauseOrResume || isLocalDeployment}
+              disabled={!canPauseOrResume}
               tip={
                 !canPauseOrResume
                   ? "You do not have permission to pause or resume production."
-                  : isLocalDeployment
-                    ? "Local deployments cannot be paused."
-                    : ""
+                  : ""
               }
             >
               {paused ? "Resume Deployment" : "Pause Deployment"}

@@ -14,10 +14,8 @@ import udfs from "dashboard-common/udfs";
 import { useUsageTeamDailyCallsByTag } from "hooks/usageMetrics";
 import { isoDateString } from "elements/UsagePeriodSelector";
 import { useState } from "react";
-import {
-  DeploymentInfoProvider,
-  MaybeDeploymentApiProvider,
-} from "hooks/deploymentApi";
+import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
+import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider";
 
 export function DeleteProjectModal({
   onClose,
