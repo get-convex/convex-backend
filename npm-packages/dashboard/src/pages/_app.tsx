@@ -178,6 +178,11 @@ function PostHogProvider({ children }: { children: React.ReactElement }) {
       debug: false,
       // Since we're using the pages router, this captures the initial pageview.
       capture_pageview: true,
+      disable_session_recording: true,
+      session_recording: {
+        recordHeaders: false,
+        maskTextSelector: "*", // Masks all text elements (not including inputs)
+      },
     });
 
     // Capture pageview events on route change.
