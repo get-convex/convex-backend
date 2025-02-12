@@ -35,12 +35,18 @@ export const dashboard = new Command("dashboard")
     );
 
     if (deploymentName === undefined) {
+      let printedMessage;
+      if (deploymentSelection.kind === "urlWithAdminKey") {
+        printedMessage = `Self-hosted deployment configured. \`${chalk.bold("npx convex dashboard")}\` is not supported for self-hosted deployments. See self-hosting instructions for how to self-host the dashboard.`;
+      } else {
+        printedMessage = `No Convex deployment configured, run \`${chalk.bold(
+          "npx convex dev",
+        )}\``;
+      }
       return await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem data",
-        printedMessage: `No Convex deployment configured, run \`${chalk.bold(
-          "npx convex dev",
-        )}\``,
+        printedMessage,
       });
     }
 

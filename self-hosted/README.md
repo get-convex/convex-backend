@@ -168,6 +168,12 @@ e.g., instead of setting `CONVEX_DEPLOY_KEY`, you'll need to set
 `CONVEX_SELF_HOSTED_ADMIN_KEY` to the admin key you generated with the
 `generate_admin_key.sh` script.
 
+## Convex Auth
+
+If you're using Convex Auth, follow the
+[manual instructions](https://labs.convex.dev/auth/setup/manual) to set up. The
+CLI does not support self-hosted deployments yet.
+
 # Software upgrades
 
 In order to safely migrate to a new version of self-hosted, there are two
