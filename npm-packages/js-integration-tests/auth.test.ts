@@ -1,15 +1,8 @@
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexReactClient } from "convex/react";
 import { opts } from "./test_helpers";
-import fs from "fs";
 import { api } from "./convex/_generated/api";
-import { deploymentUrl } from "./common";
-
-// From admin_key.txt
-const adminKey = fs.readFileSync(
-  "../../crates/keybroker/dev/admin_key.txt",
-  "utf8",
-);
+import { adminKey, deploymentUrl } from "./common";
 
 describe("auth acting as user", () => {
   test("http client", async () => {

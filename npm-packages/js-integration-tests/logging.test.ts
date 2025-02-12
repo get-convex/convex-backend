@@ -1,7 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "./convex/_generated/api";
-import fs from "fs";
-import { deploymentUrl } from "./common";
+import { adminKey, deploymentUrl } from "./common";
 
 type TestCase = {
   name: string;
@@ -10,11 +9,6 @@ type TestCase = {
 
 describe("ConvexHttpClient", () => {
   let httpClient: ConvexHttpClient;
-
-  const adminKey = fs.readFileSync(
-    "../../crates/keybroker/dev/admin_key.txt",
-    "utf8",
-  );
 
   beforeEach(() => {
     httpClient = new ConvexHttpClient(deploymentUrl);

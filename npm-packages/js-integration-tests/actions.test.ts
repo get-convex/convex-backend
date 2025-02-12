@@ -3,9 +3,8 @@
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexReactClient } from "convex/react";
 import { awaitQueryResult, opts } from "./test_helpers";
-import fs from "fs";
 import { api, internal } from "./convex/_generated/api";
-import { deploymentUrl, siteUrl } from "./common";
+import { adminKey, deploymentUrl, siteUrl } from "./common";
 
 describe("HTTPClient", () => {
   let httpClient: ConvexHttpClient;
@@ -74,12 +73,6 @@ describe("HTTPClient", () => {
 });
 
 describe("ConvexReactClient", () => {
-  // From admin_key.txt
-  const adminKey = fs.readFileSync(
-    "../../crates/keybroker/dev/admin_key.txt",
-    "utf8",
-  );
-
   let reactClient: ConvexReactClient;
   beforeEach(() => {
     reactClient = new ConvexReactClient(deploymentUrl, opts);
