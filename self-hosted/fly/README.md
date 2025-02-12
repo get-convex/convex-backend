@@ -1,4 +1,4 @@
-# Self Hosting with [Fly.io](https://fly.io/)
+# Self-hosting Convex with [Fly.io](https://fly.io/)
 
 ## Setup
 
@@ -33,9 +33,9 @@ Steps:
 
    When prompted, hit 'y' to copy the configuration to your new app. Edit the
    location to be in the same region as your database (if you're using
-   [Postgres](../README.md#self-hosting-on-postgres-with-neon)).Now you have a
-   fly app that is running the Convex backend, where you can deploy your app's
-   Convex functions.
+   [Postgres](../README.md#running-the-database-on-postgres-or-mysql)).Now you
+   have a fly app that is running the Convex backend, where you can deploy your
+   app's Convex functions.
 
    Note the URL of the app that gets printed out, which will be of the form
    `https://<app-name>.fly.dev`.
@@ -157,8 +157,8 @@ fly ssh console
 ls
 ```
 
-To store your data in a Postgres database, see
-[these instructions](../README.md#self-hosting-on-postgres-with-neon)
+To store your data in a SQL database of your choice, see
+[these instructions](../README.md#running-the-database-on-postgres-or-mysql).
 
 ## Deploying the dashboard to Fly.io
 

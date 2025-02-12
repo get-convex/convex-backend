@@ -6,219 +6,190 @@
 </picture>
 </p>
 
-The [Convex managed hosted](https://www.convex.dev/plans) product includes a
-generous free tier and provides a seamless, reliable, cost-effective platform
-that allows you to focus on building your application without worrying about
-infrastructure.
+If you're new to Convex we recommend starting with the
+[onboarding tutorial](https://docs.convex.dev/tutorial/) to familiarize yourself
+with the Convex development experience.
 
-That being said, we understand that won't work for everyone. You are welcome to
-self-host Convex on your own infrastructure instead. We have developed a
-self-hostable version of Convex that works out-of-the-box backed by SQLite, and
-you can configure it to talk to any Postgres database. The dashboard is also
-self-hostable and includes the same features as the free tier. Self-hosted
-Convex will not scale as well as our managed product, but we will make sure it
-works and answer questions in the `#open-source` channel in the
-[Convex Discord](https://discord.gg/convex).
+If you're in this README, you're interested in self-hosting
+[Convex](https://www.convex.dev) on your own infrastructure or a managed hosting
+provider. Support is available on the
+[Convex Discord](https://discord.gg/convex) in the `#open-source` channel.
 
-We
-[welcome bug fixes](https://github.com/get-convex/convex-backend/blob/main/crates/convex/CONTRIBUTING.md)
-and [love receiving feedback](https://discord.gg/convex). We keep this
-repository synced with any internal development work within a handful of days.
+If you don't specifically want to self-host, head over to
+[the Convex docs](https://docs.convex.dev/) to use the cloud-hosted product.
+Cloud-hosted Convex includes a generous free tier and provides a seamless,
+reliable, cost-effective platform that allows you to focus on building your
+application without worrying about infrastructure.
 
-# Where to start?
+Self-hosting Convex requires deploying three services:
 
-- If you're new to Convex, we recommend getting started with our
-  [managed hosted product](https://www.convex.dev/plans) which has a generous
-  free tier.
-- If you're already familiar with Convex and want to self-host for local
-  development, we recommend using the [Docker setup](./docker/README.md).
-- If you're looking to host your production backend, we recommend following
-  [these instructions](./fly/README.md) to get set up with
-  [Fly](https://fly.io/). By default, the backend will run on SQLite, but for
-  production workloads, you may want to use Postgres instead. See
-  [these instructions](../README.md#self-hosting-on-postgres-with-neon) to
-  connect your backend to Postgres, and be aware that performance will depend on
-  how close your database is to your backend. The cloud-hosted product has the
-  best performance because our engineering team has optimized our infrastructure
-  with performance and scalability in mind.
+1. The Convex backend
+1. The Convex dashboard
+1. Your frontend app, which you can either host yourself or on a managed service
+   like Netlify or Vercel.
 
-# Self Hosting Via Docker
+# Self-hosting Convex
 
-See the [Docker instructions](./docker/README.md)
+By default the Convex backend will store all state in a local SQLite database.
+We recommend starting with this basic configuration and then moving the
+container to a hosting provider or pointing the backend to a separate SQL
+database for a production-ready configuration as needed.
 
-# Self Hosting with [Fly.io](https://fly.io/)
+## Docker configuration
 
-See the [Fly instructions](./fly/README.md)
+First fetch the
+[`docker-compose` file](https://github.com/get-convex/convex-backend/tree/main/self-hosted/docker/docker-compose.yml)
+file then start the backend and dashboard via:
 
-# Self Hosting on Postgres with [Neon](https://neon.tech)
+```
+docker compose pull
+docker compose up
+```
 
-Note: These instructions should work for any Postgres database, not just Neon.
+Once the backend is running you can use it to generate admin keys for the
+dashboard/CLI:
 
-If you are moving from cloud-hosted Convex or a self-hosted Convex deployment
-backed by a different database, first run `npx convex export` to export your
-data.
+```sh
+docker exec convex-local-backend ./generate_admin_key.sh
+```
 
-Create a project on Neon.
+Visit the dashboard at `http://localhost:6791`. The backend listens on
+`http://127.0.0.1:3210`. The backend's http actions are available at
+`http://127.0.0.1:3211`.
 
-⚡ **Performance Note**: Be sure to create your database in the same region as
-you plan to host your backend! The physical distance between your database and
-backend directly impacts latency.
+In your Convex project, add your url and admin key to a `.env.local` file (which
+should not be committed to source control):
 
-Copy the connection string from the Neon dashboard.
+```sh
+CONVEX_SELF_HOSTED_URL='http://127.0.0.1:3210'
+CONVEX_SELF_HOSTED_ADMIN_KEY='<your admin key>'
+```
+
+Now you can run commands in your Convex project, to push code, run queries,
+import data, etc. To use these commands, you'll need the latest version of
+Convex.
+
+```sh
+npm install convex@latest
+```
+
+Now you can push code, run queries, import data, etc.
+
+```sh
+npx convex dev
+npx convex --help  # see all available commands
+```
+
+By default, the backend will store its data in a volume managed by Docker. Note
+that you'll need to set up persistent storage on whatever cloud hosting platform
+you choose to run the Docker container on (e.g. AWS EBS). By default the
+database is stored locally in SQLite but you may also point it to a SQL database
+either locally or on a cloud service of your choice following
+[these instructions](#running-the-database-on-postgres-or-mysql).
+
+You should now be able to use the self-hosted backend. Read on for alternative
+hosting options for production workloads.
+
+## Backend hosting on Fly.io
+
+You can run the Convex backend on a hosting provider of your choice. We include
+`fly.toml` files to make it easy to deploy your backend to
+[Fly.io](https://fly.io/). See out dedicated [Fly instructions](./fly/README.md)
+to get started.
+
+## Running the database on Postgres or MySQL
+
+The Convex backend is designed to work well with SQLite, Postgres, or MySQL. If
+you're running a production workload that requires guaranteed uptime it's likely
+you want to use a managed Postgres or MySQL service. We've included instructions
+below for connecting to a Postgres database hosted on [Neon](https://neon.tech).
+
+Use `npx convex export` to export your data before moving from one database
+provider to another.
+
+**It's very important your backend is hosted in the same region and as close as
+possible to your database!** Any additional latency between backend and database
+will negatively impact query performance.
+
+### Connecting to Postgres on Neon
+
+Copy the connection string from the Neon dashboard and create the database.
 
 ```sh
 export DATABASE_CONNECTION='<connection string>'
-```
-
-Create the database
-
-```sh
 psql $DATABASE_CONNECTION -c "CREATE DATABASE convex_self_hosted"
 ```
 
-Strip database name and query params from the connection string. It should end
-in neon.tech
+You can use the `DATABASE_URL` environment variable to instruct the backend to
+connect to a certain database. This URL is the connection string without the db
+name and query params. e.g., for Neon it should end in `neon.tech`:
 
 ```sh
 export DATABASE_URL=$(echo $DATABASE_CONNECTION | sed -E 's/\/[^/]+(\?.*)?$//')
 ```
 
-Update your `DATABASE_URL` environment variable. If you're deploying on
-[Fly](https://fly.io):
+If you're running the backend on a platform like [Fly](https://fly.io), register
+this environment variable in the hosting environment, e.g.,:
 
 ```sh
 fly secrets set DATABASE_URL=$DATABASE_URL
 ```
 
-(This command will automatically redeploy your Fly app).
+otherwise if you're running the backend locally you can restart it to pick up
+this environment variable.
 
-After you've deployed with the environment variable set, check that the database
-is connected to your self-hosted convex backend. There should be a line like
-"Connected to Postgres" in the logs. If you're deploying on
-[Fly](https://fly.io):
+Check that the database is connected to your self-hosted convex backend. There
+should be a line like `Connected to Postgres` in the logs. Note that you'll have
+to redeploy any existing Convex functions to the new database with
+`npx convex deploy`.
 
-```sh
-fly logs
-```
+## Optional configurations
 
-Deploy your functions with `npx convex deploy`.
-
-If you are moving from cloud-hosted Convex or a self-hosted Convex deployment
-backed by a different database, you can run `npx convex import` to import the
-data you exported from your old database.
-
-# Settings
-
-- You may opt out of the beacon we use to improve the product by setting the
-  environment variable `DISABLE_BEACON` to `true`. Read more about the beacon
-  [here](../crates/local_backend/README.md#disclaimers)
-- You can turn on log redaction by setting the environment variable
-  `REDACT_LOGS_TO_CLIENT` to `true`. This may be useful for hiding PII in
-  production deployments. This is turned on automatically in the cloud-hosted
-  product.
+- The cloud-hosted product automatically redacts logs to prevent any leaking of
+  PII. If you would like to also redact log information in your self-hosted
+  deployment, set the `REDACT_LOGS_TO_CLIENT` environment variable to `true`.
+- Self-hosted builds contain a beacon to help Convex understand usage of the
+  product. The information collected is anonymous and minimal, containing a
+  random identifier plus the versions plus the versions of the backend in use.
+  You may opt out of the beacon by setting the environment variable
+  `DISABLE_BEACON` to `true`.
 
 # Deploying your frontend app
 
-If you're deploying your frontend app on a platform like Vercel that
-[runs a command](https://docs.convex.dev/production/hosting/vercel#deploying-to-vercel)
-to build the app and deploy your Convex functions, you'll need to use the
-`SELF_HOSTED` environment variables instead.
+The Convex backend runs all database and compute functions but it doesn't host
+your actual web app. If you're hosting your website on a provider like Netlify
+or Vercel using our
+[production hosting instructions](https://docs.convex.dev/production/hosting/)
+be sure to swap out the environment variables in those instructions for the
+`SELF_HOSTED` equivalents.
 
-For example, instead of setting `CONVEX_DEPLOY_KEY`, you'll need to set
+e.g., instead of setting `CONVEX_DEPLOY_KEY`, you'll need to set
 `CONVEX_SELF_HOSTED_URL` to the url where your Convex backend is hosted and
 `CONVEX_SELF_HOSTED_ADMIN_KEY` to the admin key you generated with the
-`generate_admin_key.sh` script. (If you already ran `npx convex dev`, you should
-find these in your `.env.local` file.)
+`generate_admin_key.sh` script.
 
-# Self Hosting Via Running Binary Directly
-
-### Get convex-local-backend Binary
-
-You can either [build from source](../README.md) or use the precompiled
-binaries. You can download the latest precompiled binary release from
-[Releases](https://github.com/get-convex/convex-backend/releases). If your
-platform is not supported, leave us a github issue. In the meantime, you can
-build from source.
-
-_Note: On MacOS you might need to hold the `option` key and double click the
-binary file in Finder once, to circumvent the
-[Gatekeeper](https://support.apple.com/en-us/102445) warning._
-
-### Generate a new instance secret
-
-Instance secret is the secret to the backend. Keep very safe and only accessible
-from the backend itself. Generate a new random instance secret with
-
-```sh
-cargo run -p keybroker --bin generate_secret
-```
-
-It will look like this:
-`4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974`
-
-### Generate a new admin key
-
-With the instance name and instance secret, generate an admin key. Admin key is
-required to push code to the backend and take other administrator operations.
-
-```sh
-cargo run -p keybroker --bin generate_key -- convex-self-hosted 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
-```
-
-It will look like
-`convex-self-hosted|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8`
-
-### Run your backend instance
-
-Adjust the path based on where you downloaded the binary to or add it to your
-`PATH`. The backend will store its database in the current-working-directory
-(not where the binary file lives).
-
-Use the instance name and instance secret to start your backend.
-
-```sh
-./convex-local-backend --instance-name convex-self-hosted --instance-secret 4361726e697461732c206c69746572616c6c79206d65616e696e6720226c6974
-```
-
-You can run `./convex-local-backend --help` to see other options for things like
-changing ports, convex origin url, convex site url, local storage directories
-and other configuration.
-
-### Run the dashboard
-
-You can run the dashboard locally with `just rush install` and `npm run dev`
-from `npm-packages/dashboard-self-hosted`.
-
-### Use your backend.
-
-Using your admin key, push code to your backend. Admin key should be kept secure
-to just the developers who are administering the application on your backend.
-
-```sh
-cd your_project
-npm install
-npx convex dev --url "http://127.0.0.1:3210" --admin-key 'convex-self-hosted|01c046ab1512d9306a6abda3eedec5dfe862f1fe0f66a5aee774fb9ae3fda87706facaf682b9d4f9209a05e038cbd6e9b8'
-```
-
-# Upgrading your self-hosted backend on a production instance.
+# Software upgrades
 
 In order to safely migrate to a new version of self-hosted, there are two
 options.
 
-## Option 1: Export/Import your database (higher downtime + easy, recommended)
+## Option 1: Export/Import your database
 
-1. Take down external traffic to your backend
-2. Export your database with `npx convex export`
+The easiest migration path is just to export your database state and reimport it
+after upgrading the backend code.
+
+1. Take down external traffic to your backend.
+2. Export your database with `npx convex export`.
 3. Save your environment variables with `npx convex env list` (or via
    dashboard).
-4. Upgrade the backend docker image (or binary)
-5. Import from your backup with `npx convex import --replace-all`
+4. Upgrade the backend docker image.
+5. Import from your backup with `npx convex import --replace-all`.
 6. Bring back your environment variables with `npx convex env set` (or via
    dashboard)
-7. Bring back external traffic to your backend
+7. Bring back external traffic to your backend.
 
 Given that exports/imports can be expensive if you have a lot of data, this can
-incur downtime. You can get a sense of how much downtime safely, by running an
+incur downtime. You can get a sense of how much downtime by running a test
 export while your self-hosted instance is up. For smaller instances, this may be
 quick and easy.
 
@@ -226,11 +197,10 @@ However to safely avoid losing data, it's important that the final export is
 done after load is stopped from your instance, since exports are taken at a
 snapshot in time.
 
-## Option 2: Upgrade in-place (lower downtime)
+## Option 2: Upgrade in-place
 
-This is a more manual, more fiddly process, but it incurs less downtime. If you
-choose to go this route, please be careful, and feel free to reach out for
-guidance.
+If you want to avoid downtime, you can upgrade in-place. This is a more manual
+process so proceed careful and feel free to reach out for guidance.
 
 You will need to upgrade through each intermediate binary revision specified via
 `git log crates/model/src/migrations.rs`.
@@ -247,5 +217,21 @@ determine that the in-place upgrade is complete.
 Executing Migration 114/115. MigrationComplete(115)
 ```
 
-Please feel free to reach out to us on [Discord](https://convex.dev/community)
-if you have any questions.
+# Limitations
+
+Self-hosted Convex supports all the free-tier features of the cloud-hosted
+product. The cloud-hosted product is optimized for scale.
+
+# Questions and contributions
+
+- Join our [Discord community](https://discord.gg/convex) for help and
+  discussions. The `#open-source` channel is the best place to go for questions
+  about self-hosting.
+
+- Report issues when building and using the open source Convex backend through
+  [GitHub Issues](https://github.com/get-convex/convex-backend/issues)
+
+- We
+  [welcome bug fixes](https://github.com/get-convex/convex-backend/blob/main/crates/convex/CONTRIBUTING.md)
+  and love receiving feedback. We keep this repository synced with any internal
+  development work within a handful of days.
