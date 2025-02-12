@@ -639,9 +639,9 @@ export type ValidatorJSON =
   | { type: "object"; value: Record<string, ObjectFieldType> }
   | { type: "union"; value: ValidatorJSON[] };
 
-type RecordKeyValidatorJSON =
+export type RecordKeyValidatorJSON =
   | { type: "string" }
   | { type: "id"; tableName: string }
   | { type: "union"; value: RecordKeyValidatorJSON[] };
 
-type RecordValueValidatorJSON = ObjectFieldType & { optional: false };
+export type RecordValueValidatorJSON = ObjectFieldType & { optional: false };

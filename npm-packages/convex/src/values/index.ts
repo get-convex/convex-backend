@@ -22,6 +22,8 @@ export type {
 } from "./validator.js";
 export type {
   ValidatorJSON,
+  RecordKeyValidatorJSON,
+  RecordValueValidatorJSON,
   ObjectFieldType,
   Validator,
   OptionalProperty,
