@@ -1,13 +1,13 @@
-# fly.toml app configuration file generated for self-hosted-backend on 2025-02-03T12:02:03-08:00
+# fly.toml app configuration file generated for convex-backend on 2025-02-12T15:17:28-08:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'self-hosted-backend'
+app = 'convex-backend'
 primary_region = 'iad'
 
 [build]
-image = 'ghcr.io/get-convex/self-hosted-backend:latest'
+image = 'ghcr.io/get-convex/self-hosted-backend:1fc4d877fbbe2354aea09575e923278500be93ec'
 
 [env]
 TMPDIR = '/convex/data/tmp'
