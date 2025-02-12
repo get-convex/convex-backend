@@ -98,7 +98,7 @@ export function DeploymentDashboardLayout({
           key: "settings",
           label: "Settings",
           Icon: MixerHorizontalIcon,
-          href: `${uriPrefix}settings`,
+          href: `${uriPrefix}/settings`,
         },
       ],
     },
