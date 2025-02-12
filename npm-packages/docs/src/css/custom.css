@@ -702,7 +702,7 @@ html[data-theme="dark"] .convex-menu-header {
 }
 
 .convex-sidebar-self-hosting {
-  --convex-icon: url("../../static/img/github-logo.svg");
+  --convex-icon: url("../../static/img/sidebar-icons/server.svg");
 }
 
 .convex-sidebar-realtime {
