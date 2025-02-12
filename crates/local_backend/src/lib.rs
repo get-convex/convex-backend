@@ -186,7 +186,7 @@ pub async fn make_app(
         transactional_file_storage: TransactionalFileStorage::new(
             runtime.clone(),
             files_storage.clone(),
-            config.convex_origin_url(),
+            config.convex_origin_url()?,
         ),
         database: database.clone(),
     };
@@ -195,7 +195,7 @@ pub async fn make_app(
     let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout)?);
     let actions = Actions::new(
         node_executor,
-        config.convex_origin_url(),
+        config.convex_origin_url()?,
         *ACTION_USER_TIMEOUT,
         runtime.clone(),
     );
@@ -214,7 +214,7 @@ pub async fn make_app(
         InProcessFunctionRunner::new(
             config.name().clone(),
             config.secret()?,
-            config.convex_origin_url(),
+            config.convex_origin_url()?,
             runtime.clone(),
             persistence.reader(),
             InstanceStorage {
@@ -239,8 +239,8 @@ pub async fn make_app(
         key_broker.clone(),
         config.name(),
         function_runner,
-        config.convex_origin_url(),
-        config.convex_site_url(),
+        config.convex_origin_url()?,
+        config.convex_site_url()?,
         searcher.clone(),
         segment_metadata_fetcher.clone(),
         persistence,
@@ -255,7 +255,7 @@ pub async fn make_app(
     )
     .await?;
 
-    let origin = config.convex_origin_url();
+    let origin = config.convex_origin_url()?;
     let instance_name = config.name().clone();
 
     if !config.disable_beacon {
@@ -266,7 +266,7 @@ pub async fn make_app(
 
     let app_state = LocalAppState {
         origin,
-        site_origin: config.convex_site_url(),
+        site_origin: config.convex_site_url()?,
         instance_name,
         application,
         zombify_rx,

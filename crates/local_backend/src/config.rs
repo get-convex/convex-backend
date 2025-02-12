@@ -116,16 +116,36 @@ impl LocalConfig {
         Some((self.interface.octets(), self.site_proxy_port))
     }
 
-    pub fn convex_origin_url(&self) -> ConvexOrigin {
-        self.convex_origin
+    pub fn convex_origin_url(&self) -> anyhow::Result<ConvexOrigin> {
+        let origin = self
+            .convex_origin
             .clone()
-            .unwrap_or(format!("http://127.0.0.1:{}", self.port).into())
+            .unwrap_or(format!("http://127.0.0.1:{}", self.port).into());
+        // Allow empty origin so you can start up a self-hosted backend without
+        // knowing its url yet.
+        if !origin.is_empty() && !origin.starts_with("https://") && !origin.starts_with("http://") {
+            anyhow::bail!(
+                "Origin url should start with https:// or http:// but got '{}'",
+                origin
+            );
+        }
+        Ok(origin)
     }
 
-    pub fn convex_site_url(&self) -> ConvexSite {
-        self.convex_site
+    pub fn convex_site_url(&self) -> anyhow::Result<ConvexSite> {
+        let site = self
+            .convex_site
             .clone()
-            .unwrap_or(format!("http://127.0.0.1:{}", self.site_proxy_port).into())
+            .unwrap_or(format!("http://127.0.0.1:{}", self.site_proxy_port).into());
+        // Allow empty site so you can start up a self-hosted backend without
+        // knowing its url yet.
+        if !site.is_empty() && !site.starts_with("https://") && !site.starts_with("http://") {
+            anyhow::bail!(
+                "Site url should start with https:// or http:// but got '{}'",
+                site
+            );
+        }
+        Ok(site)
     }
 
     pub fn name(&self) -> String {
