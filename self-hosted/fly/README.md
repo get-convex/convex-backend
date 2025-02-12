@@ -33,9 +33,9 @@ Steps:
 
    When prompted, hit 'y' to copy the configuration to your new app. Edit the
    location to be in the same region as your database (if you're using
-   [Postgres](../README.md#running-the-database-on-postgres-or-mysql)).Now you
-   have a fly app that is running the Convex backend, where you can deploy your
-   app's Convex functions.
+   [Postgres](../README.md#running-the-database-on-postgres)). Now you have a
+   fly app that is running the Convex backend, where you can deploy your app's
+   Convex functions.
 
    Note the URL of the app that gets printed out, which will be of the form
    `https://<app-name>.fly.dev`.

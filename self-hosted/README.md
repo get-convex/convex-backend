@@ -85,7 +85,7 @@ that you'll need to set up persistent storage on whatever cloud hosting platform
 you choose to run the Docker container on (e.g. AWS EBS). By default the
 database is stored locally in SQLite but you may also point it to a SQL database
 either locally or on a cloud service of your choice following
-[these instructions](#running-the-database-on-postgres-or-mysql).
+[these instructions](#running-the-database-on-postgres).
 
 You should now be able to use the self-hosted backend. Read on for alternative
 hosting options for production workloads.
@@ -97,12 +97,12 @@ You can run the Convex backend on a hosting provider of your choice. We include
 [Fly.io](https://fly.io/). See out dedicated [Fly instructions](./fly/README.md)
 to get started.
 
-## Running the database on Postgres or MySQL
+## Running the database on Postgres
 
-The Convex backend is designed to work well with SQLite, Postgres, or MySQL. If
-you're running a production workload that requires guaranteed uptime it's likely
-you want to use a managed Postgres or MySQL service. We've included instructions
-below for connecting to a Postgres database hosted on [Neon](https://neon.tech).
+The Convex backend is designed to work well with SQLite or Postgres. If you're
+running a production workload that requires guaranteed uptime it's likely you
+want to use a managed Postgres service. We've included instructions below for
+connecting to a Postgres database hosted on [Neon](https://neon.tech).
 
 Use `npx convex export` to export your data before moving from one database
 provider to another.
