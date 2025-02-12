@@ -351,17 +351,19 @@ async fn copy_to_temp_file(reader: StorageGetStream) -> anyhow::Result<std::fs::
     let file = common::runtime::block_in_place(|| {
         let file = tempfile::tempfile().context("Failed to create temp file")?;
         #[cfg(target_os = "linux")]
-        unsafe {
-            use std::os::fd::AsRawFd;
-            if libc::fallocate64(
-                file.as_raw_fd(),
-                0, /* mode */
-                0, /* offset */
-                size,
-            ) < 0
-            {
-                return Err(anyhow::Error::from(std::io::Error::last_os_error())
-                    .context(format!("Failed to fallocate {size} bytes")));
+        if size > 0 {
+            unsafe {
+                use std::os::fd::AsRawFd;
+                if libc::fallocate64(
+                    file.as_raw_fd(),
+                    0, /* mode */
+                    0, /* offset */
+                    size,
+                ) < 0
+                {
+                    return Err(anyhow::Error::from(std::io::Error::last_os_error())
+                        .context(format!("Failed to fallocate {size} bytes")));
+                }
             }
         }
         #[cfg(not(target_os = "linux"))]
