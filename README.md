@@ -39,7 +39,7 @@ including Neon, Fly.io, Vercel, Netlify, RDS, Sqlite, Postgres, and more.
 You can either use Docker (recommended) or a prebuilt binary to self host
 Convex. Check out our [self-hosting guide](./self-hosted/README.md) for detailed
 instructions. Community support for self-hosting is available in the
-`#open-source` channel on [Discord](https://discord.gg/convex).
+`#self-hosted` channel on [Discord](https://discord.gg/convex).
 
 ## Community & Support
 
@@ -59,7 +59,7 @@ See [BUILD.md](./BUILD.md).
   and admin key from the defaults in the repo.
 - Convex is battle tested most thoroughly on Linux and Mac. On Windows, it has
   less experience. If you run into issues, please message us on
-  [Discord](https://convex.dev/community) in the #open-source channel.
+  [Discord](https://convex.dev/community) in the `#self-hosted` channel.
 - Convex self-hosted builds contain a beacon to help Convex improve the improve
   the product. The information is minimal and anonymous and helpful to Convex,
   but if you really want to disable it, you can set the `--disable-beacon` flag

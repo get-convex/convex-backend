@@ -13,7 +13,7 @@ with the Convex development experience.
 If you're in this README, you're interested in self-hosting
 [Convex](https://www.convex.dev) on your own infrastructure or a managed hosting
 provider. Support is available on the
-[Convex Discord](https://discord.gg/convex) in the `#open-source` channel.
+[Convex Discord](https://discord.gg/convex) in the `#self-hosted` channel.
 
 If you don't specifically want to self-host, head over to
 [the Convex docs](https://docs.convex.dev/) to use the cloud-hosted product.
@@ -225,7 +225,7 @@ product. The cloud-hosted product is optimized for scale.
 # Questions and contributions
 
 - Join our [Discord community](https://discord.gg/convex) for help and
-  discussions. The `#open-source` channel is the best place to go for questions
+  discussions. The `#self-hosted` channel is the best place to go for questions
   about self-hosting.
 
 - Report issues when building and using the open source Convex backend through
