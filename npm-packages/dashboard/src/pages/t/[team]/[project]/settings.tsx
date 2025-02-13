@@ -193,10 +193,7 @@ function GenerateDeployKey({
           project={project}
           hasAdminPermissions={hasAdminPermissions}
         />
-        <PreviewDeployKeys
-          project={project}
-          hasAdminPermissions={hasAdminPermissions}
-        />
+        <PreviewDeployKeys project={project} />
       </div>
     </Sheet>
   );
@@ -291,13 +288,7 @@ function ProductionDeployKeys({
   );
 }
 
-function PreviewDeployKeys({
-  project,
-  hasAdminPermissions,
-}: {
-  project: ProjectDetails;
-  hasAdminPermissions: boolean;
-}) {
+function PreviewDeployKeys({ project }: { project: ProjectDetails }) {
   const createProjectAccessTokenMutation = useCreateTeamAccessToken({
     projectId: project.id,
     kind: "project",
@@ -309,7 +300,6 @@ function PreviewDeployKeys({
   const arePreviewDeploymentsAvailable =
     useTeamEntitlements(team?.id)?.projectMaxPreviewDeployments !== 0;
   const projectAccessTokens = useProjectAccessTokens(project.id);
-  const disabledReason = !hasAdminPermissions ? "CannotManageProd" : null;
 
   const deployKeyDescription = (
     <p className="mb-2 text-sm text-content-primary">
@@ -374,10 +364,10 @@ function PreviewDeployKeys({
           tokenPrefix={`preview:${selectedTeamSlug}:${project.slug}`}
           accessTokens={projectAccessTokens}
           kind="project"
-          disabledReason={disabledReason}
+          disabledReason={null}
           buttonProps={{
             deploymentType: "preview",
-            disabledReason,
+            disabledReason: null,
             getAdminKey: async (name: string) =>
               getAccessTokenBasedDeployKeyForPreview(
                 project,
