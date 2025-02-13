@@ -931,7 +931,7 @@ impl PersistenceReader for PostgresReader {
         let mut min_ts = Timestamp::MAX;
         for chunk in chunks.by_ref() {
             assert_eq!(chunk.len(), 8);
-            let mut params = Vec::with_capacity(16);
+            let mut params = Vec::with_capacity(24);
             for (id, ts) in chunk {
                 params.push(Param::TableId(id.table()));
                 params.push(internal_doc_id_param(*id));
@@ -974,6 +974,75 @@ impl PersistenceReader for PostgresReader {
         retention_validator
             .validate_document_snapshot(min_ts)
             .await?;
+        timer.finish();
+        Ok(result)
+    }
+
+    async fn documents_multiget(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
+        let timer = metrics::documents_multiget_timer();
+
+        let client = self.read_pool.get_connection("documents_multiget").await?;
+        let (exact_rev_chunk, exact_rev) = try_join!(
+            client.prepare_cached(EXACT_REV_CHUNK),
+            client.prepare_cached(EXACT_REV)
+        )?;
+        let ids: Vec<_> = ids.into_iter().collect();
+
+        let mut result = BTreeMap::new();
+
+        let mut chunks = ids.chunks_exact(CHUNK_SIZE);
+        let mut result_futures = vec![];
+
+        for chunk in chunks.by_ref() {
+            assert_eq!(chunk.len(), 8);
+            let mut params = Vec::with_capacity(24);
+            for (id, ts) in chunk {
+                params.push(Param::TableId(id.table()));
+                params.push(internal_doc_id_param(*id));
+                params.push(Param::Ts(i64::from(*ts)));
+            }
+            result_futures.push(client.query_raw(&exact_rev_chunk, params));
+        }
+        for (id, ts) in chunks.remainder() {
+            let params = vec![
+                Param::TableId(id.table()),
+                internal_doc_id_param(*id),
+                Param::Ts(i64::from(*ts)),
+            ];
+            result_futures.push(client.query_raw(&exact_rev, params));
+        }
+        let mut result_stream = stream::iter(result_futures).buffered(*PIPELINE_QUERIES);
+        while let Some(row_stream) = result_stream.try_next().await? {
+            futures::pin_mut!(row_stream);
+            while let Some(row) = row_stream.try_next().await? {
+                let ts: i64 = row.get(1);
+                let ts = Timestamp::try_from(ts)?;
+                let (_, id, maybe_doc, prev_ts) = self.row_to_document(row)?;
+                anyhow::ensure!(result
+                    .insert(
+                        (id, ts),
+                        DocumentLogEntry {
+                            ts,
+                            id,
+                            value: maybe_doc,
+                            prev_ts,
+                        }
+                    )
+                    .is_none());
+            }
+        }
+
+        if let Some(min_ts) = ids.iter().map(|(_, ts)| *ts).min() {
+            // Validate retention after finding documents
+            retention_validator
+                .validate_document_snapshot(min_ts)
+                .await?;
+        }
+
         timer.finish();
         Ok(result)
     }
@@ -1702,6 +1771,53 @@ WHERE
     ts < $3
 ORDER BY ts desc
 LIMIT 1
+"#;
+
+const EXACT_REV_CHUNK: &str = r#"
+/*+
+    Set(enable_seqscan OFF)
+    Set(enable_sort OFF)
+    Set(enable_incremental_sort OFF)
+    Set(enable_hashjoin OFF)
+    Set(enable_mergejoin OFF)
+    Set(enable_material OFF)
+    Set(plan_cache_mode force_generic_plan)
+*/
+WITH
+    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $1 AND id = $2 and ts = $3),
+    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $4 AND id = $5 and ts = $6),
+    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $7 AND id = $8 and ts = $9),
+    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $10 AND id = $11 and ts = $12),
+    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $13 AND id = $14 and ts = $15),
+    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $16 AND id = $17 and ts = $18),
+    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $19 AND id = $20 and ts = $21),
+    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $22 AND id = $23 and ts = $24)
+SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q1
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q2
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q3
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q4
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q5
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q6
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q7
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q8;
+"#;
+
+const EXACT_REV: &str = r#"
+/*+
+    Set(enable_seqscan OFF)
+    Set(enable_sort OFF)
+    Set(enable_incremental_sort OFF)
+    Set(enable_hashjoin OFF)
+    Set(enable_mergejoin OFF)
+    Set(enable_material OFF)
+    Set(plan_cache_mode force_generic_plan)
+*/
+SELECT id, ts, table_id, json_value, deleted, prev_ts
+FROM documents
+WHERE
+    table_id = $1 AND
+    id = $2 AND
+    ts = $3
 "#;
 
 const IS_DB_READ_ONLY: &str = r#"

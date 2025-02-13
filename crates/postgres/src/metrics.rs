@@ -42,6 +42,15 @@ pub fn finish_load_documents_timer(timer: StatusTimer, num_loaded: usize) {
 }
 
 register_convex_histogram!(
+    POSTGRES_DOCUMENTS_MULTIGET_SECONDS,
+    "Time to fetch documents at exact timestamps",
+    &STATUS_LABEL
+);
+pub fn documents_multiget_timer() -> StatusTimer {
+    StatusTimer::new(&POSTGRES_DOCUMENTS_MULTIGET_SECONDS)
+}
+
+register_convex_histogram!(
     POSTGRES_PREV_REVISIONS_SECONDS,
     "Time to fetch previous revisions",
     &STATUS_LABEL

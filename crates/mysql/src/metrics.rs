@@ -70,6 +70,17 @@ pub fn finish_load_documents_timer(timer: StatusTimer, num_loaded: usize, cluste
 }
 
 register_convex_histogram!(
+    MYSQL_DOCUMENTS_MULTIGET_SECONDS,
+    "Time to fetch documents at exact timestamps",
+    &[STATUS_LABEL[0], "cluster_name"]
+);
+pub fn documents_multiget_timer(cluster_name: &str) -> StatusTimer {
+    let mut timer = StatusTimer::new(&MYSQL_DOCUMENTS_MULTIGET_SECONDS);
+    timer.add_label(cluster_name_label(cluster_name));
+    timer
+}
+
+register_convex_histogram!(
     MYSQL_PREV_REVISIONS_SECONDS,
     "Time to fetch previous revisions",
     &[STATUS_LABEL[0], "cluster_name"]

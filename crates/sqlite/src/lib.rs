@@ -447,23 +447,7 @@ impl PersistenceReader for SqlitePersistence {
 
             let mut entries = vec![];
             for row in stmt.query_map([], load_document_row)? {
-                let (id, ts, table, json_value, deleted, prev_ts) = row?;
-                let id = InternalId::try_from(id)?;
-                let ts = Timestamp::try_from(ts)?;
-                let table = TabletId(table.try_into()?);
-                let document_id = InternalDocumentId::new(table, id);
-                let document = if !deleted {
-                    let json_value = json_value.ok_or_else(|| {
-                        anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, ts)
-                    })?;
-                    let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
-                    let value: ConvexValue = json_value.try_into()?;
-                    let document = ResolvedDocument::from_database(table, value)?;
-                    Some(document)
-                } else {
-                    None
-                };
-                let prev_ts = prev_ts.map(Timestamp::try_from).transpose()?;
+                let (document_id, ts, document, prev_ts) = row_to_document(row)?;
                 entries.push(Ok(DocumentLogEntry {
                     ts,
                     id: document_id,
@@ -499,23 +483,7 @@ impl PersistenceReader for SqlitePersistence {
                 let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
                 let mut row_iter = stmt.query_map(params, load_document_row)?;
                 if let Some(row) = row_iter.next() {
-                    let (id, prev_ts, table, json_value, deleted, prev_prev_ts) = row?;
-                    let id = InternalId::try_from(id)?;
-                    let table = TabletId(table.try_into()?);
-                    let prev_ts = Timestamp::try_from(prev_ts)?;
-                    let document_id = InternalDocumentId::new(table, id);
-                    let document = if !deleted {
-                        let json_value = json_value.ok_or_else(|| {
-                            anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, prev_ts)
-                        })?;
-                        let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
-                        let value: ConvexValue = json_value.try_into()?;
-                        let document = ResolvedDocument::from_database(table, value)?;
-                        Some(document)
-                    } else {
-                        None
-                    };
-                    let prev_prev_ts = prev_prev_ts.map(Timestamp::try_from).transpose()?;
+                    let (document_id, prev_ts, document, prev_prev_ts) = row_to_document(row)?;
                     out.insert(
                         (document_id, ts),
                         DocumentLogEntry {
@@ -531,6 +499,44 @@ impl PersistenceReader for SqlitePersistence {
         retention_validator
             .validate_document_snapshot(min_ts)
             .await?;
+        Ok(out)
+    }
+
+    async fn documents_multiget(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
+        // Validate retention for all queried timestamps first
+        let min_ts = ids.iter().map(|(_, ts)| *ts).min();
+
+        let mut out = BTreeMap::new();
+        {
+            let inner = self.inner.lock();
+            for (id, ts) in ids {
+                let mut stmt = inner.connection.prepare(EXACT_REV_QUERY)?;
+                let internal_id = id.internal_id();
+                let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
+                let mut row_iter = stmt.query_map(params, load_document_row)?;
+                if let Some(row) = row_iter.next() {
+                    let (document_id, ts, document, prev_ts) = row_to_document(row)?;
+                    out.insert(
+                        (document_id, ts),
+                        DocumentLogEntry {
+                            ts,
+                            id: document_id,
+                            value: document,
+                            prev_ts,
+                        },
+                    );
+                }
+            }
+        }
+        if let Some(min_ts) = min_ts {
+            retention_validator
+                .validate_document_snapshot(min_ts)
+                .await?;
+        }
         Ok(out)
     }
 
@@ -615,6 +621,32 @@ CREATE TABLE IF NOT EXISTS persistence_globals (
 );
 "#;
 
+fn row_to_document(
+    row: rusqlite::Result<(Vec<u8>, u64, Vec<u8>, Option<String>, bool, Option<u64>)>,
+) -> anyhow::Result<(
+    InternalDocumentId,
+    Timestamp,
+    Option<ResolvedDocument>,
+    Option<Timestamp>,
+)> {
+    let (id, prev_ts, table, json_value, deleted, prev_prev_ts) = row?;
+    let id = InternalId::try_from(id)?;
+    let prev_ts = Timestamp::try_from(prev_ts)?;
+    let table = TabletId(table.try_into()?);
+    let document_id = InternalDocumentId::new(table, id);
+    let document = if !deleted {
+        let json_value = json_value
+            .ok_or_else(|| anyhow::anyhow!("Unexpected NULL json_value at {} {}", id, prev_ts))?;
+        let json_value: serde_json::Value = serde_json::from_str(&json_value)?;
+        let value: ConvexValue = json_value.try_into()?;
+        Some(ResolvedDocument::from_database(table, value)?)
+    } else {
+        None
+    };
+    let prev_prev_ts = prev_prev_ts.map(Timestamp::try_from).transpose()?;
+    Ok((document_id, prev_ts, document, prev_prev_ts))
+}
+
 fn load_docs(range: TimestampRange, order: Order) -> String {
     let order_str = match order {
         Order::Asc => " ORDER BY ts ASC, table_id ASC, id ASC ",
@@ -675,4 +707,14 @@ WHERE
     ts < $3
 ORDER BY ts desc
 LIMIT 1
+"#;
+
+const EXACT_REV_QUERY: &str = r#"
+SELECT id, ts, table_id, json_value, deleted, prev_ts
+FROM documents
+WHERE
+    table_id = $1 AND
+    id = $2 AND
+    ts = $3
+ORDER BY ts ASC, table_id ASC, id ASC
 "#;

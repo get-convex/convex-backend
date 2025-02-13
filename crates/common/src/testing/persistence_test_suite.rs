@@ -220,6 +220,13 @@ macro_rules! run_persistence_test_suite {
         }
 
         #[tokio::test]
+        async fn test_persistence_documents_multiget() -> anyhow::Result<()> {
+            let $db = $create_db;
+            let p = $create_persistence;
+            persistence_test_suite::persistence_documents_multiget(::std::sync::Arc::new(p)).await
+        }
+
+        #[tokio::test]
         async fn test_persistence_previous_revisions() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
@@ -1738,6 +1745,112 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
         all_docs.push(val);
     }
     assert_eq!(&documents[3..], &all_docs);
+
+    Ok(())
+}
+
+pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
+    let mut id_generator = TestIdGenerator::new();
+    let table: TableName = str::parse("table")?;
+    let id1 = id_generator.user_generate(&table);
+    let id2 = id_generator.user_generate(&table);
+    let id3 = id_generator.user_generate(&table);
+
+    let doc = |id: ResolvedDocumentId| {
+        ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("field" => id)).unwrap()
+    };
+
+    // Create three documents at timestamp 1
+    let writes = vec![id1, id2, id3]
+        .iter()
+        .map(|&id| DocumentLogEntry {
+            ts: Timestamp::must(1),
+            id: id.into(),
+            value: Some(doc(id)),
+            prev_ts: None,
+        })
+        .collect();
+    p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
+        .await?;
+
+    // Delete id2 at timestamp 2
+    let writes = vec![DocumentLogEntry {
+        ts: Timestamp::must(2),
+        id: id2.into(),
+        value: None,
+        prev_ts: Some(Timestamp::must(1)),
+    }];
+    p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
+        .await?;
+
+    // Update id1 at timestamp 3
+    let writes = vec![DocumentLogEntry {
+        ts: Timestamp::must(3),
+        id: id1.into(),
+        value: Some(doc(id1)),
+        prev_ts: Some(Timestamp::must(1)),
+    }];
+    p.write(writes, BTreeSet::new(), ConflictStrategy::Error)
+        .await?;
+
+    // Query various timestamps
+    let nonexistent_id = InternalDocumentId::new(
+        TabletId(id_generator.generate_internal()),
+        id_generator.generate_internal(),
+    );
+
+    let queries = btreeset![
+        // Latest revision
+        (id1.into(), Timestamp::must(3)),
+        // Non-latest revision
+        (id1.into(), Timestamp::must(1)),
+        // Tombstone
+        (id2.into(), Timestamp::must(2)),
+        // Nonexistent revision
+        (id2.into(), Timestamp::must(3)),
+        // Unchanged document
+        (id3.into(), Timestamp::must(1)),
+        // Nonexistent document
+        (nonexistent_id, Timestamp::must(1))
+    ];
+
+    // Test with NoopRetentionValidator
+    // Note: Proper retention validation testing will be added in a separate PR
+    let results = p
+        .reader()
+        .documents_multiget(queries, Arc::new(NoopRetentionValidator))
+        .await?;
+
+    // Should get exact matches only
+    assert_eq!(results.len(), 4); // id1@3, id1@1, id2@2, id3@1
+    assert!(results.contains_key(&(id1.into(), Timestamp::must(3))));
+    assert!(results.contains_key(&(id1.into(), Timestamp::must(1))));
+    assert!(results.contains_key(&(id2.into(), Timestamp::must(2))));
+    assert!(results.contains_key(&(id3.into(), Timestamp::must(1))));
+
+    // Verify document contents
+    let id1_at_3 = results.get(&(id1.into(), Timestamp::must(3))).unwrap();
+    let id1_at_1 = results.get(&(id1.into(), Timestamp::must(1))).unwrap();
+
+    // Verify id1@3 has the correct document and prev_ts pointing to id1@1
+    assert_eq!(id1_at_3.value, Some(doc(id1)));
+    assert_eq!(id1_at_3.prev_ts, Some(Timestamp::must(1)));
+
+    // Verify id1@1 has the correct document and no prev_ts (it's the first version)
+    assert_eq!(id1_at_1.value, Some(doc(id1)));
+    assert_eq!(id1_at_1.prev_ts, None);
+
+    // Verify id1@1 and id1@3 are different versions
+    assert_ne!(id1_at_1.prev_ts, id1_at_3.prev_ts);
+
+    // Verify tombstone
+    assert_eq!(
+        results
+            .get(&(id2.into(), Timestamp::must(2)))
+            .unwrap()
+            .value,
+        None
+    );
 
     Ok(())
 }

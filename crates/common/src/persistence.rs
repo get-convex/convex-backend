@@ -359,6 +359,15 @@ pub trait PersistenceReader: Send + Sync + 'static {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>>;
 
+    /// Look up documents at exactly the specified timestamps, returning a map
+    /// where for each `(id, ts)` we have an entry only if a document exists
+    /// at exactly that timestamp.
+    async fn documents_multiget(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>>;
+
     /// Loads documentIds with respective timestamps that match the
     /// index query criteria.
     /// `size_hint` is a best-effort estimate of the number of

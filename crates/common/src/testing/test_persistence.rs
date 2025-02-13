@@ -273,6 +273,31 @@ impl PersistenceReader for TestPersistence {
         Ok(result)
     }
 
+    async fn documents_multiget(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        _retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
+        let inner = self.inner.lock();
+        let result = ids
+            .into_iter()
+            .filter_map(|(id, ts)| {
+                inner.log.get(&(ts, id)).map(|(doc, prev_ts)| {
+                    (
+                        (id, ts),
+                        DocumentLogEntry {
+                            id,
+                            ts,
+                            value: doc.clone(),
+                            prev_ts: *prev_ts,
+                        },
+                    )
+                })
+            })
+            .collect();
+        Ok(result)
+    }
+
     fn index_scan(
         &self,
         index_id: IndexId,

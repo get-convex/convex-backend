@@ -974,6 +974,63 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         .boxed()
     }
 
+    async fn documents_multiget(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        retention_validator: Arc<dyn RetentionValidator>,
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
+        let timer = metrics::documents_multiget_timer(self.read_pool.cluster_name());
+
+        let mut client = self
+            .read_pool
+            .acquire("documents_multiget", &self.db_name)
+            .await?;
+        let ids: Vec<_> = ids.into_iter().collect();
+
+        let mut result = BTreeMap::new();
+        let mut results = vec![];
+
+        for chunk in smart_chunks(&ids) {
+            let mut params = vec![];
+            for (id, ts) in chunk {
+                params.push(internal_id_param(id.table().0).into());
+                params.push(internal_doc_id_param(*id).into());
+                params.push(i64::from(*ts).into());
+            }
+            let result_stream = client
+                .query_stream(exact_rev_chunk(chunk.len()), params, chunk.len())
+                .await?;
+            pin_mut!(result_stream);
+            while let Some(result) = result_stream.try_next().await? {
+                results.push(result);
+            }
+        }
+        for row in results.into_iter() {
+            let (ts, id, maybe_doc, prev_ts) = self.row_to_document(row)?;
+            anyhow::ensure!(result
+                .insert(
+                    (id, ts),
+                    DocumentLogEntry {
+                        ts,
+                        id,
+                        value: maybe_doc,
+                        prev_ts,
+                    }
+                )
+                .is_none());
+        }
+
+        if let Some(min_ts) = ids.iter().map(|(_, ts)| *ts).min() {
+            // Validate retention after finding documents
+            retention_validator
+                .validate_document_snapshot(min_ts)
+                .await?;
+        }
+
+        timer.finish();
+        Ok(result)
+    }
+
     async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
@@ -1641,6 +1698,32 @@ D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id
         queries
     },
 );
+
+static EXACT_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
+    smart_chunk_sizes()
+        .map(|chunk_size| {
+            let select = r#"
+SELECT id, ts, table_id, json_value, deleted, prev_ts
+FROM @db_name.documents FORCE INDEX (PRIMARY)
+WHERE table_id = ? AND id = ? AND ts = ?
+ORDER BY ts ASC, table_id ASC, id ASC
+"#;
+            let queries = (1..=chunk_size)
+                .map(|i| format!("q{i} AS ({select})"))
+                .join(", ");
+            let union_all = (1..=chunk_size)
+                .map(|i| {
+                    format!("(SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q{i})")
+                })
+                .join(" UNION ALL ");
+            (chunk_size, format!("WITH {queries} {union_all}"))
+        })
+        .collect()
+});
+
+fn exact_rev_chunk(chunk_size: usize) -> &'static str {
+    EXACT_REV_CHUNK_QUERIES.get(&chunk_size).unwrap()
+}
 
 static PREV_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
     smart_chunk_sizes()
