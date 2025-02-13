@@ -94,7 +94,7 @@ hosting options for production workloads.
 
 You can run the Convex backend on a hosting provider of your choice. We include
 `fly.toml` files to make it easy to deploy your backend to
-[Fly.io](https://fly.io/). See out dedicated [Fly instructions](./fly/README.md)
+[Fly.io](https://fly.io/). See our dedicated [Fly instructions](./fly/README.md)
 to get started.
 
 ## Running the database on Postgres
