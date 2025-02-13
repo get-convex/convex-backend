@@ -206,7 +206,17 @@ docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=<fly-backend-url>' -p '6791:6791' 'ghc
 
    You should see your tables, functions, logs, etc.
 
-### Deploying your frontend app
+## Deploying your frontend app
 
 See
 [these instructions](https://github.com/get-convex/convex-backend/tree/main/self-hosted/README.md#deploying-your-frontend-app).
+
+## Troubleshooting
+
+- **Performance issues**: The default fly configuration allocates the minimum
+  possible resources to get up and running. If your app has high load, you may
+  see ratelimiting from Fly and poor performance. We recommend increasing your
+  memory and CPU.
+- **Running out of disk space**: The default fly configuration allocates 1GB to
+  the `convex_data` volume where your SQLite database and storage lives. If you
+  run out of space, you can increase the volume size with `fly volume extend`.
