@@ -102,7 +102,7 @@ type MaybeConnectedDeployment = {
   deployment?: ConnectedDeployment;
   deploymentName?: string;
   loading: boolean;
-  errorKind: "None" | "DoesNotExist";
+  errorKind: "None" | "DoesNotExist" | "NotConnected";
 };
 
 export const ConnectedDeploymentContext = createContext<{
@@ -345,6 +345,7 @@ function DeploymentWithConnectionState({
   deployment: ConnectedDeployment;
   children: ReactNode;
 }) {
+  const { isSelfHosted } = useContext(DeploymentInfoContext);
   const { client, deploymentUrl, deploymentName } = deployment;
   const [connectionState, setConnectionState] = useState<
     "Connected" | "Disconnected" | "LocalDeploymentMismatch" | null
@@ -403,9 +404,12 @@ function DeploymentWithConnectionState({
   );
   return (
     <>
-      {isDisconnected && deploymentName.startsWith("local-") ? (
-        <LocalDeploymentDisconnectOverlay />
-      ) : null}
+      {isDisconnected &&
+        (deploymentName.startsWith("local-") ? (
+          <LocalDeploymentDisconnectOverlay />
+        ) : isSelfHosted ? (
+          <SelfHostedDisconnectOverlay deploymentUrl={deploymentUrl} />
+        ) : null)}
       <ConnectedDeploymentContext.Provider value={value}>
         {children}
       </ConnectedDeploymentContext.Provider>
@@ -421,8 +425,8 @@ function LocalDeploymentDisconnectOverlay() {
         backdropFilter: "blur(0.5rem)",
       }}
     >
-      <div className="mt-[-3.5rem]  max-w-[40rem]">
-        <h3>You are disconnected from your local deployment!</h3>
+      <div className="max-w-prose">
+        <h3 className="mb-4">This local deployment is not online.</h3>
         <p className="mb-2">
           Check that <code className="text-sm">npx convex dev</code> is running
           successfully.
@@ -431,6 +435,32 @@ function LocalDeploymentDisconnectOverlay() {
           If you have multiple devices you use with this Convex project, the
           local deployment may be running on a different device, and can only be
           accessed on that machine.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SelfHostedDisconnectOverlay({
+  deploymentUrl,
+}: {
+  deploymentUrl: string;
+}) {
+  return (
+    <div
+      className="absolute z-50 flex h-full w-full items-center justify-center"
+      style={{
+        backdropFilter: "blur(0.5rem)",
+      }}
+    >
+      <div className="max-w-prose">
+        <h3 className="mb-4">This deployment is not online.</h3>
+        <p className="mb-2">
+          Check that your Convex server is running and accessible at{" "}
+          <code className="text-sm">{deploymentUrl}</code>.
+        </p>
+        <p>
+          If you continue to have issues, try restarting your Convex server.
         </p>
       </div>
     </div>

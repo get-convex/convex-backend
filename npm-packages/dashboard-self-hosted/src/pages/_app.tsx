@@ -45,7 +45,7 @@ function App({
       <ThemeProvider attribute="class" disableTransitionOnChange>
         <ThemeConsumer />
         <ToastContainer />
-        <div className="flex h-screen flex-col">
+        <div className="flex h-screen flex-col overflow-y-hidden">
           <DeploymentInfoProvider deploymentUrl={deploymentUrl}>
             <DeploymentApiProvider deploymentOverride="local">
               <WaitForDeploymentApi>
@@ -222,12 +222,12 @@ function DeploymentInfoProvider({
     );
   }
   return (
-    <DeploymentInfoContext.Provider value={finalValue}>
-      <ErrorBoundary>
-        <Header onLogout={() => setAdminKey("")} />
-        {children}
-      </ErrorBoundary>
-    </DeploymentInfoContext.Provider>
+    <div className="relative h-full max-h-full">
+      <Header onLogout={() => setAdminKey("")} />
+      <DeploymentInfoContext.Provider value={finalValue}>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </DeploymentInfoContext.Provider>
+    </div>
   );
 }
 
