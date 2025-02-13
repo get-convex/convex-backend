@@ -8,11 +8,11 @@ locally from here, but we recommend using the images we provide on GHCR.
 Build the backend from scratch by running:
 
 ```sh
-docker build -t self-hosted-backend -f self-hosted/docker-build/Dockerfile.backend .
+docker build -t convex-backend -f self-hosted/docker-build/Dockerfile.backend .
 ```
 
 Build the dashboard from scratch by running:
 
 ```sh
-docker build -t self-hosted-dashboard -f self-hosted/docker-build/Dockerfile.dashboard .
+docker build -t convex-dashboard -f self-hosted/docker-build/Dockerfile.dashboard .
 ```
