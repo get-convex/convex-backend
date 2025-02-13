@@ -150,9 +150,8 @@ to redeploy any existing Convex functions to the new database with
   deployment, set the `REDACT_LOGS_TO_CLIENT` environment variable to `true`.
 - Self-hosted builds contain a beacon to help Convex understand usage of the
   product. The information collected is anonymous and minimal, containing a
-  random identifier plus the versions plus the versions of the backend in use.
-  You may opt out of the beacon by setting the environment variable
-  `DISABLE_BEACON` to `true`.
+  random identifier plus the version of the backend in use. You may opt out of
+  the beacon by setting the environment variable `DISABLE_BEACON` to `true`.
 
 # Deploying your frontend app
 
