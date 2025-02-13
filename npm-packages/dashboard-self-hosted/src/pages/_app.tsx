@@ -30,6 +30,7 @@ import {
   DeploymentInfo,
   DeploymentInfoContext,
 } from "dashboard-common/lib/deploymentContext";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
 
 function App({
   Component,
@@ -144,7 +145,13 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   CloudImport: ({ sourceCloudBackupId }: { sourceCloudBackupId: number }) => (
     <div>{sourceCloudBackupId}</div>
   ),
-  TeamMemberLink: () => <div />,
+  TeamMemberLink: () => (
+    <Tooltip tip="Identity management is not available in self-hosted deployments.">
+      <div className="underline decoration-dotted underline-offset-4">
+        An admin
+      </div>
+    </Tooltip>
+  ),
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <ErrorBoundary>{children}</ErrorBoundary>
   ),
