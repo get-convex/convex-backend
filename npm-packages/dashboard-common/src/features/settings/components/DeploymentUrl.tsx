@@ -74,7 +74,7 @@ export function HttpActionsUrl() {
         <Link
           passHref
           href="https://docs.convex.dev/functions/http-actions"
-          className="text-content-link dark:underline"
+          className="text-content-link"
           target="_blank"
         >
           HTTP Actions

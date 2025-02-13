@@ -51,7 +51,7 @@ export function DeploymentEnvironmentVariables() {
           <p className="flex-1">
             This deployment has different environment variables from the{" "}
             <Link
-              className="text-content-link underline dark:underline"
+              className="text-content-link underline"
               href={projectSettingsURI}
             >
               project defaults.

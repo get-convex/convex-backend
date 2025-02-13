@@ -78,7 +78,7 @@ function Function({ value }: CellProps<CronDatum, string>) {
   const url = useFunctionUrl(value);
   const name = displayName(value);
   return (
-    <div className="truncate text-content-link hover:underline dark:underline">
+    <div className="truncate text-content-link hover:underline">
       <Link href={url} legacyBehavior>
         {name}
       </Link>

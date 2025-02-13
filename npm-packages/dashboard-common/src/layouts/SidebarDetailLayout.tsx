@@ -111,7 +111,7 @@ function NpmConvexServerVersionBanner() {
         <Link
           href="https://www.npmjs.com/package/convex"
           passHref
-          className="text-content-link dark:underline"
+          className="text-content-link"
           target="_blank"
         >
           convex package
@@ -121,7 +121,7 @@ function NpmConvexServerVersionBanner() {
         <Link
           href="https://news.convex.dev/tag/releases/"
           passHref
-          className="text-content-link dark:underline"
+          className="text-content-link"
           target="_blank"
         >
           release notes.

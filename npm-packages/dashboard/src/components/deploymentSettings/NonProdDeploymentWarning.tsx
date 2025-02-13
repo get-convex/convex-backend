@@ -53,7 +53,7 @@ export function NonProdDeploymentWarning({
             <Link
               href={prodUrl}
               passHref
-              className="text-content-link hover:underline dark:underline"
+              className="text-content-link hover:underline"
             >
               Go to this project's <DeploymentType deploymentType="prod" />{" "}
               deployment
@@ -65,7 +65,7 @@ export function NonProdDeploymentWarning({
             <Link
               href={`${projectsURI}/production`}
               passHref
-              className="text-content-link hover:underline dark:underline"
+              className="text-content-link hover:underline"
             >
               Create a <DeploymentType deploymentType="prod" /> deployment
             </Link>{" "}

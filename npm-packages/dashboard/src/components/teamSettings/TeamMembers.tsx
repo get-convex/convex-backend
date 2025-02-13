@@ -45,7 +45,7 @@ export function TeamMembers({ team }: { team: Team }) {
             You've reached the member limit for this team.{" "}
             <Link
               href={`/${team.slug}/settings/billing`}
-              className="items-center text-content-link dark:underline"
+              className="items-center text-content-link"
             >
               Upgrade
             </Link>{" "}
@@ -66,7 +66,7 @@ export function TeamMembers({ team }: { team: Team }) {
             <Link
               href="mailto:support@convex.dev"
               passHref
-              className="items-center text-content-link dark:underline"
+              className="items-center text-content-link"
             >
               <EnvelopeClosedIcon className="mr-0.5 inline" />
               support@convex.dev

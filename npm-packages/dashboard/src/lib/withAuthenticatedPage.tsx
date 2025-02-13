@@ -48,7 +48,7 @@ function withSWRFallback(Page: NextPage) {
             <Link
               href="mailto:support@convex.dev"
               passHref
-              className="items-center text-content-link dark:underline"
+              className="items-center text-content-link"
             >
               support@convex.dev
             </Link>{" "}
@@ -64,7 +64,7 @@ function withSWRFallback(Page: NextPage) {
             <Link
               href="mailto:support@convex.dev"
               passHref
-              className="items-center text-content-link dark:underline"
+              className="items-center text-content-link"
             >
               support@convex.dev
             </Link>

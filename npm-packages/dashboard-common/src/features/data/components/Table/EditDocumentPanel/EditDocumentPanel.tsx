@@ -166,7 +166,7 @@ export function EditDocumentPanel({
                     <Link
                       passHref
                       href={`https://docs.convex.dev/dashboard/deployments/data#${docsSection}`}
-                      className="text-content-link dark:underline"
+                      className="text-content-link"
                       target="_blank"
                     >
                       Learn more

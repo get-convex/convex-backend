@@ -145,7 +145,7 @@ export function Integrations({
             <Link
               href="https://docs.convex.dev/production/integrations/"
               target="_blank"
-              className="text-content-link hover:underline dark:underline"
+              className="text-content-link hover:underline"
             >
               Learn more
             </Link>{" "}

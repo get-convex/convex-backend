@@ -105,7 +105,7 @@ export function DiscordAccounts() {
         Join the{" "}
         <Link
           href="https://convex.dev/community"
-          className="text-content-link dark:underline"
+          className="text-content-link"
           target="_blank"
         >
           Convex Discord server

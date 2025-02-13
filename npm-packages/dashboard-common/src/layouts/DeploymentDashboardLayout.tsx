@@ -165,7 +165,7 @@ function PauseBanner() {
       <Link
         passHref
         href={`${deploymentsURI}/settings/pause-deployment`}
-        className="text-content-link hover:underline dark:underline"
+        className="text-content-link hover:underline"
       >
         settings
       </Link>{" "}

@@ -40,7 +40,7 @@ export function GenerateSchema({
   const widthString = displayedSchema ? "max-w-full" : "w-[32rem]";
   const learnMoreLink = (
     <Link
-      className="inline-flex items-center text-content-link dark:underline"
+      className="inline-flex items-center text-content-link"
       href="https://docs.convex.dev/database/schemas"
       target="_blank"
     >

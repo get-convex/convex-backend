@@ -95,7 +95,7 @@ export function SnapshotExport() {
                 Latest snapshot export failed. Please try again or contact us at{" "}
                 <a
                   href="mailto:support@convex.dev"
-                  className="items-center text-content-link dark:underline"
+                  className="items-center text-content-link"
                 >
                   <EnvelopeClosedIcon className="mr-0.5 inline" />
                   support@convex.dev

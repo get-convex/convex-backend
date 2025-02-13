@@ -57,7 +57,7 @@ export function CustomDomains({
         <span className="font-semibold">only available on paid plans</span>.{" "}
         <Link
           href={`/${team?.slug}/settings/billing`}
-          className="text-content-link dark:underline"
+          className="text-content-link"
         >
           Upgrade to get access.
         </Link>{" "}

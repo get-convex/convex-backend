@@ -199,7 +199,7 @@ export const STREAMING_EXPORT_DESCRIPTION = (
     <Link
       passHref
       href="https://docs.convex.dev/database/import-export/streaming"
-      className="text-content-link dark:underline"
+      className="text-content-link"
       target="_blank"
     >
       Learn more

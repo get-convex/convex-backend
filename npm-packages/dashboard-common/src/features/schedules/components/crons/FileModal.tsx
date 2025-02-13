@@ -26,7 +26,7 @@ export function FileModal({ contents, onClose, displayName }: Props) {
           <Link
             href="https://docs.convex.dev/scheduling/cron-jobs"
             passHref
-            className="text-content-link dark:underline"
+            className="text-content-link"
             target="_blank"
           >
             Learn more

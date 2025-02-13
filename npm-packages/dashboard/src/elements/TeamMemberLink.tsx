@@ -14,7 +14,7 @@ export function TeamMemberLink({
   ) : (
     <Link
       target="_blank"
-      className="font-semibold text-content-link hover:underline dark:underline"
+      className="font-semibold text-content-link hover:underline"
       href={`/t/${team?.slug}/settings/members#${memberId}`}
     >
       {name}

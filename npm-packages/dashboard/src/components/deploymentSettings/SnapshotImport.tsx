@@ -379,7 +379,7 @@ export function SnapshotImport() {
               <Link
                 target="_blank"
                 href="https://docs.convex.dev/database/import-export/import"
-                className="text-content-link hover:underline dark:underline"
+                className="text-content-link hover:underline"
               >
                 Learn more
               </Link>

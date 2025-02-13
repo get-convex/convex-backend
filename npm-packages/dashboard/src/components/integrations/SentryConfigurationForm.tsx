@@ -48,7 +48,7 @@ export function SentryConfigurationForm({
               Sentry Data Source Name (DSN) to route exceptions to.{" "}
               <Link
                 href="https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/"
-                className="text-content-link dark:underline"
+                className="text-content-link"
                 target="_blank"
               >
                 Learn more

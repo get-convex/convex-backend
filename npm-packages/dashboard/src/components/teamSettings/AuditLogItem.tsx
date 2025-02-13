@@ -560,7 +560,7 @@ export function ProjectLink({
   return project ? (
     <Link
       href={`/t/${team.slug}/${project.slug}/settings`}
-      className="font-semibold text-content-link hover:underline dark:underline"
+      className="font-semibold text-content-link hover:underline"
       target="_blank"
     >
       {projectName}
@@ -768,7 +768,7 @@ function DeploymentSettingsLink({
     <>
       <Link
         href={`/t/${team.slug}/${project.slug}/${deployment.name}/settings${urlSuffix}`}
-        className="font-semibold text-content-link hover:underline dark:underline"
+        className="font-semibold text-content-link hover:underline"
         target="_blank"
       >
         {deploymentDisplayName(deployment)}
@@ -795,7 +795,7 @@ function ProjectSettingsLink({
   return (
     <Link
       href={`/t/${team.slug}/${project.slug}/settings`}
-      className="font-semibold text-content-link hover:underline dark:underline"
+      className="font-semibold text-content-link hover:underline"
       target="_blank"
     >
       {project.name}

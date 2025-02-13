@@ -49,7 +49,7 @@ export default withAuthenticatedPage(() => {
                         You've reached the project limit for this team.
                         <Link
                           href={`/${team?.slug}/settings/billing`}
-                          className="items-center text-content-link dark:underline"
+                          className="items-center text-content-link"
                         >
                           Upgrade
                         </Link>

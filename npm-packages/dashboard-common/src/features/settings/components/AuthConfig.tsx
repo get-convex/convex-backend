@@ -17,7 +17,7 @@ export function AuthConfig() {
             <Link
               passHref
               href="https://docs.convex.dev/auth"
-              className="text-content-link dark:underline"
+              className="text-content-link"
               target="_blank"
             >
               Learn more

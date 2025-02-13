@@ -16,7 +16,7 @@ export function UpdateBillingAddressBanner() {
       <Link
         href={`/t/${team?.slug}/settings/billing#billingAddress`}
         passHref
-        className="text-content-link hover:underline dark:underline"
+        className="text-content-link hover:underline"
       >
         update it on the Billing page
       </Link>{" "}

@@ -16,7 +16,7 @@ export function FailedPaymentBanner() {
       <Link
         href={`/t/${team?.slug}/settings/billing#paymentMethod`}
         passHref
-        className="text-content-link hover:underline dark:underline"
+        className="text-content-link hover:underline"
       >
         Update your payment method
       </Link>{" "}

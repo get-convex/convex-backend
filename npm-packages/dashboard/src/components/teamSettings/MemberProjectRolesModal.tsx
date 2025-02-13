@@ -122,7 +122,7 @@ export function MemberProjectRolesModal({
           the same time on the{" "}
           <Link
             href="https://docs.convex.dev/dashboard/projects#project-settings"
-            className="text-content-link hover:underline dark:underline"
+            className="text-content-link hover:underline"
           >
             Project Settings
           </Link>{" "}

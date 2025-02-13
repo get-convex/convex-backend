@@ -167,7 +167,7 @@ function CronJobLogListItem({ cronJobLog }: { cronJobLog: CronJobLog }) {
               : ""}
           </div>
           <LogStatusLine status={cronJobLog.status} />
-          <div className="truncate text-content-link hover:underline dark:underline">
+          <div className="truncate text-content-link hover:underline">
             <Link href={url} legacyBehavior>
               {displayName(cronJobLog.udfPath)}
             </Link>
@@ -244,7 +244,7 @@ export function TopCronJobLogListItem({ cronJob }: { cronJob: CronJob }) {
               {currentlyRunning ? "running" : "scheduled"}
             </span>
           </div>
-          <div className="truncate text-content-link hover:underline dark:underline">
+          <div className="truncate text-content-link hover:underline">
             <Link href={url} legacyBehavior>
               {displayName(cronJob.cronSpec.udfPath)}
             </Link>

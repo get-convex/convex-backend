@@ -135,7 +135,7 @@ export function ProjectAdminFormModal({
           at the same time on the{" "}
           <Link
             href="https://docs.convex.dev/dashboard/teams#members"
-            className="text-content-link hover:underline dark:underline"
+            className="text-content-link hover:underline"
           >
             Team Member Settings
           </Link>{" "}

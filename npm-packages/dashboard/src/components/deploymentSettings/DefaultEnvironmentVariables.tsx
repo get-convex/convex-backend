@@ -42,7 +42,7 @@ export function DefaultEnvironmentVariables() {
           <Link
             passHref
             href="https://docs.convex.dev/production/hosting/environment-variables#project-environment-variable-defaults"
-            className="text-content-link dark:underline"
+            className="text-content-link"
             target="_blank"
           >
             Learn more

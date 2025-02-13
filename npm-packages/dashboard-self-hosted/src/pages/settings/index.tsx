@@ -4,6 +4,7 @@ import {
   HttpActionsUrl,
 } from "dashboard-common/features/settings/components/DeploymentUrl";
 import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
+import Link from "next/link";
 
 export default function Settings() {
   return (
@@ -20,10 +21,18 @@ export default function Settings() {
         <div className="text-content-primary">
           <h4 className="mb-4">Deploy Key</h4>
 
-          <p className="text-content-secondary">
-            Deploy keys are not available for self-hosted deployments. Generate
-            an admin key instead using the generate_admin_key.sh script wherever
-            your backend is running.
+          <p className="max-w-prose text-content-secondary">
+            Deploy keys are not available for self-hosted deployments.{" "}
+          </p>
+          <p className="mt-1 max-w-prose text-content-secondary">
+            Instead, generate an admin key instead using{" "}
+            <Link
+              href="https://github.com/get-convex/convex-backend/tree/main/self-hosted#docker-configuration"
+              className="text-content-link hover:underline"
+            >
+              the script in your repository
+            </Link>
+            .
           </p>
         </div>
       </Sheet>

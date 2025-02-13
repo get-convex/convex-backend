@@ -118,7 +118,7 @@ function LearnMoreLink({ name, link }: { name: string; link: string }) {
       <Link
         passHref
         href={link}
-        className="inline-flex items-center text-content-link dark:underline"
+        className="inline-flex items-center text-content-link"
         target="_blank"
       >
         {name}

@@ -157,7 +157,7 @@ function EmptyHistory() {
           <Link
             passHref
             href="https://docs.convex.dev/dashboard/deployments/history"
-            className="text-content-link dark:underline"
+            className="text-content-link"
             target="_blank"
           >
             Learn more

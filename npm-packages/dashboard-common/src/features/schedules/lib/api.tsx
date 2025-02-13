@@ -36,7 +36,7 @@ export function useCancelAllJobs(): (udfPath?: string) => Promise<void> {
             There are too many functions being scheduled in this deployment.{" "}
             <Link
               href={`${deploymentsURI}/settings/pause-deployment`}
-              className="text-content-link hover:underline dark:underline"
+              className="text-content-link hover:underline"
             >
               Pause your deployment
             </Link>{" "}

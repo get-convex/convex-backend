@@ -59,7 +59,7 @@ export function Backups({
           deployment data.{" "}
           <Link
             href="https://docs.convex.dev/database/backup-restore"
-            className="text-content-link dark:underline"
+            className="text-content-link"
           >
             Learn more
           </Link>
@@ -118,7 +118,7 @@ export function Backups({
                   your last snapshot{" "}
                   <Link
                     href={`/t/${team.slug}/${project?.slug}/${deployment.name}/settings/snapshots`}
-                    className="text-content-link hover:underline dark:underline"
+                    className="text-content-link hover:underline"
                   >
                     here
                   </Link>

@@ -131,7 +131,7 @@ export function PauseDeployment() {
             <Link
               passHref
               href="https://docs.convex.dev/production/pause-deployment"
-              className="text-content-link hover:underline dark:underline"
+              className="text-content-link hover:underline"
               target="_blank"
             >
               Learn more

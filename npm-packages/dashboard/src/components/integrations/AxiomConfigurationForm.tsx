@@ -76,7 +76,7 @@ export function AxiomConfigurationForm({
               Format for events sent in this stream.{" "}
               <Link
                 href="https://docs.convex.dev/production/integrations/log-streams/legacy-event-schema"
-                className="text-content-link dark:underline"
+                className="text-content-link"
                 target="_blank"
               >
                 Learn more
@@ -125,7 +125,7 @@ export function AxiomConfigurationForm({
           Axiom in each log event.{" "}
           <Link
             href="https://axiom.co/docs/send-data/ingest#ingest-api"
-            className="text-content-link dark:underline"
+            className="text-content-link"
             target="_blank"
           >
             Learn more

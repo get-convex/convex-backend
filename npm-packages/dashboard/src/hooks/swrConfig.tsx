@@ -24,7 +24,7 @@ export const swrConfig = (): SWRConfiguration => ({
           Something seems wrong. The Convex team has been alerted. Check{" "}
           <Link
             href="https://status.convex.dev/"
-            className="text-content-link hover:underline dark:underline"
+            className="text-content-link hover:underline"
             target="_blank"
           >
             Convex status

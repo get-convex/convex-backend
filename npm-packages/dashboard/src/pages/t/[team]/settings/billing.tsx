@@ -86,7 +86,7 @@ function Billing({ team }: { team: Team }) {
                       <Link
                         href="https://convex.dev/plans"
                         passHref
-                        className="text-content-link dark:underline"
+                        className="text-content-link"
                         target="_blank"
                       >
                         pricing page
@@ -167,7 +167,7 @@ function BillingErrorFallback({ eventId }: { eventId: string | null }) {
           <Link
             href="mailto:support@convex.dev"
             passHref
-            className="items-center text-content-link dark:underline"
+            className="items-center text-content-link"
           >
             support@convex.dev
           </Link>{" "}

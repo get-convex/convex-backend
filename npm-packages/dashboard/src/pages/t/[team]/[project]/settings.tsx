@@ -84,7 +84,7 @@ function ProjectSettings() {
               <p className="text-sm">
                 View this project's usage and limits on{" "}
                 <Link
-                  className="text-content-link hover:underline dark:underline"
+                  className="text-content-link hover:underline"
                   href={`/t/${team.slug}/settings/usage?projectSlug=${project.slug}`}
                 >
                   this team's usage page
@@ -229,11 +229,7 @@ function ProductionDeployKeys({
   const deployKeyDescription = (
     <p className="mb-2 text-sm text-content-primary">
       This is the key for your{" "}
-      <Link
-        passHref
-        href={prodHref}
-        className="text-content-link dark:underline"
-      >
+      <Link passHref href={prodHref} className="text-content-link">
         <DeploymentType deploymentType="prod" /> deployment
       </Link>
       . Generate and copy this key to configure Convex integrations, such as
@@ -241,7 +237,7 @@ function ProductionDeployKeys({
       <Link
         passHref
         href="https://docs.convex.dev/production/hosting"
-        className="text-content-link dark:underline"
+        className="text-content-link"
         target="_blank"
       >
         hosting provider
@@ -250,7 +246,7 @@ function ProductionDeployKeys({
       <Link
         passHref
         href="https://docs.convex.dev/database/import-export/streaming"
-        className="text-content-link dark:underline"
+        className="text-content-link"
         target="_blank"
       >
         Fivetran or Airbyte
@@ -321,7 +317,7 @@ function PreviewDeployKeys({
       <Link
         passHref
         href="https://docs.convex.dev/production/hosting/preview-deployments"
-        className="text-content-link dark:underline"
+        className="text-content-link"
         target="_blank"
       >
         preview deployments
@@ -330,7 +326,7 @@ function PreviewDeployKeys({
       <Link
         passHref
         href="https://docs.convex.dev/production/hosting"
-        className="text-content-link dark:underline"
+        className="text-content-link"
         target="_blank"
       >
         hosting provider
