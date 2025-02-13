@@ -33,12 +33,12 @@ Steps:
 
    When prompted, hit 'y' to copy the configuration to your new app. Edit the
    location to be in the same region as your database (if you're using
-   [Postgres](../README.md#running-the-database-on-postgres)). Now you have a
-   fly app that is running the Convex backend, where you can deploy your app's
-   Convex functions.
+   [Postgres](https://github.com/get-convex/convex-backend/tree/main/self-hosted/README.md#running-the-database-on-postgres)).
+   Now you have a fly app that is running the Convex backend, where you can
+   deploy your app's Convex functions.
 
    Note the URL of the app that gets printed out, which will be of the form
-   `https://<app-name>.fly.dev`.
+   `https://<app-name>.fly.dev`. We'll call this the `fly-backend-url`.
 
 2. Set the environment variables `CONVEX_CLOUD_ORIGIN` and `CONVEX_SITE_ORIGIN`
    for your backend.
@@ -53,12 +53,10 @@ Steps:
    To save them in the fly.toml file, set them in the `[env]` section.
 
    ```toml
-   ...
    [env]
    TMPDIR = '/convex/data/tmp'
-   CONVEX_CLOUD_ORIGIN = '<fly-app-url>'
-   CONVEX_SITE_ORIGIN = '<fly-app-url>/http'
-   ...
+   CONVEX_CLOUD_ORIGIN = '<fly-backend-url>'
+   CONVEX_SITE_ORIGIN = '<fly-backend-url>/http'
    ```
 
    Then re-deploy to pick up the changes.
@@ -75,16 +73,16 @@ Steps:
    checked in, and they each have their own fly.io-hosted backend.
 
    ```sh
-   fly secrets set CONVEX_CLOUD_ORIGIN="<fly-app-url>" CONVEX_SITE_ORIGIN="<fly-app-url>/http"
+   fly secrets set CONVEX_CLOUD_ORIGIN="<fly-backend-url>" CONVEX_SITE_ORIGIN="<fly-backend-url>/http"
    ```
 
    Now your backend knows its base URL so it can generate URLs that point back
    to itself. This is especially useful for libraries registering webhooks and
    [Convex Auth](https://labs.convex.dev/auth) for generating auth callbacks.
 
-3. Check that the backend is running. Visit the `<fly-app-url>` and you should
-   see a message saying your backend is running! Check the logs with `fly logs`
-   if it's not working.
+3. Check that the backend is running. Visit the `<fly-backend-url>` and you
+   should see a message saying your backend is running! Check the logs with
+   `fly logs` if it's not working.
 
 4. Generate an admin key.
 
@@ -98,7 +96,7 @@ Steps:
    following variables:
 
    ```sh
-   CONVEX_SELF_HOSTED_URL='<fly-app-url>'
+   CONVEX_SELF_HOSTED_URL='<fly-backend-url>'
    CONVEX_SELF_HOSTED_ADMIN_KEY='<your-admin-key>'
    ```
 
@@ -158,14 +156,20 @@ ls
 ```
 
 To store your data in a SQL database of your choice, see
-[these instructions](../README.md#running-the-database-on-postgres-or-mysql).
+[these instructions](https://github.com/get-convex/convex-backend/tree/main/self-hosted/README.md#running-the-database-on-postgres).
 
-## Deploying the dashboard to Fly.io
+## Deploying the dashboard
 
 The dashboard allows you to see logs, read/write data, run functions, and more.
-You can run the dashboard locally (see
-[the self-hosting guide](../README.md#run-the-dashboard)), or also deploy it to
-Fly.io.
+You can run the dashboard locally with Docker, or deploy it to Fly.io.
+
+### Running the dashboard locally
+
+```sh
+docker run -e 'NEXT_PUBLIC_DEPLOYMENT_URL=<fly-backend-url>' -p '6791:6791' 'ghcr.io/get-convex/convex-dashboard:latest'
+```
+
+### Fly.io deployment
 
 1. Go into the dashboard directory where you copied the self-hosted files.
 
@@ -178,7 +182,7 @@ Fly.io.
    **Saving the url in the fly.toml file:**
 
    ```sh
-   fly launch -e NEXT_PUBLIC_DEPLOYMENT_URL="<fly-app-url>"
+   fly launch -e NEXT_PUBLIC_DEPLOYMENT_URL="<fly-backend-url>"
    ```
 
    **Saving the url as a secret:**
@@ -190,7 +194,7 @@ Fly.io.
 
    ```sh
    fly launch
-   fly secrets set NEXT_PUBLIC_DEPLOYMENT_URL="<fly-app-url>"
+   fly secrets set NEXT_PUBLIC_DEPLOYMENT_URL="<fly-backend-url>"
    ```
 
    You should now be able to visit the dashboard at the url output by fly.
@@ -204,4 +208,5 @@ Fly.io.
 
 ### Deploying your frontend app
 
-See [these instructions](../README.md#deploying-your-frontend-app).
+See
+[these instructions](https://github.com/get-convex/convex-backend/tree/main/self-hosted/README.md#deploying-your-frontend-app).

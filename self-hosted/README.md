@@ -39,10 +39,16 @@ database for a production-ready configuration as needed.
 
 First fetch the
 [`docker-compose` file](https://github.com/get-convex/convex-backend/tree/main/self-hosted/docker/docker-compose.yml)
-file then start the backend and dashboard via:
+file:
 
+```sh
+# degit copies the file to your local directory
+npx degit get-convex/convex-backend/self-hosted/docker/docker-compose.yml docker-compose.yml
 ```
-docker compose pull
+
+Then, to start the backend and dashboard:
+
+```sh
 docker compose up
 ```
 
@@ -50,7 +56,7 @@ Once the backend is running you can use it to generate admin keys for the
 dashboard/CLI:
 
 ```sh
-docker exec convex-local-backend ./generate_admin_key.sh
+docker compose exec backend ./generate_admin_key.sh
 ```
 
 Visit the dashboard at `http://localhost:6791`. The backend listens on

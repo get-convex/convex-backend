@@ -16,7 +16,6 @@ services:
       - DATABASE_URL=${DATABASE_URL:-}
       - DISABLE_BEACON=${DISABLE_BEACON:-}
       - REDACT_LOGS_TO_CLIENT=${REDACT_LOGS_TO_CLIENT:-}
-    container_name: convex-local-backend
     healthcheck:
       test: curl -f http://localhost:3210/version
       interval: 5s
