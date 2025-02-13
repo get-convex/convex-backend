@@ -83,23 +83,21 @@ export default function App({ Component, pageProps }: AppProps) {
                   ) : (
                     <MaybeLaunchDarklyProvider>
                       <LaunchDarklyConsumer>
-                        <div className="flex h-screen flex-col overflow-y-hidden">
+                        <div className="flex h-screen flex-col">
                           <DashboardHeader />
                           {inDeployment ? (
-                            <div className="relative flex h-full flex-col">
-                              <DeploymentInfoProvider>
-                                <MaybeDeploymentApiProvider>
-                                  <CurrentDeploymentDashboardLayout>
-                                    <ErrorBoundary
-                                      fallback={Fallback}
-                                      key={pathWithoutQueryString}
-                                    >
-                                      <Component {...pageProps} />
-                                    </ErrorBoundary>
-                                  </CurrentDeploymentDashboardLayout>
-                                </MaybeDeploymentApiProvider>
-                              </DeploymentInfoProvider>
-                            </div>
+                            <DeploymentInfoProvider>
+                              <MaybeDeploymentApiProvider>
+                                <CurrentDeploymentDashboardLayout>
+                                  <ErrorBoundary
+                                    fallback={Fallback}
+                                    key={pathWithoutQueryString}
+                                  >
+                                    <Component {...pageProps} />
+                                  </ErrorBoundary>
+                                </CurrentDeploymentDashboardLayout>
+                              </MaybeDeploymentApiProvider>
+                            </DeploymentInfoProvider>
                           ) : (
                             <DashboardLayout>
                               <ErrorBoundary
