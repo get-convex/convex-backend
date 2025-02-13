@@ -7,7 +7,7 @@ app = 'convex-dashboard'
 primary_region = 'iad'
 
 [build]
-image = 'ghcr.io/get-convex/self-hosted-dashboard:24d485817079b0ab7322b319cb019f1a6cce1e35'
+image = 'ghcr.io/get-convex/convex-dashboard:4499dd4fd7f2148687a7774599c613d052950f46'
 
 [[services]]
 protocol = 'tcp'
