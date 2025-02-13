@@ -5,7 +5,7 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@microsoft/rush": "^5.125.1",
+    "@microsoft/rush": "^5.148.0",
     "@rushstack/lockfile-explorer": "^1.7.16",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
@@ -20,9 +20,6 @@
     "prettier": "3.4.2"
   },
   "overrides": {
-    "@microsoft/rush": {
-      "@rushstack/heft-config-file": "0.15.8"
-    },
     "path-to-regexp@^0.1.10": "0.1.12"
   }
 }
