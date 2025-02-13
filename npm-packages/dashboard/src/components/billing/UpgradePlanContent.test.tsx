@@ -15,9 +15,7 @@ import {
   UpgradePlanContentProps,
 } from "./UpgradePlanContent";
 
-jest.mock("api/profile", () => {});
 jest.mock("api/billing", () => {});
-jest.mock("next/router", () => jest.requireActual("next-router-mock"));
 
 describe("UpgradePlanContent", () => {
   const mockPlan: PlanResponse = {

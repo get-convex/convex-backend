@@ -47,13 +47,6 @@ function encodeParams(params: Record<string, string | number | null>) {
   ).toString();
 }
 
-export function useCurrentBillingPeriod(teamId: number) {
-  const { data } = useSWR<{ start: string; end: string }>(
-    `/api/dashboard/teams/${teamId}/usage/current_billing_period`,
-  );
-  return data;
-}
-
 export type DocumentStorage = {
   document_and_index_storage: number;
   vector_storage: number | undefined;

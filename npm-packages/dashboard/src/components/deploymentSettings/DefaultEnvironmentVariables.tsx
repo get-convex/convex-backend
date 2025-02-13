@@ -3,7 +3,7 @@ import { Sheet } from "dashboard-common/elements/Sheet";
 import {
   useProjectEnvironmentVariables,
   useUpdateProjectEnvVars,
-} from "hooks/api";
+} from "api/environmentVariables";
 import { useCurrentProject } from "api/projects";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { DeploymentType as DeploymentTypeType } from "generatedApi";

@@ -2,7 +2,7 @@ import { Button } from "dashboard-common/elements/Button";
 import { endOfDay } from "date-fns";
 import { LoadingTransition } from "dashboard-common/elements/Loading";
 import { useDateFilters } from "dashboard-common/elements/DateRangePicker";
-import { useTeamAuditLog } from "hooks/api";
+import { useTeamAuditLog } from "hooks/useTeamAuditLog";
 import { useProjects } from "api/projects";
 import { useTeamMembers } from "api/teams";
 import { AuditLogAction, Team } from "generatedApi";

@@ -13,7 +13,7 @@ import { useInitialData } from "hooks/useServerSideData";
 import { useRouterProgress } from "hooks/useRouterProgress";
 import Head from "next/head";
 import { RefreshSession } from "components/login/RefreshSession";
-import { useDashboardVersion } from "hooks/api";
+import { useDashboardVersion } from "hooks/useDashboardVersion";
 import { Favicon } from "dashboard-common/elements/Favicon";
 import { ThemeConsumer } from "dashboard-common/elements/ThemeConsumer";
 import { ToastContainer } from "dashboard-common/elements/ToastContainer";

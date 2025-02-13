@@ -91,3 +91,13 @@ export function useDeploymentById(teamId: number, deploymentId?: number) {
 
   return deployment;
 }
+
+export function useDeletePreviewDeployment(projectId?: number) {
+  return useBBMutation({
+    path: "/projects/{project_id}/delete_preview_deployment",
+    pathParams: { project_id: projectId?.toString() || "" },
+    mutateKey: `/projects/{project_id}/instances`,
+    mutatePathParams: { project_id: projectId?.toString() || "" },
+    successToast: "Deleted preview deployment.",
+  });
+}

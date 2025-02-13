@@ -7,7 +7,6 @@ import { sidebarLinkClassNames } from "dashboard-common/elements/Sidebar";
 import {
   AggregatedFunctionMetrics,
   DateRange,
-  useCurrentBillingPeriod,
   useUsageTeamActionComputeDaily,
   useUsageTeamMetricsByFunction,
   useUsageTeamDailyCallsByTag,
@@ -34,6 +33,7 @@ import classNames from "classnames";
 import { Period } from "elements/UsagePeriodSelector";
 import { useRouter } from "next/router";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
+import { useCurrentBillingPeriod } from "api/usage";
 import { formatQuantity } from "./lib/formatQuantity";
 import {
   DATABASE_STORAGE_CATEGORIES,

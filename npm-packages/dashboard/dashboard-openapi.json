@@ -9,6 +9,34 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/authorize": {
+      "post": {
+        "summary": "This endpoint is a placeholder for generating our own access tokens.\nRight now, it is a no-op for the token.\nVersion 1 of the token is the Auth0 access token",
+        "operationId": "authorize_device",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/cloud_backups/{cloud_backup_id}": {
       "get": {
         "operationId": "get_cloud_backup",
@@ -788,9 +816,118 @@
         }
       }
     },
+    "/projects/{project_id}/delete_preview_deployment": {
+      "post": {
+        "operationId": "deactivate_preview_deployment",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeactivatePreviewDeploymentArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/environment_variables/list": {
+      "get": {
+        "operationId": "list_environment_variables",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListEnvVariableResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/environment_variables/update_batch": {
+      "post": {
+        "operationId": "update_environment_variables",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEnvironmentVariables"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/projects/{project_id}/instances": {
       "get": {
         "operationId": "list_deployments_for_project",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeploymentResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/projects/{project_id}/preview_deployments": {
+      "get": {
+        "operationId": "list_preview_deployments_for_project",
         "parameters": [
           {
             "name": "project_id",
@@ -1741,6 +1878,62 @@
         }
       }
     },
+    "/teams/{team_id}/usage/current_billing_period": {
+      "get": {
+        "operationId": "get_team_current_billing_period",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamCurrentBillingPeriodResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team_id}/usage/query": {
+      "get": {
+        "operationId": "query_usage_databricks",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/usage/team_usage_state": {
       "get": {
         "operationId": "get_team_usage_state",
@@ -2005,6 +2198,68 @@
           }
         }
       },
+      "AuthorizeArgs": {
+        "type": "object",
+        "required": [
+          "authnToken"
+        ],
+        "properties": {
+          "authnToken": {
+            "type": "string",
+            "description": "Authentication token is expected to be the access token from auth0"
+          },
+          "deploymentId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeploymentId"
+              }
+            ]
+          },
+          "deviceName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeviceName"
+              }
+            ]
+          },
+          "permissions": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "projectId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProjectId"
+              }
+            ]
+          },
+          "teamId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamId"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
       "AuthorizeDiscordAccountRequest": {
         "type": "object",
         "required": [
@@ -2020,6 +2275,18 @@
           }
         },
         "additionalProperties": false
+      },
+      "AuthorizeResponse": {
+        "type": "object",
+        "required": [
+          "accessToken"
+        ],
+        "properties": {
+          "accessToken": {
+            "$ref": "#/components/schemas/SerializedAccessToken",
+            "description": "a serialized access token that the CLI will send back up"
+          }
+        }
       },
       "BillingContactResponse": {
         "type": "object",
@@ -2239,6 +2506,17 @@
         "properties": {
           "name": {
             "$ref": "#/components/schemas/ProposedTeamName"
+          }
+        }
+      },
+      "DeactivatePreviewDeploymentArgs": {
+        "type": "object",
+        "required": [
+          "identifier"
+        ],
+        "properties": {
+          "identifier": {
+            "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
           }
         }
       },
@@ -2485,6 +2763,43 @@
           }
         }
       },
+      "EnvVariableConfigJson": {
+        "type": "object",
+        "required": [
+          "name",
+          "value",
+          "deploymentTypes"
+        ],
+        "properties": {
+          "deploymentTypes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentType"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "EnvironmentVariableJson": {
+        "type": "object",
+        "required": [
+          "name",
+          "value"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "GetOptInsResponse": {
         "type": "object",
         "required": [
@@ -2622,6 +2937,20 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/InvoiceResponse"
+            }
+          }
+        }
+      },
+      "ListEnvVariableResponse": {
+        "type": "object",
+        "required": [
+          "configs"
+        ],
+        "properties": {
+          "configs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvVariableConfigJson"
             }
           }
         }
@@ -3201,6 +3530,21 @@
           }
         }
       },
+      "TeamCurrentBillingPeriodResponse": {
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "properties": {
+          "end": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string"
+          }
+        }
+      },
       "TeamEntitlementsResponse": {
         "type": "object",
         "required": [
@@ -3402,6 +3746,45 @@
           }
         },
         "additionalProperties": false
+      },
+      "UpdateEnvironmentVariable": {
+        "type": "object",
+        "properties": {
+          "newConfig": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EnvVariableConfigJson"
+              }
+            ]
+          },
+          "oldVariable": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/EnvironmentVariableJson"
+              }
+            ]
+          }
+        }
+      },
+      "UpdateEnvironmentVariables": {
+        "type": "object",
+        "required": [
+          "changes"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UpdateEnvironmentVariable"
+            }
+          }
+        }
       },
       "UpdateMemberRoleArgs": {
         "type": "object",

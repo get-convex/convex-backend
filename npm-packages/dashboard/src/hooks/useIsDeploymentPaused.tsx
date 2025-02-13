@@ -1,7 +1,7 @@
 import udfs from "dashboard-common/udfs";
 import { useQuery } from "convex/react";
 import { useCurrentTeam } from "api/teams";
-import { useTeamUsageState } from "./useTeamUsageState";
+import { useTeamUsageState } from "api/usage";
 
 export function useIsDeploymentPaused() {
   const currentTeam = useCurrentTeam();

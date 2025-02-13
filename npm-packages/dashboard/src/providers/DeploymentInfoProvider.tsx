@@ -18,11 +18,11 @@ import { useIsDeploymentPaused } from "hooks/useIsDeploymentPaused";
 import { CloudImport } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { useLogDeploymentEvent } from "hooks/deploymentApi";
+import { useAccessToken } from "hooks/useServerSideData";
 import { Fallback } from "pages/500";
-import { useCurrentProject } from "../api/projects";
-import { useTeamUsageState } from "../hooks/useTeamUsageState";
-import { useProjectEnvironmentVariables } from "../hooks/api";
-import { useAccessToken } from "../hooks/useServerSideData";
+import { useTeamUsageState } from "api/usage";
+import { useProjectEnvironmentVariables } from "api/environmentVariables";
+import { useCurrentProject } from "api/projects";
 
 // A silly, standard hack to dodge warnings about useLayoutEffect on the server.
 const useIsomorphicLayoutEffect =

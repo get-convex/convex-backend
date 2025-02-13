@@ -6,7 +6,7 @@ import {
 import classNames from "classnames";
 import { Button, buttonClasses } from "dashboard-common/elements/Button";
 import { useUnpauseTeam } from "api/teams";
-import { useTeamUsageState } from "hooks/useTeamUsageState";
+import { useTeamUsageState } from "api/usage";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Team } from "generatedApi";

@@ -4,6 +4,25 @@
  */
 
 export interface paths {
+    "/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** This endpoint is a placeholder for generating our own access tokens.
+         *     Right now, it is a no-op for the token.
+         *     Version 1 of the token is the Auth0 access token */
+        post: operations["authorize_device"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cloud_backups/{cloud_backup_id}": {
         parameters: {
             query?: never;
@@ -516,6 +535,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/delete_preview_deployment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deactivate_preview_deployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/environment_variables/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_environment_variables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/environment_variables/update_batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["update_environment_variables"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/instances": {
         parameters: {
             query?: never;
@@ -524,6 +591,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list_deployments_for_project"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{project_id}/preview_deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_preview_deployments_for_project"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1060,6 +1143,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/usage/current_billing_period": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_team_current_billing_period"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_id}/usage/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["query_usage_databricks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/usage/team_usage_state": {
         parameters: {
             query?: never;
@@ -1141,9 +1256,22 @@ export interface components {
             cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
         };
+        AuthorizeArgs: {
+            /** @description Authentication token is expected to be the access token from auth0 */
+            authnToken: string;
+            deploymentId?: null | components["schemas"]["DeploymentId"];
+            deviceName?: null | components["schemas"]["DeviceName"];
+            permissions?: string[] | null;
+            projectId?: null | components["schemas"]["ProjectId"];
+            teamId?: null | components["schemas"]["TeamId"];
+        };
         AuthorizeDiscordAccountRequest: {
             authorizationCode: string;
             csrfToken: string;
+        };
+        AuthorizeResponse: {
+            /** @description a serialized access token that the CLI will send back up */
+            accessToken: components["schemas"]["SerializedAccessToken"];
         };
         BillingContactResponse: {
             email: string;
@@ -1198,6 +1326,9 @@ export interface components {
         };
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
+        };
+        DeactivatePreviewDeploymentArgs: {
+            identifier: components["schemas"]["PreviewDeploymentIdentifier"];
         };
         /** Format: int64 */
         DeploymentId: number;
@@ -1260,6 +1391,15 @@ export interface components {
             planId: string;
             requiresPaymentMethod: boolean;
         };
+        EnvVariableConfigJson: {
+            deploymentTypes: components["schemas"]["DeploymentType"][];
+            name: string;
+            value: string;
+        };
+        EnvironmentVariableJson: {
+            name: string;
+            value: string;
+        };
         GetOptInsResponse: {
             optInsToAccept: components["schemas"]["OptInToAccept"][];
         };
@@ -1298,6 +1438,9 @@ export interface components {
         };
         InvoicesResponse: {
             invoices: components["schemas"]["InvoiceResponse"][];
+        };
+        ListEnvVariableResponse: {
+            configs: components["schemas"]["EnvVariableConfigJson"][];
         };
         ListVanityDomainsResponse: {
             domains: components["schemas"]["VanityDomainResponse"][];
@@ -1465,6 +1608,10 @@ export interface components {
             permissions?: string[] | null;
             serializedAccessToken: components["schemas"]["SerializedAccessToken"];
         };
+        TeamCurrentBillingPeriodResponse: {
+            end: string;
+            start: string;
+        };
         TeamEntitlementsResponse: {
             auditLogsEnabled: boolean;
             customDomainsEnabled: boolean;
@@ -1523,6 +1670,13 @@ export interface components {
             email: string;
             name: string;
         };
+        UpdateEnvironmentVariable: {
+            newConfig?: null | components["schemas"]["EnvVariableConfigJson"];
+            oldVariable?: null | components["schemas"]["EnvironmentVariableJson"];
+        };
+        UpdateEnvironmentVariables: {
+            changes: components["schemas"]["UpdateEnvironmentVariable"][];
+        };
         UpdateMemberRoleArgs: {
             memberId: components["schemas"]["MemberId"];
             role: components["schemas"]["Role"];
@@ -1578,7 +1732,9 @@ export type AuditLogAction = components['schemas']['AuditLogAction'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
 export type AuditLogResponse = components['schemas']['AuditLogResponse'];
+export type AuthorizeArgs = components['schemas']['AuthorizeArgs'];
 export type AuthorizeDiscordAccountRequest = components['schemas']['AuthorizeDiscordAccountRequest'];
+export type AuthorizeResponse = components['schemas']['AuthorizeResponse'];
 export type BillingContactResponse = components['schemas']['BillingContactResponse'];
 export type CancelInvitationArgs = components['schemas']['CancelInvitationArgs'];
 export type CloudBackupId = components['schemas']['CloudBackupId'];
@@ -1589,6 +1745,7 @@ export type CreateProjectArgs = components['schemas']['CreateProjectArgs'];
 export type CreateProjectResponse = components['schemas']['CreateProjectResponse'];
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
+export type DeactivatePreviewDeploymentArgs = components['schemas']['DeactivatePreviewDeploymentArgs'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
@@ -1599,12 +1756,15 @@ export type DiscordAccountsResponse = components['schemas']['DiscordAccountsResp
 export type DiscordId = components['schemas']['DiscordId'];
 export type DiscordLoginUrlResponse = components['schemas']['DiscordLoginUrlResponse'];
 export type DiscountedPlanResponse = components['schemas']['DiscountedPlanResponse'];
+export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson'];
+export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
 export type InvoiceResponse = components['schemas']['InvoiceResponse'];
 export type InvoicesResponse = components['schemas']['InvoicesResponse'];
+export type ListEnvVariableResponse = components['schemas']['ListEnvVariableResponse'];
 export type ListVanityDomainsResponse = components['schemas']['ListVanityDomainsResponse'];
 export type MemberDataResponse = components['schemas']['MemberDataResponse'];
 export type MemberEmailId = components['schemas']['MemberEmailId'];
@@ -1641,6 +1801,7 @@ export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs']
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
 export type Team = components['schemas']['Team'];
 export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResponse'];
+export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
 export type TeamEntitlementsResponse = components['schemas']['TeamEntitlementsResponse'];
 export type TeamId = components['schemas']['TeamId'];
 export type TeamMemberResponse = components['schemas']['TeamMemberResponse'];
@@ -1651,6 +1812,8 @@ export type TransferProjectArgs = components['schemas']['TransferProjectArgs'];
 export type UnlinkDiscordAccountRequest = components['schemas']['UnlinkDiscordAccountRequest'];
 export type UpdateBillingAddressArgs = components['schemas']['UpdateBillingAddressArgs'];
 export type UpdateBillingContactArgs = components['schemas']['UpdateBillingContactArgs'];
+export type UpdateEnvironmentVariable = components['schemas']['UpdateEnvironmentVariable'];
+export type UpdateEnvironmentVariables = components['schemas']['UpdateEnvironmentVariables'];
 export type UpdateMemberRoleArgs = components['schemas']['UpdateMemberRoleArgs'];
 export type UpdatePaymentMethodArgs = components['schemas']['UpdatePaymentMethodArgs'];
 export type UpdateProfileNameArgs = components['schemas']['UpdateProfileNameArgs'];
@@ -1663,6 +1826,29 @@ export type VanityDomainRequestArgs = components['schemas']['VanityDomainRequest
 export type VanityDomainResponse = components['schemas']['VanityDomainResponse'];
 export type $defs = Record<string, never>;
 export interface operations {
+    authorize_device: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorizeArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizeResponse"];
+                };
+            };
+        };
+    };
     get_cloud_backup: {
         parameters: {
             query?: never;
@@ -2367,7 +2553,95 @@ export interface operations {
             };
         };
     };
+    deactivate_preview_deployment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeactivatePreviewDeploymentArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_environment_variables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEnvVariableResponse"];
+                };
+            };
+        };
+    };
+    update_environment_variables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateEnvironmentVariables"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_deployments_for_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentResponse"][];
+                };
+            };
+        };
+    };
+    list_preview_deployments_for_project: {
         parameters: {
             query?: never;
             header?: never;
@@ -3143,6 +3417,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_team_current_billing_period: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamCurrentBillingPeriodResponse"];
+                };
+            };
+        };
+    };
+    query_usage_databricks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[][];
+                };
             };
         };
     };

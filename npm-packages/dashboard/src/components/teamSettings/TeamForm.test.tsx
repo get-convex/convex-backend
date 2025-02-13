@@ -4,9 +4,6 @@ import { Team } from "generatedApi";
 import userEvent from "@testing-library/user-event";
 import { TeamForm, TeamFormProps } from "./TeamForm";
 
-jest.mock("../../hooks/api");
-jest.mock("../../api/roles");
-
 const locationMock = jest.fn();
 
 // Mock out location to prevent

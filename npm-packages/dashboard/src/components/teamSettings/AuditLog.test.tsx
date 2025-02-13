@@ -23,7 +23,7 @@ jest.mock("api/projects", () => ({
   useProjects: () => [],
 }));
 
-jest.mock("../../hooks/api", () => ({
+jest.mock("../../hooks/useTeamAuditLog", () => ({
   useTeamAuditLog: (teamId: number, args: any) => useTeamAuditLog(teamId, args),
 }));
 
