@@ -50,6 +50,7 @@ use crate::{
         StartIncluded,
     },
     persistence::{
+        fake_retention_validator::FakeRetentionValidator,
         ConflictStrategy,
         DocumentLogEntry,
         LatestDocument,
@@ -1818,7 +1819,7 @@ pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow
     // Note: Proper retention validation testing will be added in a separate PR
     let results = p
         .reader()
-        .documents_multiget(queries, Arc::new(NoopRetentionValidator))
+        .documents_multiget(queries.clone(), Arc::new(NoopRetentionValidator))
         .await?;
 
     // Should get exact matches only
@@ -1851,6 +1852,29 @@ pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow
             .value,
         None
     );
+
+    let retention_validator = FakeRetentionValidator::new(Timestamp::must(4), Timestamp::must(0));
+    // Min ts queried is 1, and min_document_ts is 0, so it's a valid query.
+    p.reader()
+        .documents_multiget(queries.clone(), Arc::new(retention_validator))
+        .await?;
+
+    let retention_validator = FakeRetentionValidator::new(Timestamp::must(4), Timestamp::must(4));
+    // Min ts queried is 1, and min_document_ts is 4, so it's an invalid query.
+    assert!(p
+        .reader()
+        .documents_multiget(queries, Arc::new(retention_validator))
+        .await
+        .is_err());
+    // Errors even if there is no document at the timestamp.
+    assert!(p
+        .reader()
+        .documents_multiget(
+            btreeset![(nonexistent_id, Timestamp::must(1))],
+            Arc::new(retention_validator)
+        )
+        .await
+        .is_err());
 
     Ok(())
 }
@@ -1923,7 +1947,7 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
     ];
     assert_eq!(
         reader
-            .previous_revisions(queries, Arc::new(NoopRetentionValidator))
+            .previous_revisions(queries.clone(), Arc::new(NoopRetentionValidator))
             .await?,
         expected
             .into_iter()
@@ -1938,6 +1962,26 @@ pub async fn persistence_previous_revisions<P: Persistence>(p: Arc<P>) -> anyhow
             ))
             .collect::<BTreeMap<_, _>>(),
     );
+
+    let retention_validator = FakeRetentionValidator::new(Timestamp::must(2), Timestamp::must(0));
+    // Queries are at ts=3, so with min timestamps <3, it's a valid query.
+    reader
+        .previous_revisions(queries.clone(), Arc::new(retention_validator))
+        .await?;
+
+    let retention_validator = FakeRetentionValidator::new(Timestamp::must(4), Timestamp::must(1));
+    // With min_index_ts=4, the query is outside index retention but still within
+    // document retention.
+    reader
+        .previous_revisions(queries.clone(), Arc::new(retention_validator))
+        .await?;
+
+    let retention_validator = FakeRetentionValidator::new(Timestamp::must(5), Timestamp::must(5));
+    // With min_index_ts=4, the query is outside both index and document retention.
+    assert!(reader
+        .previous_revisions(queries, Arc::new(retention_validator))
+        .await
+        .is_err());
 
     Ok(())
 }

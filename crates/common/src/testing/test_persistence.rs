@@ -246,55 +246,73 @@ impl PersistenceReader for TestPersistence {
     async fn previous_revisions(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
-        _retention_validator: Arc<dyn RetentionValidator>,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        let inner = self.inner.lock();
-        let result = ids
-            .into_iter()
-            .filter_map(|(id, ts)| {
-                inner
-                    .log
-                    .iter()
-                    .filter(|((log_ts, log_id), _)| log_id == &id && log_ts < &ts)
-                    .max_by_key(|(log_ts, _)| *log_ts)
-                    .map(|((log_ts, _), (doc, prev_ts))| {
-                        (
-                            (id, ts),
-                            DocumentLogEntry {
-                                id,
-                                ts: *log_ts,
-                                value: doc.clone(),
-                                prev_ts: *prev_ts,
-                            },
-                        )
-                    })
-            })
-            .collect();
+        let min_ts = ids.iter().map(|(_, ts)| *ts).min();
+        let result = {
+            let inner = self.inner.lock();
+            let result = ids
+                .into_iter()
+                .filter_map(|(id, ts)| {
+                    inner
+                        .log
+                        .iter()
+                        .filter(|((log_ts, log_id), _)| log_id == &id && log_ts < &ts)
+                        .max_by_key(|(log_ts, _)| *log_ts)
+                        .map(|((log_ts, _), (doc, prev_ts))| {
+                            (
+                                (id, ts),
+                                DocumentLogEntry {
+                                    id,
+                                    ts: *log_ts,
+                                    value: doc.clone(),
+                                    prev_ts: *prev_ts,
+                                },
+                            )
+                        })
+                })
+                .collect();
+            result
+        };
+        if let Some(min_ts) = min_ts {
+            retention_validator
+                .validate_document_snapshot(min_ts)
+                .await?;
+        }
         Ok(result)
     }
 
     async fn documents_multiget(
         &self,
         ids: BTreeSet<(InternalDocumentId, Timestamp)>,
-        _retention_validator: Arc<dyn RetentionValidator>,
+        retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        let inner = self.inner.lock();
-        let result = ids
-            .into_iter()
-            .filter_map(|(id, ts)| {
-                inner.log.get(&(ts, id)).map(|(doc, prev_ts)| {
-                    (
-                        (id, ts),
-                        DocumentLogEntry {
-                            id,
-                            ts,
-                            value: doc.clone(),
-                            prev_ts: *prev_ts,
-                        },
-                    )
+        let min_ts = ids.iter().map(|(_, ts)| *ts).min();
+        let result = {
+            let inner = self.inner.lock();
+            let result = ids
+                .into_iter()
+                .filter_map(|(id, ts)| {
+                    inner.log.get(&(ts, id)).map(|(doc, prev_ts)| {
+                        (
+                            (id, ts),
+                            DocumentLogEntry {
+                                id,
+                                ts,
+                                value: doc.clone(),
+                                prev_ts: *prev_ts,
+                            },
+                        )
+                    })
                 })
-            })
-            .collect();
+                .collect();
+            result
+        };
+        if let Some(min_ts) = min_ts {
+            retention_validator
+                .validate_document_snapshot(min_ts)
+                .await?;
+        }
         Ok(result)
     }
 

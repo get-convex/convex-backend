@@ -720,6 +720,63 @@ impl RetentionValidator for NoopRetentionValidator {
     }
 }
 
+#[cfg(any(test, feature = "testing"))]
+pub mod fake_retention_validator {
+    use async_trait::async_trait;
+    use sync_types::Timestamp;
+
+    use super::RetentionValidator;
+    use crate::types::{
+        unchecked_repeatable_ts,
+        RepeatableTimestamp,
+    };
+
+    #[derive(Clone, Copy)]
+    pub struct FakeRetentionValidator {
+        pub min_index_ts: RepeatableTimestamp,
+        pub min_document_ts: RepeatableTimestamp,
+    }
+
+    impl FakeRetentionValidator {
+        pub fn new(min_index_ts: Timestamp, min_document_ts: Timestamp) -> Self {
+            Self {
+                min_index_ts: unchecked_repeatable_ts(min_index_ts),
+                min_document_ts: unchecked_repeatable_ts(min_document_ts),
+            }
+        }
+    }
+
+    #[async_trait]
+    impl RetentionValidator for FakeRetentionValidator {
+        fn optimistic_validate_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
+            anyhow::ensure!(ts >= self.min_index_ts);
+            Ok(())
+        }
+
+        async fn validate_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
+            anyhow::ensure!(ts >= self.min_index_ts);
+            Ok(())
+        }
+
+        async fn validate_document_snapshot(&self, ts: Timestamp) -> anyhow::Result<()> {
+            anyhow::ensure!(ts >= self.min_document_ts);
+            Ok(())
+        }
+
+        async fn min_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
+            Ok(self.min_index_ts)
+        }
+
+        async fn min_document_snapshot_ts(&self) -> anyhow::Result<RepeatableTimestamp> {
+            Ok(self.min_document_ts)
+        }
+
+        fn fail_if_falling_behind(&self) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PersistenceTableSize {
     /// The name of the underlying persistence table
