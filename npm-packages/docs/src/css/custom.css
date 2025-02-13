@@ -281,6 +281,7 @@ article .markdown a {
     color var(--ifm-transition-fast) var(--ifm-transition-timing-default),
     text-decoration-color var(--ifm-transition-fast)
       var(--ifm-transition-timing-default);
+  text-underline-position: under;
   text-decoration-thickness: 1px;
 }
 
@@ -318,37 +319,6 @@ article code {
   padding: 0.5rem var(--ifm-pre-padding);
   background-color: var(--convex-code-block-header-background-color);
 }
-
-/* START: Youtube video list */
-.youtube-list {
-  display: grid;
-  gap: 1.25rem;
-  margin: 0 0 2em;
-}
-
-.youtube-list .youtube-item h2 {
-  font-family: var(--ifm-font-family-base);
-  font-weight: 600;
-  font-size: 1rem;
-  letter-spacing: normal;
-
-  height: 2em;
-  line-height: 1.5em;
-}
-
-.youtube-list .youtube-video {
-  aspect-ratio: 16 / 9;
-  width: 100%;
-  border-radius: var(--ifm-code-border-radius);
-}
-
-/* This magic number 743 is the size of the article div container as rendered */
-@container (width > 743px) {
-  .youtube-list {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-/* END: YouTube video list */
 
 /* START: Custom cards implementation */
 .cards {
@@ -399,6 +369,8 @@ a.card {
   gap: 1rem;
   align-items: center;
   max-width: 550px;
+  text-decoration: none;
+  background-color: var(--ifm-background-color);
 }
 
 .qs-cards a.card {
@@ -415,8 +387,9 @@ a.card svg {
 
 a.card:hover {
   box-shadow: none;
-  border-color: var(--ifm-font-color-base);
+  background-color: var(--ifm-menu-color-background-active);
   color: var(--ifm-font-color-base);
+  text-decoration: none;
 }
 
 a.card h2 {
@@ -1281,4 +1254,107 @@ html[data-theme="dark"] .StackPosts-title-image--dark {
 
 .StackPosts-post-content-author-name {
   font-size: 0.875rem;
+}
+
+/* START: Large cards implementation */
+.large-cards {
+  display: grid;
+  gap: 1.25rem;
+  margin: 2rem 0 3rem;
+}
+
+@container (width > 743px) {
+  .large-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+a.large-card {
+  box-shadow: none;
+  padding: 1.5rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 100%;
+  min-height: 150px;
+  text-decoration: none;
+  background-color: var(--ifm-background-color);
+}
+
+a.large-card:hover {
+  box-shadow: none;
+  background-color: var(--ifm-menu-color-background-active);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+a.large-card h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+a.large-card p {
+  font-size: 1rem;
+  margin: 0;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.5;
+}
+
+/* END: Large cards implementation */
+
+/* Video link cards */
+.video-cards {
+  display: grid;
+  gap: 1.25rem;
+  margin: 2rem 0 3rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 997px) {
+  .video-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+a.video-card {
+  box-shadow: none;
+  padding: 1.5rem;
+  border: 1px solid var(--ifm-toc-border-color);
+  border-radius: var(--ifm-card-border-radius);
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  text-decoration: none;
+  background-color: var(--ifm-background-color);
+}
+
+a.video-card:hover {
+  box-shadow: none;
+  background-color: var(--ifm-menu-color-background-active);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+a.video-card .play-icon {
+  color: var(--ifm-font-color-base);
+  flex-shrink: 0;
+}
+
+a.video-card h2 {
+  font-size: 1rem;
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  font-weight: 400;
+  font-family: var(--ifm-font-family-base);
+  letter-spacing: normal;
+  max-height: 2.4em;
 }

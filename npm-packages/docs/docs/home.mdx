@@ -6,27 +6,32 @@ hide_table_of_contents: true
 
 import TutorialGraphic from "@site/static/img/tutorial-graphic.svg";
 import { QuickstartsList } from "@site/src/QuickstartsList.tsx";
+import { LargeCardList } from "@site/src/QuickstartsList.tsx";
 import { YouTubeList } from "@site/src/YouTubeLink.tsx";
+import Link from "@docusaurus/Link";
 
-<span className="convex-hero">
-  Convex is an all-in-one backend platform with thoughtful, product-centric
-  APIs.
-</span>
-<span className="convex-hero">
-  Use [TypeScript](understanding/best-practices/typescript) to write [queries as
-  code](functions/query-functions) that are [automatically
-  cached](realtime#automatic-caching) and [realtime](realtime), with an acid
-  compliant [relational database](database).
-</span>
+Convex is the open source, reactive database where queries are TypeScript code
+running right in the database. Just like React components react to state
+changes, Convex queries react to database changes.
 
-<CardLink
-  className="convex-hero-card"
-  item={{
-    icon: <TutorialGraphic height={40} />,
-    href: "/tutorial",
-    docId: "tutorial/index",
-    label: "Learn Convex by creating a chat app",
-  }}
+Convex provides a database, a place to write your server functions, and client
+libraries. It makes it easy to build and scale dynamic live-updating apps.
+
+<LargeCardList
+  items={[
+    {
+      title: "Tutorial: Build a chat app",
+      description:
+        "Follow a step-by-step tutorial to build your first Convex app - a real-time chat application.",
+      href: "/tutorial",
+    },
+    {
+      title: "Understanding Convex",
+      description:
+        "Learn about the core concepts and architecture that make Convex unique and powerful.",
+      href: "/understanding",
+    },
+  ]}
 />
 
 ## Quickstarts
@@ -41,7 +46,7 @@ Quickly get up and running with your favorite frontend tooling or language:
   items={[
     {
       src: "https://www.youtube.com/embed/Xjud1weG4z8?si=OMMfKzK_Dp8RgmgM",
-      label: "Backends Should be Designed for Product Developers",
+      label: "Backends for Product Developers",
     },
     {
       src: "https://www.youtube.com/embed/UVvd7BF99-4?si=Z9_pLHMnpL9kaduE",
@@ -75,23 +80,8 @@ Read the team's Perspectives on [Stack](https://stack.convex.dev):
     },
     {
       type: "link",
-      href: "https://stack.convex.dev/not-sql",
-      label: "It's not you, it's SQL",
-    },
-    {
-      type: "link",
       href: "https://stack.convex.dev/how-convex-works",
       label: "How Convex Works",
-    },
-    {
-      type: "link",
-      href: "https://stack.convex.dev/the-software-defined-database",
-      label: "The Software-Defined Database",
-    },
-    {
-      type: "link",
-      href: "https://stack.convex.dev/tag/Perspectives",
-      label: "Convex Perspectives",
     },
   ]}
 />
@@ -102,15 +92,15 @@ Read the team's Perspectives on [Stack](https://stack.convex.dev):
   items={[
     {
       src: "https://www.youtube.com/embed/vaQZYRSiimI?si=JLfdVVs3QkCLTZwc",
-      label: "A quick start guide for using Convex with Next.js",
+      label: "Convex with Next.js Quickstart",
     },
     {
       src: "https://www.youtube.com/embed/0OaDyjB9Ib8?si=V5_9FN3UieZmnOM5",
-      label: "Fullstack Notion Clone: Next.js 13, React, Convex, Tailwind",
+      label: "Notion Clone: Next.js 13, React, Convex, Tailwind",
     },
     {
       src: "https://www.youtube.com/embed/zfAb95tJvZQ?si=PaiBxNxCO0s2BuEZ",
-      label: "Build and Deploy a Saas Podcast Platform in Next.js",
+      label: "Build a Saas Podcast Platform in Next.js",
     },
     {
       src: "https://www.youtube.com/embed/Vjtn9pWAZDI?si=of21uqly5laJQJAs",

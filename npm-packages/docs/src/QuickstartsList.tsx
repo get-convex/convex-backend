@@ -1,3 +1,8 @@
+declare module "*.svg" {
+  const content: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+  export default content;
+}
+
 import ExpoLogo from "@site/static/img/expo-logo.svg";
 import NextJSLogo from "@site/static/img/nextjs-logo.svg";
 import HtmlLogo from "@site/static/img/html-logo.svg";
@@ -24,6 +29,13 @@ type Item = {
   label: string;
   icon?: ReactNode;
   invertIcon?: true;
+};
+
+// Add this new type after the existing Item type
+type LargeCardItem = {
+  href: string;
+  title: string;
+  description: string;
 };
 
 export function DocCardList(props: { items: Item[] }) {
@@ -64,6 +76,21 @@ export function CardLink({
     </Link>
   );
 }
+
+// Add this new component before QuickstartsList
+export function LargeCardList(props: { items: LargeCardItem[] }) {
+  return (
+    <div className="large-cards">
+      {props.items.map((item, index) => (
+        <Link key={index} href={item.href} className="large-card">
+          <Heading as="h2">{item.title}</Heading>
+          <p>{item.description}</p>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 // End DocsCardList.tsx variant for Quickstarts page
 
 export function QuickstartsList() {
