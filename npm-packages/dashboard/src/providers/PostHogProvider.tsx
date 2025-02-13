@@ -37,6 +37,7 @@ export function PostHogProvider({
       session_recording: {
         recordHeaders: false,
         maskTextSelector: "*", // Masks all text elements (not including inputs)
+        maskAllInputs: true, // Masks all input elements
       },
     });
 
