@@ -561,25 +561,36 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
                 // the document was deleted or its index key changed.
-                // TODO: use prev_ts when available
                 let prev_revs = reader_
-                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
+                    .documents_multiget(
+                        chunk
+                            .iter()
+                            .filter_map(|entry| entry.prev_ts.map(|prev_ts| (entry.id, prev_ts)))
+                            .collect(),
+                    )
                     .await?;
                 for DocumentLogEntry {
                     ts,
                     id,
                     value: maybe_doc,
+                    prev_ts: prev_rev_ts,
                     ..
                 } in chunk
                 {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction, with no index rows.
+                    let Some(prev_rev_ts) = prev_rev_ts else {
+                        log_retention_scanned_document(maybe_doc.is_none(), false);
+                        continue;
+                    };
+                    // If there is a prev_ts on the log entry but the previous revision
+                    // does not exist, it was probably deleted before and we don't need to
+                    // worry about it.
                     let Some(DocumentLogEntry {
-                        ts: prev_rev_ts,
                         value: maybe_prev_rev,
                         ..
-                    }) = prev_revs.get(&(id, ts))
+                    }) = prev_revs.get(&(id, prev_rev_ts))
                     else {
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
@@ -615,7 +626,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                                 key_prefix: key.prefix.clone(),
                                 key_suffix: key.suffix.clone(),
                                 key_sha256: key_sha256.to_vec(),
-                                ts: *prev_rev_ts,
+                                ts: prev_rev_ts,
                                 deleted: false,
                             },
                         ));
@@ -1788,17 +1799,17 @@ mod tests {
         let id5 = id_generator.user_generate(&table);
 
         let documents = vec![
-            doc(id1, 1, Some(5))?, // expired because overwritten.
-            doc(id2, 2, Some(5))?, // expired because overwritten.
-            doc(id1, 3, Some(6))?, // latest.
-            doc(id2, 4, None)?,    // expired because tombstone.
-            doc(id3, 5, Some(5))?, // latest.
-            doc(id4, 6, Some(5))?, // visible at min_snapshot_ts.
-            doc(id5, 7, Some(5))?, // visible at min_snapshot_ts.
+            doc(id1, 1, Some(5), None)?,    // expired because overwritten.
+            doc(id2, 2, Some(5), None)?,    // expired because overwritten.
+            doc(id1, 3, Some(6), Some(1))?, // latest.
+            doc(id2, 4, None, Some(2))?,    // expired because tombstone.
+            doc(id3, 5, Some(5), None)?,    // latest.
+            doc(id4, 6, Some(5), None)?,    // visible at min_snapshot_ts.
+            doc(id5, 7, Some(5), None)?,    // visible at min_snapshot_ts.
             // min_snapshot_ts: 8
-            doc(id4, 9, None)?,
-            doc(id5, 10, Some(6))?,
-            doc(id5, 11, Some(5))?,
+            doc(id4, 9, None, Some(6))?,
+            doc(id5, 10, Some(6), Some(7))?,
+            doc(id5, 11, Some(5), Some(10))?,
         ];
         // indexes derived from documents.
         let indexes = btreeset![
@@ -1899,17 +1910,17 @@ mod tests {
         let id7 = id_generator.user_generate(&table);
 
         let documents = vec![
-            doc(id1, 1, Some(1))?, // no longer visible from > min_document_snapshot_ts
-            doc(id2, 1, Some(2))?, // no longer visible from > min_document_snapshot_ts
-            doc(id3, 1, Some(3))?, // no longer visible from > min_document_snapshot_ts
-            doc(id1, 2, None)?,    // tombstone
-            doc(id2, 2, Some(1))?,
-            doc(id3, 2, Some(2))?,
-            doc(id4, 2, Some(2))?,
-            doc(id7, 2, None)?, // doc that was inserted and deleted in the same transaction
+            doc(id1, 1, Some(1), None)?, // no longer visible from > min_document_snapshot_ts
+            doc(id2, 1, Some(2), None)?, // no longer visible from > min_document_snapshot_ts
+            doc(id3, 1, Some(3), None)?, // no longer visible from > min_document_snapshot_ts
+            doc(id1, 2, None, Some(1))?, // tombstone
+            doc(id2, 2, Some(1), Some(1))?,
+            doc(id3, 2, Some(2), Some(1))?,
+            doc(id4, 2, Some(2), None)?,
+            doc(id7, 2, None, None)?, // doc that was inserted and deleted in the same transaction
             // min_document_snapshot_ts: 4
-            doc(id5, 5, Some(4))?,
-            doc(id6, 6, Some(5))?,
+            doc(id5, 5, Some(4), None)?,
+            doc(id6, 6, Some(5), None)?,
         ];
 
         p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
@@ -1958,11 +1969,11 @@ mod tests {
         assert_eq!(
             results,
             vec![
-                doc(id2, 2, Some(1))?,
-                doc(id3, 2, Some(2))?,
-                doc(id4, 2, Some(2))?,
-                doc(id5, 5, Some(4))?,
-                doc(id6, 6, Some(5))?,
+                doc(id2, 2, Some(1), Some(1))?,
+                doc(id3, 2, Some(2), Some(1))?,
+                doc(id4, 2, Some(2), None)?,
+                doc(id5, 5, Some(4), None)?,
+                doc(id6, 6, Some(5), None)?,
             ]
         );
 
@@ -1979,23 +1990,22 @@ mod tests {
         let id1 = id_generator.user_generate(&table);
 
         let documents = vec![
-            doc(id1, 1, Some(1))?,
-            doc(id1, 2, Some(2))?,
-            doc(id1, 3, Some(3))?,
-            doc(id1, 4, Some(4))?,
-            doc(id1, 5, Some(5))?,
-            doc(id1, 6, Some(6))?,
-            doc(id1, 7, Some(7))?,
-            doc(id1, 8, Some(8))?,
-            doc(id1, 9, Some(9))?,
-            doc(id1, 10, Some(10))?,
+            doc(id1, 1, Some(1), None)?,
+            doc(id1, 2, Some(2), Some(1))?,
+            doc(id1, 3, Some(3), Some(2))?,
+            doc(id1, 4, Some(4), Some(3))?,
+            doc(id1, 5, Some(5), Some(4))?,
+            doc(id1, 6, Some(6), Some(5))?,
+            doc(id1, 7, Some(7), Some(6))?,
+            doc(id1, 8, Some(8), Some(7))?,
+            doc(id1, 9, Some(9), Some(8))?,
+            doc(id1, 10, Some(10), Some(9))?,
             // min_document_snapshot_ts: 11
-            doc(id1, 12, Some(12))?,
-            doc(id1, 13, Some(13))?,
+            doc(id1, 12, Some(12), Some(10))?,
+            doc(id1, 13, Some(13), Some(12))?,
         ];
 
-        p.clone()
-            .write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
+        p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
             .await?;
 
         let min_snapshot_ts = unchecked_repeatable_ts(Timestamp::must(11));
@@ -2054,9 +2064,9 @@ mod tests {
         assert_eq!(
             results,
             vec![
-                doc(id1, 10, Some(10))?,
-                doc(id1, 12, Some(12))?,
-                doc(id1, 13, Some(13))?,
+                doc(id1, 10, Some(10), Some(9))?,
+                doc(id1, 12, Some(12), Some(10))?,
+                doc(id1, 13, Some(13), Some(12))?,
             ]
         );
 

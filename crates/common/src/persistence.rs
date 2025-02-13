@@ -586,6 +586,19 @@ impl RepeatablePersistence {
             .await
     }
 
+    pub async fn documents_multiget(
+        &self,
+        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
+        for (_, ts) in &ids {
+            // Reading documents ==ts, so ts needs to be repeatable.
+            anyhow::ensure!(*ts <= self.upper_bound);
+        }
+        self.reader
+            .documents_multiget(ids, self.retention_validator.clone())
+            .await
+    }
+
     pub fn read_snapshot(&self, at: RepeatableTimestamp) -> anyhow::Result<PersistenceSnapshot> {
         anyhow::ensure!(at <= self.upper_bound);
         self.retention_validator.optimistic_validate_snapshot(*at)?;

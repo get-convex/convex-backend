@@ -1511,7 +1511,12 @@ pub async fn persistence_global<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
     Ok(())
 }
 
-pub fn doc(id: ResolvedDocumentId, ts: i32, val: Option<i64>) -> anyhow::Result<DocumentLogEntry> {
+pub fn doc(
+    id: ResolvedDocumentId,
+    ts: i32,
+    val: Option<i64>,
+    prev_ts: Option<i32>,
+) -> anyhow::Result<DocumentLogEntry> {
     let doc = val
         .map(|val| ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("value" => val)))
         .transpose()?;
@@ -1519,7 +1524,7 @@ pub fn doc(id: ResolvedDocumentId, ts: i32, val: Option<i64>) -> anyhow::Result<
         ts: Timestamp::must(ts),
         id: id.into(),
         value: doc,
-        prev_ts: None,
+        prev_ts: prev_ts.map(Timestamp::must),
     })
 }
 
@@ -1578,17 +1583,17 @@ pub async fn persistence_enforce_retention<P: Persistence>(p: Arc<P>) -> anyhow:
     let id5 = id_generator.user_generate(&table);
 
     let documents = vec![
-        doc(id1, 1, Some(5))?, // expired because overwritten.
-        doc(id2, 2, Some(5))?, // expired because overwritten.
-        doc(id1, 3, Some(6))?, // latest.
-        doc(id2, 4, None)?,    // expired because tombstone.
-        doc(id3, 5, Some(5))?, // latest.
-        doc(id4, 6, Some(5))?, // visible at min_snapshot_ts.
-        doc(id5, 7, Some(5))?, // visible at min_snapshot_ts.
+        doc(id1, 1, Some(5), None)?,    // expired because overwritten.
+        doc(id2, 2, Some(5), None)?,    // expired because overwritten.
+        doc(id1, 3, Some(6), Some(1))?, // latest.
+        doc(id2, 4, None, Some(2))?,    // expired because tombstone.
+        doc(id3, 5, Some(5), None)?,    // latest.
+        doc(id4, 6, Some(5), None)?,    // visible at min_snapshot_ts.
+        doc(id5, 7, Some(5), None)?,    // visible at min_snapshot_ts.
         // min_snapshot_ts: 8
-        doc(id4, 9, None)?,
-        doc(id5, 10, Some(6))?,
-        doc(id5, 11, Some(5))?,
+        doc(id4, 9, None, Some(6))?,
+        doc(id5, 10, Some(6), Some(7))?,
+        doc(id5, 11, Some(5), Some(10))?,
     ];
     // indexes derived from documents.
     let indexes = btreeset![
@@ -1709,17 +1714,17 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
     let id10 = id_generator.user_generate(&table);
 
     let documents = vec![
-        doc(id1, 1, Some(1))?,
-        doc(id2, 2, Some(2))?,
-        doc(id3, 3, Some(3))?,
+        doc(id1, 1, Some(1), None)?,
+        doc(id2, 2, Some(2), None)?,
+        doc(id3, 3, Some(3), None)?,
         // min_document_snapshot_ts: 4
-        doc(id4, 5, Some(4))?,
-        doc(id5, 6, Some(5))?,
-        doc(id6, 7, Some(6))?,
-        doc(id7, 8, Some(7))?,
-        doc(id8, 9, Some(8))?,
-        doc(id9, 10, Some(9))?,
-        doc(id10, 11, Some(10))?,
+        doc(id4, 5, Some(4), None)?,
+        doc(id5, 6, Some(5), None)?,
+        doc(id6, 7, Some(6), None)?,
+        doc(id7, 8, Some(7), None)?,
+        doc(id8, 9, Some(8), None)?,
+        doc(id9, 10, Some(9), None)?,
+        doc(id10, 11, Some(10), None)?,
     ];
 
     p.write(documents.clone(), BTreeSet::new(), ConflictStrategy::Error)
