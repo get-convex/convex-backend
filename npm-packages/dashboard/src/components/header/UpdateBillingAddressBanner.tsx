@@ -38,10 +38,9 @@ export function useShowUpdateBillingAddressBanner() {
   }
 
   // Team's subscription already has a full billing address
-  // Note: Not including postal code here because not all countries have zip codes
+  // Note: Not including postal code or city here because not all countries have these
   if (
     orbSubscription.billingAddress?.line1 &&
-    orbSubscription.billingAddress?.city &&
     orbSubscription.billingAddress?.country
   ) {
     return false;
