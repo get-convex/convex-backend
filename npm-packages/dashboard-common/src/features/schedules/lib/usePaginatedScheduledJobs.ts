@@ -50,7 +50,11 @@ export function usePaginatedScheduledJobs(udfPath: string | undefined) {
 
   return {
     jobs: isPaused ? pausedData : results,
-    status,
+    status: isPaused
+      ? isLoadingPausedData
+        ? "LoadingFirstPage"
+        : "Exhausted"
+      : status,
     isPaused,
     isLoadingPausedData,
     isRateLimited,

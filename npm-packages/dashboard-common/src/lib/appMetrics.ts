@@ -114,7 +114,7 @@ export function useSchedulerLag() {
   };
 
   const { data: d } = useSWR(isDisconnected ? null : url, fetcher, {
-    refreshInterval: 2.5 * 1000,
+    refreshInterval: 60 * 1000,
   });
   if (!d) {
     return undefined;
