@@ -16,7 +16,7 @@ services:
       - DATABASE_URL=${DATABASE_URL:-}
       - DISABLE_BEACON=${DISABLE_BEACON:-}
       - REDACT_LOGS_TO_CLIENT=${REDACT_LOGS_TO_CLIENT:-}
-      - RUST_LOG=${RUST_LOG:-}
+      - RUST_LOG=${RUST_LOG:-info}
       - RUST_BACKTRACE=${RUST_BACKTRACE:-}
     healthcheck:
       test: curl -f http://localhost:3210/version

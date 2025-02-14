@@ -35,6 +35,7 @@ async function main(request_str: string, debug: boolean) {
   await invoke(request, responseStream);
   responseStream.end();
 
+  fs.rmSync(tempdir, { recursive: true });
   // Don't wait for dangling promises. This matches AWS Lambda behavior.
   process.exit(0);
 }
