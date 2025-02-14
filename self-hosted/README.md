@@ -37,15 +37,8 @@ database for a production-ready configuration as needed.
 
 ## Docker configuration
 
-First fetch the
-[`docker-compose` file](https://github.com/get-convex/convex-backend/tree/main/self-hosted/docker/docker-compose.yml)
-file:
-
-```sh
-# degit copies the file to your local directory
-npx degit get-convex/convex-backend/self-hosted/docker/docker-compose.yml docker-compose.yml
-```
-
+First download the
+[`docker-compose.yml` file](https://github.com/get-convex/convex-backend/tree/main/self-hosted/docker/docker-compose.yml).
 Then, to start the backend and dashboard:
 
 ```sh
