@@ -231,7 +231,6 @@ export function useUploadFiles() {
     useCurrentDeployment,
     useHasProjectAdminPermissions,
     captureException,
-    captureMessage,
   } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
@@ -256,7 +255,9 @@ export function useUploadFiles() {
     try {
       try {
         if (isHtmlContent(file) || (await checkFileForHtmlContent(file))) {
-          captureMessage(`Uploaded file appears to be HTML content.`);
+          captureException(
+            new Error(`Uploaded file appears to be HTML content.`),
+          );
         }
       } catch (error) {
         captureException(error);
