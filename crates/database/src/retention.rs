@@ -561,36 +561,25 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
                 // the document was deleted or its index key changed.
+                // TODO: use prev_ts when available
                 let prev_revs = reader_
-                    .documents_multiget(
-                        chunk
-                            .iter()
-                            .filter_map(|entry| entry.prev_ts.map(|prev_ts| (entry.id, prev_ts)))
-                            .collect(),
-                    )
+                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
                     .await?;
                 for DocumentLogEntry {
                     ts,
                     id,
                     value: maybe_doc,
-                    prev_ts: prev_rev_ts,
                     ..
                 } in chunk
                 {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction, with no index rows.
-                    let Some(prev_rev_ts) = prev_rev_ts else {
-                        log_retention_scanned_document(maybe_doc.is_none(), false);
-                        continue;
-                    };
-                    // If there is a prev_ts on the log entry but the previous revision
-                    // does not exist, it was probably deleted before and we don't need to
-                    // worry about it.
                     let Some(DocumentLogEntry {
+                        ts: prev_rev_ts,
                         value: maybe_prev_rev,
                         ..
-                    }) = prev_revs.get(&(id, prev_rev_ts))
+                    }) = prev_revs.get(&(id, ts))
                     else {
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
@@ -626,7 +615,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                                 key_prefix: key.prefix.clone(),
                                 key_suffix: key.suffix.clone(),
                                 key_sha256: key_sha256.to_vec(),
-                                ts: prev_rev_ts,
+                                ts: *prev_rev_ts,
                                 deleted: false,
                             },
                         ));
