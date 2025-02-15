@@ -1,15 +1,15 @@
 import { useBBMutation, useBBQuery } from "./api";
 
 export function useListVanityDomains(deploymentName?: string) {
-  const { data } = useBBQuery(
-    "/instances/{deployment_name}/domains/list",
-    {
+  const { data } = useBBQuery({
+    path: "/instances/{deployment_name}/domains/list",
+    pathParams: {
       deployment_name: deploymentName || "",
     },
-    {
+    swrOptions: {
       refreshInterval: 5000,
     },
-  );
+  });
   return data?.domains;
 }
 

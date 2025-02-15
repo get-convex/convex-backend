@@ -6,16 +6,16 @@ import { useBBMutation, useBBQuery } from "./api";
 
 export function useDeployments(projectId?: number) {
   const [initialData] = useInitialData();
-  const { data, isLoading } = useBBQuery(
-    "/projects/{project_id}/instances",
-    {
+  const { data, isLoading } = useBBQuery({
+    path: "/projects/{project_id}/instances",
+    pathParams: {
       project_id: projectId?.toString() || "",
     },
-    {
+    swrOptions: {
       revalidateOnMount: initialData === undefined,
       refreshInterval: 5000,
     },
-  );
+  });
 
   return { deployments: data, isLoading };
 }
@@ -81,13 +81,13 @@ export function useProvisionDeployment(projectId: number) {
 }
 
 export function useDeploymentById(teamId: number, deploymentId?: number) {
-  const { data: deployment } = useBBQuery(
-    "/teams/{team_id}/deployments/{deployment_id}",
-    {
+  const { data: deployment } = useBBQuery({
+    path: "/teams/{team_id}/deployments/{deployment_id}",
+    pathParams: {
       team_id: teamId,
       deployment_id: deploymentId || 0,
     },
-  );
+  });
 
   return deployment;
 }

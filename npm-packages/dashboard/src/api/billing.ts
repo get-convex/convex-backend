@@ -5,13 +5,13 @@ export function useTeamOrbSubscription(teamId?: number) {
     data: subscription,
     error,
     isLoading,
-  } = useBBQuery(
-    "/teams/{team_id}/get_orb_subscription",
-    {
+  } = useBBQuery({
+    path: "/teams/{team_id}/get_orb_subscription",
+    pathParams: {
       team_id: teamId?.toString() || "",
     },
-    { refreshInterval: 0 },
-  );
+    swrOptions: { refreshInterval: 0 },
+  });
   if (error) {
     return { isLoading, subscription: null };
   }
@@ -94,18 +94,18 @@ export function useGetCoupon(
   planId: string,
   promoCode?: string,
 ) {
-  const { data, error, isLoading } = useBBQuery(
-    "/teams/{team_id}/get_discounted_plan/{plan_id}/{promo_code}",
-    {
+  const { data, error, isLoading } = useBBQuery({
+    path: "/teams/{team_id}/get_discounted_plan/{plan_id}/{promo_code}",
+    pathParams: {
       team_id: teamId.toString(),
       plan_id: planId,
       promo_code: promoCode || "",
     },
-    {
+    swrOptions: {
       refreshInterval: 0,
       shouldRetryOnError: false,
     },
-  );
+  });
 
   if (error) {
     return {
@@ -118,15 +118,15 @@ export function useGetCoupon(
 }
 
 export function useListInvoices(teamId?: number) {
-  const { data, error, isLoading } = useBBQuery(
-    "/teams/{team_id}/list_invoices",
-    {
+  const { data, error, isLoading } = useBBQuery({
+    path: "/teams/{team_id}/list_invoices",
+    pathParams: {
       team_id: teamId?.toString() || "",
     },
-    {
+    swrOptions: {
       refreshInterval: 0,
     },
-  );
+  });
 
   if (error) {
     return {
@@ -146,15 +146,15 @@ export function useListInvoices(teamId?: number) {
 }
 
 export function useListPlans(teamId?: number) {
-  const { data, error, isLoading } = useBBQuery(
-    "/teams/{team_id}/list_active_plans",
-    {
+  const { data, error, isLoading } = useBBQuery({
+    path: "/teams/{team_id}/list_active_plans",
+    pathParams: {
       team_id: teamId?.toString() || "",
     },
-    {
+    swrOptions: {
       refreshInterval: 0,
     },
-  );
+  });
 
   if (error) {
     // eslint-disable-next-line @typescript-eslint/no-throw-literal

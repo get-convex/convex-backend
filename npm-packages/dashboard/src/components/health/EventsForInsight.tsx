@@ -24,7 +24,7 @@ import { formatBytes, formatNumberCompact } from "dashboard-common/lib/format";
 import { functionIdentifierValue } from "dashboard-common/lib/functions/generateFileTree";
 import { ComponentId, useNents } from "dashboard-common/lib/useNents";
 import { documentHref } from "dashboard-common/lib/utils";
-import { rootComponentPath } from "hooks/usageMetrics";
+import { rootComponentPath } from "api/usage";
 import { cn } from "dashboard-common/lib/cn";
 import Link from "next/link";
 import { useContext } from "react";

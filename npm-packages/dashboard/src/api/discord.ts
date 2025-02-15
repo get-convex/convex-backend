@@ -1,7 +1,10 @@
 import { useBBMutation, useBBQuery } from "./api";
 
 export function useDiscordAccounts() {
-  const { data } = useBBQuery("/discord/accounts", undefined);
+  const { data } = useBBQuery({
+    path: "/discord/accounts",
+    pathParams: undefined,
+  });
   return data?.accounts;
 }
 

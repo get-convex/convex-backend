@@ -31,8 +31,11 @@ export function useHasProjectAdminPermissions(projectId?: number): boolean {
 
 export function useProjectRoles() {
   const team = useCurrentTeam();
-  const { data, isLoading } = useBBQuery(`/teams/{team_id}/get_project_roles`, {
-    team_id: team?.id.toString() || "",
+  const { data, isLoading } = useBBQuery({
+    path: `/teams/{team_id}/get_project_roles`,
+    pathParams: {
+      team_id: team?.id.toString() || "",
+    },
   });
 
   return { isLoading, projectRoles: data };

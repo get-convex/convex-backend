@@ -12,13 +12,13 @@ export function useProjectEnvironmentVariables(
   projectId?: number,
   refreshInterval?: SWRConfiguration["refreshInterval"],
 ): { configs: ProjectEnvVarConfig[] } | undefined {
-  const { data } = useBBQuery(
-    `/projects/{project_id}/environment_variables/list`,
-    {
+  const { data } = useBBQuery({
+    path: `/projects/{project_id}/environment_variables/list`,
+    pathParams: {
       project_id: projectId?.toString() || "",
     },
-    { refreshInterval },
-  );
+    swrOptions: { refreshInterval },
+  });
   return data;
 }
 

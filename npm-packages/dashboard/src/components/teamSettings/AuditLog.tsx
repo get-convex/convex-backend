@@ -2,11 +2,12 @@ import { Button } from "dashboard-common/elements/Button";
 import { endOfDay } from "date-fns";
 import { LoadingTransition } from "dashboard-common/elements/Loading";
 import { useDateFilters } from "dashboard-common/elements/DateRangePicker";
-import { useTeamAuditLog } from "hooks/useTeamAuditLog";
+import { useTeamAuditLog } from "api/auditLog";
 import { useProjects } from "api/projects";
 import { useTeamMembers } from "api/teams";
 import { AuditLogAction, Team } from "generatedApi";
 import { useRouter } from "next/router";
+import { Spinner } from "dashboard-common/elements/Spinner";
 import { AuditLogContent } from "./AuditLogContent";
 import { AuditLogToolbar } from "./AuditLogToolbar";
 
@@ -90,8 +91,9 @@ export function AuditLog({ team }: { team: Team }) {
                 onClick={loadNextPage}
                 className="ml-auto w-fit"
                 variant="neutral"
-                disabled={!hasMore}
+                disabled={!hasMore || isLoading}
                 tip={hasMore ? undefined : "There are no more entries to load."}
+                icon={isLoading ? <Spinner /> : undefined}
               >
                 Load more
               </Button>

@@ -44,12 +44,12 @@ export function DeploymentAccessTokenList({
       </div>
       {description}
       {disabledReason === null && (
-        <div className="flex flex-col divide-y">
-          <LoadingTransition
-            loadingProps={{ fullHeight: false, className: "h-14" }}
-          >
-            {accessTokens &&
-              (accessTokens.length > 0 ? (
+        <LoadingTransition
+          loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
+        >
+          {accessTokens && (
+            <div className="flex w-full flex-col divide-y">
+              {accessTokens.length > 0 ? (
                 accessTokens
                   ?.sort((a, b) => b.creationTime - a.creationTime)
                   .map((token) => (
@@ -69,9 +69,10 @@ export function DeploymentAccessTokenList({
                 <div className="my-2 text-content-secondary">
                   There are no tokens here yet.
                 </div>
-              ))}
-          </LoadingTransition>
-        </div>
+              )}
+            </div>
+          )}
+        </LoadingTransition>
       )}
     </>
   );

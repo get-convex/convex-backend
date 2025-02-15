@@ -1,7 +1,7 @@
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
 
-import { rootComponentPath, useUsageQuery } from "hooks/usageMetrics";
+import { rootComponentPath, useUsageQuery } from "api/usage";
 import omit from "lodash/omit";
 import { useMemo } from "react";
 import { useRouter } from "next/router";

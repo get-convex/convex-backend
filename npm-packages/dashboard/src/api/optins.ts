@@ -6,8 +6,10 @@ export function useHasOptedIn(): {
   isLoading?: boolean;
   optInsWithMessageToAccept?: OptInToAccept[];
 } {
-  const { data, isLoading } = useBBQuery("/optins", undefined, {
-    refreshInterval: 0,
+  const { data, isLoading } = useBBQuery({
+    path: "/optins",
+    pathParams: undefined,
+    swrOptions: { refreshInterval: 0 },
   });
   if (!data || isLoading) return { isLoading: true };
   if (!data.optInsToAccept) {

@@ -11,10 +11,10 @@ import {
   IntegrationType,
 } from "system-udfs/convex/_system/frontend/common";
 import { Id } from "system-udfs/convex/_generated/dataModel";
-import { CreateDeploymentAccessTokenRequest } from "api/accessTokens";
 import { logDeploymentEvent } from "convex-analytics";
 import { reportHttpError } from "hooks/fetching";
 import { ConnectedDeploymentContext } from "dashboard-common/lib/deploymentContext";
+import { AuthorizeArgs, AuthorizeResponse } from "generatedApi";
 
 export const deviceTokenDeploymentAuth = async (
   accessTokenArgs: {
@@ -25,14 +25,12 @@ export const deviceTokenDeploymentAuth = async (
     permissions: string[] | null;
   },
   accessToken: string,
-  createAccessToken: (
-    body: CreateDeploymentAccessTokenRequest,
-  ) => Promise<globalThis.Response>,
+  createAccessToken: (body: AuthorizeArgs) => Promise<AuthorizeResponse>,
 ): Promise<
   | { adminKey: string; ok: true }
   | { ok: false; errorMessage: string; errorCode: string }
 > => {
-  const resp = await createAccessToken({
+  const data = await createAccessToken({
     authnToken: accessToken,
     deviceName: accessTokenArgs.name,
     teamId: accessTokenArgs.teamId,
@@ -40,10 +38,6 @@ export const deviceTokenDeploymentAuth = async (
     projectId: accessTokenArgs.projectId,
     permissions: accessTokenArgs.permissions,
   });
-  const data = await resp.json();
-  if (!resp.ok) {
-    return { ok: false, errorCode: data.code, errorMessage: data.message };
-  }
 
   return { adminKey: data.accessToken, ok: true };
 };

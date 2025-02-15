@@ -3,10 +3,8 @@ import classNames from "classnames";
 import { Button } from "dashboard-common/elements/Button";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { useTeamEntitlements } from "api/teams";
-import {
-  AggregatedFunctionMetrics,
-  rootComponentPath,
-} from "hooks/usageMetrics";
+import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
+import { rootComponentPath } from "api/usage";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {

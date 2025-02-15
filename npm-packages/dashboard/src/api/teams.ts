@@ -9,9 +9,12 @@ export function useTeams(): {
   teams?: Team[];
 } {
   const [initialData] = useInitialData();
-  const { data: teams, isValidating } = useBBQuery("/teams", undefined, {
-    // If initial data has been loaded via SSR, we don't need to load teams.
-    revalidateOnMount: !initialData,
+  const { data: teams, isValidating } = useBBQuery({
+    path: "/teams",
+    pathParams: undefined,
+    swrOptions: {
+      revalidateOnMount: !initialData,
+    },
   });
   const [lastViewedTeam] = useLastViewedTeam();
   const router = useRouter();
@@ -54,19 +57,22 @@ export function useCurrentTeam() {
 }
 
 export function useTeamMembers(teamId?: number) {
-  const { data: members } = useBBQuery("/teams/{team_id}/members", {
-    team_id: teamId?.toString() || "",
+  const { data: members } = useBBQuery({
+    path: "/teams/{team_id}/members",
+    pathParams: {
+      team_id: teamId?.toString() || "",
+    },
   });
   return members;
 }
 
 export function useTeamEntitlements(teamId: number | undefined) {
-  const { data: entitlements } = useBBQuery(
-    "/teams/{team_id}/get_entitlements",
-    {
+  const { data: entitlements } = useBBQuery({
+    path: "/teams/{team_id}/get_entitlements",
+    pathParams: {
       team_id: teamId?.toString() || "",
     },
-  );
+  });
   return entitlements;
 }
 

@@ -3,13 +3,18 @@ import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam } from "api/teams";
 import { useCurrentProject } from "api/projects";
 import {
-  CreateDeploymentAccessTokenRequest,
   useCreateTeamAccessToken,
   useInstanceAccessTokens,
 } from "api/accessTokens";
 import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
-import { DeploymentResponse, Team, ProjectDetails } from "generatedApi";
+import {
+  DeploymentResponse,
+  Team,
+  ProjectDetails,
+  AuthorizeArgs,
+  AuthorizeResponse,
+} from "generatedApi";
 
 import { useAccessToken } from "hooks/useServerSideData";
 import { DeploymentType } from "dashboard-common/features/settings/components/DeploymentUrl";
@@ -54,8 +59,8 @@ export async function getAccessTokenBasedDeployKey(
   prefix: string,
   accessToken: string,
   createAccessTokenMutation: (
-    body: CreateDeploymentAccessTokenRequest,
-  ) => Promise<globalThis.Response>,
+    body: AuthorizeArgs,
+  ) => Promise<AuthorizeResponse>,
   tokenName?: string,
 ): Promise<{ ok: true; adminKey: string } | { ok: false }> {
   let environmentDisplayName = "";
@@ -91,8 +96,8 @@ export async function getAccessTokenBasedDeployKeyForPreview(
   prefix: string,
   accessToken: string,
   createAccessTokenMutation: (
-    body: CreateDeploymentAccessTokenRequest,
-  ) => Promise<globalThis.Response>,
+    body: AuthorizeArgs,
+  ) => Promise<AuthorizeResponse>,
   tokenName?: string,
 ): Promise<{ ok: true; adminKey: string } | { ok: false }> {
   const accessTokenBasedDeployKey = await deviceTokenDeploymentAuth(

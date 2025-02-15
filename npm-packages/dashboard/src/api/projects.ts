@@ -22,14 +22,14 @@ export function useProjects(
   refreshInterval?: SWRConfiguration["refreshInterval"],
 ) {
   const [initialData] = useInitialData();
-  const { data } = useBBQuery(
-    "/teams/{team_id}/projects",
-    {
+  const { data } = useBBQuery({
+    path: "/teams/{team_id}/projects",
+    pathParams: {
       team_id: teamId?.toString() || "",
     },
     // If initial data has been loaded via SSR, we don't need to load projects.
-    { refreshInterval, revalidateOnMount: !initialData },
-  );
+    swrOptions: { refreshInterval, revalidateOnMount: !initialData },
+  });
   return data;
 }
 

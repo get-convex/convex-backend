@@ -27,11 +27,17 @@ export const useMutate = createMutateHook(client, "big-brain", isMatch);
 
 type Path<M extends "post" | "put" | "get"> = PathsWithMethod<BigBrainPaths, M>;
 
-export function useBBQuery<QueryPath extends Path<"get">>(
-  path: QueryPath,
-  pathParams: BigBrainPaths[QueryPath]["get"]["parameters"]["path"],
-  swrOptions?: SWRConfiguration,
-) {
+export function useBBQuery<QueryPath extends Path<"get">>({
+  path,
+  pathParams,
+  queryParams,
+  swrOptions,
+}: {
+  path: QueryPath;
+  pathParams: BigBrainPaths[QueryPath]["get"]["parameters"]["path"];
+  queryParams?: BigBrainPaths[QueryPath]["get"]["parameters"]["query"];
+  swrOptions?: SWRConfiguration;
+}) {
   const googleAnalyticsId =
     typeof document !== "undefined" &&
     getGoogleAnalyticsClientId(document.cookie);
@@ -46,7 +52,10 @@ export function useBBQuery<QueryPath extends Path<"get">>(
 
   // @ts-expect-error TODO: Figure out how to type this.
   const requestOptions: MaybeOptionalInit<BigBrainPaths[QueryPath], "get"> = {
-    params: { path: pathParams },
+    params: {
+      path: pathParams,
+      query: queryParams,
+    },
     headers,
   };
   const paused =
@@ -58,14 +67,11 @@ export function useBBQuery<QueryPath extends Path<"get">>(
     previousPaused &&
       !paused &&
       void mutate(
-        [
-          path,
-          // @ts-expect-error TODO: Figure out how to type this.
-          { params: { path: pathParams } },
-        ],
+        // @ts-expect-error TODO: Figure out how to type this.
+        [path, { params: { path: pathParams, query: queryParams } }],
         undefined,
       );
-  }, [paused, mutate, path, pathParams, previousPaused]);
+  }, [paused, mutate, path, pathParams, queryParams, previousPaused]);
 
   return useQuery(path, requestOptions, {
     keepPreviousData: true,
@@ -140,7 +146,7 @@ export function useBBMutation<
         data,
         response,
       }: FetchResponse<BigBrainPaths[T], any, "application/json"> =
-        // @ts-ignore TODO: Figure out how to type this.
+        // @ts-expect-error TODO: Figure out how to type this.
         await call(path, {
           params: { path: pathParams },
           body: body[0],

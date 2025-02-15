@@ -22,26 +22,26 @@ export type PeriodicBackupConfig = {
 };
 
 export function useListCloudBackups(teamId: number) {
-  const { data } = useBBQuery(
-    `/teams/{team_id}/list_cloud_backups`,
-    {
+  const { data } = useBBQuery({
+    path: `/teams/{team_id}/list_cloud_backups`,
+    pathParams: {
       team_id: teamId.toString(),
     },
-    { refreshInterval: 5000 },
-  );
+    swrOptions: { refreshInterval: 5000 },
+  });
   return data as BackupResponse[] | undefined;
 }
 
 export function useGetCloudBackup(cloudBackupId?: number) {
-  const { data } = useBBQuery(
-    `/cloud_backups/{cloud_backup_id}`,
-    {
+  const { data } = useBBQuery({
+    path: `/cloud_backups/{cloud_backup_id}`,
+    pathParams: {
       cloud_backup_id: cloudBackupId?.toString() || "",
     },
-    {
+    swrOptions: {
       refreshInterval: 5000,
     },
-  );
+  });
   return data as BackupResponse | undefined;
 }
 
@@ -118,13 +118,13 @@ export function useDisablePeriodicBackup(deploymentId?: number) {
 }
 
 export function useGetPeriodicBackupConfig(deploymentId: number) {
-  const { data } = useBBQuery(
-    `/deployments/{deployment_id}/get_periodic_backup_config`,
-    {
+  const { data } = useBBQuery({
+    path: `/deployments/{deployment_id}/get_periodic_backup_config`,
+    pathParams: {
       deployment_id: deploymentId.toString(),
     },
-    { refreshInterval: 5000 },
-  );
+    swrOptions: { refreshInterval: 5000 },
+  });
   return data;
 }
 

@@ -1,7 +1,10 @@
 import { useBBMutation, useBBQuery } from "./api";
 
 export function useProfile() {
-  const { data: profile } = useBBQuery("/profile", undefined);
+  const { data: profile } = useBBQuery({
+    path: "/profile",
+    pathParams: undefined,
+  });
   return profile;
 }
 
@@ -16,7 +19,10 @@ export function useUpdateProfileName() {
 }
 
 export function useProfileEmails() {
-  const { data: emails } = useBBQuery("/profile_emails/list", undefined);
+  const { data: emails } = useBBQuery({
+    path: "/profile_emails/list",
+    pathParams: undefined,
+  });
   return emails;
 }
 

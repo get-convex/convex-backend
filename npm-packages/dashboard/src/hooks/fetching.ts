@@ -1,10 +1,6 @@
 import { Middleware } from "swr";
 import { captureException, captureMessage } from "@sentry/nextjs";
 
-import {
-  deploymentFetch,
-  translateResponse,
-} from "dashboard-common/lib/fetching";
 import { useAccessToken } from "./useServerSideData";
 
 export function useAuthHeader() {
@@ -32,54 +28,30 @@ export function getGoogleAnalyticsClientId(documentCookie: string) {
   }
 }
 
-// enabled globally by context
-export async function fetchWithAuthHeader([url, authHeader]: [
+export const reportHttpError = (
+  method: string,
   url: string,
-  authHeader: string,
-]): Promise<any> {
-  const googleAnalyticsId = getGoogleAnalyticsClientId(document.cookie);
-  // Don't transform normal fetch errors.
-  try {
-    const resp = await fetch(`${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}${url}`, {
-      headers: {
-        Authorization: authHeader,
-        "Convex-Client": "dashboard-0.0.0",
-        "Google-Analytics-Client-Id": googleAnalyticsId,
-      },
-      mode: "cors",
-    });
-    return await translateResponse(resp);
-  } catch (e) {
-    if (e instanceof TypeError) {
-      // TypeError is thrown when a network error occurs.
-      // Often, this is due to the user losing internet connection, or
-      // the request being canceled due to page navigation.
-      // So, return nothing and allow SWR to retry.
-      return;
-    }
-    throw e;
-  }
-}
+  error: { code: string; message: string },
+) => {
+  captureMessage(
+    `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+  );
+};
 
 export const bigBrainAuth: Middleware =
   (useSWRNext) => (key, fetcher, config) => {
     // Handle edge cases:
-    // 1. If we're fetching from a deployment, don't authenticate to big brain
-    // 2. If the type of the key is a function, we're probably hitting a paginated API,
+    // 1. If the type of the key is a function, we're probably hitting a paginated API,
     //    which doesn't work with bigBrainAuth right now. Paginated API calls should supply
     //    their own fetcher.
-    if (fetcher === deploymentFetch || typeof key === "function") {
+    if (typeof key === "function") {
       return useSWRNext(key, fetcher, config);
     }
 
     let swrKey = key;
 
-    const authHeader = useAuthHeader();
     if (!key) {
       swrKey = null;
-    } else if (fetcher === fetchWithAuthHeader) {
-      // Only replace the key if we're using the old-style fetcher.
-      swrKey = [key, authHeader];
     }
 
     let fallbackKey = key;
@@ -104,13 +76,3 @@ export const bigBrainAuth: Middleware =
 
     return useSWRNext(swrKey, fetcher, { ...config, fallbackData });
   };
-
-export const reportHttpError = (
-  method: string,
-  url: string,
-  error: { code: string; message: string },
-) => {
-  captureMessage(
-    `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
-  );
-};

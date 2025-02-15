@@ -1,10 +1,6 @@
 import { captureMessage } from "@sentry/nextjs";
-import useSWR from "swr";
+import { DatabricksQueryId, DateRange, useUsageQuery } from "api/usage";
 
-const USAGE_REFRESH_INTERVAL_MS =
-  getURLConfigInt("usage_refresh_secs", 60 * 10) * 1000;
-
-export type DatabricksQueryId = string;
 const DATABRICKS_QUERY_IDS: {
   teamActionCompute: DatabricksQueryId;
   teamDatabaseBandwidth: DatabricksQueryId;
@@ -33,44 +29,13 @@ const DATABRICKS_QUERY_IDS: {
   teamVectorStorage: "6cf7ee95-c39e-419e-ac3e-cb0acfcc2a0b",
 };
 
-export const rootComponentPath = "-root-component-";
-
-export type DateRange = { from: string; to: string };
-
-function encodeParams(params: Record<string, string | number | null>) {
-  return new URLSearchParams(
-    Object.fromEntries(
-      Object.entries(params)
-        .filter(([, value]) => value !== null)
-        .map(([key, value]) => [key, value!.toString()]),
-    ),
-  ).toString();
-}
-
-export type DocumentStorage = {
-  document_and_index_storage: number;
-  vector_storage: number | undefined;
-};
-
 export function useUsageTeamSummary(
   teamId: number,
   period: DateRange | null,
   projectId: number | null,
   componentPrefix: string | null,
 ) {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // databaseStorage
-      string, // databaseBandwidth
-      string, // functionCalls
-      string, // actionCompute
-      string, // fileStorage
-      string, // fileBandwidth
-      string, // vectorStorage
-      string, // vectorBandwidth
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamSummary,
     teamId,
     projectId,
@@ -135,13 +100,7 @@ export function useUsageTeamDocumentsPerDay(
   period: DateRange | null,
   componentPrefix: string | null,
 ): DailyMetric[] | undefined {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // count
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamDocumentCount,
     teamId,
     projectId,
@@ -161,14 +120,7 @@ export function useUsageTeamDatabaseBandwidthPerDay(
   period: DateRange | null,
   componentPrefix: string | null,
 ) {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // ingressSize
-      string, // egressSize
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamDatabaseBandwidth,
     teamId,
     projectId,
@@ -193,13 +145,7 @@ export function useUsageTeamVectorStoragePerDay(
   period: DateRange | null,
   componentPrefix: string | null,
 ): DailyMetric[] | undefined {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // vectorStorage
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamVectorStorage,
     teamId,
     projectId,
@@ -218,14 +164,7 @@ export function useUsageTeamVectorBandwidthPerDay(
   period: DateRange | null,
   componentPrefix: string | null,
 ) {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // ingressSize
-      string, // egressSize
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamVectorBandwidth,
     teamId,
     projectId,
@@ -250,14 +189,7 @@ export function useUsageTeamDatabaseStoragePerDay(
   period: DateRange | null,
   componentPrefix: string | null,
 ): DailyPerTagMetrics[] | undefined {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // documentStorage
-      string, // indexStorage
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamDatabaseStorage,
     teamId,
     projectId,
@@ -282,13 +214,7 @@ export function useUsageTeamActionComputeDaily(
   period: DateRange | null,
   componentPrefix: string | null,
 ): DailyMetric[] | undefined {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // valueGbS
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamActionCompute,
     teamId,
     projectId,
@@ -324,21 +250,7 @@ export function useUsageTeamMetricsByFunction(
   projectId: number | null,
   componentPrefix: string | null,
 ): AggregatedFunctionMetrics[] | undefined {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // functionName
-      string, // projectId
-      string, // callCount
-      string, // databaseIngressSize
-      string, // databaseEgressSize
-      string, // vectorIngressSize
-      string, // vectorEgressSize
-      string, // actionComputeTime
-      string, // deploymentName
-      string, // componentPath
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamFunctionBreakdown,
     teamId,
     projectId,
@@ -384,17 +296,7 @@ export function useUsageTeamDailyCallsByTag(
   period: DateRange | null,
   componentPrefix: string | null,
 ) {
-  const { data: functionData } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // cachedQueries
-      string, // uncachedQueries
-      string, // mutations
-      string, // actions
-      string, // httpActions
-    ][]
-  >({
+  const { data: functionData } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamFunctionCalls,
     teamId,
     projectId,
@@ -402,13 +304,7 @@ export function useUsageTeamDailyCallsByTag(
     componentPrefix,
   });
 
-  const { data: storageData } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // storageCalls
-    ][]
-  >({
+  const { data: storageData } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamStorageCalls,
     teamId,
     projectId,
@@ -475,15 +371,7 @@ export function useUsageTeamStoragePerDay(
   period: DateRange | null,
   componentPrefix: string | null,
 ): DailyPerTagMetrics[] | undefined {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // totalFileSize
-      string, // userFileSize
-      string, // cloudBackupSize
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamFileStorage,
     teamId,
     projectId,
@@ -510,20 +398,7 @@ export function useUsageTeamStorageThroughputDaily(
   period: DateRange | null,
   componentPrefix: string | null,
 ) {
-  const { data } = useUsageQuery<
-    [
-      string, // teamId
-      string, // ds
-      string, // servingIngressSize
-      string, // servingEgressSize
-      string, // userFunctionIngressSize
-      string, // userFunctionEgressSize
-      string, // cloudBackupSize,
-      string, // cloudRestoreSize,
-      string, // snapshotExportSize,
-      string, // snapshotImportSize,
-    ][]
-  >({
+  const { data } = useUsageQuery({
     queryId: DATABRICKS_QUERY_IDS.teamFileBandwidth,
     teamId,
     projectId,
@@ -577,56 +452,4 @@ export function useUsageTeamStorageThroughputDaily(
       ],
     }),
   );
-}
-
-export function useUsageQuery<T extends Array<any>>({
-  queryId,
-  teamId,
-  projectId,
-  deploymentName,
-  period,
-  componentPrefix,
-  functionId,
-  tableName,
-  skip,
-}: {
-  queryId: DatabricksQueryId;
-  teamId: number;
-  projectId: number | null;
-  functionId?: string;
-  tableName?: string;
-  period: DateRange | null;
-  componentPrefix: string | null;
-  deploymentName?: string;
-  skip?: boolean;
-}) {
-  return useSWR<T>(
-    skip
-      ? undefined
-      : `/api/dashboard/teams/${teamId}/usage/query?${encodeParams({
-          queryId,
-          projectId,
-          ...(deploymentName ? { deploymentName } : {}),
-          ...(functionId ? { udfId: functionId } : {}),
-          ...(tableName ? { tableName } : {}),
-          ...(period ?? {}),
-          ...(componentPrefix
-            ? {
-                componentPath:
-                  componentPrefix === "app"
-                    ? rootComponentPath
-                    : componentPrefix,
-              }
-            : {}),
-        })}`,
-    { refreshInterval: USAGE_REFRESH_INTERVAL_MS },
-  );
-}
-
-function getURLConfigInt(name: string, default_value: number) {
-  if (typeof window === "undefined") {
-    return default_value;
-  }
-  const value = new URLSearchParams(window.location.search).get(name);
-  return value !== null ? parseInt(value) : default_value;
 }

@@ -2944,7 +2944,14 @@ export interface operations {
     };
     get_audit_log_events: {
         parameters: {
-            query?: never;
+            query: {
+                from: number;
+                to: number;
+                memberId?: null | components["schemas"]["MemberId"];
+                action?: null | components["schemas"]["AuditLogAction"];
+                limit?: number | null;
+                cursor?: string | null;
+            };
             header?: never;
             path: {
                 team_id: string;
@@ -3443,7 +3450,17 @@ export interface operations {
     };
     query_usage_databricks: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Uuid of a databricks query */
+                queryId: string;
+                from?: string | null;
+                to?: string | null;
+                projectId?: null | components["schemas"]["ProjectId"];
+                deploymentName?: null | components["schemas"]["InstanceName"];
+                componentPath?: string | null;
+                udfId?: string | null;
+                tableName?: string | null;
+            };
             header?: never;
             path: {
                 team_id: string;

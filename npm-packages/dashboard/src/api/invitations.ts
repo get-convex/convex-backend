@@ -1,8 +1,11 @@
 import { useBBMutation, useBBQuery } from "./api";
 
 export function useTeamInvites(teamId: number) {
-  const { data: invites } = useBBQuery(`/teams/{team_id}/invites`, {
-    team_id: teamId.toString(),
+  const { data: invites } = useBBQuery({
+    path: `/teams/{team_id}/invites`,
+    pathParams: {
+      team_id: teamId.toString(),
+    },
   });
 
   return invites;

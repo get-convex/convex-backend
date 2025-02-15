@@ -1,9 +1,7 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { DeploymentResponse, ProjectDetails } from "generatedApi";
-import {
-  AggregatedFunctionMetrics,
-  rootComponentPath,
-} from "hooks/usageMetrics";
+import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
+import { rootComponentPath } from "api/usage";
 import {
   FunctionBreakdownMetricActionCompute,
   FunctionBreakdownMetricCalls,
