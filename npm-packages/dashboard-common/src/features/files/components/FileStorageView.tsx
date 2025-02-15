@@ -199,10 +199,40 @@ export function DeleteFilesButton({
   );
 }
 
+const isHtmlContent = (file: File): boolean =>
+  file.type.includes("html") ||
+  file.type === "text/html" ||
+  file.name.endsWith(".html") ||
+  file.name.endsWith(".htm");
+
+const checkFileForHtmlContent = (file: File): Promise<boolean> =>
+  new Promise((resolve) => {
+    // Only check first 4KB of the file
+    const chunk = file.slice(0, 4096);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const contentLower = content.toLowerCase();
+      // Check for common HTML patterns
+      const hasHtmlPatterns =
+        /<\s*(!doctype|html|head|body|script|div|a|meta)[^>]*>/i.test(
+          contentLower,
+        );
+      resolve(hasHtmlPatterns);
+    };
+
+    reader.onerror = () => resolve(false);
+    reader.readAsText(chunk);
+  });
+
 export function useUploadFiles() {
-  const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
-    DeploymentInfoContext,
-  );
+  const {
+    useCurrentDeployment,
+    useHasProjectAdminPermissions,
+    captureException,
+    captureMessage,
+  } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
   const hasAdminPermissions = useHasProjectAdminPermissions(
     deployment?.projectId,
@@ -224,6 +254,14 @@ export function useUploadFiles() {
     name: string;
   }> {
     try {
+      try {
+        if (isHtmlContent(file) || (await checkFileForHtmlContent(file))) {
+          captureMessage(`Uploaded file appears to be HTML content.`);
+        }
+      } catch (error) {
+        captureException(error);
+      }
+
       const postUrl = await generateUploadUrl({
         componentId: selectedNent?.id ?? null,
       });
