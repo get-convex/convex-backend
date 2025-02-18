@@ -62,8 +62,10 @@ impl AdminKey {
             return admin_key.to_string();
         };
 
-        // if instance type is "preview" - return just the key part
-        if instance_type.eq_ignore_ascii_case("preview") {
+        // if instance type is "preview" or "project" - return just the key part
+        if instance_type.eq_ignore_ascii_case("preview")
+            || instance_type.eq_ignore_ascii_case("project")
+        {
             return key_part.to_string();
         }
 
@@ -136,6 +138,7 @@ impl TryFrom<AdminKeyParts> for AdminKey {
 pub struct AdminKeyParts {
     pub deployment_type_prefix: Option<String>,
     pub instance_name: Option<String>,
+    // N.B.: for a device token, this is not actually encrypted - it's just an encoded UUID
     pub encrypted_part: String,
 }
 
