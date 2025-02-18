@@ -37,5 +37,6 @@ exec ./convex-local-backend "$@" \
     --beacon-tag "self-hosted-docker" \
     ${DISABLE_BEACON:+--disable-beacon} \
     ${REDACT_LOGS_TO_CLIENT:+--redact-logs-to-client} \
+    ${DO_NOT_REQUIRE_SSL:+--do-not-require-ssl} \
     "${DB_FLAGS[@]}" \
     "$DB_SPEC"
