@@ -30,7 +30,7 @@ export function ScheduledFunctionsContent({
 
   return (
     <div className="relative flex h-full max-w-6xl grow flex-col gap-4">
-      <ScheduledFunctionsContentToolbar jobs={jobs} />
+      <ScheduledFunctionsContentToolbar />
       <Sheet
         className="flex min-w-[40rem] max-w-full grow flex-col"
         padding={false}

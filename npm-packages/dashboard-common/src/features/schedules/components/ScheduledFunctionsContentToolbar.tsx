@@ -1,7 +1,6 @@
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { useContext, useState } from "react";
-import { ScheduledJob } from "system-udfs/convex/_system/frontend/common";
 import { useCancelAllJobs } from "@common/features/schedules/lib/api";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
@@ -20,11 +19,7 @@ import { Button } from "@common/elements/Button";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";
 import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
 
-export function ScheduledFunctionsContentToolbar({
-  jobs,
-}: {
-  jobs: ScheduledJob[];
-}) {
+export function ScheduledFunctionsContentToolbar() {
   const currentOpenFunction = useCurrentOpenFunction();
   const moduleFunctions = useModuleFunctions();
   const router = useRouter();
@@ -94,7 +89,7 @@ export function ScheduledFunctionsContentToolbar({
           size="sm"
           onClick={() => setShowDeleteModal(true)}
           icon={<TrashIcon />}
-          disabled={jobs.length === 0 || !canCancelJobs}
+          disabled={!canCancelJobs}
           tip={
             !canCancelJobs &&
             "You do not have permission to cancel scheduled runs in production."
