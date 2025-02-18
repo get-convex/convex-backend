@@ -469,10 +469,12 @@ async fn test_writes_nested_document(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_oom(rt: TestRuntime) -> anyhow::Result<()> {
-    let t = UdfTest::default(rt).await?;
-    let e = t.query_js_error("adversarial:oom", assert_obj!()).await?;
-    assert_contains(&e, "JavaScript execution ran out of memory");
-    Ok(())
+    UdfTest::run_test_with_isolate2(rt, async move |t| {
+        let e = t.query_js_error("adversarial:oom", assert_obj!()).await?;
+        assert_contains(&e, "JavaScript execution ran out of memory");
+        Ok(())
+    })
+    .await
 }
 
 #[convex_macro::test_runtime]

@@ -1,6 +1,9 @@
 use std::{
     ffi,
-    ptr,
+    sync::atomic::{
+        AtomicBool,
+        Ordering,
+    },
 };
 
 use deno_core::v8::{
@@ -16,7 +19,7 @@ use super::{
 // across sessions.
 pub struct Session<'a> {
     pub handle_scope: v8::HandleScope<'a, ()>,
-    heap_ctx_ptr: *mut HeapContext,
+    pub heap_context: Box<HeapContext>,
 }
 
 impl<'a> Session<'a> {
@@ -29,11 +32,11 @@ impl<'a> Session<'a> {
         // we'll take back in the `Isolate`'s destructor.
         let heap_context = Box::new(HeapContext {
             handle: handle_scope.thread_safe_handle(),
+            oomed: AtomicBool::new(false),
         });
-        let heap_ctx_ptr = Box::into_raw(heap_context);
         handle_scope.add_near_heap_limit_callback(
             Self::near_heap_limit_callback,
-            heap_ctx_ptr as *mut ffi::c_void,
+            &*heap_context as *const _ as *mut ffi::c_void,
         );
 
         handle_scope.set_promise_reject_callback(CallbackContext::promise_reject_callback);
@@ -43,7 +46,7 @@ impl<'a> Session<'a> {
 
         Self {
             handle_scope,
-            heap_ctx_ptr,
+            heap_context,
         }
     }
 
@@ -52,10 +55,11 @@ impl<'a> Session<'a> {
         current_heap_limit: usize,
         _initial_heap_limit: usize,
     ) -> usize {
-        let heap_ctx = unsafe { &mut *(data as *mut HeapContext) };
+        let heap_ctx = unsafe { &*(data as *const HeapContext) };
 
         // XXX: heap_ctx.handle.terminate(TerminationReason::OutOfMemory);
         heap_ctx.handle.terminate_execution();
+        heap_ctx.oomed.store(true, Ordering::Relaxed);
 
         // Double heap limit to avoid a hard OOM.
         current_heap_limit * 2
@@ -64,16 +68,8 @@ impl<'a> Session<'a> {
 
 impl Drop for Session<'_> {
     fn drop(&mut self) {
-        if !self.heap_ctx_ptr.is_null() {
-            // First remove the callback, so V8 can no longer invoke it.
-            self.handle_scope
-                .remove_near_heap_limit_callback(Self::near_heap_limit_callback, 0);
-
-            // Now that the callback is gone, we can free its context.
-            let heap_ctx: Box<HeapContext> = unsafe { Box::from_raw(self.heap_ctx_ptr) };
-            drop(heap_ctx);
-            self.heap_ctx_ptr = ptr::null_mut();
-        }
+        self.handle_scope
+            .remove_near_heap_limit_callback(Self::near_heap_limit_callback, 0);
 
         // V8's API allows setting null function pointers here, but rusty_v8
         // does not. Use no-op functions instead.
@@ -95,8 +91,15 @@ impl Drop for Session<'_> {
     }
 }
 
-struct HeapContext {
+pub struct HeapContext {
     handle: v8::IsolateHandle,
+    oomed: AtomicBool,
+}
+
+impl HeapContext {
+    pub(crate) fn oomed(&self) -> bool {
+        self.oomed.load(Ordering::Relaxed)
+    }
 }
 
 pub enum SessionFailure {

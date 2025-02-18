@@ -100,7 +100,7 @@ impl Context {
         let mut handle_scope = v8::HandleScope::new(&mut session.handle_scope);
         let context = v8::Local::new(&mut handle_scope, self.context.clone());
         let mut scope = v8::ContextScope::new(&mut handle_scope, context);
-        let entered = EnteredContext::new(&mut scope, context);
+        let entered = EnteredContext::new(&mut scope, &session.heap_context, context);
         f(entered)
     }
 

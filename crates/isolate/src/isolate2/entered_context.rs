@@ -30,6 +30,7 @@ use super::{
     context::PendingFunction,
     context_state::ContextState,
     environment::EnvironmentOutcome,
+    session::HeapContext,
 };
 use crate::{
     bundled_js::system_udf_file,
@@ -48,24 +49,34 @@ use crate::{
         callback_context::CallbackContext,
         context_state::ContextFailure,
     },
-    metrics,
+    metrics::{
+        self,
+        log_isolate_out_of_memory,
+    },
     strings::{
         self,
         StaticString,
     },
+    termination::OutOfMemoryError,
 };
 
 pub struct EnteredContext<'enter, 'scope: 'enter> {
     scope: &'enter mut v8::HandleScope<'scope>,
+    heap_context: &'enter HeapContext,
     context: v8::Local<'scope, v8::Context>,
 }
 
 impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
     pub fn new(
         scope: &'enter mut v8::HandleScope<'scope>,
+        heap_context: &'enter HeapContext,
         context: v8::Local<'scope, v8::Context>,
     ) -> Self {
-        Self { scope, context }
+        Self {
+            scope,
+            heap_context,
+            context,
+        }
     }
 
     pub fn context_state_mut(&mut self) -> anyhow::Result<&mut ContextState> {
@@ -126,6 +137,10 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                     ContextFailure::UncatchableDeveloperError(js_error) => anyhow::bail!(js_error),
                     ContextFailure::SystemError(error) => anyhow::bail!(error),
                 }
+            } else if self.heap_context.oomed() {
+                // TODO: do the rest of the logging that isolate1 does
+                log_isolate_out_of_memory();
+                anyhow::bail!(JsError::from_message(format!("{OutOfMemoryError}")));
             } else {
                 anyhow::bail!("Execution terminated");
             }
