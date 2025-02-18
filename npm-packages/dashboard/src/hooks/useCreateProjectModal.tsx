@@ -4,7 +4,6 @@ import { Button } from "dashboard-common/elements/Button";
 import { Loading } from "dashboard-common/elements/Loading";
 import { Spinner } from "dashboard-common/elements/Spinner";
 import { ReactElement, useState } from "react";
-import { useRouter } from "next/router";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Team } from "generatedApi";
@@ -59,7 +58,6 @@ const CreateProjectSchema = Yup.object().shape({
 });
 
 function CreateProjectForm({ onClose, team }: { onClose(): void; team: Team }) {
-  const router = useRouter();
   const createProject = useCreateProject(team.id);
   const formState = useFormik({
     initialValues: {
@@ -73,14 +71,7 @@ function CreateProjectForm({ onClose, team }: { onClose(): void; team: Team }) {
         deploymentType: "dev",
       });
       const projectUrl = `/t/${team.slug}/${project.projectSlug}/${project.deploymentName}/data`;
-      await router.push(
-        {
-          pathname: projectUrl,
-        },
-        {
-          pathname: projectUrl,
-        },
-      );
+      window.location.href = projectUrl;
       onClose();
     },
   });
