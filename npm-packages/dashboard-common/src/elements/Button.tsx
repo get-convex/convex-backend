@@ -149,7 +149,7 @@ const button = tv({
       variant: "primary",
       focused: true,
       accent: "none",
-      class: "bg-blue-500 text-white",
+      class: "bg-util-accent/80 text-white",
       disabled: false,
     },
     {

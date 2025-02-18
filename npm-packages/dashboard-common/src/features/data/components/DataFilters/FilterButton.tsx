@@ -41,7 +41,7 @@ export function FilterButton({
     <div>
       <Button
         size="sm"
-        variant="neutral"
+        variant={validFilterNames.size > 0 ? "primary" : "neutral"}
         onClick={onClick}
         aria-controls={filterMenuId}
         icon={<FunnelIcon className="h-4 w-4" />}
