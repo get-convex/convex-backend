@@ -4,6 +4,11 @@ Find the latest versions of the `convex-backend` package
 [here](https://github.com/get-convex/convex-backend/pkgs/container/convex-backend)
 and `convex-dashboard` package
 [here](https://github.com/get-convex/convex-backend/pkgs/container/convex-dashboard).
+Make sure to use the same version of `convex-backend` and `convex-dashboard`.
+Different versions are not guaranteed to be compatible with one another.
+
+Follow the instructions in the [README](README.md#software-upgrades) to upgrade
+your self-hosted backend and dashboard.
 
 ## 62ef09aa604b0c5f873b59e0944b5e89f84b66b2
 

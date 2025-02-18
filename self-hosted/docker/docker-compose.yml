@@ -25,7 +25,7 @@ services:
       start_period: 5s
 
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:4499dd4fd7f2148687a7774599c613d052950f46
+    image: ghcr.io/get-convex/convex-dashboard:62ef09aa604b0c5f873b59e0944b5e89f84b66b2
     ports:
       - "${DASHBOARD_PORT:-6791}:6791"
     environment:
