@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/get-convex/convex-backend:6c974d219776b753cd23d26f4a296629ff7c2cad
+    image: ghcr.io/get-convex/convex-backend:62ef09aa604b0c5f873b59e0944b5e89f84b66b2
     ports:
       - "${PORT:-3210}:3210"
       - "${SITE_PROXY_PORT:-3211}:3211"

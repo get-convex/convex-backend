@@ -214,6 +214,23 @@ should be a line like `Connected to Postgres` in the logs. Note that you'll have
 to redeploy any existing Convex functions to the new database with
 `npx convex deploy`.
 
+### Connecting to Postgres locally
+
+Create a database called `convex_self_hosted` in your Postgres instance.
+
+```sh
+psql postgres -c "CREATE DATABASE convex_self_hosted"
+```
+
+Set the `DATABASE_URL` environment variable to your Postgres connection string
+and disable SSL.
+
+```sh
+export DATABASE_URL='postgresql://<your-username>@host.docker.internal:5432'
+export DO_NOT_REQUIRE_SSL=1
+docker compose up
+```
+
 ## Optional configurations
 
 - The cloud-hosted product automatically redacts logs to prevent any leaking of
