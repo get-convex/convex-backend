@@ -71,7 +71,14 @@ describe("walkAst", () => {
         validator,
       });
       expect(errors).toEqual([]);
-      expect(result).toEqual(expected);
+
+      if (result instanceof ArrayBuffer) {
+        expect(Array.from(new Uint8Array(result))).toEqual(
+          Array.from(new Uint8Array(expected as ArrayBuffer)),
+        );
+      } else {
+        expect(result).toEqual(expected);
+      }
 
       // ensure that parsing the string version of a value produces the same result.
       const { value: roundTripResult, errors: roundTripErrors } = walkAst(
@@ -489,6 +496,12 @@ describe("walkAst", () => {
             optional: false,
           },
         },
+      },
+      {
+        name: "bytes validator",
+        input: 'Bytes("SGVsbG8gV29ybGQ=")', // Base64 encoded "Hello World"
+        expected: [72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100],
+        validator: { type: "bytes" },
       },
     ];
 

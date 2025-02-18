@@ -410,7 +410,12 @@ export class Walker {
       };
     }
 
+    // We need to temporarily unset the validator so that we don't validate the argument
+    // to the call expression as a { type: "bytes" }
+    const originalValidator = this.validator;
+    this.validator = undefined;
     const { value, errors: walkErrors } = this.walk(n.arguments[0], false);
+    this.validator = originalValidator;
 
     if (walkErrors.length) {
       return { value: null, errors: [...errors, ...walkErrors] };

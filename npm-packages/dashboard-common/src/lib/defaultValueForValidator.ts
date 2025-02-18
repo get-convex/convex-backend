@@ -15,7 +15,7 @@ export const defaultValueForValidator = (
     case "bigint":
       return BigInt(0);
     case "bytes":
-      return null;
+      return new Uint8Array().buffer;
     case "any":
       return {};
     case "literal":
