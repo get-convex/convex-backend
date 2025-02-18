@@ -44,7 +44,10 @@ use crate::{
         to_rust_string,
     },
     isolate::SETUP_URL,
-    isolate2::callback_context::CallbackContext,
+    isolate2::{
+        callback_context::CallbackContext,
+        context_state::ContextFailure,
+    },
     metrics,
     strings::{
         self,
@@ -115,15 +118,23 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
     ) -> anyhow::Result<R> {
         let mut tc_scope = v8::TryCatch::new(self.scope);
         let r = f(&mut tc_scope);
+        if tc_scope.is_execution_terminating() {
+            drop(tc_scope);
+            let context_state = self.context_state_mut()?;
+            if let Some(failure) = context_state.failure.take() {
+                match failure {
+                    ContextFailure::UncatchableDeveloperError(js_error) => anyhow::bail!(js_error),
+                    ContextFailure::SystemError(error) => anyhow::bail!(error),
+                }
+            } else {
+                anyhow::bail!("Execution terminated");
+            }
+        }
         if let Some(e) = tc_scope.exception() {
             drop(tc_scope);
             return Err(self.format_traceback(e)?.into());
         }
         drop(tc_scope);
-        // XXX: check terminating error here. (call to unsupported syscall)
-        if self.scope.is_execution_terminating() {
-            anyhow::bail!("Execution terminated");
-        }
         // Executing just about any user code can lead to an unhandled promise
         // rejection (e.g. calling `Promise.reject`). However, it's important
         // to only fail the session when we receive control... XXX explain more.

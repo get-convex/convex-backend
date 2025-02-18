@@ -14,7 +14,10 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    log_lines::TRUNCATED_LINE_SUFFIX,
+    log_lines::{
+        LogLines,
+        TRUNCATED_LINE_SUFFIX,
+    },
     testing::assert_contains,
     types::{
         AllowedVisibility,
@@ -926,4 +929,22 @@ async fn test_invoke_function_directly(rt: TestRuntime) -> anyhow::Result<()> {
          calling a helper function instead.",
     );
     Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_uncatchable_errors_are_uncatchable(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate2(rt, async move |t| {
+        let outcome = t
+            .raw_query(
+                "adversarial:throwUncatchableDeveloperError",
+                vec![assert_val!({})],
+                Identity::system(),
+                None,
+            )
+            .await?;
+        assert_eq!(outcome.log_lines, LogLines::default());
+        assert_contains(&outcome.result.unwrap_err(), "idonotexist");
+        Ok(())
+    })
+    .await
 }

@@ -309,7 +309,11 @@ export const throwSystemErrorAfterAwait = query(async () => {
 });
 
 export const throwUncatchableDeveloperError = query(async () => {
-  Convex.jsSyscall("idonotexistandicannotlie", {});
+  try {
+    Convex.jsSyscall("idonotexistandicannotlie", {});
+  } catch (e) {
+    console.log("caught you", e);
+  }
 });
 
 export const slowSyscall = query(async () => {

@@ -9,7 +9,10 @@ use std::{
 use anyhow::Context;
 use bytes::Bytes;
 use common::{
-    errors::JsError,
+    errors::{
+        report_error_sync,
+        JsError,
+    },
     runtime::UnixTimestamp,
 };
 use deno_core::{
@@ -30,6 +33,7 @@ use super::{
     PromiseId,
 };
 use crate::{
+    environment::UncatchableDeveloperError,
     ops::CryptoOps,
     request_scope::{
         ReadableStream,
@@ -199,10 +203,25 @@ impl ContextState {
             .ok_or_else(|| anyhow::anyhow!("Text decoder resource not found"))?;
         Ok(decoder)
     }
+
+    pub(crate) fn fail(&mut self, err: anyhow::Error) {
+        if self.failure.is_some() {
+            report_error_sync(&mut anyhow::anyhow!(
+                "termination after already terminated: {err:?}"
+            ));
+            return;
+        }
+
+        self.failure = Some(match err.downcast::<UncatchableDeveloperError>() {
+            Ok(err) => ContextFailure::UncatchableDeveloperError(err.js_error),
+            Err(err) => ContextFailure::SystemError(err),
+        });
+    }
 }
 
 pub enum ContextFailure {
     UncatchableDeveloperError(JsError),
+    SystemError(anyhow::Error),
 }
 
 struct LoadedModule {

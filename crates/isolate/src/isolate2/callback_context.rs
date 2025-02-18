@@ -22,10 +22,7 @@ use super::{
     context_state::ContextState,
 };
 use crate::{
-    environment::{
-        helpers::resolve_promise,
-        UncatchableDeveloperError,
-    },
+    environment::helpers::resolve_promise,
     helpers::{
         self,
         to_rust_string,
@@ -321,25 +318,18 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
     }
 
     fn handle_syscall_or_op_error(&mut self, err: anyhow::Error) {
-        if let Some(uncatchable_error) = err.downcast_ref::<UncatchableDeveloperError>() {
-            // TODO: Terminate the isolate.
-            let message = uncatchable_error.js_error.message.to_string();
-            let message_v8 = v8::String::new(self.scope, &message[..]).unwrap();
-            let exception = v8::Exception::error(self.scope, message_v8);
-            self.scope.throw_exception(exception);
-            return;
-        }
-
         if err.is_deterministic_user_error() {
+            // Only deterministic errors can be exposed to JS.
             let message = err.user_facing_message();
             let message_v8 = v8::String::new(self.scope, &message[..]).unwrap();
             let exception = v8::Exception::error(self.scope, message_v8);
             self.scope.throw_exception(exception);
-            return;
+        } else {
+            // These errors should abort the isolate immediately.
+            let state = self.context_state().expect("Missing ContextState");
+            state.fail(err);
+            self.scope.terminate_execution();
         }
-
-        // TODO: Handle system errors.
-        todo!();
     }
 
     fn update_stream_listeners(&mut self) -> anyhow::Result<()> {
