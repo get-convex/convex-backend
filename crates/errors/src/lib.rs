@@ -423,9 +423,10 @@ impl ErrorMetadata {
             ErrorCode::BadRequest
             | ErrorCode::NotFound
             | ErrorCode::PaginationLimit
-            | ErrorCode::Unauthenticated
             | ErrorCode::Forbidden
             | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
+            // Unauthenticated errors happen regularly, e.g. for expired ID tokens
+            ErrorCode::Unauthenticated => Some((sentry::Level::Info, Some(0.001))),
             ErrorCode::OutOfRetention
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
