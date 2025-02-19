@@ -5,10 +5,12 @@ use metrics::{
     log_counter_with_labels,
     log_distribution_with_labels,
     log_gauge,
+    prometheus::VMHistogram,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
     StaticMetricLabel,
+    Timer,
     STATUS_LABEL,
 };
 
@@ -62,4 +64,12 @@ register_convex_gauge!(
 );
 pub fn log_num_running_jobs(num_running: usize) {
     log_gauge(&SCHEDULED_JOB_NUM_RUNNING_TOTAL, num_running as f64);
+}
+
+register_convex_histogram!(
+    RUN_SCHEDULED_JOBS_LOOP_SECONDS,
+    "Time to run a single loop of the scheduled job executor",
+);
+pub fn run_scheduled_jobs_loop() -> Timer<VMHistogram> {
+    Timer::new(&RUN_SCHEDULED_JOBS_LOOP_SECONDS)
 }

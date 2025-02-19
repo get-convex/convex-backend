@@ -47,7 +47,6 @@ use common::{
         Runtime,
         SpawnHandle,
     },
-    tokio::task::yield_now,
     types::{
         FunctionCaller,
         UdfType,
@@ -165,12 +164,6 @@ pub struct ScheduledJobContext<RT: Runtime> {
     function_log: FunctionExecutionLog<RT>,
 }
 
-/// This roughly matches tokio's permits that it uses as part of cooperative
-/// scheduling. We shouldn't use this for anything sophisticated, it's just a
-/// simple way for us to yield occasionally for scheduled jobs but not yield too
-/// often. We really don't need anything fancy here.
-const CHECKS_BETWEEN_YIELDS: usize = 128;
-
 impl<RT: Runtime> ScheduledJobExecutor<RT> {
     pub fn start(
         rt: RT,
@@ -219,21 +212,6 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         }
     }
 
-    async fn drain_finished_jobs(
-        running_job_ids: &mut HashSet<ResolvedDocumentId>,
-        rx: &mut mpsc::Receiver<ResolvedDocumentId>,
-    ) {
-        let mut total_drained = 0;
-        while let Ok(job_id) = rx.try_recv() {
-            total_drained += 1;
-            running_job_ids.remove(&job_id);
-            if total_drained % CHECKS_BETWEEN_YIELDS == 0 {
-                yield_now().await;
-            }
-        }
-        tracing::debug!("Drained {total_drained} finished scheduled jobs from the channel");
-    }
-
     async fn run(&mut self, backoff: &mut Backoff) -> anyhow::Result<()> {
         tracing::info!("Starting scheduled job executor");
         let pause_client = self.context.rt.pause_client();
@@ -243,7 +221,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         // Some if there's at least one pending job. May be in the past!
         let mut next_job_ready_time = None;
         loop {
-            Self::drain_finished_jobs(&mut running_job_ids, &mut job_finished_rx).await;
+            let _timer = metrics::run_scheduled_jobs_loop();
 
             let mut tx = self.database.begin(Identity::Unknown).await?;
             let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
@@ -282,11 +260,18 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             let token = tx.into_token()?;
             let subscription = self.database.subscribe(token).await?;
 
+            let mut job_ids: Vec<_> = Vec::new();
             select_biased! {
-                job_id = job_finished_rx.recv().fuse() => {
-                    if let Some(job_id) = job_id {
-                        pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
-                        running_job_ids.remove(&job_id);
+                num_jobs = job_finished_rx
+                                .recv_many(&mut job_ids, *SCHEDULED_JOB_EXECUTION_PARALLELISM)
+                                .fuse() => {
+                    // `recv_many()` returns the number of jobs received. If this number is 0,
+                    // then the channel has been closed.
+                    if num_jobs > 0 {
+                        for job_id in job_ids {
+                            pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
+                            running_job_ids.remove(&job_id);
+                        }
                     } else {
                         anyhow::bail!("Job results channel closed, this is unexpected!");
                     }
