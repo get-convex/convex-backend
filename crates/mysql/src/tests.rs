@@ -97,7 +97,7 @@ mod raw_statements {
             MySqlOptions {
                 allow_read_only: false,
                 version: PersistenceVersion::V5,
-                use_prepared_statements: true,
+                use_prepared_statements: false,
             },
             ShutdownSignal::panic()
         )
@@ -112,7 +112,7 @@ mod raw_statements {
             MySqlOptions {
                 allow_read_only: true,
                 version: PersistenceVersion::V5,
-                use_prepared_statements: true,
+                use_prepared_statements: false,
             },
             ShutdownSignal::panic(),
         )
