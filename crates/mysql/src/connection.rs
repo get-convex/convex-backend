@@ -173,7 +173,7 @@ fn format_mysql_text_protocol(
             .into_iter()
             .map(|p| match p {
                 MySqlValue::NULL => "NULL".to_owned(),
-                MySqlValue::Bytes(bytes) => format!("unhex('{}')", hex::encode(bytes)),
+                MySqlValue::Bytes(bytes) => format!("x'{}'", hex::encode(bytes)),
                 MySqlValue::Int(i) => format!("{i}"),
                 MySqlValue::UInt(u) => format!("{u}"),
                 // We don't use the following and I don't want to deal with escaping them.
@@ -556,7 +556,7 @@ mod tests {
             encoded,
             r#"
     SELECT * FROM presley_db.indexes
-    WHERE (key, value) IN (-27, unhex('2178613f29'))
+    WHERE (key, value) IN (-27, x'2178613f29')
     AND deleted IS NULL",
 "#,
         );
