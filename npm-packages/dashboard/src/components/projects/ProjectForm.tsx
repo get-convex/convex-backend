@@ -58,58 +58,61 @@ export function ProjectForm({
         onSubmit={formState.handleSubmit}
         aria-label="Edit project settings"
       >
-        <div className="mb-6 flex max-w-xs flex-col gap-4">
-          <Tooltip
-            tip={
-              !hasAdminPermissions
-                ? "You do not have permission to update the project name."
-                : undefined
-            }
-          >
-            <TextInput
-              label="Project Name"
-              outerClassname="max-w-[20rem]"
-              placeholder="Enter a name for your project"
-              onChange={formState.handleChange}
-              value={formState.values.name}
-              id="name"
-              error={formState.errors.name}
-              disabled={!hasAdminPermissions}
-            />
-          </Tooltip>
+        <div className="flex flex-col gap-6">
+          <div className="flex max-w-xs flex-col gap-4">
+            <Tooltip
+              tip={
+                !hasAdminPermissions
+                  ? "You do not have permission to update the project name."
+                  : undefined
+              }
+            >
+              <TextInput
+                label="Project Name"
+                outerClassname="max-w-[20rem]"
+                placeholder="Enter a name for your project"
+                onChange={formState.handleChange}
+                value={formState.values.name}
+                id="name"
+                error={formState.errors.name}
+                disabled={!hasAdminPermissions}
+              />
+            </Tooltip>
 
-          <Tooltip
-            tip={
-              !hasAdminPermissions
-                ? "You do not have permission to update the project slug."
-                : undefined
-            }
-          >
-            <TextInput
-              label="Project Slug"
-              outerClassname="max-w-[20rem]"
-              placeholder="Enter a slug for your project"
-              onChange={formState.handleChange}
-              value={formState.values.slug}
-              Icon={CopyIcon}
-              action={() => copyToClipboard(formState.values.slug)}
-              id="slug"
-              error={formState.errors.slug}
-              disabled={!hasAdminPermissions}
-            />
-          </Tooltip>
+            <Tooltip
+              tip={
+                !hasAdminPermissions
+                  ? "You do not have permission to update the project slug."
+                  : undefined
+              }
+            >
+              <TextInput
+                label="Project Slug"
+                outerClassname="max-w-[20rem]"
+                placeholder="Enter a slug for your project"
+                onChange={formState.handleChange}
+                value={formState.values.slug}
+                Icon={CopyIcon}
+                action={() => copyToClipboard(formState.values.slug)}
+                id="slug"
+                error={formState.errors.slug}
+                disabled={!hasAdminPermissions}
+              />
+            </Tooltip>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              disabled={
+                !formState.dirty || formState.isSubmitting || !formState.isValid
+              }
+              type="submit"
+              aria-label="submit"
+            >
+              Save
+            </Button>
+          </div>
         </div>
-
-        <Button
-          className="float-right"
-          disabled={
-            !formState.dirty || formState.isSubmitting || !formState.isValid
-          }
-          type="submit"
-          aria-label="submit"
-        >
-          Save
-        </Button>
       </form>
     </Sheet>
   );
