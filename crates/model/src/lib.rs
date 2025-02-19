@@ -38,7 +38,11 @@ use std::{
     sync::LazyLock,
 };
 
-use backend_state::BackendStateTable;
+use auth::AUTH_TABLE;
+use backend_state::{
+    BackendStateTable,
+    BACKEND_STATE_TABLE,
+};
 use common::{
     bootstrap_model::index::{
         IndexConfig,
@@ -59,6 +63,7 @@ use components::handles::{
 use cron_jobs::{
     CRON_JOBS_INDEX_BY_NAME,
     CRON_JOBS_INDEX_BY_NEXT_TS,
+    CRON_JOBS_TABLE,
     CRON_JOB_LOGS_INDEX_BY_NAME_TS,
 };
 pub use database::defaults::{
@@ -80,14 +85,19 @@ use database::{
 use database_globals::{
     DatabaseGlobalsModel,
     DatabaseGlobalsTable,
+    DATABASE_GLOBALS_TABLE,
     DATABASE_VERSION,
 };
-use environment_variables::ENVIRONMENT_VARIABLES_INDEX_BY_NAME;
+use environment_variables::{
+    ENVIRONMENT_VARIABLES_INDEX_BY_NAME,
+    ENVIRONMENT_VARIABLES_TABLE,
+};
 use exports::EXPORTS_BY_STATE_AND_TS_INDEX;
 use file_storage::FILE_STORAGE_ID_INDEX;
 use keybroker::Identity;
 use maplit::btreeset;
 use modules::{
+    MODULES_TABLE,
     MODULE_INDEX_BY_DELETED,
     MODULE_INDEX_BY_PATH,
 };
@@ -98,6 +108,7 @@ use scheduled_jobs::{
 };
 use session_requests::SESSION_REQUESTS_INDEX;
 use strum::IntoEnumIterator;
+use udf_config::UDF_CONFIG_TABLE;
 pub use value::METADATA_PREFIX;
 use value::{
     TableName,
@@ -291,6 +302,15 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
     database
         .commit_with_write_source(tx, "init_app_system_tables")
         .await?;
+
+    // We could load indexes in memory asynchronously in order to speed up backend
+    // start up time at the expense of going to the database while indexes load.
+    // However, we opt-in to block here in order to smooth out the database load
+    // during mass backend restarts and promotions.
+    database
+        .load_indexes_into_memory(APP_TABLES_TO_LOAD_IN_MEMORY.clone())
+        .await?;
+
     Ok(())
 }
 
@@ -425,6 +445,18 @@ pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
         &SourcePackagesTable,
     ]
 }
+
+static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::new(|| {
+    btreeset! {
+        UDF_CONFIG_TABLE.clone(),
+        AUTH_TABLE.clone(),
+        DATABASE_GLOBALS_TABLE.clone(),
+        MODULES_TABLE.clone(),
+        ENVIRONMENT_VARIABLES_TABLE.clone(),
+        CRON_JOBS_TABLE.clone(),
+        BACKEND_STATE_TABLE.clone(),
+    }
+});
 
 pub fn virtual_system_mapping() -> &'static VirtualSystemMapping {
     static MAPPING: LazyLock<VirtualSystemMapping> = LazyLock::new(|| {
