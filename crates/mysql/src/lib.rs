@@ -1712,9 +1712,7 @@ ORDER BY ts ASC, table_id ASC, id ASC
                 .map(|i| format!("q{i} AS ({select})"))
                 .join(", ");
             let union_all = (1..=chunk_size)
-                .map(|i| {
-                    format!("(SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q{i})")
-                })
+                .map(|i| format!("SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q{i}"))
                 .join(" UNION ALL ");
             (chunk_size, format!("WITH {queries} {union_all}"))
         })
@@ -1740,8 +1738,7 @@ ORDER BY table_id DESC, id DESC, ts DESC LIMIT 1
             let union_all = (1..=chunk_size)
                 .map(|i| {
                     format!(
-                        "(SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM \
-                         q{i})"
+                        "SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q{i}"
                     )
                 })
                 .join(" UNION ALL ");

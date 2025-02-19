@@ -5,16 +5,26 @@ export TMPDIR=${TMPDIR:-"$DATA_DIR/tmp"}
 export STORAGE_DIR=${STORAGE_DIR:-"$DATA_DIR/storage"}
 export SQLITE_DB=${SQLITE_DB:-"$DATA_DIR/db.sqlite3"}
 
+# Database driver flags matching DbDriverTag values
+POSTGRES_DB_FLAGS=(--db postgres-v5)
+MYSQL_DB_FLAGS=(--db mysql-v5)
+
 set -e
 mkdir -p "$TMPDIR" "$STORAGE_DIR"
 
 source ./read_credentials.sh
 
 # Determine database configuration
-if [ -n "$DATABASE_URL" ]; then
-    # If DATABASE_URL is set, use Postgres
+if [ -n "$POSTGRES_URL" ]; then
+    DB_SPEC="$POSTGRES_URL"
+    DB_FLAGS=("${POSTGRES_DB_FLAGS[@]}")
+elif [ -n "$MYSQL_URL" ]; then
+    DB_SPEC="$MYSQL_URL"
+    DB_FLAGS=("${MYSQL_DB_FLAGS[@]}")
+elif [ -n "$DATABASE_URL" ]; then
+    echo "Warning: DATABASE_URL is deprecated. Please use POSTGRES_URL for PostgreSQL or MYSQL_URL for MySQL connections instead."
     DB_SPEC="$DATABASE_URL"
-    DB_FLAGS=(--db postgres-v5)
+    DB_FLAGS=("${POSTGRES_DB_FLAGS[@]}")  # Maintain backwards compatibility with existing DATABASE_URL behavior
 else
     # Otherwise fallback to SQLite
     DB_SPEC="$SQLITE_DB"
