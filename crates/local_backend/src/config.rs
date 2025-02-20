@@ -41,15 +41,35 @@ pub struct LocalConfig {
     #[clap(long, default_value = "3211")]
     site_proxy_port: u16,
 
-    /// Origin of the Convex server
+    /// Origin of the Convex server, as accessible from the client.
+    /// e.g. if the client is running on localhost, you can use the default of
+    /// http://127.0.0.1:${port}.
+    /// Otherwise, if the client is accessing the backend from the public
+    /// internet, this would be the public URL of the backend, like
+    /// https://api.my-app.com .
+    /// Note the port in this url (usually 443, the https default) need not
+    /// match the bind port `--port`.
     #[clap(long, requires = "convex_site")]
     convex_origin: Option<ConvexOrigin>,
 
-    /// Origin of the Convex HTTP Actions
+    /// Origin of the Convex HTTP Actions, as accessible from the client.
+    /// e.g. if the client is running on localhost, you can use the default of
+    /// http://127.0.0.1:${site_proxy_port}.
+    /// Otherwise, if the client is accessing the backend from the public
+    /// internet, this would be the public URL of the backend, like
+    /// https://my-app.com .
+    /// Note the port in this url (usually 443, the https default) need not
+    /// match the bind port `--site-proxy-port`.
+    /// If you don't have a separate URL for HTTP Actions, you can use
+    /// value from `--convex-origin` with a "/http" suffix, like
+    /// https://api.my-app.com/http .
     #[clap(long, requires = "convex_origin")]
     convex_site: Option<ConvexSite>,
 
     /// Optional proxy for Actions fetches
+    ///
+    /// i.e. if doing `await fetch(request)` within an action, you can
+    /// send the request through this proxy to screen it for SSRF attacks.
     #[clap(long)]
     pub convex_http_proxy: Option<Url>,
 
@@ -110,6 +130,10 @@ impl fmt::Debug for LocalConfig {
 impl LocalConfig {
     pub fn http_bind_address(&self) -> ([u8; 4], u16) {
         (self.interface.octets(), self.port)
+    }
+
+    pub fn site_forward_prefix(&self) -> String {
+        format!("http://127.0.0.1:{}/http", self.port)
     }
 
     pub fn site_bind_address(&self) -> Option<([u8; 4], u16)> {
