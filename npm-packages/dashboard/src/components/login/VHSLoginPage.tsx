@@ -24,7 +24,7 @@ export function VHSLoginPage({ returnTo }: { returnTo?: string }) {
           setIsLoggingIn(true);
           setTimeout(() => setIsVHSAnimationDone(true), 1000);
         }}
-        href={`/api/auth/login${returnTo ? `?returnTo=${returnTo}` : ""}`}
+        href={`/api/auth/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}`}
       >
         <TVPanel isVHSAnimationDone={isVHSAnimationDone} />
         <VHSTape isLoggingIn={isLoggingIn} />

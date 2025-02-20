@@ -124,7 +124,9 @@ export function useBBMutation<
       >["body"] extends undefined
         ? []
         : [RequestBodyOption<BigBrainPaths[T][Method]>["body"]]
-    ) => {
+    ): Promise<
+      FetchResponse<BigBrainPaths[T], any, "application/json">["data"]
+    > => {
       if (!authHeader) {
         toast(
           "error",

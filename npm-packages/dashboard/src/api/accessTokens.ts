@@ -67,23 +67,29 @@ export function useDeleteTeamAccessToken(teamId: number) {
 export function useCreateTeamAccessToken(
   params:
     | { kind: "deployment"; deploymentName: string }
-    | { kind: "project"; projectId: number },
+    | { kind: "project"; projectId: number }
+    | { kind: "doNotMutate" },
 ) {
   return useBBMutation({
     path: "/authorize",
     pathParams: undefined,
     mutateKey:
-      params.kind === "deployment"
-        ? "/instances/{deployment_name}/access_tokens"
-        : "/projects/{project_id}/access_tokens",
+      params.kind === "doNotMutate"
+        ? undefined
+        : params.kind === "deployment"
+          ? "/instances/{deployment_name}/access_tokens"
+          : "/projects/{project_id}/access_tokens",
     mutatePathParams:
-      params.kind === "deployment"
-        ? {
-            deployment_name: params.deploymentName,
-          }
-        : {
-            project_id: params.projectId.toString(),
-          },
-    successToast: "Access token created.",
+      params.kind === "doNotMutate"
+        ? undefined
+        : params.kind === "deployment"
+          ? {
+              deployment_name: params.deploymentName,
+            }
+          : {
+              project_id: params.projectId.toString(),
+            },
+    successToast:
+      params.kind === "doNotMutate" ? undefined : "Access token created.",
   });
 }

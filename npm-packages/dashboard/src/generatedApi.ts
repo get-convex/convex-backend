@@ -1336,6 +1336,7 @@ export interface components {
             adminKey: components["schemas"]["AdminKey"];
             deploymentName: string;
             prodUrl: string;
+            projectId: components["schemas"]["ProjectId"];
             projectSlug: components["schemas"]["ProjectSlug"];
             /** Format: int64 */
             projectsRemaining: number;

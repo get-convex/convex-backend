@@ -44,7 +44,7 @@ export default withAuthenticatedPage(() => {
               <div className="w-full">
                 {entitlements &&
                   nonDemoProjects.length >= entitlements.maxProjects && (
-                    <Callout>
+                    <Callout className="mb-4" variant="upsell">
                       <div className="flex gap-1">
                         You've reached the project limit for this team.
                         <Link

@@ -44,6 +44,8 @@ const NO_TEAM_ROUTES = [
   "/verify",
 ];
 
+const NO_HEADER_ROUTES = ["/oauth/authorize/project"];
+
 function DashboardHeaderWhenLoggedIn() {
   const { user } = useAuth0();
   const router = useRouter();
@@ -85,6 +87,7 @@ function DashboardHeaderWhenLoggedIn() {
     />
   );
   const inNoTeamRoute = NO_TEAM_ROUTES.some((r) => r === router.pathname);
+  const inNoHeaderRoute = NO_HEADER_ROUTES.some((r) => r === router.pathname);
   const getHeaderContent = () => {
     if (inNoTeamRoute) {
       return null;
@@ -145,6 +148,10 @@ function DashboardHeaderWhenLoggedIn() {
   const usageBannerVariant = useCurrentUsageBanner(team?.id ?? null);
   const showFailedPaymentBanner = useShowFailedPaymentBanner();
   const showUpdateBillingAddressBanner = useShowUpdateBillingAddressBanner();
+
+  if (inNoHeaderRoute) {
+    return null;
+  }
 
   return (
     <div className="sticky top-0 z-40">

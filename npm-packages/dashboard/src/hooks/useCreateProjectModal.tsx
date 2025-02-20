@@ -6,9 +6,10 @@ import { Spinner } from "dashboard-common/elements/Spinner";
 import { ReactElement, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
-import { Team } from "generatedApi";
+import { Team, CreateProjectResponse } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCreateProject } from "api/projects";
+import { cn } from "dashboard-common/lib/cn";
 
 export function useCreateProjectModal(): [
   ReactElement | null,
@@ -33,6 +34,10 @@ export function useCreateProjectModal(): [
           <CreateProjectForm
             onClose={() => setModalOpen(false)}
             team={selectedTeam}
+            onSuccess={(project) => {
+              const projectUrl = `/t/${selectedTeam.slug}/${project.projectSlug}/${project.deploymentName}/data`;
+              window.location.href = projectUrl;
+            }}
           />
         ) : (
           <Loading />
@@ -50,19 +55,32 @@ export function useCreateProjectModal(): [
   ];
 }
 
+export const ProjectNameSchema = Yup.string()
+  .min(3, "Project name must be at least 3 characters long.")
+  .max(128, "Project name must be at most 128 characters long.")
+  .required("Project name is required.");
 const CreateProjectSchema = Yup.object().shape({
-  projectName: Yup.string()
-    .min(3, "Project name must be at least 3 characters long.")
-    .max(128, "Project name must be at most 128 characters long.")
-    .required("Project name is required."),
+  projectName: ProjectNameSchema,
 });
 
-function CreateProjectForm({ onClose, team }: { onClose(): void; team: Team }) {
+export function CreateProjectForm({
+  onClose,
+  team,
+  showLabel = false,
+  onSuccess,
+}: {
+  onClose(): void;
+  team: Team;
+  showLabel?: boolean;
+  onSuccess: (project: CreateProjectResponse) => void;
+}) {
   const createProject = useCreateProject(team.id);
   const formState = useFormik({
     initialValues: {
       projectName: "",
     },
+    validateOnChange: false,
+    validateOnBlur: true,
     validationSchema: CreateProjectSchema,
     onSubmit: async (values: { projectName: string }) => {
       const project = await createProject({
@@ -70,8 +88,7 @@ function CreateProjectForm({ onClose, team }: { onClose(): void; team: Team }) {
         team: team.slug,
         deploymentType: "dev",
       });
-      const projectUrl = `/t/${team.slug}/${project.projectSlug}/${project.deploymentName}/data`;
-      window.location.href = projectUrl;
+      onSuccess(project);
       onClose();
     },
   });
@@ -82,21 +99,27 @@ function CreateProjectForm({ onClose, team }: { onClose(): void; team: Team }) {
       className="flex gap-2"
     >
       <TextInput
-        labelHidden
+        labelHidden={!showLabel}
+        label="Project Name"
         outerClassname="w-full"
         placeholder="Project name"
-        onChange={formState.handleChange}
+        onChange={(e) => {
+          // Reset the errors so the user can blur the form
+          formState.setErrors({});
+          formState.handleChange(e);
+        }}
+        onBlur={formState.handleBlur}
         value={formState.values.projectName}
         autoFocus
         id="projectName"
-        error={formState.errors.projectName}
+        error={formState.touched ? formState.errors.projectName : undefined}
       />
 
       <Button
         disabled={
           !formState.dirty || formState.isSubmitting || !formState.isValid
         }
-        className="mt-[1px] h-fit"
+        className={cn("h-fit", showLabel ? "mt-6" : "")}
         size="sm"
         type="submit"
         aria-label="submit"

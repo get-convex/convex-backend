@@ -2673,6 +2673,7 @@
         "type": "object",
         "required": [
           "projectSlug",
+          "projectId",
           "teamSlug",
           "deploymentName",
           "prodUrl",
@@ -2688,6 +2689,9 @@
           },
           "prodUrl": {
             "type": "string"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
           },
           "projectSlug": {
             "$ref": "#/components/schemas/ProjectSlug"
