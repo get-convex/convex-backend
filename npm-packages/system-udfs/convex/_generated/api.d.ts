@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as _system_cli_convexUrl from "../_system/cli/convexUrl.js";
 import type * as _system_cli_exports from "../_system/cli/exports.js";
 import type * as _system_cli_modules from "../_system/cli/modules.js";
 import type * as _system_cli_queryEnvironmentVariables from "../_system/cli/queryEnvironmentVariables.js";
@@ -24,6 +25,7 @@ import type * as _system_frontend_addDocument from "../_system/frontend/addDocum
 import type * as _system_frontend_clearTablePage from "../_system/frontend/clearTablePage.js";
 import type * as _system_frontend_common from "../_system/frontend/common.js";
 import type * as _system_frontend_components from "../_system/frontend/components.js";
+import type * as _system_frontend_convexCloudUrl from "../_system/frontend/convexCloudUrl.js";
 import type * as _system_frontend_convexSiteUrl from "../_system/frontend/convexSiteUrl.js";
 import type * as _system_frontend_createTable from "../_system/frontend/createTable.js";
 import type * as _system_frontend_deleteDocuments from "../_system/frontend/deleteDocuments.js";
@@ -69,6 +71,7 @@ import type * as tableDefs_snapshotImport from "../tableDefs/snapshotImport.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "_system/cli/convexUrl": typeof _system_cli_convexUrl;
   "_system/cli/exports": typeof _system_cli_exports;
   "_system/cli/modules": typeof _system_cli_modules;
   "_system/cli/queryEnvironmentVariables": typeof _system_cli_queryEnvironmentVariables;
@@ -80,6 +83,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/clearTablePage": typeof _system_frontend_clearTablePage;
   "_system/frontend/common": typeof _system_frontend_common;
   "_system/frontend/components": typeof _system_frontend_components;
+  "_system/frontend/convexCloudUrl": typeof _system_frontend_convexCloudUrl;
   "_system/frontend/convexSiteUrl": typeof _system_frontend_convexSiteUrl;
   "_system/frontend/createTable": typeof _system_frontend_createTable;
   "_system/frontend/deleteDocuments": typeof _system_frontend_deleteDocuments;
