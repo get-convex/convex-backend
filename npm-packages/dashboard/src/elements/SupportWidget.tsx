@@ -208,7 +208,7 @@ function SupportForm() {
         <textarea
           id="message"
           name="message"
-          className="h-48 resize-y rounded border bg-background-secondary px-4 py-2 text-content-primary focus:border-border-selected focus:outline-none"
+          className="h-48 resize-y rounded border bg-background-secondary px-4 py-2 text-content-primary placeholder:text-content-tertiary focus:border-border-selected focus:outline-none"
           required
           onChange={formState.handleChange}
           value={formState.values.message}

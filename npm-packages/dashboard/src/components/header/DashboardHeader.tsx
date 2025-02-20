@@ -44,7 +44,7 @@ const NO_TEAM_ROUTES = [
   "/verify",
 ];
 
-const NO_HEADER_ROUTES = ["/oauth/authorize/project"];
+const NO_HEADER_ROUTES = ["/oauth/authorize/project", "/oauth/register"];
 
 function DashboardHeaderWhenLoggedIn() {
   const { user } = useAuth0();
