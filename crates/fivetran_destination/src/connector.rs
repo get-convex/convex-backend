@@ -8,13 +8,15 @@ use convex_fivetran_common::{
         alter_table_response,
         create_table_response,
         describe_table_response,
-        destination_server::Destination as FivetranDestination,
+        destination_connector_server::DestinationConnector,
         test_response,
         truncate_response,
-        write_batch_request::FileParams,
         write_batch_response,
         AlterTableRequest,
         AlterTableResponse,
+        BatchFileFormat,
+        CapabilitiesRequest,
+        CapabilitiesResponse,
         ConfigurationFormRequest,
         ConfigurationFormResponse,
         ConfigurationTest,
@@ -22,12 +24,14 @@ use convex_fivetran_common::{
         CreateTableResponse,
         DescribeTableRequest,
         DescribeTableResponse,
+        Task,
         TestRequest,
         TestResponse,
         TruncateRequest,
         TruncateResponse,
         WriteBatchRequest,
         WriteBatchResponse,
+        WriteHistoryBatchRequest,
     },
 };
 use convex_fivetran_destination::api_types::DeleteType;
@@ -63,7 +67,7 @@ pub struct ConvexFivetranDestination {
 type DestinationResult<T> = Result<Response<T>, Status>;
 
 #[tonic::async_trait]
-impl FivetranDestination for ConvexFivetranDestination {
+impl DestinationConnector for ConvexFivetranDestination {
     async fn configuration_form(
         &self,
         _: Request<ConfigurationFormRequest>,
@@ -77,6 +81,16 @@ impl FivetranDestination for ConvexFivetranDestination {
                 name: "connection".to_string(),
                 label: "Test connection".to_string(),
             }],
+        }))
+    }
+
+    async fn capabilities(
+        &self,
+        _request: Request<CapabilitiesRequest>,
+    ) -> DestinationResult<CapabilitiesResponse> {
+        log("capabilities request");
+        Ok(Response::new(CapabilitiesResponse {
+            batch_file_format: BatchFileFormat::Csv as i32,
         }))
     }
 
@@ -124,9 +138,9 @@ impl FivetranDestination for ConvexFivetranDestination {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(DescribeTableResponse {
-                    response: Some(describe_table_response::Response::Failure(
-                        error.to_string(),
-                    )),
+                    response: Some(describe_table_response::Response::Task(Task {
+                        message: error.to_string(),
+                    })),
                 }));
             },
         };
@@ -146,7 +160,9 @@ impl FivetranDestination for ConvexFivetranDestination {
                 },
                 Err(err) => {
                     log(&format!("Describe table error: {err}"));
-                    describe_table_response::Response::Failure(err.to_string())
+                    describe_table_response::Response::Task(Task {
+                        message: err.to_string(),
+                    })
                 },
             }),
         }))
@@ -166,7 +182,9 @@ impl FivetranDestination for ConvexFivetranDestination {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(CreateTableResponse {
-                    response: Some(create_table_response::Response::Failure(error.to_string())),
+                    response: Some(create_table_response::Response::Task(Task {
+                        message: error.to_string(),
+                    })),
                 }));
             },
         };
@@ -175,9 +193,9 @@ impl FivetranDestination for ConvexFivetranDestination {
 
         let Some(mut table) = table else {
             return Ok(Response::new(CreateTableResponse {
-                response: Some(create_table_response::Response::Failure(
-                    "Missing table argument".to_string(),
-                )),
+                response: Some(create_table_response::Response::Task(Task {
+                    message: "Missing table argument".to_string(),
+                })),
             }));
         };
         table.name = fivetran_req_to_table_name(schema_name, table.name);
@@ -190,7 +208,9 @@ impl FivetranDestination for ConvexFivetranDestination {
                 },
                 Err(e) => {
                     log(&format!("Create table error: {e}"));
-                    create_table_response::Response::Failure(e.to_string())
+                    create_table_response::Response::Task(Task {
+                        message: e.to_string(),
+                    })
                 },
             }),
         }))
@@ -210,7 +230,9 @@ impl FivetranDestination for ConvexFivetranDestination {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(AlterTableResponse {
-                    response: Some(alter_table_response::Response::Failure(error.to_string())),
+                    response: Some(alter_table_response::Response::Task(Task {
+                        message: error.to_string(),
+                    })),
                 }));
             },
         };
@@ -219,9 +241,9 @@ impl FivetranDestination for ConvexFivetranDestination {
 
         let Some(mut table) = table else {
             return Ok(Response::new(AlterTableResponse {
-                response: Some(alter_table_response::Response::Failure(
-                    "Missing table argument".to_string(),
-                )),
+                response: Some(alter_table_response::Response::Task(Task {
+                    message: "Missing table argument".to_string(),
+                })),
             }));
         };
         table.name = fivetran_req_to_table_name(schema_name, table.name);
@@ -234,7 +256,9 @@ impl FivetranDestination for ConvexFivetranDestination {
                 },
                 Err(e) => {
                     log(&format!("Alter table error: {e}"));
-                    alter_table_response::Response::Failure(e.to_string())
+                    alter_table_response::Response::Task(Task {
+                        message: e.to_string(),
+                    })
                 },
             }),
         }))
@@ -257,7 +281,9 @@ impl FivetranDestination for ConvexFivetranDestination {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(TruncateResponse {
-                    response: Some(truncate_response::Response::Failure(error.to_string())),
+                    response: Some(truncate_response::Response::Task(Task {
+                        message: error.to_string(),
+                    })),
                 }));
             },
         };
@@ -286,7 +312,9 @@ impl FivetranDestination for ConvexFivetranDestination {
                     },
                     Err(e) => {
                         log(&format!("Truncate error: {e}"));
-                        truncate_response::Response::Failure(e.to_string())
+                        truncate_response::Response::Task(Task {
+                            message: e.to_string(),
+                        })
                     },
                 },
             ),
@@ -312,7 +340,9 @@ impl FivetranDestination for ConvexFivetranDestination {
             Ok(config) => config,
             Err(error) => {
                 return Ok(Response::new(WriteBatchResponse {
-                    response: Some(write_batch_response::Response::Failure(error.to_string())),
+                    response: Some(write_batch_response::Response::Task(Task {
+                        message: error.to_string(),
+                    })),
                 }));
             },
         };
@@ -321,18 +351,18 @@ impl FivetranDestination for ConvexFivetranDestination {
 
         let Some(mut table) = table else {
             return Ok(Response::new(WriteBatchResponse {
-                response: Some(write_batch_response::Response::Failure(
-                    "Missing table argument".to_string(),
-                )),
+                response: Some(write_batch_response::Response::Task(Task {
+                    message: "Missing table argument".to_string(),
+                })),
             }));
         };
         table.name = fivetran_req_to_table_name(schema_name, table.name);
 
-        let Some(FileParams::Csv(csv_file_params)) = file_params else {
+        let Some(file_params) = file_params else {
             return Ok(Response::new(WriteBatchResponse {
-                response: Some(write_batch_response::Response::Failure(
-                    "Missing file_params argument".to_string(),
-                )),
+                response: Some(write_batch_response::Response::Task(Task {
+                    message: "Missing file_params argument".to_string(),
+                })),
             }));
         };
 
@@ -345,7 +375,7 @@ impl FivetranDestination for ConvexFivetranDestination {
                     replace_files,
                     update_files,
                     delete_files,
-                    csv_file_params,
+                    file_params,
                 )
                 .await
                 {
@@ -355,11 +385,21 @@ impl FivetranDestination for ConvexFivetranDestination {
                     },
                     Err(e) => {
                         log(&format!("Batch write error: {e}"));
-                        write_batch_response::Response::Failure(e.to_string())
+                        write_batch_response::Response::Task(Task {
+                            message: e.to_string(),
+                        })
                     },
                 },
             ),
         }))
+    }
+
+    async fn write_history_batch(
+        &self,
+        _request: Request<WriteHistoryBatchRequest>,
+    ) -> DestinationResult<WriteBatchResponse> {
+        log(&format!("write history batch request"));
+        todo!()
     }
 }
 

@@ -11,7 +11,7 @@ use fxhash::FxHasher32;
 
 // Make sure to select a rev off the `production` branch of the sdk
 // https://github.com/fivetran/fivetran_sdk/tree/production
-const REV: &str = "1fabb7626b6ec81a4f56d49a16a654210cb1d0be";
+const REV: &str = "466a61bddfc0e541bfec3cb0cc6a3cf3704d64be";
 
 const FILES: &[&str] = &[
     "common.proto",
@@ -21,7 +21,7 @@ const FILES: &[&str] = &[
 
 // File hash to protect against accidental changes to the vendored files:
 // Update this when updating `REV` above.
-const FILE_HASH: u64 = 3447879181;
+const FILE_HASH: u64 = 1411440539;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {

@@ -40,7 +40,7 @@ fn concrete_fivetran_data_type_strategy() -> impl Strategy<Value = FivetranDataT
         Just(FivetranDataType::Decimal),
         Just(FivetranDataType::Float),
         Just(FivetranDataType::Double),
-        // Just(FivetranDataType::NaiveTime),
+        Just(FivetranDataType::NaiveTime),
         Just(FivetranDataType::NaiveDate),
         Just(FivetranDataType::NaiveDatetime),
         Just(FivetranDataType::UtcDatetime),
@@ -70,7 +70,7 @@ pub fn fivetran_table_strategy() -> impl Strategy<Value = fivetran_sdk::Table> {
                         name: field_name.to_string(),
                         r#type: data_type as i32,
                         primary_key,
-                        decimal: None,
+                        params: None,
                     }
                 })
                 .collect()

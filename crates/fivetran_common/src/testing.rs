@@ -47,14 +47,12 @@ impl Arbitrary for FivetranValue {
             arbitrary_timestamp_strategy().prop_map(|Timestamp { seconds, nanos }| {
                 FivetranValue::NaiveDatetime(Timestamp { seconds, nanos })
             }),
-            /*
             (0i64..60 * 60 * 24, 0..1000).prop_map(|(seconds, milliseconds)| {
                 FivetranValue::NaiveTime(Timestamp {
                     seconds,
                     nanos: milliseconds * NS_IN_MS,
                 })
             }),
-            */
             arbitrary_timestamp_strategy().prop_map(FivetranValue::UtcDatetime),
         ]
     }

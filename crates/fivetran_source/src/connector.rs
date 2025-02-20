@@ -4,8 +4,8 @@ use convex_fivetran_common::{
         Config,
     },
     fivetran_sdk::{
-        connector_server::Connector,
         schema_response,
+        source_connector_server::SourceConnector,
         test_response,
         Column,
         ConfigurationFormRequest,
@@ -84,7 +84,7 @@ impl ConvexConnector {
                                     _ => DataType::Unspecified,
                                 } as i32,
                                 primary_key: column_name == "_id",
-                                decimal: None,
+                                params: None,
                             }
                         })
                         .collect(),
@@ -104,7 +104,7 @@ impl ConvexConnector {
 }
 
 #[tonic::async_trait]
-impl Connector for ConvexConnector {
+impl SourceConnector for ConvexConnector {
     type UpdateStream = BoxStream<'static, Result<UpdateResponse, Status>>;
 
     async fn configuration_form(

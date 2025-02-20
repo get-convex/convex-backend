@@ -19,8 +19,8 @@ use common::async_compat::TokioAsyncReadCompatExt;
 use convex_fivetran_common::fivetran_sdk::{
     value_type::Inner as FivetranValue,
     Compression as FivetranFileCompression,
-    CsvFileParams,
     DataType as FivetranDataType,
+    FileParams,
 };
 use convex_fivetran_destination::api_types::FivetranFieldName;
 use futures::{
@@ -58,8 +58,8 @@ pub struct FivetranReaderParams {
     null_string: String,
 }
 
-impl From<CsvFileParams> for FivetranReaderParams {
-    fn from(value: CsvFileParams) -> Self {
+impl From<FileParams> for FivetranReaderParams {
+    fn from(value: FileParams) -> Self {
         Self {
             unmodified_string: value.unmodified_string,
             null_string: value.null_string,
@@ -174,7 +174,6 @@ fn try_parse_fivetran_value(
             .timestamp(),
             nanos: 0,
         }),
-        /*
         FivetranDataType::NaiveTime => {
             let dt = NaiveDateTime::new(
                 NaiveDate::default(),
@@ -186,7 +185,6 @@ fn try_parse_fivetran_value(
                 nanos: dt.timestamp_subsec_nanos() as i32,
             })
         },
-        */
         FivetranDataType::NaiveDatetime => {
             let dt = NaiveDateTime::parse_from_str(&value, "%Y-%m-%dT%H:%M:%S%.f")?.and_utc();
             FivetranValue::NaiveDatetime(Timestamp {
@@ -227,12 +225,10 @@ fn to_csv_string_representation(value: &FivetranValue) -> Option<String> {
             DateTime::from_timestamp(*seconds, *nanos as u32)
                 .map(|dt| dt.naive_utc().date().format("%Y-%m-%d").to_string())
         },
-        /*
         FivetranValue::NaiveTime(Timestamp { seconds, nanos }) => {
             DateTime::from_timestamp(*seconds, *nanos as u32)
                 .map(|dt| dt.time().format("%H:%M:%S%.f").to_string())
         },
-        */
         FivetranValue::NaiveDatetime(Timestamp { seconds, nanos }) => {
             DateTime::from_timestamp(*seconds, *nanos as u32)
                 .map(|dt| dt.naive_utc().format("%Y-%m-%dT%H:%M:%S%.f").to_string())
@@ -782,7 +778,6 @@ mod tests {
         );
     }
 
-    /*
     #[test]
     fn test_parse_naive_time() {
         assert_eq!(
@@ -800,7 +795,6 @@ mod tests {
             })
         );
     }
-    */
 
     #[test]
     fn test_parse_naive_datetime() {

@@ -33,24 +33,28 @@ impl Config {
             FormField {
                 name: CONFIG_KEY_DEPLOYMENT_URL.to_string(),
                 label: "Deployment URL".to_string(),
-                required: true,
+                required: Some(true),
                 description: Some(
-                    "The domain where the deployment is hosted (\"https://….convex.cloud\"). You \
-                     can find it in the deployment settings page of the Convex dashboard."
+                    "The domain where the deployment is hosted. You can find it in the deployment \
+                     settings page of the Convex dashboard."
                         .to_string(),
                 ),
                 r#type: Some(Type::TextField(TextField::PlainText as i32)),
+                default_value: None,
+                placeholder: Some("https://aware-llama-900.convex.cloud".to_string()),
             },
             FormField {
                 name: CONFIG_KEY_DEPLOYMENT_KEY.to_string(),
                 label: "Deploy Key".to_string(),
-                required: true,
+                required: Some(true),
                 description: Some(
                     "The key giving access to your deployment. You can find it in the deployment \
                      settings page of the Convex dashboard."
                         .to_string(),
                 ),
                 r#type: Some(Type::TextField(TextField::Password as i32)),
+                default_value: None,
+                placeholder: None,
             },
         ]
     }

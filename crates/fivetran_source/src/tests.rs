@@ -12,8 +12,7 @@ use anyhow::{
 use async_trait::async_trait;
 use convex_fivetran_common::fivetran_sdk::{
     value_type,
-    LogLevel,
-    OpType,
+    RecordType,
 };
 use derive_more::From;
 use futures::{
@@ -246,18 +245,10 @@ struct FakeDestination {
 
 #[derive(Default, Debug, PartialEq, Clone)]
 struct FakeDestinationData {
-    logs: Vec<(LogLevel, String)>,
     tables: BTreeMap<String, Vec<BTreeMap<String, FivetranValue>>>,
 }
 
 impl FakeDestination {
-    fn has_log(&self, substring: &str) -> bool {
-        self.current_data
-            .logs
-            .iter()
-            .any(|(_, message)| message.contains(substring))
-    }
-
     fn latest_state(&self) -> Option<State> {
         self.state.clone()
     }
@@ -272,9 +263,6 @@ impl FakeDestination {
             stream = new_stream;
 
             match result? {
-                UpdateMessage::Log(level, message) => {
-                    self.current_data.logs.push((level, message));
-                },
                 UpdateMessage::Update {
                     schema_name,
                     table_name,
@@ -288,7 +276,7 @@ impl FakeDestination {
                         self.current_data.tables.insert(table_name.clone(), vec![]);
                     }
 
-                    if op_type == OpType::Truncate {
+                    if op_type == RecordType::Truncate {
                         self.current_data.tables.remove(&table_name);
                         continue;
                     }
@@ -302,13 +290,13 @@ impl FakeDestination {
                     let position = table.iter().position(|row| row.get("_id").unwrap() == id);
 
                     match op_type {
-                        OpType::Upsert => {
+                        RecordType::Upsert => {
                             match position {
                                 Some(index) => table[index] = row,
                                 None => table.push(row),
                             };
                         },
-                        OpType::Delete => {
+                        RecordType::Delete => {
                             table.remove(position.expect("Could not find the row to delete"));
                         },
                         _ => panic!("Operation not supported by the fake"),
@@ -333,8 +321,6 @@ async fn initial_sync_copies_documents_from_source_to_destination() -> anyhow::R
     destination
         .receive(sync(source.clone(), destination.latest_state()))
         .await?;
-
-    assert!(destination.has_log("Initial sync successful"));
 
     assert_eq!(
         source.tables.len(),
@@ -388,7 +374,6 @@ async fn initial_sync_empty_source_works() -> anyhow::Result<()> {
     destination
         .receive(sync(source.clone(), destination.latest_state()))
         .await?;
-    assert!(destination.has_log("Initial sync successful"));
     assert_eq!(destination.checkpointed_data.tables.len(), 0);
     let state = destination.latest_state().context("missing state")?;
     assert!(matches!(

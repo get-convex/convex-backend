@@ -53,7 +53,6 @@ fn fivetran_to_convex_value(value: FivetranValue) -> anyhow::Result<ConvexValue>
                 .to_string()
                 .try_into()?,
         ),
-        /*
         FivetranValue::NaiveTime(Timestamp { seconds, nanos }) => ConvexValue::String(
             DateTime::from_timestamp(seconds, nanos as u32)
                 .context("Invalid datetime value")?
@@ -62,7 +61,6 @@ fn fivetran_to_convex_value(value: FivetranValue) -> anyhow::Result<ConvexValue>
                 .to_string()
                 .try_into()?,
         ),
-        */
         FivetranValue::NaiveDatetime(Timestamp { seconds, nanos }) => ConvexValue::String(
             DateTime::from_timestamp(seconds, nanos as u32)
                 .context("Invalid datetime value")?
@@ -253,7 +251,7 @@ pub fn fivetran_data_type(value: &FivetranValue) -> Option<FivetranDataType> {
         FivetranValue::Float(_) => Some(FivetranDataType::Float),
         FivetranValue::Double(_) => Some(FivetranDataType::Double),
         FivetranValue::NaiveDate(_) => Some(FivetranDataType::NaiveDate),
-        // FivetranValue::NaiveTime(_) => Some(FivetranDataType::NaiveTime),
+        FivetranValue::NaiveTime(_) => Some(FivetranDataType::NaiveTime),
         FivetranValue::NaiveDatetime(_) => Some(FivetranDataType::NaiveDatetime),
         FivetranValue::UtcDatetime(_) => Some(FivetranDataType::UtcDatetime),
         FivetranValue::Decimal(_) => Some(FivetranDataType::Decimal),
@@ -296,7 +294,6 @@ fn roundtrip_converted_value(
         (ConvexValue::String(v), FivetranDataType::Decimal) => FivetranValue::Decimal(v.into()),
         (ConvexValue::Float64(v), FivetranDataType::Float) => FivetranValue::Float(v as f32),
         (ConvexValue::Float64(v), FivetranDataType::Double) => FivetranValue::Double(v),
-        /*
         (ConvexValue::String(v), FivetranDataType::NaiveTime) => {
             let dt = NaiveDateTime::new(
                 NaiveDate::default(),
@@ -308,7 +305,6 @@ fn roundtrip_converted_value(
                 nanos: dt.timestamp_subsec_nanos() as i32,
             })
         },
-        */
         (ConvexValue::String(v), FivetranDataType::NaiveDate) => {
             let dt = NaiveDateTime::new(
                 NaiveDate::parse_from_str(&v, "%Y-%m-%d")?,
@@ -528,7 +524,6 @@ mod tests {
         Ok(())
     }
 
-    /*
     #[test]
     fn naive_time_is_converted_to_strings() -> anyhow::Result<()> {
         assert_eq!(
@@ -540,7 +535,6 @@ mod tests {
         );
         Ok(())
     }
-    */
 
     #[test]
     fn naive_datetime_is_converted_to_strings() -> anyhow::Result<()> {

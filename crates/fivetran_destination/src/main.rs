@@ -13,7 +13,7 @@ use clap::Parser;
 use connector::ConvexFivetranDestination;
 use convex_fivetran_common::{
     config::AllowAllHosts,
-    fivetran_sdk::destination_server::DestinationServer,
+    fivetran_sdk::destination_connector_server::DestinationConnectorServer,
 };
 use serde::Serialize;
 use tonic::{
@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Server::builder()
         .add_service(
-            DestinationServer::new(destination)
+            DestinationConnectorServer::new(destination)
                 .accept_compressed(CompressionEncoding::Gzip)
                 .send_compressed(CompressionEncoding::Gzip),
         )

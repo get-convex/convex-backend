@@ -1,8 +1,8 @@
 syntax = "proto3";
 option optimize_for = SPEED;
 option java_multiple_files = true;
-option go_package = "fivetran.com/fivetran_sdk";
-package fivetran_sdk;
+option go_package = "fivetran.com/fivetran_sdk_v2";
+package fivetran_sdk.v2;
 
 import "google/protobuf/timestamp.proto";
 
@@ -18,12 +18,29 @@ message ConfigurationFormResponse {
 message FormField {
   string name = 1;
   string label = 2;
-  bool required = 3;
+  optional bool required = 3;
   optional string description = 4;
   oneof type {
     TextField text_field = 5;
     DropdownField dropdown_field = 6;
     ToggleField toggle_field = 7;
+    ConditionalFields conditional_fields = 10;
+  }
+  optional string default_value = 8;
+  optional string placeholder = 9;
+}
+
+message ConditionalFields {
+  VisibilityCondition condition = 1;
+  repeated FormField fields = 2;
+}
+
+message VisibilityCondition {
+  string condition_field = 1;
+  oneof visible_when {
+    bool bool_value = 2;
+    string string_value = 3;
+    bool empty_value = 4;
   }
 }
 
@@ -53,7 +70,6 @@ message TestResponse {
   oneof response {
     bool success = 1;
     string failure = 2;
-    // potential future warning
   }
 }
 
@@ -86,6 +102,14 @@ enum DataType {
   XML = 12;
   STRING = 13;
   JSON = 14;
+  NAIVE_TIME = 15;
+}
+
+message DataTypeParams {
+  oneof params {
+    DecimalParams decimal = 1;
+    int32 string_byte_length = 2;
+  }
 }
 
 message DecimalParams {
@@ -93,7 +117,7 @@ message DecimalParams {
   uint32 scale = 2;
 }
 
-enum OpType {
+enum RecordType {
   UPSERT = 0;
   UPDATE = 1;
   DELETE = 2;
@@ -117,6 +141,7 @@ message ValueType {
     string string = 13;
     string json = 14;
     string xml = 15;
+    google.protobuf.Timestamp naive_time = 16;
   }
 }
 
@@ -129,5 +154,13 @@ message Column {
   string name = 1;
   DataType type = 2;
   bool primary_key = 3;
-  optional DecimalParams decimal = 4;
+  optional DataTypeParams params = 4;
+}
+
+message Warning {
+  string message = 1;
+}
+
+message Task {
+  string message = 1;
 }

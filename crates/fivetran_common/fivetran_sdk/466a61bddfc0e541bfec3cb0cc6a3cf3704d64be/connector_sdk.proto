@@ -1,13 +1,13 @@
 syntax = "proto3";
 option optimize_for = SPEED;
 option java_multiple_files = true;
-option go_package = "fivetran.com/fivetran_sdk";
-package fivetran_sdk;
+option go_package = "fivetran.com/fivetran_sdk_v2";
+package fivetran_sdk.v2;
 
 import "common.proto";
 
-// Fivetran (grpc client) <> Connector (grpc server)
-service Connector {
+// Fivetran (grpc client) <> SourceConnector (grpc server)
+service SourceConnector {
     rpc ConfigurationForm (ConfigurationFormRequest) returns (ConfigurationFormResponse) {}
     rpc Test (TestRequest) returns (TestResponse) {}
     rpc Schema (SchemaRequest) returns (SchemaResponse) {}
@@ -65,28 +65,12 @@ message TableSelection {
 }
 
 message UpdateResponse {
-    oneof response {
-        LogEntry log_entry = 1;
-        Operation operation = 2;
-    }
-}
-
-enum LogLevel {
-    INFO = 0;
-    WARNING = 1;
-    SEVERE = 2;
-}
-
-message LogEntry {
-    LogLevel level = 1;
-    string message = 2;
-}
-
-message Operation {
-    oneof op {
+    oneof operation {
         Record record = 1;
         SchemaChange schema_change = 2;
         Checkpoint checkpoint = 3;
+        Warning warning = 4;
+        Task task = 5;
     }
 }
 
@@ -100,7 +84,7 @@ message SchemaChange {
 message Record {
     optional string schema_name = 1;
     string table_name = 2;
-    OpType type = 3;
+    RecordType type = 3;
     map<string, ValueType> data = 4;
 }
 

@@ -19,7 +19,7 @@ use clap::Parser;
 use connector::ConvexConnector;
 use convex_fivetran_common::{
     config::AllowAllHosts,
-    fivetran_sdk::connector_server::ConnectorServer,
+    fivetran_sdk::source_connector_server::SourceConnectorServer,
 };
 use serde::Serialize;
 use tonic::{
@@ -53,7 +53,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     log(&format!("Starting the connector on {}", addr));
     Server::builder()
         .add_service(
-            ConnectorServer::new(connector)
+            SourceConnectorServer::new(connector)
                 .accept_compressed(CompressionEncoding::Gzip)
                 .send_compressed(CompressionEncoding::Gzip),
         )

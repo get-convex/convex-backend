@@ -6,14 +6,10 @@ use std::collections::{
 use anyhow::Context;
 use convex_fivetran_common::fivetran_sdk::{
     self,
-    operation::Op,
     update_response,
     value_type,
-    LogEntry,
-    LogLevel,
-    OpType,
-    Operation,
     Record,
+    RecordType,
     UpdateResponse as FivetranUpdateResponse,
     ValueType,
 };
@@ -91,11 +87,10 @@ pub enum Checkpoint {
 
 /// A simplification of the messages sent to Fivetran in the `update` endpoint.
 pub enum UpdateMessage {
-    Log(LogLevel, String),
     Update {
         schema_name: Option<String>,
         table_name: String,
-        op_type: OpType,
+        op_type: RecordType,
         row: BTreeMap<String, FivetranValue>,
     },
     Checkpoint(State),
@@ -105,42 +100,32 @@ pub enum UpdateMessage {
 impl From<UpdateMessage> for FivetranUpdateResponse {
     fn from(value: UpdateMessage) -> Self {
         FivetranUpdateResponse {
-            response: Some(match value {
-                UpdateMessage::Log(level, message) => {
-                    update_response::Response::LogEntry(LogEntry {
-                        level: level as i32,
-                        message,
-                    })
-                },
+            operation: Some(match value {
                 UpdateMessage::Update {
                     schema_name,
                     table_name,
                     op_type,
                     row,
-                } => update_response::Response::Operation(Operation {
-                    op: Some(Op::Record(Record {
-                        schema_name,
-                        table_name,
-                        r#type: op_type as i32,
-                        data: row
-                            .into_iter()
-                            .map(|(field_name, field_value)| {
-                                (
-                                    field_name,
-                                    ValueType {
-                                        inner: Some(field_value),
-                                    },
-                                )
-                            })
-                            .collect(),
-                    })),
+                } => update_response::Operation::Record(Record {
+                    schema_name,
+                    table_name,
+                    r#type: op_type as i32,
+                    data: row
+                        .into_iter()
+                        .map(|(field_name, field_value)| {
+                            (
+                                field_name,
+                                ValueType {
+                                    inner: Some(field_value),
+                                },
+                            )
+                        })
+                        .collect(),
                 }),
                 UpdateMessage::Checkpoint(checkpoint) => {
                     let state_json = serde_json::to_string(&checkpoint)
                         .expect("Couldn’t serialize a checkpoint");
-                    update_response::Response::Operation(Operation {
-                        op: Some(Op::Checkpoint(fivetran_sdk::Checkpoint { state_json })),
-                    })
+                    update_response::Operation::Checkpoint(fivetran_sdk::Checkpoint { state_json })
                 },
             }),
         }
@@ -182,7 +167,6 @@ async fn initial_sync(
         format!("Starting an initial sync from {source}")
     };
     log(&log_msg);
-    yield UpdateMessage::Log(LogLevel::Info, log_msg);
 
     let snapshot = loop {
         let snapshot = checkpoint.as_ref().map(|c| c.0);
@@ -198,7 +182,7 @@ async fn initial_sync(
                     yield UpdateMessage::Update {
                         schema_name: None,
                         table_name: value.table.clone(),
-                        op_type: OpType::Truncate,
+                        op_type: RecordType::Truncate,
                         row: BTreeMap::new(),
                     };
                 }
@@ -206,7 +190,7 @@ async fn initial_sync(
             yield UpdateMessage::Update {
                 schema_name: None,
                 table_name: value.table,
-                op_type: OpType::Upsert,
+                op_type: RecordType::Upsert,
                 row: to_fivetran_row(value.fields)?,
             };
         }
@@ -234,7 +218,6 @@ async fn initial_sync(
         tables_seen,
     ));
 
-    yield UpdateMessage::Log(LogLevel::Info, "Initial sync successful".to_string());
     log(&format!(
         "Initial sync from {source} successful at cursor {cursor}."
     ));
@@ -248,10 +231,6 @@ async fn delta_sync(
     cursor: DocumentDeltasCursor,
     mut tables_seen: Option<BTreeSet<String>>,
 ) {
-    yield UpdateMessage::Log(
-        LogLevel::Info,
-        format!("Starting to apply changes from {source} starting at {cursor}"),
-    );
     log(&format!("Delta sync from {source} starting at {cursor}."));
 
     let mut cursor = cursor;
@@ -268,7 +247,7 @@ async fn delta_sync(
                     yield UpdateMessage::Update {
                         schema_name: None,
                         table_name: value.table.clone(),
-                        op_type: OpType::Truncate,
+                        op_type: RecordType::Truncate,
                         row: BTreeMap::new(),
                     };
                 }
@@ -278,9 +257,9 @@ async fn delta_sync(
                 schema_name: None,
                 table_name: value.table,
                 op_type: if value.deleted {
-                    OpType::Delete
+                    RecordType::Delete
                 } else {
-                    OpType::Upsert
+                    RecordType::Upsert
                 },
                 row: to_fivetran_row(value.fields)?,
             };
@@ -297,7 +276,6 @@ async fn delta_sync(
         ));
     }
 
-    yield UpdateMessage::Log(LogLevel::Info, "Changes applied".to_string());
     log(&format!(
         "Delta sync changes applied from {source}. Final cursor {cursor}"
     ));

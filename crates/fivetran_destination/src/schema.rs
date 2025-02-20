@@ -137,7 +137,7 @@ fn suggested_validator(data_type: FivetranDataType, nullability: Nullability) ->
         FivetranDataType::Float => Validator::Float64,
         FivetranDataType::Double => Validator::Float64,
         FivetranDataType::NaiveDate => Validator::String,
-        //FivetranDataType::NaiveTime => Validator::String,
+        FivetranDataType::NaiveTime => Validator::String,
         FivetranDataType::NaiveDatetime => Validator::String,
         FivetranDataType::UtcDatetime => Validator::Float64,
         FivetranDataType::Binary => Validator::Bytes,
@@ -757,7 +757,7 @@ fn user_columns(table_def: &TableDefinition, validator: &ObjectValidator) -> Vec
                         .fields
                         .contains(&FieldPath::for_root_field(field_name.clone()))
                 }),
-                decimal: None,
+                params: None,
             })
         })
         .collect()
@@ -791,7 +791,7 @@ fn to_fivetran_columns(
                 name: SOFT_DELETE_FIVETRAN_FIELD_NAME.to_string(),
                 r#type: FivetranDataType::Boolean as i32,
                 primary_key: false,
-                decimal: None,
+                params: None,
             });
         }
 
@@ -810,7 +810,7 @@ fn to_fivetran_columns(
                 name: ID_FIVETRAN_FIELD_NAME.to_string(),
                 r#type: id_field_type.unwrap_or(FivetranDataType::Unspecified) as i32,
                 primary_key: true,
-                decimal: None,
+                params: None,
             });
         }
 
@@ -819,7 +819,7 @@ fn to_fivetran_columns(
             name: SYNCED_FIVETRAN_FIELD_NAME.to_string(),
             r#type: FivetranDataType::UtcDatetime as i32,
             primary_key: false,
-            decimal: None,
+            params: None,
         });
 
         // Columns having a Fivetran name starting by _
@@ -846,7 +846,7 @@ fn to_fivetran_columns(
                         primary_key: primary_key_index.is_some_and(|primary_key_index| {
                             primary_key_index.fields.contains(&field_path)
                         }),
-                        decimal: None,
+                        params: None,
                     });
                 }
             };
@@ -961,7 +961,7 @@ mod tests {
                     name: col_name.into(),
                     r#type: col_type as i32,
                     primary_key: primary_key_columns.contains(col_name),
-                    decimal: None,
+                    params: None,
                 })
                 .collect(),
         }
@@ -1654,19 +1654,19 @@ mod tests {
                         name: "_fivetran_synced".to_string(),
                         r#type: FivetranDataType::UtcDatetime as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "id".to_string(),
                         r#type: FivetranDataType::Long as i32,
                         primary_key: true,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "name".to_string(),
                         r#type: FivetranDataType::String as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                 ],
             }
@@ -1722,25 +1722,25 @@ mod tests {
                         name: "_fivetran_deleted".to_string(),
                         r#type: FivetranDataType::Boolean as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "_fivetran_id".to_string(),
                         r#type: FivetranDataType::String as i32,
                         primary_key: true,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "_fivetran_synced".to_string(),
                         r#type: FivetranDataType::UtcDatetime as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "data".to_string(),
                         r#type: FivetranDataType::Binary as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                 ],
             }
@@ -1796,25 +1796,25 @@ mod tests {
                         name: "_fivetran_synced".to_string(),
                         r#type: FivetranDataType::UtcDatetime as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "_key".to_string(),
                         r#type: FivetranDataType::String as i32,
                         primary_key: true,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "_non_nullable_field".to_string(),
                         r#type: FivetranDataType::String as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                     Column {
                         name: "_nullable_field".to_string(),
                         r#type: FivetranDataType::String as i32,
                         primary_key: false,
-                        decimal: None,
+                        params: None,
                     },
                 ],
             }

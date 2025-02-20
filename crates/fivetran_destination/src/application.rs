@@ -17,8 +17,8 @@ use common::{
 use convex_fivetran_common::fivetran_sdk::{
     self,
     Compression,
-    CsvFileParams,
     Encryption,
+    FileParams,
 };
 use convex_fivetran_destination::api_types::{
     BatchWriteOperation,
@@ -153,9 +153,9 @@ pub async fn write_batch(
     replace_files: Vec<String>,
     update_files: Vec<String>,
     delete_files: Vec<String>,
-    csv_file_params: CsvFileParams,
+    file_params: FileParams,
 ) -> Result<(), DestinationError> {
-    let reader_params = FivetranReaderParams::from(csv_file_params.clone());
+    let reader_params = FivetranReaderParams::from(file_params.clone());
     let table_name = FivetranTableName::from_str(&table.name)
         .map_err(|err| DestinationError::InvalidTableName(table.name.clone(), err))?;
     let schema = FivetranTableSchema::try_from(table)?;
@@ -166,8 +166,8 @@ pub async fn write_batch(
             file,
             BatchWriteOperation::Upsert,
             &keys,
-            csv_file_params.encryption(),
-            csv_file_params.compression(),
+            file_params.encryption(),
+            file_params.compression(),
             &reader_params,
             &table_name,
             &schema,
@@ -178,8 +178,8 @@ pub async fn write_batch(
             file,
             BatchWriteOperation::Update,
             &keys,
-            csv_file_params.encryption(),
-            csv_file_params.compression(),
+            file_params.encryption(),
+            file_params.compression(),
             &reader_params,
             &table_name,
             &schema,
@@ -190,8 +190,8 @@ pub async fn write_batch(
             file,
             BatchWriteOperation::HardDelete,
             &keys,
-            csv_file_params.encryption(),
-            csv_file_params.compression(),
+            file_params.encryption(),
+            file_params.compression(),
             &reader_params,
             &table_name,
             &schema,
