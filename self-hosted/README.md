@@ -224,7 +224,7 @@ psql postgres -c "CREATE DATABASE convex_self_hosted"
 ```
 
 Set the `POSTGRES_URL` environment variable to your Postgres connection string
-and disable SSL.
+and disable SSL. Do not include the database name in `POSTGRES_URL`.
 
 ```sh
 export POSTGRES_URL='postgresql://<your-username>@host.docker.internal:5432'
@@ -244,7 +244,7 @@ docker compose up
 ### Running MySQL on PlanetScale
 
 Set up a database on [PlanetScale](https://planetscale.com/). Be sure to name it
-`convex_self_hosted`!
+`convex_self_hosted`! Do not include the database name in `MYSQL_URL`.
 
 ```sh
 export MYSQL_URL=mysql://<your-username>:<your-password>@aws.connect.psdb.cloud
