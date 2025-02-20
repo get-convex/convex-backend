@@ -15,7 +15,7 @@
     "format": "prettier --write '**/*' --ignore-unknown"
   },
   "dependencies": {
-    "@clerk/tanstack-start": "0.6.5",
+    "@clerk/tanstack-start": "0.8.13",
     "@convex-dev/react-query": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-router": "^1.92.11",
