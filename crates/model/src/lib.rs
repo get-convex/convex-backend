@@ -43,6 +43,7 @@ use backend_state::{
     BackendStateTable,
     BACKEND_STATE_TABLE,
 };
+use canonical_urls::CANONICAL_URLS_TABLE;
 use common::{
     bootstrap_model::index::{
         IndexConfig,
@@ -119,6 +120,7 @@ use value::{
 use crate::{
     auth::AuthTable,
     backend_state::BackendStateModel,
+    canonical_urls::CanonicalUrlsTable,
     cron_jobs::{
         CronJobLogsTable,
         CronJobsTable,
@@ -138,6 +140,7 @@ use crate::{
 
 pub mod auth;
 pub mod backend_state;
+pub mod canonical_urls;
 pub mod components;
 pub mod config;
 pub mod cron_jobs;
@@ -188,9 +191,10 @@ enum DefaultTableNumber {
     ComponentDefinitionsTable = 31,
     ComponentsTable = 32,
     FunctionHandlesTable = 33,
+    CanonicalUrls = 34,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 34 - sujayakar
+    // Next Number - 35 - lee
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -227,6 +231,7 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::ComponentDefinitionsTable => &ComponentDefinitionsTable,
             DefaultTableNumber::ComponentsTable => &ComponentsTable,
             DefaultTableNumber::FunctionHandlesTable => &FunctionHandlesTable,
+            DefaultTableNumber::CanonicalUrls => &CanonicalUrlsTable,
         }
     }
 }
@@ -427,6 +432,7 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
         &ExportsTable,
         &SnapshotImportsTable,
         &FunctionHandlesTable,
+        &CanonicalUrlsTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables
@@ -455,6 +461,7 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
         ENVIRONMENT_VARIABLES_TABLE.clone(),
         CRON_JOBS_TABLE.clone(),
         BACKEND_STATE_TABLE.clone(),
+        CANONICAL_URLS_TABLE.clone(),
     }
 });
 

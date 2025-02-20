@@ -852,6 +852,7 @@ pub async fn stats_middleware<RM: RouteMapper>(
 pub struct InstanceNameExt(pub String);
 
 #[derive(ToSchema, Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Ord, PartialOrd)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 #[serde(rename_all = "camelCase")]
 pub enum RequestDestination {
     ConvexCloud,

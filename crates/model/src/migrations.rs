@@ -34,6 +34,7 @@ use value::{
 };
 
 use crate::{
+    canonical_urls::CANONICAL_URLS_TABLE,
     database_globals::{
         types::DatabaseVersion,
         DatabaseGlobalsModel,
@@ -77,7 +78,7 @@ impl fmt::Display for MigrationCompletionCriterion {
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 115; // nipunn
+pub const DATABASE_VERSION: DatabaseVersion = 116; // lee
 
 pub struct MigrationWorker<RT: Runtime> {
     rt: RT,
@@ -372,6 +373,9 @@ impl<RT: Runtime> MigrationWorker<RT> {
                 }
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
+            116 => MigrationCompletionCriterion::LogLine(
+                format!("Created system table: {}", *CANONICAL_URLS_TABLE).into(),
+            ),
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),
         };
