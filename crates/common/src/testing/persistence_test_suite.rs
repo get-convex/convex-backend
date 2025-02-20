@@ -53,6 +53,7 @@ use crate::{
         fake_retention_validator::FakeRetentionValidator,
         ConflictStrategy,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         LatestDocument,
         NoopRetentionValidator,
         Persistence,
@@ -221,10 +222,13 @@ macro_rules! run_persistence_test_suite {
         }
 
         #[tokio::test]
-        async fn test_persistence_documents_multiget() -> anyhow::Result<()> {
+        async fn test_persistence_previous_revisions_of_documents() -> anyhow::Result<()> {
             let $db = $create_db;
             let p = $create_persistence;
-            persistence_test_suite::persistence_documents_multiget(::std::sync::Arc::new(p)).await
+            persistence_test_suite::persistence_previous_revisions_of_documents(
+                ::std::sync::Arc::new(p),
+            )
+            .await
         }
 
         #[tokio::test]
@@ -1756,7 +1760,9 @@ pub async fn persistence_delete_documents<P: Persistence>(p: Arc<P>) -> anyhow::
     Ok(())
 }
 
-pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow::Result<()> {
+pub async fn persistence_previous_revisions_of_documents<P: Persistence>(
+    p: Arc<P>,
+) -> anyhow::Result<()> {
     let mut id_generator = TestIdGenerator::new();
     let table: TableName = str::parse("table")?;
     let id1 = id_generator.user_generate(&table);
@@ -1806,38 +1812,87 @@ pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow
         id_generator.generate_internal(),
     );
 
+    // For the purposes of testing, set `ts` to be anything, because only `prev_ts`
+    // is used.
     let queries = btreeset![
         // Latest revision
-        (id1.into(), Timestamp::must(3)),
-        // Non-latest revision
-        (id1.into(), Timestamp::must(1)),
-        // Tombstone
-        (id2.into(), Timestamp::must(2)),
-        // Nonexistent revision
-        (id2.into(), Timestamp::must(3)),
+        DocumentPrevTsQuery {
+            id: id1.into(),
+            ts: Timestamp::must(4),
+            prev_ts: Timestamp::must(3),
+        },
+        // Previous revision of latest revision
+        DocumentPrevTsQuery {
+            id: id1.into(),
+            ts: Timestamp::must(3),
+            prev_ts: Timestamp::must(1)
+        },
+        // Tombstone (in this case ts doesn't actually exist but it's fine)
+        DocumentPrevTsQuery {
+            id: id2.into(),
+            ts: Timestamp::must(3),
+            prev_ts: Timestamp::must(2)
+        },
+        // Nonexistent revision at both ts and prev_ts
+        DocumentPrevTsQuery {
+            id: id2.into(),
+            ts: Timestamp::must(4),
+            prev_ts: Timestamp::must(3)
+        },
         // Unchanged document
-        (id3.into(), Timestamp::must(1)),
+        DocumentPrevTsQuery {
+            id: id3.into(),
+            ts: Timestamp::must(2),
+            prev_ts: Timestamp::must(1),
+        },
         // Nonexistent document
-        (nonexistent_id, Timestamp::must(1))
+        DocumentPrevTsQuery {
+            id: nonexistent_id,
+            ts: Timestamp::must(2),
+            prev_ts: Timestamp::must(1),
+        },
     ];
 
     // Test with NoopRetentionValidator
     // Note: Proper retention validation testing will be added in a separate PR
     let results = p
         .reader()
-        .documents_multiget(queries.clone(), Arc::new(NoopRetentionValidator))
+        .previous_revisions_of_documents(queries.clone(), Arc::new(NoopRetentionValidator))
         .await?;
 
     // Should get exact matches only
     assert_eq!(results.len(), 4); // id1@3, id1@1, id2@2, id3@1
-    assert!(results.contains_key(&(id1.into(), Timestamp::must(3))));
-    assert!(results.contains_key(&(id1.into(), Timestamp::must(1))));
-    assert!(results.contains_key(&(id2.into(), Timestamp::must(2))));
-    assert!(results.contains_key(&(id3.into(), Timestamp::must(1))));
+    assert!(results.contains_key(&DocumentPrevTsQuery {
+        id: id1.into(),
+        ts: Timestamp::must(3),
+        prev_ts: Timestamp::must(1)
+    }));
+    assert!(results.contains_key(&DocumentPrevTsQuery {
+        id: id2.into(),
+        ts: Timestamp::must(3),
+        prev_ts: Timestamp::must(2)
+    }));
+    assert!(results.contains_key(&DocumentPrevTsQuery {
+        id: id3.into(),
+        ts: Timestamp::must(2),
+        prev_ts: Timestamp::must(1)
+    }));
 
     // Verify document contents
-    let id1_at_3 = results.get(&(id1.into(), Timestamp::must(3))).unwrap();
-    let id1_at_1 = results.get(&(id1.into(), Timestamp::must(1))).unwrap();
+    let id1_at_3 = results
+        .get(&DocumentPrevTsQuery {
+            id: id1.into(),
+            ts: Timestamp::must(4),
+            prev_ts: Timestamp::must(3),
+        })
+        .unwrap();
+    let id1_at_1 = results
+        .get(&DocumentPrevTsQuery {
+            id: id1.into(),
+            ts: Timestamp::must(3),
+            prev_ts: Timestamp::must(1),
+        })
+        .unwrap();
 
     // Verify id1@3 has the correct document and prev_ts pointing to id1@1
     assert_eq!(id1_at_3.value, Some(doc(id1)));
@@ -1853,7 +1908,11 @@ pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow
     // Verify tombstone
     assert_eq!(
         results
-            .get(&(id2.into(), Timestamp::must(2)))
+            .get(&DocumentPrevTsQuery {
+                id: id2.into(),
+                ts: Timestamp::must(3),
+                prev_ts: Timestamp::must(2)
+            })
             .unwrap()
             .value,
         None
@@ -1862,21 +1921,25 @@ pub async fn persistence_documents_multiget<P: Persistence>(p: Arc<P>) -> anyhow
     let retention_validator = FakeRetentionValidator::new(Timestamp::must(4), Timestamp::must(0));
     // Min ts queried is 1, and min_document_ts is 0, so it's a valid query.
     p.reader()
-        .documents_multiget(queries.clone(), Arc::new(retention_validator))
+        .previous_revisions_of_documents(queries.clone(), Arc::new(retention_validator))
         .await?;
 
     let retention_validator = FakeRetentionValidator::new(Timestamp::must(4), Timestamp::must(4));
     // Min ts queried is 1, and min_document_ts is 4, so it's an invalid query.
     assert!(p
         .reader()
-        .documents_multiget(queries, Arc::new(retention_validator))
+        .previous_revisions_of_documents(queries, Arc::new(retention_validator))
         .await
         .is_err());
     // Errors even if there is no document at the timestamp.
     assert!(p
         .reader()
-        .documents_multiget(
-            btreeset![(nonexistent_id, Timestamp::must(1))],
+        .previous_revisions_of_documents(
+            btreeset![DocumentPrevTsQuery {
+                id: nonexistent_id,
+                ts: Timestamp::must(1),
+                prev_ts: Timestamp::must(1)
+            }],
             Arc::new(retention_validator)
         )
         .await

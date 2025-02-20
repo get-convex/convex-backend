@@ -58,6 +58,7 @@ use common::{
     persistence::{
         ConflictStrategy,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         DocumentStream,
         IndexStream,
         LatestDocument,
@@ -978,14 +979,17 @@ impl PersistenceReader for PostgresReader {
         Ok(result)
     }
 
-    async fn documents_multiget(
+    async fn previous_revisions_of_documents(
         &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        ids: BTreeSet<DocumentPrevTsQuery>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        let timer = metrics::documents_multiget_timer();
+    ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
+        let timer = metrics::previous_revisions_of_documents_timer();
 
-        let client = self.read_pool.get_connection("documents_multiget").await?;
+        let client = self
+            .read_pool
+            .get_connection("previous_revisions_of_documents")
+            .await?;
         let (exact_rev_chunk, exact_rev) = try_join!(
             client.prepare_cached(EXACT_REV_CHUNK),
             client.prepare_cached(EXACT_REV)
@@ -1000,17 +1004,19 @@ impl PersistenceReader for PostgresReader {
         for chunk in chunks.by_ref() {
             assert_eq!(chunk.len(), 8);
             let mut params = Vec::with_capacity(24);
-            for (id, ts) in chunk {
+            for DocumentPrevTsQuery { id, ts, prev_ts } in chunk {
                 params.push(Param::TableId(id.table()));
                 params.push(internal_doc_id_param(*id));
+                params.push(Param::Ts(i64::from(*prev_ts)));
                 params.push(Param::Ts(i64::from(*ts)));
             }
             result_futures.push(client.query_raw(&exact_rev_chunk, params));
         }
-        for (id, ts) in chunks.remainder() {
+        for DocumentPrevTsQuery { id, ts, prev_ts } in chunks.remainder() {
             let params = vec![
                 Param::TableId(id.table()),
                 internal_doc_id_param(*id),
+                Param::Ts(i64::from(*prev_ts)),
                 Param::Ts(i64::from(*ts)),
             ];
             result_futures.push(client.query_raw(&exact_rev, params));
@@ -1019,24 +1025,24 @@ impl PersistenceReader for PostgresReader {
         while let Some(row_stream) = result_stream.try_next().await? {
             futures::pin_mut!(row_stream);
             while let Some(row) = row_stream.try_next().await? {
-                let ts: i64 = row.get(1);
+                let ts: i64 = row.get(6);
                 let ts = Timestamp::try_from(ts)?;
-                let (_, id, maybe_doc, prev_ts) = self.row_to_document(row)?;
+                let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
                 anyhow::ensure!(result
                     .insert(
-                        (id, ts),
+                        DocumentPrevTsQuery { id, ts, prev_ts },
                         DocumentLogEntry {
-                            ts,
+                            ts: prev_ts,
                             id,
                             value: maybe_doc,
-                            prev_ts,
+                            prev_ts: prev_prev_ts,
                         }
                     )
                     .is_none());
             }
         }
 
-        if let Some(min_ts) = ids.iter().map(|(_, ts)| *ts).min() {
+        if let Some(min_ts) = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min() {
             // Validate retention after finding documents
             retention_validator
                 .validate_document_snapshot(min_ts)
@@ -1784,22 +1790,22 @@ const EXACT_REV_CHUNK: &str = r#"
     Set(plan_cache_mode force_generic_plan)
 */
 WITH
-    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $1 AND id = $2 and ts = $3),
-    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $4 AND id = $5 and ts = $6),
-    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $7 AND id = $8 and ts = $9),
-    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $10 AND id = $11 and ts = $12),
-    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $13 AND id = $14 and ts = $15),
-    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $16 AND id = $17 and ts = $18),
-    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $19 AND id = $20 and ts = $21),
-    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts FROM documents WHERE table_id = $22 AND id = $23 and ts = $24)
-SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q1
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q2
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q3
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q4
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q5
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q6
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q7
-UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q8;
+    q1 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts FROM documents WHERE table_id = $1 AND id = $2 and ts = $3),
+    q2 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $8::BIGINT as query_ts FROM documents WHERE table_id = $5 AND id = $6 and ts = $7),
+    q3 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $12::BIGINT as query_ts FROM documents WHERE table_id = $9 AND id = $10 and ts = $11),
+    q4 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $16::BIGINT as query_ts FROM documents WHERE table_id = $13 AND id = $14 and ts = $15),
+    q5 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $20::BIGINT as query_ts FROM documents WHERE table_id = $17 AND id = $18 and ts = $19),
+    q6 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $24::BIGINT as query_ts FROM documents WHERE table_id = $21 AND id = $22 and ts = $23),
+    q7 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $28::BIGINT as query_ts FROM documents WHERE table_id = $25 AND id = $26 and ts = $27),
+    q8 AS (SELECT id, ts, table_id, json_value, deleted, prev_ts, $32::BIGINT as query_ts FROM documents WHERE table_id = $29 AND id = $30 and ts = $31)
+SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q1
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q2
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q3
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q4
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q5
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q6
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q7
+UNION ALL SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q8;
 "#;
 
 const EXACT_REV: &str = r#"
@@ -1812,7 +1818,7 @@ const EXACT_REV: &str = r#"
     Set(enable_material OFF)
     Set(plan_cache_mode force_generic_plan)
 */
-SELECT id, ts, table_id, json_value, deleted, prev_ts
+SELECT id, ts, table_id, json_value, deleted, prev_ts, $4::BIGINT as query_ts
 FROM documents
 WHERE
     table_id = $1 AND

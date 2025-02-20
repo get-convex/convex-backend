@@ -312,6 +312,13 @@ pub trait RetentionValidator: Sync + Send {
     fn fail_if_falling_behind(&self) -> anyhow::Result<()>;
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DocumentPrevTsQuery {
+    pub id: InternalDocumentId,
+    pub ts: Timestamp,
+    pub prev_ts: Timestamp,
+}
+
 #[async_trait]
 pub trait PersistenceReader: Send + Sync + 'static {
     /// The persistence is required to load documents within the given timestamp
@@ -359,14 +366,14 @@ pub trait PersistenceReader: Send + Sync + 'static {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>>;
 
-    /// Look up documents at exactly the specified timestamps, returning a map
-    /// where for each `(id, ts)` we have an entry only if a document exists
-    /// at exactly that timestamp.
-    async fn documents_multiget(
+    /// Look up documents at exactly the specified prev_ts timestamps, returning
+    /// a map where for each `DocumentPrevTsQuery` we have an entry only if
+    /// a document exists at `(id, prev_ts)`.
+    async fn previous_revisions_of_documents(
         &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        ids: BTreeSet<DocumentPrevTsQuery>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>>;
+    ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>>;
 
     /// Loads documentIds with respective timestamps that match the
     /// index query criteria.
@@ -586,16 +593,16 @@ impl RepeatablePersistence {
             .await
     }
 
-    pub async fn documents_multiget(
+    pub async fn previous_revisions_of_documents(
         &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        for (_, ts) in &ids {
-            // Reading documents ==ts, so ts needs to be repeatable.
+        ids: BTreeSet<DocumentPrevTsQuery>,
+    ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
+        for DocumentPrevTsQuery { ts, .. } in &ids {
+            // Reading previous revisions of documents at ts, so ts needs to be repeatable.
             anyhow::ensure!(*ts <= self.upper_bound);
         }
         self.reader
-            .documents_multiget(ids, self.retention_validator.clone())
+            .previous_revisions_of_documents(ids, self.retention_validator.clone())
             .await
     }
 

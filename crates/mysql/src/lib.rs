@@ -68,6 +68,7 @@ use common::{
     persistence::{
         ConflictStrategy,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         DocumentStream,
         IndexStream,
         LatestDocument,
@@ -974,16 +975,16 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         .boxed()
     }
 
-    async fn documents_multiget(
+    async fn previous_revisions_of_documents(
         &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        ids: BTreeSet<DocumentPrevTsQuery>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        let timer = metrics::documents_multiget_timer(self.read_pool.cluster_name());
+    ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
+        let timer = metrics::previous_revisions_of_documents_timer(self.read_pool.cluster_name());
 
         let mut client = self
             .read_pool
-            .acquire("documents_multiget", &self.db_name)
+            .acquire("previous_revisions_of_documents", &self.db_name)
             .await?;
         let ids: Vec<_> = ids.into_iter().collect();
 
@@ -992,10 +993,11 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 
         for chunk in smart_chunks(&ids) {
             let mut params = vec![];
-            for (id, ts) in chunk {
+            for DocumentPrevTsQuery { id, ts, prev_ts } in chunk {
+                params.push(i64::from(*ts).into());
                 params.push(internal_id_param(id.table().0).into());
                 params.push(internal_doc_id_param(*id).into());
-                params.push(i64::from(*ts).into());
+                params.push(i64::from(*prev_ts).into());
             }
             let result_stream = client
                 .query_stream(exact_rev_chunk(chunk.len()), params, chunk.len())
@@ -1006,21 +1008,23 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
             }
         }
         for row in results.into_iter() {
-            let (ts, id, maybe_doc, prev_ts) = self.row_to_document(row)?;
+            let ts: i64 = row.get(6).unwrap();
+            let ts = Timestamp::try_from(ts)?;
+            let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
             anyhow::ensure!(result
                 .insert(
-                    (id, ts),
+                    DocumentPrevTsQuery { id, ts, prev_ts },
                     DocumentLogEntry {
-                        ts,
+                        ts: prev_ts,
                         id,
                         value: maybe_doc,
-                        prev_ts,
+                        prev_ts: prev_prev_ts,
                     }
                 )
                 .is_none());
         }
 
-        if let Some(min_ts) = ids.iter().map(|(_, ts)| *ts).min() {
+        if let Some(min_ts) = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min() {
             // Validate retention after finding documents
             retention_validator
                 .validate_document_snapshot(min_ts)
@@ -1703,7 +1707,7 @@ static EXACT_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new
     smart_chunk_sizes()
         .map(|chunk_size| {
             let select = r#"
-SELECT id, ts, table_id, json_value, deleted, prev_ts
+SELECT id, ts, table_id, json_value, deleted, prev_ts, ? as query_ts
 FROM @db_name.documents FORCE INDEX (PRIMARY)
 WHERE table_id = ? AND id = ? AND ts = ?
 ORDER BY ts ASC, table_id ASC, id ASC
@@ -1712,7 +1716,11 @@ ORDER BY ts ASC, table_id ASC, id ASC
                 .map(|i| format!("q{i} AS ({select})"))
                 .join(", ");
             let union_all = (1..=chunk_size)
-                .map(|i| format!("SELECT id, ts, table_id, json_value, deleted, prev_ts FROM q{i}"))
+                .map(|i| {
+                    format!(
+                        "SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q{i}"
+                    )
+                })
                 .join(" UNION ALL ");
             (chunk_size, format!("WITH {queries} {union_all}"))
         })

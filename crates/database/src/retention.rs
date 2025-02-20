@@ -63,6 +63,7 @@ use common::{
     persistence::{
         new_static_repeatable_recent,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         NoopRetentionValidator,
         Persistence,
         PersistenceGlobalKey,
@@ -561,26 +562,47 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 // Each prev rev has 1 or 2 index entries to delete per index -- one entry at
                 // the prev rev's ts, and a tombstone at the current rev's ts if
                 // the document was deleted or its index key changed.
-                // TODO: use prev_ts when available
                 let prev_revs = reader_
-                    .previous_revisions(chunk.iter().map(|entry| (entry.id, entry.ts)).collect())
+                    .previous_revisions_of_documents(
+                        chunk
+                            .iter()
+                            .filter_map(|entry| {
+                                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
+                                    id: entry.id,
+                                    ts: entry.ts,
+                                    prev_ts,
+                                })
+                            })
+                            .collect(),
+                    )
                     .await?;
                 for DocumentLogEntry {
                     ts,
                     id,
                     value: maybe_doc,
+                    prev_ts,
                     ..
                 } in chunk
                 {
                     // If there is no prev rev, there's nothing to delete.
                     // If this happens for a tombstone, it means the document was created and
                     // deleted in the same transaction, with no index rows.
+                    let Some(prev_ts) = prev_ts else {
+                        log_retention_scanned_document(maybe_doc.is_none(), false);
+                        continue;
+                    };
                     let Some(DocumentLogEntry {
                         ts: prev_rev_ts,
                         value: maybe_prev_rev,
                         ..
-                    }) = prev_revs.get(&(id, ts))
+                    }) = prev_revs.get(&DocumentPrevTsQuery { id, ts, prev_ts })
                     else {
+                        // This is unexpected: if there is a prev_ts, there should be a prev_rev.
+                        report_error(&mut anyhow::anyhow!(
+                            "Skipping deleting indexes for {id}@{ts}. It has a prev_ts of \
+                             {prev_ts} but no previous revision."
+                        ))
+                        .await;
                         log_retention_scanned_document(maybe_doc.is_none(), false);
                         continue;
                     };

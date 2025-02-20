@@ -30,6 +30,7 @@ use common::{
     persistence::{
         ConflictStrategy,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         DocumentStream,
         IndexStream,
         LatestDocument,
@@ -502,31 +503,35 @@ impl PersistenceReader for SqlitePersistence {
         Ok(out)
     }
 
-    async fn documents_multiget(
+    async fn previous_revisions_of_documents(
         &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        ids: BTreeSet<DocumentPrevTsQuery>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
+    ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
         // Validate retention for all queried timestamps first
-        let min_ts = ids.iter().map(|(_, ts)| *ts).min();
+        let min_ts = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min();
 
         let mut out = BTreeMap::new();
         {
             let inner = self.inner.lock();
-            for (id, ts) in ids {
+            for DocumentPrevTsQuery { id, ts, prev_ts } in ids {
                 let mut stmt = inner.connection.prepare(EXACT_REV_QUERY)?;
                 let internal_id = id.internal_id();
-                let params = params![&id.table().0[..], &internal_id[..], &u64::from(ts)];
+                let params = params![&id.table().0[..], &internal_id[..], &u64::from(prev_ts)];
                 let mut row_iter = stmt.query_map(params, load_document_row)?;
                 if let Some(row) = row_iter.next() {
-                    let (document_id, ts, document, prev_ts) = row_to_document(row)?;
+                    let (document_id, prev_ts, document, prev_prev_ts) = row_to_document(row)?;
                     out.insert(
-                        (document_id, ts),
-                        DocumentLogEntry {
+                        DocumentPrevTsQuery {
+                            id: document_id,
                             ts,
+                            prev_ts,
+                        },
+                        DocumentLogEntry {
+                            ts: prev_ts,
                             id: document_id,
                             value: document,
-                            prev_ts,
+                            prev_ts: prev_prev_ts,
                         },
                     );
                 }

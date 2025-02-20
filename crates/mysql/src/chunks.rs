@@ -8,7 +8,10 @@ use common::{
         MYSQL_MAX_CHUNK_BYTES,
         MYSQL_MAX_DYNAMIC_SMART_CHUNK_SIZE,
     },
-    persistence::DocumentLogEntry,
+    persistence::{
+        DocumentLogEntry,
+        DocumentPrevTsQuery,
+    },
     types::{
         DatabaseIndexUpdate,
         Timestamp,
@@ -32,6 +35,12 @@ impl<T: ApproxSize> ApproxSize for Option<T> {
 impl ApproxSize for Timestamp {
     fn approx_size(&self) -> usize {
         size_of::<Timestamp>()
+    }
+}
+
+impl ApproxSize for DocumentPrevTsQuery {
+    fn approx_size(&self) -> usize {
+        self.id.approx_size() + self.ts.approx_size() + self.prev_ts.approx_size()
     }
 }
 

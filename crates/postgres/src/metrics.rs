@@ -46,7 +46,7 @@ register_convex_histogram!(
     "Time to fetch documents at exact timestamps",
     &STATUS_LABEL
 );
-pub fn documents_multiget_timer() -> StatusTimer {
+pub fn previous_revisions_of_documents_timer() -> StatusTimer {
     StatusTimer::new(&POSTGRES_DOCUMENTS_MULTIGET_SECONDS)
 }
 

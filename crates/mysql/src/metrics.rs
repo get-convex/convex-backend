@@ -74,7 +74,7 @@ register_convex_histogram!(
     "Time to fetch documents at exact timestamps",
     &[STATUS_LABEL[0], "cluster_name"]
 );
-pub fn documents_multiget_timer(cluster_name: &str) -> StatusTimer {
+pub fn previous_revisions_of_documents_timer(cluster_name: &str) -> StatusTimer {
     let mut timer = StatusTimer::new(&MYSQL_DOCUMENTS_MULTIGET_SECONDS);
     timer.add_label(cluster_name_label(cluster_name));
     timer

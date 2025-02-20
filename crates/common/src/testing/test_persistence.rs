@@ -39,6 +39,7 @@ use crate::{
     persistence::{
         ConflictStrategy,
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         DocumentStream,
         IndexStream,
         LatestDocument,
@@ -282,25 +283,25 @@ impl PersistenceReader for TestPersistence {
         Ok(result)
     }
 
-    async fn documents_multiget(
+    async fn previous_revisions_of_documents(
         &self,
-        ids: BTreeSet<(InternalDocumentId, Timestamp)>,
+        ids: BTreeSet<DocumentPrevTsQuery>,
         retention_validator: Arc<dyn RetentionValidator>,
-    ) -> anyhow::Result<BTreeMap<(InternalDocumentId, Timestamp), DocumentLogEntry>> {
-        let min_ts = ids.iter().map(|(_, ts)| *ts).min();
+    ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
+        let min_ts = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min();
         let result = {
             let inner = self.inner.lock();
             let result = ids
                 .into_iter()
-                .filter_map(|(id, ts)| {
-                    inner.log.get(&(ts, id)).map(|(doc, prev_ts)| {
+                .filter_map(|DocumentPrevTsQuery { id, ts, prev_ts }| {
+                    inner.log.get(&(prev_ts, id)).map(|(doc, prev_prev_ts)| {
                         (
-                            (id, ts),
+                            DocumentPrevTsQuery { id, ts, prev_ts },
                             DocumentLogEntry {
                                 id,
-                                ts,
+                                ts: prev_ts,
                                 value: doc.clone(),
-                                prev_ts: *prev_ts,
+                                prev_ts: *prev_prev_ts,
                             },
                         )
                     })
