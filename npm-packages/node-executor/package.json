@@ -32,7 +32,7 @@
     "@types/node-fetch": "^2.6.1",
     "@types/uuid": "^8.3.4",
     "auth0": "^4.3.1",
-    "esbuild": "0.23.0",
+    "esbuild": "0.25.0",
     "googleapis": "^108.0.0",
     "stripe": "^10.14.0",
     "twilio": "^4.22.0",

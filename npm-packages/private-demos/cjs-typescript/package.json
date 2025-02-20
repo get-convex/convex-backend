@@ -14,7 +14,7 @@
   },
   "devDependencies": {
     "@types/node": "^18.17.0",
-    "esbuild": "0.23.0",
+    "esbuild": "0.25.0",
     "typescript": "~5.0.3"
   }
 }
