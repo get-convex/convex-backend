@@ -175,6 +175,8 @@ you're running a production workload that requires guaranteed uptime it's likely
 you want to use a managed Postgres or MySQL service. We've included instructions
 below for connecting to a Postgres database hosted on [Neon](https://neon.tech)
 or a MySQL (Vitess) database hosted on [PlanetScale](https://planetscale.com).
+We've tested that the Convex backend works with Postgres v17 and MySQL v8, but
+it's possible it works with other versions.
 
 Use `npx convex export` to export your data before moving from one database
 provider to another.
@@ -266,6 +268,7 @@ docker compose up
 From the `npm-packages/dashboard-self-hosted` directory, run:
 
 ```sh
+just rush install
 npm run build
 NEXT_PUBLIC_DEPLOYMENT_URL="<your-backend-url>" npm run start
 ```

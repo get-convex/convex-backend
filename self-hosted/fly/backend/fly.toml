@@ -35,4 +35,4 @@ protocol = 'http'
 [[vm]]
 memory = '1gb'
 cpu_kind = 'shared'
-cpus = 1
+cpus = 4
