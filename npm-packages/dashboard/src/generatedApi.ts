@@ -535,6 +535,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{project_id}/app_access_tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_project_app_access_tokens"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{project_id}/delete_preview_deployment": {
         parameters: {
             query?: never;
@@ -1224,6 +1240,15 @@ export interface components {
         };
         /** @description Encrypted admin key */
         AdminKey: string;
+        AppAccessTokenResponse: {
+            appName: components["schemas"]["AppName"];
+            /** Format: int64 */
+            creationTime: number;
+            /** Format: int64 */
+            lastUsedTime?: number | null;
+            name: components["schemas"]["DeviceName"];
+        };
+        AppName: string;
         /** @enum {string} */
         AuditLogAction: "joinTeam" | "createTeam" | "updateTeam" | "deleteTeam" | "createProject" | "transferProject" | "receiveProject" | "updateProject" | "deleteProject" | "createProjectEnvironmentVariable" | "updateProjectEnvironmentVariable" | "deleteProjectEnvironmentVariable" | "createDeployment" | "deleteDeployment" | "inviteMember" | "cancelMemberInvitation" | "removeMember" | "updateMemberRole" | "updateMemberProjectRole" | "updatePaymentMethod" | "updateBillingContact" | "updateBillingAddress" | "createSubscription" | "resumeSubscription" | "cancelSubscription" | "createTeamAccessToken" | "updateTeamAccessToken" | "deleteTeamAccessToken" | "viewTeamAccessToken" | "createCustomDomain" | "deleteCustomDomain" | "startManualCloudBackup" | "restoreFromCloudBackup" | "configurePeriodicBackup" | "disablePeriodicBackup" | "deleteCloudBackup" | "disableTeamExceedingSpendingLimits" | "setSpendingLimit";
         /** @description Represents the `ValidatedActor` equivalent for audit logs. This identifies
@@ -1257,6 +1282,7 @@ export interface components {
             events: components["schemas"]["AuditLogEventResponse"][];
         };
         AuthorizeArgs: {
+            appName?: null | components["schemas"]["AppName"];
             /** @description Authentication token is expected to be the access token from auth0 */
             authnToken: string;
             deploymentId?: null | components["schemas"]["DeploymentId"];
@@ -1728,6 +1754,8 @@ export interface components {
 export type ActionOnAccessTokenArgs = components['schemas']['ActionOnAccessTokenArgs'];
 export type Address = components['schemas']['Address'];
 export type AdminKey = components['schemas']['AdminKey'];
+export type AppAccessTokenResponse = components['schemas']['AppAccessTokenResponse'];
+export type AppName = components['schemas']['AppName'];
 export type AuditLogAction = components['schemas']['AuditLogAction'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
@@ -2549,6 +2577,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamAccessTokenResponse"][];
+                };
+            };
+        };
+    };
+    get_project_app_access_tokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppAccessTokenResponse"][];
                 };
             };
         };

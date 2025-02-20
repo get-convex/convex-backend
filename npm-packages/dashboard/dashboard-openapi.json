@@ -816,6 +816,34 @@
         }
       }
     },
+    "/projects/{project_id}/app_access_tokens": {
+      "get": {
+        "operationId": "get_project_app_access_tokens",
+        "parameters": [
+          {
+            "name": "project_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AppAccessTokenResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/projects/{project_id}/delete_preview_deployment": {
       "post": {
         "operationId": "deactivate_preview_deployment",
@@ -2217,6 +2245,33 @@
       "AdminKey": {
         "type": "string",
         "description": "Encrypted admin key"
+      },
+      "AppAccessTokenResponse": {
+        "type": "object",
+        "required": [
+          "name",
+          "appName",
+          "creationTime"
+        ],
+        "properties": {
+          "appName": {
+            "$ref": "#/components/schemas/AppName"
+          },
+          "creationTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastUsedTime": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "name": {
+            "$ref": "#/components/schemas/DeviceName"
+          }
+        }
       },
       "AppName": {
         "type": "string"
