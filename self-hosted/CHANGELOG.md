@@ -10,6 +10,11 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-02-19 `86ae5d34c8164075b66fa0c52beabd19212d8df7`
+
+- Fix bug in MySQL where certificates were not verified upon connection. Now,
+  you must set `DO_NOT_REQUIRE_SSL` for running locally.
+
 ## 2025-02-19 `663640f5a01018914dc4314145f23a31f3afdca6`
 
 - Add support for MySQL! The `DATABASE_URL` env variable is now `POSTGRES_URL`
