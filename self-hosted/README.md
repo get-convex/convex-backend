@@ -84,7 +84,7 @@ that you'll need to set up persistent storage on whatever cloud hosting platform
 you choose to run the Docker container on (e.g. AWS EBS). By default the
 database is stored locally in SQLite but you may also point it to a SQL database
 either locally or on a cloud service of your choice following
-[these instructions](#running-the-database-on-postgres).
+[these instructions](#running-the-database-on-postgres-or-mysql).
 
 You should now be able to use the self-hosted backend. Read on for alternative
 hosting options for production workloads.
@@ -168,12 +168,13 @@ You can run the Convex backend on a hosting provider of your choice. We include
 [Fly.io](https://fly.io/). See our dedicated [Fly instructions](./fly/README.md)
 to get started.
 
-## Running the database on Postgres
+## Running the database on Postgres or MySQL
 
-The Convex backend is designed to work well with SQLite or Postgres. If you're
-running a production workload that requires guaranteed uptime it's likely you
-want to use a managed Postgres service. We've included instructions below for
-connecting to a Postgres database hosted on [Neon](https://neon.tech).
+The Convex backend is designed to work well with SQLite, Postgres, or MySQL. If
+you're running a production workload that requires guaranteed uptime it's likely
+you want to use a managed Postgres or MySQL service. We've included instructions
+below for connecting to a Postgres database hosted on [Neon](https://neon.tech)
+or a MySQL (Vitess) database hosted on [PlanetScale](https://planetscale.com).
 
 Use `npx convex export` to export your data before moving from one database
 provider to another.
@@ -191,19 +192,19 @@ export DATABASE_CONNECTION='<connection string>'
 psql $DATABASE_CONNECTION -c "CREATE DATABASE convex_self_hosted"
 ```
 
-You can use the `DATABASE_URL` environment variable to instruct the backend to
+You can use the `POSTGRES_URL` environment variable to instruct the backend to
 connect to a certain database. This URL is the connection string without the db
 name and query params. e.g., for Neon it should end in `neon.tech`:
 
 ```sh
-export DATABASE_URL=$(echo $DATABASE_CONNECTION | sed -E 's/\/[^/]+(\?.*)?$//')
+export POSTGRES_URL=$(echo $DATABASE_CONNECTION | sed -E 's/\/[^/]+(\?.*)?$//')
 ```
 
 If you're running the backend on a platform like [Fly](https://fly.io), register
 this environment variable in the hosting environment, e.g.,:
 
 ```sh
-fly secrets set DATABASE_URL=$DATABASE_URL
+fly secrets set POSTGRES_URL=$POSTGRES_URL
 ```
 
 otherwise if you're running the backend locally you can restart it to pick up
@@ -222,12 +223,31 @@ Create a database called `convex_self_hosted` in your Postgres instance.
 psql postgres -c "CREATE DATABASE convex_self_hosted"
 ```
 
-Set the `DATABASE_URL` environment variable to your Postgres connection string
+Set the `POSTGRES_URL` environment variable to your Postgres connection string
 and disable SSL.
 
 ```sh
-export DATABASE_URL='postgresql://<your-username>@host.docker.internal:5432'
+export POSTGRES_URL='postgresql://<your-username>@host.docker.internal:5432'
 export DO_NOT_REQUIRE_SSL=1
+docker compose up
+```
+
+### Running MySQL locally
+
+```sh
+mysql -e "CREATE DATABASE convex_self_hosted;"
+export MYSQL_URL=mysql://<your-username>@host.docker.internal:3306
+export DO_NOT_REQUIRE_SSL=1
+docker compose up
+```
+
+### Running MySQL on PlanetScale
+
+Set up a database on [PlanetScale](https://planetscale.com/). Be sure to name it
+`convex_self_hosted`!
+
+```sh
+export MYSQL_URL=mysql://<your-username>:<your-password>@aws.connect.psdb.cloud
 docker compose up
 ```
 

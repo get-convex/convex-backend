@@ -10,17 +10,25 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
-## 62ef09aa604b0c5f873b59e0944b5e89f84b66b2
+## 2025-02-19 `663640f5a01018914dc4314145f23a31f3afdca6`
+
+- Add support for MySQL! The `DATABASE_URL` env variable is now `POSTGRES_URL`
+  or `MYSQL_URL`. Known issue: MySQL certificates are not verified upon
+  connection. The next release will include a fix.
+- Optimize database queries, so simple mutations get 4x faster when running
+  against a Postgres or MySQL db in a different datacenter or region.
+
+## 2025-02-18 `62ef09aa604b0c5f873b59e0944b5e89f84b66b2`
 
 - Add support for running Docker image with local Postgres using the
   `DO_NOT_REQUIRE_SSL` environment variable.
 
-## 6c974d219776b753cd23d26f4a296629ff7c2cad
+## 2025-02-13 `6c974d219776b753cd23d26f4a296629ff7c2cad`
 
 - Fix a bug where every node action request would write to temporary files that
   were never cleaned up. Caused disk space to fill up on volumes.
 
-## 4499dd4fd7f2148687a7774599c613d052950f46
+## 2025-02-12 `4499dd4fd7f2148687a7774599c613d052950f46`
 
 > ⚠️ **WARNING**: DO NOT use this version in production! This initial release
 > contains a critical bug that fills up disk space. Use version
