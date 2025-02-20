@@ -1,5 +1,7 @@
 # Upcoming
 
+- Bump rust-version minimum from 1.71.1 to 1.80.1
+
 # 0.9.0
 
 - Add `ConvexClientBuilder` pattern for constructing `ConvexClient`
