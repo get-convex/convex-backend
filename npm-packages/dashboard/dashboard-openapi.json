@@ -2218,6 +2218,9 @@
         "type": "string",
         "description": "Encrypted admin key"
       },
+      "AppName": {
+        "type": "string"
+      },
       "AuditLogAction": {
         "type": "string",
         "enum": [
@@ -2384,6 +2387,16 @@
           "authnToken"
         ],
         "properties": {
+          "appName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AppName"
+              }
+            ]
+          },
           "authnToken": {
             "type": "string",
             "description": "Authentication token is expected to be the access token from auth0"
