@@ -66,6 +66,7 @@ export function AuthorizeProject() {
           teamId: null,
           projectId: project.id,
           deviceName: callingApplication.name,
+          appName: callingApplication.name,
           deploymentId: null, // Authorize all deployments in this project
           permissions: null, // Allow all permissions
         });
