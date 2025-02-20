@@ -61,16 +61,31 @@ async function getProvisionerInfo(
     await fetch(`${deploymentUrl}/instance_name`)
   ).text();
 
-  const info = await (
-    await fetch(
-      `${provisionHost}/api/deployment/${deploymentName}/team_and_project`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+  const response = await fetch(
+    `${provisionHost}/api/deployment/${deploymentName}/team_and_project`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
-    )
-  ).json();
+    },
+  );
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    throw new Error(
+      `HTTP error ${response.status}: ${response.statusText}. Response: ${responseText}`,
+    );
+  }
+
+  let info;
+  try {
+    info = await response.json();
+  } catch (e: unknown) {
+    const responseText = await response.text();
+    throw new Error(
+      `Failed to parse JSON response: ${e instanceof Error ? e.message : String(e)}. Full response: ${responseText}`,
+    );
+  }
   const deploymentId = info.deploymentId;
 
   return {
