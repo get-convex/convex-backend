@@ -1,6 +1,7 @@
 import {
   ArrowDownIcon,
   CaretDownIcon,
+  CaretUpIcon,
   HamburgerMenuIcon,
   InfoCircledIcon,
   QuestionMarkCircledIcon,
@@ -422,7 +423,7 @@ function RequestIdLogs({
                     <div className="mx-6 my-4 flex grow flex-col overflow-y-hidden rounded border text-xs">
                       <RequestIdLogsHeader />
                       <div className="flex grow flex-col divide-y overflow-y-auto font-mono scrollbar">
-                        {filteredLogs.reverse().map((log, idx) => (
+                        {filteredLogs.map((log, idx) => (
                           <LogListItem
                             key={idx}
                             log={log}
@@ -504,7 +505,12 @@ function LogListHeader({
 function RequestIdLogsHeader() {
   return (
     <div className="flex items-center gap-4 border-b py-2 pl-2 text-xs text-content-secondary">
-      <TimestampColumn />
+      <div className="flex min-w-[7.5rem] items-center gap-1">
+        Timestamp
+        <Tooltip tip="Logs are sorted by timestamp, with the oldest logs appearing first.">
+          <CaretUpIcon />
+        </Tooltip>
+      </div>
       {/* Not showing any other columns except timestamp for now because of the varied content shown in LogListItem in the RequestIdLogsView */}
     </div>
   );
