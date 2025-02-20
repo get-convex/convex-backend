@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+- Upgrade esbuild from 0.23 to 0.25 to address security warnings about
+  https://github.com/evanw/esbuild/security/advisories/GHSA-67mh-4wv8-2f99
+
+  Convex does not use the development server functionality of esbuild which
+  contains the vulnerability.
+
+## 1.19.2
+
+- Improved support for working with self-hosted deployments: every command that
+  makes sense (e.g. not `npx convex login`) works with self-hosted deployments.
+
+  The environment variables `CONVEX_SELF_HOSTED_URL` and
+  `CONVEX_SELF_HOSTED_ADMIN_KEY` are now used to identity self-hosted
+  deployments.
+  https://github.com/get-convex/convex-backend/tree/main/self-hosted#self-hosting-convex
+  for more.
+
+- export the `ValidatorJSON` record types.
+
+## 1.19.0
+
+- Support for Local Deployments, now in beta. See
+  https://docs.convex.dev/cli/local-deployments for more.
+
+  Local deployments run your Convex dev deployment for your project on your
+  local machine, which should make syncing your code faster. It also makes
+  resources used during development like function calls and database bandwidth
+  free, since it's your own compute resources you're using!
+
 ## 1.18.0
 
 - Warn on direct Convex function call. This adds a console.warn whenever a
