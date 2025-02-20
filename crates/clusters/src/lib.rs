@@ -57,10 +57,12 @@ pub fn persistence_args_from_cluster_url(
         DbDriverTag::MySql(_) => {
             // NOTE: We do not set any database so we can reuse connections between
             // database. The persistence layer will select the correct database.
-            cluster_url
-                .query_pairs_mut()
-                .append_pair("require_ssl", "true")
-                .append_pair("verify_ca", "false");
+            if require_ssl {
+                cluster_url
+                    .query_pairs_mut()
+                    .append_pair("require_ssl", "true")
+                    .append_pair("verify_ca", "true");
+            }
         },
         DbDriverTag::MySqlAwsIam(_) => {
             // NOTE: We do not set any database so we can reuse connections between
