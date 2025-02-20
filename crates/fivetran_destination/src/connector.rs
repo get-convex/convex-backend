@@ -399,7 +399,7 @@ impl DestinationConnector for ConvexFivetranDestination {
         _request: Request<WriteHistoryBatchRequest>,
     ) -> DestinationResult<WriteBatchResponse> {
         log(&format!("write history batch request"));
-        todo!()
+        return Err(Status::unimplemented("write history batch not implemented"));
     }
 }
 
