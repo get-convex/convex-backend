@@ -262,10 +262,18 @@ async fn run_sync_socket(
             let final_message = err.downcast_ref::<ErrorMetadata>().and_then(|em| {
                 // Special case unauthenticated errors, which want to know the sync worker's
                 // base version.
-                if em.is_unauthenticated() {
+                if em.is_auth_update_failed() {
                     let message = ServerMessage::AuthError {
                         error_message: em.to_string(),
                         base_version: identity_version,
+                        auth_update_attempted: Some(true),
+                    };
+                    Some(message)
+                } else if em.is_unauthenticated() {
+                    let message = ServerMessage::AuthError {
+                        error_message: em.to_string(),
+                        base_version: identity_version,
+                        auth_update_attempted: Some(false),
                     };
                     Some(message)
                 }

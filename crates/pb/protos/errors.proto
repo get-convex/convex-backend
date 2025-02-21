@@ -16,6 +16,7 @@ enum ErrorCode {
   REJECTED_BEFORE_EXECUTION = 10;
   RATE_LIMITED = 11;
   MISDIRECTED_REQUEST = 12;
+  AUTH_UPDATE_FAILED = 13;
 }
 
 message OccInfo {

@@ -911,7 +911,12 @@ impl<V: HeapSize> HeapSize for ServerMessage<V> {
             ServerMessage::AuthError {
                 error_message,
                 base_version,
-            } => error_message.heap_size() + base_version.heap_size(),
+                auth_update_attempted,
+            } => {
+                error_message.heap_size()
+                    + base_version.heap_size()
+                    + auth_update_attempted.heap_size()
+            },
             ServerMessage::FatalError { error_message } => error_message.heap_size(),
             ServerMessage::Ping => 0,
         }

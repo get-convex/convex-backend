@@ -43,6 +43,7 @@ pub struct ErrorMetadata {
 pub enum ErrorCode {
     BadRequest,
     Unauthenticated,
+    AuthUpdateFailed,
     Forbidden,
     NotFound,
     ClientDisconnect,
@@ -122,6 +123,24 @@ impl ErrorMetadata {
     ) -> Self {
         Self {
             code: ErrorCode::Unauthenticated,
+            short_msg: short_msg.into(),
+            msg: msg.into(),
+        }
+    }
+
+    /// This is a special case of `unauthenticated` that is used when updating
+    /// the auth token failed (as opposed to an existing token expiring or
+    /// otherwise becoming invalid).
+    ///
+    /// The short_msg should be a CapitalCamelCased describing the error (eg
+    /// InvalidHeader). The msg should be a descriptive message targeted
+    /// toward the developer.
+    pub fn auth_update_failed(
+        short_msg: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            code: ErrorCode::AuthUpdateFailed,
             short_msg: short_msg.into(),
             msg: msg.into(),
         }
@@ -352,6 +371,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::Unauthenticated
     }
 
+    pub fn is_auth_update_failed(&self) -> bool {
+        self.code == ErrorCode::AuthUpdateFailed
+    }
+
     pub fn is_out_of_retention(&self) -> bool {
         self.code == ErrorCode::OutOfRetention
     }
@@ -392,6 +415,7 @@ impl ErrorMetadata {
             ErrorCode::BadRequest
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
+            | ErrorCode::AuthUpdateFailed
             | ErrorCode::Forbidden => true,
             ErrorCode::OperationalInternalServerError
             | ErrorCode::ClientDisconnect
@@ -426,7 +450,9 @@ impl ErrorMetadata {
             | ErrorCode::Forbidden
             | ErrorCode::MisdirectedRequest => Some((sentry::Level::Info, None)),
             // Unauthenticated errors happen regularly, e.g. for expired ID tokens
-            ErrorCode::Unauthenticated => Some((sentry::Level::Info, Some(0.001))),
+            ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
+                Some((sentry::Level::Info, Some(0.001)))
+            },
             ErrorCode::OutOfRetention
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
@@ -450,6 +476,7 @@ impl ErrorMetadata {
             ErrorCode::BadRequest
             | ErrorCode::PaginationLimit
             | ErrorCode::Unauthenticated
+            | ErrorCode::AuthUpdateFailed
             | ErrorCode::Forbidden
             | ErrorCode::ClientDisconnect
             | ErrorCode::MisdirectedRequest
@@ -473,7 +500,9 @@ impl ErrorMetadata {
             ErrorCode::BadRequest => Some(&crate::metrics::BAD_REQUEST_ERROR_TOTAL),
             ErrorCode::ClientDisconnect => Some(&crate::metrics::CLIENT_DISCONNECT_ERROR_TOTAL),
             ErrorCode::RateLimited => Some(&crate::metrics::RATE_LIMITED_ERROR_TOTAL),
-            ErrorCode::Unauthenticated => Some(&crate::metrics::SYNC_AUTH_ERROR_TOTAL),
+            ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
+                Some(&crate::metrics::SYNC_AUTH_ERROR_TOTAL)
+            },
             ErrorCode::Forbidden => Some(&crate::metrics::FORBIDDEN_ERROR_TOTAL),
             ErrorCode::OCC { .. } => Some(&crate::metrics::COMMIT_RACE_TOTAL),
             ErrorCode::NotFound => None,
@@ -501,7 +530,9 @@ impl ErrorMetadata {
             ErrorCode::OperationalInternalServerError => Some(CloseCode::Error),
             // These ones are client errors - so no close code - the client
             // will handle and close the connection instead.
-            ErrorCode::BadRequest | ErrorCode::Unauthenticated => None,
+            ErrorCode::BadRequest | ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
+                None
+            },
         }?;
         // According to the WebSocket protocol specification (RFC 6455), the reason
         // string (if present) is limited to 123 bytes. This is because the
@@ -523,7 +554,7 @@ impl ErrorCode {
             // HTTP has the unfortunate naming of 401 as unauthorized when it's
             // really about authentication.
             // https://stackoverflow.com/questions/3297048/403-forbidden-vs-401-unauthorized-http-responses
-            ErrorCode::Unauthenticated => StatusCode::UNAUTHORIZED,
+            ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => StatusCode::UNAUTHORIZED,
             ErrorCode::Forbidden => StatusCode::FORBIDDEN,
             ErrorCode::NotFound => StatusCode::NOT_FOUND,
             ErrorCode::RateLimited => StatusCode::TOO_MANY_REQUESTS,
@@ -540,7 +571,9 @@ impl ErrorCode {
     pub fn grpc_status_code(&self) -> tonic::Code {
         match self {
             ErrorCode::BadRequest => tonic::Code::InvalidArgument,
-            ErrorCode::Unauthenticated => tonic::Code::Unauthenticated,
+            ErrorCode::Unauthenticated | ErrorCode::AuthUpdateFailed => {
+                tonic::Code::Unauthenticated
+            },
             ErrorCode::Forbidden => tonic::Code::FailedPrecondition,
             ErrorCode::NotFound => tonic::Code::NotFound,
             ErrorCode::ClientDisconnect => tonic::Code::Aborted,
@@ -576,6 +609,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn occ_info(&self) -> Option<(Option<String>, Option<String>, Option<String>)>;
     fn is_pagination_limit(&self) -> bool;
     fn is_unauthenticated(&self) -> bool;
+    fn is_auth_update_failed(&self) -> bool;
     fn is_out_of_retention(&self) -> bool;
     fn is_bad_request(&self) -> bool;
     fn is_not_found(&self) -> bool;
@@ -639,6 +673,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_unauthenticated(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_unauthenticated();
+        }
+        false
+    }
+
+    /// Returns true if error is tagged as AuthUpdateFailed
+    fn is_auth_update_failed(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_auth_update_failed();
         }
         false
     }
@@ -870,6 +912,7 @@ mod proptest {
                 ),
                 ErrorCode::OutOfRetention => ErrorMetadata::out_of_retention(),
                 ErrorCode::Unauthenticated => ErrorMetadata::unauthenticated("un", "auth"),
+                ErrorCode::AuthUpdateFailed => ErrorMetadata::auth_update_failed("un", "auth"),
                 ErrorCode::Forbidden => ErrorMetadata::forbidden("for", "bidden"),
                 ErrorCode::RateLimited => ErrorMetadata::rate_limited("too", "many requests"),
                 ErrorCode::Overloaded => ErrorMetadata::overloaded("overloaded", "error"),

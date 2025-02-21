@@ -19,6 +19,7 @@ impl From<ErrorCode> for ErrorCodeProto {
         match code {
             ErrorCode::BadRequest => ErrorCodeProto::BadRequest,
             ErrorCode::Unauthenticated => ErrorCodeProto::Unauthenticated,
+            ErrorCode::AuthUpdateFailed => ErrorCodeProto::AuthUpdateFailed,
             ErrorCode::Forbidden => ErrorCodeProto::Forbidden,
             ErrorCode::NotFound => ErrorCodeProto::TransientNotFound,
             ErrorCode::ClientDisconnect => ErrorCodeProto::ClientDisconnect,
@@ -41,6 +42,7 @@ impl ErrorCodeProto {
         match self {
             ErrorCodeProto::BadRequest => ErrorCode::BadRequest,
             ErrorCodeProto::Unauthenticated => ErrorCode::Unauthenticated,
+            ErrorCodeProto::AuthUpdateFailed => ErrorCode::AuthUpdateFailed,
             ErrorCodeProto::Forbidden => ErrorCode::Forbidden,
             ErrorCodeProto::TransientNotFound => ErrorCode::NotFound,
             ErrorCodeProto::ClientDisconnect => ErrorCode::ClientDisconnect,

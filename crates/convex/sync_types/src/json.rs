@@ -598,11 +598,19 @@ impl<V: Into<JsonValue>> From<ServerMessage<V>> for JsonValue {
             ServerMessage::AuthError {
                 error_message,
                 base_version,
-            } => json!({
-                "type": "AuthError",
-                "error": error_message,
-                "baseVersion": base_version,
-            }),
+                auth_update_attempted,
+            } => {
+                let mut response = json!({
+                    "type": "AuthError",
+                    "error": error_message,
+                    "baseVersion": base_version,
+                });
+                // Only include authUpdateAttempted if it's present
+                if let Some(auth_update_attempted) = auth_update_attempted {
+                    response["authUpdateAttempted"] = auth_update_attempted.into();
+                }
+                response
+            },
             ServerMessage::FatalError { error_message } => json!({
                 "type": "FatalError",
                 "error": error_message,
@@ -652,6 +660,7 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
             AuthError {
                 error: String,
                 base_version: Option<IdentityVersion>,
+                auth_update_attempted: Option<bool>,
             },
             #[serde(rename_all = "camelCase")]
             Ping {},
@@ -734,9 +743,11 @@ impl<V: TryFrom<JsonValue, Error = anyhow::Error>> TryFrom<JsonValue> for Server
             ServerMessageJson::AuthError {
                 error,
                 base_version,
+                auth_update_attempted,
             } => ServerMessage::AuthError {
                 error_message: error,
                 base_version,
+                auth_update_attempted,
             },
             ServerMessageJson::Ping {} => ServerMessage::Ping {},
         };

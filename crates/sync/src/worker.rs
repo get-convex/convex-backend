@@ -48,7 +48,10 @@ use common::{
     version::ClientVersion,
     RequestId,
 };
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use fastrace::prelude::*;
 use futures::{
     future::{
@@ -646,10 +649,21 @@ impl<RT: Runtime> SyncWorker<RT> {
                 token: auth_token,
                 base_version,
             } => {
-                let identity = self
+                let identity_result = self
                     .api
                     .authenticate(&self.host, RequestId::new(), auth_token)
-                    .await?;
+                    .await;
+                let identity = match identity_result {
+                    Ok(identity) => identity,
+                    Err(e) => {
+                        let short_msg = e.short_msg().to_string();
+                        let msg = e.msg().to_string();
+                        // If the auth token is invalid, we want to signal the client
+                        // that we tried to update the auth token but failed, which will
+                        // prompt the client to not try the same token again.
+                        return Err(ErrorMetadata::auth_update_failed(short_msg, msg).into());
+                    },
+                };
                 self.state.modify_identity(identity, base_version)?;
                 self.schedule_update();
             },

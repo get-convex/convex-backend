@@ -625,6 +625,7 @@ impl BaseConvexClient {
             ServerMessage::AuthError {
                 error_message,
                 base_version,
+                ..
             } => {
                 tracing::error!(
                     "AuthError: {error_message} for identity version {base_version:?}. Restarting \

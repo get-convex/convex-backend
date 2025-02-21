@@ -606,7 +606,7 @@ async fn test_admin_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
         ),
         "{err}"
     );
-    sync_worker.with_worker_error(|e| assert!(e.as_ref().unwrap().is_unauthenticated()));
+    sync_worker.with_worker_error(|e| assert!(e.as_ref().unwrap().is_auth_update_failed()));
     Ok(())
 }
 
@@ -631,7 +631,7 @@ async fn test_acting_auth_bad_key(rt: TestRuntime) -> anyhow::Result<()> {
         ),
         "{err}"
     );
-    sync_worker.with_worker_error(|e| assert!(e.as_ref().unwrap().is_unauthenticated()));
+    sync_worker.with_worker_error(|e| assert!(e.as_ref().unwrap().is_auth_update_failed()));
     Ok(())
 }
 

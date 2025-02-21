@@ -323,6 +323,9 @@ pub enum ServerMessage<V: 'static> {
     AuthError {
         error_message: String,
         base_version: Option<IdentityVersion>,
+        // We want to differentiate between "updating auth starting at version `base_version`
+        // failed" and "auth at version `base_version` is invalid" (e.g. it expired)
+        auth_update_attempted: Option<bool>,
     },
     FatalError {
         error_message: String,
