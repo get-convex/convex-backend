@@ -31,10 +31,7 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use futures::Future;
-use imbl::{
-    vector,
-    Vector,
-};
+use imbl::Vector;
 use parking_lot::Mutex;
 use tokio::sync::oneshot;
 use value::heap_size::{
@@ -258,8 +255,7 @@ impl WriteLog {
             Ok(i) => i,
             Err(i) => i,
         };
-        let focus = focus_after(self.by_ts.focus(), start);
-        let iter = focus.into_iter();
+        let iter = self.by_ts.focus().narrow(start..).into_iter();
         Ok(iter
             .map(|entry| &**entry)
             .take_while(move |(t, ..)| *t <= to)
@@ -296,19 +292,6 @@ impl WriteLog {
             },
         };
         Ok(result)
-    }
-}
-
-// TODO: use .narrow(start..) once https://github.com/jneem/imbl/pull/89 is released
-fn focus_after<T>(focus: vector::Focus<'_, T>, start: usize) -> vector::Focus<'_, T> {
-    if focus.is_empty() {
-        // split_at and narrow don't work if the vector is empty
-        focus
-    } else if focus.len() == start {
-        // narrow doesn't work if start is at the end
-        focus.split_at(0).0
-    } else {
-        focus.narrow(start..)
     }
 }
 

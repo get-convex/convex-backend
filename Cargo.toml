@@ -70,7 +70,7 @@ humansize = { version = "2.1.3", features = [ "impl_style" ] }
 hyper = "1.3.1"
 hyper-util = { version = "0.1.5", features = [ "server-graceful", "tokio" ] }
 proc-macro2 = { version = "1.0" }
-imbl = "3.0.0"
+imbl = "5.0.0"
 itertools = "0.14"
 jsonschema = "0.28"
 levenshtein_automata = "0.2.1"
