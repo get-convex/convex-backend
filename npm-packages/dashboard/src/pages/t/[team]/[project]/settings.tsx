@@ -23,7 +23,7 @@ import {
   LostAccessDescription,
 } from "components/projects/modals/LostAccessModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { DefaultEnvironmentVariables } from "components/deploymentSettings/DefaultEnvironmentVariables";
+import { DefaultEnvironmentVariables } from "components/projectSettings/DefaultEnvironmentVariables";
 import {
   getAccessTokenBasedDeployKey,
   getAccessTokenBasedDeployKeyForPreview,
@@ -35,9 +35,10 @@ import Head from "next/head";
 import { useAccessToken } from "hooks/useServerSideData";
 import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
 import { DeploymentAccessTokenList } from "components/deploymentSettings/DeploymentAccessTokenList";
-import { CustomDomains } from "components/deploymentSettings/CustomDomains";
+import { CustomDomains } from "components/projectSettings/CustomDomains";
 import { TransferProject } from "components/projects/TransferProject";
 import { cn } from "dashboard-common/lib/cn";
+import { AuthorizedApplications } from "components/projectSettings/AuthorizedApplications";
 
 const SECTION_IDS = {
   projectForm: "project-form",
@@ -45,6 +46,7 @@ const SECTION_IDS = {
   projectUsage: "project-usage",
   customDomains: "custom-domains",
   deployKeys: "deploy-keys",
+  authorizedApplications: "authorized-applications",
   envVars: "env-vars",
   lostAccess: "lost-access",
   transferProject: "transfer-project",
@@ -69,6 +71,10 @@ function SettingsNavigation() {
       { id: SECTION_IDS.projectUsage, label: "Project Usage" },
       { id: SECTION_IDS.customDomains, label: "Custom Domains" },
       { id: SECTION_IDS.deployKeys, label: "Deploy Keys" },
+      {
+        id: SECTION_IDS.authorizedApplications,
+        label: "Authorized Applications",
+      },
       { id: SECTION_IDS.envVars, label: "Environment Variables" },
       { id: SECTION_IDS.lostAccess, label: "Lost Access" },
       { id: SECTION_IDS.transferProject, label: "Transfer Project" },
@@ -129,7 +135,7 @@ function SettingsNavigation() {
   return (
     <nav
       data-settings-nav
-      className="sticky top-24 hidden h-fit max-h-[calc(100vh-12rem)] w-[13rem] shrink-0 overflow-visible pr-8 md:block"
+      className="sticky top-24 hidden h-fit max-h-[calc(100vh-12rem)] w-[14rem] shrink-0 overflow-visible pr-8 md:block"
       aria-label="Settings navigation"
     >
       <div
@@ -262,6 +268,11 @@ function ProjectSettings() {
                   project={project}
                   hasAdminPermissions={hasAdminPermissions}
                 />
+              </div>
+            )}
+            {project && (
+              <div id={SECTION_IDS.authorizedApplications}>
+                <AuthorizedApplications project={project} />
               </div>
             )}
             <div id={SECTION_IDS.envVars}>

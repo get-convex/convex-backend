@@ -24,6 +24,17 @@ export function useInstanceAccessTokens(deploymentName?: string) {
   return accessTokens;
 }
 
+export function useProjectAppAccessTokens(projectId?: number) {
+  const { data: accessTokens } = useBBQuery({
+    path: "/projects/{project_id}/app_access_tokens",
+    pathParams: {
+      project_id: projectId?.toString() || "",
+    },
+  });
+
+  return accessTokens;
+}
+
 export function useProjectAccessTokens(projectId?: number) {
   const { data: accessTokens } = useBBQuery({
     path: "/projects/{project_id}/access_tokens",

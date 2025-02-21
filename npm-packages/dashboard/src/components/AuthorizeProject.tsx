@@ -192,24 +192,26 @@ export function AuthorizeProject() {
               </div>
             ) : (
               <div className="flex flex-wrap items-end gap-2">
-                <div className="flex flex-col gap-1">
-                  <Combobox
-                    options={
-                      projects?.map((project) => ({
-                        label: project.name,
-                        value: project.id,
-                      })) ?? []
-                    }
-                    label="Select a project"
-                    labelHidden={false}
-                    selectedOption={selectedProjectId}
-                    setSelectedOption={setSelectedProjectId}
-                    disabled={projects === null}
-                  />
-                </div>
+                {projects && projects.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <Combobox
+                      options={
+                        projects.map((project) => ({
+                          label: project.name,
+                          value: project.id,
+                        })) ?? []
+                      }
+                      label="Select a project"
+                      labelHidden={false}
+                      selectedOption={selectedProjectId}
+                      setSelectedOption={setSelectedProjectId}
+                      disabled={projects === null}
+                    />
+                  </div>
+                )}
                 {!didCreateProject && (
                   <div className="flex items-center gap-2">
-                    or
+                    {projects && projects.length > 0 && "or"}
                     <Button
                       variant="neutral"
                       onClick={() => {

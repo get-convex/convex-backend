@@ -30,7 +30,7 @@ export function DeploymentAccessTokenListItem({
   useEffect(() => {
     shouldShow && setShowToken(shouldShow);
   }, [shouldShow]);
-  const [showDeleteConfirmatino, setShowDeleteConfirmation] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
 
   const member = members?.find((m) => m.id === token.creator);
 
@@ -103,7 +103,7 @@ export function DeploymentAccessTokenListItem({
           </div>
         )}
       </div>
-      {showDeleteConfirmatino && (
+      {showDeleteConfirmation && (
         <ConfirmationDialog
           onClose={() => {
             setShowDeleteConfirmation(false);
