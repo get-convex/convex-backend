@@ -69,7 +69,7 @@ export function ColumnHeader({
         isDragging && "bg-background-tertiary cursor-grabbing",
         "font-semibold group/headerCell text-left text-xs bg-background-secondary text-content-secondary tracking-wider",
         "select-none duration-300 transition-colors",
-        "border-r",
+        !isLastColumn && "border-r",
         isResizingColumn === columnName && "border-r-util-accent",
       )}
     >

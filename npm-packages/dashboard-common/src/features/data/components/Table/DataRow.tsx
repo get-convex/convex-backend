@@ -168,7 +168,9 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
             {...cell.getCellProps({ style: { width } })}
             key={cell.getCellProps().key}
             className={cn(
-              "border-r transition-colors duration-300",
+              columnIndex < row.cells.length - 1
+                ? "border-r transition-colors duration-300"
+                : "transition-colors duration-300",
               resizingColumn === (cell.column.Header as string) &&
                 "border-r-util-accent",
             )}
