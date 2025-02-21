@@ -28,7 +28,7 @@ export function AuthorizedApplications({
       <LoadingTransition
         loadingProps={{ fullHeight: false, className: "h-14 w-full" }}
       >
-        {projectAccessTokens && (
+        {projectAccessTokens !== undefined && (
           <div className="flex w-full flex-col gap-2">
             {projectAccessTokens.length ? (
               projectAccessTokens.map((token, idx) => (
