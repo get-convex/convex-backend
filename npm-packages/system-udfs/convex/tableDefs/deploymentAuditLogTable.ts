@@ -39,6 +39,23 @@ const replaceEnvironmentVariable = v.object({
   }),
 });
 
+const updateCanonicalUrl = v.object({
+  action: v.literal("update_canonical_url"),
+  member_id: v.string(),
+  metadata: v.object({
+    request_destination: v.string(),
+    url: v.string(),
+  }),
+});
+
+const deleteCanonicalUrl = v.object({
+  action: v.literal("delete_canonical_url"),
+  member_id: v.string(),
+  metadata: v.object({
+    request_destination: v.string(),
+  }),
+});
+
 const databaseIndex = v.object({
   name: v.optional(v.string()),
   type: v.literal("database"),
@@ -205,6 +222,8 @@ const deploymentAuditLogTable = defineTable(
     deleteEnvironmentVariable,
     updateEnvironmentVariable,
     replaceEnvironmentVariable,
+    updateCanonicalUrl,
+    deleteCanonicalUrl,
     buildIndexes,
     pushConfig,
     pushConfigWithComponents,

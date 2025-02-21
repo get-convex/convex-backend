@@ -85,9 +85,7 @@ impl<'a, RT: Runtime> CanonicalUrlsModel<'a, RT> {
                 return Ok(());
             } else {
                 // Delete the existing canonical url.
-                SystemMetadataModel::new_global(self.tx)
-                    .delete(existing_canonical_url.id())
-                    .await?;
+                self.unset_canonical_url(request_destination).await?;
             }
         }
         let canonical_url = CanonicalUrl {
@@ -97,6 +95,20 @@ impl<'a, RT: Runtime> CanonicalUrlsModel<'a, RT> {
         SystemMetadataModel::new_global(self.tx)
             .insert(&CANONICAL_URLS_TABLE, canonical_url.try_into()?)
             .await?;
+        Ok(())
+    }
+
+    pub async fn unset_canonical_url(
+        &mut self,
+        request_destination: RequestDestination,
+    ) -> anyhow::Result<()> {
+        if let Some(existing_canonical_url) =
+            self.get_canonical_urls().await?.get(&request_destination)
+        {
+            SystemMetadataModel::new_global(self.tx)
+                .delete(existing_canonical_url.id())
+                .await?;
+        }
         Ok(())
     }
 }

@@ -12,6 +12,7 @@ use common::{
         SerializedNamedDeveloperIndexConfig,
     },
     components::ComponentPath,
+    http::RequestDestination,
     log_streaming::{
         LogEvent,
         StructuredLogEvent,
@@ -125,6 +126,13 @@ pub enum DeploymentAuditLogEvent {
         previous_name: EnvVarName,
         name: EnvVarName,
     },
+    UpdateCanonicalUrl {
+        request_destination: RequestDestination,
+        url: String,
+    },
+    DeleteCanonicalUrl {
+        request_destination: RequestDestination,
+    },
     PushConfig {
         config_diff: ConfigDiff,
     },
@@ -204,6 +212,8 @@ impl DeploymentAuditLogEvent {
             DeploymentAuditLogEvent::ReplaceEnvironmentVariable { .. } => {
                 "replace_environment_variable"
             },
+            DeploymentAuditLogEvent::UpdateCanonicalUrl { .. } => "update_canonical_url",
+            DeploymentAuditLogEvent::DeleteCanonicalUrl { .. } => "delete_canonical_url",
             DeploymentAuditLogEvent::PushConfig { .. } => "push_config",
             DeploymentAuditLogEvent::PushConfigWithComponents { .. } => {
                 "push_config_with_components"
@@ -227,6 +237,17 @@ impl DeploymentAuditLogEvent {
                 name,
             } => {
                 obj!("variable_name" => name.to_string(), "previous_variable_name" => previous_name.to_string())
+            },
+            DeploymentAuditLogEvent::UpdateCanonicalUrl {
+                request_destination,
+                url,
+            } => {
+                obj!("request_destination" => request_destination.to_string(), "url" => url)
+            },
+            DeploymentAuditLogEvent::DeleteCanonicalUrl {
+                request_destination,
+            } => {
+                obj!("request_destination" => request_destination.to_string())
             },
             DeploymentAuditLogEvent::PushConfig { config_diff } => {
                 ConvexObject::try_from(config_diff)
@@ -390,6 +411,13 @@ impl TryFrom<ConvexObject> for DeploymentAuditLogEvent {
             "replace_environment_variable" => DeploymentAuditLogEvent::ReplaceEnvironmentVariable {
                 previous_name: remove_string(&mut fields, "previous_variable_name")?.parse()?,
                 name: remove_string(&mut fields, "variable_name")?.parse()?,
+            },
+            "update_canonical_url" => DeploymentAuditLogEvent::UpdateCanonicalUrl {
+                request_destination: remove_string(&mut fields, "request_destination")?.parse()?,
+                url: remove_string(&mut fields, "url")?,
+            },
+            "delete_canonical_url" => DeploymentAuditLogEvent::DeleteCanonicalUrl {
+                request_destination: remove_string(&mut fields, "request_destination")?.parse()?,
             },
             "push_config" => DeploymentAuditLogEvent::PushConfig {
                 config_diff: ConvexObject::try_from(fields)?.try_into()?,

@@ -61,6 +61,7 @@ use common::{
         report_error,
         JsError,
     },
+    http::RequestDestination,
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         MAX_JOBS_CANCEL_BATCH,
@@ -160,6 +161,10 @@ use maplit::btreemap;
 use model::{
     auth::AuthInfoModel,
     backend_state::BackendStateModel,
+    canonical_urls::{
+        types::CanonicalUrl,
+        CanonicalUrlsModel,
+    },
     components::{
         config::ComponentConfigModel,
         handles::FunctionHandlesModel,
@@ -1208,7 +1213,7 @@ impl<RT: Runtime> Application<RT> {
 
         // We use a separate transaction to get the type of the UDF before calling the
         // appropriate type-specific code. While this could lead to incorrect
-        // “function not found” messages errors if the user changes the type of the
+        // "function not found" messages errors if the user changes the type of the
         // UDF between the two transactions without deleting it, this situation is
         // rare enough to disregard it.
         let mut tx_type = self.begin(identity.clone()).await?;
@@ -1576,6 +1581,26 @@ impl<RT: Runtime> Application<RT> {
         let name = env_var.name().to_owned();
         model.delete(&name).await?;
         Ok(DeploymentAuditLogEvent::DeleteEnvironmentVariable { name })
+    }
+
+    pub async fn set_canonical_url(
+        &self,
+        tx: &mut Transaction<RT>,
+        canonical_url: CanonicalUrl,
+    ) -> anyhow::Result<()> {
+        CanonicalUrlsModel::new(tx)
+            .set_canonical_url(canonical_url.request_destination, canonical_url.url)
+            .await
+    }
+
+    pub async fn unset_canonical_url(
+        &self,
+        tx: &mut Transaction<RT>,
+        request_destination: RequestDestination,
+    ) -> anyhow::Result<()> {
+        CanonicalUrlsModel::new(tx)
+            .unset_canonical_url(request_destination)
+            .await
     }
 
     pub async fn analyze(

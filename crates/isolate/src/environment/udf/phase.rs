@@ -15,6 +15,7 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentId,
     },
+    http::RequestDestination,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -29,6 +30,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
+    canonical_urls::CanonicalUrlsModel,
     config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
@@ -48,6 +50,10 @@ use model::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
+use udf::environment::{
+    CONVEX_ORIGIN,
+    CONVEX_SITE,
+};
 use value::{
     identifier::Identifier,
     ConvexValue,
@@ -82,13 +88,14 @@ pub struct UdfPhase<RT: Runtime> {
 
     pub rt: RT,
     module_loader: Arc<dyn ModuleLoader<RT>>,
-    system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     preloaded: UdfPreloaded,
     component: ComponentId,
 }
 
 enum UdfPreloaded {
-    Created,
+    Created {
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    },
     Ready {
         rng: Option<ChaCha12Rng>,
         observed_rng_during_execution: bool,
@@ -96,6 +103,7 @@ enum UdfPreloaded {
         observed_time_during_execution: AtomicBool,
         observed_identity_during_execution: AtomicBool,
         env_vars: Option<PreloadedEnvironmentVariables>,
+        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component: ComponentId,
         component_arguments: Option<BTreeMap<Identifier, ConvexValue>>,
     },
@@ -114,8 +122,9 @@ impl<RT: Runtime> UdfPhase<RT> {
             tx: Some(tx),
             rt,
             module_loader,
-            system_env_vars,
-            preloaded: UdfPreloaded::Created,
+            preloaded: UdfPreloaded::Created {
+                default_system_env_vars: system_env_vars,
+            },
             component,
         }
     }
@@ -127,9 +136,13 @@ impl<RT: Runtime> UdfPhase<RT> {
         permit_slot: &mut Option<ConcurrencyPermit>,
     ) -> anyhow::Result<()> {
         anyhow::ensure!(self.phase == Phase::Importing);
-        let UdfPreloaded::Created = self.preloaded else {
+        let UdfPreloaded::Created {
+            default_system_env_vars,
+        } = &self.preloaded
+        else {
             anyhow::bail!("UdfPhase initialized twice");
         };
+        let mut system_env_vars = default_system_env_vars.clone();
 
         let component = self.component;
 
@@ -171,6 +184,20 @@ impl<RT: Runtime> UdfPhase<RT> {
             None
         };
 
+        let canonical_urls = with_release_permit(
+            timeout,
+            permit_slot,
+            CanonicalUrlsModel::new(self.tx_mut()?).get_canonical_urls(),
+        )
+        .await?;
+        for (request_destination, value) in canonical_urls {
+            let env_var_name = match request_destination {
+                RequestDestination::ConvexCloud => CONVEX_ORIGIN.clone(),
+                RequestDestination::ConvexSite => CONVEX_SITE.clone(),
+            };
+            system_env_vars.insert(env_var_name, value.url.parse()?);
+        }
+
         self.preloaded = UdfPreloaded::Ready {
             rng,
             observed_rng_during_execution: false,
@@ -178,6 +205,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             observed_time_during_execution: AtomicBool::new(false),
             observed_identity_during_execution: AtomicBool::new(false),
             env_vars,
+            system_env_vars,
             component,
             component_arguments: component_args,
         };
@@ -347,7 +375,12 @@ impl<RT: Runtime> UdfPhase<RT> {
         &mut self,
         name: EnvVarName,
     ) -> anyhow::Result<Option<EnvVarValue>> {
-        let UdfPreloaded::Ready { ref env_vars, .. } = self.preloaded else {
+        let UdfPreloaded::Ready {
+            ref env_vars,
+            ref system_env_vars,
+            ..
+        } = self.preloaded
+        else {
             anyhow::bail!("Phase not initialized");
         };
         let tx = self
@@ -360,7 +393,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         if let Some(var) = env_vars.get(tx, &name)? {
             return Ok(Some(var.clone()));
         }
-        Ok(self.system_env_vars.get(&name).cloned())
+        Ok(system_env_vars.get(&name).cloned())
     }
 
     pub fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
@@ -425,7 +458,7 @@ impl<RT: Runtime> UdfPhase<RT> {
                 observed_rng_during_execution,
                 ..
             } => observed_rng_during_execution,
-            UdfPreloaded::Created => false,
+            UdfPreloaded::Created { .. } => false,
         }
     }
 
@@ -435,7 +468,7 @@ impl<RT: Runtime> UdfPhase<RT> {
                 ref observed_time_during_execution,
                 ..
             } => observed_time_during_execution.load(Ordering::SeqCst),
-            UdfPreloaded::Created => false,
+            UdfPreloaded::Created { .. } => false,
         }
     }
 
@@ -445,7 +478,7 @@ impl<RT: Runtime> UdfPhase<RT> {
                 ref observed_identity_during_execution,
                 ..
             } => observed_identity_during_execution.load(Ordering::SeqCst),
-            UdfPreloaded::Created => false,
+            UdfPreloaded::Created { .. } => false,
         }
     }
 

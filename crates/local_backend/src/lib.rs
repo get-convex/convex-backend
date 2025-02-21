@@ -74,6 +74,7 @@ mod app_metrics;
 mod args_structs;
 pub mod authentication;
 pub mod beacon;
+pub mod canonical_urls;
 pub mod config;
 pub mod custom_headers;
 pub mod dashboard;

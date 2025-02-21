@@ -22,10 +22,7 @@ struct SerializedCanonicalUrl {
 impl From<CanonicalUrl> for SerializedCanonicalUrl {
     fn from(value: CanonicalUrl) -> Self {
         Self {
-            request_destination: match value.request_destination {
-                RequestDestination::ConvexCloud => "convexCloud".to_string(),
-                RequestDestination::ConvexSite => "convexSite".to_string(),
-            },
+            request_destination: value.request_destination.to_string(),
             url: value.url,
         }
     }
@@ -36,11 +33,7 @@ impl TryFrom<SerializedCanonicalUrl> for CanonicalUrl {
 
     fn try_from(value: SerializedCanonicalUrl) -> Result<Self, Self::Error> {
         Ok(Self {
-            request_destination: match value.request_destination.as_str() {
-                "convexCloud" => RequestDestination::ConvexCloud,
-                "convexSite" => RequestDestination::ConvexSite,
-                _ => anyhow::bail!("Invalid request destination: {}", value.request_destination),
-            },
+            request_destination: value.request_destination.parse()?,
             url: value.url,
         })
     }

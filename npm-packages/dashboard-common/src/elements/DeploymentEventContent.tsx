@@ -77,6 +77,8 @@ export function DeploymentEventContent({
     case "delete_environment_variable":
     case "update_environment_variable":
     case "replace_environment_variable":
+    case "update_canonical_url":
+    case "delete_canonical_url":
     case "change_deployment_state":
     case "clear_tables":
     default:
@@ -141,6 +143,28 @@ export function ActionText({ event }: { event: DeploymentAuditLogEvent }) {
           <span> to </span>
           <span className="font-mono font-semibold">
             {event.metadata.variable_name}
+          </span>
+        </>
+      );
+
+    case "update_canonical_url":
+      return (
+        <>
+          <span>updated the canonical URL for </span>
+          <span className="font-mono font-semibold">
+            {event.metadata.request_destination}
+          </span>
+          <span> to </span>
+          <span className="font-mono font-semibold">{event.metadata.url}</span>
+        </>
+      );
+
+    case "delete_canonical_url":
+      return (
+        <>
+          <span>deleted the canonical URL for </span>
+          <span className="font-mono font-semibold">
+            {event.metadata.request_destination}
           </span>
         </>
       );

@@ -4,26 +4,48 @@ use std::{
 };
 
 use anyhow::Context;
+use application::{
+    api::{
+        ApplicationApi,
+        ExecuteQueryTimestamp,
+    },
+    RedactedQueryReturn,
+};
 use axum_extra::headers::Authorization;
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentPath,
+    },
     http::{
         ConvexHttpService,
         HttpError,
         NoopRouteMapper,
+        RequestDestination,
+        ResolvedHostname,
     },
     shutdown::ShutdownSignal,
     testing::TestPersistence,
-    types::MemberId,
+    types::{
+        FunctionCaller,
+        MemberId,
+    },
+    RequestId,
 };
 use http::{
     Request,
     StatusCode,
 };
 use http_body_util::BodyExt;
+use keybroker::Identity;
 use metrics::SERVER_VERSION_STR;
 use runtime::prod::ProdRuntime;
 use serde::de::DeserializeOwned;
-use sync_types::headers::ConvexAdminAuthorization;
+use serde_json::json;
+use sync_types::{
+    headers::ConvexAdminAuthorization,
+    CanonicalizedUdfPath,
+};
 use tower::ServiceExt;
 
 use crate::{
@@ -105,5 +127,30 @@ impl TestLocalBackend {
         assert_eq!(error.status_code(), expected_code);
         assert_eq!(error.error_code(), expected_short_msg);
         Ok(())
+    }
+
+    pub async fn run_query(
+        &self,
+        path: CanonicalizedUdfPath,
+    ) -> anyhow::Result<RedactedQueryReturn> {
+        self.st
+            .application
+            .execute_admin_query(
+                &ResolvedHostname {
+                    instance_name: "carnitas".to_string(),
+                    destination: RequestDestination::ConvexCloud,
+                },
+                RequestId::new(),
+                Identity::system(),
+                CanonicalizedComponentFunctionPath {
+                    component: ComponentPath::root(),
+                    udf_path: path,
+                },
+                vec![json!({})],
+                FunctionCaller::Test,
+                ExecuteQueryTimestamp::Latest,
+                None,
+            )
+            .await
     }
 }

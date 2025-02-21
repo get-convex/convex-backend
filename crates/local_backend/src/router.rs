@@ -64,6 +64,7 @@ use crate::{
         table_rate,
         udf_rate,
     },
+    canonical_urls::update_canonical_url,
     dashboard::{
         delete_component,
         delete_tables,
@@ -161,6 +162,8 @@ pub fn router(st: LocalAppState) -> Router {
         .route("/cancel_job", post(cancel_job))
         // Environment variable routes
         .route("/update_environment_variables", post(update_environment_variables))
+        // Canonical URL routes
+        .route("/update_canonical_url", post(update_canonical_url))
         // Administrative routes for the dashboard
         .layer(ServiceBuilder::new());
 

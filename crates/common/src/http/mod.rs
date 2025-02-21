@@ -6,7 +6,10 @@ use std::{
     net::SocketAddr,
     ops::Deref,
     pin::Pin,
-    str,
+    str::{
+        self,
+        FromStr,
+    },
     sync::{
         Arc,
         LazyLock,
@@ -857,6 +860,27 @@ pub struct InstanceNameExt(pub String);
 pub enum RequestDestination {
     ConvexCloud,
     ConvexSite,
+}
+
+impl FromStr for RequestDestination {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "convexCloud" => Ok(RequestDestination::ConvexCloud),
+            "convexSite" => Ok(RequestDestination::ConvexSite),
+            _ => Err(anyhow::anyhow!("Invalid request destination: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for RequestDestination {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestDestination::ConvexCloud => write!(f, "convexCloud"),
+            RequestDestination::ConvexSite => write!(f, "convexSite"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

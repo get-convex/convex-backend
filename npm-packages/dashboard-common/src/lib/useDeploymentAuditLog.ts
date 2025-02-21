@@ -41,6 +41,8 @@ function processDeploymentAuditLogEvent(
     case "update_environment_variable":
     case "delete_environment_variable":
     case "replace_environment_variable":
+    case "update_canonical_url":
+    case "delete_canonical_url":
     case "push_config":
     case "push_config_with_components":
     case "change_deployment_state":
