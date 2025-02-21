@@ -139,7 +139,7 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
     };
     if let Some((level, prob)) = err.should_report_to_sentry() {
         if let Some(prob) = prob
-            && rand::thread_rng().gen::<f64>() > prob
+            && rand::rng().random::<f64>() > prob
         {
             tracing::error!("Not reporting above error to sentry - due to sampling.");
             return;

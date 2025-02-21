@@ -143,7 +143,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
         let mut last_write_info = None;
         let mut has_bootstrapped = false;
         let max_age_jitter =
-            *TABLE_SUMMARY_AGE_JITTER_SECONDS * self.runtime.rng().gen_range(-1.0..=1.0);
+            *TABLE_SUMMARY_AGE_JITTER_SECONDS * self.runtime.rng().random_range(-1.0..=1.0);
         let jittered_max_age = Duration::from_secs_f32(
             DATABASE_WORKERS_MAX_CHECKPOINT_AGE.as_secs_f32() + max_age_jitter,
         );

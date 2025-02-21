@@ -19,7 +19,7 @@ use common::{
 use config::ElleConfig;
 use event::ElleModelEvent;
 use rand::{
-    distributions::WeightedIndex,
+    distr::weighted::WeightedIndex,
     prelude::Distribution,
     Rng,
     RngCore,
@@ -219,18 +219,18 @@ impl ElleSimulationTest {
 
                 match actions[dist.sample(&mut self.rng)] {
                     Action::ClientRead => {
-                        let client_id = self.rng.gen_range(0..self.config.num_clients);
+                        let client_id = self.rng.random_range(0..self.config.num_clients);
                         self.start_read(tx_id, client_id, tokens[client_id].clone());
                     },
                     Action::ClientWrite => {
-                        let client_id = self.rng.gen_range(0..self.config.num_clients);
+                        let client_id = self.rng.random_range(0..self.config.num_clients);
                         self.start_client_write(tx_id, client_id, register_id.clone());
                     },
                     Action::ServerWrite => {
                         self.start_server_write(tx_id, register_id.clone());
                     },
                     Action::DisconnectClient => {
-                        let client_id = self.rng.gen_range(0..self.config.num_clients);
+                        let client_id = self.rng.random_range(0..self.config.num_clients);
                         let remaining_tx = self.config.num_tx - self.next_tx_id;
                         let duration =
                             cmp::min(duration_dist.sample(&mut self.rng) as usize, remaining_tx);

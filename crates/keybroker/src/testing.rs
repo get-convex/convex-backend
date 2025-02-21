@@ -27,7 +27,7 @@ use sync_types::UserIdentityAttributes;
 use crate::UserIdentity;
 
 pub static TEST_SIGNING_KEY: LazyLock<CoreRsaPrivateSigningKey> = LazyLock::new(|| {
-    let key = rsa::RsaPrivateKey::new(&mut rand::thread_rng(), 2048).unwrap();
+    let key = rsa::RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).unwrap();
     let pem = key.to_pkcs1_pem(rsa::pkcs8::LineEnding::LF).unwrap();
     CoreRsaPrivateSigningKey::from_pem(&pem, Some(JsonWebKeyId::new("key1".to_string()))).unwrap()
 });

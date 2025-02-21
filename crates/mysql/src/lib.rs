@@ -1897,7 +1897,7 @@ pub mod itest {
     /// Returns connection options for a guaranteed-fresh Postgres database.
     pub async fn new_db_opts() -> anyhow::Result<MySqlOpts> {
         let cluster_url = cluster_opts();
-        let id: [u8; 16] = rand::thread_rng().gen();
+        let id: [u8; 16] = rand::rng().random();
         let db_name = "test_db_".to_string() + &hex::encode(&id[..]);
 
         // Connect using db `mysql`, create a fresh DB, and then return the connection

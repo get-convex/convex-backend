@@ -34,7 +34,7 @@ impl Backoff {
         // See https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
         let p = 2u32.checked_pow(self.num_failures).unwrap_or(u32::MAX);
         self.num_failures += 1;
-        let jitter = rng.gen::<f32>();
+        let jitter = rng.random::<f32>();
         let backoff = self
             .initial_backoff
             .checked_mul(p)

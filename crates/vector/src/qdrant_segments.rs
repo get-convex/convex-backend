@@ -632,7 +632,7 @@ mod tests {
     }
 
     fn stream_vectors(count: usize) -> impl Iterator<Item = (ExtendedPointId, Vec<f32>)> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         (0u128..(count as u128)).map(move |_| {
             let uuid = Uuid::new_v4();
             let point_id = PointIdType::Uuid(uuid);
@@ -643,7 +643,7 @@ mod tests {
 
     fn random_vector(rng: &mut ThreadRng, dimensions: usize) -> Vec<f32> {
         (0..dimensions)
-            .map(|_| rng.gen::<f32>())
+            .map(|_| rng.random::<f32>())
             .collect::<Vec<_>>()
     }
 

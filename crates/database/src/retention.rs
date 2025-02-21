@@ -1533,9 +1533,9 @@ impl<RT: Runtime> RetentionValidator for LeaderRetentionManager<RT> {
             let is_failure = if age < min_failure_duration {
                 false
             } else {
-                let failure_die: f64 = self.rt.rng().gen();
+                let failure_die: f64 = self.rt.rng().random();
                 // failure_percentage might be >= 1.0, which will always cause failures because
-                // rng.gen() is between 0 and 1.0. That's totally fine, at some point it's ok
+                // rng.random() is between 0 and 1.0. That's totally fine, at some point it's ok
                 // for all writes to fail.
                 failure_die < failure_percentage
             };

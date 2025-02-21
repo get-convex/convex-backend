@@ -341,7 +341,7 @@ pub async fn push_config_handler(
     let udf_config = UdfConfig {
         server_version: udf_server_version,
         // Generate a new seed and timestamp to be used at import time.
-        import_phase_rng_seed: application.runtime().rng().gen(),
+        import_phase_rng_seed: application.runtime().rng().random(),
         import_phase_unix_timestamp: application.runtime().unix_timestamp(),
     };
     let begin_analyze = Instant::now();

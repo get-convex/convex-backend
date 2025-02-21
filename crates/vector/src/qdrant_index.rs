@@ -686,13 +686,13 @@ mod tests {
 
     #[test]
     fn test_encode_payload() -> anyhow::Result<()> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let d = 1536;
 
         let document = QdrantDocument {
             internal_id: InternalId(1u128.to_le_bytes()),
             vector: (0..d)
-                .map(|_| rng.gen())
+                .map(|_| rng.random())
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -704,7 +704,7 @@ mod tests {
         let document = QdrantDocument {
             internal_id: InternalId(1u128.to_le_bytes()),
             vector: (0..d)
-                .map(|_| rng.gen())
+                .map(|_| rng.random())
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -723,7 +723,7 @@ mod tests {
         let document = QdrantDocument {
             internal_id: InternalId(1u128.to_le_bytes()),
             vector: (0..d)
-                .map(|_| rng.gen())
+                .map(|_| rng.random())
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),

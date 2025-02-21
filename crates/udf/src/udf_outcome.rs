@@ -187,7 +187,7 @@ impl UdfOutcome {
             path,
             arguments,
             identity,
-            rng_seed: rt.rng().gen(),
+            rng_seed: rt.rng().random(),
             observed_rng: false,
             unix_timestamp: rt.unix_timestamp(),
             observed_time: false,

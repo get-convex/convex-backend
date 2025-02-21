@@ -546,7 +546,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         };
 
         if self.isolate_v2_enabled {
-            let rng_seed = self.rt.rng().gen();
+            let rng_seed = self.rt.rng().random();
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
@@ -697,7 +697,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         };
 
         if self.isolate_v2_enabled {
-            let rng_seed = self.rt.rng().gen();
+            let rng_seed = self.rt.rng().random();
             let (tx, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,
@@ -765,7 +765,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         );
 
         if self.isolate_v2_enabled {
-            let rng_seed = self.rt.rng().gen();
+            let rng_seed = self.rt.rng().random();
             let (_, outcome) = run_isolate_v2_udf(
                 self.rt.clone(),
                 tx,

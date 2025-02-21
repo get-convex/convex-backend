@@ -19,7 +19,7 @@ use vector::{
 };
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let n = 20000;
     let d = 1536;
@@ -36,7 +36,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let document = QdrantDocument {
             internal_id: id,
             vector: (0..d)
-                .map(|_| rng.gen())
+                .map(|_| rng.random())
                 .collect::<Vec<_>>()
                 .try_into()
                 .unwrap(),
@@ -50,7 +50,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     let search = CompiledVectorSearch {
         vector: (0..d)
-            .map(|_| rng.gen())
+            .map(|_| rng.random())
             .collect::<Vec<_>>()
             .try_into()
             .unwrap(),

@@ -114,7 +114,7 @@ pub async fn worker<T: SyncProtocol>(
             }
         };
 
-        let delay = backoff.fail(&mut rand::thread_rng());
+        let delay = backoff.fail(&mut rand::rng());
         tracing::error!(
             "Convex Client Worker failed: {e:?}. Backing off for {delay:?} and retrying."
         );

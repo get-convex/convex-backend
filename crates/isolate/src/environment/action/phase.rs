@@ -285,7 +285,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             anyhow::bail!("Phase not initialized");
         };
         self.phase = Phase::Executing;
-        let rng_seed = self.rt.rng().gen();
+        let rng_seed = self.rt.rng().random();
         *rng = Some(ChaCha12Rng::from_seed(rng_seed));
         Ok(())
     }

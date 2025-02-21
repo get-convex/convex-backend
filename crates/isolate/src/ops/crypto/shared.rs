@@ -8,7 +8,6 @@ use deno_core::ToJsBuffer;
 use elliptic_curve::sec1::ToEncodedPoint;
 use errors::ErrorMetadata;
 use p256::pkcs8::DecodePrivateKey;
-use rand::rngs::OsRng;
 use rsa::{
     pkcs1::{
         DecodeRsaPrivateKey,
@@ -182,7 +181,7 @@ pub fn secure_rng_unavailable() -> anyhow::Result<&'static dyn ring::rand::Secur
     })
 }
 
-pub fn crypto_rng_unavailable() -> anyhow::Result<&'static mut OsRng> {
+pub fn crypto_rng_unavailable() -> anyhow::Result<&'static mut rsa::rand_core::OsRng> {
     anyhow::bail!(UncatchableDeveloperError {
         js_error: JsError::from_message(
             "Convex runtime does not support CryptoRngCore".to_string()

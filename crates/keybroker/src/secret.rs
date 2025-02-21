@@ -43,7 +43,7 @@ impl Secret {
 
     pub fn random() -> Self {
         Self {
-            key: rand::thread_rng().gen(),
+            key: rand::rng().random(),
         }
     }
 }

@@ -98,7 +98,7 @@ pub struct RequestId(String);
 
 impl RequestId {
     pub fn new() -> Self {
-        let bytes = rand::thread_rng().gen::<[u8; 8]>();
+        let bytes = rand::rng().random::<[u8; 8]>();
         Self(hex::encode(bytes))
     }
 

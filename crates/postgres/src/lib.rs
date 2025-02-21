@@ -1956,7 +1956,7 @@ pub mod itest {
 
         // Connect using db `postgres`, create a fresh DB, and then return the
         // connection options for that one.
-        let id: [u8; 16] = rand::thread_rng().gen();
+        let id: [u8; 16] = rand::rng().random();
         let db_name = "test_db_".to_string() + &hex::encode(&id[..]);
 
         let (client, conn) = tokio_postgres::connect(

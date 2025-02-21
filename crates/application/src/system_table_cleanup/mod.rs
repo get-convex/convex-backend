@@ -113,7 +113,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         );
         loop {
             // Jitter the wait between deletion runs to even out load.
-            let delay = SYSTEM_TABLE_CLEANUP_FREQUENCY.mul_f32(self.runtime.rng().gen());
+            let delay = SYSTEM_TABLE_CLEANUP_FREQUENCY.mul_f32(self.runtime.rng().random());
             self.runtime.wait(delay).await;
 
             self.cleanup_hidden_tables().await?;

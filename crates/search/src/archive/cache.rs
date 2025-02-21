@@ -461,8 +461,8 @@ mod tests {
     };
     use common::bounded_thread_pool::BoundedThreadPool;
     use rand::{
-        distributions,
-        thread_rng,
+        distr,
+        rng,
         Rng,
         RngCore,
     };
@@ -483,16 +483,16 @@ mod tests {
         let mut buf = vec![];
         let mut writer = async_zip_0_0_9::write::ZipFileWriter::new(&mut buf);
         let mut size = 0u64;
-        for _ in 0..thread_rng().gen_range(1..10) {
-            let filename = thread_rng()
-                .sample_iter(distributions::Alphanumeric)
+        for _ in 0..rng().random_range(1..10) {
+            let filename = rng()
+                .sample_iter(distr::Alphanumeric)
                 .take(8)
                 .map(|i| i as char)
                 .collect::<String>();
-            let len = thread_rng().gen_range(100..1000);
+            let len = rng().random_range(100..1000);
             let mut content = vec![0; len];
             size += len as u64;
-            thread_rng().fill_bytes(&mut content);
+            rng().fill_bytes(&mut content);
             let entry = ZipEntryBuilder::new(filename, Compression::Stored).build();
             writer.write_entry_whole(entry, &content).await.unwrap();
         }

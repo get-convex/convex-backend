@@ -212,10 +212,6 @@ impl RngCore for TestRng {
     fn fill_bytes(&mut self, dest: &mut [u8]) {
         self.rt.with_state(|state| state.rng.fill_bytes(dest))
     }
-
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand::Error> {
-        self.rt.with_state(|state| state.rng.try_fill_bytes(dest))
-    }
 }
 
 pub struct TestFutureHandle {

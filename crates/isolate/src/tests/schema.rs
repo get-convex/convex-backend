@@ -222,7 +222,7 @@ async fn test_eval_schema(rt: TestRuntime) -> anyhow::Result<()> {
       export default new SchemaDefinition();
 "#;
 
-    let rng_seed = rt.rng().gen();
+    let rng_seed = rt.rng().random();
     let unix_timestamp = rt.unix_timestamp();
     let t = UdfTest::default_with_modules(vec![], rt).await??;
 

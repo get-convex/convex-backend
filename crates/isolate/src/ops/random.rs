@@ -7,6 +7,6 @@ use super::OpProvider;
 pub fn op_random<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<JsonNumber> {
     let rng = provider.rng()?;
     let n =
-        JsonNumber::from_f64(rng.gen()).expect("f64's distribution returned a NaN or infinity?");
+        JsonNumber::from_f64(rng.random()).expect("f64's distribution returned a NaN or infinity?");
     Ok(n)
 }

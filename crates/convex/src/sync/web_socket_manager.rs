@@ -181,7 +181,7 @@ impl WebSocketWorker {
             };
             worker.connection_count += 1;
             last_close_reason = e.to_string();
-            let delay = worker.backoff.fail(&mut rand::thread_rng());
+            let delay = worker.backoff.fail(&mut rand::rng());
             tracing::error!(
                 "Convex WebSocketWorker failed: {e:?}. Backing off for {delay:?} and retrying."
             );

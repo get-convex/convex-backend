@@ -249,7 +249,7 @@ impl Runtime for ProdRuntime {
         // > The PRNG algorithm in StdRng is chosen to be efficient on the current
         // platform, to be > statistically strong and unpredictable (meaning a
         // cryptographically secure PRNG). (Source: https://docs.rs/rand/latest/rand/rngs/struct.StdRng.html)
-        Box::new(rand::thread_rng())
+        Box::new(rand::rng())
     }
 
     fn pause_client(&self) -> PauseClient {

@@ -30,7 +30,7 @@ pub struct TransactionIdGenerator {
 
 impl TransactionIdGenerator {
     pub fn new<RT: Runtime>(runtime: &RT) -> anyhow::Result<Self> {
-        let rng_seed = runtime.rng().gen();
+        let rng_seed = runtime.rng().random();
         let rng = ChaCha12Rng::from_seed(rng_seed);
 
         // Get the current day as 2 bytes.

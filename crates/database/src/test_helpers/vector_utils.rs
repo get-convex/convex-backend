@@ -8,7 +8,7 @@ pub fn random_vector_value(rng: &mut impl Rng) -> ConvexValue {
 }
 
 pub fn random_vector_with_dimens(rng: &mut impl Rng, dimensions: u32) -> Vec<f32> {
-    (0..dimensions).map(|_| rng.gen()).collect()
+    (0..dimensions).map(|_| rng.random()).collect()
 }
 
 pub fn random_vector(rng: &mut impl Rng) -> Vec<f32> {

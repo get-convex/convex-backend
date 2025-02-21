@@ -61,7 +61,7 @@ pub struct TestEnvironment {
 
 impl TestEnvironment {
     pub fn new(rt: TestRuntime) -> Self {
-        let rng = ChaCha12Rng::from_seed(rt.rng().gen());
+        let rng = ChaCha12Rng::from_seed(rt.rng().random());
         Self {
             rt,
             rng,

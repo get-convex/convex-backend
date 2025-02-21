@@ -47,7 +47,7 @@ pub fn get_sampled_span<R: Rng>(
     properties: BTreeMap<String, String>,
 ) -> Span {
     let sample_ratio = get_sampling_ratio(instance_name, name);
-    let should_sample = rng.gen_bool(sample_ratio);
+    let should_sample = rng.random_bool(sample_ratio);
     match should_sample {
         true => Span::root(name.to_owned(), SpanContext::random())
             .with_properties(|| properties)
@@ -320,10 +320,10 @@ mod tests {
         assert_eq!(config.by_regex.len(), 1);
         assert_eq!(config.sample_ratio("carnitas", "a"), 1.0);
 
-        let config: SamplingConfig = r#"{ 
-            "routeOverrides": [ 
-                { "routeRegexp": "a", "fraction": 0.5 }, 
-                { "routeRegexp": "b", "fraction": 0.15 } 
+        let config: SamplingConfig = r#"{
+            "routeOverrides": [
+                { "routeRegexp": "a", "fraction": 0.5 },
+                { "routeRegexp": "b", "fraction": 0.15 }
             ],
             "defaultFraction": 0.0
         }"#
@@ -333,10 +333,10 @@ mod tests {
         assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
         assert_eq!(config.sample_ratio("carnitas", "c"), 0.0);
 
-        let config: SamplingConfig = r#"{ 
-            "routeOverrides": [ 
-                { "routeRegexp": "a", "fraction": 0.5 }, 
-                { "routeRegexp": "b", "fraction": 0.15 } 
+        let config: SamplingConfig = r#"{
+            "routeOverrides": [
+                { "routeRegexp": "a", "fraction": 0.5 },
+                { "routeRegexp": "b", "fraction": 0.15 }
             ],
             "defaultFraction": 0.01
         }"#
@@ -345,9 +345,9 @@ mod tests {
         assert_eq!(config.sample_ratio("carnitas", "b"), 0.15);
         assert_eq!(config.sample_ratio("carnitas", "c"), 0.01);
 
-        let config: SamplingConfig = r#"{ 
-            "routeOverrides": [ 
-                { "routeRegexp": "/f/.*", "fraction": 0.5 } 
+        let config: SamplingConfig = r#"{
+            "routeOverrides": [
+                { "routeRegexp": "/f/.*", "fraction": 0.5 }
             ],
             "defaultFraction": 0.0
         }"#
@@ -359,9 +359,9 @@ mod tests {
         // Instance overrides.
         let config: SamplingConfig = r#"{
             "instanceOverrides": {
-                "alpastor": [ 
-                    { "routeRegexp": "a", "fraction": 0.5 }, 
-                    { "routeRegexp": "c", "fraction": 0.5 } 
+                "alpastor": [
+                    { "routeRegexp": "a", "fraction": 0.5 },
+                    { "routeRegexp": "c", "fraction": 0.5 }
                 ],
                 "carnitas": [ { "routeRegexp": ".*", "fraction": 0.01 } ]
             },
@@ -390,9 +390,9 @@ mod tests {
         let err = r#"{ "defaultFraction": 4.0 }"#.parse::<SamplingConfig>().unwrap_err();
         assert!(format!("{}", err).contains("Invalid fraction 4 in default"));
 
-        let err = r#"{ 
-            "defaultFraction": 1.0, 
-            "routeOverrides": [{ "routeRegexp": "(", "fraction": 0.5 }] 
+        let err = r#"{
+            "defaultFraction": 1.0,
+            "routeOverrides": [{ "routeRegexp": "(", "fraction": 0.5 }]
         }"#
         .parse::<SamplingConfig>()
         .unwrap_err();
