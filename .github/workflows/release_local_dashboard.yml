@@ -1,12 +1,11 @@
 name: Release Self-Hosted Dashboard
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       tag_latest:
         description: "Tag image as latest"
         type: boolean
-        default: false
         required: true
 
 permissions:
@@ -59,7 +58,7 @@ jobs:
         id: digest
         with:
           matrix-step-name: ${{ github.job }}
-          matrix-key: ${{ matrix.arch }}
+          matrix-key: dashboard-${{ matrix.arch }}
           outputs: |-
             digest: ${{ steps.build-image.outputs.digest }}
 
@@ -92,13 +91,13 @@ jobs:
       - name: Push manifest
         run: |
           docker manifest create ghcr.io/get-convex/convex-dashboard:${{ github.sha }} \
-            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest.x64 }} \
-            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest.arm64 }}
+            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-x64'] }} \
+            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-arm64'] }}
           docker manifest push ghcr.io/get-convex/convex-dashboard:${{ github.sha }}
 
-          if [[ "${{ github.event.inputs.tag_latest }}" == "true" ]]; then
+          if [[ "${{ inputs.tag_latest }}" == "true" ]]; then
             docker manifest create ghcr.io/get-convex/convex-dashboard:latest \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest.x64 }} \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest.arm64 }}
+              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-x64'] }} \
+              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-arm64'] }}
             docker manifest push ghcr.io/get-convex/convex-dashboard:latest
           fi

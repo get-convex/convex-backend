@@ -1,0 +1,29 @@
+name: Release Self-Hosted Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_latest:
+        description: "Tag images as latest"
+        type: boolean
+        default: false
+        required: true
+
+jobs:
+  release_backend:
+    uses: ./.github/workflows/release_local_backend.yml.oss
+    with:
+      tag_latest: ${{ inputs.tag_latest }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+  release_dashboard:
+    uses: ./.github/workflows/release_local_dashboard.yml.oss
+    with:
+      tag_latest: ${{ inputs.tag_latest }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
