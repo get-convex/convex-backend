@@ -169,6 +169,7 @@ async function deployToNewPreviewDeployment(
       cmd: options.cmd,
       dryRun: !!options.dryRun,
       url: "https://<PREVIEW DEPLOYMENT>.convex.cloud",
+      adminKey: "preview-deployment-admin-key",
     });
     logFinishedStep(
       ctx,
@@ -200,7 +201,11 @@ async function deployToNewPreviewDeployment(
   const previewAdminKey = data.adminKey;
   const previewUrl = data.instanceUrl;
 
-  await runCommand(ctx, { ...options, url: previewUrl });
+  await runCommand(ctx, {
+    ...options,
+    url: previewUrl,
+    adminKey: previewAdminKey,
+  });
 
   const pushOptions: PushOptions = {
     adminKey: previewAdminKey,

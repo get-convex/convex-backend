@@ -35,6 +35,7 @@ import zlib from "node:zlib";
 import { PushOptions } from "./push.js";
 import { runPush } from "./components.js";
 import { suggestedEnvVarName } from "./envvars.js";
+import { runSystemQuery } from "./run.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -330,7 +331,7 @@ export async function deployToDeployment(
   },
 ) {
   const { url, adminKey } = credentials;
-  await runCommand(ctx, { ...options, url });
+  await runCommand(ctx, { ...options, url, adminKey });
 
   const pushOptions: PushOptions = {
     adminKey,
@@ -365,6 +366,7 @@ export async function runCommand(
     cmd?: string | undefined;
     dryRun?: boolean | undefined;
     url: string;
+    adminKey: string;
   },
 ) {
   if (options.cmd === undefined) {
@@ -380,8 +382,13 @@ export async function runCommand(
     }`,
   );
   if (!options.dryRun) {
+    const canonicalCloudUrl = await fetchDeploymentCanonicalCloudUrl(ctx, {
+      deploymentUrl: options.url,
+      adminKey: options.adminKey,
+    });
+
     const env = { ...process.env };
-    env[urlVar] = options.url;
+    env[urlVar] = canonicalCloudUrl;
     const result = spawnSync(options.cmd, {
       env,
       stdio: "inherit",
@@ -401,4 +408,24 @@ export async function runCommand(
       options.cmd
     }" with environment variable "${urlVar}" set`,
   );
+}
+
+export async function fetchDeploymentCanonicalCloudUrl(
+  ctx: Context,
+  options: { deploymentUrl: string; adminKey: string },
+): Promise<string> {
+  const result = await runSystemQuery(ctx, {
+    ...options,
+    functionName: "_system/cli/convexUrl:cloudUrl",
+    componentPath: undefined,
+    args: {},
+  });
+  if (typeof result !== "string") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem or env vars",
+      printedMessage: "Invalid process.env.CONVEX_CLOUD_URL",
+    });
+  }
+  return result;
 }
