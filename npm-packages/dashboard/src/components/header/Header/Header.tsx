@@ -8,7 +8,6 @@ import { Portal } from "@headlessui/react";
 import { Button } from "dashboard-common/elements/Button";
 import { useReducer } from "react";
 import { AskAI } from "elements/AskAI";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { UserMenu } from "../UserMenu/UserMenu";
 
 type HeaderProps = {
@@ -40,7 +39,6 @@ function Support() {
 }
 
 export function Header({ children, logoLink = "/", user }: HeaderProps) {
-  const { askAi } = useLaunchDarkly();
   const [headerKey, forceRerender] = useReducer((x) => x + 1, 0);
   return (
     <header
@@ -69,7 +67,7 @@ export function Header({ children, logoLink = "/", user }: HeaderProps) {
       </div>
       <div className="flex items-center gap-2">
         <div className="flex">
-          {askAi && <AskAI />}
+          <AskAI />
           <Support />
         </div>
         {user && <UserMenu />}

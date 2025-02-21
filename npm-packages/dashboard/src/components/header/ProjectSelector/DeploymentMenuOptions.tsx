@@ -16,7 +16,6 @@ import {
 } from "@radix-ui/react-icons";
 import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
 import { Disclosure } from "@headlessui/react";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { logEvent } from "convex-analytics";
 import { PROVISION_PROD_PAGE_NAME } from "dashboard-common/lib/deploymentContext";
 import { useIsOverflowing } from "dashboard-common/lib/useIsOverflowing";
@@ -198,9 +197,8 @@ function AllPersonalDeployments({
   team: Team;
   close: () => void;
 }) {
-  const { localDeployments } = useLaunchDarkly();
   const member = useProfile();
-  const dev = useDefaultDevDeployment(project.id, localDeployments);
+  const dev = useDefaultDevDeployment(project.id);
   const router = useRouter();
   const projectSlug = project.slug;
 
@@ -220,30 +218,6 @@ function AllPersonalDeployments({
     allDevDeployments.filter((d) => d.kind === "local" && d.isActive).length >
     1;
 
-  if (!localDeployments) {
-    return (
-      <Tooltip
-        className="w-full"
-        side="right"
-        tip={dev ? undefined : <NoDevTooltip />}
-      >
-        <SelectorItem
-          className="flex items-center gap-2"
-          selected={
-            !!router.query.deploymentName &&
-            router.query.deploymentName === dev?.name
-          }
-          disabled={!dev}
-          href={`${projectsURI}/${dev?.name}/${currentView}`}
-          close={close}
-          eventName="switch to cloud dev deployment"
-        >
-          <CommandLineIcon className="h-4 w-4" />
-          Development
-        </SelectorItem>
-      </Tooltip>
-    );
-  }
   if (allDevDeployments.length === 0) {
     <Tooltip className="w-full" side="right" tip={<NoDevTooltip />}>
       <SelectorItem

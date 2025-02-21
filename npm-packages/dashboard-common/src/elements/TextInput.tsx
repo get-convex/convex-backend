@@ -93,7 +93,7 @@ export const TextInput = forwardRef<
       </div>
       {error && (
         <p
-          className="flex max-w-full animate-fadeInFromLoading gap-1 text-xs text-content-errorSecondary break-words"
+          className="flex max-w-full animate-fadeInFromLoading gap-1 break-words text-xs text-content-errorSecondary"
           role="alert"
         >
           {error}

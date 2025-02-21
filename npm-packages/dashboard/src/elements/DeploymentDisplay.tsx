@@ -9,7 +9,6 @@ import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRememberLastViewedDeployment } from "hooks/useLastViewed";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { cn } from "dashboard-common/lib/cn";
 import { useRouter } from "next/router";
 import {
@@ -65,7 +64,6 @@ export function DeploymentLabel({
   whoseName: string | null;
   inline?: boolean;
 }) {
-  const { localDeployments } = useLaunchDarkly();
   const team = useCurrentTeam();
   const project = useProjectById(team?.id, deployment.projectId);
   const { deployments } = useDeployments(project?.id);
@@ -96,7 +94,6 @@ export function DeploymentLabel({
       {getDeploymentLabel({
         deployment,
         whoseName,
-        localDeployments,
         hasMultipleActiveLocalDeployments,
       })}
     </div>
@@ -121,12 +118,10 @@ function getBackgroundColor(type: DeploymentType): string {
 function getDeploymentLabel({
   deployment,
   whoseName,
-  localDeployments,
   hasMultipleActiveLocalDeployments,
 }: {
   deployment: DeploymentResponse;
   whoseName: string | null; // null = mine
-  localDeployments: boolean;
   hasMultipleActiveLocalDeployments: boolean;
 }): string {
   switch (deployment.deploymentType) {
@@ -135,15 +130,12 @@ function getDeploymentLabel({
     case "preview":
       return `Preview: ${deployment.previewIdentifier || "Unknown"}`;
     case "dev": {
-      if (localDeployments) {
-        if (deployment.kind === "local") {
-          return `${deployment.deviceName} ${hasMultipleActiveLocalDeployments ? `(Port ${deployment.port})` : ""}`;
-        }
-        return whoseName === null
-          ? "Development (Cloud)"
-          : `${whoseName}’s Dev (Cloud)`;
+      if (deployment.kind === "local") {
+        return `${deployment.deviceName} ${hasMultipleActiveLocalDeployments ? `(Port ${deployment.port})` : ""}`;
       }
-      return whoseName === null ? "Development" : `${whoseName}’s Dev`;
+      return whoseName === null
+        ? "Development (Cloud)"
+        : `${whoseName}’s Dev (Cloud)`;
     }
     default: {
       const _typecheck: never = deployment.deploymentType;

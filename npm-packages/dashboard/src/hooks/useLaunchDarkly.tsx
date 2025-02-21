@@ -2,11 +2,6 @@ import { useFlags } from "launchdarkly-react-client-sdk";
 import kebabCase from "lodash/kebabCase";
 
 const flagDefaults: {
-  dataViewPageSize: number;
-  dataViewPaginationThreshold: number;
-  dataPageInactivityTime: number;
-  localDeployments: boolean;
-  askAi: boolean;
   oauthProviderConfiguration: Record<
     string,
     {
@@ -15,11 +10,6 @@ const flagDefaults: {
     }
   >;
 } = {
-  dataViewPageSize: 25,
-  dataViewPaginationThreshold: 25,
-  dataPageInactivityTime: -1,
-  localDeployments: false,
-  askAi: false,
   oauthProviderConfiguration: {},
 };
 

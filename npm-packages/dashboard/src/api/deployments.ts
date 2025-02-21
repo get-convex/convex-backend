@@ -20,10 +20,7 @@ export function useDeployments(projectId?: number) {
   return { deployments: data, isLoading };
 }
 
-export function useDefaultDevDeployment(
-  projectId: number | undefined,
-  localDeploymentsEnabled: boolean,
-) {
+export function useDefaultDevDeployment(projectId: number | undefined) {
   const member = useProfile();
   const { deployments } = useDeployments(projectId);
   const cloudDev = deployments?.find(
@@ -39,11 +36,8 @@ export function useDefaultDevDeployment(
       d.creator === member?.id &&
       d.isActive,
   );
-  if (localDeploymentsEnabled) {
-    // Prefer local deployments if they exist + flag is enabled.
-    return localDev ?? cloudDev;
-  }
-  return cloudDev;
+  // Prefer local deployments if they exist.
+  return localDev ?? cloudDev;
 }
 
 export function useCurrentDeployment() {
