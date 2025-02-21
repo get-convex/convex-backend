@@ -389,7 +389,14 @@ impl LogReader {
     #[fastrace::trace]
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
         let snapshot = { self.inner.lock().log.clone() };
-        block_in_place(|| snapshot.refresh_token(token, ts))
+        block_in_place(|| {
+            let max_ts = snapshot.max_ts();
+            anyhow::ensure!(
+                ts <= max_ts,
+                "Can't refresh token to newer timestamp {ts} than max ts {max_ts}"
+            );
+            snapshot.refresh_token(token, ts)
+        })
     }
 
     pub fn refresh_reads_until_max_ts(&self, token: Token) -> anyhow::Result<Option<Token>> {
