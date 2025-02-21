@@ -168,7 +168,10 @@ Same format as .env.local or .env files, and overrides them.`,
       localOptions["forceUpgrade"] = cmdOptions.localForceUpgrade;
     }
 
-    if (deploymentSelection.kind !== "urlWithAdminKey") {
+    if (
+      deploymentSelection.kind !== "urlWithAdminKey" &&
+      deploymentSelection.kind !== "projectKey"
+    ) {
       if (!(await checkAuthorization(ctx, false))) {
         await performLogin(ctx, cmdOptions);
       }

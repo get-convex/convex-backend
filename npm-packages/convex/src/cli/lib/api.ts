@@ -7,6 +7,7 @@ import {
   getConfiguredDeploymentFromEnvVar,
   getTeamAndProjectFromPreviewAdminKey,
   isPreviewDeployKey,
+  isProjectKey,
 } from "./deployment.js";
 import { buildEnvironment } from "./envvars.js";
 import { assertLocalBackendRunning } from "./localDeployment/run.js";
@@ -145,6 +146,7 @@ export type DeploymentSelection =
   | { kind: "deploymentName"; deploymentName: string }
   | { kind: "ownProd"; partitionId?: number | undefined }
   | { kind: "ownDev" }
+  | { kind: "projectKey"; prod: boolean }
   | { kind: "urlWithAdminKey"; url: string; adminKey: string }
   | { kind: "urlWithLogin"; url: string };
 
@@ -218,17 +220,18 @@ export async function deploymentSelectionFromOptions(
   if (options.deploymentName !== undefined) {
     return { kind: "deploymentName", deploymentName: options.deploymentName };
   }
+  const wantProd = options.prod === true || options.implicitProd === true;
   if (adminKey !== undefined) {
+    if (isProjectKey(adminKey)) {
+      return { kind: "projectKey", prod: wantProd };
+    }
     return { kind: "deployKey" };
   }
   const partitionId = options.partitionId
     ? parseInt(options.partitionId)
     : undefined;
   return {
-    kind:
-      options.prod === true || options.implicitProd === true
-        ? "ownProd"
-        : "ownDev",
+    kind: wantProd ? "ownProd" : "ownDev",
     partitionId,
   };
 }
@@ -504,6 +507,22 @@ async function fetchDeploymentCredentialsWithinCurrentProjectInner(
         deploymentType,
       };
     }
+    case "projectKey": {
+      const deploymentType = deploymentSelection.prod ? "prod" : "dev";
+      const credentials =
+        await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+          ctx,
+          { teamSlug: null, projectSlug: null },
+          deploymentType,
+          undefined /* partitionId */,
+        );
+      return {
+        adminKey: credentials.adminKey,
+        url: credentials.deploymentUrl,
+        deploymentName: credentials.deploymentName,
+        deploymentType: deploymentType,
+      };
+    }
     case "urlWithLogin":
       return {
         ...(await bigBrainAPI({
@@ -625,7 +644,12 @@ export async function fetchTeamAndProject(
 // Used by dev for upgrade from team and project in convex.json to CONVEX_DEPLOYMENT
 export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
   ctx: Context,
-  { teamSlug, projectSlug }: { teamSlug: string; projectSlug: string },
+  {
+    teamSlug,
+    projectSlug,
+  }:
+    | { teamSlug: string; projectSlug: string }
+    | { teamSlug: null; projectSlug: null },
   deploymentType: DeploymentType,
   partitionId: number | undefined,
 ): Promise<{

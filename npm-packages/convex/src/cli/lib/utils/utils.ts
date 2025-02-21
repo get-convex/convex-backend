@@ -19,6 +19,7 @@ import { Project } from "../api.js";
 import {
   getConfiguredDeploymentFromEnvVar,
   isPreviewDeployKey,
+  isProjectKey,
 } from "../deployment.js";
 import { promptOptions, promptSearch, promptYesNo } from "./prompts.js";
 import {
@@ -570,11 +571,16 @@ export async function getAuthHeaderForBigBrain(
   if (process.env.CONVEX_OVERRIDE_ACCESS_TOKEN) {
     return `Bearer ${process.env.CONVEX_OVERRIDE_ACCESS_TOKEN}`;
   }
+  const adminKey = readAdminKeyFromEnvVar();
+  if (adminKey !== undefined && isProjectKey(adminKey)) {
+    // project keys override the global config
+    // TODO: should preview keys also?
+    return `Bearer ${adminKey}`;
+  }
   const globalConfig = readGlobalConfig(ctx);
   if (globalConfig) {
     return `Bearer ${globalConfig.accessToken}`;
   }
-  const adminKey = readAdminKeyFromEnvVar();
   if (adminKey !== undefined && isPreviewDeployKey(adminKey)) {
     return `Bearer ${adminKey}`;
   }

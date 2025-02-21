@@ -109,13 +109,28 @@ export async function deploymentCredentialsOrConfigure(
   if (
     cmdOptions.deploymentSelection.kind !== "ownDev" &&
     cmdOptions.deploymentSelection.kind !== "ownProd" &&
-    cmdOptions.deploymentSelection.kind !== "deployKey"
+    cmdOptions.deploymentSelection.kind !== "deployKey" &&
+    cmdOptions.deploymentSelection.kind !== "projectKey"
   ) {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
       printedMessage: `Invalid deployment selection: ${cmdOptions.deploymentSelection.kind}.`,
     });
+  }
+
+  if (cmdOptions.deploymentSelection.kind === "projectKey") {
+    const {
+      deploymentName,
+      deploymentUrl: url,
+      adminKey,
+    } = await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+      ctx,
+      { teamSlug: null, projectSlug: null },
+      cmdOptions.deploymentSelection.prod ? "prod" : "dev",
+      partitionId,
+    );
+    return { deploymentName, url, adminKey };
   }
 
   const config = readGlobalConfig(ctx);

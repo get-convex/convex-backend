@@ -223,6 +223,10 @@ export function isPreviewDeployKey(adminKey: string) {
   return prefixParts[0] === "preview" && prefixParts.length === 3;
 }
 
+export function isProjectKey(adminKey: string) {
+  return /^project:.*\|/.test(adminKey);
+}
+
 // For current keys returns prod|dev|preview,
 // for legacy keys returns "prod".
 // Examples:
