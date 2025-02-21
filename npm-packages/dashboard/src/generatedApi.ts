@@ -87,6 +87,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/delete_access_token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete_access_token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/delete_account": {
         parameters: {
             query?: never;
@@ -1357,6 +1373,9 @@ export interface components {
         DeactivatePreviewDeploymentArgs: {
             identifier: components["schemas"]["PreviewDeploymentIdentifier"];
         };
+        DeleteAccessTokenArgs: {
+            name: components["schemas"]["DeviceName"];
+        };
         /** Format: int64 */
         DeploymentId: number;
         DeploymentResponse: {
@@ -1775,6 +1794,7 @@ export type CreateProjectResponse = components['schemas']['CreateProjectResponse
 export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionArgs'];
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
 export type DeactivatePreviewDeploymentArgs = components['schemas']['DeactivatePreviewDeploymentArgs'];
+export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
@@ -1959,6 +1979,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CreateProjectResponse"];
                 };
+            };
+        };
+    };
+    delete_access_token: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccessTokenArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

@@ -132,6 +132,26 @@
         }
       }
     },
+    "/delete_access_token": {
+      "post": {
+        "operationId": "delete_access_token",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccessTokenArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/delete_account": {
       "post": {
         "operationId": "delete_account",
@@ -2771,6 +2791,18 @@
             "$ref": "#/components/schemas/PreviewDeploymentIdentifier"
           }
         }
+      },
+      "DeleteAccessTokenArgs": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/DeviceName"
+          }
+        },
+        "additionalProperties": false
       },
       "DeploymentId": {
         "type": "integer",
