@@ -25,7 +25,7 @@
     "@aws-sdk/client-s3": "^3.171.0",
     "@sendgrid/mail": "^7.7.0",
     "@types/adm-zip": "^0.5.7",
-    "@types/archiver": "~5.3.2",
+    "@types/archiver": "~6.0.0",
     "@types/aws-lambda": "^8.10.106",
     "@types/concat-stream": "^2.0.3",
     "@types/node": "^18.17.0",
