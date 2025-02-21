@@ -47,7 +47,7 @@
   --convex-code-border-color: rgba(0, 0, 0, 0.04);
   --convex-code-block-header-background-color: #eef2f9;
 
-  --doc-sidebar-width: 260px !important; /* Reduced from default 300px */
+  --doc-sidebar-width: 270px !important; /* Reduced from default 300px */
 
   --ifm-code-padding-horizontal: 0.25rem;
   --ifm-global-shadow-lw: none;
@@ -1092,10 +1092,9 @@ h2.zen-header {
   margin: 0 auto;
 }
 
-/* Fix pages without Table of Contents on the right should not be
-too wide, except for all the quick starts */
+/* Fix pages should not be too wide, except for all the quick starts */
 html:not([class*="docs-doc-id-quickstart/"]) main > .container > .row .col {
-  max-width: 860px;
+  max-width: 800px !important;
 }
 
 /* Border for screenshots that are confusing if left on white background */
