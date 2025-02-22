@@ -1,9 +1,9 @@
-import { useCookies } from "react-cookie";
 import useIsBrowser from "@docusaurus/useIsBrowser";
+import { useCookies } from "react-cookie";
 
-// Ensure this is the same for the website, dashboard, Stack, etc. as they all
-// share the same cookie. This allows a user to consent once across all of the
-// subdomains, rather than seeing the banner repeatedly.
+// We share a single cookie across the website, Docs, Stack, etc. to avoid
+// having users reject/accept the cookie banner repeatedly. When making changes,
+// ensure that those projects are updated as well.
 const COOKIE_NAME = "allowsCookies";
 
 export function useAnalyticsCookies() {
@@ -15,13 +15,22 @@ export function useAnalyticsCookies() {
   const allowsCookies = cookies[COOKIE_NAME];
 
   const setAllowsCookies = (value: boolean) => {
-    if (isBrowser) {
-      setCookie(COOKIE_NAME, value, {
-        domain: `.${window.location.hostname}`,
-        path: "/",
-        maxAge: 34560000,
-      });
+    // Return early if we're running on the server.
+    if (!isBrowser) {
+      return;
     }
+
+    const hostname = window.location.hostname;
+    const isConvex =
+      hostname === "convex.dev" || hostname.endsWith(".convex.dev");
+
+    setCookie(COOKIE_NAME, value, {
+      domain: isConvex ? ".convex.dev" : undefined,
+      path: "/",
+      maxAge: 34560000,
+      // Ensures cookie is only sent over HTTPS.
+      secure: hostname !== "localhost",
+    });
   };
 
   return { allowsCookies, setAllowsCookies };
