@@ -10,7 +10,7 @@ import { Doc } from "system-udfs/convex/_generated/dataModel";
 import { DeploymentResponse, Team } from "generatedApi";
 import udfs from "dashboard-common/udfs";
 import { CheckCircledIcon, CrossCircledIcon } from "@radix-ui/react-icons";
-import { ProgressBar } from "elements/ProgressBar";
+import { ProgressBar } from "@common/elements/ProgressBar";
 import { useListCloudBackups, BackupResponse } from "api/backups";
 import { TransferSummary } from "./BackupListItem";
 import { ImportSummary } from "./SnapshotImport";

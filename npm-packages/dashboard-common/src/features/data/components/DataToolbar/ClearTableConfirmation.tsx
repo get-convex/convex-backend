@@ -5,6 +5,7 @@ import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
 import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { ProgressBar } from "@common/elements/ProgressBar";
 
 export function ClearTableConfirmation({
   numRows,
@@ -101,12 +102,10 @@ export function ClearTableConfirmation({
         isClearing ? (
           <div className="flex flex-col gap-2">
             <span className="text-xs font-semibold">{progressPct}% done</span>
-            <div className="mb-4 h-2.5 w-full rounded-full bg-background-tertiary">
-              <div
-                className="h-2.5 animate-pulse rounded-l-full bg-util-accent transition-[width]"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+            <ProgressBar
+              fraction={progressPct / 100}
+              ariaLabel="Clear table progress"
+            />
           </div>
         ) : (
           <div className="flex flex-col gap-2">
