@@ -68,6 +68,19 @@ Applied per document and to any nested `Object` unless stated otherwise.
 | Length of a console.log line                                                      | 4 KiB                               | 4 KiB                                                     |                                                                                                               |
 | [Log streaming](/docs/production/integrations/log-streams/log-streams.mdx) limits | 4096 logs, flushed every 10 seconds | 4096 logs, flushed every 10 seconds                       | How many logs can be buffered when streaming                                                                  |
 
+## Concurrent Function Executions
+
+Number of functions you can run at a time for each function type.
+
+|                | Starter | Professional |
+| -------------- | ------- | ------------ |
+| Queries        | 16      | 256          |
+| Mutations      | 16      | 256          |
+| V8 actions     | 64      | 256          |
+| Node actions   | 64      | 1000         |
+| HTTP actions   | 16      | 128          |
+| Scheduled jobs | 10      | 50           |
+
 ## Execution time and scheduling
 
 |                                              |                 | Notes                                                                                                                   |
