@@ -7,7 +7,13 @@ use std::{
         BTreeSet,
     },
     future::Future,
-    sync::Arc,
+    sync::{
+        atomic::{
+            AtomicI64,
+            Ordering,
+        },
+        Arc,
+    },
 };
 
 use ::metrics::Timer;
@@ -183,7 +189,7 @@ pub struct SubscriptionManager {
 
 struct Subscriber {
     reads: Arc<ReadSet>,
-    valid_ts: Arc<Mutex<Option<Timestamp>>>,
+    valid_ts: Arc<AtomicI64>,
     valid: watch::Sender<SubscriptionState>,
     seq: Sequence,
 }
@@ -237,7 +243,7 @@ impl SubscriptionManager {
 
         self.subscriptions.insert(subscriber_id, token.reads());
 
-        let valid_ts = Arc::new(Mutex::new(Some(token.ts())));
+        let valid_ts = Arc::new(AtomicI64::new(i64::from(token.ts())));
         let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
         let seq: usize = self.next_seq;
         let key = SubscriptionKey {
@@ -285,7 +291,9 @@ impl SubscriptionManager {
             // First, do a pass where we advance all of the valid subscriptions.
             for (subscriber_id, subscriber) in &mut self.subscribers {
                 if !to_notify.contains(&subscriber_id) {
-                    *subscriber.valid_ts.lock() = Some(next_ts);
+                    subscriber
+                        .valid_ts
+                        .store(i64::from(next_ts), Ordering::SeqCst);
                 }
             }
             // Then, invalidate all the remaining subscriptions.
@@ -355,7 +363,7 @@ impl SubscriptionManager {
 
     fn _remove(&mut self, id: SubscriberId) {
         let entry = self.subscribers.remove(id);
-        *entry.valid_ts.lock() = None;
+        entry.valid_ts.store(-1, Ordering::SeqCst);
         let _ = entry.valid.send(SubscriptionState::Invalid);
         self.subscriptions.remove(id, &entry.reads);
     }
@@ -369,7 +377,7 @@ enum SubscriptionState {
 
 /// A subscription on a set of read keys from a prior read-only transaction.
 pub struct Subscription {
-    valid_ts: Arc<Mutex<Option<Timestamp>>>,
+    valid_ts: Arc<AtomicI64>, // -1 means invalid
     valid: watch::Receiver<SubscriptionState>,
     key: Option<SubscriptionKey>,
     sender: mpsc::Sender<SubscriptionRequest>,
@@ -386,7 +394,7 @@ impl Subscription {
     fn invalid(sender: mpsc::Sender<SubscriptionRequest>) -> Self {
         let (_, receiver) = watch::channel(SubscriptionState::Invalid);
         Subscription {
-            valid_ts: Arc::new(Mutex::new(None)),
+            valid_ts: Arc::new(AtomicI64::new(-1)),
             valid: receiver,
             key: None,
             sender,
@@ -395,7 +403,13 @@ impl Subscription {
     }
 
     pub fn current_ts(&self) -> Option<Timestamp> {
-        *self.valid_ts.lock()
+        match self.valid_ts.load(Ordering::SeqCst) {
+            -1 => None,
+            ts => Some(
+                ts.try_into()
+                    .expect("only legal timestamp values can be written to valid_ts"),
+            ),
+        }
     }
 
     pub fn wait_for_invalidation(&self) -> impl Future<Output = ()> {
