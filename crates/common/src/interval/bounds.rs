@@ -1,5 +1,7 @@
 //! Subset of `std::ops::Bound` specialized for our restricted forms of
 //! intervals.
+use std::borrow::Borrow;
+
 use value::heap_size::HeapSize;
 
 use super::key::BinaryKey;
@@ -7,6 +9,12 @@ use super::key::BinaryKey;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct StartIncluded(pub BinaryKey);
+
+impl Borrow<[u8]> for StartIncluded {
+    fn borrow(&self) -> &[u8] {
+        &self.0
+    }
+}
 
 impl HeapSize for StartIncluded {
     fn heap_size(&self) -> usize {

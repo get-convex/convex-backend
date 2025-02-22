@@ -144,7 +144,7 @@ impl IntervalSet {
             move || {
                 // We *might* intersect with the preceeding interval.
                 if let Some((other_start, other_end)) = intervals
-                    .range((Bound::Unbounded, Bound::Excluded(interval.start.clone())))
+                    .range::<StartIncluded, _>(..&interval.start)
                     .next_back()
                 {
                     let other = Interval {
@@ -157,7 +157,9 @@ impl IntervalSet {
                 }
 
                 // We definitely intersect with any interval with a `start` inside `interval`.
-                for (other_start, other_end) in intervals.range(&interval.start..) {
+                for (other_start, other_end) in
+                    intervals.range::<StartIncluded, _>(&interval.start..)
+                {
                     if interval.end.is_disjoint(other_start)
                         && !interval.end.is_adjacent(other_start)
                     {
@@ -234,10 +236,7 @@ impl IntervalSet {
             Self::All => Some(Interval::all()),
             Self::Intervals(intervals) => {
                 let (start, end) = intervals
-                    .range((
-                        Bound::Unbounded,
-                        Bound::Included(StartIncluded(k.to_vec().into())),
-                    ))
+                    .range::<[u8], _>((Bound::Unbounded, Bound::Included(k)))
                     .next_back()?;
                 Some(Interval {
                     start: start.clone(),
@@ -334,12 +333,10 @@ impl IntervalSet {
                         };
                         // `intersecting` is all intervals in `self` that intersect with `target`,
                         // excluding `interval_before`.
-                        let intersecting = intervals.range((
-                            Bound::Excluded(StartIncluded(component_start.clone())),
+                        let intersecting = intervals.range::<[u8], _>((
+                            Bound::Excluded(&*component_start),
                             match &target.end {
-                                End::Excluded(target_end) => {
-                                    Bound::Excluded(StartIncluded(target_end.clone()))
-                                },
+                                End::Excluded(target_end) => Bound::Excluded(&**target_end),
                                 End::Unbounded => Bound::Unbounded,
                             },
                         ));
