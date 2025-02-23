@@ -561,7 +561,8 @@ impl<RT: Runtime> MySqlReader<RT> {
         let ts: i64 = row.get(1).unwrap();
         let ts = Timestamp::try_from(ts)?;
         let table_b: Vec<u8> = row.get(2).unwrap();
-        let json_value: serde_json::Value = row.get(3).unwrap();
+        let json_value: Vec<u8> = row.get(3).unwrap();
+        let json_value: JsonValue = serde_json::from_slice(&json_value)?;
         let deleted: bool = row.get(4).unwrap();
         let table = TabletId(table_b.try_into()?);
         let document_id = InternalDocumentId::new(table, internal_id);
@@ -816,7 +817,8 @@ impl<RT: Runtime> MySqlReader<RT> {
                     table_b.ok_or_else(|| {
                         anyhow::anyhow!("Dangling index reference for {:?} {:?}", key, ts)
                     })?;
-                    let json_value: serde_json::Value = row.get(8).unwrap();
+                    let json_value: Vec<u8> = row.get(8).unwrap();
+                    let json_value: JsonValue = serde_json::from_slice(&json_value)?;
                     anyhow::ensure!(
                         json_value != serde_json::Value::Null,
                         "Index reference to deleted document {:?} {:?}",
@@ -1133,7 +1135,8 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 
         let row = row_stream.try_next().await?;
         let value = row.map(|r| -> anyhow::Result<JsonValue> {
-            let json_value: serde_json::Value = r.get(0).unwrap();
+            let json_value: Vec<u8> = r.get(0).unwrap();
+            let json_value = serde_json::from_slice(&json_value)?;
             Ok(json_value)
         });
         value.transpose()
