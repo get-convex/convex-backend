@@ -81,30 +81,33 @@ export function LastDeployed() {
     >
       <div className="flex h-full w-full grow flex-wrap justify-between px-2 pb-2">
         {content}
-        <div className="flex items-center gap-2">
-          <span className="animate-fadeInFromLoading text-sm text-content-secondary">
-            Convex v{serverVersion}
-          </span>
-          {hasUpdate && (
-            <Button
-              tip={`A ${
-                serverVersion && latestVersion
-                  ? latestVersion.split(".")[0] !== serverVersion.split(".")[0]
-                    ? "major"
-                    : latestVersion.split(".")[1] !==
-                        serverVersion.split(".")[1]
-                      ? "minor"
-                      : "patch"
-                  : ""
-              } update is available for Convex (${serverVersion} → ${latestVersion})`}
-              className="bg-util-accent p-0.5 px-1 text-white"
-              href="https://www.npmjs.com/package/convex?activeTab=versions"
-              target="_blank"
-            >
-              Update Available
-            </Button>
-          )}
-        </div>
+        {serverVersion && (
+          <div className="flex items-center gap-2">
+            <span className="animate-fadeInFromLoading text-sm text-content-secondary">
+              Convex v{serverVersion}
+            </span>
+            {hasUpdate && (
+              <Button
+                tip={`A ${
+                  serverVersion && latestVersion
+                    ? latestVersion.split(".")[0] !==
+                      serverVersion.split(".")[0]
+                      ? "major"
+                      : latestVersion.split(".")[1] !==
+                          serverVersion.split(".")[1]
+                        ? "minor"
+                        : "patch"
+                    : ""
+                } update is available for Convex (${serverVersion} → ${latestVersion})`}
+                className="bg-util-accent p-0.5 px-1 text-white"
+                href="https://www.npmjs.com/package/convex?activeTab=versions"
+                target="_blank"
+              >
+                Update Available
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </HealthCard>
   );
