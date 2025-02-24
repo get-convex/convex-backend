@@ -1,9 +1,12 @@
+mod airbyte_import;
 mod analyze;
 mod auth;
 mod auth_config;
 pub mod components;
 mod cron_jobs;
 mod environment_variables;
+mod fivetran_import;
+mod indexes;
 mod mutation;
 mod occ_retries;
 mod query_cache;

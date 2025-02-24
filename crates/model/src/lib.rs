@@ -138,6 +138,7 @@ use crate::{
     udf_config::UdfConfigTable,
 };
 
+pub mod airbyte_import;
 pub mod auth;
 pub mod backend_state;
 pub mod canonical_urls;
@@ -150,6 +151,7 @@ pub mod environment_variables;
 pub mod exports;
 pub mod external_packages;
 pub mod file_storage;
+pub mod fivetran_import;
 mod metrics;
 pub mod migrations;
 pub mod modules;

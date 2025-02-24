@@ -14,6 +14,7 @@ use axum::{
     routing::{
         get,
         post,
+        put,
     },
     Router,
 };
@@ -23,6 +24,7 @@ use common::{
         CONVEX_CLIENT_HEADER,
     },
     knobs::{
+        AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT,
         MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
         MAX_BACKEND_RPC_REQUEST_SIZE,
         MAX_ECHO_BYTES,
@@ -134,6 +136,16 @@ use crate::{
         storage_get,
         storage_upload,
     },
+    streaming_import::{
+        add_primary_key_indexes,
+        apply_fivetran_operations,
+        clear_tables,
+        fivetran_truncate_table,
+        get_schema,
+        import_airbyte_records,
+        primary_key_indexes_ready,
+        replace_tables,
+    },
     subs::sync,
     LocalAppState,
     RouterState,
@@ -211,7 +223,8 @@ pub fn router(st: LocalAppState) -> Router {
                 add_extension::<LocalAppState, _>,
             )),
         )
-        .nest("/export", snapshot_export_routes);
+        .nest("/export", snapshot_export_routes)
+        .nest("/streaming_import", streaming_import_routes());
 
     // Endpoints migrated to use the RouterState trait instead of application.
     let migrated_api_routes = Router::new()
@@ -366,6 +379,33 @@ where
         .layer(DefaultBodyLimit::max(*MAX_ECHO_BYTES)),
         )
         .layer(cors())
+}
+
+// IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
+// such as adding or removing a route, or changing limits, also need to be
+// applied to `crates_private/usher/src/proxy.rs`.
+pub fn streaming_import_routes<S>() -> Router<S>
+where
+    LocalAppState: FromRef<S>,
+    S: Clone + Send + Sync + 'static,
+{
+    Router::new()
+        .route(
+            "/import_airbyte_records",
+            post(import_airbyte_records).layer(DefaultBodyLimit::max(
+                *AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT,
+            )),
+        )
+        .route(
+            "/apply_fivetran_operations",
+            post(apply_fivetran_operations),
+        )
+        .route("/get_schema", get(get_schema))
+        .route("/replace_tables", post(replace_tables))
+        .route("/clear_tables", put(clear_tables))
+        .route("/fivetran_truncate_table", post(fivetran_truncate_table))
+        .route("/add_primary_key_indexes", put(add_primary_key_indexes))
+        .route("/primary_key_indexes_ready", get(primary_key_indexes_ready))
 }
 
 pub fn cors() -> CorsLayer {

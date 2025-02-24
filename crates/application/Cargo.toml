@@ -17,8 +17,10 @@ async_zip = { workspace = true }
 async_zip_reader = { version = "0.1.0", path = "../async_zip_reader" }
 authentication = { path = "../../crates/authentication" }
 bytes = { workspace = true }
+chrono = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
+convex_fivetran_destination = { path = "../fivetran_destination" }
 convex_macro = { path = "../convex_macro" }
 csv-async = { workspace = true }
 database = { path = "../database" }

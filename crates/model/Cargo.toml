@@ -18,6 +18,7 @@ bytes = { workspace = true }
 chrono = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
+convex_fivetran_destination = { path = "../fivetran_destination" }
 convex_macro = { path = "../convex_macro" }
 database = { path = "../database" }
 derive_more = { workspace = true }

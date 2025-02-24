@@ -94,6 +94,7 @@ pub mod schema;
 pub mod snapshot_export;
 pub mod snapshot_import;
 pub mod storage;
+pub mod streaming_import;
 pub mod subs;
 #[cfg(test)]
 mod test_helpers;

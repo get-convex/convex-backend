@@ -18,9 +18,10 @@ axum = { workspace = true }
 axum-extra = { workspace = true }
 base64 = { workspace = true }
 clap = { workspace = true }
-clusters = { path = "../../crates/clusters" }
-cmd_util = { path = "../../crates/cmd_util" }
+clusters = { path = "../clusters" }
+cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
+convex_fivetran_destination = { path = "../fivetran_destination" }
 database = { path = "../database" }
 either = { workspace = true }
 errors = { path = "../errors" }
@@ -33,7 +34,7 @@ futures-async-stream = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper-util = { workspace = true }
-isolate = { path = "../../crates/isolate" }
+isolate = { path = "../isolate" }
 keybroker = { path = "../keybroker" }
 maplit = { workspace = true }
 metrics = { path = "../metrics" }
@@ -66,21 +67,21 @@ tungstenite = { workspace = true }
 udf = { path = "../udf" }
 url = { workspace = true }
 urlencoding = { workspace = true }
-usage_tracking = { path = "../../crates/usage_tracking" }
-value = { path = "../../crates/value" }
-vector = { path = "../../crates/vector" }
+usage_tracking = { path = "../usage_tracking" }
+value = { path = "../value" }
+vector = { path = "../vector" }
 
 [dev-dependencies]
-application = { path = "../../crates/application", features = ["testing"] }
+application = { path = "../application", features = ["testing"] }
 authentication = { path = "../authentication", features = ["testing"] }
-common = { path = "../../crates/common", features = ["testing"] }
-convex_macro = { path = "../../crates/convex_macro" }
+common = { path = "../common", features = ["testing"] }
+convex_macro = { path = "../convex_macro" }
 database = { path = "../database", features = ["testing"] }
 errors = { path = "../errors", features = ["testing"] }
 events = { path = "../events", features = ["testing"] }
 function_runner = { path = "../function_runner", features = ["testing"] }
-isolate = { path = "../../crates/isolate", features = ["testing"] }
-keybroker = { path = "../../crates/keybroker", features = ["testing"] }
+isolate = { path = "../isolate", features = ["testing"] }
+keybroker = { path = "../keybroker", features = ["testing"] }
 metrics = { path = "../metrics", features = ["testing"] }
 model = { path = "../model", features = ["testing"] }
 mysql = { path = "../mysql", features = ["testing"] }
@@ -93,11 +94,9 @@ storage = { path = "../storage", features = ["testing"] }
 sync = { path = "../sync", features = ["testing"] }
 tokio-tungstenite = { workspace = true }
 udf = { path = "../udf", features = ["testing"] }
-usage_tracking = { path = "../../crates/usage_tracking", features = [
-    "testing",
-] }
-value = { path = "../../crates/value", features = ["testing"] }
-vector = { path = "../../crates/vector", features = ["testing"] }
+usage_tracking = { path = "../usage_tracking", features = ["testing"] }
+value = { path = "../value", features = ["testing"] }
+vector = { path = "../vector", features = ["testing"] }
 
 [build-dependencies]
 anyhow = { workspace = true }

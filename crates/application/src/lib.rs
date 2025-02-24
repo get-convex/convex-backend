@@ -8,6 +8,7 @@
 use std::{
     collections::{
         BTreeMap,
+        BTreeSet,
         HashSet,
     },
     ops::Bound,
@@ -19,6 +20,11 @@ use std::{
     },
 };
 
+use airbyte_import::{
+    AirbyteRecord,
+    PrimaryKey,
+    ValidatedAirbyteStream,
+};
 use anyhow::Context;
 use authentication::{
     application_auth::ApplicationAuth,
@@ -26,6 +32,10 @@ use authentication::{
     Auth0IdToken,
 };
 use bytes::Bytes;
+use chrono::{
+    DateTime,
+    Utc,
+};
 use common::{
     auth::{
         AuthConfig,
@@ -41,6 +51,7 @@ use common::{
         schema::{
             invalid_schema_id,
             parse_schema_id,
+            SchemaState,
         },
     },
     components::{
@@ -71,6 +82,11 @@ use common::{
     log_streaming::LogSender,
     paths::FieldPath,
     persistence::Persistence,
+    query::{
+        IndexRange,
+        IndexRangeExpression,
+        Order,
+    },
     query_journal::QueryJournal,
     runtime::{
         shutdown_and_join,
@@ -103,6 +119,10 @@ use common::{
     },
     RequestId,
 };
+use convex_fivetran_destination::api_types::{
+    BatchWriteRow,
+    DeleteType,
+};
 use cron_jobs::CronJobExecutor;
 use database::{
     unauthorized_error,
@@ -113,6 +133,8 @@ use database::{
     IndexModel,
     IndexWorker,
     OccRetryStats,
+    ResolvedQuery,
+    SchemaModel,
     SearchIndexWorkers,
     Snapshot,
     SnapshotPage,
@@ -121,6 +143,7 @@ use database::{
     TableModel,
     Token,
     Transaction,
+    UserFacingModel,
     WriteSource,
 };
 use either::Either;
@@ -159,6 +182,10 @@ use keybroker::{
 };
 use maplit::btreemap;
 use model::{
+    airbyte_import::{
+        AirbyteImportModel,
+        AIRBYTE_PRIMARY_KEY_INDEX_DESCRIPTOR,
+    },
     auth::AuthInfoModel,
     backend_state::BackendStateModel,
     canonical_urls::{
@@ -208,6 +235,7 @@ use model::{
         types::FileStorageEntry,
         FileStorageId,
     },
+    fivetran_import::FivetranImportModel,
     migrations::MigrationWorker,
     modules::{
         module_versions::{
@@ -336,6 +364,7 @@ use crate::{
     snapshot_import::SnapshotImportWorker,
 };
 
+pub mod airbyte_import;
 pub mod api;
 pub mod application_function_runner;
 mod cache;
@@ -2988,6 +3017,244 @@ impl<RT: Runtime> Application<RT> {
 
     pub fn files_storage(&self) -> Arc<dyn Storage> {
         self.files_storage.clone()
+    }
+
+    /// Add hidden primary key indexes for the given tables. Developers do not
+    /// have access to these indexes.
+    pub async fn add_primary_key_indexes(
+        &self,
+        identity: &Identity,
+        indexes: BTreeMap<TableName, PrimaryKey>,
+    ) -> anyhow::Result<()> {
+        let indexes: BTreeMap<IndexName, IndexedFields> = indexes
+            .into_iter()
+            .map(|(table_name, primary_key)| {
+                let index_name = IndexName::new_reserved(
+                    table_name,
+                    AIRBYTE_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?;
+                let index_fields = primary_key.into_indexed_fields();
+                Ok((index_name, index_fields))
+            })
+            .collect::<anyhow::Result<_>>()?;
+        self._add_system_indexes(identity, indexes).await?;
+        Ok(())
+    }
+
+    pub async fn wait_for_primary_key_indexes_ready(
+        &self,
+        identity: Identity,
+        indexes: BTreeSet<TableName>,
+    ) -> anyhow::Result<()> {
+        loop {
+            let mut tx = self.begin(identity.clone()).await?;
+            if AirbyteImportModel::new(&mut tx)
+                .primary_key_indexes_ready(&indexes)
+                .await?
+            {
+                return Ok(());
+            }
+            let token = tx.into_token()?;
+            let subscription = self.database.subscribe(token).await?;
+            subscription.wait_for_invalidation().await;
+        }
+    }
+
+    /// Return if the primary key indexes for the given tables have finished
+    /// backfilling.
+    pub async fn primary_key_indexes_ready(
+        &self,
+        identity: Identity,
+        indexes: BTreeSet<TableName>,
+    ) -> anyhow::Result<bool> {
+        let mut tx = self.begin(identity).await?;
+        AirbyteImportModel::new(&mut tx)
+            .primary_key_indexes_ready(&indexes)
+            .await
+    }
+
+    /// Inserts, replaces, or deletes the Airbyte record, depending on the sync
+    /// mode.
+    async fn process_record(
+        &self,
+        tx: &mut Transaction<RT>,
+        record: AirbyteRecord,
+        stream: &ValidatedAirbyteStream,
+    ) -> anyhow::Result<()> {
+        let table_name = record.table_name().clone();
+        let namespace = TableNamespace::by_component_TODO();
+        let deleted = record.deleted();
+        let object = record.into_object();
+        match stream {
+            ValidatedAirbyteStream::Append => {
+                UserFacingModel::new(tx, namespace)
+                    .insert(table_name.clone(), object.clone())
+                    .await?;
+                Ok::<(), anyhow::Error>(())
+            },
+            ValidatedAirbyteStream::Dedup(primary_key) => {
+                // Get the current value of the record based on the primary key
+                let mut range = Vec::new();
+                for field_path in primary_key.clone().into_indexed_fields().iter() {
+                    let value = object
+                        .get_path(field_path)
+                        .context(ErrorMetadata::bad_request(
+                            "MissingPrimaryKeyValue",
+                            format!("Missing value for primary key field: {field_path:?}."),
+                        ))?;
+                    let range_expression =
+                        IndexRangeExpression::Eq(field_path.clone(), value.clone().into());
+                    range.push(range_expression)
+                }
+                let index_range = IndexRange {
+                    index_name: IndexName::new_reserved(
+                        table_name.clone(),
+                        AIRBYTE_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                    )?,
+                    range,
+                    order: Order::Asc,
+                };
+                let query = common::query::Query::index_range(index_range);
+                let mut query_stream = ResolvedQuery::new(tx, namespace, query)?;
+                // Replace or delete the record or insert if there is no existing record that
+                // matches this value for the primary key.
+                if let Some(doc) = query_stream.expect_at_most_one(tx).await? {
+                    let doc_id = DeveloperDocumentId::from(doc.id());
+                    if deleted {
+                        UserFacingModel::new(tx, namespace).delete(doc_id).await?;
+                    } else {
+                        UserFacingModel::new(tx, namespace)
+                            .replace(doc_id, object.clone())
+                            .await?;
+                    }
+                } else {
+                    UserFacingModel::new(tx, namespace)
+                        .insert(table_name.clone(), object.clone())
+                        .await?;
+                }
+                Ok(())
+            },
+        }
+    }
+
+    /// Insert airbyte record messages into the table for the stream. Returns
+    /// the number of documents inserted.
+    pub async fn import_airbyte_records(
+        &self,
+        identity: &Identity,
+        records: Vec<AirbyteRecord>,
+        tables: BTreeMap<TableName, ValidatedAirbyteStream>,
+    ) -> anyhow::Result<u64> {
+        let mut count = 0;
+        let mut tx = self.begin(identity.clone()).await?;
+        for record in records {
+            let table_name = record.table_name();
+            let stream = tables.get(table_name).context(ErrorMetadata::bad_request(
+                "MissingStream",
+                format!("Missing stream for table {table_name}"),
+            ))?;
+            let insert_fut = self.process_record(&mut tx, record.clone(), stream);
+            match insert_fut.await {
+                Ok(()) => {},
+                Err(e) if e.is_pagination_limit() => {
+                    self.commit(tx, "airbyte_write_page").await?;
+                    tx = self.begin(identity.clone()).await?;
+                    self.process_record(&mut tx, record, stream).await?;
+                },
+                Err(e) => anyhow::bail!(e),
+            }
+            count += 1;
+        }
+        self.commit(tx, "app_private_import_airbyte").await?;
+        Ok(count)
+    }
+
+    pub async fn apply_fivetran_operations(
+        &self,
+        identity: &Identity,
+        rows: Vec<BatchWriteRow>,
+    ) -> anyhow::Result<()> {
+        let mut tx = self.begin(identity.clone()).await?;
+        let mut model = FivetranImportModel::new(&mut tx);
+
+        for row in rows {
+            match model.apply_operation(row.clone()).await {
+                Ok(()) => {},
+                Err(e) if e.is_pagination_limit() => {
+                    self.commit(tx, "fivetran_write_page").await?;
+
+                    tx = self.begin(identity.clone()).await?;
+                    model = FivetranImportModel::new(&mut tx);
+
+                    model.apply_operation(row).await?;
+                },
+                Err(e) => anyhow::bail!(e),
+            }
+        }
+
+        self.commit(tx, "app_fivetran_import").await?;
+        Ok(())
+    }
+
+    pub async fn fivetran_truncate(
+        &self,
+        identity: &Identity,
+        table_name: TableName,
+        delete_before: Option<DateTime<Utc>>,
+        delete_type: DeleteType,
+    ) -> anyhow::Result<()> {
+        let mut done = false;
+        while !done {
+            let mut tx = self.begin(identity.clone()).await?;
+            if !TableModel::new(&mut tx).table_exists(TableNamespace::Global, &table_name) {
+                // Simply accept the truncate if the table exists
+                return Ok(());
+            }
+            let mut query: ResolvedQuery<_> = FivetranImportModel::new(&mut tx)
+                .synced_query(&table_name, &delete_before)
+                .await?;
+
+            loop {
+                let res: anyhow::Result<()> = try {
+                    match query.next(&mut tx, None).await? {
+                        Some(doc) => {
+                            FivetranImportModel::new(&mut tx)
+                                .truncate_document(doc, delete_type)
+                                .await?;
+                        },
+                        None => {
+                            done = true;
+                            break;
+                        },
+                    }
+                };
+                if let Err(e) = res {
+                    if e.is_pagination_limit() {
+                        // Need a new transaction: commit what we already have and continue
+                        break;
+                    } else {
+                        anyhow::bail!(e)
+                    }
+                }
+            }
+
+            self.commit(tx, "app_fivetran_truncate").await?;
+        }
+
+        Ok(())
+    }
+
+    pub async fn get_schema(
+        &self,
+        namespace: TableNamespace,
+        identity: &Identity,
+    ) -> anyhow::Result<JsonValue> {
+        let mut tx = self.begin(identity.clone()).await?;
+        let mut model = SchemaModel::new(&mut tx, namespace);
+        Ok(match model.get_by_state(SchemaState::Active).await? {
+            None => JsonValue::Null,
+            Some((_id, schema)) => JsonValue::try_from(schema)?,
+        })
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {
