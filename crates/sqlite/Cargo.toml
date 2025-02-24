@@ -16,6 +16,7 @@ futures = { workspace = true }
 futures-async-stream = { workspace = true }
 parking_lot = { workspace = true }
 rusqlite = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

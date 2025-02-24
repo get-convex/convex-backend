@@ -1513,6 +1513,17 @@ pub async fn persistence_global<P: Persistence>(p: Arc<P>) -> anyhow::Result<()>
         p.reader().get_persistence_global(key).await?,
         Some(json!(8))
     );
+    // Deeply nested values should roundtrip.
+    fn very_nested_json(depth: usize) -> serde_json::Value {
+        if depth == 0 {
+            json!("hi")
+        } else {
+            json!({"a": very_nested_json(depth-1)})
+        }
+    }
+    let value = very_nested_json(257);
+    p.write_persistence_global(key, value.clone()).await?;
+    assert_eq!(p.reader().get_persistence_global(key).await?, Some(value));
     Ok(())
 }
 

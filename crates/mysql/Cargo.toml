@@ -23,6 +23,7 @@ metrics = { path = "../../crates/metrics" }
 mysql_async = { workspace = true }
 prometheus = { workspace = true }
 rand = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

@@ -112,6 +112,7 @@ use itertools::{
 };
 use native_tls::TlsConnector;
 use postgres_native_tls::MakeTlsConnector;
+use serde::Deserialize as _;
 use serde_json::Value as JsonValue;
 use tokio_postgres::{
     types::{
@@ -1091,8 +1092,12 @@ impl PersistenceReader for PostgresReader {
         let row = row_stream.try_next().await?;
         let value = row.map(|r| -> anyhow::Result<JsonValue> {
             let binary_value: Vec<u8> = r.get(0);
-            let json_value: JsonValue = serde_json::from_slice(&binary_value)
-                .context("Failed to deserialize database value")?;
+            let mut json_deserializer = serde_json::Deserializer::from_slice(&binary_value);
+            // XXX: this is bad, but shapes can get much more nested than convex values
+            json_deserializer.disable_recursion_limit();
+            let json_value = JsonValue::deserialize(&mut json_deserializer)
+                .with_context(|| format!("Invalid JSON at persistence key {key:?}"))?;
+            json_deserializer.end()?;
             Ok(json_value)
         });
         value.transpose()

@@ -12,6 +12,7 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context as _;
 use async_trait::async_trait;
 use common::{
     document::{
@@ -67,6 +68,7 @@ use rusqlite::{
     Row,
     ToSql,
 };
+use serde::Deserialize as _;
 use serde_json::Value as JsonValue;
 
 // We only have a single Sqlite connection which does not allow async calls, so
@@ -234,7 +236,13 @@ ORDER BY B.key {order}
         row_iter
             .next()
             .map(|json_value_str| {
-                let json_value: serde_json::Value = serde_json::from_str(&json_value_str?)?;
+                let json_value_str = json_value_str?;
+                let mut json_deserializer = serde_json::Deserializer::from_str(&json_value_str);
+                // XXX: this is bad, but shapes can get much more nested than convex values
+                json_deserializer.disable_recursion_limit();
+                let json_value = JsonValue::deserialize(&mut json_deserializer)
+                    .with_context(|| format!("Invalid JSON at persistence key {key:?}"))?;
+                json_deserializer.end()?;
                 Ok(json_value)
             })
             .transpose()

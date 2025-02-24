@@ -118,6 +118,7 @@ use itertools::{
 };
 use metrics::write_persistence_global_timer;
 use mysql_async::Row;
+use serde::Deserialize;
 use serde_json::Value as JsonValue;
 
 use crate::{
@@ -1135,8 +1136,13 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
 
         let row = row_stream.try_next().await?;
         let value = row.map(|r| -> anyhow::Result<JsonValue> {
-            let json_value: Vec<u8> = r.get(0).unwrap();
-            let json_value = serde_json::from_slice(&json_value)?;
+            let binary_value: Vec<u8> = r.get(0).unwrap();
+            let mut json_deserializer = serde_json::Deserializer::from_slice(&binary_value);
+            // XXX: this is bad, but shapes can get much more nested than convex values
+            json_deserializer.disable_recursion_limit();
+            let json_value = JsonValue::deserialize(&mut json_deserializer)
+                .with_context(|| format!("Invalid JSON at persistence key {key:?}"))?;
+            json_deserializer.end()?;
             Ok(json_value)
         });
         value.transpose()

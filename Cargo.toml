@@ -126,7 +126,7 @@ semver = { version = "1", features = [ "serde" ] }
 sentry = { version = "0.35", features = [ "anyhow", "tower", "tower-http" ] }
 sentry-tracing = "0.35"
 serde = { version = "1", features = [ "derive" ] }
-serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order" ] }
+serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "unbounded_depth" ] }
 sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.8" }
 short_future = { version = "0.1.1" }
