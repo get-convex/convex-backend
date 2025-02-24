@@ -345,7 +345,7 @@ function DeploymentWithConnectionState({
   deployment: ConnectedDeployment;
   children: ReactNode;
 }) {
-  const { isSelfHosted } = useContext(DeploymentInfoContext);
+  const { isSelfHosted, captureMessage } = useContext(DeploymentInfoContext);
   const { client, deploymentUrl, deploymentName } = deployment;
   const [connectionState, setConnectionState] = useState<
     "Connected" | "Disconnected" | "LocalDeploymentMismatch" | null
@@ -395,6 +395,12 @@ function DeploymentWithConnectionState({
     }, 5000);
     return () => clearInterval(checkConnection);
   });
+  useEffect(() => {
+    if (isDisconnected && !deploymentName.startsWith("local-")) {
+      // Log to sentry including the instance name when we seem to be unable to connect to a cloud deployment
+      captureMessage(`Cloud deployment is disconnected: ${deploymentName}`);
+    }
+  }, [isDisconnected, deploymentName, captureMessage]);
   const value = useMemo(
     () => ({
       deployment,
