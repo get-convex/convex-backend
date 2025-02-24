@@ -24,7 +24,7 @@ export function DataPanel({
         defaultSize={20}
       >
         <div
-          className="w-full bg-background-secondary shadow-xl dark:border-l"
+          className="w-full border-l bg-background-secondary shadow-xl"
           {...props}
         >
           <div className="flex h-full max-h-full flex-col">
