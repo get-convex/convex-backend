@@ -110,7 +110,7 @@ export function JavascriptDocumentsForm({
 
   return (
     <div className="flex grow flex-col overflow-y-hidden">
-      <div className="mb-2 flex grow overflow-y-auto px-4 sm:px-6">
+      <div className="mb-2 flex grow overflow-y-auto">
         <ObjectEditor
           fullHeight
           autoFocus
@@ -119,7 +119,7 @@ export function JavascriptDocumentsForm({
           path={`document/${randomNumberRef.current}`}
           onChange={onChange}
           showLineNumbers
-          className="py-2"
+          className="rounded-none border-0 border-y py-2"
           showTableNames
           onError={(errors: string[]) => setIsInvalidObject(!!errors.length)}
           validator={validator}

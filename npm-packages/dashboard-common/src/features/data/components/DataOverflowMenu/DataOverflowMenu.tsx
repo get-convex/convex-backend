@@ -35,7 +35,7 @@ export function DataOverflowMenu({
     selectedNent && selectedNent.state !== "active"
   );
   const isInSchema =
-    (tableSchemaStatus?.isDefined ?? true) ||
+    tableSchemaStatus?.isDefined ||
     tableSchemaStatus?.referencedByTable !== undefined;
 
   const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
@@ -101,7 +101,12 @@ export function DataOverflowMenu({
         tipSide="left"
         variant="danger"
         action={onClickDeleteTable}
-        disabled={isInSchema || !canManageTable || isInUnmountedComponent}
+        disabled={
+          isInSchema ||
+          !canManageTable ||
+          isInUnmountedComponent ||
+          tableSchemaStatus?.isValidationRunning
+        }
       >
         <TrashIcon />
         Delete Table

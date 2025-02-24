@@ -54,7 +54,7 @@ export function SidebarDetailLayout({
           maxSize={75}
           className={classNames(
             "h-full flex",
-            !collapsed && "border-r min-w-[14rem]",
+            !collapsed && "border-r min-w-[14rem] max-w-[26rem]",
           )}
           collapsedSize={0}
           onCollapse={() => setCollapsed(true)}
@@ -144,15 +144,17 @@ export function ResizeHandle({
   collapsed,
   direction = "left",
   panelRef,
+  className,
 }: {
   collapsed: boolean;
   direction: "left" | "right";
-  panelRef: React.RefObject<ImperativePanelHandle>;
+  panelRef?: React.RefObject<ImperativePanelHandle>;
+  className?: string;
 }) {
   const [dragging, setDragging] = useState(false);
   return (
     <PanelResizeHandle
-      className="relative"
+      className={cn("relative", className)}
       onDragging={setDragging}
       hitAreaMargins={{ coarse: 32, fine: 20 }}
     >
@@ -164,7 +166,7 @@ export function ResizeHandle({
       />
       <Button
         variant="unstyled"
-        onClick={() => panelRef.current?.expand()}
+        onClick={() => panelRef?.current?.expand()}
         disabled={!collapsed}
         className={cn(
           "absolute top-1/2 -translate-y-1/2 left-0 z-20 bg-background-secondary py-2 px-0.5 border transition-all",

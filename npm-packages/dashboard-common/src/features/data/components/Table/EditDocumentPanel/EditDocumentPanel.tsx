@@ -1,5 +1,4 @@
-import { Fragment, useCallback, useMemo } from "react";
-import { Dialog, Transition } from "@headlessui/react";
+import { useCallback, useMemo } from "react";
 import { ValidatorJSON, Value } from "convex/values";
 import { GenericDocument } from "convex/server";
 import isEqual from "lodash/isEqual";
@@ -7,8 +6,8 @@ import omitBy from "lodash/omitBy";
 import Link from "next/link";
 import { createGlobalState } from "react-use";
 import { JavascriptDocumentsForm } from "@common/features/data/components/Table/EditDocumentPanel/JavascriptDocumentsForm";
-import { ClosePanelButton } from "@common/elements/ClosePanelButton";
 import { useNents } from "@common/lib/useNents";
+import { DataPanel } from "@common/features/data/components/DataPanel";
 
 export type EditDocumentPanelProps = {
   onClose: () => void;
@@ -107,87 +106,42 @@ export function EditDocumentPanel({
   };
 
   return (
-    <Transition.Root
-      show
-      as={Fragment}
-      appear
-      afterLeave={closeAndMaybeClearDraft}
-    >
-      <Dialog
-        as="div"
-        className="fixed inset-0 z-40 overflow-hidden"
-        onClose={closeAndMaybeClearDraft}
-        data-testid="editDocumentPanel"
-      >
-        <div className="absolute inset-0 overflow-hidden">
-          <Transition.Child
-            as={Fragment}
-            enter="ease-in-out duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in-out duration-300"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <Dialog.Overlay className="absolute inset-0" />
-          </Transition.Child>
-
-          <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
-            <Transition.Child
-              as={Fragment}
-              enter="transform transition ease-in-out duration-200 sm:duration-300"
-              enterFrom="translate-x-full"
-              enterTo="translate-x-0"
-              leave="transform transition ease-in-out duration-200 sm:duration-300"
-              leaveFrom="translate-x-0"
-              leaveTo="translate-x-full"
-            >
-              <div className="w-screen max-w-2xl">
-                <div className="flex h-full max-h-full flex-col overflow-hidden bg-background-secondary shadow-xl dark:border">
-                  {/* Header */}
-                  <div className="mb-1 px-4 pt-6 sm:px-6">
-                    <div className="flex items-center justify-between gap-4">
-                      <Dialog.Title as="h4">
-                        {editing ? (
-                          <div className="flex items-center gap-2">
-                            Edit Document{" "}
-                            <code className="text-xs" aria-label="Document ID">
-                              {defaultDocument._id as undefined | string}
-                            </code>
-                          </div>
-                        ) : (
-                          "Add new documents"
-                        )}
-                      </Dialog.Title>
-                      <ClosePanelButton onClose={closeAndMaybeClearDraft} />
-                    </div>
-                  </div>
-                  <Dialog.Description className="mb-2 px-4 text-xs text-content-primary sm:px-6">
-                    <Link
-                      passHref
-                      href={`https://docs.convex.dev/dashboard/deployments/data#${docsSection}`}
-                      className="text-content-link"
-                      target="_blank"
-                    >
-                      Learn more
-                    </Link>{" "}
-                    about editing documents.
-                  </Dialog.Description>
-                  <JavascriptDocumentsForm
-                    validator={validator}
-                    shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
-                    documents={documents}
-                    setDocuments={setDocuments}
-                    onSave={saveAndClearDraft}
-                    isDirty={isDirty}
-                    mode={editing ? "editDocument" : "addDocuments"}
-                  />
-                </div>
-              </div>
-            </Transition.Child>
+    <DataPanel
+      data-testid="editDocumentPanel"
+      title={
+        editing ? (
+          <div className="flex flex-wrap items-center gap-2">
+            Edit{" "}
+            <code className="text-xs" aria-label="Document ID">
+              {defaultDocument._id as undefined | string}
+            </code>
           </div>
-        </div>
-      </Dialog>
-    </Transition.Root>
+        ) : (
+          `Add new documents to ${tableName}`
+        )
+      }
+      onClose={closeAndMaybeClearDraft}
+    >
+      <div className="mb-4 px-4 text-xs text-content-primary sm:px-6">
+        <Link
+          passHref
+          href={`https://docs.convex.dev/dashboard/deployments/data#${docsSection}`}
+          className="text-content-link"
+          target="_blank"
+        >
+          Learn more
+        </Link>{" "}
+        about editing documents.
+      </div>
+      <JavascriptDocumentsForm
+        validator={validator}
+        shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
+        documents={documents}
+        setDocuments={setDocuments}
+        onSave={saveAndClearDraft}
+        isDirty={isDirty}
+        mode={editing ? "editDocument" : "addDocuments"}
+      />
+    </DataPanel>
   );
 }

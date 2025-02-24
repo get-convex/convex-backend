@@ -13,23 +13,28 @@ import { useContext } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function useDataToolbarActions({
-  tableName,
   handleAddDocuments,
   clearSelectedRows,
   loadMore,
+  tableName,
 }: {
-  tableName: string;
   handleAddDocuments(): void;
   clearSelectedRows(): void;
   loadMore(): void;
+  tableName: string;
 }): {
-  addDocuments: (documents: GenericDocument[]) => Promise<void>;
+  addDocuments: (
+    tableName: string,
+    documents: GenericDocument[],
+  ) => Promise<void>;
   patchFields: (
+    tableName: string,
     rowIds: Set<string> | "all",
     fields: GenericDocument,
   ) => Promise<void>;
-  deleteTable: () => Promise<void>;
+  deleteTable: (tableName: string) => Promise<void>;
   clearTable: (
+    tableName: string,
     cursor: Cursor | null,
   ) => Promise<{ continueCursor: Cursor; deleted: number; hasMore: boolean }>;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
@@ -39,10 +44,10 @@ export function useDataToolbarActions({
 
   const documentAdd = useMutation(udfs.addDocument.default);
   const { selectedNent } = useNents();
-  const addDocuments = async (documents: GenericDocument[]) => {
+  const addDocuments = async (table: string, documents: GenericDocument[]) => {
     try {
       await documentAdd({
-        table: tableName,
+        table,
         documents,
         componentId: selectedNent?.id ?? null,
       });
@@ -62,14 +67,14 @@ export function useDataToolbarActions({
   const patchDocumentsFields = useMutation(udfs.patchDocumentsFields.default);
 
   const patchFields = async (
+    table: string,
     rowIds: Set<string> | "all",
     fields: GenericDocument,
   ) => {
     try {
       await patchDocumentsFields({
-        table: tableName as any,
+        table,
         fields,
-
         ids: rowIds === "all" ? undefined : (Array.from(rowIds) as Id<any>[]),
         componentId: selectedNent?.id ?? null,
       });

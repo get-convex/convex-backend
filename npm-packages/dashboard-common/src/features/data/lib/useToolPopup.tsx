@@ -16,11 +16,20 @@ import { TableSchemaAndIndexes } from "@common/features/data/components/TableSch
 import { useDefaultDocument } from "@common/features/data/lib/useDefaultDocument";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
+type PopupType =
+  | { type: "addDocuments"; tableName: string }
+  | { type: "editDocument"; document: Record<string, any>; tableName: string }
+  | { type: "bulkEdit"; rowIds: Set<string> | "all"; tableName: string }
+  | { type: "clearTable"; tableName: string }
+  | { type: "deleteRows"; rowIds: Set<string> }
+  | { type: "deleteTable"; tableName: string }
+  | { type: "metrics"; tableName: string }
+  | { type: "viewSchema"; tableName: string };
+
 export type PopupState = ReturnType<typeof useToolPopup>;
 
 export function useToolPopup({
   addDocuments,
-  allRowsSelected,
   patchFields,
   clearSelectedRows,
   clearTable,
@@ -28,15 +37,14 @@ export function useToolPopup({
   deleteTable,
   isProd,
   numRows,
-  numRowsSelected,
   tableName,
   areEditsAuthorized,
   onAuthorizeEdits,
   activeSchema,
 }: {
-  addDocuments: (documents: GenericDocument[]) => Promise<void>;
-  allRowsSelected: boolean;
+  addDocuments: (table: string, documents: GenericDocument[]) => Promise<void>;
   patchFields: (
+    table: string,
     rowIds: Set<string> | "all",
     fields: GenericDocument,
   ) => Promise<void>;
@@ -50,23 +58,13 @@ export function useToolPopup({
   deleteTable: () => Promise<void>;
   isProd: boolean;
   numRows?: number;
-  numRowsSelected: number;
   tableName: string;
   areEditsAuthorized: boolean;
   onAuthorizeEdits: (() => void) | undefined;
   activeSchema: SchemaJson | null;
 }) {
   // Popover and menu state.
-  const [popup, setPopup] = useState<
-    | { type: "addDocuments" }
-    | { type: "editDocument"; document: Record<string, any> }
-    | { type: "bulkEdit"; rowIds: Set<string> | "all" }
-    | { type: "clearTable" }
-    | { type: "deleteRows"; rowIds: Set<string> }
-    | { type: "deleteTable" }
-    | { type: "metrics" }
-    | { type: "viewSchema" }
-  >();
+  const [popup, setPopup] = useState<PopupType>();
 
   const closePopup = () => setPopup(undefined);
 
@@ -82,9 +80,10 @@ export function useToolPopup({
     case "addDocuments":
       popupEl = (
         <EditDocumentPanel
-          tableName={tableName}
+          data-testid="editDocumentPanel"
+          tableName={popup.tableName}
           onClose={closePopup}
-          onSave={addDocuments}
+          onSave={(documents) => addDocuments(popup.tableName, documents)}
           defaultDocument={defaultDocument}
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceSchemaValidatorErrors}
@@ -101,7 +100,7 @@ export function useToolPopup({
         />
       ) : (
         <EditSingleDocumentPanel
-          tableName={tableName}
+          tableName={popup.tableName}
           onClose={closePopup}
           editingDocument={popup.document}
           validator={validator}
@@ -119,10 +118,13 @@ export function useToolPopup({
         />
       ) : (
         <EditFieldsPanel
-          allRowsSelected={allRowsSelected}
-          numRowsSelected={numRowsSelected}
+          tableName={popup.tableName}
+          allRowsSelected={popup.rowIds === "all"}
+          numRowsSelected={popup.rowIds === "all" ? 0 : popup.rowIds.size}
           onClose={closePopup}
-          onSave={(fields) => patchFields(popup.rowIds, fields)}
+          onSave={(fields) =>
+            patchFields(popup.tableName, popup.rowIds, fields)
+          }
           validator={validator}
           shouldSurfaceValidatorErrors={shouldSurfaceSchemaValidatorErrors}
         />
@@ -201,7 +203,7 @@ function EditSingleDocumentPanel({
 
   return (
     <EditDocumentPanel
-      data-testid="edit-single-document-panel"
+      data-testid="editDocumentPanel"
       editing
       tableName={tableName}
       onClose={onClose}

@@ -12,6 +12,7 @@ import {
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { FunctionsContext } from "@common/lib/functions/FunctionsProvider";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { PanelGroup } from "react-resizable-panels";
 
 jest.mock("convex/react", () => ({
   useQuery: jest.fn(),
@@ -77,7 +78,12 @@ describe("DataToolbar", () => {
     useRouter.mockReturnValue({ query, replace: jest.fn() });
     return render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-        <Toolbar componentProps={componentProps} hookProps={hookProps} />,
+        <PanelGroup
+          direction="horizontal"
+          className="flex h-full grow items-stretch overflow-hidden"
+        >
+          <Toolbar componentProps={componentProps} hookProps={hookProps} />
+        </PanelGroup>
       </DeploymentInfoContext.Provider>,
     );
   };
@@ -105,10 +111,8 @@ describe("DataToolbar", () => {
       deleteTable: jest.fn(),
       isProd: false,
       numRows: undefined,
-      numRowsSelected: 0,
       tableName,
       areEditsAuthorized,
-      allRowsSelected: false,
       onAuthorizeEdits,
       activeSchema: null,
       ...hookProps,
@@ -155,7 +159,7 @@ describe("DataToolbar", () => {
     const buttons = await screen.findAllByRole("button");
     expect(buttons).toHaveLength(3);
 
-    expect(buttons[0]).toHaveTextContent("Add Documents");
+    expect(buttons[0]).toHaveTextContent("Add");
     expect(buttons[1]).toHaveTextContent("Filter");
     expect(buttons[2]).toHaveAccessibleName("Open table settings");
   });
@@ -182,7 +186,7 @@ describe("DataToolbar", () => {
   it("should open add document panel when add document button is clicked", async () => {
     const addDocuments = jest.fn();
     setup({ addDocuments });
-    const addDocumentsButton = await screen.findByText("Add Documents");
+    const addDocumentsButton = await screen.findByText("Add");
     const user = userEvent.setup();
     await user.click(addDocumentsButton);
 
@@ -196,12 +200,11 @@ describe("DataToolbar", () => {
 
   it("should open bulk edit panel when bulk edit button is clicked", async () => {
     const addFields = jest.fn();
-    setup({
-      patchFields: addFields,
-      allRowsSelected: true,
-      numRowsSelected: 2,
-    });
-    const addFieldsButton = await screen.findByText("Bulk Edit All Documents");
+    setup(
+      { patchFields: addFields },
+      { allRowsSelected: true, selectedRowsIds: new Set(["id1", "id2"]) },
+    );
+    const addFieldsButton = await screen.findByText("Edit All");
     const user = userEvent.setup();
     await user.click(addFieldsButton);
 
@@ -244,15 +247,18 @@ describe("DataToolbar", () => {
   it("should delete selected rows in dev", async () => {
     const deleteRows = jest.fn();
     setup(
-      { numRowsSelected: 1, deleteRows },
-      { selectedRowsIds: new Set(["jd78w3vkw6w9q7cbv151qqxc3s6kkefa"]) },
+      { deleteRows },
+      {
+        selectedRowsIds: new Set(["jd78w3vkw6w9q7cbv151qqxc3s6kkefa"]),
+        tableSchemaStatus: undefined,
+      },
     );
 
     const buttons = await screen.findAllByRole("button");
-    expect(buttons).toHaveLength(4);
+    expect(buttons).toHaveLength(3);
 
     const deleteRowsButton = buttons[1];
-    expect(deleteRowsButton).toHaveTextContent("Delete Document");
+    expect(deleteRowsButton).toHaveTextContent("Delete");
 
     const user = userEvent.setup();
     await user.click(deleteRowsButton);
@@ -263,20 +269,21 @@ describe("DataToolbar", () => {
   it("should delete selected rows in prod", async () => {
     const deleteRows = jest.fn();
     setup(
-      { isProd: true, numRowsSelected: 2, deleteRows },
+      { isProd: true, deleteRows },
       {
         selectedRowsIds: new Set([
           "jd78w3vkw6w9q7cbv151qqxc3s6kkefa",
-          "jd71fjz2gda3gczwp5rg59bsms6kjmcv",
+          "jd78w3vkw6w9q7cbv151qqxc3s6kkefb",
         ]),
+        tableSchemaStatus: undefined,
       },
     );
 
     const buttons = await screen.findAllByRole("button");
-    expect(buttons).toHaveLength(4);
+    expect(buttons).toHaveLength(3);
 
     const deleteRowsButton = buttons[1];
-    expect(deleteRowsButton).toHaveTextContent("Delete 2 Documents");
+    expect(deleteRowsButton).toHaveTextContent("Delete 2");
 
     const user = userEvent.setup();
     await user.click(deleteRowsButton);
@@ -294,16 +301,18 @@ describe("DataToolbar", () => {
 
   it("should clear table in dev via selection", async () => {
     const clearTable = jest.fn();
-    setup({
-      clearTable,
-      numRows: 2,
-      numRowsSelected: 2,
-      allRowsSelected: true,
-    });
+    setup(
+      { clearTable },
+      {
+        numRows: 2,
+        allRowsSelected: true,
+        selectedRowsIds: new Set(["id1", "id2"]),
+      },
+    );
 
     const user = userEvent.setup();
 
-    const clearTableButton = await screen.findByText("Delete All Documents");
+    const clearTableButton = await screen.findByText("Delete All");
     expect(clearTableButton).toBeEnabled();
 
     await user.click(clearTableButton);
@@ -340,16 +349,17 @@ describe("DataToolbar", () => {
 
   it("should clear table in prod via selection", async () => {
     const clearTable = jest.fn();
-    setup({
-      clearTable,
-      isProd: true,
-      numRows: 2,
-      numRowsSelected: 2,
-      allRowsSelected: true,
-    });
+    setup(
+      { clearTable, isProd: true },
+      {
+        numRows: 2,
+        allRowsSelected: true,
+        selectedRowsIds: new Set(["id1", "id2"]),
+      },
+    );
     const user = userEvent.setup();
 
-    const clearTableButton = await screen.findByText("Delete All Documents");
+    const clearTableButton = await screen.findByText("Delete All");
     expect(clearTableButton).toBeEnabled();
 
     await user.click(clearTableButton);
@@ -412,7 +422,14 @@ describe("DataToolbar", () => {
   it("has disabled delete table button while waiting for schemas", async () => {
     const deleteTableButton = await openMenuAndReturnDeleteTableButton(
       {},
-      { tableSchemaStatus: undefined },
+      {
+        tableSchemaStatus: {
+          tableName: "messages",
+          isDefined: false,
+          isValidationRunning: true,
+          referencedByTable: undefined,
+        },
+      },
     );
     expect(deleteTableButton).toBeDisabled();
   });

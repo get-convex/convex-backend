@@ -73,6 +73,7 @@ export function Table({
   tableName,
   componentId,
   isProd,
+  hasPopup,
   setPopup,
   deleteRows,
   onAddDraftFilter,
@@ -93,6 +94,7 @@ export function Table({
   loadMore: () => void;
   listRef: MutableRefObject<FixedSizeList | null>;
   patchDocument: ReturnType<typeof usePatchDocumentField>;
+  hasPopup: boolean;
   setPopup: PopupState["setPopup"];
   deleteRows: (rowIds: Set<string>) => Promise<void>;
   onAddDraftFilter: (newFilter: Filter) => void;
@@ -211,9 +213,10 @@ export function Table({
       setPopup({
         type: "editDocument",
         document,
+        tableName,
       });
     },
-    [setPopup],
+    [setPopup, tableName],
   );
 
   return (
@@ -316,7 +319,7 @@ export function Table({
           </ScrollingComponent>
         </DndProvider>
       </Panel>
-      {selectedRows[0].size > 0 && (
+      {!hasPopup && selectedRows[0].size > 0 && (
         <>
           <ResizeHandle
             collapsed={collapsed}

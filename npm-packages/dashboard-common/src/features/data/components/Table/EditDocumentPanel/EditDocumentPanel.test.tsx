@@ -16,6 +16,7 @@ import {
 } from "@common/features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { PanelGroup } from "react-resizable-panels";
 
 jest.mock("@monaco-editor/react", () => (p: any) => MockMonaco(p));
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
@@ -38,12 +39,17 @@ describe("EditDocumentPanel", () => {
     render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={jest.fn()}
-            onSave={jest.fn()}
-            defaultDocument={{ ari: 1 }}
-            tableName="myTable"
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={jest.fn()}
+              onSave={jest.fn()}
+              defaultDocument={{ ari: 1 }}
+              tableName="myTable"
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
@@ -76,12 +82,17 @@ describe("EditDocumentPanel", () => {
     render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={jest.fn()}
-            onSave={onSave}
-            defaultDocument={{ ari: 1 }}
-            tableName="myTable"
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={jest.fn()}
+              onSave={onSave}
+              defaultDocument={{ ari: 1 }}
+              tableName="myTable"
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
@@ -119,12 +130,17 @@ describe("EditDocumentPanel", () => {
     render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={onClose}
-            onSave={jest.fn()}
-            defaultDocument={{ ari: 1 }}
-            tableName="myTable"
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={onClose}
+              onSave={jest.fn()}
+              defaultDocument={{ ari: 1 }}
+              tableName="myTable"
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
@@ -150,13 +166,18 @@ describe("EditDocumentPanel", () => {
     render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={onClose}
-            onSave={jest.fn()}
-            defaultDocument={{ _id: "123", ari: 1 }}
-            tableName="myTable"
-            editing
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={onClose}
+              onSave={jest.fn()}
+              defaultDocument={{ _id: "123", ari: 1 }}
+              tableName="myTable"
+              editing
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
@@ -174,7 +195,7 @@ describe("EditDocumentPanel", () => {
     const { result } = renderHook(() => useDocumentDrafts());
     expect(result.current[0]).toEqual({});
 
-    // Simualting a draft being previously set
+    // Simulating a draft being previously set
     act(() => {
       result.current[1]({ "add-null-myTable": [{ ari: 2 }] });
     });
@@ -182,12 +203,17 @@ describe("EditDocumentPanel", () => {
     const { unmount } = render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={jest.fn()}
-            onSave={jest.fn()}
-            defaultDocument={{ ari: 1 }}
-            tableName="myTable"
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={jest.fn()}
+              onSave={jest.fn()}
+              defaultDocument={{ ari: 1 }}
+              tableName="myTable"
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
@@ -209,12 +235,17 @@ describe("EditDocumentPanel", () => {
     const { unmount: unmount2 } = render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={jest.fn()}
-            onSave={jest.fn()}
-            defaultDocument={{ ari: 1 }}
-            tableName="notMyTable"
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={jest.fn()}
+              onSave={jest.fn()}
+              defaultDocument={{ ari: 1 }}
+              tableName="notMyTable"
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
@@ -231,12 +262,17 @@ describe("EditDocumentPanel", () => {
     render(
       <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
         <ConvexProvider client={mockClient}>
-          <EditDocumentPanel
-            onClose={jest.fn()}
-            onSave={jest.fn()}
-            defaultDocument={{ ari: 1 }}
-            tableName="myTable"
-          />
+          <PanelGroup
+            direction="horizontal"
+            className="flex h-full grow items-stretch overflow-hidden"
+          >
+            <EditDocumentPanel
+              onClose={jest.fn()}
+              onSave={jest.fn()}
+              defaultDocument={{ ari: 1 }}
+              tableName="myTable"
+            />
+          </PanelGroup>
         </ConvexProvider>
       </DeploymentInfoContext.Provider>,
     );
