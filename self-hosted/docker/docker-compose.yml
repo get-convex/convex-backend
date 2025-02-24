@@ -1,6 +1,6 @@
 services:
   backend:
-    image: ghcr.io/get-convex/convex-backend:86ae5d34c8164075b66fa0c52beabd19212d8df7
+    image: ghcr.io/get-convex/convex-backend:fff8e431b95f4d9fde899ce348f8e8f23210aad3
     ports:
       - "${PORT:-3210}:3210"
       - "${SITE_PROXY_PORT:-3211}:3211"
@@ -27,7 +27,7 @@ services:
       start_period: 10s
 
   dashboard:
-    image: ghcr.io/get-convex/convex-dashboard:86ae5d34c8164075b66fa0c52beabd19212d8df7
+    image: ghcr.io/get-convex/convex-dashboard:fff8e431b95f4d9fde899ce348f8e8f23210aad3
     ports:
       - "${DASHBOARD_PORT:-6791}:6791"
     environment:

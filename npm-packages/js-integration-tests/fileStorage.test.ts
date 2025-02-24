@@ -53,9 +53,12 @@ describe("File storage with HTTPClient", () => {
 
     const getResult = await fetch(getUrl!);
     expect(getResult.headers.get("Content-Type")).toEqual("text/plain");
-    expect(getResult.headers.get("Content-Length")).toEqual(
-      "helloworld".length.toString(),
-    );
+    // Only check Content-Length if response is not compressed or chunked (e.g. on fly.io)
+    if (!getResult.headers.get("Transfer-Encoding")) {
+      expect(getResult.headers.get("Content-Length")).toEqual(
+        "helloworld".length.toString(),
+      );
+    }
     expect(getResult.headers.get("Cache-Control")).toEqual(
       "private, max-age=2592000",
     );
@@ -504,9 +507,12 @@ describe("File storage with HTTP actions", () => {
 
     const getResult = await fetch(getUrl.href);
     expect(getResult.headers.get("Content-Type")).toEqual("text/plain");
-    expect(getResult.headers.get("Content-Length")).toEqual(
-      "helloworld".length.toString(),
-    );
+    // Only check Content-Length if response is not compressed or chunked (e.g. on fly.io)
+    if (!getResult.headers.get("Transfer-Encoding")) {
+      expect(getResult.headers.get("Content-Length")).toEqual(
+        "helloworld".length.toString(),
+      );
+    }
     expect(await getResult.text()).toEqual("helloworld");
   });
 
@@ -527,9 +533,12 @@ describe("File storage with HTTP actions", () => {
 
     const getResult = await fetch(getUrl.href);
     expect(getResult.headers.get("Content-Type")).toEqual("text/plain");
-    expect(getResult.headers.get("Content-Length")).toEqual(
-      "helloworld".length.toString(),
-    );
+    // Only check Content-Length if response is not compressed or chunked (e.g. on fly.io)
+    if (!getResult.headers.get("Transfer-Encoding")) {
+      expect(getResult.headers.get("Content-Length")).toEqual(
+        "helloworld".length.toString(),
+      );
+    }
     expect(await getResult.text()).toEqual("helloworld");
   });
 

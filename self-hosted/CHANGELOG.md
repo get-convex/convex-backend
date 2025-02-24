@@ -10,6 +10,13 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-02-21 `fff8e431b95f4d9fde899ce348f8e8f23210aad3`
+
+- Support streaming import. Read more on how to set up streaming import
+  [here](https://docs.convex.dev/production/integrations/streaming-import-export#streaming-import)
+- Fix bug in routing to HTTP actions. Read more
+  [here](https://github.com/get-convex/convex-backend/commit/1652ee81d8a01fdeed98b0e4c923a89d1672f8ad).
+
 ## 2025-02-19 `86ae5d34c8164075b66fa0c52beabd19212d8df7`
 
 - Fix bug in MySQL where certificates were not verified upon connection. Now,
