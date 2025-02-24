@@ -11,7 +11,7 @@ on:
 
 jobs:
   release_backend:
-    uses: ./.github/workflows/release_local_backend.yml.oss
+    uses: ./.github/workflows/release_local_backend.yml
     with:
       tag_latest: ${{ inputs.tag_latest }}
     permissions:
@@ -20,7 +20,7 @@ jobs:
       id-token: write
 
   release_dashboard:
-    uses: ./.github/workflows/release_local_dashboard.yml.oss
+    uses: ./.github/workflows/release_local_dashboard.yml
     with:
       tag_latest: ${{ inputs.tag_latest }}
     permissions:
