@@ -392,7 +392,7 @@ function DeploymentWithConnectionState({
       setConnectionState(
         nextConnectionState.isWebSocketConnected ? "Connected" : "Disconnected",
       );
-    }, 5000);
+    }, 2500);
     return () => clearInterval(checkConnection);
   });
   useEffect(() => {
@@ -426,7 +426,7 @@ function DeploymentWithConnectionState({
 function LocalDeploymentDisconnectOverlay() {
   return (
     <div
-      className="absolute z-50 flex h-full w-full items-center justify-center"
+      className="absolute z-50 mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
       style={{
         backdropFilter: "blur(0.5rem)",
       }}
@@ -454,7 +454,7 @@ function SelfHostedDisconnectOverlay({
 }) {
   return (
     <div
-      className="absolute z-50 flex h-full w-full items-center justify-center"
+      className="absolute z-50  mt-[3.5rem] flex h-[calc(100vh-3.5rem)] w-full items-center justify-center"
       style={{
         backdropFilter: "blur(0.5rem)",
       }}
