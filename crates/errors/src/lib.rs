@@ -457,7 +457,7 @@ impl ErrorMetadata {
             | ErrorCode::RejectedBeforeExecution
             | ErrorCode::OperationalInternalServerError => Some((sentry::Level::Warning, None)),
 
-            // 1% sampling for OCC/Overloaded/RateLimited, since we only really care about the
+            // Sampling for OCC/Overloaded/RateLimited, since we only really care about the
             // details if they happen at high volume.
             ErrorCode::RateLimited => Some((sentry::Level::Info, Some(0.001))),
             ErrorCode::OCC {
@@ -466,6 +466,9 @@ impl ErrorMetadata {
             ErrorCode::OCC {
                 is_system: true, ..
             } => Some((sentry::Level::Warning, Some(0.01))),
+            ErrorCode::Overloaded if self.short_msg == "CommitterFullError" => {
+                Some((sentry::Level::Warning, Some(0.001)))
+            },
             // we want to see these a bit more than the others above
             ErrorCode::Overloaded => Some((sentry::Level::Warning, Some(0.1))),
         }
