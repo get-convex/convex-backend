@@ -109,6 +109,22 @@ export type ConnectionState = {
   hasInflightRequests: boolean;
   isWebSocketConnected: boolean;
   timeOfOldestInflightRequest: Date | null;
+  /**
+   * True if the client has ever opened a WebSocket to the "ready" state.
+   */
+  hasEverConnected: boolean;
+  /**
+   * The number of times this client has connected to the Convex backend.
+   *
+   * A number of things can cause the client to reconnect -- server errors,
+   * bad internet, auth expiring. But this number being high is an indication
+   * that the client is having trouble keeping a stable connection.
+   */
+  connectionCount: number;
+  /**
+   * The number of times this client has tried (and failed) to connect to the Convex backend.
+   */
+  connectionRetries: number;
 };
 
 /**
@@ -672,9 +688,13 @@ export class BaseConvexClient {
    * @returns The {@link ConnectionState} with the Convex backend.
    */
   connectionState(): ConnectionState {
+    const wsConnectionState = this.webSocketManager.connectionState();
     return {
       hasInflightRequests: this.requestManager.hasInflightRequests(),
-      isWebSocketConnected: this.webSocketManager.socketState() === "ready",
+      isWebSocketConnected: wsConnectionState.isConnected,
+      hasEverConnected: wsConnectionState.hasEverConnected,
+      connectionCount: wsConnectionState.connectionCount,
+      connectionRetries: wsConnectionState.connectionRetries,
       timeOfOldestInflightRequest:
         this.requestManager.timeOfOldestInflightRequest(),
     };

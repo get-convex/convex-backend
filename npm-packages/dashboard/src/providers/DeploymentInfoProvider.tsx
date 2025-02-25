@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import {
   captureException,
   captureMessage,
+  addBreadcrumb,
   ErrorBoundary,
 } from "@sentry/nextjs";
 import { reportHttpError } from "hooks/fetching";
@@ -59,6 +60,7 @@ export function DeploymentInfoProvider({
       );
       setDeploymentInfo({
         ...info,
+        addBreadcrumb,
         captureMessage,
         captureException,
         reportHttpError,

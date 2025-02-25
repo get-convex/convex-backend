@@ -1,8 +1,9 @@
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { ConvexHttpClient } from "convex/browser";
+import { ConnectionState, ConvexHttpClient } from "convex/browser";
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -24,6 +25,12 @@ export type DeploymentInfo = (
     }
   | { ok: false; errorCode: string; errorMessage: string }
 ) & {
+  addBreadcrumb: (breadcrumb: {
+    message?: string;
+    data?: {
+      [key: string]: any;
+    };
+  }) => void;
   captureMessage: (msg: string) => void;
   captureException: (e: any) => void;
   reportHttpError: (
@@ -338,6 +345,8 @@ export function WaitForDeploymentApi({
   );
 }
 
+const CONNECTION_STATE_CHECK_INTERVAL_MS = 2500;
+
 function DeploymentWithConnectionState({
   deployment,
   children,
@@ -345,29 +354,52 @@ function DeploymentWithConnectionState({
   deployment: ConnectedDeployment;
   children: ReactNode;
 }) {
-  const { isSelfHosted, captureMessage } = useContext(DeploymentInfoContext);
+  const { isSelfHosted, captureMessage, addBreadcrumb } = useContext(
+    DeploymentInfoContext,
+  );
   const { client, deploymentUrl, deploymentName } = deployment;
-  const [connectionState, setConnectionState] = useState<
-    "Connected" | "Disconnected" | "LocalDeploymentMismatch" | null
-  >(null);
-  const [isDisconnected, setIsDisconnected] = useState(false);
-  useEffect(() => {
-    const checkConnection = setInterval(async () => {
-      if (connectionState === "LocalDeploymentMismatch") {
-        // Connection status doesn't matter since we're connected to the wrong deployment
-        return;
+  const [lastObservedConnectionState, setLastObservedConnectionState] =
+    useState<
+      | {
+          state: ConnectionState;
+          time: Date;
+        }
+      | "LocalDeploymentMismatch"
+      | null
+    >(null);
+  const [isDisconnected, setIsDisconnected] = useState<boolean | null>(null);
+
+  const handleConnectionStateChange = useCallback(
+    async (
+      state: ConnectionState,
+      previousState: {
+        time: Date;
+        state: ConnectionState;
+      } | null,
+    ): Promise<
+      "Unknown" | "Disconnected" | "Connected" | "LocalDeploymentMismatch"
+    > => {
+      if (previousState === null) {
+        return "Unknown";
+      }
+      if (
+        previousState.time.getTime() <
+        Date.now() - CONNECTION_STATE_CHECK_INTERVAL_MS * 2
+      ) {
+        // If the previous state was observed a while ago, consider it stale (maybe the tab
+        // got backgrounded).
+        return "Unknown";
       }
 
-      // Check WS connection status -- if we're disconnected twice in a row, treat
-      // the deployment as disconnected.
-      const nextConnectionState = client.connectionState();
-      if (
-        nextConnectionState.isWebSocketConnected === false &&
-        connectionState === "Disconnected"
-      ) {
-        setIsDisconnected(true);
+      if (state.isWebSocketConnected === false) {
+        if (previousState.state.isWebSocketConnected === false) {
+          // we've been in state `Disconnected` twice in a row, consider the deployment
+          // to be disconnected.
+          return "Disconnected";
+        }
+        return "Unknown";
       }
-      if (nextConnectionState.isWebSocketConnected === true) {
+      if (state.isWebSocketConnected === true) {
         // If this is a local deployment, check that the instance name matches what we expect.
         if (deploymentName.startsWith("local-")) {
           let instanceNameResp: Response | null = null;
@@ -381,30 +413,96 @@ function DeploymentWithConnectionState({
           if (instanceNameResp !== null && instanceNameResp.ok) {
             const instanceName = await instanceNameResp.text();
             if (instanceName !== deploymentName) {
-              setConnectionState("LocalDeploymentMismatch");
-              setIsDisconnected(true);
-              return;
+              return "LocalDeploymentMismatch";
             }
           }
         }
-        setIsDisconnected(false);
+        return "Connected";
       }
-      setConnectionState(
-        nextConnectionState.isWebSocketConnected ? "Connected" : "Disconnected",
-      );
-    }, 2500);
-    return () => clearInterval(checkConnection);
-  });
+      return "Unknown";
+    },
+    [deploymentName, deploymentUrl],
+  );
+
   useEffect(() => {
-    if (isDisconnected && !deploymentName.startsWith("local-")) {
-      // Log to sentry including the instance name when we seem to be unable to connect to a cloud deployment
-      captureMessage(`Cloud deployment is disconnected: ${deploymentName}`);
-    }
-  }, [isDisconnected, deploymentName, captureMessage]);
+    // Poll `.connectionState()` every 5 seconds. If we're disconnected twice in a row,
+    // consider the deployment to be disconnected.
+    const checkConnection = setInterval(async () => {
+      if (lastObservedConnectionState === "LocalDeploymentMismatch") {
+        // Connection status doesn't matter since we're connected to the wrong deployment
+        return;
+      }
+      // Check WS connection status -- if we're disconnected twice in a row, treat
+      // the deployment as disconnected.
+      const nextConnectionState = client.connectionState();
+      const isLocalDeployment = deploymentName.startsWith("local-");
+      const result = await handleConnectionStateChange(
+        nextConnectionState,
+        lastObservedConnectionState,
+      );
+      setLastObservedConnectionState({
+        state: nextConnectionState,
+        time: new Date(),
+      });
+      switch (result) {
+        case "Disconnected":
+          // If this is first time transitioning to disconnected, log to sentry that we've disconnected
+          if (isDisconnected !== true) {
+            if (!isLocalDeployment) {
+              addBreadcrumb({
+                message: `Cloud deployment disconnected: ${deploymentName}`,
+                data: {
+                  hasEverConnected: nextConnectionState.hasEverConnected,
+                  connectionCount: nextConnectionState.connectionCount,
+                  connectionRetries: nextConnectionState.connectionRetries,
+                },
+              });
+              // Log to sentry including the instance name when we seem to be unable to connect to a cloud deployment
+              captureMessage(`Cloud deployment is disconnected`);
+            }
+          }
+          setIsDisconnected(true);
+          break;
+        case "LocalDeploymentMismatch":
+          setLastObservedConnectionState("LocalDeploymentMismatch");
+          break;
+        case "Unknown":
+          setIsDisconnected(null);
+          break;
+        case "Connected":
+          // If transitioning from disconnected to connected, log to sentry that we've reconnected
+          if (isDisconnected === true) {
+            if (!isLocalDeployment) {
+              addBreadcrumb({
+                message: `Cloud deployment reconnected: ${deploymentName}`,
+              });
+              // Log to sentry including the instance name when we seem to be unable to connect to a cloud deployment
+              captureMessage(`Cloud deployment has reconnected`);
+            }
+          }
+          setIsDisconnected(false);
+          break;
+        default: {
+          const _exhaustiveCheck: never = result;
+          throw new Error(`Unknown connection state: ${result}`);
+        }
+      }
+    }, CONNECTION_STATE_CHECK_INTERVAL_MS);
+    return () => clearInterval(checkConnection);
+  }, [
+    lastObservedConnectionState,
+    deploymentName,
+    deploymentUrl,
+    client,
+    addBreadcrumb,
+    captureMessage,
+    handleConnectionStateChange,
+    isDisconnected,
+  ]);
   const value = useMemo(
     () => ({
       deployment,
-      isDisconnected,
+      isDisconnected: isDisconnected === true,
     }),
     [deployment, isDisconnected],
   );

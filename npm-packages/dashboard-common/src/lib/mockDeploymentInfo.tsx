@@ -5,6 +5,7 @@ export const mockDeploymentInfo: DeploymentInfo = {
   reportHttpError: () => {},
   captureException: () => {},
   captureMessage: () => {},
+  addBreadcrumb: () => {},
   deploymentUrl: process.env.NEXT_PUBLIC_DEPLOYMENT_URL!,
   adminKey: process.env.NEXT_PUBLIC_ADMIN_KEY!,
   useCurrentTeam: () => ({

@@ -99,6 +99,7 @@ export default App;
 
 const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   ok: true,
+  addBreadcrumb: console.error,
   captureMessage: console.error,
   captureException: console.error,
   reportHttpError: (

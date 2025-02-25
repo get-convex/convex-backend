@@ -101,6 +101,7 @@ export class WebSocketManager {
   private socket: Socket;
 
   private connectionCount: number;
+  private _hasEverConnected: boolean = false;
   private lastCloseReason: string | null;
 
   /** Upon HTTPS/WSS failure, the first jittered backoff duration, in ms. */
@@ -197,6 +198,7 @@ export class WebSocketManager {
       };
       this.resetServerInactivityTimeout();
       if (this.socket.paused === "no") {
+        this._hasEverConnected = true;
         this.onOpen({
           connectionCount: this.connectionCount,
           lastCloseReason: this.lastCloseReason,
@@ -496,6 +498,20 @@ export class WebSocketManager {
       }
     }
     this.connect();
+  }
+
+  connectionState(): {
+    isConnected: boolean;
+    hasEverConnected: boolean;
+    connectionCount: number;
+    connectionRetries: number;
+  } {
+    return {
+      isConnected: this.socket.state === "ready",
+      hasEverConnected: this._hasEverConnected,
+      connectionCount: this.connectionCount,
+      connectionRetries: this.retries,
+    };
   }
 
   private _logVerbose(message: string) {
