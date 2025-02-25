@@ -1,0 +1,16 @@
+[package]
+name = "aws_utils"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+aws-types = { workspace = true } 
+futures-async-stream = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true 
