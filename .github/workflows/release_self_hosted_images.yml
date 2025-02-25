@@ -11,7 +11,6 @@ on:
   push:
     branches:
       - main
-      - emma/release-docker-images-flow # test
     paths:
       - "crates/model/src/migrations.rs"
 
