@@ -8,6 +8,12 @@ on:
         type: boolean
         default: false
         required: true
+  push:
+    branches:
+      - main
+      - emma/release-docker-images-flow # test
+    paths:
+      - "crates/model/src/migrations.rs"
 
 jobs:
   release_backend:
