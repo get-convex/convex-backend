@@ -52,29 +52,32 @@ async function runNetworkTest(
     ctx,
     options,
   );
-  const url = await loadUrl(ctx, deploymentSelection);
-  await runNetworkTestOnUrl(ctx, url, options);
+  const { url, adminKey } = await loadUrlAndAdminKey(ctx, deploymentSelection);
+  await runNetworkTestOnUrl(ctx, { url, adminKey }, options);
 }
 
-async function loadUrl(
+async function loadUrlAndAdminKey(
   ctx: Context,
   deploymentSelection: DeploymentSelection,
-): Promise<string> {
+): Promise<{ url: string; adminKey: string | null }> {
   // Try to fetch the URL following the usual paths, but special case the
   // `--url` argument in case the developer doesn't have network connectivity.
   let url: string;
-  if (
-    deploymentSelection.kind === "urlWithAdminKey" ||
-    deploymentSelection.kind === "urlWithLogin"
-  ) {
+  let adminKey: string | null;
+  if (deploymentSelection.kind === "urlWithAdminKey") {
     url = deploymentSelection.url;
+    adminKey = deploymentSelection.adminKey;
+  } else if (deploymentSelection.kind === "urlWithLogin") {
+    url = deploymentSelection.url;
+    adminKey = null;
   } else {
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
       deploymentSelection,
     );
     url = credentials.url;
+    adminKey = credentials.adminKey;
   }
-  logMessage(ctx, `${chalk.green(`✔`)} Project URL: ${url}`);
-  return url;
+  logMessage(ctx, `${chalk.green(`✔`)} Deployment URL: ${url}`);
+  return { url, adminKey };
 }

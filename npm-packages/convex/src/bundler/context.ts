@@ -127,9 +127,9 @@ export function logError(ctx: Context, message: string) {
 }
 
 // Handles clearing spinner so that it doesn't get messed up
-export function logWarning(ctx: Context, message: string) {
+export function logWarning(ctx: Context, ...logged: any) {
   ctx.spinner?.clear();
-  logToStderr(message);
+  logToStderr(...logged);
 }
 
 // Handles clearing spinner so that it doesn't get messed up

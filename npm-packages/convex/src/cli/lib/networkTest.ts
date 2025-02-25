@@ -3,6 +3,8 @@ import {
   logFailure,
   logFinishedStep,
   logMessage,
+  logVerbose,
+  logWarning,
 } from "../../bundler/context.js";
 import chalk from "chalk";
 import * as net from "net";
@@ -14,13 +16,15 @@ import {
   formatSize,
   ThrowingFetchError,
 } from "./utils/utils.js";
-
+import ws from "ws";
+import { BaseConvexClient } from "../../browser/index.js";
+import { Logger } from "../../browser/logging.js";
 const ipFamilyNumbers = { ipv4: 4, ipv6: 6, auto: 0 } as const;
 const ipFamilyNames = { 4: "ipv4", 6: "ipv6", 0: "auto" } as const;
 
 export async function runNetworkTestOnUrl(
   ctx: Context,
-  url: string,
+  { url, adminKey }: { url: string; adminKey: string | null },
   options: {
     ipFamily?: string;
     speedTest?: boolean;
@@ -32,8 +36,11 @@ export async function runNetworkTestOnUrl(
   // Second, check to see if we can open a TCP connection to the hostname.
   await checkTcp(ctx, url, options.ipFamily ?? "auto");
 
-  // Fourth, do a simple HTTPS request and check that we receive a 200.
+  // Third, do a simple HTTPS request and check that we receive a 200.
   await checkHttp(ctx, url);
+
+  // Fourth, check that we can open a WebSocket connection to the hostname.
+  await checkWs(ctx, { url, adminKey });
 
   // Fifth, check a small echo request, much smaller than most networks' MTU.
   await checkEcho(ctx, url, 128);
@@ -186,6 +193,80 @@ async function checkHttpOnce(
     ctx,
     `${chalk.green(`✔`)} OK: ${name} check (${formatDuration(duration)})`,
   );
+}
+
+async function checkWs(
+  ctx: Context,
+  { url, adminKey }: { url: string; adminKey: string | null },
+) {
+  if (adminKey === null) {
+    logWarning(
+      ctx,
+      "Skipping WebSocket check because no admin key was provided.",
+    );
+    return;
+  }
+  let queryPromiseResolver: ((value: string) => void) | null = null;
+  const queryPromise = new Promise<string | null>((resolve) => {
+    queryPromiseResolver = resolve;
+  });
+  const logger = new Logger({
+    verbose: process.env.CONVEX_VERBOSE !== undefined,
+  });
+  logger.addLogLineListener((level, ...args) => {
+    switch (level) {
+      case "debug":
+        logVerbose(ctx, ...args);
+        break;
+      case "info":
+        logVerbose(ctx, ...args);
+        break;
+      case "warn":
+        logWarning(ctx, ...args);
+        break;
+      case "error":
+        // TODO: logFailure is a little hard to use here because it also interacts
+        // with the spinner and requires a string.
+        logWarning(ctx, ...args);
+        break;
+    }
+  });
+  const convexClient = new BaseConvexClient(
+    url,
+    (updatedQueries) => {
+      for (const queryToken of updatedQueries) {
+        const result = convexClient.localQueryResultByToken(queryToken);
+        if (typeof result === "string" && queryPromiseResolver !== null) {
+          queryPromiseResolver(result);
+          queryPromiseResolver = null;
+        }
+      }
+    },
+    {
+      webSocketConstructor: ws as unknown as typeof WebSocket,
+      unsavedChangesWarning: false,
+      logger,
+    },
+  );
+  convexClient.setAdminAuth(adminKey);
+  convexClient.subscribe("_system/cli/convexUrl:cloudUrl", {});
+  const racePromise = Promise.race([
+    queryPromise,
+    new Promise((resolve) => setTimeout(() => resolve(null), 10000)),
+  ]);
+  const cloudUrl = await racePromise;
+  if (cloudUrl === null) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      printedMessage: "FAIL: Failed to connect to deployment over WebSocket.",
+    });
+  } else {
+    logMessage(
+      ctx,
+      `${chalk.green(`✔`)} OK: WebSocket connection established.`,
+    );
+  }
 }
 
 async function checkEcho(ctx: Context, url: string, size: number) {
