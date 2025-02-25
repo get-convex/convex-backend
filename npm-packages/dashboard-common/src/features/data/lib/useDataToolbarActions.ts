@@ -32,9 +32,8 @@ export function useDataToolbarActions({
     rowIds: Set<string> | "all",
     fields: GenericDocument,
   ) => Promise<void>;
-  deleteTable: (tableName: string) => Promise<void>;
+  deleteTable: () => Promise<void>;
   clearTable: (
-    tableName: string,
     cursor: Cursor | null,
   ) => Promise<{ continueCursor: Cursor; deleted: number; hasMore: boolean }>;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
