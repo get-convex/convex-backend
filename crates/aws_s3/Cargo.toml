@@ -1,0 +1,37 @@
+[package]
+name = "aws_s3"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+aws-smithy-http = { workspace = true }
+aws_utils = { path = "../../crates/aws_utils" }
+bytes = { workspace = true }
+common = { path = "../../crates/common" }
+fastrace = { workspace = true }
+futures = { workspace = true }
+http = { workspace = true }
+metrics = { path = "../../crates/metrics" }
+pb = { path = "../../crates/pb" }
+serde_json = { workspace = true }
+storage = { path = "../../crates/storage" }
+tokio = { workspace = true }
+
+[dev-dependencies]
+common = { path = "../../crates/common", features = ["testing"] }
+convex_macro = { path = "../../crates/convex_macro" }
+metrics = { path = "../../crates/metrics", features = ["testing"] }
+runtime = { path = "../../crates/runtime" }
+storage = { path = "../../crates/storage", features = ["testing"] }
+tokio-stream = { workspace = true }
+
+[lints]
+workspace = true

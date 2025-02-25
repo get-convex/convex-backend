@@ -18,6 +18,7 @@ csv-async = "1.2"
 atomic_refcell = "0.1.13"
 aws-config = "1.1"
 aws-sdk-s3 = "1.14.0"
+aws-smithy-http = "0.60.8"
 aws-types = "1.1"
 axum = { version = "0.7", features = [ "ws", "original-uri", "macros", "multipart" ] }
 axum-extra = { version = "0.9.3", features = [ "typed-header", "cookie" ] }

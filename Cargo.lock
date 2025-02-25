@@ -903,6 +903,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "aws_s3"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "aws-config",
+ "aws-sdk-s3",
+ "aws-smithy-http",
+ "aws_utils",
+ "bytes",
+ "common",
+ "convex_macro",
+ "fastrace",
+ "futures",
+ "http 1.1.0",
+ "metrics",
+ "pb",
+ "runtime",
+ "serde_json",
+ "storage",
+ "tokio",
+ "tokio-stream",
+]
+
+[[package]]
 name = "aws_utils"
 version = "0.1.0"
 dependencies = [
