@@ -1,9 +1,7 @@
 use metrics::{
     log_counter_with_labels,
     log_distribution_with_labels,
-    log_gauge_with_labels,
     register_convex_counter,
-    register_convex_gauge,
     register_convex_histogram,
     StaticMetricLabel,
     StatusTimer,
@@ -53,26 +51,13 @@ pub struct AppWorkerStatus {
 
 impl Drop for AppWorkerStatus {
     fn drop(&mut self) {
-        log_worker_status(false, self.name);
+        tracing::debug!("Worker {} finished", self.name);
     }
 }
 
-register_convex_gauge!(
-    APP_WORKER_IN_PROGRESS_TOTAL,
-    "1 if a worker is working, 0 otherwise",
-    &["worker"],
-);
 pub fn log_worker_starting(name: &'static str) -> AppWorkerStatus {
-    log_worker_status(true, name);
+    tracing::debug!("Worker {} started", name);
     AppWorkerStatus { name }
-}
-
-fn log_worker_status(is_working: bool, name: &'static str) {
-    log_gauge_with_labels(
-        &APP_WORKER_IN_PROGRESS_TOTAL,
-        if is_working { 1f64 } else { 0f64 },
-        vec![StaticMetricLabel::new("worker", name)],
-    )
 }
 
 register_convex_counter!(

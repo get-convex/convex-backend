@@ -12,10 +12,7 @@ use metrics::{
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
-    log_gauge,
-    log_gauge_with_labels,
     register_convex_counter,
-    register_convex_gauge,
     register_convex_histogram,
     IntoLabel,
     StaticMetricLabel,
@@ -33,25 +30,25 @@ use crate::{
     Transaction,
 };
 
-register_convex_gauge!(
+register_convex_histogram!(
     DOCUMENTS_SIZE_BYTES,
     "Total size of document store in bytes"
 );
 pub fn log_document_store_size(total_size: u64) {
-    log_gauge(&DOCUMENTS_SIZE_BYTES, total_size as f64);
+    log_distribution(&DOCUMENTS_SIZE_BYTES, total_size as f64);
 }
 
-register_convex_gauge!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");
+register_convex_histogram!(DOCUMENTS_KEYS_TOTAL, "Total number of document keys");
 pub fn log_num_keys(num_keys: u64) {
-    log_gauge(&DOCUMENTS_KEYS_TOTAL, num_keys as f64);
+    log_distribution(&DOCUMENTS_KEYS_TOTAL, num_keys as f64);
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     INDEXES_TO_BACKFILL_TOTAL,
     "Number of indexes needing backfill"
 );
 pub fn log_num_indexes_to_backfill(num_indexes: usize) {
-    log_gauge(&INDEXES_TO_BACKFILL_TOTAL, num_indexes as f64);
+    log_distribution(&INDEXES_TO_BACKFILL_TOTAL, num_indexes as f64);
 }
 
 register_convex_counter!(INDEXES_BACKFILLED_TOTAL, "Number of indexes backfilled");
@@ -406,49 +403,49 @@ pub fn retention_delete_document_chunk_timer() -> Timer<VMHistogram> {
     Timer::new(&RETENTION_DELETE_DOCUMENT_CHUNK_SECONDS)
 }
 
-register_convex_gauge!(RETENTION_CURSOR_AGE_SECONDS, "Age of the retention cursor");
+register_convex_histogram!(RETENTION_CURSOR_AGE_SECONDS, "Age of the retention cursor");
 pub fn log_retention_cursor_age(age_secs: f64) {
-    log_gauge(&RETENTION_CURSOR_AGE_SECONDS, age_secs)
+    log_distribution(&RETENTION_CURSOR_AGE_SECONDS, age_secs)
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     RETENTION_CURSOR_LAG_SECONDS,
     "Lag between the retention cursor and the min index snapshot"
 );
 pub fn log_retention_cursor_lag(age_secs: f64) {
-    log_gauge(&RETENTION_CURSOR_LAG_SECONDS, age_secs)
+    log_distribution(&RETENTION_CURSOR_LAG_SECONDS, age_secs)
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     DOCUMENT_RETENTION_CURSOR_AGE_SECONDS,
     "Age of the document retention cursor"
 );
 pub fn log_document_retention_cursor_age(age_secs: f64) {
-    log_gauge(&DOCUMENT_RETENTION_CURSOR_AGE_SECONDS, age_secs)
+    log_distribution(&DOCUMENT_RETENTION_CURSOR_AGE_SECONDS, age_secs)
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     DOCUMENT_RETENTION_CURSOR_LAG_SECONDS,
     "Lag between the retention cursor and the min document snapshot"
 );
 pub fn log_document_retention_cursor_lag(age_secs: f64) {
-    log_gauge(&DOCUMENT_RETENTION_CURSOR_LAG_SECONDS, age_secs)
+    log_distribution(&DOCUMENT_RETENTION_CURSOR_LAG_SECONDS, age_secs)
 }
 
-register_convex_gauge!(
+register_convex_counter!(
     RETENTION_MISSING_CURSOR_INFO,
     "Index retention has no cursor"
 );
 pub fn log_retention_no_cursor() {
-    log_gauge(&RETENTION_MISSING_CURSOR_INFO, 1.0)
+    log_counter(&RETENTION_MISSING_CURSOR_INFO, 1)
 }
 
-register_convex_gauge!(
+register_convex_counter!(
     DOCUMENT_RETENTION_MISSING_CURSOR_INFO,
     "Document retention has no cursor"
 );
 pub fn log_document_retention_no_cursor() {
-    log_gauge(&DOCUMENT_RETENTION_MISSING_CURSOR_INFO, 1.0)
+    log_counter(&DOCUMENT_RETENTION_MISSING_CURSOR_INFO, 1)
 }
 
 register_convex_counter!(
@@ -643,34 +640,6 @@ register_convex_counter!(
 );
 pub fn log_virtual_table_query() {
     log_counter(&VIRTUAL_TABLE_QUERY_REQUESTS_TOTAL, 1);
-}
-
-pub struct DatabaseWorkerStatus {
-    name: &'static str,
-}
-
-impl Drop for DatabaseWorkerStatus {
-    fn drop(&mut self) {
-        log_worker_status(false, self.name);
-    }
-}
-
-register_convex_gauge!(
-    DATABASE_WORKER_IN_PROGRESS_TOTAL,
-    "1 if a worker is working, 0 otherwise",
-    &["worker"],
-);
-pub fn log_worker_starting(name: &'static str) -> DatabaseWorkerStatus {
-    log_worker_status(true, name);
-    DatabaseWorkerStatus { name }
-}
-
-fn log_worker_status(is_working: bool, name: &'static str) {
-    log_gauge_with_labels(
-        &DATABASE_WORKER_IN_PROGRESS_TOTAL,
-        if is_working { 1f64 } else { 0f64 },
-        vec![StaticMetricLabel::new("worker", name)],
-    )
 }
 
 register_convex_histogram!(

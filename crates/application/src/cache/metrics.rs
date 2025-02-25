@@ -165,6 +165,8 @@ pub fn log_validate_system_time_in_the_future() {
     log_counter(&CACHE_VALIDATE_SYSTEM_TIME_IN_THE_FUTURE_TOTAL, 1);
 }
 
+// n.b. this gauge is safe in a multi-instance context because it is shared
+// across all instances.
 register_convex_gauge!(CACHE_SIZE_BYTES, "Size of the cache in bytes");
 pub fn log_cache_size(size: usize) {
     log_gauge(&CACHE_SIZE_BYTES, size as f64)
@@ -194,6 +196,8 @@ register_convex_counter!(
     QUERY_CACHE_EVICTED_TOTAL,
     "The total number of records evicted",
 );
+// n.b. this gauge is safe in a multi-instance context because it is shared
+// across all instances.
 register_convex_gauge!(
     QUERY_CACHE_EVICTED_AGE_SECONDS,
     "The age of the last evicted entry",

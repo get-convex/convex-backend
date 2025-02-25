@@ -6,9 +6,8 @@ use metrics::{
     log_counter,
     log_counter_with_labels,
     log_distribution,
-    log_gauge_with_labels,
+    log_distribution_with_labels,
     register_convex_counter,
-    register_convex_gauge,
     register_convex_histogram,
     StaticMetricLabel,
     StatusTimer,
@@ -69,7 +68,7 @@ pub enum OutstandingFunctionState {
     Waiting,
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     APPLICATION_FUNCTION_RUNNER_OUTSTANDING_TOTAL,
     "The number of currently outstanding functions of a given type. Includes both running and \
      waiting functions",
@@ -88,7 +87,7 @@ pub fn log_outstanding_functions(
             OutstandingFunctionState::Waiting => "waiting",
         },
     );
-    log_gauge_with_labels(
+    log_distribution_with_labels(
         &APPLICATION_FUNCTION_RUNNER_OUTSTANDING_TOTAL,
         total as f64,
         vec![udf_type.metric_label(), state_label, env.metric_label()],

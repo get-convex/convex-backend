@@ -3,11 +3,10 @@ use std::time::Duration;
 use errors::ErrorMetadataAnyhowExt;
 use metrics::{
     log_counter_with_labels,
+    log_distribution,
     log_distribution_with_labels,
-    log_gauge,
     prometheus::VMHistogram,
     register_convex_counter,
-    register_convex_gauge,
     register_convex_histogram,
     StaticMetricLabel,
     Timer,
@@ -50,20 +49,20 @@ pub fn log_scheduled_job_failure(e: &anyhow::Error, prev_failures: u32) {
     );
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     SCHEDULED_JOB_EXECUTION_LAG_SECONDS,
     "Schedule job execution lag"
 );
 pub fn log_scheduled_job_execution_lag(lag: Duration) {
-    log_gauge(&SCHEDULED_JOB_EXECUTION_LAG_SECONDS, lag.as_secs_f64());
+    log_distribution(&SCHEDULED_JOB_EXECUTION_LAG_SECONDS, lag.as_secs_f64());
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     SCHEDULED_JOB_NUM_RUNNING_TOTAL,
     "Number of currently executing scheduled jobs"
 );
 pub fn log_num_running_jobs(num_running: usize) {
-    log_gauge(&SCHEDULED_JOB_NUM_RUNNING_TOTAL, num_running as f64);
+    log_distribution(&SCHEDULED_JOB_NUM_RUNNING_TOTAL, num_running as f64);
 }
 
 register_convex_histogram!(

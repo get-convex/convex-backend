@@ -99,7 +99,6 @@ use crate::{
     metrics::{
         log_index_backfilled,
         log_num_indexes_to_backfill,
-        log_worker_starting,
     },
     retention::LeaderRetentionManager,
     Database,
@@ -295,7 +294,6 @@ impl<RT: Runtime> IndexWorker<RT> {
     async fn run(&mut self) -> anyhow::Result<()> {
         tracing::info!("Starting IndexWorker");
         loop {
-            let status = log_worker_starting("IndexWorker");
             // Get all the documents from the `_index` table.
             let mut tx = self.database.begin(Identity::system()).await?;
             // Index doesn't have `by_creation_time` index, and thus can't be queried via
@@ -357,7 +355,6 @@ impl<RT: Runtime> IndexWorker<RT> {
             if self.should_terminate {
                 return Ok(());
             }
-            drop(status);
 
             let token = tx.into_token()?;
             let subscription = self.database.subscribe(token).await?;

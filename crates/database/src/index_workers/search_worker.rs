@@ -40,7 +40,6 @@ use crate::{
         timeout_with_jitter,
         writer::SearchIndexMetadataWriter,
     },
-    metrics::log_worker_starting,
     text_index_worker::{
         compactor::{
             new_text_compactor,
@@ -215,9 +214,7 @@ impl<RT: Runtime> SearchIndexWorker<RT> {
         backoff: &mut Backoff,
     ) -> anyhow::Result<()> {
         loop {
-            let status = log_worker_starting(name);
             let (metrics, token) = self.step().await?;
-            drop(status);
 
             if !metrics.is_empty() {
                 // We did some useful work this loop iteration that we expect is committed.

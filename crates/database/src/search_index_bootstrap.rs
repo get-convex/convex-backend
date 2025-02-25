@@ -78,10 +78,7 @@ use vector::{
 use crate::{
     committer::CommitterClient,
     index_workers::fast_forward::load_metadata_fast_forward_ts,
-    metrics::{
-        log_document_skipped,
-        log_worker_starting,
-    },
+    metrics::log_document_skipped,
 };
 
 pub const FINISHED_BOOTSTRAP_UPDATES: &str = "finished_bootstrap_updates";
@@ -244,7 +241,6 @@ impl IndexesToBootstrap {
         mut self,
         persistence: &RepeatablePersistence,
     ) -> anyhow::Result<BootstrappedSearchIndexes> {
-        let _status = log_worker_starting("SearchAndVectorBootstrap");
         let timer = crate::metrics::bootstrap_timer();
         let upper_bound = persistence.upper_bound();
         let mut num_revisions = 0;

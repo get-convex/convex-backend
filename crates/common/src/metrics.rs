@@ -43,6 +43,8 @@ pub fn log_undefined_filter() {
     log_counter(&COMMON_UNDEFINED_FILTER_TOTAL, 1);
 }
 
+// Note: These Codel queue gauges are incorrect if the process contains multiple
+// queues.
 register_convex_gauge!(COMMON_CODEL_QUEUE_LENGTH_TOTAL, "Length of the CoDel queue");
 pub fn log_codel_queue_size(size: usize) {
     log_gauge(&COMMON_CODEL_QUEUE_LENGTH_TOTAL, size as f64)

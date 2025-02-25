@@ -4,9 +4,7 @@ use errors::ErrorMetadataAnyhowExt;
 use metrics::{
     log_counter_with_labels,
     log_distribution,
-    log_gauge,
     register_convex_counter,
-    register_convex_gauge,
     register_convex_histogram,
     StaticMetricLabel,
     STATUS_LABEL,
@@ -38,7 +36,7 @@ pub fn log_cron_job_failure(e: &anyhow::Error) {
     )
 }
 
-register_convex_gauge!(CRON_JOB_EXECUTION_LAG_SECONDS, "Cron job execution lag");
+register_convex_histogram!(CRON_JOB_EXECUTION_LAG_SECONDS, "Cron job execution lag");
 pub fn log_cron_job_execution_lag(lag: Duration) {
-    log_gauge(&CRON_JOB_EXECUTION_LAG_SECONDS, lag.as_secs_f64());
+    log_distribution(&CRON_JOB_EXECUTION_LAG_SECONDS, lag.as_secs_f64());
 }

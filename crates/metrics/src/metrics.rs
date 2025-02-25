@@ -31,9 +31,9 @@ use prometheus::Registry;
 
 use crate::{
     log_counter_with_labels,
-    log_gauge,
+    log_distribution,
     register_convex_counter,
-    register_convex_gauge,
+    register_convex_histogram,
     StaticMetricLabel,
 };
 
@@ -227,18 +227,18 @@ pub fn log_invalid_metric(name: String, error: prometheus::Error) {
     }
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     DATABASE_SEARCH_IN_MEMORY_BYTES,
     "Number of bytes in memory for search indexes"
 );
 pub fn log_search_in_memory_size(bytes: usize) {
-    log_gauge(&DATABASE_SEARCH_IN_MEMORY_BYTES, bytes as f64);
+    log_distribution(&DATABASE_SEARCH_IN_MEMORY_BYTES, bytes as f64);
 }
 
-register_convex_gauge!(
+register_convex_histogram!(
     DATABASE_VECTOR_IN_MEMORY_BYTES,
     "Number of bytes in memory for vector indexes"
 );
 pub fn log_vector_in_memory_size(bytes: usize) {
-    log_gauge(&DATABASE_VECTOR_IN_MEMORY_BYTES, bytes as f64);
+    log_distribution(&DATABASE_VECTOR_IN_MEMORY_BYTES, bytes as f64);
 }
