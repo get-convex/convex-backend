@@ -19,7 +19,7 @@ jobs:
   release_backend:
     uses: ./.github/workflows/release_local_backend.yml
     with:
-      tag_latest: ${{ inputs.tag_latest }}
+      tag_latest: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}
     permissions:
       contents: read
       packages: write
@@ -28,7 +28,7 @@ jobs:
   release_dashboard:
     uses: ./.github/workflows/release_local_dashboard.yml
     with:
-      tag_latest: ${{ inputs.tag_latest }}
+      tag_latest: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}
     permissions:
       contents: read
       packages: write
