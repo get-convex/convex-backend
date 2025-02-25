@@ -75,6 +75,16 @@ export function useDeleteTeamAccessToken(teamId: number) {
   });
 }
 
+export function useDeleteAppAccessTokenByName(projectId: number) {
+  return useBBMutation({
+    path: "/delete_access_token",
+    pathParams: undefined,
+    mutateKey: "/projects/{project_id}/app_access_tokens",
+    mutatePathParams: { project_id: projectId.toString() },
+    successToast: "Application access revoked.",
+  });
+}
+
 export function useCreateTeamAccessToken(
   params:
     | { kind: "deployment"; deploymentName: string }
