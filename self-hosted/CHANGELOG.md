@@ -10,7 +10,7 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
-## 2025-02-21 `fff8e431b95f4d9fde899ce348f8e8f23210aad3`
+## 2025-02-24 `fff8e431b95f4d9fde899ce348f8e8f23210aad3`
 
 - Support streaming import. Read more on how to set up streaming import
   [here](https://docs.convex.dev/production/integrations/streaming-import-export#streaming-import)
