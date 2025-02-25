@@ -96,6 +96,7 @@ use environment_variables::{
 use exports::EXPORTS_BY_STATE_AND_TS_INDEX;
 use file_storage::FILE_STORAGE_ID_INDEX;
 use keybroker::Identity;
+use log_sinks::LogSinksTable;
 use maplit::btreeset;
 use modules::{
     MODULES_TABLE,
@@ -152,6 +153,7 @@ pub mod exports;
 pub mod external_packages;
 pub mod file_storage;
 pub mod fivetran_import;
+pub mod log_sinks;
 mod metrics;
 pub mod migrations;
 pub mod modules;
@@ -184,6 +186,7 @@ enum DefaultTableNumber {
     CronJobs = 19,
     Schemas = 20,
     CronJobLogs = 21,
+    LogSinks = 23,
     BackendState = 24,
     ExternalPackages = 25,
     ScheduledJobs = 27,
@@ -224,6 +227,7 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::CronJobs => &CronJobsTable,
             DefaultTableNumber::Schemas => &SchemasTable,
             DefaultTableNumber::CronJobLogs => &CronJobLogsTable,
+            DefaultTableNumber::LogSinks => &LogSinksTable,
             DefaultTableNumber::BackendState => &BackendStateTable,
             DefaultTableNumber::ExternalPackages => &ExternalPackagesTable,
             DefaultTableNumber::ScheduledJobs => &ScheduledJobsTable,
@@ -435,6 +439,7 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
         &SnapshotImportsTable,
         &FunctionHandlesTable,
         &CanonicalUrlsTable,
+        &LogSinksTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables
