@@ -30,7 +30,7 @@
     "@types/concat-stream": "^2.0.3",
     "@types/node": "^18.17.0",
     "@types/node-fetch": "^2.6.1",
-    "@types/uuid": "^8.3.4",
+    "@types/uuid": "^10.0.0",
     "auth0": "^4.3.1",
     "esbuild": "0.25.0",
     "googleapis": "^144.0.0",
