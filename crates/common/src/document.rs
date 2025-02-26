@@ -593,27 +593,8 @@ pub struct DocumentUpdateWithPrevTs {
     pub id: ResolvedDocumentId,
     /// The old document and its timestamp in the document log.
     /// The timestamp will become the update's `prev_ts`.
-    // TODO: make the timestamp non-optional after everything has pushed
-    pub old_document: Option<(ResolvedDocument, Option<Timestamp>)>,
+    pub old_document: Option<(ResolvedDocument, Timestamp)>,
     pub new_document: Option<ResolvedDocument>,
-}
-
-impl DocumentUpdateWithPrevTs {
-    /// Checks if two DocumentUpdates are almost equal, ignoring the case where
-    /// one has a missing old timestamp
-    // TODO: remove this once the old timestamp is non-optional
-    pub fn eq_ignoring_none_old_ts(&self, other: &DocumentUpdateWithPrevTs) -> bool {
-        self.id == other.id
-            && self.old_document.as_ref().map(|(d, _)| d)
-                == other.old_document.as_ref().map(|(d, _)| d)
-            && self
-                .old_document
-                .as_ref()
-                .map(|(_, ts)| ts)
-                .zip(other.old_document.as_ref().map(|(_, ts)| ts))
-                .is_none_or(|(a, b)| a == b)
-            && self.new_document == other.new_document
-    }
 }
 
 impl HeapSize for DocumentUpdateWithPrevTs {
@@ -636,7 +617,7 @@ impl TryFrom<DocumentUpdateWithPrevTs> for DocumentUpdateWithPrevTsProto {
         Ok(Self {
             id: Some(id.into()),
             old_document: old_document.map(|d| d.try_into()).transpose()?,
-            old_ts: old_ts.flatten().map(|ts| ts.into()),
+            old_ts: old_ts.map(|ts| ts.into()),
             new_document: new_document.map(|d| d.try_into()).transpose()?,
         })
     }
@@ -659,7 +640,12 @@ impl TryFrom<DocumentUpdateWithPrevTsProto> for DocumentUpdateWithPrevTs {
         Ok(Self {
             id,
             old_document: old_document
-                .map(|d| anyhow::Ok((d.try_into()?, old_ts.map(Timestamp::try_from).transpose()?)))
+                .map(|d| {
+                    anyhow::Ok((
+                        d.try_into()?,
+                        Timestamp::try_from(old_ts.context("old_ts missing")?)?,
+                    ))
+                })
                 .transpose()?,
             new_document: new_document.map(|d| d.try_into()).transpose()?,
         })

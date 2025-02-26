@@ -474,7 +474,7 @@ impl<RT: Runtime> Transaction<RT> {
             // already written to in this transaction.
             if let Some(existing_update) = existing_updates.get(&id) {
                 anyhow::ensure!(
-                    existing_update.eq_ignoring_none_old_ts(&update),
+                    *existing_update == update,
                     "Conflicting updates for document {id}"
                 );
                 preserved_update_count += 1;
@@ -490,11 +490,11 @@ impl<RT: Runtime> Transaction<RT> {
                     self.next_creation_time.increment()?;
                 }
             }
-            self.apply_validated_write_maybe_old_ts(
+            self.apply_validated_write(
                 id,
                 update
                     .old_document
-                    .map(|(d, ts)| (d, ts.map(WriteTimestamp::Committed))),
+                    .map(|(d, ts)| (d, WriteTimestamp::Committed(ts))),
                 update.new_document,
             )?;
         }
@@ -934,21 +934,6 @@ impl<RT: Runtime> Transaction<RT> {
         &mut self,
         id: ResolvedDocumentId,
         old_document_and_ts: Option<(ResolvedDocument, WriteTimestamp)>,
-        new_document: Option<ResolvedDocument>,
-    ) -> anyhow::Result<()> {
-        self.apply_validated_write_maybe_old_ts(
-            id,
-            old_document_and_ts.map(|(d, ts)| (d, Some(ts))),
-            new_document,
-        )
-    }
-
-    // TODO: make WriteTimestamp non-optional and merge with
-    // `apply_validated_write`
-    pub(crate) fn apply_validated_write_maybe_old_ts(
-        &mut self,
-        id: ResolvedDocumentId,
-        old_document_and_ts: Option<(ResolvedDocument, Option<WriteTimestamp>)>,
         new_document: Option<ResolvedDocument>,
     ) -> anyhow::Result<()> {
         // Implement something like two-phase commit between the index and the document

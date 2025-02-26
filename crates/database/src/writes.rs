@@ -208,7 +208,7 @@ impl Writes {
         is_system_document: bool,
         reads: &mut TransactionReadSet,
         document_id: ResolvedDocumentId,
-        old_document: Option<(ResolvedDocument, Option<WriteTimestamp>)>,
+        old_document: Option<(ResolvedDocument, WriteTimestamp)>,
         new_document: Option<ResolvedDocument>,
     ) -> anyhow::Result<()> {
         if old_document.is_none() {
@@ -281,7 +281,7 @@ impl Writes {
                  document's old update"
             );
             anyhow::ensure!(
-                [None, Some(WriteTimestamp::Pending)].contains(&old_document_ts.flatten()),
+                [None, Some(WriteTimestamp::Pending)].contains(&old_document_ts),
                 "Inconsistent update: The new document's old update timestamp should be Pending \
                  but is {:?}",
                 old_document_ts
@@ -295,14 +295,13 @@ impl Writes {
                     old_document: match old_document {
                         Some((d, ts)) => Some((
                             d,
-                            ts.map(|ts| match ts {
-                                WriteTimestamp::Committed(ts) => Ok(ts),
+                            match ts {
+                                WriteTimestamp::Committed(ts) => ts,
                                 WriteTimestamp::Pending => anyhow::bail!(
                                     "Old document timestamp is Pending, but there is no pending \
                                      write"
                                 ),
-                            })
-                            .transpose()?,
+                            },
                         )),
                         None => None,
                     },
@@ -635,7 +634,7 @@ mod tests {
             id,
             Some((
                 old_document.clone(),
-                Some(WriteTimestamp::Committed(Timestamp::must(123))),
+                WriteTimestamp::Committed(Timestamp::must(123)),
             )),
             Some(new_document.clone()),
         )?;
@@ -649,7 +648,7 @@ mod tests {
             false,
             &mut reads,
             id,
-            Some((new_document, Some(WriteTimestamp::Pending))),
+            Some((new_document, WriteTimestamp::Pending)),
             Some(newer_document.clone()),
         )?;
 
@@ -660,7 +659,7 @@ mod tests {
                 id,
                 DocumentUpdateWithPrevTs {
                     id,
-                    old_document: Some((old_document, Some(Timestamp::must(123)))),
+                    old_document: Some((old_document, Timestamp::must(123))),
                     new_document: Some(newer_document),
                 }
             )

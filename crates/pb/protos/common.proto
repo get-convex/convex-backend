@@ -48,6 +48,7 @@ message DocumentUpdate {
 message DocumentUpdateWithPrevTs {
     ResolvedDocumentId id = 3;
     ResolvedDocument old_document = 1;
+    // `old_ts` should be present iff `old_document` is present
     optional uint64 old_ts = 4;
     ResolvedDocument new_document = 2;
 }

@@ -696,10 +696,7 @@ impl<RT: Runtime> Committer<RT> {
                     document: document_update.new_document.clone(),
                 },
                 doc_in_vector_index,
-                prev_ts: document_update
-                    .old_document
-                    .as_ref()
-                    .and_then(|&(_, ts)| ts),
+                prev_ts: document_update.old_document.as_ref().map(|&(_, ts)| ts),
             });
         }
         let index_writes = index_writes
