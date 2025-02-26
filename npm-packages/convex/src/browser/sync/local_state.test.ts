@@ -45,6 +45,7 @@ test("has outstanding state older than restart", () => {
         queryId: queryId1,
         value: "hi",
         logLines: [],
+        journal: null,
       },
     ],
   });
@@ -69,6 +70,7 @@ test("has outstanding state older than restart", () => {
         queryId: queryId2,
         value: "hi",
         logLines: [],
+        journal: null,
       },
     ],
   });

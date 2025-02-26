@@ -92,6 +92,7 @@ function transition(): ServerMessage {
         queryId: 0,
         value: 0.0,
         logLines: [],
+        journal: null,
       },
     ],
   };

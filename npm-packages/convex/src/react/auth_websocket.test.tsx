@@ -65,15 +65,12 @@ describe.sequential.skip("auth websocket tests", () => {
   });
 
   // This happens when a user opens a page after their cached token expired
-  test("Reauthenticate after token expiration without versioning", async () => {
-    await testRauthenticationOnInvalidTokenSucceeds(undefined);
-  });
   test("Reauthenticate after token expiration with versioning", async () => {
     await testRauthenticationOnInvalidTokenSucceeds(0);
   });
 
   async function testRauthenticationOnInvalidTokenSucceeds(
-    authErrorBaseVersion: number | undefined,
+    authErrorBaseVersion: number,
   ) {
     await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
       const client = testReactClient(address);
@@ -180,16 +177,11 @@ describe.sequential.skip("auth websocket tests", () => {
   });
 
   // This is usually a misconfigured server rejecting any token
-  test("Fail when tokens are always rejected without versioning", async () => {
-    await testRauthenticationFails(undefined);
-  });
   test("Fail when tokens are always rejected with versioning", async () => {
     await testRauthenticationFails(0);
   });
 
-  async function testRauthenticationFails(
-    authErrorBaseVersion: number | undefined,
-  ) {
+  async function testRauthenticationFails(authErrorBaseVersion: number) {
     await withInMemoryWebSocket(async ({ address, receive, send, close }) => {
       const client = testReactClient(address);
 
@@ -228,6 +220,7 @@ describe.sequential.skip("auth websocket tests", () => {
       send({
         type: "AuthError",
         error: AUTH_ERROR_MESSAGE,
+        baseVersion: authErrorBaseVersion,
       });
       close();
 
@@ -406,6 +399,7 @@ describe.sequential.skip("auth websocket tests", () => {
             queryId: 0,
             value: 42,
             logLines: [],
+            journal: null,
           },
         ],
       });

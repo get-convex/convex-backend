@@ -234,8 +234,7 @@ type StateModification =
       queryId: QueryId;
       value: JSONValue;
       logLines: LogLines;
-      // Optional because old backend versions don't send this.
-      journal?: QueryJournal;
+      journal: QueryJournal;
     }
   | {
       type: "QueryFailed";
@@ -243,8 +242,7 @@ type StateModification =
       errorMessage: string;
       logLines: LogLines;
       errorData: JSONValue;
-      // Optional because old backend versions don't send this.
-      journal?: QueryJournal;
+      journal: QueryJournal;
     }
   | {
       type: "QueryRemoved";
@@ -294,7 +292,7 @@ export type ActionResponse = ActionSuccess | ActionFailed;
 export type AuthError = {
   type: "AuthError";
   error: string;
-  baseVersion?: IdentityVersion;
+  baseVersion: IdentityVersion;
 };
 type FatalError = {
   type: "FatalError";

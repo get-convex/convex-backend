@@ -70,6 +70,7 @@ test("Tests can encode longs in server messages", () => {
         queryId: 0,
         value: 0.0,
         logLines: ["[LOG] 'Got stuff'"],
+        journal: null,
       },
     ],
   };

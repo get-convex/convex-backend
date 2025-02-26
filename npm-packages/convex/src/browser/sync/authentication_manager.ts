@@ -186,19 +186,14 @@ export class AuthenticationManager {
     const { baseVersion } = serverMessage;
     // Versioned AuthErrors are ignored if the client advanced to
     // a newer auth identity
-    if (baseVersion !== null && baseVersion !== undefined) {
-      // Error are reporting the previous version, since the server
-      // didn't advance, hence `+ 1`.
-      if (!this.syncState.isCurrentOrNewerAuthVersion(baseVersion + 1)) {
-        this._logVerbose("ignoring auth error for previous auth attempt");
-        return;
-      }
-      void this.tryToReauthenticate(serverMessage);
+    // Error are reporting the previous version, since the server
+    // didn't advance, hence `+ 1`.
+    if (!this.syncState.isCurrentOrNewerAuthVersion(baseVersion + 1)) {
+      this._logVerbose("ignoring auth error for previous auth attempt");
       return;
     }
-
-    // TODO: Remove after all AuthErrors are versioned
     void this.tryToReauthenticate(serverMessage);
+    return;
   }
 
   // This is similar to `refetchToken` defined below, in fact we
