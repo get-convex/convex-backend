@@ -2759,7 +2759,15 @@
           "planId": {
             "type": "string"
           },
-          "spendingLimitThresholdCents": {
+          "spendingLimitDisableThresholdCents": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "spendingLimitWarningThresholdCents": {
             "type": [
               "integer",
               "null"
@@ -3721,10 +3729,16 @@
       "SetSpendingLimitArgs": {
         "type": "object",
         "required": [
-          "thresholdCents"
+          "disableThresholdCents",
+          "warningThresholdCents"
         ],
         "properties": {
-          "thresholdCents": {
+          "disableThresholdCents": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "warningThresholdCents": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
