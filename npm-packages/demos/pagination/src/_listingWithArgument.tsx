@@ -13,7 +13,7 @@ export function App() {
   );
   return (
     <div>
-      {results?.map(({ _id, text }) => <div key={_id}>{text}</div>)}
+      {results?.map(({ _id, body }) => <div key={_id}>{body}</div>)}
       <button onClick={() => loadMore(5)} disabled={status !== "CanLoadMore"}>
         Load More
       </button>
