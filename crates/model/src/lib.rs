@@ -39,6 +39,14 @@ use std::{
 };
 
 use auth::AUTH_TABLE;
+use aws_lambda_versions::{
+    AwsLambdaVersionsTable,
+    AWS_LAMBDA_VERSIONS_TABLE,
+};
+use backend_info::{
+    BackendInfoTable,
+    BACKEND_INFO_TABLE,
+};
 use backend_state::{
     BackendStateTable,
     BACKEND_STATE_TABLE,
@@ -141,6 +149,8 @@ use crate::{
 
 pub mod airbyte_import;
 pub mod auth;
+pub mod aws_lambda_versions;
+pub mod backend_info;
 pub mod backend_state;
 pub mod canonical_urls;
 pub mod components;
@@ -175,12 +185,14 @@ enum DefaultTableNumber {
     Tables = 1,
     Index = 2,
     Exports = 4,
+    BackendInfo = 5,
     UdfConfig = 6,
     Auth = 7,
     DatabaseGlobals = 8,
     Modules = 9,
     SourcePackages = 12,
     EnvironmentVariables = 13,
+    AwsLambdaVersions = 14,
     DeploymentAuditLogs = 15,
     SessionRequests = 17,
     CronJobs = 19,
@@ -216,12 +228,14 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::Tables => &TablesTable,
             DefaultTableNumber::Index => &IndexTable,
             DefaultTableNumber::Exports => &ExportsTable,
+            DefaultTableNumber::BackendInfo => &BackendInfoTable,
             DefaultTableNumber::UdfConfig => &UdfConfigTable,
             DefaultTableNumber::Auth => &AuthTable,
             DefaultTableNumber::DatabaseGlobals => &DatabaseGlobalsTable,
             DefaultTableNumber::Modules => &ModulesTable,
             DefaultTableNumber::SourcePackages => &SourcePackagesTable,
             DefaultTableNumber::EnvironmentVariables => &EnvironmentVariablesTable,
+            DefaultTableNumber::AwsLambdaVersions => &AwsLambdaVersionsTable,
             DefaultTableNumber::DeploymentAuditLogs => &DeploymentAuditLogsTable,
             DefaultTableNumber::SessionRequests => &SessionRequestsTable,
             DefaultTableNumber::CronJobs => &CronJobsTable,
@@ -440,6 +454,8 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
         &FunctionHandlesTable,
         &CanonicalUrlsTable,
         &LogSinksTable,
+        &AwsLambdaVersionsTable,
+        &BackendInfoTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables
@@ -469,6 +485,8 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
         CRON_JOBS_TABLE.clone(),
         BACKEND_STATE_TABLE.clone(),
         CANONICAL_URLS_TABLE.clone(),
+        BACKEND_INFO_TABLE.clone(),
+        AWS_LAMBDA_VERSIONS_TABLE.clone(),
     }
 });
 

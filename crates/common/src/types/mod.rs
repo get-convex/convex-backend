@@ -16,7 +16,9 @@ pub use value::{
 
 mod actions;
 mod admin_key;
+mod backend_info;
 mod backend_state;
+mod deployment_type;
 mod environment_variables;
 mod file_storage;
 mod functions;
@@ -43,7 +45,12 @@ pub use admin_key::{
     PreviewDeploymentAdminKeyParts,
     SystemKey,
 };
+pub use backend_info::{
+    BackendInfo,
+    DEFAULT_PROVISION_CONCURRENCY,
+};
 pub use backend_state::BackendState;
+pub use deployment_type::DeploymentType;
 pub use environment_variables::{
     env_var_limit_met,
     env_var_name_forbidden,
@@ -92,6 +99,8 @@ pub use timestamp::{
 // A developer using convex
 tuple_struct_u64!(MemberId);
 tuple_struct_u64!(TeamId);
+tuple_struct_u64!(DeploymentId);
+tuple_struct_u64!(ProjectId);
 tuple_struct_string!(ConvexOrigin);
 tuple_struct_string!(ConvexSite);
 
