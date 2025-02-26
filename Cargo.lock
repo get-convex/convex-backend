@@ -183,6 +183,7 @@ dependencies = [
  "async_zip 0.0.17",
  "async_zip_reader",
  "authentication",
+ "aws_s3",
  "bytes",
  "chrono",
  "cmd_util",

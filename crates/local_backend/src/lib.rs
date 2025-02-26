@@ -5,6 +5,7 @@
 #![feature(exhaustive_patterns)]
 
 use std::{
+    self,
     sync::Arc,
     time::Duration,
 };
@@ -13,17 +14,15 @@ use ::authentication::{
     access_token_auth::NullAccessTokenAuth,
     application_auth::ApplicationAuth,
 };
-use ::storage::{
-    LocalDirStorage,
-    StorageUseCase,
-};
 use application::{
+    self,
     api::ApplicationApi,
     log_visibility::RedactLogsToClient,
     Application,
     QueryCache,
 };
 use common::{
+    self,
     http::{
         fetch::ProxiedFetchClient,
         RouteMapper,
@@ -156,38 +155,18 @@ pub async fn make_app(
     )
     .await?;
     initialize_application_system_tables(&database).await?;
-    let files_storage = Arc::new(LocalDirStorage::for_use_case(
+    let application_storage = Application::initialize_storage(
         runtime.clone(),
-        &config.storage_dir().to_string_lossy(),
-        StorageUseCase::Files,
-    )?);
-    let modules_storage = Arc::new(LocalDirStorage::for_use_case(
-        runtime.clone(),
-        &config.storage_dir().to_string_lossy(),
-        StorageUseCase::Modules,
-    )?);
-    let search_storage = Arc::new(LocalDirStorage::for_use_case(
-        runtime.clone(),
-        &config.storage_dir().to_string_lossy(),
-        StorageUseCase::SearchIndexes,
-    )?);
-    // Search storage needs to be set for Database to be fully initialized
-    database.set_search_storage(search_storage.clone());
-    let exports_storage = Arc::new(LocalDirStorage::for_use_case(
-        runtime.clone(),
-        &config.storage_dir().to_string_lossy(),
-        StorageUseCase::Exports,
-    )?);
-    let snapshot_imports_storage = Arc::new(LocalDirStorage::for_use_case(
-        runtime.clone(),
-        &config.storage_dir().to_string_lossy(),
-        StorageUseCase::SnapshotImports,
-    )?);
+        &database,
+        config.storage_tag_initializer(),
+        config.name(),
+    )
+    .await?;
 
     let file_storage = FileStorage {
         transactional_file_storage: TransactionalFileStorage::new(
             runtime.clone(),
-            files_storage.clone(),
+            application_storage.files_storage.clone(),
             config.convex_origin_url()?,
         ),
         database: database.clone(),
@@ -220,23 +199,20 @@ pub async fn make_app(
             runtime.clone(),
             persistence.reader(),
             InstanceStorage {
-                files_storage: files_storage.clone(),
-                modules_storage: modules_storage.clone(),
+                files_storage: application_storage.files_storage.clone(),
+                modules_storage: application_storage.modules_storage.clone(),
             },
             database.clone(),
             fetch_client,
         )
         .await?,
     );
+
     let application = Application::new(
         runtime.clone(),
         database.clone(),
         file_storage.clone(),
-        files_storage.clone(),
-        modules_storage.clone(),
-        search_storage.clone(),
-        exports_storage.clone(),
-        snapshot_imports_storage.clone(),
+        application_storage,
         database.usage_counter(),
         key_broker.clone(),
         config.name(),
@@ -244,7 +220,7 @@ pub async fn make_app(
         config.convex_origin_url()?,
         config.convex_site_url()?,
         searcher.clone(),
-        segment_metadata_fetcher.clone(),
+        segment_metadata_fetcher,
         persistence,
         actions,
         Arc::new(NoopLogSender),

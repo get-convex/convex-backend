@@ -31,6 +31,27 @@ else
     DB_FLAGS=()
 fi
 
+# Check if all required S3 environment variables are present
+MISSING_VARS=()
+[ -z "$AWS_REGION" ] && MISSING_VARS+=("AWS_REGION")
+[ -z "$AWS_ACCESS_KEY_ID" ] && MISSING_VARS+=("AWS_ACCESS_KEY_ID")
+[ -z "$AWS_SECRET_ACCESS_KEY" ] && MISSING_VARS+=("AWS_SECRET_ACCESS_KEY")
+[ -z "$S3_STORAGE_EXPORTS_BUCKET" ] && MISSING_VARS+=("S3_STORAGE_EXPORTS_BUCKET")
+[ -z "$S3_STORAGE_SNAPSHOT_IMPORTS_BUCKET" ] && MISSING_VARS+=("S3_STORAGE_SNAPSHOT_IMPORTS_BUCKET")
+[ -z "$S3_STORAGE_MODULES_BUCKET" ] && MISSING_VARS+=("S3_STORAGE_MODULES_BUCKET")
+[ -z "$S3_STORAGE_FILES_BUCKET" ] && MISSING_VARS+=("S3_STORAGE_FILES_BUCKET")
+[ -z "$S3_STORAGE_SEARCH_BUCKET" ] && MISSING_VARS+=("S3_STORAGE_SEARCH_BUCKET")
+
+if [ ${#MISSING_VARS[@]} -eq 0 ]; then
+    STORAGE_FLAGS=(--s3-storage)
+else
+    if [ ${#MISSING_VARS[@]} -lt 8 ]; then
+        echo "Warning: Some AWS/S3 environment variables are missing. Falling back to local storage."
+        echo "Missing variables: ${MISSING_VARS[*]}"
+    fi
+    STORAGE_FLAGS=(--local-storage "$STORAGE_DIR")
+fi
+
 # --port and --site-proxy-port are internal to the container, so we pick them to
 # avoid conflicts in the container.
 # --convex-origin and --convex-site are how the backend can be contacted from
@@ -39,7 +60,6 @@ fi
 exec ./convex-local-backend "$@" \
     --instance-name "$INSTANCE_NAME" \
     --instance-secret "$INSTANCE_SECRET" \
-    --local-storage "$STORAGE_DIR" \
     --port 3210 \
     --site-proxy-port 3211 \
     --convex-origin "$CONVEX_CLOUD_ORIGIN" \
@@ -49,4 +69,5 @@ exec ./convex-local-backend "$@" \
     ${REDACT_LOGS_TO_CLIENT:+--redact-logs-to-client} \
     ${DO_NOT_REQUIRE_SSL:+--do-not-require-ssl} \
     "${DB_FLAGS[@]}" \
+    "${STORAGE_FLAGS[@]}" \
     "$DB_SPEC"

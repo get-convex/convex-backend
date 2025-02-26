@@ -72,6 +72,7 @@ use model::{
         ConfigModel,
     },
     cron_jobs::types::CronJob,
+    database_globals::types::StorageTagInitializer,
     exports::{
         types::{
             Export,
@@ -89,11 +90,7 @@ use node_executor::{
     local::LocalNodeExecutor,
     Actions,
 };
-use storage::{
-    LocalDirStorage,
-    Storage,
-    StorageUseCase,
-};
+use storage::Storage;
 use value::{
     ResolvedDocumentId,
     TableName,
@@ -193,31 +190,15 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         )
         .await?;
         initialize_application_system_tables(&database).await?;
-        let files_storage = Arc::new(LocalDirStorage::for_use_case(
+        let application_storage = Application::initialize_storage(
             rt.clone(),
-            &storage_dir.path().to_string_lossy(),
-            StorageUseCase::Files,
-        )?);
-        let modules_storage = Arc::new(LocalDirStorage::for_use_case(
-            rt.clone(),
-            &storage_dir.path().to_string_lossy(),
-            StorageUseCase::Modules,
-        )?);
-        let search_storage = Arc::new(LocalDirStorage::for_use_case(
-            rt.clone(),
-            &storage_dir.path().to_string_lossy(),
-            StorageUseCase::SearchIndexes,
-        )?);
-        let exports_storage = Arc::new(LocalDirStorage::for_use_case(
-            rt.clone(),
-            &storage_dir.path().to_string_lossy(),
-            StorageUseCase::Exports,
-        )?);
-        let snapshot_imports_storage = Arc::new(LocalDirStorage::for_use_case(
-            rt.clone(),
-            &storage_dir.path().to_string_lossy(),
-            StorageUseCase::SnapshotImports,
-        )?);
+            &database,
+            StorageTagInitializer::Local {
+                dir: storage_dir.path().to_path_buf(),
+            },
+            DEV_INSTANCE_NAME.into(),
+        )
+        .await?;
 
         let fetch_client = Arc::new(StaticFetchClient::new());
         let function_runner = Arc::new(
@@ -228,8 +209,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
                 rt.clone(),
                 persistence.reader(),
                 InstanceStorage {
-                    files_storage: files_storage.clone(),
-                    modules_storage: modules_storage.clone(),
+                    files_storage: application_storage.files_storage.clone(),
+                    modules_storage: application_storage.modules_storage.clone(),
                 },
                 database.clone(),
                 fetch_client,
@@ -240,7 +221,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         let file_storage = FileStorage {
             transactional_file_storage: TransactionalFileStorage::new(
                 rt.clone(),
-                files_storage.clone(),
+                application_storage.files_storage.clone(),
                 convex_origin.clone(),
             ),
             database: database.clone(),
@@ -259,11 +240,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             rt.clone(),
             database.clone(),
             file_storage.clone(),
-            files_storage.clone(),
-            modules_storage.clone(),
-            search_storage.clone(),
-            exports_storage.clone(),
-            snapshot_imports_storage.clone(),
+            application_storage,
             database.usage_counter(),
             kb.clone(),
             DEV_INSTANCE_NAME.into(),
@@ -288,11 +265,11 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     }
 
     fn snapshot_imports_storage(&self) -> Arc<dyn Storage> {
-        self.snapshot_imports_storage.clone()
+        self.application_storage.snapshot_imports_storage.clone()
     }
 
     fn exports_storage(&self) -> Arc<dyn Storage> {
-        self.exports_storage.clone()
+        self.application_storage.exports_storage.clone()
     }
 
     async fn test_one_off_scheduled_job_executor_run(

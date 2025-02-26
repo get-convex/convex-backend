@@ -1,7 +1,4 @@
-use std::{
-    fmt,
-    path::PathBuf,
-};
+use std::fmt;
 
 use clap::Parser;
 use clusters::DbDriverTag;
@@ -16,10 +13,11 @@ use keybroker::{
     DEV_SECRET,
 };
 use metrics::SERVER_VERSION_STR;
+use model::database_globals::types::StorageTagInitializer;
 use url::Url;
 
 #[derive(Parser, Clone)]
-#[clap(version = &**SERVER_VERSION_STR, author = "Convex, Inc. <no-reply@convex.dev>")]
+#[clap(version = &**SERVER_VERSION_STR, author = "Convex, Inc. <no-reply@convex.dev>", group(clap::ArgGroup::new("storage").multiple(false)))]
 pub struct LocalConfig {
     /// File path for SQLite, the file path; for postgres, a server URL.
     #[clap(default_value = "convex_local_backend.sqlite3")]
@@ -88,8 +86,12 @@ pub struct LocalConfig {
     pub sentry_identifier: Option<String>,
 
     /// Which directory should file storage use
-    #[clap(long, default_value = "convex_local_storage")]
+    #[clap(long, group = "storage", default_value = "convex_local_storage")]
     local_storage: String,
+
+    /// Use S3 storage instead of local storage.
+    #[clap(long, group = "storage")]
+    pub s3_storage: bool,
 
     /// If set, the persistence won't require SSL when talking to the database.
     /// It would still prefer SSL if available. This should only be set in
@@ -193,8 +195,14 @@ impl LocalConfig {
         )
     }
 
-    pub fn storage_dir(&self) -> PathBuf {
-        self.local_storage.clone().into()
+    pub fn storage_tag_initializer(&self) -> StorageTagInitializer {
+        if self.s3_storage {
+            StorageTagInitializer::S3
+        } else {
+            StorageTagInitializer::Local {
+                dir: self.local_storage.clone().into(),
+            }
+        }
     }
 
     #[cfg(test)]
