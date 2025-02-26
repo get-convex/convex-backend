@@ -503,29 +503,44 @@ function EntryAction({
       );
     }
     case "setSpendingLimit": {
-      if (!metadata.current?.threshold) {
+      if (
+        !metadata.current?.disableThreshold ||
+        !metadata.current?.warningThreshold
+      ) {
         captureMessage(`Found malformed metadata for ${action}`);
         return <UnhandledAction action={action} />;
       }
-      if (!metadata.previous?.threshold) {
+      if (!metadata.previous?.disableThreshold) {
         return (
           <span>
-            set a spending limit of{" "}
+            set a spending limit with a soft limit of{" "}
             <span className="font-semibold">
-              ${metadata.current.threshold / 100}
+              ${metadata.current.warningThreshold / 100}
+            </span>{" "}
+            and a hard limit of{" "}
+            <span className="font-semibold">
+              ${metadata.current.disableThreshold / 100}
             </span>
           </span>
         );
       }
       return (
         <span>
-          updated the spending limit from{" "}
+          updated the spending limit from a soft limit of{" "}
           <span className="font-semibold">
-            ${metadata.previous.threshold / 100}
+            ${metadata.previous.warningThreshold / 100}
           </span>{" "}
-          to{" "}
+          and a hard limit of{" "}
           <span className="font-semibold">
-            ${metadata.current.threshold / 100}
+            ${metadata.previous.disableThreshold / 100}
+          </span>{" "}
+          to a soft limit of{" "}
+          <span className="font-semibold">
+            ${metadata.current.warningThreshold / 100}
+          </span>
+          and a hard limit of{" "}
+          <span className="font-semibold">
+            ${metadata.current.disableThreshold / 100}
           </span>
         </span>
       );
