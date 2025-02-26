@@ -8,12 +8,18 @@ on:
         type: boolean
         default: false
         required: true
+  push:
+    branches:
+      - main
+    paths:
+      - "crates/model/src/migrations.rs"
 
 jobs:
   release_backend:
     uses: ./.github/workflows/release_local_backend.yml
     with:
-      tag_latest: ${{ inputs.tag_latest }}
+      # Do not tag docker images triggered by migrations as latest.
+      tag_latest: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}
     permissions:
       contents: read
       packages: write
@@ -22,7 +28,8 @@ jobs:
   release_dashboard:
     uses: ./.github/workflows/release_local_dashboard.yml
     with:
-      tag_latest: ${{ inputs.tag_latest }}
+      # Do not tag docker images triggered by migrations as latest.
+      tag_latest: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}
     permissions:
       contents: read
       packages: write
