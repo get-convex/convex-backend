@@ -36,6 +36,11 @@ pub struct ErrorMetadata {
     /// human readable - developer facing. Should be longer and descriptive.
     /// Eg "The module name is invalid because it contains an invalid character"
     pub msg: Cow<'static, str>,
+
+    // Optional source of the error (i.e. a service name)
+    // If present, this implies that the error originated in an upstream
+    // service call (and may have already been reported to Sentry).
+    pub r#source: Option<String>,
 }
 
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
@@ -74,6 +79,7 @@ impl ErrorMetadata {
             code,
             short_msg: Cow::Borrowed(""),
             msg: Cow::Borrowed(""),
+            source: None,
         }
     }
 
@@ -89,6 +95,7 @@ impl ErrorMetadata {
             code: ErrorCode::BadRequest,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -109,6 +116,7 @@ impl ErrorMetadata {
             code: ErrorCode::NotFound,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -125,6 +133,7 @@ impl ErrorMetadata {
             code: ErrorCode::Unauthenticated,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -143,6 +152,7 @@ impl ErrorMetadata {
             code: ErrorCode::AuthUpdateFailed,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -159,6 +169,7 @@ impl ErrorMetadata {
             code: ErrorCode::Forbidden,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -168,6 +179,7 @@ impl ErrorMetadata {
             code: ErrorCode::ClientDisconnect,
             short_msg: CLIENT_DISCONNECTED.into(),
             msg: CLIENT_DISCONNECTED_MSG.into(),
+            source: None,
         }
     }
 
@@ -179,6 +191,7 @@ impl ErrorMetadata {
             code: ErrorCode::MisdirectedRequest,
             short_msg: "MisdirectedRequest".into(),
             msg: "Instance not served by this Conductor".into(),
+            source: None,
         }
     }
 
@@ -200,6 +213,7 @@ impl ErrorMetadata {
             code: ErrorCode::RateLimited,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -213,6 +227,7 @@ impl ErrorMetadata {
             code: ErrorCode::OperationalInternalServerError,
             short_msg: INTERNAL_SERVER_ERROR.into(),
             msg: INTERNAL_SERVER_ERROR_MSG.into(),
+            source: None,
         }
     }
 
@@ -241,6 +256,7 @@ impl ErrorMetadata {
             code: ErrorCode::Overloaded,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -258,6 +274,7 @@ impl ErrorMetadata {
             code: ErrorCode::RejectedBeforeExecution,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -274,6 +291,7 @@ impl ErrorMetadata {
             },
             short_msg: OCC_ERROR.into(),
             msg: OCC_ERROR_MSG.into(),
+            source: None,
         }
     }
 
@@ -306,6 +324,7 @@ impl ErrorMetadata {
                 subsequent retry. {write_source_description}See https://docs.convex.dev/error#1",
             )
             .into(),
+            source: None,
         }
     }
 
@@ -314,6 +333,7 @@ impl ErrorMetadata {
             code: ErrorCode::Overloaded,
             short_msg: "ServiceUnavailable".into(),
             msg: "Service temporarily unavailable".into(),
+            source: None,
         }
     }
 
@@ -326,6 +346,7 @@ impl ErrorMetadata {
             code: ErrorCode::OutOfRetention,
             short_msg: INTERNAL_SERVER_ERROR.into(),
             msg: INTERNAL_SERVER_ERROR_MSG.into(),
+            source: None,
         }
     }
 
@@ -343,6 +364,7 @@ impl ErrorMetadata {
             code: ErrorCode::PaginationLimit,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         }
     }
 
@@ -356,6 +378,7 @@ impl ErrorMetadata {
             code,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: None,
         })
     }
 
@@ -442,6 +465,7 @@ impl ErrorMetadata {
         if self.short_msg.is_empty() {
             return None;
         }
+
         match self.code {
             ErrorCode::ClientDisconnect => None,
             ErrorCode::BadRequest

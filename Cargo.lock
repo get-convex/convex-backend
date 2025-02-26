@@ -3003,6 +3003,7 @@ dependencies = [
  "sentry",
  "thiserror 1.0.59",
  "tonic",
+ "tracing",
  "tungstenite",
 ]
 

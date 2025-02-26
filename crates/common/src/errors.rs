@@ -16,7 +16,10 @@ pub use errors::{
     INTERNAL_SERVER_ERROR,
     INTERNAL_SERVER_ERROR_MSG,
 };
-use metrics::log_counter;
+use metrics::{
+    log_counter,
+    SERVICE_NAME,
+};
 use pb::common::{
     FrameData as FrameDataProto,
     JsError as JsErrorProto,
@@ -122,17 +125,30 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
         log_errors_reported_total(label);
     }
 
-    if let Some(e) = err.downcast_ref::<ErrorMetadata>() {
-        if let Some(counter) = e.custom_metric() {
-            log_counter(counter, 1);
-        }
-    }
-
     tracing::error!(
         "Caught error (RUST_BACKTRACE=1 RUST_LOG=info,{}=debug for full trace): {err:#}",
         module_path!(),
     );
     tracing::debug!("{err:?}");
+
+    if let Some(e) = err.downcast_mut::<ErrorMetadata>() {
+        if let Some(counter) = e.custom_metric() {
+            log_counter(counter, 1);
+        }
+        // Set the source of this error to the service name if it's not already set,
+        // denoting that this error has been reported and downstream callers that
+        // receive this error need not re-report it.
+        match &e.source {
+            Some(source) => {
+                tracing::debug!("Not reporting above error: already reported by {source}");
+                return;
+            },
+            None => {
+                e.source = Some(SERVICE_NAME.clone());
+            },
+        }
+    }
+
     let Some(sentry_client) = sentry::Hub::current().client() else {
         tracing::error!("Not reporting above error: Sentry is not configured");
         return;

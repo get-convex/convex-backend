@@ -18,6 +18,7 @@ proptest-derive = { workspace = true, optional = true }
 sentry = { workspace = true }
 thiserror = { workspace = true }
 tonic = { workspace = true }
+tracing = { workspace = true }
 tungstenite = { workspace = true }
 
 [dev-dependencies]

@@ -31,6 +31,7 @@ message ErrorMetadata {
   optional string short_msg = 2;
   optional string msg = 3;
   optional OccInfo occ_info = 4;
+  optional string source = 5;
 }
 
 // The message we put in tonic::Status details.

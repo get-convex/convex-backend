@@ -85,6 +85,7 @@ impl From<ErrorMetadata> for ErrorMetadataProto {
                 }),
                 _ => None,
             },
+            source: metadata.source,
         }
     }
 }
@@ -101,6 +102,7 @@ impl TryFrom<ErrorMetadataProto> for ErrorMetadata {
             code,
             short_msg: short_msg.into(),
             msg: msg.into(),
+            source: metadata.source,
         })
     }
 }
