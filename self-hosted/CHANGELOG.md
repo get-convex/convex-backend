@@ -10,6 +10,12 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-02-26 `161e32648a971fb8ef591e61212f7b9fb7ff4f2c`
+
+- Add support for S3 storage for exports, snapshots, modules, files, and search
+  indexes. Read more on how to set up S3 storage
+  [here](README.md#using-s3-storage).
+
 ## 2025-02-24 `fff8e431b95f4d9fde899ce348f8e8f23210aad3`
 
 - Support streaming import. Read more on how to set up streaming import

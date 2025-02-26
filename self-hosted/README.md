@@ -84,7 +84,9 @@ that you'll need to set up persistent storage on whatever cloud hosting platform
 you choose to run the Docker container on (e.g. AWS EBS). By default the
 database is stored locally in SQLite but you may also point it to a SQL database
 either locally or on a cloud service of your choice following
-[these instructions](#running-the-database-on-postgres-or-mysql).
+[these instructions](#running-the-database-on-postgres-or-mysql). You can also
+configure the backend to use S3 storage for exports, snapshots, modules, files,
+and search indexes following [these instructions](#using-s3-storage).
 
 You should now be able to use the self-hosted backend. Read on for alternative
 hosting options for production workloads.
@@ -252,6 +254,24 @@ Set up a database on [PlanetScale](https://planetscale.com/). Be sure to name it
 export MYSQL_URL=mysql://<your-username>:<your-password>@aws.connect.psdb.cloud
 docker compose up
 ```
+
+## Using S3 Storage
+
+To run the backend with S3 storage, set up the following buckets and environment
+variables.
+
+```sh
+export AWS_REGION="your-region"
+export AWS_ACCESS_KEY_ID="your-access-key-id"
+export AWS_SECRET_ACCESS_KEY="your-secret-access-key"
+export S3_STORAGE_EXPORTS_BUCKET="convex-snapshot-exports"
+export S3_STORAGE_SNAPSHOT_IMPORTS_BUCKET="convex-snapshot-imports"
+export S3_STORAGE_MODULES_BUCKET="convex-modules"
+export S3_STORAGE_FILES_BUCKET="convex-user-files"
+export S3_STORAGE_SEARCH_BUCKET="convex-search-indexes"
+```
+
+Then run the backend!
 
 ## Optional configurations
 
