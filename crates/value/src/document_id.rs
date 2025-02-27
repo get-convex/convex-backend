@@ -91,6 +91,7 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocumentId {
 }
 
 impl InternalDocumentId {
+    pub const MAX: InternalDocumentId = InternalDocumentId::new(TabletId::MAX, InternalId::MAX);
     /// Minimum valid [`InternalDocumentId`].
     pub const MIN: InternalDocumentId = InternalDocumentId::new(TabletId::MIN, InternalId::MIN);
 
@@ -121,6 +122,8 @@ impl InternalDocumentId {
 }
 
 impl DeveloperDocumentId {
+    pub const MAX: DeveloperDocumentId =
+        DeveloperDocumentId::new(TableNumber::MAX, InternalId::MAX);
     /// Minimum valid [`DeveloperDocumentId`].
     pub const MIN: DeveloperDocumentId =
         DeveloperDocumentId::new(TableNumber::MIN, InternalId::MIN);

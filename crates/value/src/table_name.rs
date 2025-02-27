@@ -150,6 +150,7 @@ impl From<TableName> for FieldName {
 pub struct TabletId(pub InternalId);
 
 impl TabletId {
+    pub const MAX: TabletId = TabletId(InternalId::MAX);
     pub const MIN: TabletId = TabletId(InternalId::MIN);
 
     pub fn document_id_to_string(&self, internal_id: InternalId) -> String {
@@ -202,6 +203,7 @@ impl HeapSize for TableNumber {
 }
 
 impl TableNumber {
+    pub const MAX: TableNumber = TableNumber(u32::MAX);
     pub const MIN: TableNumber = TableNumber(1);
 
     pub fn document_id_to_string(&self, internal_id: InternalId) -> String {
