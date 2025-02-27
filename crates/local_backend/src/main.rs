@@ -100,7 +100,7 @@ async fn run_server(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result
 async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result<()> {
     // Used to receive fatal errors from the database or /preempt endpoint.
     let (preempt_tx, mut preempt_rx) = async_broadcast::broadcast(1);
-    let preempt_signal = ShutdownSignal::new(preempt_tx.clone(), config.name());
+    let preempt_signal = ShutdownSignal::new(preempt_tx.clone(), config.name(), 0);
     // Use to signal to the http service to stop.
     let (shutdown_tx, shutdown_rx) = async_broadcast::broadcast(1);
     let persistence = connect_persistence(

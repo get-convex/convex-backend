@@ -72,7 +72,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
         config.clone(),
         Arc::new(persistence),
         shutdown_rx,
-        ShutdownSignal::new(preempt_tx, config.name()),
+        ShutdownSignal::new(preempt_tx, config.name(), 0),
     )
     .await?;
     let router = router(st.clone());
