@@ -601,7 +601,7 @@ pub async fn assert_paginated_query_journal_is_correct(
     args: ConvexObject,
     middle_objects: Vec<(&'static str, ConvexObject, bool)>,
 ) -> anyhow::Result<(ConvexArray, bool)> {
-    let outcome1 = t
+    let (outcome1, _) = t
         .raw_query(
             udf_path,
             vec![ConvexValue::Object(args.clone())],
@@ -609,7 +609,7 @@ pub async fn assert_paginated_query_journal_is_correct(
             None,
         )
         .await?;
-    let outcome2 = t
+    let (outcome2, _) = t
         .raw_query(
             udf_path,
             vec![ConvexValue::Object(args.clone())],
@@ -631,7 +631,7 @@ pub async fn assert_paginated_query_journal_is_correct(
 
     for (insert_udf, middle_object, middle_object_in_page) in middle_objects {
         let middle_id = t.mutation(insert_udf, middle_object).await?;
-        let outcome3 = t
+        let (outcome3, _) = t
             .raw_query(
                 udf_path,
                 vec![ConvexValue::Object(args.clone())],
@@ -662,7 +662,7 @@ pub async fn assert_paginated_query_journal_is_correct(
             "paginationOpts".parse()?,
             ConvexValue::Object(pagination_opts.try_into()?),
         );
-        let outcome4 = t
+        let (outcome4, _) = t
             .raw_query(
                 udf_path,
                 vec![ConvexValue::Object(args.try_into()?)],

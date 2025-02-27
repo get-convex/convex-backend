@@ -62,6 +62,7 @@ use database::{
     FollowerRetentionManager,
     IndexModel,
     IndexWorker,
+    Token,
     Transaction,
 };
 use file_storage::TransactionalFileStorage;
@@ -603,7 +604,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         udf_path: &str,
         args: ConvexObject,
     ) -> anyhow::Result<JsError> {
-        let outcome = self
+        let (outcome, _) = self
             .raw_query(
                 udf_path,
                 vec![ConvexValue::Object(args)],
@@ -642,7 +643,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         args: ConvexObject,
         identity: Identity,
     ) -> anyhow::Result<(ConvexValue, UdfOutcome)> {
-        let outcome = self
+        let (outcome, _) = self
             .raw_query(udf_path, vec![ConvexValue::Object(args)], identity, None)
             .await?;
         let value = outcome
@@ -665,7 +666,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         args: Vec<ConvexValue>,
         identity: Identity,
         journal: Option<QueryJournal>,
-    ) -> anyhow::Result<UdfOutcome> {
+    ) -> anyhow::Result<(UdfOutcome, Token)> {
         let mut tx = self.database.begin(identity.clone()).await?;
         let path = ComponentFunctionPath {
             component: ComponentPath::test_user(),
@@ -684,14 +685,15 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
 
         let path_and_args = match validated_path_or_err {
             Err(js_error) => {
-                return UdfOutcome::from_error(
+                let outcome = UdfOutcome::from_error(
                     js_error,
                     canonicalized_path,
                     args_array,
                     identity.into(),
                     self.rt.clone(),
                     None,
-                );
+                )?;
+                return Ok((outcome, tx.into_token()?));
             },
             Ok(path_and_args) => path_and_args,
         };
@@ -714,8 +716,8 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             )
             .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
-            let _ = tx.into_token()?;
-            Ok(outcome)
+            let token = tx.into_token()?;
+            Ok((outcome, token))
         } else {
             let (tx, outcome) = self
                 .isolate
@@ -731,11 +733,11 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
                 )
                 .await?;
             // Ensure the transaction is readonly by turning it into a subscription token.
-            let _ = tx.into_token()?;
+            let token = tx.into_token()?;
             let FunctionOutcome::Query(query_outcome) = outcome else {
                 anyhow::bail!("Called raw_query on a non-query");
             };
-            Ok(query_outcome)
+            Ok((query_outcome, token))
         }
     }
 
@@ -1259,7 +1261,7 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
     ) -> anyhow::Result<FunctionResult> {
         let arguments = parse_udf_args(&path.udf_path, args)?;
         let str_name = String::from(path.udf_path);
-        let outcome = self
+        let (outcome, _) = self
             .raw_query(&str_name, arguments.into(), identity, None)
             .await?;
 

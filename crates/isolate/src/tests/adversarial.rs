@@ -912,7 +912,7 @@ async fn test_never_pushed(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_invoke_function_directly(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let mut outcome = t
+    let (mut outcome, _) = t
         .raw_query(
             "adversarial:invokeFunctionDirectly",
             vec![assert_val!({})],
@@ -936,7 +936,7 @@ async fn test_invoke_function_directly(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_uncatchable_errors_are_uncatchable(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t| {
-        let outcome = t
+        let (outcome, _) = t
             .raw_query(
                 "adversarial:throwUncatchableDeveloperError",
                 vec![assert_val!({})],

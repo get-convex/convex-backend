@@ -6,6 +6,10 @@ export const getEnvironmentVariable = query(async () => {
   return process.env.TEST_NAME;
 });
 
+export const getOtherEnvironmentVariable = query(async () => {
+  return process.env.TEST_NAME_2;
+});
+
 export const actionGetEnvironmentVariable = action(async () => {
   return process.env.TEST_NAME;
 });

@@ -65,7 +65,7 @@ async fn query_js_error_args_array(
     udf_path: &str,
     args: Vec<ConvexValue>,
 ) -> anyhow::Result<JsError> {
-    let outcome = t
+    let (outcome, _) = t
         .raw_query(udf_path, args, Identity::system(), None)
         .await?;
     Ok(outcome.result.unwrap_err())
