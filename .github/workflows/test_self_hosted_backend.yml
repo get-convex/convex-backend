@@ -1,0 +1,81 @@
+name: Test Self-Hosted Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_sha:
+        description: "Git SHA for backend image tag to test (defaults to latest)"
+        type: string
+        required: false
+        default: "latest"
+
+jobs:
+  test_docker_compose:
+    name: Test Docker Compose Setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      backend:
+        image: ghcr.io/get-convex/convex-backend:${{ inputs.git_sha }}
+        env:
+          ACTIONS_USER_TIMEOUT_SECS: "20"
+          CONVEX_CLOUD_ORIGIN: "http://127.0.0.1:3210"
+          CONVEX_SITE_ORIGIN: "http://127.0.0.1:3211"
+        ports:
+          - "3210:3210" # Backend API
+          - "3211:3211" # Site proxy
+        options: >-
+          --health-cmd "curl -f http://localhost:3210/version"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --health-start-period 10s
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache pnpm artifacts
+        uses: runs-on/cache@v4
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+        with:
+          path: |
+            npm-packages/common/temp/build-cache
+            npm-packages/common/temp/pnpm-store
+          key: pnpm-cache-${{
+            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+          restore-keys: pnpm-cache-
+
+      - name: Node setup
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: NPM install globals
+        run: npm ci --prefix scripts
+
+      - name: Install Just
+        uses: extractions/setup-just@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build NPM Packages
+        run: |
+          just rush install
+          just rush build -t .
+        working-directory: npm-packages/js-integration-tests
+
+      - name: Run integration tests
+        working-directory: npm-packages/js-integration-tests
+        env:
+          SKIP_INSTANCE_SECRET_TESTS: 1
+          DEPLOYMENT_URL: http://127.0.0.1:3210
+          SITE_URL: http://127.0.0.1:3211
+        run: |
+          ADMIN_KEY=$(docker exec ${{ job.services.backend.id }} ./generate_admin_key.sh)
+          echo "Pushing functions... "
+          npx convex deploy --url http://127.0.0.1:3210 --admin-key $ADMIN_KEY
+          ADMIN_KEY=$ADMIN_KEY npm run test-integration
