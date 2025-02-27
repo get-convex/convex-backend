@@ -81,7 +81,8 @@ pub struct AppDefinitionEvaluator {
     pub app_definition: ModuleConfig,
     pub component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
     pub dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-    environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+    // NOTE: includes both default_system_env_vars and system_env_var_overrides
     system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
 }
 
@@ -90,14 +91,14 @@ impl AppDefinitionEvaluator {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> Self {
         Self {
             app_definition,
             component_definitions,
             dependency_graph,
-            environment_variables,
+            user_environment_variables,
             system_env_vars,
         }
     }
@@ -185,8 +186,8 @@ impl AppDefinitionEvaluator {
         source: FullModuleSource,
     ) -> anyhow::Result<ComponentDefinitionMetadata> {
         let environment_variables = if path.is_root() {
-            let mut env_vars = self.environment_variables.clone();
-            env_vars.extend(self.system_env_vars.clone());
+            let mut env_vars = self.system_env_vars.clone();
+            env_vars.extend(self.user_environment_variables.clone());
             Some(env_vars)
         } else {
             None

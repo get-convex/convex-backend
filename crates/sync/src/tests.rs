@@ -102,6 +102,7 @@ impl<RT: Runtime> SyncTest<RT> {
                     modules.clone(),
                     source_package.clone(),
                     BTreeMap::new(),
+                    BTreeMap::new(),
                 )
                 .await??;
 

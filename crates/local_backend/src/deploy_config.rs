@@ -60,6 +60,7 @@ use serde::{
 };
 use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedModulePath;
+use udf::environment::system_env_var_overrides;
 use value::ConvexObject;
 
 use crate::{
@@ -348,7 +349,8 @@ pub async fn push_config_handler(
     // Note: This is not transactional with the rest of the deploy to avoid keeping
     // a transaction open for a long time.
     let mut tx = application.begin(Identity::system()).await?;
-    let environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+    let user_environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+    let system_env_var_overrides = system_env_var_overrides(&mut tx).await?;
     drop(tx);
     // Run analyze to make sure the new modules are valid.
     let (auth_module, analyze_results) = application
@@ -356,7 +358,8 @@ pub async fn push_config_handler(
             udf_config.clone(),
             modules.clone(),
             source_package.clone(),
-            environment_variables,
+            user_environment_variables,
+            system_env_var_overrides,
         )
         .await?;
     let end_analyze = Instant::now();

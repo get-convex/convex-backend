@@ -321,6 +321,7 @@ use tokio::{
 };
 use udf::{
     environment::{
+        system_env_var_overrides,
         CONVEX_ORIGIN,
         CONVEX_SITE,
     },
@@ -673,7 +674,7 @@ impl<RT: Runtime> Application<RT> {
             ModuleCache::new(runtime.clone(), application_storage.modules_storage.clone()).await;
         let module_loader = Arc::new(module_cache.clone());
 
-        let system_env_vars = btreemap! {
+        let default_system_env_vars = btreemap! {
             CONVEX_ORIGIN.clone() => convex_origin.parse()?,
             CONVEX_SITE.clone() => convex_site.parse()?
         };
@@ -732,7 +733,7 @@ impl<RT: Runtime> Application<RT> {
             application_storage.modules_storage.clone(),
             module_loader,
             function_log.clone(),
-            system_env_vars.clone(),
+            default_system_env_vars.clone(),
             cache,
         ));
         function_runner.set_action_callbacks(runner.clone());
@@ -812,7 +813,7 @@ impl<RT: Runtime> Application<RT> {
             log_sender,
             log_visibility,
             module_cache,
-            system_env_var_names: system_env_vars.into_keys().collect(),
+            system_env_var_names: default_system_env_vars.into_keys().collect(),
             app_auth,
         })
     }
@@ -1710,14 +1711,16 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
         self.runner
             .analyze(
                 udf_config,
                 new_modules,
                 source_package,
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides,
             )
             .await
     }
@@ -1778,7 +1781,8 @@ impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
     pub async fn get_evaluated_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
         auth_config_module: Option<ModuleConfig>,
         config: &ConfigFile,
     ) -> anyhow::Result<Vec<AuthInfo>> {
@@ -1797,7 +1801,8 @@ impl<RT: Runtime> Application<RT> {
             );
             let auth_config = Self::evaluate_auth_config(
                 runner,
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides,
                 auth_config_module,
                 "The pushed auth config is invalid",
             )
@@ -1833,10 +1838,11 @@ impl<RT: Runtime> Application<RT> {
                 source_map: auth_config_source.source_map.clone(),
                 environment,
             };
-            let environment_variables = EnvironmentVariablesModel::new(tx).get_all().await?;
+            let user_environment_variables = EnvironmentVariablesModel::new(tx).get_all().await?;
             let auth_config = Self::evaluate_auth_config(
                 runner,
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides(tx).await?,
                 auth_config_module,
                 "This change would make the auth config invalid",
             )
@@ -1848,7 +1854,8 @@ impl<RT: Runtime> Application<RT> {
 
     async fn evaluate_auth_config(
         runner: Arc<ApplicationFunctionRunner<RT>>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
         auth_config_module: ModuleConfig,
         explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
@@ -1856,7 +1863,8 @@ impl<RT: Runtime> Application<RT> {
             .evaluate_auth_config(
                 auth_config_module.source,
                 auth_config_module.source_map,
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides,
                 explanation,
             )
             .await
@@ -1902,10 +1910,12 @@ impl<RT: Runtime> Application<RT> {
             })
             .transpose()?;
 
-        let environment_variables = EnvironmentVariablesModel::new(tx).get_all().await?;
+        let user_environment_variables = EnvironmentVariablesModel::new(tx).get_all().await?;
+        let system_env_var_overrides = system_env_var_overrides(tx).await?;
         let auth_providers = Self::get_evaluated_auth_config(
             runner,
-            environment_variables,
+            user_environment_variables,
+            system_env_var_overrides,
             auth_module,
             &config_file,
         )
@@ -1941,7 +1951,8 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<(
         Option<ModuleConfig>,
         BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
@@ -1958,7 +1969,8 @@ impl<RT: Runtime> Application<RT> {
                 udf_config,
                 analyzed_modules,
                 source_package,
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides,
             )
             .await?;
 
@@ -2053,7 +2065,8 @@ impl<RT: Runtime> Application<RT> {
         udf_config: UdfConfig,
         modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
         let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
         anyhow::ensure!(
@@ -2080,7 +2093,13 @@ impl<RT: Runtime> Application<RT> {
 
         // Run analyze the modules to make sure they are valid.
         match self
-            .analyze(udf_config, modules, source_package, environment_variables)
+            .analyze(
+                udf_config,
+                modules,
+                source_package,
+                user_environment_variables,
+                system_env_var_overrides,
+            )
             .await?
         {
             Ok(m) => Ok(m),
@@ -2282,10 +2301,15 @@ impl<RT: Runtime> Application<RT> {
         let source_package = self.upload_package(&vec![module.clone()], None).await?;
 
         let mut tx = self.begin(identity.clone()).await?;
-        let environment_variables = if component.is_root() {
-            EnvironmentVariablesModel::new(&mut tx).get_all().await?
+        let (user_environment_variables, system_env_var_overrides) = if component.is_root() {
+            let user_environment_variables =
+                EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+            (
+                user_environment_variables,
+                system_env_var_overrides(&mut tx).await?,
+            )
         } else {
-            BTreeMap::new()
+            (BTreeMap::new(), BTreeMap::new())
         };
 
         let mut udf_config_model = UdfConfigModel::new(&mut tx, component.into());
@@ -2314,7 +2338,8 @@ impl<RT: Runtime> Application<RT> {
                 udf_config.clone(),
                 vec![module.clone()],
                 source_package.clone(),
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides,
             )
             .await?
             .map_err(|js_error| {

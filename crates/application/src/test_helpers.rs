@@ -407,6 +407,7 @@ impl<RT: Runtime> Application<RT> {
                 test_source.clone(),
                 source_package.clone(),
                 BTreeMap::new(),
+                BTreeMap::new(),
             )
             .await??;
         let schema_id = insert_validated_schema(&mut tx).await?;

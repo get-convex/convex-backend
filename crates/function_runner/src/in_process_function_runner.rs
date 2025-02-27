@@ -140,7 +140,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         function_metadata: Option<FunctionMetadata>,
         http_action_metadata: Option<HttpActionMetadata>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         context: ExecutionContext,
     ) -> anyhow::Result<(
@@ -182,7 +182,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
             identity,
             ts,
             existing_writes,
-            system_env_vars,
+            default_system_env_vars,
             in_memory_index_last_modified,
             context,
         };
@@ -229,7 +229,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         self.server
@@ -237,7 +237,7 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                 app_definition,
                 component_definitions,
                 dependency_graph,
-                environment_variables,
+                user_environment_variables,
                 system_env_vars,
                 self.instance_name.clone(),
             )

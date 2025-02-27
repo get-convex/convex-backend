@@ -25,6 +25,7 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
+    canonical_urls::CanonicalUrlsModel,
     components::{
         handles::FunctionHandlesModel,
         ComponentsModel,
@@ -55,6 +56,7 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
+use udf::environment::parse_system_env_var_overrides;
 use value::{
     identifier::Identifier,
     ConvexValue,
@@ -90,7 +92,7 @@ enum ActionPreloaded<RT: Runtime> {
     Created {
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
     },
@@ -110,7 +112,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         component: ComponentId,
         tx: Transaction<RT>,
         module_loader: Arc<dyn ModuleLoader<RT>>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
     ) -> Self {
@@ -121,7 +123,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             preloaded: ActionPreloaded::Created {
                 tx,
                 module_loader,
-                system_env_vars,
+                default_system_env_vars,
                 resources,
                 function_handles,
             },
@@ -140,7 +142,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         let ActionPreloaded::Created {
             mut tx,
             module_loader,
-            system_env_vars,
+            default_system_env_vars,
             resources,
             function_handles,
         } = preloaded
@@ -199,9 +201,16 @@ impl<RT: Runtime> ActionPhase<RT> {
         })
         .await?;
 
+        let canonical_urls = with_release_permit(
+            timeout,
+            permit_slot,
+            CanonicalUrlsModel::new(&mut tx).get_canonical_urls(),
+        )
+        .await?;
         // Environment variables are not accessible in component functions.
         let env_vars = if self.component.is_root() {
-            let mut env_vars = system_env_vars;
+            let mut env_vars = default_system_env_vars;
+            env_vars.extend(parse_system_env_var_overrides(canonical_urls)?);
             let user_env_vars = with_release_permit(
                 timeout,
                 permit_slot,

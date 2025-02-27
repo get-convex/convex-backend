@@ -229,13 +229,13 @@ pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentD
     let convex_origin = "http://127.0.0.1:8000".into();
     let file_storage = TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
 
-    let system_env_vars = btreemap! {
+    let default_system_env_vars = btreemap! {
         CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,
         CONVEX_SITE.clone() => "https://carnitas.convex.site".parse()?
     };
     Ok(EnvironmentData {
         key_broker,
-        system_env_vars,
+        default_system_env_vars,
         file_storage,
         module_loader,
     })
@@ -307,7 +307,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             TransactionalFileStorage::new(rt.clone(), storage.clone(), convex_origin);
         let environment_data = EnvironmentData {
             key_broker: key_broker.clone(),
-            system_env_vars: btreemap! {
+            default_system_env_vars: btreemap! {
                 CONVEX_ORIGIN.clone() => "https://carnitas.convex.cloud".parse()?,
                 CONVEX_SITE.clone() => "https://carnitas.convex.site".parse()?
             },

@@ -74,7 +74,13 @@ async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
     let source_package = application.upload_package(&modules, None).await?;
     let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
     let modules = application
-        .analyze(udf_config, modules, source_package, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules,
+            source_package,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        )
         .await??;
     assert_eq!(modules.len(), 2);
 
@@ -175,7 +181,13 @@ export { hello, internalHello };
     let source_package = application.upload_package(&modules, None).await?;
     let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
     let modules = application
-        .analyze(udf_config.clone(), modules, source_package, BTreeMap::new())
+        .analyze(
+            udf_config.clone(),
+            modules,
+            source_package,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        )
         .await??;
 
     assert_eq!(modules.len(), 2);
@@ -230,7 +242,13 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     let source_package = application.upload_package(&modules, None).await?;
     let udf_config = UdfConfig::new_for_test(&rt, "1000.0.0".parse()?);
     let modules = application
-        .analyze(udf_config.clone(), modules, source_package, BTreeMap::new())
+        .analyze(
+            udf_config.clone(),
+            modules,
+            source_package,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        )
         .await??;
     assert_eq!(modules.len(), 3);
 
@@ -257,7 +275,13 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     }];
     let source_package = application.upload_package(&modules, None).await?;
     let result = application
-        .analyze(udf_config.clone(), modules, source_package, BTreeMap::new())
+        .analyze(
+            udf_config.clone(),
+            modules,
+            source_package,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        )
         .await;
 
     let Err(err) = result else {
@@ -277,7 +301,13 @@ async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
     }];
     let source_package = application.upload_package(&modules, None).await?;
     let result = application
-        .analyze(udf_config, modules, source_package, BTreeMap::new())
+        .analyze(
+            udf_config,
+            modules,
+            source_package,
+            BTreeMap::new(),
+            BTreeMap::new(),
+        )
         .await;
 
     let Err(err) = result else {

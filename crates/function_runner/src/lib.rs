@@ -95,7 +95,7 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         log_line_sender: Option<mpsc::UnboundedSender<LogLine>>,
         function_metadata: Option<FunctionMetadata>,
         http_action_metadata: Option<HttpActionMetadata>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
         context: ExecutionContext,
     ) -> anyhow::Result<(
@@ -116,7 +116,7 @@ pub trait FunctionRunner<RT: Runtime>: Send + Sync + 'static {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult>;
 

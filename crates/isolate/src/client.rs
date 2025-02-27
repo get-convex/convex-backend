@@ -350,7 +350,7 @@ pub struct ActionRequestParams {
 #[derive(Clone)]
 pub struct EnvironmentData<RT: Runtime> {
     pub key_broker: KeyBroker,
-    pub system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub file_storage: TransactionalFileStorage<RT>,
     pub module_loader: Arc<dyn ModuleLoader<RT>>,
 }
@@ -424,7 +424,7 @@ pub enum RequestType<RT: Runtime> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         response: oneshot::Sender<anyhow::Result<EvaluateAppDefinitionsResult>>,
     },
@@ -839,7 +839,7 @@ impl<RT: Runtime> IsolateClient<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         instance_name: String,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
@@ -858,7 +858,7 @@ impl<RT: Runtime> IsolateClient<RT> {
             app_definition,
             component_definitions,
             dependency_graph,
-            environment_variables,
+            user_environment_variables,
             system_env_vars,
             response: tx,
         };

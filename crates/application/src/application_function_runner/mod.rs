@@ -158,6 +158,7 @@ use storage::Storage;
 use sync_types::CanonicalizedModulePath;
 use tokio::sync::mpsc;
 use udf::{
+    environment::system_env_vars,
     helpers::parse_udf_args,
     validation::{
         validate_schedule_args,
@@ -236,7 +237,7 @@ pub struct FunctionRouter<RT: Runtime> {
 
     rt: RT,
     database: Database<RT>,
-    system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
 }
 
 impl<RT: Runtime> FunctionRouter<RT> {
@@ -244,13 +245,13 @@ impl<RT: Runtime> FunctionRouter<RT> {
         function_runner: Arc<dyn FunctionRunner<RT>>,
         rt: RT,
         database: Database<RT>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> Self {
         Self {
             function_runner,
             rt,
             database,
-            system_env_vars,
+            default_system_env_vars,
             query_limiter: Arc::new(Limiter::new(
                 ModuleEnvironment::Isolate,
                 UdfType::Query,
@@ -400,7 +401,7 @@ impl<RT: Runtime> FunctionRouter<RT> {
                 log_line_sender,
                 function_metadata,
                 http_action_metadata,
-                self.system_env_vars.clone(),
+                self.default_system_env_vars.clone(),
                 in_memory_index_last_modified,
                 context,
             )
@@ -577,7 +578,7 @@ pub struct ApplicationFunctionRunner<RT: Runtime> {
     function_log: FunctionExecutionLog<RT>,
 
     cache_manager: CacheManager<RT>,
-    system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     node_action_limiter: Limiter,
 }
 
@@ -592,14 +593,14 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         modules_storage: Arc<dyn Storage>,
         module_cache: Arc<dyn ModuleLoader<RT>>,
         function_log: FunctionExecutionLog<RT>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         cache: QueryCache,
     ) -> Self {
         let isolate_functions = FunctionRouter::new(
             function_runner,
             runtime.clone(),
             database.clone(),
-            system_env_vars.clone(),
+            default_system_env_vars.clone(),
         );
         let cache_manager = CacheManager::new(
             runtime.clone(),
@@ -620,7 +621,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             file_storage,
             function_log,
             cache_manager,
-            system_env_vars,
+            default_system_env_vars,
             node_action_limiter: Limiter::new(
                 ModuleEnvironment::Node,
                 UdfType::Action,
@@ -1287,9 +1288,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     .await?
                     .into_value();
                 let mut environment_variables =
+                    system_env_vars(&mut tx, self.default_system_env_vars.clone()).await?;
+                let user_environment_variables =
                     EnvironmentVariablesModel::new(&mut tx).get_all().await?;
-                // Insert special environment variables if not already provided by user
-                environment_variables.extend(self.system_env_vars.clone());
+                environment_variables.extend(user_environment_variables);
 
                 // Fetch source and external_deps presigned URI first
                 let source_uri_future = self
@@ -1464,16 +1466,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
+        let mut system_env_vars = self.default_system_env_vars.clone();
+        system_env_vars.extend(system_env_var_overrides);
         self.isolate_functions
             .function_runner
             .evaluate_app_definitions(
                 app_definition,
                 component_definitions,
                 dependency_graph,
-                environment_variables,
-                self.system_env_vars.clone(),
+                user_environment_variables,
+                system_env_vars,
             )
             .await
     }
@@ -1499,10 +1504,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         udf_config: UdfConfig,
         new_modules: Vec<ModuleConfig>,
         source_package: SourcePackage,
-        mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>, JsError>> {
-        // Insert special environment variables if not already provided by user
-        environment_variables.extend(self.system_env_vars.clone());
+        let mut environment_variables = self.default_system_env_vars.clone();
+        environment_variables.extend(system_env_var_overrides);
+        environment_variables.extend(user_environment_variables);
 
         let (node_modules, isolate_modules) = new_modules
             .into_iter()
@@ -1668,10 +1675,13 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         &self,
         auth_config_bundle: ModuleSource,
         source_map: Option<SourceMap>,
-        mut environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
         explanation: &str,
     ) -> anyhow::Result<AuthConfig> {
-        environment_variables.extend(self.system_env_vars.clone());
+        let mut environment_variables = self.default_system_env_vars.clone();
+        environment_variables.extend(system_env_var_overrides);
+        environment_variables.extend(user_environment_variables);
         self.isolate_functions
             .function_runner
             .evaluate_auth_config(

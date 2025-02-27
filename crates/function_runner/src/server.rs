@@ -128,7 +128,7 @@ pub struct RunRequestArgs {
     pub identity: Identity,
     pub ts: RepeatableTimestamp,
     pub existing_writes: FunctionWrites,
-    pub system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+    pub default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
     pub in_memory_index_last_modified: BTreeMap<IndexId, Timestamp>,
     pub context: ExecutionContext,
 }
@@ -328,7 +328,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
             identity,
             ts,
             existing_writes,
-            system_env_vars,
+            default_system_env_vars,
             in_memory_index_last_modified,
             context,
         }: RunRequestArgs,
@@ -383,7 +383,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         let key_broker = KeyBroker::new(&instance_name, instance_secret)?;
         let environment_data = EnvironmentData {
             key_broker,
-            system_env_vars,
+            default_system_env_vars,
             file_storage,
             module_loader: Arc::new(FunctionRunnerModuleLoader {
                 instance_name: instance_name.clone(),
@@ -501,7 +501,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         instance_name: String,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
@@ -521,7 +521,7 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
                 app_definition,
                 component_definitions,
                 dependency_graph,
-                environment_variables,
+                user_environment_variables,
                 system_env_vars,
                 instance_name,
             )

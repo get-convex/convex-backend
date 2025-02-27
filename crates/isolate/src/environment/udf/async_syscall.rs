@@ -542,7 +542,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
                 path_and_args,
                 EnvironmentData {
                     key_broker: self.key_broker.clone(),
-                    system_env_vars: BTreeMap::new(),
+                    default_system_env_vars: BTreeMap::new(),
                     file_storage: self.file_storage.clone(),
                     module_loader: self.phase.module_loader().clone(),
                 },

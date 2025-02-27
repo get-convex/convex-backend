@@ -15,7 +15,6 @@ use common::{
         CanonicalizedComponentModulePath,
         ComponentId,
     },
-    http::RequestDestination,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -30,7 +29,6 @@ use database::{
 };
 use errors::ErrorMetadata;
 use model::{
-    canonical_urls::CanonicalUrlsModel,
     config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
@@ -50,10 +48,7 @@ use model::{
 use rand::SeedableRng;
 use rand_chacha::ChaCha12Rng;
 use sync_types::ModulePath;
-use udf::environment::{
-    CONVEX_ORIGIN,
-    CONVEX_SITE,
-};
+use udf::environment::system_env_vars;
 use value::{
     identifier::Identifier,
     ConvexValue,
@@ -114,7 +109,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         tx: Transaction<RT>,
         rt: RT,
         module_loader: Arc<dyn ModuleLoader<RT>>,
-        system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
+        default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component: ComponentId,
     ) -> Self {
         Self {
@@ -123,7 +118,7 @@ impl<RT: Runtime> UdfPhase<RT> {
             rt,
             module_loader,
             preloaded: UdfPreloaded::Created {
-                default_system_env_vars: system_env_vars,
+                default_system_env_vars,
             },
             component,
         }
@@ -142,7 +137,7 @@ impl<RT: Runtime> UdfPhase<RT> {
         else {
             anyhow::bail!("UdfPhase initialized twice");
         };
-        let mut system_env_vars = default_system_env_vars.clone();
+        let default_system_env_vars = default_system_env_vars.clone();
 
         let component = self.component;
 
@@ -184,19 +179,12 @@ impl<RT: Runtime> UdfPhase<RT> {
             None
         };
 
-        let canonical_urls = with_release_permit(
+        let system_env_vars = with_release_permit(
             timeout,
             permit_slot,
-            CanonicalUrlsModel::new(self.tx_mut()?).get_canonical_urls(),
+            system_env_vars(self.tx_mut()?, default_system_env_vars.clone()),
         )
         .await?;
-        for (request_destination, value) in canonical_urls {
-            let env_var_name = match request_destination {
-                RequestDestination::ConvexCloud => CONVEX_ORIGIN.clone(),
-                RequestDestination::ConvexSite => CONVEX_SITE.clone(),
-            };
-            system_env_vars.insert(env_var_name, value.url.parse()?);
-        }
 
         self.preloaded = UdfPreloaded::Ready {
             rng,

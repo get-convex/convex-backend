@@ -108,7 +108,10 @@ use sync_types::{
     CanonicalizedModulePath,
     ModulePath,
 };
-use udf::EvaluateAppDefinitionsResult;
+use udf::{
+    environment::system_env_var_overrides,
+    EvaluateAppDefinitionsResult,
+};
 use usage_tracking::FunctionUsageTracker;
 use value::{
     identifier::Identifier,
@@ -139,24 +142,27 @@ impl<RT: Runtime> Application<RT> {
             .get(&ComponentDefinitionPath::root())
             .context("No package for app?")?;
 
-        let environment_variables = {
+        let (user_environment_variables, system_env_var_overrides) = {
             let mut tx = self.begin(Identity::system()).await?;
             let vars = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+            let system_env_var_overrides = system_env_var_overrides(&mut tx).await?;
             tx.into_token()?;
-            vars
+            (vars, system_env_var_overrides)
         };
         let (auth_module, app_analysis) = self
             .analyze_modules_with_auth_config(
                 app_udf_config.clone(),
                 config.app_definition.functions.clone(),
                 app_pkg.clone(),
-                environment_variables.clone(),
+                user_environment_variables.clone(),
+                system_env_var_overrides.clone(),
             )
             .await?;
 
         let auth_info = Application::get_evaluated_auth_config(
             self.runner(),
-            environment_variables.clone(),
+            user_environment_variables.clone(),
+            system_env_var_overrides.clone(),
             auth_module,
             &ConfigFile {
                 functions: config.config.functions.clone(),
@@ -176,7 +182,8 @@ impl<RT: Runtime> Application<RT> {
                 app_analysis,
                 app_udf_config,
                 unix_timestamp,
-                environment_variables.clone(),
+                user_environment_variables.clone(),
+                system_env_var_overrides,
             )
             .await?;
         // Build and typecheck the component tree. We don't strictly need to do this
@@ -213,7 +220,7 @@ impl<RT: Runtime> Application<RT> {
         }
 
         let resp = StartPushResponse {
-            environment_variables,
+            environment_variables: user_environment_variables,
             external_deps_id,
             component_definition_packages,
             app_auth: auth_info,
@@ -265,7 +272,8 @@ impl<RT: Runtime> Application<RT> {
         app_analysis: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
         app_udf_config: UdfConfig,
         unix_timestamp: UnixTimestamp,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<BTreeMap<ComponentDefinitionPath, EvaluatedComponentDefinition>> {
         let mut app_schema = None;
         if let Some(schema_module) = &config.app_definition.schema {
@@ -294,6 +302,7 @@ impl<RT: Runtime> Application<RT> {
                     component_def.functions.clone(),
                     component_pkg.clone(),
                     // Component functions do not have access to environment variables.
+                    BTreeMap::new(),
                     BTreeMap::new(),
                 )
                 .await?;
@@ -343,7 +352,8 @@ impl<RT: Runtime> Application<RT> {
                     app_definition.clone(),
                     component_definitions,
                     dependency_graph,
-                    environment_variables,
+                    user_environment_variables,
+                    system_env_var_overrides,
                 )
                 .await;
             evaluated_definitions = match definition_result {
@@ -402,14 +412,16 @@ impl<RT: Runtime> Application<RT> {
         app_definition: ModuleConfig,
         component_definitions: BTreeMap<ComponentDefinitionPath, ModuleConfig>,
         dependency_graph: BTreeSet<(ComponentDefinitionPath, ComponentDefinitionPath)>,
-        environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        user_environment_variables: BTreeMap<EnvVarName, EnvVarValue>,
+        system_env_var_overrides: BTreeMap<EnvVarName, EnvVarValue>,
     ) -> anyhow::Result<EvaluateAppDefinitionsResult> {
         self.runner
             .evaluate_app_definitions(
                 app_definition,
                 component_definitions,
                 dependency_graph,
-                environment_variables,
+                user_environment_variables,
+                system_env_var_overrides,
             )
             .await
     }

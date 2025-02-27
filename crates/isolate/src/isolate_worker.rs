@@ -263,7 +263,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 app_definition,
                 component_definitions,
                 dependency_graph,
-                environment_variables,
+                user_environment_variables,
                 system_env_vars,
                 response,
             } => {
@@ -271,7 +271,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     app_definition,
                     component_definitions,
                     dependency_graph,
-                    environment_variables,
+                    user_environment_variables,
                     system_env_vars,
                 );
                 let r = env.evaluate(client_id, isolate).await;

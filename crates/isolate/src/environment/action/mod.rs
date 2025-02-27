@@ -231,7 +231,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         component: ComponentId,
         EnvironmentData {
             key_broker,
-            system_env_vars,
+            default_system_env_vars,
             file_storage,
             module_loader,
         }: EnvironmentData<RT>,
@@ -284,7 +284,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 component,
                 transaction,
                 module_loader,
-                system_env_vars,
+                default_system_env_vars,
                 resources,
                 function_handles,
             ),
