@@ -1,3 +1,4 @@
+use anyhow::Context as _;
 use futures::{
     Stream,
     TryStreamExt,
@@ -6,11 +7,11 @@ use futures_async_stream::try_stream;
 use value::InternalDocumentId;
 
 use crate::{
-    comparators::AsComparator,
     document::ResolvedDocument,
     knobs::DOCUMENTS_IN_MEMORY,
     persistence::{
         DocumentLogEntry,
+        DocumentPrevTsQuery,
         RepeatablePersistence,
     },
     try_chunks::TryChunksExt,
@@ -56,27 +57,37 @@ pub async fn stream_revision_pairs<'a>(
     futures::pin_mut!(documents);
 
     while let Some(read_chunk) = documents.try_next().await? {
-        // TODO: use prev_ts when it is available
-        let ids = read_chunk
+        let queries = read_chunk
             .iter()
-            .map(|entry| (entry.id, entry.ts))
+            .filter_map(|entry| {
+                entry.prev_ts.map(|prev_ts| DocumentPrevTsQuery {
+                    id: entry.id,
+                    ts: entry.ts,
+                    prev_ts,
+                })
+            })
             .collect();
-        let mut prev_revs = reader.previous_revisions(ids).await?;
+        let mut prev_revs = reader.previous_revisions_of_documents(queries).await?;
         for DocumentLogEntry {
             ts,
+            prev_ts,
             id,
             value: document,
             ..
         } in read_chunk
         {
             let rev = DocumentRevision { ts, document };
-            let prev_rev =
-                prev_revs
-                    .remove((&id, &ts).as_comparator())
-                    .map(|entry| DocumentRevision {
+            let prev_rev = prev_ts
+                .map(|prev_ts| {
+                    let entry = prev_revs
+                        .remove(&DocumentPrevTsQuery { id, ts, prev_ts })
+                        .with_context(|| format!("prev_ts is missing for {id}@{ts}: {prev_ts}"))?;
+                    anyhow::Ok(DocumentRevision {
                         ts: entry.ts,
                         document: entry.value,
-                    });
+                    })
+                })
+                .transpose()?;
             yield RevisionPair { id, rev, prev_rev };
         }
     }
