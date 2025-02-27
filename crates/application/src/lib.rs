@@ -1690,7 +1690,8 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<()> {
         CanonicalUrlsModel::new(tx)
             .set_canonical_url(canonical_url.request_destination, canonical_url.url)
-            .await
+            .await?;
+        Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await
     }
 
     pub async fn unset_canonical_url(
@@ -1700,7 +1701,8 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<()> {
         CanonicalUrlsModel::new(tx)
             .unset_canonical_url(request_destination)
-            .await
+            .await?;
+        Self::reevaluate_existing_auth_config(self.runner().clone(), tx).await
     }
 
     pub async fn analyze(
