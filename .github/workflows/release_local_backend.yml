@@ -10,10 +10,10 @@ on:
     outputs:
       backend_x64_digest:
         description: "x64 image digest"
-        value: ${{ jobs.read.outputs.result.digest['backend-x64'] }}
+        value: ${{ fromJson(jobs.read.outputs.result).digest.backend-x64 }}
       backend_arm64_digest:
         description: "arm64 image digest"
-        value: ${{ jobs.read.outputs.result.digest['backend-arm64'] }}
+        value: ${{ fromJson(jobs.read.outputs.result).digest.backend-arm64 }}
 
 permissions:
   contents: read

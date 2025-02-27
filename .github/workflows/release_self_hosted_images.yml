@@ -48,6 +48,13 @@ jobs:
     if: success()
     runs-on: ubuntu-latest
     steps:
+      - name: Debug outputs
+        run: |
+          echo "Backend outputs:"
+          echo "${{ toJson(needs.release_backend.outputs) }}"
+          echo "Dashboard outputs:"
+          echo "${{ toJson(needs.release_dashboard.outputs) }}"
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
