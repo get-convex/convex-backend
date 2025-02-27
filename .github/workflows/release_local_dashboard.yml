@@ -2,11 +2,13 @@ name: Release Self-Hosted Dashboard
 
 on:
   workflow_call:
-    inputs:
-      tag_latest:
-        description: "Tag image as latest"
-        type: boolean
-        required: true
+    outputs:
+      dashboard_x64_digest:
+        description: "x64 image digest"
+        value: ${{ fromJson(jobs.read.outputs.result).digest.dashboard-x64 }}
+      dashboard_arm64_digest:
+        description: "arm64 image digest"
+        value: ${{ fromJson(jobs.read.outputs.result).digest.dashboard-arm64 }}
 
 permissions:
   contents: read
@@ -72,32 +74,3 @@ jobs:
           matrix-step-name: build
     outputs:
       result: "${{ steps.read.outputs.result }}"
-
-  push:
-    name: Push merged image manifest
-    needs: [read]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Push manifest
-        run: |
-          docker manifest create ghcr.io/get-convex/convex-dashboard:${{ github.sha }} \
-            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-x64'] }} \
-            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-arm64'] }}
-          docker manifest push ghcr.io/get-convex/convex-dashboard:${{ github.sha }}
-
-          if [[ "${{ inputs.tag_latest }}" == "true" ]]; then
-            docker manifest create ghcr.io/get-convex/convex-dashboard:latest \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-x64'] }} \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.read.outputs.result).digest['dashboard-arm64'] }}
-            docker manifest push ghcr.io/get-convex/convex-dashboard:latest
-          fi
