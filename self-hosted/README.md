@@ -273,6 +273,23 @@ export S3_STORAGE_SEARCH_BUCKET="convex-search-indexes"
 
 Then run the backend!
 
+## Migrating storage providers
+
+If you are switching between local storage and S3 storage (or vice versa),
+you'll need to run a snapshot export and import to migrate your data.
+
+Run:
+
+```sh
+npx convex export --path <path-to-export-file>
+```
+
+Then set up a fresh backend with the new storage provider and import the data:
+
+```sh
+npx convex import --replace-all <path-to-export-file>
+```
+
 ## Optional configurations
 
 - The cloud-hosted product automatically redacts logs to prevent any leaking of
