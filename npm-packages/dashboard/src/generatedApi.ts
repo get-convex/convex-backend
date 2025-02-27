@@ -1365,7 +1365,9 @@ export interface components {
             paymentMethod?: string | null;
             planId: string;
             /** Format: int64 */
-            spendingLimitThresholdCents?: number | null;
+            spendingLimitDisableThresholdCents?: number | null;
+            /** Format: int64 */
+            spendingLimitWarningThresholdCents?: number | null;
         };
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
@@ -1631,7 +1633,9 @@ export interface components {
         SerializedAccessToken: string;
         SetSpendingLimitArgs: {
             /** Format: int64 */
-            thresholdCents: number;
+            disableThresholdCents: number;
+            /** Format: int64 */
+            warningThresholdCents: number;
         };
         SetupIntentResponse: {
             clientSecret: string;
