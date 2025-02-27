@@ -8,7 +8,8 @@ description:
 
 Configure exception reporting to gain visibility into errors from your Convex
 function executions. Convex supports integration with
-[Sentry](https://sentry.io/).
+[Sentry](https://sentry.io/) and with
+[Datadog Error Tracking](https://www.datadoghq.com/product/error-tracking/).
 
 Currently, exception reporting is only available to Pro users.
 
@@ -22,13 +23,14 @@ and the "Integrations" tab in the sidebar.
 
 Click on the Sentry card and follow the setup directions. You will need your
 [Sentry DSN](https://docs.sentry.io/product/sentry-basics/concepts/dsn-explainer/).
+You may optionally specify additional tags to be added to each exception event.
 
 ![Configure sentry](/screenshots/configure_sentry.png)
 
 ## Supported Tags
 
 Convex automatically tags exception events on their way to sentry with the
-following tags
+following tags. These tags cannot be overridden.
 
 - `func`: The name of the running function in
   [string format](/functions/query-functions#query-names)
@@ -52,3 +54,10 @@ following tags
   customization provided by the sentry SDK.
 - Please reach out with any questions, comments, or suggestions
   [on Discord](https://convex.dev/community).
+
+## Configuring Datadog Error Tracking
+
+Follow the instructions in the
+[Datadog application](https://app.datadoghq.com/error-tracking/settings/setup/sentry)
+to configure Datadog error tracking via the Sentry SDK. Then use the
+Convex-Sentry integration to proceed.
