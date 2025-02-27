@@ -114,12 +114,15 @@ export function useCreateAxiomSink(): (
   };
 }
 
-export function useCreateSentrySink(): (dsn: string) => Promise<void> {
+export function useCreateSentrySink(): (
+  dsn: string,
+  tags: Record<string, string>,
+) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
 
-  return async (dsn: string) => {
-    const body = JSON.stringify({ dsn });
+  return async (dsn: string, tags: Record<string, string>) => {
+    const body = JSON.stringify({ dsn, tags });
     await createSink("sentry", body, deploymentUrl, adminKey);
   };
 }

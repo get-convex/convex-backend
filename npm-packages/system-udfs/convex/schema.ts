@@ -222,6 +222,7 @@ export const axiomConfig = v.object({
 export const sentryConfig = v.object({
   type: v.literal("sentry"),
   dsn: v.string(),
+  tags: v.optional(v.record(v.string(), v.string())),
 });
 
 export const sinkConfig = v.union(

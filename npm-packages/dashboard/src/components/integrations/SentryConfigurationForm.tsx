@@ -9,6 +9,23 @@ import * as Yup from "yup";
 
 const sentryValidationSchema = Yup.object().shape({
   dsn: Yup.string().url().required("Sentry DSN is required"),
+  tags: Yup.string()
+    .test("is-valid-json", "Tags must be a valid JSON object", (value, ctx) => {
+      if (!value) return true; // Allow empty value
+      try {
+        const parsed = JSON.parse(value);
+        return (
+          typeof parsed === "object" &&
+          parsed !== null &&
+          !Array.isArray(parsed)
+        );
+      } catch (e) {
+        return ctx.createError({
+          message: `Tags must be a valid JSON object: ${e}`,
+        });
+      }
+    })
+    .nullable(),
 });
 
 export function SentryConfigurationForm({
@@ -22,12 +39,19 @@ export function SentryConfigurationForm({
 
   const formState = useFormik<{
     dsn: string;
+    tags: string | undefined;
   }>({
     initialValues: {
       dsn: existingConfig?.dsn ?? "",
+      tags: existingConfig?.tags
+        ? JSON.stringify(existingConfig.tags)
+        : undefined,
     },
     onSubmit: async (values) => {
-      await createSentrySink(values.dsn);
+      await createSentrySink(
+        values.dsn,
+        values.tags ? JSON.parse(values.tags) : undefined,
+      );
       onClose();
     },
     validationSchema: sentryValidationSchema,
@@ -56,6 +80,15 @@ export function SentryConfigurationForm({
             </div>
           </div>
         }
+      />
+      <TextInput
+        value={formState.values.tags}
+        onChange={formState.handleChange}
+        label="Tags"
+        placeholder='{"key": "value"}'
+        id="tags"
+        error={formState.errors.tags}
+        description="Tags to add to all events routed to Sentry. Use JSON format."
       />
       <div className="flex justify-end">
         <Button
