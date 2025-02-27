@@ -3,17 +3,14 @@ name: Test Self-Hosted Backend
 on:
   workflow_call:
     inputs:
-      git_sha:
-        description: "Git SHA for backend image tag to test"
+      image_digest_x64:
+        description: "x64 image digest to test"
         type: string
         required: true
-  workflow_dispatch:
-    inputs:
-      git_sha:
-        description: "Git SHA for backend image tag to test (defaults to latest)"
+      image_digest_arm64:
+        description: "arm64 image digest to test"
         type: string
-        required: false
-        default: "latest"
+        required: true
 
 jobs:
   test_docker_compose:
@@ -23,7 +20,7 @@ jobs:
 
     services:
       backend:
-        image: ghcr.io/get-convex/convex-backend:${{ inputs.git_sha }}
+        image: ghcr.io/get-convex/convex-backend@${{ inputs.image_digest_x64 }}
         env:
           ACTIONS_USER_TIMEOUT_SECS: "20"
           CONVEX_CLOUD_ORIGIN: "http://127.0.0.1:3210"
