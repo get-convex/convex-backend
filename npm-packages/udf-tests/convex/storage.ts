@@ -23,6 +23,13 @@ export const getFileUrl = query({
   },
 });
 
+export const getFileUrlFromAction = action({
+  args: { id: v.id("_storage") },
+  handler: async (ctx, { id }) => {
+    return ctx.storage.getUrl(id);
+  },
+});
+
 export const getFileUrls = query({
   args: { ids: v.array(v.id("_storage")) },
   handler: async (ctx, { ids }) => {

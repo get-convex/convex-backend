@@ -11,6 +11,7 @@ use common::{
         ComponentId,
         ComponentPath,
     },
+    http::RequestDestination,
     runtime::{
         Runtime,
         UnixTimestamp,
@@ -41,11 +42,14 @@ use keybroker::{
     KeyBroker,
 };
 use maplit::btreemap;
-use model::file_storage::{
-    types::FileStorageEntry,
-    BatchKey,
-    FileStorageId,
-    FileStorageModel,
+use model::{
+    canonical_urls::CanonicalUrlsModel,
+    file_storage::{
+        types::FileStorageEntry,
+        BatchKey,
+        FileStorageId,
+        FileStorageModel,
+    },
 };
 use storage::{
     Storage,
@@ -115,7 +119,24 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         component: ComponentId,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
-        let origin = &self.convex_origin;
+        let canonical_origin = match CanonicalUrlsModel::new(tx).get_canonical_urls().await {
+            Ok(canonical_urls) => canonical_urls
+                .get(&RequestDestination::ConvexCloud)
+                .map_or_else(
+                    || self.convex_origin.clone(),
+                    |canonical_url| ConvexOrigin::from(&canonical_url.url),
+                ),
+            Err(e) => {
+                // Return the error for each requested storage id.
+                // Re-wrap the error with anyhow::anyhow to clone it. This loses
+                // ErrorMetadata, but an error from CanonicalUrlsModel should be
+                // a system error anyway.
+                return storage_ids
+                    .into_keys()
+                    .map(|batch_key| (batch_key, Err(anyhow::anyhow!(e.to_string()))))
+                    .collect();
+            },
+        };
         let files = self
             .get_file_entry_batch(tx, component.into(), storage_ids)
             .await;
@@ -131,7 +152,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                     result.map(|file| {
                         file.map(|entry| {
                             format!(
-                                "{origin}/api/storage/{}{}",
+                                "{canonical_origin}/api/storage/{}{}",
                                 entry.storage_id, component_query
                             )
                         })
