@@ -34,12 +34,6 @@ use crate::{
 
 pub mod types;
 
-// The version for the format of the database. We support all previous
-// migrations unless explicitly dropping support.
-// Add a user name next to the version when you make a change to highlight merge
-// conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 115; // nipunn
-
 pub static DATABASE_GLOBALS_TABLE: LazyLock<TableName> =
     LazyLock::new(|| "_db".parse().expect("invalid built-in db table"));
 

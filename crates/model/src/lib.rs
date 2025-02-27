@@ -47,16 +47,23 @@ use backend_info::{
     BackendInfoTable,
     BACKEND_INFO_TABLE,
 };
-use backend_serving_record::BackendServingRecordTable;
+use backend_serving_record::{
+    BackendServingRecordTable,
+    BACKEND_SERVING_RECORD_TABLE,
+};
 use backend_state::{
     BackendStateTable,
     BACKEND_STATE_TABLE,
 };
 use canonical_urls::CANONICAL_URLS_TABLE;
 use common::{
-    bootstrap_model::index::{
-        IndexConfig,
-        IndexMetadata,
+    bootstrap_model::{
+        index::{
+            IndexConfig,
+            IndexMetadata,
+            INDEX_TABLE,
+        },
+        tables::TABLES_TABLE,
     },
     document::CREATION_TIME_FIELD_PATH,
     runtime::Runtime,
@@ -69,18 +76,21 @@ use common::{
 use components::handles::{
     FunctionHandlesTable,
     BY_COMPONENT_PATH_INDEX,
+    FUNCTION_HANDLES_TABLE,
 };
 use cron_jobs::{
     CRON_JOBS_INDEX_BY_NAME,
     CRON_JOBS_INDEX_BY_NEXT_TS,
     CRON_JOBS_TABLE,
     CRON_JOB_LOGS_INDEX_BY_NAME_TS,
+    CRON_JOB_LOGS_TABLE,
 };
 pub use database::defaults::{
     SystemIndex,
     SystemTable,
 };
 use database::{
+    defaults::bootstrap_system_tables,
     ComponentDefinitionsTable,
     ComponentsTable,
     Database,
@@ -90,36 +100,75 @@ use database::{
     SchemasTable,
     TablesTable,
     Transaction,
+    COMPONENTS_BY_PARENT_INDEX,
+    COMPONENTS_TABLE,
+    COMPONENT_DEFINITIONS_TABLE,
+    INDEX_DOC_ID_INDEX,
+    INDEX_WORKER_METADATA_TABLE,
     NUM_RESERVED_LEGACY_TABLE_NUMBERS,
+    SCHEMAS_STATE_INDEX,
+    SCHEMAS_TABLE,
+    TABLES_INDEX,
 };
 use database_globals::{
+    types::DatabaseVersion,
     DatabaseGlobalsModel,
     DatabaseGlobalsTable,
     DATABASE_GLOBALS_TABLE,
-    DATABASE_VERSION,
 };
 use environment_variables::{
     ENVIRONMENT_VARIABLES_INDEX_BY_NAME,
     ENVIRONMENT_VARIABLES_TABLE,
 };
-use exports::EXPORTS_BY_STATE_AND_TS_INDEX;
-use file_storage::FILE_STORAGE_ID_INDEX;
+use exports::{
+    EXPORTS_BY_REQUESTOR,
+    EXPORTS_BY_STATE_AND_TS_INDEX,
+    EXPORTS_TABLE,
+};
+use external_packages::ExternalPackagesTable;
+use file_storage::{
+    FileStorageTable,
+    FILE_STORAGE_ID_INDEX,
+    FILE_STORAGE_TABLE,
+};
 use keybroker::Identity;
 use log_sinks::LogSinksTable;
-use maplit::btreeset;
+use maplit::{
+    btreemap,
+    btreeset,
+};
+use migrations::DATABASE_VERSION;
 use modules::{
+    ModulesTable,
     MODULES_TABLE,
     MODULE_INDEX_BY_DELETED,
     MODULE_INDEX_BY_PATH,
 };
 use scheduled_jobs::{
+    ScheduledJobsTable,
     SCHEDULED_JOBS_INDEX,
     SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS,
     SCHEDULED_JOBS_INDEX_BY_UDF_PATH,
+    SCHEDULED_JOBS_TABLE,
 };
-use session_requests::SESSION_REQUESTS_INDEX;
+use session_requests::{
+    SessionRequestsTable,
+    SESSION_REQUESTS_INDEX,
+    SESSION_REQUESTS_TABLE,
+};
+use snapshot_imports::{
+    SnapshotImportsTable,
+    SNAPSHOT_IMPORTS_TABLE,
+};
+use source_packages::{
+    SourcePackagesTable,
+    SOURCE_PACKAGES_TABLE,
+};
 use strum::IntoEnumIterator;
-use udf_config::UDF_CONFIG_TABLE;
+use udf_config::{
+    UdfConfigTable,
+    UDF_CONFIG_TABLE,
+};
 pub use value::METADATA_PREFIX;
 use value::{
     TableName,
@@ -135,17 +184,14 @@ use crate::{
         CronJobLogsTable,
         CronJobsTable,
     },
-    deployment_audit_log::DeploymentAuditLogsTable,
+    deployment_audit_log::{
+        DeploymentAuditLogsTable,
+        DEPLOYMENT_AUDIT_LOG_TABLE,
+    },
     environment_variables::EnvironmentVariablesTable,
     exports::ExportsTable,
-    external_packages::ExternalPackagesTable,
-    file_storage::FileStorageTable,
-    modules::ModulesTable,
-    scheduled_jobs::ScheduledJobsTable,
-    session_requests::SessionRequestsTable,
-    snapshot_imports::SnapshotImportsTable,
-    source_packages::SourcePackagesTable,
-    udf_config::UdfConfigTable,
+    external_packages::EXTERNAL_PACKAGES_TABLE,
+    log_sinks::LOG_SINKS_TABLE,
 };
 
 pub mod airbyte_import;
@@ -296,6 +342,10 @@ static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = Laz
         SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone(),
         SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone(),
         SESSION_REQUESTS_INDEX.clone(),
+        TABLES_INDEX.clone(),
+        SCHEMAS_STATE_INDEX.clone(),
+        INDEX_DOC_ID_INDEX.clone(),
+        COMPONENTS_BY_PARENT_INDEX.clone(),
     }
 });
 
@@ -463,6 +513,7 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
         &BackendServingRecordTable,
     ];
     system_tables.extend(component_system_tables());
+    system_tables.extend(bootstrap_system_tables());
     system_tables
 }
 
@@ -513,9 +564,68 @@ pub fn virtual_system_mapping() -> &'static VirtualSystemMapping {
     &MAPPING
 }
 
+pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = LazyLock::new(|| {
+    btreemap! {
+        MODULES_TABLE.clone() => 44,
+        DATABASE_GLOBALS_TABLE.clone() => 44,
+        EXTERNAL_PACKAGES_TABLE.clone() => 77,
+        DEPLOYMENT_AUDIT_LOG_TABLE.clone() => 44,
+        SCHEDULED_JOBS_TABLE.clone() => 44,
+        SESSION_REQUESTS_TABLE.clone() => 44,
+        AUTH_TABLE.clone() => 44,
+        FILE_STORAGE_TABLE.clone() => 44,
+        UDF_CONFIG_TABLE.clone() => 44,
+        BACKEND_STATE_TABLE.clone() => 75,
+        CRON_JOBS_TABLE.clone() => 47,
+        CRON_JOB_LOGS_TABLE.clone() => 51,
+        SOURCE_PACKAGES_TABLE.clone() => 44,
+        ENVIRONMENT_VARIABLES_TABLE.clone() => 44,
+        AWS_LAMBDA_VERSIONS_TABLE.clone() => 44,
+        BACKEND_INFO_TABLE.clone() => 44,
+        BACKEND_SERVING_RECORD_TABLE.clone() => 55,
+        EXPORTS_TABLE.clone() => 44,
+        LOG_SINKS_TABLE.clone() => 68,
+        TABLES_TABLE.clone() => 44,
+        INDEX_TABLE.clone() => 44,
+        SCHEMAS_TABLE.clone() => 50,
+        SNAPSHOT_IMPORTS_TABLE.clone() => 89,
+        INDEX_WORKER_METADATA_TABLE.clone() => 92,
+        COMPONENTS_TABLE.clone() => 100,
+        COMPONENT_DEFINITIONS_TABLE.clone() => 100,
+        FUNCTION_HANDLES_TABLE.clone() => 102,
+        CANONICAL_URLS_TABLE.clone() => 116,
+    }
+});
+
+pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = LazyLock::new(|| {
+    btreemap! {
+        MODULE_INDEX_BY_PATH.clone() => 44,
+        SCHEDULED_JOBS_INDEX_BY_COMPLETED_TS.clone() => 74,
+        SCHEDULED_JOBS_INDEX.clone() => 45,
+        SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone() => 44,
+        SESSION_REQUESTS_INDEX.clone() => 44,
+        FILE_STORAGE_ID_INDEX.clone() => 44,
+        CRON_JOBS_INDEX_BY_NEXT_TS.clone() => 47,
+        CRON_JOBS_INDEX_BY_NAME.clone() => 49,
+        CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone() => 51,
+        EXPORTS_BY_STATE_AND_TS_INDEX.clone() => 88,
+        TABLES_INDEX.clone() => 44,
+        SCHEMAS_STATE_INDEX.clone() => 44,
+        MODULE_INDEX_BY_DELETED.clone() => 90,
+        ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone() => 91,
+        INDEX_DOC_ID_INDEX.clone() => 92,
+        COMPONENTS_BY_PARENT_INDEX.clone() => 100,
+        BY_COMPONENT_PATH_INDEX.clone() => 102,
+        EXPORTS_BY_REQUESTOR.clone() => 110,
+    }
+});
+
 #[cfg(test)]
 mod test_default_table_numbers {
-    use std::sync::Arc;
+    use std::{
+        collections::BTreeSet,
+        sync::Arc,
+    };
 
     use common::testing::TestPersistence;
     use database::{
@@ -529,9 +639,12 @@ mod test_default_table_numbers {
 
     use crate::{
         app_system_tables,
+        migrations::DATABASE_VERSION,
         test_helpers::DbFixturesWithModel,
         virtual_system_mapping,
         DEFAULT_TABLE_NUMBERS,
+        FIRST_SEEN_INDEX,
+        FIRST_SEEN_TABLE,
     };
 
     #[test]
@@ -572,6 +685,34 @@ mod test_default_table_numbers {
         DbFixtures::new_with_model_and_args(&rt, args.clone()).await?;
         // Reinitialize (should work a second time - simulating a restart)
         DbFixtures::new_with_model_and_args(&rt, args).await?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_first_seen() -> anyhow::Result<()> {
+        let tables: BTreeSet<_> = app_system_tables()
+            .into_iter()
+            .map(|table| table.table_name())
+            .collect();
+        let first_seen: BTreeSet<_> = FIRST_SEEN_TABLE.keys().collect();
+        assert_eq!(tables, first_seen);
+        let max_first_seen = *FIRST_SEEN_TABLE.values().max().unwrap();
+        println!("max_first_seen: {}", max_first_seen);
+        assert!(max_first_seen <= DATABASE_VERSION);
+        Ok(())
+    }
+
+    #[test]
+    fn test_first_seen_indexes() -> anyhow::Result<()> {
+        let tables: BTreeSet<_> = app_system_tables()
+            .into_iter()
+            .flat_map(|table| table.indexes())
+            .map(|index| index.name)
+            .collect();
+        let first_seen: BTreeSet<_> = FIRST_SEEN_INDEX.keys().cloned().collect();
+        assert_eq!(tables, first_seen);
+        let max_first_seen = *FIRST_SEEN_INDEX.values().max().unwrap();
+        assert!(max_first_seen <= DATABASE_VERSION);
         Ok(())
     }
 }
