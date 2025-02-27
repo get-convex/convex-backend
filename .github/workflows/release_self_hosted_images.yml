@@ -17,7 +17,6 @@ on:
 jobs:
   release_backend:
     uses: ./.github/workflows/release_local_backend.yml
-    with:
     permissions:
       contents: read
       packages: write
@@ -25,7 +24,6 @@ jobs:
 
   release_dashboard:
     uses: ./.github/workflows/release_local_dashboard.yml
-    with:
     permissions:
       contents: read
       packages: write
