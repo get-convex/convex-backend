@@ -18,12 +18,15 @@ export async function functionSpecForDeployment(
     componentPath: undefined,
     args: {},
   })) as any[];
+  const url = (await runSystemQuery(ctx, {
+    deploymentUrl: options.deploymentUrl,
+    adminKey: options.adminKey,
+    functionName: "_system/cli/convexUrl:cloudUrl",
+    componentPath: undefined,
+    args: {},
+  })) as string;
 
-  const output = JSON.stringify(
-    { url: options.deploymentUrl, functions: functions },
-    null,
-    2,
-  );
+  const output = JSON.stringify({ url, functions }, null, 2);
 
   if (options.file) {
     const fileName = `function_spec_${Date.now().valueOf()}.json`;
