@@ -1,6 +1,12 @@
 name: Test Self-Hosted Backend
 
 on:
+  workflow_call:
+    inputs:
+      git_sha:
+        description: "Git SHA for backend image tag to test"
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       git_sha:

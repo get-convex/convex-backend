@@ -34,3 +34,9 @@ jobs:
       contents: read
       packages: write
       id-token: write
+
+  test_backend:
+    needs: release_backend
+    uses: ./.github/workflows/test_self_hosted_backend.yml
+    with:
+      git_sha: ${{ github.sha }}
