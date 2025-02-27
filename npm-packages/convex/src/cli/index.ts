@@ -28,6 +28,7 @@ import inquirerSearchList from "inquirer-search-list";
 import { format } from "util";
 import { functionSpec } from "./functionSpec.js";
 import { disableLocalDeployments } from "./disableLocalDev.js";
+import { mcp } from "./mcp.js";
 import dns from "node:dns";
 
 const MINIMUM_MAJOR_VERSION = 16;
@@ -107,6 +108,7 @@ async function main() {
     .addCommand(networkTest, { hidden: true })
     .addCommand(functionSpec)
     .addCommand(disableLocalDeployments)
+    .addCommand(mcp)
     .addHelpCommand("help <command>", "Show help for given <command>")
     .version(version)
     // Hide version and help so they don't clutter
