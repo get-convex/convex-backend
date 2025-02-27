@@ -106,7 +106,7 @@ html.light {
   --background-error: var(--red-100);
   --background-error-secondary: var(--red-200);
   --content-primary: 42, 40, 37;
-  --content-secondary: 78, 76, 72;
+  --content-secondary: 120, 118, 113;
   --content-tertiary: 120, 118, 113;
   --content-accent: 48, 106, 207;
   --content-success: var(--green-700);
@@ -196,7 +196,6 @@ html.dark {
 .monaco-editor,
 .margin,
 .monaco-scrollable-element {
-  @apply rounded-b-md !important;
   @apply bg-background-secondary !important;
 }
 
