@@ -39,8 +39,8 @@ jobs:
     needs: release_backend
     uses: ./.github/workflows/test_self_hosted_backend.yml
     with:
-      image_digest_x64: ${{ fromJson(needs.release_backend.outputs.result).digest['backend-x64'] }}
-      image_digest_arm64: ${{ fromJson(needs.release_backend.outputs.result).digest['backend-arm64'] }}
+      image_digest_x64: ${{ needs.release_backend.outputs.backend_x64_digest }}
+      image_digest_arm64: ${{ needs.release_backend.outputs.backend_arm64_digest }}
 
   tag_images:
     needs: [release_backend, release_dashboard, test_backend]
@@ -58,27 +58,27 @@ jobs:
       - name: Tag and push backend manifest
         run: |
           docker manifest create ghcr.io/get-convex/convex-backend:${{ github.sha }} \
-            --amend ghcr.io/get-convex/convex-backend@${{ fromJson(needs.release_backend.outputs.result).digest['backend-x64'] }} \
-            --amend ghcr.io/get-convex/convex-backend@${{ fromJson(needs.release_backend.outputs.result).digest['backend-arm64'] }}
+            --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_x64_digest }} \
+            --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_arm64_digest }}
           docker manifest push ghcr.io/get-convex/convex-backend:${{ github.sha }}
 
           if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}" == "true" ]]; then
             docker manifest create ghcr.io/get-convex/convex-backend:latest \
-              --amend ghcr.io/get-convex/convex-backend@${{ fromJson(needs.release_backend.outputs.result).digest['backend-x64'] }} \
-              --amend ghcr.io/get-convex/convex-backend@${{ fromJson(needs.release_backend.outputs.result).digest['backend-arm64'] }}
+              --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_x64_digest }} \
+              --amend ghcr.io/get-convex/convex-backend@${{ needs.release_backend.outputs.backend_arm64_digest }}
             docker manifest push ghcr.io/get-convex/convex-backend:latest
           fi
 
       - name: Tag and push dashboard manifest
         run: |
           docker manifest create ghcr.io/get-convex/convex-dashboard:${{ github.sha }} \
-            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.release_dashboard.outputs.result).digest['dashboard-x64'] }} \
-            --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.release_dashboard.outputs.result).digest['dashboard-arm64'] }}
+            --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_x64_digest }} \
+            --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_arm64_digest }}
           docker manifest push ghcr.io/get-convex/convex-dashboard:${{ github.sha }}
 
           if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || false }}" == "true" ]]; then
             docker manifest create ghcr.io/get-convex/convex-dashboard:latest \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.release_dashboard.outputs.result).digest['dashboard-x64'] }} \
-              --amend ghcr.io/get-convex/convex-dashboard@${{ fromJson(needs.release_dashboard.outputs.result).digest['dashboard-arm64'] }}
+              --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_x64_digest }} \
+              --amend ghcr.io/get-convex/convex-dashboard@${{ needs.release_dashboard.outputs.dashboard_arm64_digest }}
             docker manifest push ghcr.io/get-convex/convex-dashboard:latest
           fi

@@ -7,6 +7,13 @@ on:
         description: "Tag image as latest"
         type: boolean
         required: true
+    outputs:
+      dashboard_x64_digest:
+        description: "x64 image digest"
+        value: ${{ jobs.read.outputs.result.digest['dashboard-x64'] }}
+      dashboard_arm64_digest:
+        description: "arm64 image digest"
+        value: ${{ jobs.read.outputs.result.digest['dashboard-arm64'] }}
 
 permissions:
   contents: read
