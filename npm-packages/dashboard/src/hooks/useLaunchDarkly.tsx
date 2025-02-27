@@ -9,8 +9,10 @@ const flagDefaults: {
       name: string;
     }
   >;
+  canonicalCustomDomains: boolean;
 } = {
   oauthProviderConfiguration: {},
+  canonicalCustomDomains: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

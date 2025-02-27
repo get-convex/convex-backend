@@ -235,3 +235,31 @@ export function useLogDeploymentEvent() {
     [deploymentUrl, authHeader],
   );
 }
+
+export const useUpdateCanonicalUrl = (
+  requestDestination: "convexCloud" | "convexSite",
+  defaultUrl: string,
+) => {
+  const deploymentUrl = useDeploymentUrl();
+  const adminKey = useAdminKey();
+  return useCallback(
+    async (url: string) => {
+      const res = await fetch(`${deploymentUrl}/api/update_canonical_url`, {
+        method: "POST",
+        headers: {
+          Authorization: `Convex ${adminKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          requestDestination,
+          url: url === defaultUrl ? null : url,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast("error", err.message);
+      }
+    },
+    [adminKey, deploymentUrl, requestDestination, defaultUrl],
+  );
+};

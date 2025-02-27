@@ -3,6 +3,7 @@ import {
   ExclamationTriangleIcon,
   PlusIcon,
   TrashIcon,
+  QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { Button } from "dashboard-common/elements/Button";
@@ -21,7 +22,7 @@ import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
 import { useHasProjectAdminPermissions } from "api/roles";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Team,
   VanityDomainRequestArgs,
@@ -32,6 +33,14 @@ import {
   useCreateVanityDomain,
   useDeleteVanityDomain,
 } from "api/vanityDomains";
+import { useDeploymentUrl } from "dashboard-common/lib/deploymentApi";
+import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
+import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider";
+import { WaitForDeploymentApi } from "dashboard-common/lib/deploymentContext";
+import { useQuery } from "convex/react";
+import udfs from "dashboard-common/udfs";
+import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
+import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export function CustomDomains({
   team,
@@ -49,6 +58,7 @@ export function CustomDomains({
     hasEntitlement ? deployment?.name : undefined,
   );
   const hasEditAccess = hasEntitlement && hasAdminPermissions;
+  const { canonicalCustomDomains } = useLaunchDarkly();
 
   const proCallout = hasEntitlement ? null : (
     <Callout>
@@ -127,6 +137,14 @@ export function CustomDomains({
                 </div>
               </>
             )}
+            {deployment && canonicalCustomDomains && (
+              <ProdProvider deploymentName={deployment.name}>
+                <CanonicalDomainForm
+                  deploymentName={deployment.name}
+                  vanityDomains={vanityDomains}
+                />
+              </ProdProvider>
+            )}
           </div>
         )}
       </div>
@@ -138,6 +156,171 @@ export function CustomDomains({
         />
       )}
     </Sheet>
+  );
+}
+
+function ProdProvider({
+  children,
+  deploymentName,
+}: {
+  children: React.ReactNode;
+  deploymentName: string;
+}) {
+  return (
+    <DeploymentInfoProvider deploymentOverride={deploymentName}>
+      <MaybeDeploymentApiProvider deploymentOverride={deploymentName}>
+        <WaitForDeploymentApi sizeClass="hidden">
+          {children}
+        </WaitForDeploymentApi>
+      </MaybeDeploymentApiProvider>
+    </DeploymentInfoProvider>
+  );
+}
+
+function CanonicalDomainForm({
+  deploymentName,
+  vanityDomains,
+}: {
+  deploymentName: string;
+  vanityDomains?: VanityDomainResponse[];
+}) {
+  const deploymentUrl = useDeploymentUrl();
+  const canonicalCloudUrl = useQuery(udfs.convexCloudUrl.default);
+  const canonicalSiteUrl = useQuery(udfs.convexSiteUrl.default);
+  const defaultSiteUrl = `https://${deploymentName}.convex.site`;
+
+  return (
+    <div>
+      <h4 className="mb-2">Override Production Environment Variables</h4>
+      <CanonicalUrlCombobox
+        label={
+          <span className="flex flex-row items-center gap-1">
+            <code>process.env.CONVEX_CLOUD_URL</code>
+            <Tooltip
+              tip={
+                <span>
+                  This is also used by{" "}
+                  <code>npx convex deploy --cmd "..."</code> to connect your
+                  frontend to your Convex backend
+                </span>
+              }
+            >
+              <QuestionMarkCircledIcon />
+            </Tooltip>
+          </span>
+        }
+        defaultUrl={deploymentUrl}
+        canonicalUrl={canonicalCloudUrl}
+        vanityDomains={vanityDomains}
+        requestDestination="convexCloud"
+      />
+      <CanonicalUrlCombobox
+        label={
+          <span className="flex flex-row items-center gap-1">
+            <code>process.env.CONVEX_SITE_URL</code>
+            <Tooltip
+              tip={
+                <span>
+                  If you use Convex Auth, this would also be used in{" "}
+                  <code>auth.config.ts</code> as the issuer
+                </span>
+              }
+            >
+              <QuestionMarkCircledIcon />
+            </Tooltip>
+          </span>
+        }
+        defaultUrl={defaultSiteUrl}
+        canonicalUrl={canonicalSiteUrl}
+        vanityDomains={vanityDomains}
+        requestDestination="convexSite"
+      />
+    </div>
+  );
+}
+
+function CanonicalUrlCombobox({
+  label,
+  defaultUrl,
+  canonicalUrl,
+  vanityDomains,
+  requestDestination,
+}: {
+  label: React.ReactNode;
+  defaultUrl: string;
+  canonicalUrl: string | undefined;
+  vanityDomains?: VanityDomainResponse[];
+  requestDestination: "convexCloud" | "convexSite";
+}) {
+  const vanityDomainsForRequestDestination = useMemo(
+    () =>
+      vanityDomains?.filter(
+        (v) => v.requestDestination === requestDestination,
+      ) || [],
+    [vanityDomains, requestDestination],
+  );
+  const isDisconnected =
+    canonicalUrl !== undefined &&
+    canonicalUrl !== defaultUrl &&
+    !vanityDomainsForRequestDestination.some(
+      (v) => `https://${v.domain}` === canonicalUrl,
+    );
+  const updateCanonicalUrl = useUpdateCanonicalUrl(
+    requestDestination,
+    defaultUrl,
+  );
+  const options = useMemo(
+    () => [
+      {
+        label: `${defaultUrl} (default)`,
+        value: defaultUrl,
+      },
+      ...(isDisconnected
+        ? [
+            {
+              label: `${canonicalUrl} (disconnected)`,
+              value: canonicalUrl,
+            },
+          ]
+        : []),
+      ...vanityDomainsForRequestDestination.map((v) => ({
+        label: `https://${v.domain}${
+          v.verificationTime ? "" : " (unverified)"
+        }`,
+        value: `https://${v.domain}`,
+      })),
+    ],
+    [
+      defaultUrl,
+      canonicalUrl,
+      isDisconnected,
+      vanityDomainsForRequestDestination,
+    ],
+  );
+  const disabled = options.length <= 1;
+
+  return (
+    <div className="p-2">
+      <Combobox
+        label={label}
+        labelHidden={false}
+        disabled={disabled}
+        buttonProps={{
+          tip: disabled ? `Add a custom domain first` : undefined,
+        }}
+        buttonClasses="w-fit"
+        optionsWidth="full"
+        options={options}
+        selectedOption={canonicalUrl}
+        setSelectedOption={async (value: string | null) => {
+          if (value === null) {
+            return;
+          }
+          await updateCanonicalUrl(value);
+        }}
+        disableSearch
+      />
+    </div>
   );
 }
 
