@@ -30,7 +30,7 @@
    */
   "azureBlobStorageConfiguration": {
     /**
-     * (Required) The name of the the Azure storage account to use for build cache.
+     * (Required) The name of the Azure storage account to use for build cache.
      */
     // "storageAccountName": "example",
     /**

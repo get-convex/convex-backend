@@ -499,7 +499,7 @@ impl<RT: Runtime, T: SearchIndex> Inner<RT, T> {
                     current_segments,
                     // We're assuming that nothing else can touch the snapshot other than flushes.
                     // Right now this works because the flusher is already serial and its
-                    // the only thing that advances the the metadata timestamp. If that were
+                    // the only thing that advances the metadata timestamp. If that were
                     // ever not true, we'd need to pass through a timestamp rather than using the
                     // one in the current metadata.
                     start_snapshot_ts,

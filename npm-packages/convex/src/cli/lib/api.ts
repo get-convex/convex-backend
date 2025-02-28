@@ -729,7 +729,7 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
   return credentialsAsDevCredentials(credentials);
 }
 
-// This returns the the url of the deployment from an admin key in the format
+// This returns the url of the deployment from an admin key in the format
 //      "tall-forest-1234|1a2b35123541"
 //   or "prod:tall-forest-1234|1a2b35123541"
 async function deriveUrlFromAdminKey(ctx: Context, adminKey: string) {

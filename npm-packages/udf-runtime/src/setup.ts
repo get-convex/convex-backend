@@ -133,7 +133,7 @@ function setupMisc(global) {
   const env = new Proxy({}, handler);
   global.process = { env };
 
-  // defined in browsers and required by the The WinterCG Minimum Common Web Platform API draft
+  // defined in browsers and required by the WinterCG Minimum Common Web Platform API draft
   // https://common-min-api.proposal.wintercg.org/
   global.self = global;
 

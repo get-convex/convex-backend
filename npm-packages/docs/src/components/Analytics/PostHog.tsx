@@ -19,7 +19,7 @@ export default function PostHog() {
   const { siteConfig } = useDocusaurusContext();
 
   useEffect(() => {
-    // Note that this the the 'Project API Key' from PostHog, which is
+    // Note that this is the 'Project API Key' from PostHog, which is
     // write-only and PostHog says is safe to use in public apps.
     const key = siteConfig.customFields.POST_HOG_KEY as string;
     const api_host = siteConfig.customFields.POST_HOG_HOST as string;
