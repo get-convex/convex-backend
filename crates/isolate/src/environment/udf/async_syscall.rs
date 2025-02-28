@@ -299,7 +299,7 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
         scheduled_ts: UnixTimestamp,
     ) -> anyhow::Result<(CanonicalizedComponentFunctionPath, ConvexArray)>;
 
-    fn file_storage_generate_upload_url(&self) -> anyhow::Result<String>;
+    async fn file_storage_generate_upload_url(&mut self) -> anyhow::Result<String>;
     async fn file_storage_get_url_batch(
         &mut self,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
@@ -417,12 +417,13 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         .await
     }
 
-    fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
+    async fn file_storage_generate_upload_url(&mut self) -> anyhow::Result<String> {
         let issued_ts = self.phase.unix_timestamp()?;
         let component = self.component()?;
-        let post_url =
-            self.file_storage
-                .generate_upload_url(&self.key_broker, issued_ts, component)?;
+        let post_url = self
+            .file_storage
+            .generate_upload_url(self.phase.tx()?, &self.key_broker, issued_ts, component)
+            .await?;
         Ok(post_url)
     }
 
@@ -758,7 +759,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         provider: &mut P,
         _args: JsonValue,
     ) -> anyhow::Result<JsonValue> {
-        let post_url = provider.file_storage_generate_upload_url()?;
+        let post_url = provider.file_storage_generate_upload_url().await?;
         Ok(serde_json::to_value(post_url)?)
     }
 

@@ -451,13 +451,13 @@ pub async fn vector_search(
 pub async fn storage_generate_upload_url(
     State(st): State<LocalAppState>,
     ExtractActionIdentity {
-        identity: _,
+        identity,
         component_id,
     }: ExtractActionIdentity,
 ) -> Result<impl IntoResponse, HttpResponseError> {
     let url = st
         .application
-        .storage_generate_upload_url(component_id)
+        .storage_generate_upload_url(identity, component_id)
         .await?;
     Ok(Json(json!({ "url": url })))
 }

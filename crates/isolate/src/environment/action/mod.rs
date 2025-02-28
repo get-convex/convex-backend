@@ -248,6 +248,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let (task_retval_sender, task_responses) = mpsc::unbounded_channel();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
         let function_handles = Arc::new(Mutex::new(BTreeMap::new()));
+        let convex_origin_override = Arc::new(Mutex::new(None));
         let task_executor = TaskExecutor {
             rt: rt.clone(),
             identity: identity.clone(),
@@ -264,6 +265,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             resources: resources.clone(),
             component_id: component,
             function_handles: function_handles.clone(),
+            convex_origin_override: convex_origin_override.clone(),
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
         let running_tasks = rt.spawn("task_executor", task_executor.go(pending_task_receiver));
@@ -287,6 +289,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 default_system_env_vars,
                 resources,
                 function_handles,
+                convex_origin_override,
             ),
             syscall_trace,
             heap_stats,

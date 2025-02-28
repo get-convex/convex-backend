@@ -13,11 +13,15 @@ use common::{
         Reference,
         Resource,
     },
+    http::RequestDestination,
     runtime::{
         Runtime,
         UnixTimestamp,
     },
-    types::ModuleEnvironment,
+    types::{
+        ConvexOrigin,
+        ModuleEnvironment,
+    },
 };
 use database::{
     BootstrapComponentsModel,
@@ -95,6 +99,7 @@ enum ActionPreloaded<RT: Runtime> {
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
+        convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
     },
     Preloading,
     Ready {
@@ -115,6 +120,7 @@ impl<RT: Runtime> ActionPhase<RT> {
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
         function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
+        convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
     ) -> Self {
         Self {
             component,
@@ -126,6 +132,7 @@ impl<RT: Runtime> ActionPhase<RT> {
                 default_system_env_vars,
                 resources,
                 function_handles,
+                convex_origin_override,
             },
         }
     }
@@ -145,6 +152,7 @@ impl<RT: Runtime> ActionPhase<RT> {
             default_system_env_vars,
             resources,
             function_handles,
+            convex_origin_override,
         } = preloaded
         else {
             anyhow::bail!("ActionPhase initialized twice");
@@ -207,6 +215,9 @@ impl<RT: Runtime> ActionPhase<RT> {
             CanonicalUrlsModel::new(&mut tx).get_canonical_urls(),
         )
         .await?;
+        if let Some(cloud_url) = canonical_urls.get(&RequestDestination::ConvexCloud) {
+            *convex_origin_override.lock() = Some(ConvexOrigin::from(&cloud_url.url));
+        }
         // Environment variables are not accessible in component functions.
         let env_vars = if self.component.is_root() {
             let mut env_vars = default_system_env_vars;

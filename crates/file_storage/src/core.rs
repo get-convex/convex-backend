@@ -89,16 +89,32 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         }
     }
 
-    pub fn generate_upload_url(
+    pub fn generate_upload_url_with_origin(
         &self,
+        origin_override: Option<ConvexOrigin>,
         key_broker: &KeyBroker,
         issued_ts: UnixTimestamp,
         component: ComponentId,
     ) -> anyhow::Result<String> {
         let token = key_broker.issue_store_file_authorization(&self.rt, issued_ts, component)?;
-        let origin = &self.convex_origin;
+        let origin = origin_override.unwrap_or_else(|| self.convex_origin.clone());
 
         Ok(format!("{origin}/api/storage/upload?token={token}"))
+    }
+
+    pub async fn generate_upload_url(
+        &self,
+        tx: &mut Transaction<RT>,
+        key_broker: &KeyBroker,
+        issued_ts: UnixTimestamp,
+        component: ComponentId,
+    ) -> anyhow::Result<String> {
+        let origin_override = CanonicalUrlsModel::new(tx)
+            .get_canonical_urls()
+            .await?
+            .get(&RequestDestination::ConvexCloud)
+            .map(|canonical_url| ConvexOrigin::from(&canonical_url.url));
+        self.generate_upload_url_with_origin(origin_override, key_broker, issued_ts, component)
     }
 
     pub async fn get_url(

@@ -1006,13 +1006,16 @@ impl<RT: Runtime> Application<RT> {
 
     pub async fn storage_generate_upload_url(
         &self,
+        identity: Identity,
         component: ComponentId,
     ) -> anyhow::Result<String> {
         let issued_ts = self.runtime().unix_timestamp();
+        let mut tx = self.begin(identity).await?;
         let url = self
             .file_storage
             .transactional_file_storage
-            .generate_upload_url(self.key_broker(), issued_ts, component)?;
+            .generate_upload_url(&mut tx, self.key_broker(), issued_ts, component)
+            .await?;
 
         Ok(url)
     }

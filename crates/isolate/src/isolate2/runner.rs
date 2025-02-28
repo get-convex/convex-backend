@@ -920,7 +920,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
         validate_schedule_args(path, args, scheduled_ts, self.unix_timestamp, self.tx).await
     }
 
-    fn file_storage_generate_upload_url(&self) -> anyhow::Result<String> {
+    async fn file_storage_generate_upload_url(&mut self) -> anyhow::Result<String> {
         todo!()
     }
 

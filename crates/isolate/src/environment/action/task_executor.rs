@@ -21,6 +21,7 @@ use common::{
         UnixTimestamp,
     },
     sync::spsc,
+    types::ConvexOrigin,
 };
 use errors::ErrorMetadata;
 use fastrace::future::FutureExt as _;
@@ -79,6 +80,7 @@ pub struct TaskExecutor<RT: Runtime> {
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
     pub component_id: ComponentId,
     pub function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
+    pub convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
 }
 
 impl<RT: Runtime> TaskExecutor<RT> {
