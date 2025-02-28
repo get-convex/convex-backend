@@ -103,11 +103,11 @@ export function DeploymentLabel({
 function getBackgroundColor(type: DeploymentType): string {
   switch (type) {
     case "prod":
-      return "bg-purple-900 text-white";
+      return "border border-purple-600 dark:border-purple-900 bg-purple-100/50 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400";
     case "preview":
-      return "bg-orange-400 text-black";
+      return "border border-orange-400 bg-orange-100/50 text-orange-600 dark:bg-orange-900/50 dark:text-orange-400";
     case "dev":
-      return "bg-green-600 text-white";
+      return "border border-green-600 bg-green-100/50 text-green-600 dark:bg-green-900/50 dark:text-green-400";
     default: {
       const _typecheck: never = type;
       return "";
