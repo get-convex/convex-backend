@@ -1001,3 +1001,24 @@ register_convex_counter!(
 pub fn log_nonempty_component_exports() {
     log_counter(&DATABASE_NONEMPTY_COMPONENT_EXPORTS_TOTAL, 1);
 }
+register_convex_histogram!(
+    DOCUMENT_DELTAS_READ_DOCUMENTS,
+    "Total number of rows read in a document_deltas call",
+);
+pub fn log_document_deltas_read_documents(num: usize) {
+    log_distribution(&DOCUMENT_DELTAS_READ_DOCUMENTS, num as f64);
+}
+register_convex_histogram!(
+    DOCUMENT_DELTAS_RETURNED_DOCUMENTS,
+    "Total number of documents returned by a document_deltas call",
+);
+pub fn log_document_deltas_returned_documents(num: usize) {
+    log_distribution(&DOCUMENT_DELTAS_RETURNED_DOCUMENTS, num as f64);
+}
+register_convex_histogram!(
+    LIST_SNAPSHOT_PAGE_DOCUMENTS,
+    "Total number of documents in a returned SnapshotPage",
+);
+pub fn log_list_snapshot_page_documents(num_docs: usize) {
+    log_distribution(&LIST_SNAPSHOT_PAGE_DOCUMENTS, num_docs as f64);
+}

@@ -1700,6 +1700,8 @@ impl<RT: Runtime> Database<RT> {
                 }
             }
         }
+        metrics::log_document_deltas_read_documents(rows_read);
+        metrics::log_document_deltas_returned_documents(deltas.len());
         Ok(DocumentDeltas {
             deltas,
             // If new_cursor is still None, we exhausted the stream.
@@ -1845,6 +1847,7 @@ impl<RT: Runtime> Database<RT> {
                 Some((new_cache_key, document_stream));
         }
         let has_more = new_cursor.is_some();
+        metrics::log_list_snapshot_page_documents(documents.len());
         Ok(SnapshotPage {
             documents,
             snapshot: *snapshot,
