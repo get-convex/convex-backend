@@ -125,8 +125,9 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
         log_errors_reported_total(label);
     }
 
+    let err_for_tracing = format!("{err:#}").replace("\n", "\\n");
     tracing::error!(
-        "Caught error (RUST_BACKTRACE=1 RUST_LOG=info,{}=debug for full trace): {err:#}",
+        "Caught error (RUST_BACKTRACE=1 RUST_LOG=info,{}=debug for full trace): {err_for_tracing}",
         module_path!(),
     );
     tracing::debug!("{err:?}");
