@@ -15,7 +15,7 @@
     "@types/react-dom": "18.2.4",
     "autoprefixer": "10.4.20",
     "convex": "file:../../../convex",
-    "eslint": "8.40.0",
+    "eslint": "8.57.1",
     "eslint-config-next": "13.4.1",
     "next": "13.4.1",
     "postcss": "8.4.49",

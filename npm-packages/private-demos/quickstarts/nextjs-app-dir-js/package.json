@@ -11,7 +11,7 @@
   "dependencies": {
     "autoprefixer": "10.4.20",
     "convex": "^0.19.0",
-    "eslint": "8.44.0",
+    "eslint": "8.57.1",
     "eslint-config-next": "13.4.9",
     "next": "13.5.8",
     "postcss": "8.4.49",
