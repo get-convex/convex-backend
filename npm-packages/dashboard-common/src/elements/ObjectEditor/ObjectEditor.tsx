@@ -480,4 +480,5 @@ export const editorOptions: EditorProps["options"] &
   selectionHighlight: false,
   occurrencesHighlight: false,
   renderLineHighlight: "none",
+  fixedOverflowWidgets: true,
 };
