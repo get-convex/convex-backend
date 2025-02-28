@@ -177,3 +177,102 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[convex_macro::test_runtime]
+async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()> {
+    let app = Application::new_for_tests(&rt).await?;
+    app.load_udf_tests_modules().await?;
+
+    // Call ctx.storage.generateUploadUrl from a mutation.
+    let request_id = RequestId::new();
+    let identity = Identity::system();
+    let args = vec![json!({})];
+    let caller = FunctionCaller::Action {
+        parent_scheduled_job: None,
+    };
+    let host = ResolvedHostname {
+        instance_name: "carnitas".to_string(),
+        destination: RequestDestination::ConvexCloud,
+    };
+    let mutation_result = app
+        .execute_admin_mutation(
+            &host,
+            request_id.clone(),
+            identity.clone(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: "storage:generateUploadUrl".parse()?,
+            },
+            args.clone(),
+            caller.clone(),
+            None,
+        )
+        .await??;
+    must_let!(let ConvexValue::String(url) = mutation_result.value);
+    assert!(url.starts_with("http://127.0.0.1:8000/api/storage/upload?token="));
+
+    // Call it from an action.
+    let action_result = app
+        .execute_admin_action(
+            &host,
+            request_id.clone(),
+            identity.clone(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: "storage:generateUploadUrlFromAction".parse()?,
+            },
+            args.clone(),
+            caller.clone(),
+        )
+        .await??;
+    must_let!(let ConvexValue::String(url) = action_result.value);
+    assert!(url.starts_with("http://127.0.0.1:8000/api/storage/upload?token="));
+
+    // Now set a canonical url and call the functions again.
+    let mut tx = app.begin(Identity::system()).await?;
+    app.set_canonical_url(
+        &mut tx,
+        CanonicalUrl {
+            request_destination: RequestDestination::ConvexCloud,
+            url: "https://carnitas.convex.cloud".to_string(),
+        },
+    )
+    .await?;
+    app.commit_test(tx).await?;
+
+    let mutation_result = app
+        .execute_admin_mutation(
+            &host,
+            request_id.clone(),
+            identity.clone(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: "storage:generateUploadUrl".parse()?,
+            },
+            args.clone(),
+            caller.clone(),
+            None,
+        )
+        .await??;
+    must_let!(let ConvexValue::String(url) = mutation_result.value);
+    assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/upload?token="));
+
+    // Call it from an action.
+    let action_result = app
+        .execute_admin_action(
+            &host,
+            request_id.clone(),
+            identity.clone(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: "storage:generateUploadUrlFromAction".parse()?,
+            },
+            args.clone(),
+            caller.clone(),
+        )
+        .await??;
+    must_let!(let ConvexValue::String(url) = action_result.value);
+    assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/upload?token="));
+
+    Ok(())
+}

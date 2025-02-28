@@ -1,4 +1,4 @@
-import { query, action } from "./_generated/server";
+import { query, action, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
 export const storeFile = action({
@@ -34,5 +34,19 @@ export const getFileUrls = query({
   args: { ids: v.array(v.id("_storage")) },
   handler: async (ctx, { ids }) => {
     return Promise.all(ids.map((id) => ctx.storage.getUrl(id)));
+  },
+});
+
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    return ctx.storage.generateUploadUrl();
+  },
+});
+
+export const generateUploadUrlFromAction = action({
+  args: {},
+  handler: async (ctx) => {
+    return ctx.storage.generateUploadUrl();
   },
 });
