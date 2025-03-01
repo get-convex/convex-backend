@@ -1,8 +1,11 @@
 import { ToolSchema } from "@modelcontextprotocol/sdk/types";
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { RequestContext } from "./requestContext.js";
+import { RequestContext } from "../requestContext.js";
 import { ZodTypeAny, z } from "zod";
 import zodToJsonSchema from "zod-to-json-schema";
+import { TablesTool } from "./tables.js";
+import { DataTool } from "./data.js";
+import { StatusTool } from "./status.js";
 
 export type ConvexTool<Input extends ZodTypeAny, Output extends ZodTypeAny> = {
   name: string;
@@ -24,3 +27,9 @@ export function mcpTool(tool: ConvexTool<ZodTypeAny, ZodTypeAny>): Tool {
     inputSchema: zodToJsonSchema(tool.inputSchema) as ToolInput,
   };
 }
+
+export const convexTools: ConvexTool<any, any>[] = [
+  StatusTool,
+  DataTool,
+  TablesTool,
+];

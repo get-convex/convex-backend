@@ -1,11 +1,14 @@
-import { deploymentSelectionFromOptions } from "../api.js";
-import { fetchDeploymentCredentialsProvisionProd } from "../api.js";
+import { fetchDeploymentCredentialsProvisionProd } from "../../api.js";
 import { z } from "zod";
-import { runSystemQuery } from "../run.js";
-import { ConvexTool } from "./tool.js";
-import { PaginationResult } from "../../../server/pagination.js";
+import { runSystemQuery } from "../../run.js";
+import { ConvexTool } from "./index.js";
+import { PaginationResult } from "../../../../server/pagination.js";
+import { decodeDeploymentSelector } from "../deploymentSelector.js";
 
 const inputSchema = z.object({
+  deploymentSelector: z
+    .string()
+    .describe("Deployment selector (from the status tool) to read data from."),
   tableName: z.string().describe("The name of the table to read from."),
   order: z.enum(["asc", "desc"]).describe("The order to sort the results in."),
   cursor: z.string().optional().describe("The cursor to start reading from."),
@@ -37,13 +40,9 @@ export const DataTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      ctx.cmdOptions,
-    );
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      deploymentSelection,
+      decodeDeploymentSelector(args.deploymentSelector),
     );
     const paginationResult = (await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,

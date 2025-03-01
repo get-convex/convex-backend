@@ -24,6 +24,7 @@ import {
   getConfiguredDeploymentNameOrCrash,
   readAdminKeyFromEnvVar,
 } from "./utils/utils.js";
+import { z } from "zod";
 
 export type DeploymentName = string;
 export type DeploymentType = "dev" | "prod" | "local";
@@ -140,15 +141,22 @@ export async function fetchDeploymentCredentialsForName(
   };
 }
 
-export type DeploymentSelection =
-  | { kind: "deployKey" }
-  | { kind: "previewName"; previewName: string }
-  | { kind: "deploymentName"; deploymentName: string }
-  | { kind: "ownProd"; partitionId?: number | undefined }
-  | { kind: "ownDev" }
-  | { kind: "projectKey"; prod: boolean }
-  | { kind: "urlWithAdminKey"; url: string; adminKey: string }
-  | { kind: "urlWithLogin"; url: string };
+export const deploymentSelectionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("deployKey") }),
+  z.object({ kind: z.literal("previewName"), previewName: z.string() }),
+  z.object({ kind: z.literal("deploymentName"), deploymentName: z.string() }),
+  z.object({ kind: z.literal("ownProd"), partitionId: z.number().optional() }),
+  z.object({ kind: z.literal("ownDev") }),
+  z.object({ kind: z.literal("projectKey"), prod: z.boolean() }),
+  z.object({
+    kind: z.literal("urlWithAdminKey"),
+    url: z.string(),
+    adminKey: z.string(),
+  }),
+  z.object({ kind: z.literal("urlWithLogin"), url: z.string() }),
+]);
+
+export type DeploymentSelection = z.infer<typeof deploymentSelectionSchema>;
 
 export function storeAdminKeyEnvVar(adminKeyOption?: string | null) {
   if (adminKeyOption) {

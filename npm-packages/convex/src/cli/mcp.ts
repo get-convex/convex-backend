@@ -10,16 +10,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { actionDescription } from "./lib/command.js";
 import { DeploymentSelectionOptions } from "./lib/api.js";
 import { checkAuthorization } from "./lib/login.js";
-import { StatusTool } from "./lib/mcp/status.js";
 import {
   CallToolRequest,
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { RequestContext, RequestCrash } from "./lib/mcp/requestContext.js";
-import { ConvexTool, mcpTool } from "./lib/mcp/tool.js";
-import { DataTool } from "./lib/mcp/data.js";
-import { TablesTool } from "./lib/mcp/tables.js";
+import { mcpTool, convexTools } from "./lib/mcp/tools/index.js";
 import * as path from "path";
 import chalk from "chalk";
 
@@ -237,5 +234,3 @@ function makeServer(cmdOptions: DeploymentSelectionOptions) {
   });
   return server;
 }
-
-const convexTools: ConvexTool<any, any>[] = [StatusTool, DataTool, TablesTool];

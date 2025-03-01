@@ -1,13 +1,17 @@
 import { z } from "zod";
-import { ConvexTool } from "./tool.js";
-import {
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsProvisionProd,
-} from "../api.js";
-import { runSystemQuery } from "../run.js";
-import { deploymentFetch } from "../utils/utils.js";
+import { ConvexTool } from "./index.js";
+import { fetchDeploymentCredentialsProvisionProd } from "../../api.js";
+import { runSystemQuery } from "../../run.js";
+import { deploymentFetch } from "../../utils/utils.js";
+import { decodeDeploymentSelector } from "../deploymentSelector.js";
 
-const inputSchema = z.object({});
+const inputSchema = z.object({
+  deploymentSelector: z
+    .string()
+    .describe(
+      "Deployment selector (from the status tool) to read tables from.",
+    ),
+});
 
 const outputSchema = z.object({
   tables: z.record(
@@ -22,17 +26,13 @@ const outputSchema = z.object({
 export const TablesTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   name: "tables",
   description:
-    "List all tables in the project's Convex deployment and their inferred and declared schema.",
+    "List all tables in a particular Convex deployment and their inferred and declared schema.",
   inputSchema,
   outputSchema,
-  handler: async (ctx) => {
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      ctx.cmdOptions,
-    );
+  handler: async (ctx, args) => {
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      deploymentSelection,
+      decodeDeploymentSelector(args.deploymentSelector),
     );
     const schemaResponse: any = await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,
