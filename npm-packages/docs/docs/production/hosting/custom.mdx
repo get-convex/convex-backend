@@ -31,30 +31,30 @@ Reach out to support@convex.dev if you have any questions about getting set up!
 
 ### Hosting with a Custom Domain
 
-To use a custom domain to serve your Convex functions, you'll need additional
-configuration in your hosting provider.
+To use a custom domain to serve your Convex functions, there's an additional
+step: override the `CONVEX_CLOUD_URL` environment variable.
 
-The standard build command, `npx convex deploy --cmd 'npm run build'`, will
-automatically handle setting the `CONVEX_URL` environment variable (or similarly
-named) to the `.convex.cloud` URL for your production deployment, overriding any
-other value you have set.
+![Override system environment variables](/screenshots/override_system_env_vars.png)
 
-If you're using a custom domain, you'll want to set a different environment
-variable in your hosting provider to have the value of your custom domain in the
-production environment:
-![Vercel import project](/screenshots/vercel_custom_domain.png)
+Then re-deploy your project with the standard build command
+`npx convex deploy --cmd 'npm run build'`. The newly deployed code will access
+your Convex functions through your custom domain.
 
-Switch the code that instantiates your Convex client to prefer this new value:
+The `CONVEX_CLOUD_URL` environment variable is used in several places:
 
-```tsx
-new ConvexReactClient(
-  import.meta.env.VITE_CUSTOM_DOMAIN_CONVEX_URL ??
-    import.meta.env.VITE_CONVEX_URL,
-);
-```
+- `npx convex deploy --cmd '...'` sets `CONVEX_URL` (or similarly named) for
+  your frontend to connect websockets and HTTP clients
+- In your Convex functions, it is available as `process.env.CONVEX_CLOUD_URL`
+- File storage URLs: `ctx.storage.getUrl(id)` and
+  `ctx.storage.generateUploadUrl()`
+- Generate an OpenAPI spec with `npx convex function-spec --prod`
 
-You can confirm this works by checking the network tab in your browser's
-developer tools.
+You may also override the `CONVEX_SITE_URL` environment variable to be a custom
+HTTP Action domain.
+
+- In your Convex functions, it is available as `process.env.CONVEX_SITE_URL`
+- It may be used for webhooks
+- It may be used in `auth.config.ts` as the `issuer` for Convex Auth
 
 ## Custom Hosting
 
