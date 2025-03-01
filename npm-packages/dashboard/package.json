@@ -26,7 +26,7 @@
     "@heroicons/react": "2.2.0",
     "@next/bundle-analyzer": "~12.3.0",
     "@radix-ui/react-icons": "~1.3.0",
-    "@sentry/nextjs": "7.120.2",
+    "@sentry/nextjs": "7.120.3",
     "@stripe/react-stripe-js": "~2.9.0",
     "@stripe/stripe-js": "~3.5.0",
     "@team-plain/typescript-sdk": "~4.2.3",
