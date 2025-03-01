@@ -138,10 +138,10 @@ The implementation of `getAuthToken` depends on your authentication provider.
 <Tabs>
 <TabItem value="clerk" label="Clerk">
 ```ts title="app/auth.ts"
-import { auth } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
 export async function getAuthToken() {
-  return (await auth().getToken({ template: "convex" })) ?? undefined;
+  return (await auth()).getToken({ template: "convex" }) ?? undefined;
 }
 ```
 </TabItem>
