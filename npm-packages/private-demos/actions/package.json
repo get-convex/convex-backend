@@ -14,7 +14,7 @@
     "react-dom": "^18.0.0",
     "postmark": "~3.0.14",
     "@popperjs/core": "~2.11.6",
-    "langchain": "^0.2.19",
+    "langchain": "^0.3.0",
     "chromadb": "=1.9.4",
     "prettier": "3.4.2",
     "@langchain/openai": "^0.3"

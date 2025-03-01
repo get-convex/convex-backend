@@ -39,7 +39,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
-    "langchain": "^0.2.19",
+    "langchain": "^0.3.0",
     "openai": "^4.6.0",
     "modern-async": "^1.1.4",
     "prettier": "3.4.2"
