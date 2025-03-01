@@ -1,7 +1,13 @@
 import Image from "next/image";
 import { useTheme } from "next-themes";
 
-export function FivetranLogo({ className }: { className?: string }) {
+export function FivetranLogo({
+  className,
+  size,
+}: {
+  className?: string;
+  size: number;
+}) {
   const { resolvedTheme: currentTheme } = useTheme();
   const image =
     currentTheme === "dark" ? "/fivetran-white.svg" : "/fivetran-blue.svg";
@@ -9,8 +15,8 @@ export function FivetranLogo({ className }: { className?: string }) {
     <Image
       className={className}
       src={image}
-      height="40"
-      width="40"
+      height={size}
+      width={size}
       alt="Fivetran logo"
     />
   );

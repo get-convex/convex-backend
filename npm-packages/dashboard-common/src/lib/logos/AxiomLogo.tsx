@@ -1,13 +1,19 @@
 import Image from "next/image";
 
-export function AxiomLogo({ className }: { className?: string }) {
+export function AxiomLogo({
+  className,
+  size,
+}: {
+  className?: string;
+  size: number;
+}) {
   return (
     <Image
       className={className}
       src="/axiom.png"
       alt="Axiom logo"
-      width={16}
-      height={16}
+      width={size}
+      height={size}
     />
   );
 }

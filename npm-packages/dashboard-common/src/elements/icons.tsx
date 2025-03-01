@@ -53,15 +53,21 @@ export function PulseIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-export function WebhookIcon(props: SVGProps<SVGSVGElement>) {
+export function WebhookIcon({
+  className,
+  size,
+}: {
+  className?: string;
+  size: number;
+}) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 16 16"
-      width="16"
-      height="16"
+      width={size}
+      height={size}
       fill="currentColor"
-      {...props}
+      className={className}
     >
       <path d="M5.5 4.25a2.25 2.25 0 0 1 4.5 0 .75.75 0 0 0 1.5 0 3.75 3.75 0 1 0-6.14 2.889l-2.272 4.258a.75.75 0 0 0 1.324.706L7 7.25a.75.75 0 0 0-.309-1.015A2.25 2.25 0 0 1 5.5 4.25Z" />
       <path d="M7.364 3.607a.75.75 0 0 1 1.03.257l2.608 4.349a3.75 3.75 0 1 1-.628 6.785.75.75 0 0 1 .752-1.299 2.25 2.25 0 1 0-.033-3.88.75.75 0 0 1-1.03-.256L7.107 4.636a.75.75 0 0 1 .257-1.03Z" />

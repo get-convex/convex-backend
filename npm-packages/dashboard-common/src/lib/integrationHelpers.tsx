@@ -84,11 +84,16 @@ export function integrationToLogo(
   logo: ReactNode;
 } {
   const sizeClass = small ? "size-5" : "size-10";
+  const size = small ? 20 : 40;
+
   switch (kind) {
     case "datadog":
       return {
         logo: (
-          <DatadogLogo className={classNames("rounded border", sizeClass)} />
+          <DatadogLogo
+            className={classNames("rounded border", sizeClass)}
+            size={size}
+          />
         ),
       };
     case "webhook":
@@ -100,24 +105,35 @@ export function integrationToLogo(
               sizeClass,
             )}
           >
-            <WebhookIcon className={small ? "size-4" : "size-7"} />
+            <WebhookIcon className={small ? "size-4" : "size-7"} size={size} />
           </div>
         ),
       };
     case "axiom":
       return {
-        logo: <AxiomLogo className={classNames("rounded border", sizeClass)} />,
+        logo: (
+          <AxiomLogo
+            className={classNames("rounded border", sizeClass)}
+            size={size}
+          />
+        ),
       };
     case "sentry":
       return {
         logo: (
-          <SentryLogo className={classNames("rounded border", sizeClass)} />
+          <SentryLogo
+            className={classNames("rounded border", sizeClass)}
+            size={size}
+          />
         ),
       };
     case "airbyte":
       return {
         logo: (
-          <AirbyteLogo className={classNames("rounded border", sizeClass)} />
+          <AirbyteLogo
+            className={classNames("rounded border", sizeClass)}
+            size={size}
+          />
         ),
       };
     case "fivetran":
@@ -128,6 +144,7 @@ export function integrationToLogo(
               "rounded border bg-white dark:bg-black",
               sizeClass,
             )}
+            size={size}
           />
         ),
       };

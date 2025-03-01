@@ -3,9 +3,10 @@ import { useTheme } from "next-themes";
 
 type DatadogLogoProps = {
   className?: string;
+  size: number;
 };
 
-export function DatadogLogo({ className }: DatadogLogoProps) {
+export function DatadogLogo({ className, size }: DatadogLogoProps) {
   const { resolvedTheme: currentTheme } = useTheme();
   const image =
     currentTheme === "dark" ? "/dd_icon_white.png" : "/dd_icon_rgb.png";
@@ -14,8 +15,8 @@ export function DatadogLogo({ className }: DatadogLogoProps) {
       className={className}
       src={image}
       alt="Datadog logo"
-      width={16}
-      height={16}
+      width={size}
+      height={size}
     />
   );
 }
