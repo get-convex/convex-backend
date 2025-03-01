@@ -141,7 +141,7 @@ The implementation of `getAuthToken` depends on your authentication provider.
 import { auth } from "@clerk/nextjs/server";
 
 export async function getAuthToken() {
-  return (await auth()).getToken({ template: "convex" }) ?? undefined;
+  return (await (await auth()).getToken({ template: "convex" })) ?? undefined;
 }
 ```
 </TabItem>
