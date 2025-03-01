@@ -4412,16 +4412,6 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "idna"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
-dependencies = [
- "unicode-bidi",
- "unicode-normalization",
-]
-
-[[package]]
-name = "idna"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "686f825264d630750a544639377bae737628043f20d38bbc029e8f29ea968a7e"
@@ -4545,7 +4535,7 @@ dependencies = [
 [[package]]
 name = "io"
 version = "0.0.0"
-source = "git+https://github.com/get-convex/qdrant?rev=e2c047b9df10c8203c768f0b3a52985ccf1b4207#e2c047b9df10c8203c768f0b3a52985ccf1b4207"
+source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "atomicwrites",
  "bincode",
@@ -4760,7 +4750,7 @@ dependencies = [
  "email_address",
  "fancy-regex",
  "fraction",
- "idna 1.0.3",
+ "idna",
  "itoa",
  "num-cmp",
  "once_cell",
@@ -5237,7 +5227,7 @@ dependencies = [
 [[package]]
 name = "memory"
 version = "0.0.0"
-source = "git+https://github.com/get-convex/qdrant?rev=e2c047b9df10c8203c768f0b3a52985ccf1b4207#e2c047b9df10c8203c768f0b3a52985ccf1b4207"
+source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "log",
  "memmap2 0.9.4",
@@ -6801,7 +6791,7 @@ dependencies = [
 [[package]]
 name = "qdrant_common"
 version = "0.0.0"
-source = "git+https://github.com/get-convex/qdrant?rev=e2c047b9df10c8203c768f0b3a52985ccf1b4207#e2c047b9df10c8203c768f0b3a52985ccf1b4207"
+source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "lazy_static",
  "num_cpus",
@@ -7842,7 +7832,7 @@ dependencies = [
 [[package]]
 name = "segment"
 version = "0.6.0"
-source = "git+https://github.com/get-convex/qdrant?rev=e2c047b9df10c8203c768f0b3a52985ccf1b4207#e2c047b9df10c8203c768f0b3a52985ccf1b4207"
+source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "ahash 0.8.11",
  "atomic_refcell",
@@ -8490,7 +8480,7 @@ dependencies = [
 [[package]]
 name = "sparse"
 version = "0.1.0"
-source = "git+https://github.com/get-convex/qdrant?rev=e2c047b9df10c8203c768f0b3a52985ccf1b4207#e2c047b9df10c8203c768f0b3a52985ccf1b4207"
+source = "git+https://github.com/get-convex/qdrant?rev=a5d1b7bc9fd04861316b6455204c8a946d43117e#a5d1b7bc9fd04861316b6455204c8a946d43117e"
 dependencies = [
  "io",
  "itertools 0.12.1",
@@ -9849,7 +9839,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32f8b686cadd1473f4bd0117a5d28d36b1ade384ea9b5069a1c40aefed7fda60"
 dependencies = [
  "form_urlencoded",
- "idna 1.0.3",
+ "idna",
  "percent-encoding",
  "serde",
 ]
@@ -9969,12 +9959,12 @@ dependencies = [
 
 [[package]]
 name = "validator"
-version = "0.16.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b92f40481c04ff1f4f61f304d61793c7b56ff76ac1469f1beb199b1445b253bd"
+checksum = "43fb22e1a008ece370ce08a3e9e4447a910e92621bb49b85d6e48a45397e7cfa"
 dependencies = [
- "idna 0.4.0",
- "lazy_static",
+ "idna",
+ "once_cell",
  "regex",
  "serde",
  "serde_derive",
@@ -9985,28 +9975,16 @@ dependencies = [
 
 [[package]]
 name = "validator_derive"
-version = "0.16.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc44ca3088bb3ba384d9aecf40c6a23a676ce23e09bdaca2073d99c207f864af"
+checksum = "b7df16e474ef958526d1205f6dda359fdfab79d9aa6d54bafcb92dcd07673dca"
 dependencies = [
- "if_chain",
- "lazy_static",
- "proc-macro-error",
+ "darling",
+ "once_cell",
+ "proc-macro-error2",
  "proc-macro2",
  "quote",
- "regex",
- "syn 1.0.109",
- "validator_types",
-]
-
-[[package]]
-name = "validator_types"
-version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "111abfe30072511849c5910134e8baf8dc05de4c0e5903d681cbd5c9c4d611e3"
-dependencies = [
- "proc-macro2",
- "syn 1.0.109",
+ "syn 2.0.95",
 ]
 
 [[package]]

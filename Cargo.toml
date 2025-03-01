@@ -111,8 +111,8 @@ prost-reflect = { version = "0.14.0", features = [ "text-format", "miette" ] }
 pyo3 = "0.23.3"
 pyo3-async-runtimes = { version = "0.23.0", features = [ "tokio-runtime" ] }
 pyo3-build-config = { version = "0.23.3", features = [ "resolve-config" ] }
-qdrant_segment = { git = "https://github.com/get-convex/qdrant", rev = "e2c047b9df10c8203c768f0b3a52985ccf1b4207", package = "segment" }
-qdrant_common = { git = "https://github.com/get-convex/qdrant", rev = "e2c047b9df10c8203c768f0b3a52985ccf1b4207", package = "qdrant_common" }
+qdrant_segment = { git = "https://github.com/get-convex/qdrant", rev = "a5d1b7bc9fd04861316b6455204c8a946d43117e", package = "segment" }
+qdrant_common = { git = "https://github.com/get-convex/qdrant", rev = "a5d1b7bc9fd04861316b6455204c8a946d43117e", package = "qdrant_common" }
 quote = "1.0"
 rand = "0.9"
 rand_chacha = "0.9.0"
