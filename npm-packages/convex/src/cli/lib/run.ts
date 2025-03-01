@@ -95,7 +95,7 @@ async function getFakeIdentity(ctx: Context, identityString: string) {
   };
 }
 
-async function parseArgs(ctx: Context, argsString: string) {
+export async function parseArgs(ctx: Context, argsString: string) {
   try {
     const argsJson = JSON5.parse(argsString);
     return jsonToConvex(argsJson) as Record<string, Value>;

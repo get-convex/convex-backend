@@ -7,6 +7,7 @@ import { TablesTool } from "./tables.js";
 import { DataTool } from "./data.js";
 import { StatusTool } from "./status.js";
 import { FunctionSpecTool } from "./functionSpec.js";
+import { RunTool } from "./run.js";
 
 export type ConvexTool<Input extends ZodTypeAny, Output extends ZodTypeAny> = {
   name: string;
@@ -34,4 +35,5 @@ export const convexTools: ConvexTool<any, any>[] = [
   DataTool,
   TablesTool,
   FunctionSpecTool,
+  RunTool,
 ];
