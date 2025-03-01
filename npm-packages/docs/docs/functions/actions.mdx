@@ -9,7 +9,8 @@ import Context from "!!raw-loader!@site/../private-demos/snippets/convex/actions
 import ContextRunQuery from "!!raw-loader!@site/../private-demos/snippets/convex/myFunctions.ts";
 import ContextRunMutation from "!!raw-loader!@site/../private-demos/snippets/convex/actionsContextRunMutation.ts";
 import CircularError from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularError.ts";
-import CircularErrorFixed from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixed.ts";
+import CircularErrorFixedResults from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedResults.ts";
+import CircularErrorFixedReturn from "!!raw-loader!@site/../private-demos/snippets/convex/actionsCircularErrorFixedReturn.ts";
 import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNPM.ts";
 import Node from "!!raw-loader!@site/../private-demos/snippets/convex/actionsNode.ts";
 import Call from "!!raw-loader!@site/../private-demos/snippets/src/actionsCall.tsx";
@@ -109,7 +110,7 @@ do:
 - To search a vector index, use the `vectorSearch` field. Read on about
   [Vector Search](/docs/search/vector-search.mdx).
 
-#### Dealing with circular type inference
+### Dealing with circular type inference
 
 <Details summary={<>
 Working around the TypeScript error: some action <code>implicitly has
@@ -127,14 +128,22 @@ infer the return type of the action. This is a minimal example of the issue:
   snippet="tsError"
 />
 
-To work around this, you should store the result of the `ctx.runQuery` or
-`ctx.runMutation` call in a variable with a type annotation:
+To work around this, there are two options:
 
-<Snippet
-  title="convex/myFunctions.ts"
-  source={CircularErrorFixed}
-  snippet="fixed"
-/>
+1. Type the return value of the handler function explicitly:
+   <Snippet
+     title="convex/myFunctions.ts"
+     source={CircularErrorFixedReturn}
+     snippet="fixed"
+     highlightPatterns={["null"]}
+   />
+2. Type the the result of the `ctx.runQuery` or `ctx.runMutation` call explicitly:
+   <Snippet
+     title="convex/myFunctions.ts"
+     source={CircularErrorFixedResults}
+     snippet="fixed"
+     highlightPatterns={["null"]}
+   />
 
 TypeScript will check that the type annotation matches what the called query or
 mutation returns, so you don't lose any type safety.
