@@ -6,6 +6,7 @@ import zodToJsonSchema from "zod-to-json-schema";
 import { TablesTool } from "./tables.js";
 import { DataTool } from "./data.js";
 import { StatusTool } from "./status.js";
+import { FunctionSpecTool } from "./functionSpec.js";
 
 export type ConvexTool<Input extends ZodTypeAny, Output extends ZodTypeAny> = {
   name: string;
@@ -32,4 +33,5 @@ export const convexTools: ConvexTool<any, any>[] = [
   StatusTool,
   DataTool,
   TablesTool,
+  FunctionSpecTool,
 ];
