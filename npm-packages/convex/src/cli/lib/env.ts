@@ -110,12 +110,12 @@ export async function envListInDeployment(
   }
 }
 
-type EnvVarChange = {
+export type EnvVarChange = {
   name: string;
   value?: string;
 };
 
-type EnvVar = {
+export type EnvVar = {
   name: string;
   value: string;
 };
