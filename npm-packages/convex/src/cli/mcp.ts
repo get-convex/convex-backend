@@ -21,7 +21,7 @@ import * as path from "path";
 import chalk from "chalk";
 
 export const mcp = new Command("mcp")
-  .summary("Manage the Model Context Protocol server for Convex")
+  .summary("Manage the Model Context Protocol server for Convex [BETA]")
   .description(
     "Commands to initialize and run a Model Context Protocol server for Convex that can be used with AI tools.\n" +
       "This server exposes your Convex codebase to AI tools in a structured way.",

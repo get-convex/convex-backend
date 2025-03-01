@@ -1367,6 +1367,8 @@ export interface components {
         };
         ConfigurePeriodicBackupArgs: {
             cronspec: string;
+            /** Format: int64 */
+            expirationDeltaSecs?: number | null;
         };
         CreateInvitationArgs: {
             email: string;

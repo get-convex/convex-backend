@@ -9,6 +9,7 @@ import { StatusTool } from "./status.js";
 import { FunctionSpecTool } from "./functionSpec.js";
 import { RunTool } from "./run.js";
 import { EnvListTool, EnvGetTool, EnvSetTool, EnvRemoveTool } from "./env.js";
+import { RunOneoffQueryTool } from "./runOneoffQuery.js";
 
 export type ConvexTool<Input extends ZodTypeAny, Output extends ZodTypeAny> = {
   name: string;
@@ -41,4 +42,5 @@ export const convexTools: ConvexTool<any, any>[] = [
   EnvGetTool,
   EnvSetTool,
   EnvRemoveTool,
+  RunOneoffQueryTool,
 ];

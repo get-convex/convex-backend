@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "convex": {
+      "command": "node",
+      "args": [
+        "/Users/sujayakar/src/convex/npm-packages/demos/search/node_modules/convex/bin/main.js",
+        "mcp",
+        "start",
+        "/Users/sujayakar/src/convex/npm-packages/demos/search"
+      ]
+    }
+  }
+}
