@@ -4,7 +4,7 @@ import mockRouter from "next-router-mock";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useTeams } from "api/teams";
 import { useProjects } from "api/projects";
-import { useCreateTeamAccessToken } from "api/accessTokens";
+import { useAuthorizeApp, useCreateTeamAccessToken } from "api/accessTokens";
 import userEvent from "@testing-library/user-event";
 import { AuthorizeProject } from "./AuthorizeProject";
 
@@ -33,6 +33,7 @@ jest.mock("api/accessTokens", () => ({
   useCreateTeamAccessToken: jest.fn(
     () => () => Promise.resolve({ accessToken: "test-token" }),
   ),
+  useAuthorizeApp: jest.fn(() => () => Promise.resolve({ code: "test-code" })),
 }));
 
 // Mock the projects API
@@ -46,9 +47,12 @@ describe("AuthorizeProject", () => {
       "test-client": {
         name: "Test App",
         allowedRedirects: ["https://test-app.com/callback"],
+        allowImplicitFlow: true,
       },
     },
   };
+
+  const responseTypes = ["token", "code"];
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -63,27 +67,33 @@ describe("AuthorizeProject", () => {
     ]);
   });
 
-  test("shows invalid redirect_uri error when redirect_uri is missing", () => {
-    mockRouter.setCurrentUrl(
-      "/?redirect_uri=https://test-app.com/callback&response_type=token",
-    );
+  test.each(responseTypes)(
+    "shows invalid redirect_uri error when redirect_uri is missing (response_type=%p)",
+    (responseType) => {
+      mockRouter.setCurrentUrl(
+        `/?redirect_uri=https://test-app.com/callback&response_type=${responseType}`,
+      );
 
-    render(<AuthorizeProject />);
-    expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
-  });
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    },
+  );
 
-  test("shows invalid redirect_uri error when redirect_uri is invalid", () => {
-    mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://malicious-site.com/callback&response_type=token",
-    );
+  test.each(responseTypes)(
+    "shows invalid redirect_uri error when redirect_uri is invalid (response_type=%p)",
+    (responseType) => {
+      mockRouter.setCurrentUrl(
+        `/?client_id=test-client&redirect_uri=https://malicious-site.com/callback&response_type=${responseType}`,
+      );
 
-    render(<AuthorizeProject />);
-    expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
-  });
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    },
+  );
 
   test("redirects with error for invalid response_type", () => {
     mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=code",
+      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=magic",
     );
 
     render(<AuthorizeProject />);
@@ -92,7 +102,7 @@ describe("AuthorizeProject", () => {
 
   test("includes state parameter in error redirect if provided", () => {
     mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=code&state=test-state",
+      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=magic&state=test-state",
     );
 
     render(<AuthorizeProject />);
@@ -101,21 +111,24 @@ describe("AuthorizeProject", () => {
     );
   });
 
-  test("renders authorization form with valid parameters", () => {
-    mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=token",
-    );
+  test.each(responseTypes)(
+    "renders authorization form with valid parameters (response_type=%p)",
+    (responseType) => {
+      mockRouter.setCurrentUrl(
+        `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=${responseType}`,
+      );
 
-    render(<AuthorizeProject />);
+      render(<AuthorizeProject />);
 
-    expect(
-      screen.getByText("Authorize access to your project"),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText(/Test App/)[0]).toBeInTheDocument();
-    expect(screen.getByText("Select a team")).toBeInTheDocument();
-    expect(screen.getByText("Select a project")).toBeInTheDocument();
-    expect(screen.getByText("Authorize Test App")).toBeInTheDocument();
-  });
+      expect(
+        screen.getByText("Authorize access to your project"),
+      ).toBeInTheDocument();
+      expect(screen.getAllByText(/Test App/)[0]).toBeInTheDocument();
+      expect(screen.getByText("Select a team")).toBeInTheDocument();
+      expect(screen.getByText("Select a project")).toBeInTheDocument();
+      expect(screen.getByText("Authorize Test App")).toBeInTheDocument();
+    },
+  );
 
   test("shows project creation button when under project limit", () => {
     mockRouter.setCurrentUrl(
@@ -144,91 +157,118 @@ describe("AuthorizeProject", () => {
     expect(screen.getByText("Create a new project")).toBeDisabled();
   });
 
-  test("redirects with access token on successful authorization", async () => {
-    mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=token&state=test-state",
-    );
-
-    // Mock token creation success
-    const mockCreateToken = jest
-      .fn()
-      .mockResolvedValue({ accessToken: "test-token" });
-    (useCreateTeamAccessToken as jest.Mock).mockReturnValue(mockCreateToken);
-
-    const { getByText } = render(<AuthorizeProject />);
-
-    // Select a project
-    const projectCombobox = screen.getByLabelText("Select a project");
-    await act(async () => {
-      await userEvent.click(projectCombobox);
-    });
-    await userEvent.click(screen.getByText("Test Project"));
-
-    // Click the authorize button and wait for async operations
-    const authorizeButton = getByText("Authorize Test App");
-    expect(authorizeButton).toBeEnabled();
-    await act(async () => {
-      await authorizeButton.click();
-    });
-
-    // Should redirect with the token
-    expect(mockRouter.asPath).toBe(
-      "/callback#access_token=project%3Atest-team%3Atest-project%7Ctest-token&token_type=bearer&state=test-state",
-    );
-  });
-
-  test("redirects with server_error on token creation failure", async () => {
-    mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=token&state=test-state",
-    );
-
-    // Mock token creation failure
-    const mockCreateToken = jest
-      .fn()
-      .mockImplementation(() =>
-        Promise.reject(new Error("Failed to create token")),
+  test.each(responseTypes)(
+    "redirects with access token on successful authorization (response_type=%p)",
+    async (responseType) => {
+      mockRouter.setCurrentUrl(
+        `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=${responseType}&state=test-state`,
       );
-    (useCreateTeamAccessToken as jest.Mock).mockReturnValue(mockCreateToken);
 
-    const { getByText } = render(<AuthorizeProject />);
+      const { getByText } = render(<AuthorizeProject />);
 
-    // Select a project
-    const projectCombobox = screen.getByLabelText("Select a project");
-    await act(async () => {
-      await userEvent.click(projectCombobox);
-    });
-    await userEvent.click(screen.getByText("Test Project"));
-    // Click the authorize button and wait for async operations
-    const authorizeButton = getByText("Authorize Test App");
-    expect(authorizeButton).toBeEnabled();
-    await act(async () => {
-      await authorizeButton.click();
-    });
+      // Select a project
+      const projectCombobox = screen.getByLabelText("Select a project");
+      await act(async () => {
+        await userEvent.click(projectCombobox);
+      });
+      await userEvent.click(screen.getByText("Test Project"));
 
-    // Should redirect with error
-    expect(mockRouter.asPath).toBe(
-      "/callback#error=server_error&state=test-state",
-    );
-  });
+      // Click the authorize button and wait for async operations
+      const authorizeButton = getByText("Authorize Test App");
+      expect(authorizeButton).toBeEnabled();
+      await act(async () => {
+        await authorizeButton.click();
+      });
 
-  test("redirects with invalid_request when cancel is clicked", async () => {
-    mockRouter.setCurrentUrl(
-      "/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=token&state=test-state",
-    );
+      // Should redirect with the token
+      if (responseType === "token") {
+        expect(mockRouter.asPath).toBe(
+          "/callback#access_token=project%3Atest-team%3Atest-project%7Ctest-token&token_type=bearer&state=test-state",
+        );
+      } else {
+        expect(mockRouter.asPath).toBe(
+          "/callback?code=test-code&state=test-state",
+        );
+      }
+    },
+  );
 
-    const { getByText } = render(<AuthorizeProject />);
+  test.each(responseTypes)(
+    "redirects with server_error on token creation failure (response_type=%p)",
+    async (responseType) => {
+      mockRouter.setCurrentUrl(
+        `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=${responseType}&state=test-state`,
+      );
 
-    // Click the cancel button and wait for async operations
-    const cancelButton = getByText("Cancel");
-    await act(async () => {
-      await cancelButton.click();
-    });
+      // Mock token creation failure
+      const mockCreateToken = jest
+        .fn()
+        .mockImplementation(() =>
+          Promise.reject(new Error("Failed to create token")),
+        );
+      if (responseType === "token") {
+        (useCreateTeamAccessToken as jest.Mock).mockReturnValue(
+          mockCreateToken,
+        );
+      } else {
+        (useAuthorizeApp as jest.Mock).mockReturnValue(mockCreateToken);
+      }
 
-    // Should redirect with access_denied error
-    expect(mockRouter.asPath).toBe(
-      "/callback#error=access_denied&state=test-state",
-    );
-  });
+      const { getByText } = render(<AuthorizeProject />);
+
+      // Select a project
+      const projectCombobox = screen.getByLabelText("Select a project");
+      await act(async () => {
+        await userEvent.click(projectCombobox);
+      });
+      await userEvent.click(screen.getByText("Test Project"));
+      // Click the authorize button and wait for async operations
+      const authorizeButton = getByText("Authorize Test App");
+      expect(authorizeButton).toBeEnabled();
+      await act(async () => {
+        await authorizeButton.click();
+      });
+
+      // Should redirect with error
+      if (responseType === "token") {
+        expect(mockRouter.asPath).toBe(
+          "/callback#error=server_error&state=test-state",
+        );
+      } else {
+        expect(mockRouter.asPath).toBe(
+          "/callback?error=server_error&state=test-state",
+        );
+      }
+    },
+  );
+
+  test.each(responseTypes)(
+    "redirects with invalid_request when cancel is clicked (response_type=%p)",
+    async (responseType) => {
+      mockRouter.setCurrentUrl(
+        `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=${responseType}&state=test-state`,
+      );
+
+      const { getByText } = render(<AuthorizeProject />);
+
+      // Click the cancel button and wait for async operations
+      const cancelButton = getByText("Cancel");
+      await act(async () => {
+        await cancelButton.click();
+      });
+
+      // Should redirect with access_denied error
+      if (responseType === "token") {
+        expect(mockRouter.asPath).toBe(
+          "/callback#error=access_denied&state=test-state",
+        );
+      } else {
+        expect(mockRouter.asPath).toBe(
+          "/callback?error=access_denied&state=test-state",
+        );
+      }
+    },
+  );
 
   test("renders within LoginLayout", () => {
     mockRouter.setCurrentUrl(

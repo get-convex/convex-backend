@@ -8,7 +8,7 @@ import { useFormik } from "formik";
 import { Spinner } from "dashboard-common/elements/Spinner";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
-import { useCreateTeamAccessToken } from "api/accessTokens";
+import { useCreateTeamAccessToken, useAuthorizeApp } from "api/accessTokens";
 import { LoginLayout } from "layouts/LoginLayout";
 import { Sheet } from "dashboard-common/elements/Sheet";
 import { PlusIcon, ResetIcon } from "@radix-ui/react-icons";
@@ -52,6 +52,7 @@ export function AuthorizeProject() {
   const createTeamAccessToken = useCreateTeamAccessToken({
     kind: "doNotMutate",
   });
+  const authorizeApp = useAuthorizeApp();
 
   const formState = useFormik({
     initialValues: {},
@@ -61,33 +62,44 @@ export function AuthorizeProject() {
       }
       const project = projects?.find((p) => p.id === selectedProjectId)!;
       try {
-        const token = await createTeamAccessToken({
-          authnToken: accessToken,
-          teamId: null,
-          projectId: project.id,
-          deviceName: callingApplication.name,
-          appName: callingApplication.name,
-          deploymentId: null, // Authorize all deployments in this project
-          permissions: null, // Allow all permissions
-        });
-        const projectToken = `project:${team!.slug}:${project.slug}|${token.accessToken}`;
-        const redirectUrl = buildOAuthRedirectUrl(
-          validatedConfig?.redirectUri,
-          {
+        let redirectUrl;
+        if (validatedConfig?.responseType === "token") {
+          const token = await createTeamAccessToken({
+            authnToken: accessToken,
+            teamId: null,
+            projectId: project.id,
+            deviceName: callingApplication.name,
+            appName: callingApplication.name,
+            deploymentId: null, // Authorize all deployments in this project
+            permissions: null, // Allow all permissions
+          });
+          const projectToken = `project:${team!.slug}:${project.slug}|${token.accessToken}`;
+          redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
             accessToken: projectToken,
             state: validatedConfig?.state,
-          },
-        );
+          });
+        } else if (validatedConfig?.responseType === "code") {
+          const resp = await authorizeApp({
+            authnToken: accessToken,
+            projectId: project.id,
+            clientId: validatedConfig.clientId,
+            redirectUri: validatedConfig.redirectUri!,
+            mode: "AuthorizationCode",
+          });
+          redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
+            code: resp.code,
+            state: validatedConfig?.state,
+          });
+        } else {
+          throw new Error("unexpected response type");
+        }
         setIsRedirecting(true);
         void router.replace(redirectUrl);
       } catch (e) {
-        const redirectUrl = buildOAuthRedirectUrl(
-          validatedConfig?.redirectUri,
-          {
-            error: "server_error",
-            state: validatedConfig?.state,
-          },
-        );
+        const redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
+          error: "server_error",
+          state: validatedConfig?.state,
+        });
         setIsRedirecting(true);
         void router.replace(redirectUrl);
       }
@@ -116,7 +128,7 @@ export function AuthorizeProject() {
         </div>
       );
     }
-    const redirectUrl = buildOAuthRedirectUrl(validatedConfig?.redirectUri, {
+    const redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
       error,
       state: validatedConfig?.state,
     });
@@ -248,13 +260,10 @@ export function AuthorizeProject() {
               <Button
                 variant="neutral"
                 onClick={() => {
-                  const redirectUrl = buildOAuthRedirectUrl(
-                    validatedConfig?.redirectUri,
-                    {
-                      error: "access_denied",
-                      state: validatedConfig?.state,
-                    },
-                  );
+                  const redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
+                    error: "access_denied",
+                    state: validatedConfig?.state,
+                  });
                   setIsRedirecting(true);
                   void router.push(redirectUrl);
                 }}
@@ -307,14 +316,14 @@ interface ValidatedOAuthConfig {
   clientId: string;
   redirectUri?: string; // Optional since it may be invalid
   state?: string;
-  responseType: string;
+  responseType?: "token" | "code";
 }
 
 function validateOAuthConfig(
   config: OAuthConfig,
   oauthProviderConfiguration: Record<
     string,
-    { name: string; allowedRedirects: string[] }
+    { name: string; allowedRedirects: string[]; allowImplicitFlow?: boolean }
   >,
 ): {
   callingApplication: { name: string; allowedRedirects: string[] };
@@ -327,14 +336,15 @@ function validateOAuthConfig(
     return { callingApplication, error: "invalid_request" };
   }
 
+  const validatedConfig: ValidatedOAuthConfig = {
+    clientId: config.clientId,
+    state: config.state,
+  };
+
   if (!config.redirectUri) {
     return {
       callingApplication,
-      validatedConfig: {
-        clientId: config.clientId,
-        state: config.state,
-        responseType: config.responseType,
-      },
+      validatedConfig,
       error: "invalid_request",
     };
   }
@@ -343,43 +353,44 @@ function validateOAuthConfig(
     // Don't include the invalid redirectUri in the validated config
     return {
       callingApplication,
-      validatedConfig: {
-        clientId: config.clientId,
-        state: config.state,
-        responseType: config.responseType,
-      },
+      validatedConfig,
       error: "invalid_request",
     };
   }
+  validatedConfig.redirectUri = config.redirectUri;
 
-  if (config.responseType !== "token") {
+  if (
+    !(
+      (config.responseType === "token" &&
+        callingApplication.allowImplicitFlow) ||
+      config.responseType === "code"
+    )
+  ) {
     return {
       callingApplication,
-      validatedConfig: {
-        clientId: config.clientId,
-        redirectUri: config.redirectUri,
-        state: config.state,
-        responseType: config.responseType,
-      },
+      validatedConfig,
       error: "unsupported_response_type",
     };
   }
+  validatedConfig.responseType = config.responseType;
 
   return {
     callingApplication,
-    validatedConfig: {
-      clientId: config.clientId,
-      redirectUri: config.redirectUri,
-      state: config.state,
-      responseType: config.responseType,
-    },
+    validatedConfig,
   };
 }
 
 function buildOAuthRedirectUrl(
-  redirectUri: string | undefined,
-  params: { error?: OAuthError; accessToken?: string; state?: string },
+  validatedConfig: ValidatedOAuthConfig | undefined,
+  params: {
+    error?: OAuthError;
+    accessToken?: string;
+    code?: string;
+    state?: string;
+  },
 ): string {
+  const redirectUri = validatedConfig?.redirectUri;
+
   // If no valid redirectUri was provided, redirect to a safe error page
   if (!redirectUri) {
     throw new Error("redirectUri is missing");
@@ -391,16 +402,25 @@ function buildOAuthRedirectUrl(
 
     if (params.error) {
       hashParams.push(`error=${encodeURIComponent(params.error)}`);
-    } else if (params.accessToken) {
+    } else if (validatedConfig.responseType === "token" && params.accessToken) {
       hashParams.push(`access_token=${encodeURIComponent(params.accessToken)}`);
       hashParams.push("token_type=bearer");
+    } else if (validatedConfig.responseType === "code" && params.code) {
+      hashParams.push(`code=${encodeURIComponent(params.code)}`);
     }
 
     if (params.state) {
       hashParams.push(`state=${encodeURIComponent(params.state)}`);
     }
 
-    url.hash = hashParams.join("&");
+    const responseParams = hashParams.join("&");
+    if (validatedConfig.responseType === "token") {
+      // implicit flow returns a token in the hash part of the URL
+      url.hash = responseParams;
+    } else {
+      // authorization code flow returns a code in the query parameters
+      url.search = responseParams;
+    }
     return url.toString();
   } catch (e) {
     throw new Error("redirectUri is invalid");

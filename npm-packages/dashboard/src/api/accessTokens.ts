@@ -114,3 +114,10 @@ export function useCreateTeamAccessToken(
       params.kind === "doNotMutate" ? undefined : "Access token created.",
   });
 }
+
+export function useAuthorizeApp() {
+  return useBBMutation({
+    path: "/authorize_app",
+    pathParams: undefined,
+  });
+}

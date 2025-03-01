@@ -7,6 +7,7 @@ const flagDefaults: {
     {
       allowedRedirects: string[];
       name: string;
+      allowImplicitFlow?: boolean;
     }
   >;
   canonicalCustomDomains: boolean;

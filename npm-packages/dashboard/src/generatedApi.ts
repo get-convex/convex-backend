@@ -23,6 +23,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/authorize_app": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["authorize_app"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/cloud_backups/{cloud_backup_id}": {
         parameters: {
             query?: never;
@@ -1297,6 +1313,16 @@ export interface components {
             cursor?: string | null;
             events: components["schemas"]["AuditLogEventResponse"][];
         };
+        AuthorizeAppArgs: {
+            /** @description Authentication token is expected to be the access token from auth0 */
+            authnToken: string;
+            clientId: string;
+            mode: components["schemas"]["AuthorizeAppMode"];
+            projectId: components["schemas"]["ProjectId"];
+            redirectUri: string;
+        };
+        /** @enum {string} */
+        AuthorizeAppMode: "AuthorizationCode";
         AuthorizeArgs: {
             appName?: null | components["schemas"]["AppName"];
             /** @description Authentication token is expected to be the access token from auth0 */
@@ -1306,6 +1332,10 @@ export interface components {
             permissions?: string[] | null;
             projectId?: null | components["schemas"]["ProjectId"];
             teamId?: null | components["schemas"]["TeamId"];
+        };
+        AuthorizeCodeResponse: {
+            /** @description A code that the application can use to retrieve the token */
+            code: string;
         };
         AuthorizeDiscordAccountRequest: {
             authorizationCode: string;
@@ -1784,7 +1814,10 @@ export type AuditLogAction = components['schemas']['AuditLogAction'];
 export type AuditLogActor = components['schemas']['AuditLogActor'];
 export type AuditLogEventResponse = components['schemas']['AuditLogEventResponse'];
 export type AuditLogResponse = components['schemas']['AuditLogResponse'];
+export type AuthorizeAppArgs = components['schemas']['AuthorizeAppArgs'];
+export type AuthorizeAppMode = components['schemas']['AuthorizeAppMode'];
 export type AuthorizeArgs = components['schemas']['AuthorizeArgs'];
+export type AuthorizeCodeResponse = components['schemas']['AuthorizeCodeResponse'];
 export type AuthorizeDiscordAccountRequest = components['schemas']['AuthorizeDiscordAccountRequest'];
 export type AuthorizeResponse = components['schemas']['AuthorizeResponse'];
 export type BillingContactResponse = components['schemas']['BillingContactResponse'];
@@ -1898,6 +1931,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthorizeResponse"];
+                };
+            };
+        };
+    };
+    authorize_app: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthorizeAppArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthorizeCodeResponse"];
                 };
             };
         };

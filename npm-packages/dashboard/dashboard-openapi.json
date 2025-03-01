@@ -37,6 +37,33 @@
         }
       }
     },
+    "/authorize_app": {
+      "post": {
+        "operationId": "authorize_app",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeAppArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizeCodeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/cloud_backups/{cloud_backup_id}": {
       "get": {
         "operationId": "get_cloud_backup",
@@ -2456,6 +2483,41 @@
           }
         }
       },
+      "AuthorizeAppArgs": {
+        "type": "object",
+        "required": [
+          "authnToken",
+          "mode",
+          "clientId",
+          "projectId",
+          "redirectUri"
+        ],
+        "properties": {
+          "authnToken": {
+            "type": "string",
+            "description": "Authentication token is expected to be the access token from auth0"
+          },
+          "clientId": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/AuthorizeAppMode"
+          },
+          "projectId": {
+            "$ref": "#/components/schemas/ProjectId"
+          },
+          "redirectUri": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuthorizeAppMode": {
+        "type": "string",
+        "enum": [
+          "AuthorizationCode"
+        ]
+      },
       "AuthorizeArgs": {
         "type": "object",
         "required": [
@@ -2527,6 +2589,18 @@
           }
         },
         "additionalProperties": false
+      },
+      "AuthorizeCodeResponse": {
+        "type": "object",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "A code that the application can use to retrieve the token"
+          }
+        }
       },
       "AuthorizeDiscordAccountRequest": {
         "type": "object",
