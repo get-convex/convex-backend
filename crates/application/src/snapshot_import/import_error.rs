@@ -31,7 +31,10 @@ pub enum ImportError {
     #[error("Import wasn't valid UTF8: {0}")]
     NotUtf8(std::io::Error),
 
-    #[error("Import is too large for JSON ({0} bytes > maximum {}). Consider converting data to JSONLines", *IMPORT_SIZE_LIMIT)]
+    #[error(
+        "Import is too large for JSON ({0} bytes > maximum {limit}). Consider converting data to JSONLines",
+        limit=*IMPORT_SIZE_LIMIT
+    )]
     JsonArrayTooLarge(usize),
 
     #[error("CSV file doesn't have headers")]

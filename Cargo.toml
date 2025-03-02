@@ -143,7 +143,7 @@ syn = { version = "2.0", features = [ "full" ] }
 tantivy = { git = "https://github.com/get-convex/tantivy", rev = "c745b0977df94bc22fe4fc75db0200a8023f9a2c" }
 tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "c745b0977df94bc22fe4fc75db0200a8023f9a2c" }
 tempfile = "3"
-thiserror = "1"
+thiserror = "2"
 thousands = "0.2.0"
 tld = "2.36.0"
 tokio = { version = "1", features = [ "full" ] }
