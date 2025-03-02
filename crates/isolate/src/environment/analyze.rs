@@ -13,7 +13,10 @@ use anyhow::{
     Context,
 };
 use common::{
-    errors::JsError,
+    errors::{
+        report_error_sync,
+        JsError,
+    },
     knobs::{
         DATABASE_UDF_SYSTEM_TIMEOUT,
         ISOLATE_ANALYZE_USER_TIMEOUT,
@@ -319,8 +322,19 @@ impl AnalyzeEnvironment {
                 let source_map = module_config
                     .source_map
                     .as_ref()
-                    .map(|m| sourcemap::SourceMap::from_slice(m.as_bytes()))
-                    .transpose()?;
+                    .map(|m| {
+                        sourcemap::SourceMap::from_slice(m.as_bytes())
+                            .context("could not parse source map")
+                    })
+                    .transpose();
+                let source_map = match source_map {
+                    Ok(source_map) => source_map,
+                    Err(mut e) => {
+                        // Source map did not parse.
+                        report_error_sync(&mut e);
+                        None
+                    },
+                };
 
                 // cache it
                 Ok(e.insert(source_map))
