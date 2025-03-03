@@ -1132,7 +1132,7 @@ pub static HTTP_SERVER_TIMEOUT_DURATION: LazyLock<Duration> =
 /// The limit on the request size to /push_config.
 // Schema and code bundle pushes must be less than this.
 pub static MAX_PUSH_BYTES: LazyLock<usize> =
-    LazyLock::new(|| env_config("MAX_PUSH_BYTES", 100_000_000));
+    LazyLock::new(|| env_config("MAX_PUSH_BYTES", 200_000_000));
 
 /// The limit on the request size to /echo. Limits requests to 128MiB to help
 /// mitigate DDoS attacks.
