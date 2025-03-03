@@ -23,7 +23,7 @@ cfg_if::cfg_if! {
     }
 }
 
-fn set_protoc_path() {
+pub fn set_protoc_path() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("protoc");
     let include_path = std::fs::canonicalize(root.join("include"))
         .expect("Failed to canonicalize protoc include path");

@@ -1879,6 +1879,7 @@ dependencies = [
  "cfg-if",
  "fxhash",
  "maplit",
+ "pb_build",
  "proptest",
  "prost",
  "prost-types",
