@@ -122,10 +122,7 @@ export function CustomDomains({
                 </div>
                 <div className="divide-y divide-border-transparent border-t">
                   {vanityDomains
-                    .sort(
-                      (a, b) =>
-                        Date.parse(a.creationTs) - Date.parse(b.creationTs),
-                    )
+                    .sort((a, b) => a.creationTime - b.creationTime)
                     .reverse()
                     .map((domain, index) => (
                       <DisplayVanityDomain
@@ -138,12 +135,14 @@ export function CustomDomains({
               </>
             )}
             {deployment && canonicalCustomDomains && (
-              <ProdProvider deploymentName={deployment.name}>
-                <CanonicalDomainForm
-                  deploymentName={deployment.name}
-                  vanityDomains={vanityDomains}
-                />
-              </ProdProvider>
+              <div className="border-t">
+                <ProdProvider deploymentName={deployment.name}>
+                  <CanonicalDomainForm
+                    deploymentName={deployment.name}
+                    vanityDomains={vanityDomains}
+                  />
+                </ProdProvider>
+              </div>
             )}
           </div>
         )}
@@ -190,11 +189,11 @@ function CanonicalDomainForm({
   const defaultSiteUrl = `https://${deploymentName}.convex.site`;
 
   return (
-    <div>
-      <h4 className="mb-2">Override Production Environment Variables</h4>
+    <div className="flex flex-col gap-3">
+      <h4 className="mt-3">Override Production Environment Variables</h4>
       <CanonicalUrlCombobox
         label={
-          <span className="flex flex-row items-center gap-1">
+          <span className="flex items-center gap-2">
             <code>process.env.CONVEX_CLOUD_URL</code>
             <Tooltip
               tip={
@@ -300,7 +299,7 @@ function CanonicalUrlCombobox({
   const disabled = options.length <= 1;
 
   return (
-    <div className="p-2">
+    <div className="flex flex-col gap-1">
       <Combobox
         label={label}
         labelHidden={false}
