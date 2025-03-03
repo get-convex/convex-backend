@@ -155,15 +155,16 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let mut added_modules = BTreeSet::new();
 
         // Add new modules.
-        let mut remaining_modules: BTreeSet<_> = self
+        let mut remaining_modules: BTreeMap<_, _> = self
             .get_application_metadata(component)
             .await?
             .into_iter()
-            .map(|module| module.into_value().path)
+            .map(|module| (module.path.clone(), module.id()))
             .collect();
         for module in modules {
             let path = module.path.canonicalize();
-            if !remaining_modules.remove(&path) {
+            let existing_module_id = remaining_modules.remove(&path);
+            if existing_module_id.is_none() {
                 added_modules.insert(path.clone());
             }
             let analyze_result = if !path.is_deps() {
@@ -178,6 +179,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
                 None
             };
             self.put(
+                existing_module_id,
                 CanonicalizedComponentModulePath {
                     component,
                     module_path: path.clone(),
@@ -192,14 +194,9 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         }
 
         let mut removed_modules = BTreeSet::new();
-        for path in remaining_modules {
+        for (path, module_id) in remaining_modules {
             removed_modules.insert(path.clone());
-            ModuleModel::new(self.tx)
-                .delete(CanonicalizedComponentModulePath {
-                    component,
-                    module_path: path,
-                })
-                .await?;
+            self.delete(component, module_id).await?;
         }
         ModuleDiff::new(added_modules, removed_modules)
     }
@@ -310,8 +307,10 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     }
 
     /// Put a module's source at a given path.
+    /// `module_id` is the existing module at this `path`.
     pub async fn put(
         &mut self,
+        module_id: Option<ResolvedDocumentId>,
         path: CanonicalizedComponentModulePath,
         source: ModuleSource,
         source_package_id: SourcePackageId,
@@ -330,43 +329,42 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
             "AnalyzedModule is required for non-dependency modules"
         );
         let sha256 = hash_module_source(&source, source_map.as_ref());
-        self.put_module_metadata(path, source_package_id, analyze_result, environment, sha256)
-            .await?;
+        self.put_module_metadata(
+            module_id,
+            path,
+            source_package_id,
+            analyze_result,
+            environment,
+            sha256,
+        )
+        .await?;
         Ok(())
     }
 
     async fn put_module_metadata(
         &mut self,
+        module_id: Option<ResolvedDocumentId>,
         path: CanonicalizedComponentModulePath,
         source_package_id: SourcePackageId,
         analyze_result: Option<AnalyzedModule>,
         environment: ModuleEnvironment,
         sha256: Sha256Digest,
     ) -> anyhow::Result<ResolvedDocumentId> {
-        let module_id = match self.module_metadata(path.clone()).await? {
-            Some(module_metadata) => {
-                let new_metadata = ModuleMetadata {
-                    path: path.module_path,
-                    source_package_id,
-                    environment,
-                    analyze_result: analyze_result.clone(),
-                    sha256,
-                };
+        let new_metadata = ModuleMetadata {
+            path: path.module_path,
+            source_package_id,
+            environment,
+            analyze_result: analyze_result.clone(),
+            sha256,
+        };
+        let module_id = match module_id {
+            Some(module_id) => {
                 SystemMetadataModel::new(self.tx, path.component.into())
-                    .replace(module_metadata.id(), new_metadata.try_into()?)
+                    .replace(module_id, new_metadata.try_into()?)
                     .await?;
-
-                module_metadata.id()
+                module_id
             },
             None => {
-                let new_metadata = ModuleMetadata {
-                    path: path.module_path,
-                    source_package_id,
-                    environment,
-                    analyze_result: analyze_result.clone(),
-                    sha256,
-                };
-
                 SystemMetadataModel::new(self.tx, path.component.into())
                     .insert(&MODULES_TABLE, new_metadata.try_into()?)
                     .await?
@@ -376,17 +374,18 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
     }
 
     /// Delete a module, making it inaccessible for subsequent transactions.
-    pub async fn delete(&mut self, path: CanonicalizedComponentModulePath) -> anyhow::Result<()> {
+    pub async fn delete(
+        &mut self,
+        component: ComponentId,
+        module_id: ResolvedDocumentId,
+    ) -> anyhow::Result<()> {
         if !(self.tx.identity().is_admin() || self.tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("delete_module"));
         }
-        let namespace = path.component.into();
-        if let Some(module_metadata) = self.module_metadata(path).await? {
-            let module_id = module_metadata.id();
-            SystemMetadataModel::new(self.tx, namespace)
-                .delete(module_id)
-                .await?;
-        }
+        let namespace = component.into();
+        SystemMetadataModel::new(self.tx, namespace)
+            .delete(module_id)
+            .await?;
         Ok(())
     }
 

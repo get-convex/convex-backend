@@ -2381,12 +2381,18 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         // 3. Add the module
+        let path = CanonicalizedComponentModulePath {
+            component,
+            module_path: module_path.clone(),
+        };
+        let module_id = ModuleModel::new(&mut tx)
+            .get_metadata(path.clone())
+            .await?
+            .map(|m| m.id());
         ModuleModel::new(&mut tx)
             .put(
-                CanonicalizedComponentModulePath {
-                    component,
-                    module_path: module_path.clone(),
-                },
+                module_id,
+                path,
                 module.source,
                 source_package_id,
                 module.source_map,
