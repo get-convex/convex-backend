@@ -660,17 +660,15 @@ impl<RT: Runtime> IndexWriter<RT> {
                 let tx = tx.clone();
                 self.runtime
                     .spawn("index_backfill_table_snapshot", async move {
-                        tx.send(
-                            self_
-                                .backfill_exact_snapshot_of_table(
-                                    snapshot_ts,
-                                    &index_selector,
-                                    &index_metadata,
-                                    table_id,
-                                )
-                                .await,
-                        )
-                        .unwrap();
+                        tokio::select! {
+                            _ = tx.closed() => { /* cancelled */ },
+                            result = self_.backfill_exact_snapshot_of_table(
+                                snapshot_ts,
+                                &index_selector,
+                                &index_metadata,
+                                table_id,
+                            ) => { _ = tx.send(result) },
+                        }
                     })
             })
             .collect();
