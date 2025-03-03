@@ -162,21 +162,24 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
             return;
         }
 
-        if sentry_client.is_enabled() {
-            tracing::error!("Reporting above error to sentry.");
-        } else {
+        if !sentry_client.is_enabled() {
             tracing::error!("Not reporting above error: SENTRY_DSN not set.");
+            return;
         }
 
-        sentry::with_scope(
+        let event_id = sentry::with_scope(
             |scope| {
                 scope.set_level(Some(level));
                 scope.set_tag("short_msg", err.short_msg());
             },
             || {
                 #[allow(clippy::disallowed_methods)]
-                sentry::integrations::anyhow::capture_anyhow(err);
+                sentry::integrations::anyhow::capture_anyhow(err)
             },
+        );
+        tracing::error!(
+            "Reporting above error to sentry with event_id {}",
+            event_id.simple()
         );
     } else {
         tracing::error!("Not reporting above error to sentry.");
