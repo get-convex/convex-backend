@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node checkBigBrain.js 6789 && { (sleep 2 ; open http://localhost:6789) & npm run dev:pure; }",
+    "dev": "node checkBigBrain.mjs 6789 && { (sleep 2 ; open http://localhost:6789) & npm run dev:pure; }",
     "dev:pure": "npm run build:generated && next dev --port 6789",
     "build": "npm run build:generated && next build",
     "build:generated": "python3 ../dashboard-common/scripts/build-convexServerTypes.py && npm run generateApiSpec",

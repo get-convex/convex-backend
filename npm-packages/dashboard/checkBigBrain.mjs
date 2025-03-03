@@ -1,10 +1,11 @@
-const http = require("http");
-const chalk = require("chalk");
-const readline = require("readline");
-const url = require("url");
-const { spawnSync } = require("child_process");
+import http from "http";
+import chalk from "chalk";
+import readline from "readline";
+import url from "url";
+import { spawnSync } from "child_process";
+import dotenv from "dotenv";
 
-require("dotenv").config({ path: ".env.development" });
+dotenv.config({ path: ".env.development" });
 
 const parsedUrl = url.parse(process.env.NEXT_PUBLIC_BIG_BRAIN_URL);
 http
