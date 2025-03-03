@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::errors::report_error_sync;
+
 // Used by the database to signal it has encountered a fatal error.
 #[derive(Clone)]
 pub struct ShutdownSignal {
@@ -28,7 +30,8 @@ impl ShutdownSignal {
         }
     }
 
-    pub fn signal(&self, fatal_error: anyhow::Error) {
+    pub fn signal(&self, mut fatal_error: anyhow::Error) {
+        report_error_sync(&mut fatal_error);
         if let Some(ref shutdown_tx) = self.shutdown_tx {
             _ = shutdown_tx.try_broadcast(ShutdownMessage {
                 error: Arc::new(fatal_error),
