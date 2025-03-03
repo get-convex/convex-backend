@@ -15,7 +15,8 @@ import type {
 } from "convex/server";
 import type * as actionsArgsWithValidation from "../actionsArgsWithValidation.js";
 import type * as actionsCircularError from "../actionsCircularError.js";
-import type * as actionsCircularErrorFixed from "../actionsCircularErrorFixed.js";
+import type * as actionsCircularErrorFixedResults from "../actionsCircularErrorFixedResults.js";
+import type * as actionsCircularErrorFixedReturn from "../actionsCircularErrorFixedReturn.js";
 import type * as actionsConstructor from "../actionsConstructor.js";
 import type * as actionsContext from "../actionsContext.js";
 import type * as actionsContextRunMutation from "../actionsContextRunMutation.js";
@@ -110,7 +111,8 @@ import type * as writingDataReplace from "../writingDataReplace.js";
 declare const fullApi: ApiFromModules<{
   actionsArgsWithValidation: typeof actionsArgsWithValidation;
   actionsCircularError: typeof actionsCircularError;
-  actionsCircularErrorFixed: typeof actionsCircularErrorFixed;
+  actionsCircularErrorFixedResults: typeof actionsCircularErrorFixedResults;
+  actionsCircularErrorFixedReturn: typeof actionsCircularErrorFixedReturn;
   actionsConstructor: typeof actionsConstructor;
   actionsContext: typeof actionsContext;
   actionsContextRunMutation: typeof actionsContextRunMutation;
