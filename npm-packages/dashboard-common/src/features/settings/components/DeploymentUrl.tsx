@@ -3,7 +3,6 @@ import Link from "next/link";
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { useDeploymentUrl } from "@common/lib/deploymentApi";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 
 // dev/prod sometimes isn't initially loaded.
@@ -28,11 +27,16 @@ export function DeploymentType({
 }
 
 export function DeploymentUrl({ children }: { children: ReactNode }) {
-  const deploymentUrl = useDeploymentUrl();
+  const convexCloudUrl = useQuery(udfs.convexCloudUrl.default, {});
 
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
+
+  // Use the cloud URL from the UDF, which includes custom domain overrides.
+  // You could use `deploymentUrl` as a fallback, but to avoid confusion just
+  // say "loading..." until the UDF result is available.
+  const cloudUrl = convexCloudUrl ?? "loading...";
 
   return (
     <div className="text-content-primary">
@@ -42,28 +46,23 @@ export function DeploymentUrl({ children }: { children: ReactNode }) {
         Convex deployment is hosted at the following URL.
       </p>
       <p className="mb-2">{children}</p>
-      <CopyTextButton text={deploymentUrl} className="text-sm font-normal" />
+      <CopyTextButton text={cloudUrl} className="text-sm font-normal" />
     </div>
   );
 }
 
 export function HttpActionsUrl() {
-  const deploymentUrl = useDeploymentUrl();
   const convexSiteUrl = useQuery(udfs.convexSiteUrl.default, {});
 
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
 
   const deployment = useCurrentDeployment();
 
-  // Use URL from UDF when available, which should be correct even when
-  // running locally. Fall back to deriving from deployment URL if possible,
-  // so the result is available immediately in most cases.
-  const httpActionsUrl =
-    convexSiteUrl !== undefined
-      ? convexSiteUrl
-      : deploymentUrl.endsWith(".cloud")
-        ? `${deploymentUrl.slice(0, -".cloud".length)}.site`
-        : "loading...";
+  // Use the site URL from the UDF, which includes custom domain overrides.
+  // You could derive a .convex.site url from `deploymentUrl` as a fallback,
+  // but to avoid confusion just say "loading..." until the UDF result is
+  // available.
+  const httpActionsUrl = convexSiteUrl ?? "loading...";
 
   return (
     <div className="text-content-primary">
