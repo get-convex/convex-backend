@@ -36,9 +36,10 @@ step: override the `CONVEX_CLOUD_URL` environment variable.
 
 ![Override system environment variables](/screenshots/override_system_env_vars.png)
 
-Then re-deploy your project with the standard build command
-`npx convex deploy --cmd 'npm run build'`. The newly deployed code will access
-your Convex functions through your custom domain.
+Then re-deploy your project. This may entail clicking "Redeploy" in Vercel or
+Netlify, or directly running `npx convex deploy --cmd 'npm run build'`. The
+newly deployed code will access your Convex functions through your custom
+domain.
 
 The `CONVEX_CLOUD_URL` environment variable is used in several places:
 
