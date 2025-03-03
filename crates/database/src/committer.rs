@@ -258,7 +258,7 @@ impl<RT: Runtime> Committer<RT> {
                         Err(err) => {
                             self.shutdown.signal(err.context("Write failed. Unsure if transaction committed to disk."));
                             // Exit the go routine, while we are shutting down.
-                            tracing::info!("Shutting down committer");
+                            tracing::error!("Shutting down committer");
                             return;
                         },
                     };
