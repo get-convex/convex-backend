@@ -177,6 +177,7 @@ use http_client::{
     cached_http_client_for,
     ClientPurpose,
 };
+use isolate::helpers::source_map_from_slice;
 use keybroker::{
     Identity,
     KeyBroker,
@@ -997,7 +998,9 @@ impl<RT: Runtime> Application<RT> {
         let Some(source_map_str) = &full_source.source_map else {
             return Ok(None);
         };
-        let source_map = sourcemap::SourceMap::from_slice(source_map_str.as_bytes())?;
+        let Some(source_map) = source_map_from_slice(source_map_str.as_bytes()) else {
+            return Ok(None);
+        };
         let Some(source_map_content) = source_map.get_source_contents(source_index) else {
             return Ok(None);
         };

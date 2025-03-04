@@ -38,6 +38,7 @@ use isolate::{
     deserialize_udf_custom_error,
     deserialize_udf_result,
     format_uncaught_error,
+    helpers::source_map_from_slice,
 };
 use model::{
     environment_variables::types::{
@@ -179,9 +180,7 @@ fn construct_js_error(
                 let Some(source_map) = source_maps.get(&module_path) else {
                     return Ok(None);
                 };
-                Ok(Some(sourcemap::SourceMap::from_slice(
-                    source_map.as_bytes(),
-                )?))
+                Ok(source_map_from_slice(source_map.as_bytes()))
             })
         },
         None => JsError::from_message(message),
@@ -429,7 +428,9 @@ impl<RT: Runtime> Actions<RT> {
             let mut source_map = None;
             let mut source_index = None;
             if let Some(buf) = source_maps.get(&path) {
-                let candidate_source_map = sourcemap::SourceMap::from_slice(buf.as_bytes())?;
+                let Some(candidate_source_map) = source_map_from_slice(buf.as_bytes()) else {
+                    continue;
+                };
                 for (i, filename) in candidate_source_map.sources().enumerate() {
                     let filename = Path::new(filename);
                     let module_path = Path::new(path.as_str());

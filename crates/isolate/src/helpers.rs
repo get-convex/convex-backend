@@ -1,7 +1,10 @@
 use anyhow::Context;
 use common::{
     components::ResolvedComponentFunctionPath,
-    errors::JsError,
+    errors::{
+        report_error_sync,
+        JsError,
+    },
     knobs::FUNCTION_MAX_RESULT_SIZE,
     value::ConvexValue,
 };
@@ -198,6 +201,18 @@ impl UdfArgsJson {
             UdfArgsJson::PositionalArgs(args) => args,
             UdfArgsJson::NamedArgs(obj) => vec![obj],
         }
+    }
+}
+
+pub fn source_map_from_slice(slice: &[u8]) -> Option<sourcemap::SourceMap> {
+    // If the source map doesn't parse, report the parsing error but don't fail
+    // the entire request, just treat it like a missing source map.
+    match sourcemap::SourceMap::from_slice(slice).context("could not parse source map") {
+        Ok(source_map) => Some(source_map),
+        Err(mut e) => {
+            report_error_sync(&mut e);
+            None
+        },
     }
 }
 

@@ -21,6 +21,7 @@ use crate::{
         deserialize_udf_custom_error,
         format_uncaught_error,
         get_property,
+        source_map_from_slice,
         to_rust_string,
     },
     is_instance_of_error::is_instance_of_error,
@@ -70,7 +71,7 @@ impl<RT: Runtime, E: IsolateEnvironment<RT>> ExecutionScope<'_, '_, RT, E> {
         let Some(source_map) = module_map.source_map(module_id) else {
             return Ok(None);
         };
-        Ok(Some(SourceMap::from_slice(source_map.as_bytes())?))
+        Ok(source_map_from_slice(source_map.as_bytes()))
     }
 
     pub fn nicely_show_line_number_on_error(

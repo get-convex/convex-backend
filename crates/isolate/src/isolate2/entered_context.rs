@@ -18,7 +18,6 @@ use model::modules::user_error::{
     ModuleNotFoundError,
 };
 use serde_json::Value as JsonValue;
-use sourcemap::SourceMap;
 use sync_types::CanonicalizedUdfPath;
 use value::ConvexArray;
 
@@ -42,6 +41,7 @@ use crate::{
     error::extract_source_mapped_error,
     helpers::{
         self,
+        source_map_from_slice,
         to_rust_string,
     },
     isolate::SETUP_URL,
@@ -516,7 +516,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
                 let Some(source_map) = context_state.module_map.lookup_source_map(s) else {
                     return Ok(None);
                 };
-                Ok(Some(SourceMap::from_slice(source_map.as_bytes())?))
+                Ok(source_map_from_slice(source_map.as_bytes()))
             })
         };
         let err = match err {

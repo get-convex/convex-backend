@@ -447,6 +447,7 @@ mod op_provider {
     use super::CallbackContext;
     use crate::{
         environment::AsyncOpRequest,
+        helpers::source_map_from_slice,
         isolate2::client::PendingAsyncOp,
         ops::OpProvider,
         request_scope::{
@@ -473,7 +474,7 @@ mod op_provider {
             let Some(source_map) = context_state.module_map.lookup_source_map(specifier) else {
                 return Ok(None);
             };
-            Ok(Some(SourceMap::from_slice(source_map.as_bytes())?))
+            Ok(source_map_from_slice(source_map.as_bytes()))
         }
 
         fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
