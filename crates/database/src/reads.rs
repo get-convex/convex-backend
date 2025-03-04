@@ -413,16 +413,33 @@ impl TransactionReadSet {
 
         self.num_intervals = self.num_intervals.saturating_sub(num_intervals_before);
         self.num_intervals += num_intervals_after;
-        anyhow::ensure!(
-            self.num_intervals <= *TRANSACTION_MAX_READ_SET_INTERVALS,
-            ErrorMetadata::pagination_limit(
-                "TooManyReads",
-                format!(
-                    "Too many reads in a single function execution (limit: {}). {OVER_LIMIT_HELP}",
-                    *TRANSACTION_MAX_READ_SET_INTERVALS
-                ),
-            )
-        );
+        if self.num_intervals > *TRANSACTION_MAX_READ_SET_INTERVALS {
+            let mut intervals: Vec<_> = self
+                .read_set
+                .indexed
+                .iter()
+                .map(|(index, reads)| (reads.intervals.len(), index))
+                .collect();
+            intervals.sort_by_key(|(len, _)| *len);
+            let top_three = intervals
+                .iter()
+                .rev()
+                .take(3)
+                .map(|(amt, index)| format!("{index}: {amt}"))
+                .collect::<Vec<_>>();
+            anyhow::bail!(
+                anyhow::anyhow!("top three: {}", top_three.join(", ")).context(
+                    ErrorMetadata::pagination_limit(
+                        "TooManyReads",
+                        format!(
+                            "Too many reads in a single function execution (limit: {}). \
+                             {OVER_LIMIT_HELP}",
+                            *TRANSACTION_MAX_READ_SET_INTERVALS,
+                        ),
+                    )
+                )
+            );
+        }
         Ok(())
     }
 
