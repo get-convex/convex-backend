@@ -3,7 +3,6 @@ import {
   ExclamationTriangleIcon,
   PlusIcon,
   TrashIcon,
-  QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { Button } from "dashboard-common/elements/Button";
@@ -191,21 +190,16 @@ function CanonicalDomainForm({
   return (
     <div className="flex flex-col gap-3">
       <h4 className="mt-3">Override Production Environment Variables</h4>
+      <p className="max-w-prose">
+        Replace your production environment variables everywhere in your app.
+        All internal references to your <code>CONVEX_SITE_URL</code> and{" "}
+        <code>CONVEX_CLOUD_URL</code> will change to the url you set. This can
+        affect WebSocket and HTTP clients, storage urls, and Convex Auth.
+      </p>
       <CanonicalUrlCombobox
         label={
           <span className="flex items-center gap-2">
             <code>process.env.CONVEX_CLOUD_URL</code>
-            <Tooltip
-              tip={
-                <span>
-                  This is also used by{" "}
-                  <code>npx convex deploy --cmd "..."</code> to connect your
-                  frontend to your Convex backend
-                </span>
-              }
-            >
-              <QuestionMarkCircledIcon />
-            </Tooltip>
           </span>
         }
         defaultUrl={deploymentUrl}
@@ -217,16 +211,6 @@ function CanonicalDomainForm({
         label={
           <span className="flex flex-row items-center gap-1">
             <code>process.env.CONVEX_SITE_URL</code>
-            <Tooltip
-              tip={
-                <span>
-                  If you use Convex Auth, this would also be used in{" "}
-                  <code>auth.config.ts</code> as the issuer
-                </span>
-              }
-            >
-              <QuestionMarkCircledIcon />
-            </Tooltip>
           </span>
         }
         defaultUrl={defaultSiteUrl}

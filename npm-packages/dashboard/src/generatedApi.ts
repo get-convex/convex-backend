@@ -871,6 +871,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/get_current_spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_current_spend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/get_discounted_plan/{plan_id}/{promo_code}": {
         parameters: {
             query?: never;
@@ -1480,6 +1496,10 @@ export interface components {
             name: string;
             value: string;
         };
+        GetCurrentSpendResponse: {
+            /** Format: int64 */
+            totalCents: number;
+        };
         GetOptInsResponse: {
             optInsToAccept: components["schemas"]["OptInToAccept"][];
         };
@@ -1846,6 +1866,7 @@ export type DiscordLoginUrlResponse = components['schemas']['DiscordLoginUrlResp
 export type DiscountedPlanResponse = components['schemas']['DiscountedPlanResponse'];
 export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson'];
 export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
+export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
@@ -3119,6 +3140,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditLogResponse"];
+                };
+            };
+        };
+    };
+    get_current_spend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetCurrentSpendResponse"];
                 };
             };
         };
