@@ -290,7 +290,7 @@
     "@vitest/eslint-plugin": "~1.1.15",
     "adm-zip": "^0.5.10",
     "bufferutil": "^4.0.7",
-    "chalk": "5",
+    "chalk": "4",
     "chokidar": "3.5.3",
     "commander": "^11.1.0",
     "deep-equal": "2.2.3",

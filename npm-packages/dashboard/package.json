@@ -91,7 +91,7 @@
     "@typescript-eslint/parser": "^6.7.4",
     "autoprefixer": "^10.4.13",
     "babel-loader": "^8.2.5",
-    "chalk": "5",
+    "chalk": "4",
     "cors-anywhere": "~0.4.4",
     "dotenv": "^16.4.7",
     "eslint": "^8.29.0",
