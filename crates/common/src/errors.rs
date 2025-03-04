@@ -158,12 +158,12 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
         if let Some(prob) = prob
             && rand::rng().random::<f64>() > prob
         {
-            tracing::error!("Not reporting above error to sentry - due to sampling.");
+            tracing::debug!("Not reporting above error to sentry - due to sampling.");
             return;
         }
 
         if !sentry_client.is_enabled() {
-            tracing::error!("Not reporting above error: SENTRY_DSN not set.");
+            tracing::debug!("Not reporting above error: SENTRY_DSN not set.");
             return;
         }
 
@@ -182,7 +182,7 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
             event_id.simple()
         );
     } else {
-        tracing::error!("Not reporting above error to sentry.");
+        tracing::debug!("Not reporting above error to sentry.");
     }
 }
 
