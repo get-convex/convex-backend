@@ -31,12 +31,14 @@ export function AuthorizeProject() {
     redirectUri: router.query.redirect_uri as string,
     state: router.query.state as string | undefined,
     responseType: router.query.response_type as string,
+    codeChallenge: router.query.code_challenge as string | undefined,
+    codeChallengeMethod: router.query.code_challenge_method as
+      | string
+      | undefined,
   };
 
-  const { callingApplication, validatedConfig, error } = validateOAuthConfig(
-    oauthConfig,
-    oauthProviderConfiguration,
-  );
+  const { callingApplication, validatedConfig, error, errorDescription } =
+    validateOAuthConfig(oauthConfig, oauthProviderConfiguration);
 
   const { selectedTeamSlug, teams } = useTeams();
   const team = teams?.find((t) => t.slug === selectedTeamSlug) ?? undefined;
@@ -84,6 +86,7 @@ export function AuthorizeProject() {
             projectId: project.id,
             clientId: validatedConfig.clientId,
             redirectUri: validatedConfig.redirectUri!,
+            codeChallenge: validatedConfig.codeChallenge,
             mode: "AuthorizationCode",
           });
           redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
@@ -130,6 +133,7 @@ export function AuthorizeProject() {
     }
     const redirectUrl = buildOAuthRedirectUrl(validatedConfig, {
       error,
+      errorDescription,
       state: validatedConfig?.state,
     });
     void router.replace(redirectUrl);
@@ -310,6 +314,8 @@ interface OAuthConfig {
   redirectUri: string;
   state?: string;
   responseType: string;
+  codeChallenge?: string;
+  codeChallengeMethod?: string;
 }
 
 interface ValidatedOAuthConfig {
@@ -317,6 +323,7 @@ interface ValidatedOAuthConfig {
   redirectUri?: string; // Optional since it may be invalid
   state?: string;
   responseType?: "token" | "code";
+  codeChallenge?: string;
 }
 
 function validateOAuthConfig(
@@ -329,6 +336,7 @@ function validateOAuthConfig(
   callingApplication: { name: string; allowedRedirects: string[] };
   validatedConfig?: ValidatedOAuthConfig;
   error?: OAuthError;
+  errorDescription?: string;
 } {
   const callingApplication = oauthProviderConfiguration[config.clientId];
 
@@ -355,6 +363,7 @@ function validateOAuthConfig(
       callingApplication,
       validatedConfig,
       error: "invalid_request",
+      errorDescription: "unknown redirect_uri",
     };
   }
   validatedConfig.redirectUri = config.redirectUri;
@@ -374,6 +383,34 @@ function validateOAuthConfig(
   }
   validatedConfig.responseType = config.responseType;
 
+  if (config.codeChallenge) {
+    if (config.codeChallengeMethod !== "S256") {
+      return {
+        callingApplication,
+        validatedConfig,
+        error: "invalid_request",
+        errorDescription: "unsupported code_challenge_method",
+      };
+    }
+    if (validatedConfig.responseType !== "code") {
+      return {
+        callingApplication,
+        validatedConfig,
+        error: "invalid_request",
+        errorDescription: "code_challenge must be used with response_type=code",
+      };
+    }
+    if (config.codeChallenge.length !== 43) {
+      return {
+        callingApplication,
+        validatedConfig,
+        error: "invalid_request",
+        errorDescription: "code_challenge is the wrong length for S256",
+      };
+    }
+    validatedConfig.codeChallenge = config.codeChallenge;
+  }
+
   return {
     callingApplication,
     validatedConfig,
@@ -384,6 +421,7 @@ function buildOAuthRedirectUrl(
   validatedConfig: ValidatedOAuthConfig | undefined,
   params: {
     error?: OAuthError;
+    errorDescription?: string;
     accessToken?: string;
     code?: string;
     state?: string;
@@ -402,6 +440,11 @@ function buildOAuthRedirectUrl(
 
     if (params.error) {
       hashParams.push(`error=${encodeURIComponent(params.error)}`);
+      if (params.errorDescription) {
+        hashParams.push(
+          `error_description=${encodeURIComponent(params.errorDescription)}`,
+        );
+      }
     } else if (validatedConfig.responseType === "token" && params.accessToken) {
       hashParams.push(`access_token=${encodeURIComponent(params.accessToken)}`);
       hashParams.push("token_type=bearer");

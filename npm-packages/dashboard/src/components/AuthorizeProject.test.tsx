@@ -29,11 +29,20 @@ jest.mock("api/teams", () => ({
   useTeamEntitlements: jest.fn(() => ({ maxProjects: 10 })),
 }));
 
+type CreateTeamAccessTokenParams = Parameters<
+  ReturnType<typeof useCreateTeamAccessToken>
+>[0];
+const createTeamAccessTokenMock = jest.fn(
+  (_args: CreateTeamAccessTokenParams) =>
+    Promise.resolve({ accessToken: "test-token" }),
+);
+type AuthorizeAppParams = Parameters<ReturnType<typeof useAuthorizeApp>>[0];
+const authorizeAppMock = jest.fn((_args: AuthorizeAppParams) =>
+  Promise.resolve({ code: "test-code" }),
+);
 jest.mock("api/accessTokens", () => ({
-  useCreateTeamAccessToken: jest.fn(
-    () => () => Promise.resolve({ accessToken: "test-token" }),
-  ),
-  useAuthorizeApp: jest.fn(() => () => Promise.resolve({ code: "test-code" })),
+  useCreateTeamAccessToken: jest.fn(() => createTeamAccessTokenMock),
+  useAuthorizeApp: jest.fn(() => authorizeAppMock),
 }));
 
 // Mock the projects API
@@ -111,6 +120,40 @@ describe("AuthorizeProject", () => {
     );
   });
 
+  test.each([null, "plain", "S12345"])(
+    "redirects with error for code_challenge_method=%p",
+    (challengeType) => {
+      let url = `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=code&code_challenge=asdf`;
+      if (challengeType !== null) {
+        url += `&code_challenge_method=${challengeType}`;
+      }
+      mockRouter.setCurrentUrl(url);
+
+      render(<AuthorizeProject />);
+      expect(mockRouter.asPath).toMatch(/error=invalid_request/);
+    },
+  );
+
+  test("redirects with error for invalid code_challenge", () => {
+    const challenge = "iaminvalid";
+    mockRouter.setCurrentUrl(
+      `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
+    );
+
+    render(<AuthorizeProject />);
+    expect(mockRouter.asPath).toMatch(/error=invalid_request/);
+  });
+
+  test("redirects with error for code_challenge with implicit flow", () => {
+    const challenge = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    mockRouter.setCurrentUrl(
+      `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=token&code_challenge=${challenge}&code_challenge_method=S256`,
+    );
+
+    render(<AuthorizeProject />);
+    expect(mockRouter.asPath).toMatch(/error=invalid_request/);
+  });
+
   test.each(responseTypes)(
     "renders authorization form with valid parameters (response_type=%p)",
     (responseType) => {
@@ -157,12 +200,18 @@ describe("AuthorizeProject", () => {
     expect(screen.getByText("Create a new project")).toBeDisabled();
   });
 
-  test.each(responseTypes)(
-    "redirects with access token on successful authorization (response_type=%p)",
-    async (responseType) => {
-      mockRouter.setCurrentUrl(
-        `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=${responseType}&state=test-state`,
-      );
+  test.each([
+    ["token", undefined],
+    ["code", undefined],
+    ["code", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  ])(
+    "redirects with access token on successful authorization (response_type=%p, challenge=%p)",
+    async (responseType, challenge) => {
+      let url = `/?client_id=test-client&redirect_uri=https://test-app.com/callback&response_type=${responseType}&state=test-state`;
+      if (challenge) {
+        url += `&code_challenge=${challenge}&code_challenge_method=S256`;
+      }
+      mockRouter.setCurrentUrl(url);
 
       const { getByText } = render(<AuthorizeProject />);
 
@@ -182,10 +231,13 @@ describe("AuthorizeProject", () => {
 
       // Should redirect with the token
       if (responseType === "token") {
+        expect(createTeamAccessTokenMock.mock.calls).toHaveLength(1);
         expect(mockRouter.asPath).toBe(
           "/callback#access_token=project%3Atest-team%3Atest-project%7Ctest-token&token_type=bearer&state=test-state",
         );
       } else {
+        expect(authorizeAppMock.mock.calls).toHaveLength(1);
+        expect(authorizeAppMock.mock.calls[0][0].codeChallenge).toBe(challenge);
         expect(mockRouter.asPath).toBe(
           "/callback?code=test-code&state=test-state",
         );

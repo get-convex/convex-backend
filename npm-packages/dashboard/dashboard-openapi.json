@@ -2525,6 +2525,12 @@
           "clientId": {
             "type": "string"
           },
+          "codeChallenge": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "mode": {
             "$ref": "#/components/schemas/AuthorizeAppMode"
           },

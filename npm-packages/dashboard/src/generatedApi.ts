@@ -1333,6 +1333,7 @@ export interface components {
             /** @description Authentication token is expected to be the access token from auth0 */
             authnToken: string;
             clientId: string;
+            codeChallenge?: string | null;
             mode: components["schemas"]["AuthorizeAppMode"];
             projectId: components["schemas"]["ProjectId"];
             redirectUri: string;
