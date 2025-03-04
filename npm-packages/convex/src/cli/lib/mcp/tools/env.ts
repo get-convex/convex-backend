@@ -36,9 +36,13 @@ export const EnvListTool: ConvexTool<
   inputSchema: envListInputSchema,
   outputSchema: envListOutputSchema,
   handler: async (ctx, args) => {
+    const { projectDir, deployment } = decodeDeploymentSelector(
+      args.deploymentSelector,
+    );
+    process.chdir(projectDir);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      decodeDeploymentSelector(args.deploymentSelector),
+      deployment,
     );
     const variables = (await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,
@@ -77,9 +81,13 @@ export const EnvGetTool: ConvexTool<
   inputSchema: envGetInputSchema,
   outputSchema: envGetOutputSchema,
   handler: async (ctx, args) => {
+    const { projectDir, deployment } = decodeDeploymentSelector(
+      args.deploymentSelector,
+    );
+    process.chdir(projectDir);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      decodeDeploymentSelector(args.deploymentSelector),
+      deployment,
     );
     const envVar = (await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,
@@ -116,16 +124,20 @@ export const EnvSetTool: ConvexTool<
   inputSchema: envSetInputSchema,
   outputSchema: envSetOutputSchema,
   handler: async (ctx, args) => {
+    const { projectDir, deployment } = decodeDeploymentSelector(
+      args.deploymentSelector,
+    );
+    process.chdir(projectDir);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      decodeDeploymentSelector(args.deploymentSelector),
+      deployment,
     );
-    const deployment = {
+    const deploymentInfo = {
       deploymentUrl: credentials.url,
       adminKey: credentials.adminKey,
       deploymentNotice: "",
     };
-    await envSetInDeployment(ctx, deployment, args.name, args.value);
+    await envSetInDeployment(ctx, deploymentInfo, args.name, args.value);
     return { success: true };
   },
 };
@@ -153,16 +165,20 @@ export const EnvRemoveTool: ConvexTool<
   inputSchema: envRemoveInputSchema,
   outputSchema: envRemoveOutputSchema,
   handler: async (ctx, args) => {
+    const { projectDir, deployment } = decodeDeploymentSelector(
+      args.deploymentSelector,
+    );
+    process.chdir(projectDir);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      decodeDeploymentSelector(args.deploymentSelector),
+      deployment,
     );
-    const deployment = {
+    const deploymentInfo = {
       deploymentUrl: credentials.url,
       adminKey: credentials.adminKey,
       deploymentNotice: "",
     };
-    await envRemoveInDeployment(ctx, deployment, args.name);
+    await envRemoveInDeployment(ctx, deploymentInfo, args.name);
     return { success: true };
   },
 };

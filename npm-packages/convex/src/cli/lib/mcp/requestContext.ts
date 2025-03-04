@@ -3,6 +3,10 @@ import { Filesystem, nodeFs } from "../../../bundler/fs.js";
 import { Ora } from "ora";
 import { DeploymentSelectionOptions } from "../api.js";
 
+export interface McpOptions extends DeploymentSelectionOptions {
+  projectDir?: string;
+}
+
 export class RequestContext implements Context {
   fs: Filesystem;
   deprecationMessagePrinted = false;
@@ -10,7 +14,7 @@ export class RequestContext implements Context {
   _cleanupFns: Record<string, (exitCode: number, err?: any) => Promise<void>> =
     {};
 
-  constructor(public cmdOptions: DeploymentSelectionOptions) {
+  constructor(public options: McpOptions) {
     this.fs = nodeFs;
     this.deprecationMessagePrinted = false;
   }

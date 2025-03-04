@@ -3,16 +3,23 @@ import {
   DeploymentSelection,
   fetchDeploymentCredentialsProvisionProd,
 } from "../../api.js";
-import path from "node:path";
 import { deploymentSelectionFromOptions } from "../../api.js";
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { deploymentDashboardUrlPage } from "../../../dashboard.js";
 import { encodeDeploymentSelector } from "../deploymentSelector.js";
 
-const inputSchema = z.object({});
+const projectDirDescription = `
+The root directory of the Convex project. This is usually the editor's workspace directory
+and often includes the 'package.json' file and the 'convex/' folder.
+
+Pass this option unless explicitly instructed not to.
+`;
+
+const inputSchema = z.object({
+  projectDir: z.string().optional().describe(projectDirDescription),
+});
 const outputSchema = z.object({
-  projectDirectory: z.string(),
   availableDeployments: z.array(
     z.object({
       kind: z.string(),
@@ -24,7 +31,7 @@ const outputSchema = z.object({
 });
 
 const description = `
-Get all available deployments for the currently configured Convex project.
+Get all available deployments for a given Convex project directory.
 
 Use this tool to find the deployment selector, URL, and dashboard URL for each
 deployment associated with the project. Pass the deployment selector to other
@@ -42,12 +49,18 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   description,
   inputSchema,
   outputSchema,
-  handler: async (ctx: RequestContext) => {
-    const cwd = path.resolve(process.cwd());
-    const deployment = await deploymentSelectionFromOptions(
-      ctx,
-      ctx.cmdOptions,
-    );
+  handler: async (ctx: RequestContext, input) => {
+    const projectDir = input.projectDir ?? ctx.options.projectDir;
+    if (projectDir === undefined) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "No project directory provided. Either provide the `projectDir` argument or configure the MCP server with the `--project-dir` flag.",
+      });
+    }
+    process.chdir(projectDir);
+    const deployment = await deploymentSelectionFromOptions(ctx, ctx.options);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
       deployment,
@@ -55,7 +68,7 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
     const availableDeployments = [
       {
         kind: deployment.kind,
-        deploymentSelector: encodeDeploymentSelector(deployment),
+        deploymentSelector: encodeDeploymentSelector(projectDir, deployment),
         url: credentials.url,
         dashboardUrl:
           credentials.deploymentName &&
@@ -71,7 +84,10 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       if (prodCredentials.deploymentName && prodCredentials.deploymentType) {
         availableDeployments.push({
           kind: prodDeployment.kind,
-          deploymentSelector: encodeDeploymentSelector(prodDeployment),
+          deploymentSelector: encodeDeploymentSelector(
+            projectDir,
+            prodDeployment,
+          ),
           url: prodCredentials.url,
           dashboardUrl: deploymentDashboardUrlPage(
             prodCredentials.deploymentName,
@@ -80,9 +96,6 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
         });
       }
     }
-    return {
-      projectDirectory: cwd,
-      availableDeployments,
-    };
+    return { availableDeployments };
   },
 };

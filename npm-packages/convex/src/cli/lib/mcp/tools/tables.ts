@@ -30,9 +30,13 @@ export const TablesTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
+    const { projectDir, deployment } = decodeDeploymentSelector(
+      args.deploymentSelector,
+    );
+    process.chdir(projectDir);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      decodeDeploymentSelector(args.deploymentSelector),
+      deployment,
     );
     const schemaResponse: any = await runSystemQuery(ctx, {
       deploymentUrl: credentials.url,

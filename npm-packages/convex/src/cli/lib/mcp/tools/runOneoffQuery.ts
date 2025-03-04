@@ -56,9 +56,13 @@ export const RunOneoffQueryTool: ConvexTool<
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
+    const { projectDir, deployment } = decodeDeploymentSelector(
+      args.deploymentSelector,
+    );
+    process.chdir(projectDir);
     const credentials = await fetchDeploymentCredentialsProvisionProd(
       ctx,
-      decodeDeploymentSelector(args.deploymentSelector),
+      deployment,
     );
     try {
       const response = await fetch(`${credentials.url}/api/run_test_function`, {
