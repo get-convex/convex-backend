@@ -38,7 +38,7 @@ export function Combobox<T>({
   // "full" only works if the options dropdown
   // fits inside of the ComboBox's ancestor elements,
   // or if the ancestors allow overflow.
-  optionsWidth?: "full" | "fixed";
+  optionsWidth?: "full" | "fixed" | "fit";
   selectedOption?: T | null;
   setSelectedOption: (option: T | null) => void;
   buttonClasses?: string;
@@ -127,7 +127,11 @@ export function Combobox<T>({
                 static
                 className={cn(
                   "mt-1 absolute z-50 max-h-[14.75rem] overflow-auto rounded bg-background-secondary pb-1 text-xs shadow scrollbar border",
-                  optionsWidth === "full" ? "w-full" : "w-60",
+                  optionsWidth === "full"
+                    ? "w-full"
+                    : optionsWidth === "fixed"
+                      ? "w-60"
+                      : undefined,
                 )}
               >
                 <div className="min-w-fit">

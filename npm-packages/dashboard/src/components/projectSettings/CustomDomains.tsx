@@ -308,7 +308,7 @@ function CanonicalUrlCombobox({
           tip: disabled ? `Add a custom domain first` : undefined,
         }}
         buttonClasses="w-fit"
-        optionsWidth="full"
+        optionsWidth="fit"
         options={options}
         selectedOption={canonicalUrl}
         setSelectedOption={async (value: string | null) => {
