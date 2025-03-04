@@ -1,6 +1,7 @@
 import "../../dashboard-common/src/styles/globals.css";
 import { Preview } from "@storybook/react";
 import themeDecorator from "./themeDecorator";
+import { RouterContext } from "next/dist/shared/lib/router-context.shared-runtime";
 
 const preview: Preview = {
   parameters: {
@@ -10,6 +11,9 @@ const preview: Preview = {
         color: /(background|color)$/i,
         date: /Date$/,
       },
+    },
+    nextRouter: {
+      Provider: RouterContext.Provider, // next 13 (using next/router) / next < 12
     },
   },
 
