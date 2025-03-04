@@ -54,7 +54,10 @@ use common::{
         ResolvedDocument,
     },
     interval::Interval,
-    knobs::DEFAULT_DOCUMENTS_PAGE_SIZE,
+    knobs::{
+        DEFAULT_DOCUMENTS_PAGE_SIZE,
+        LIST_SNAPSHOT_MAX_AGE_SECS,
+    },
     persistence::{
         new_idle_repeatable_ts,
         ConflictStrategy,
@@ -1725,14 +1728,23 @@ impl<RT: Runtime> Database<RT> {
             unauthorized_error("list_snapshot")
         );
         anyhow::ensure!(rows_read_limit >= rows_returned_limit);
+        let now = self.now_ts_for_reads();
         let snapshot = match snapshot {
             Some(ts) => {
-                self.now_ts_for_reads()
-                    .prior_ts(ts)
-                    .context(ErrorMetadata::bad_request(
+                let ts = now.prior_ts(ts).with_context(|| {
+                    ErrorMetadata::bad_request(
                         "SnapshotTooNew",
                         format!("Snapshot value {ts} is in the future."),
-                    ))?
+                    )
+                })?;
+                anyhow::ensure!(
+                    *now - *ts <= *LIST_SNAPSHOT_MAX_AGE_SECS,
+                    ErrorMetadata::bad_request(
+                        "SnapshotTooOld",
+                        format!("Snapshot value {ts} is too far in the past."),
+                    )
+                );
+                ts
             },
             None => self.now_ts_for_reads(),
         };

@@ -223,12 +223,12 @@ take one or more calls to `list_snapshot` to walk a full snapshot.
 
 **Query parameters**
 
-| Name      | Type   | Required | Description                                                                                                                           |
-| --------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| snapshot  | int    | n        | Database timestamp at which to continue the snapshot. If omitted, select the latest timestamp.                                        |
-| cursor    | string | n        | An opaque cursor representing the progress in paginating through the snapshot. If omitted, start from the first page of the snapshot. |
-| tableName | string | n        | If provided, filters the snapshot to a table. If omitted, provide snapshot across all tables.                                         |
-| format    | string | n        | Output format for values. Valid values: [`json`]                                                                                      |
+| Name      | Type   | Required | Description                                                                                                                                  |
+| --------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| snapshot  | int    | n        | Database timestamp at which to continue the snapshot. The timestamp must not be older than 30 days. If omitted, select the latest timestamp. |
+| cursor    | string | n        | An opaque cursor representing the progress in paginating through the snapshot. If omitted, start from the first page of the snapshot.        |
+| tableName | string | n        | If provided, filters the snapshot to a table. If omitted, provide snapshot across all tables.                                                |
+| format    | string | n        | Output format for values. Valid values: [`json`]                                                                                             |
 
 **Result JSON**
 
