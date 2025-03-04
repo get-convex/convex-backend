@@ -19,6 +19,7 @@ use atomic_refcell::AtomicRefCell;
 use common::{
     deleted_bitset::DeletedBitset,
     id_tracker::StaticIdTracker,
+    runtime::tokio_spawn_blocking,
 };
 use parking_lot::{
     Mutex,
@@ -385,8 +386,10 @@ pub async fn restore_segment_from_tar(archive_path: &Path) -> anyhow::Result<Pat
         .join(&segment_id);
 
     let archive_path = archive_path.to_owned();
-    tokio::task::spawn_blocking(move || Segment::restore_snapshot(&archive_path, &segment_id))
-        .await??;
+    tokio_spawn_blocking("segment_restore_snapshot", move || {
+        Segment::restore_snapshot(&archive_path, &segment_id)
+    })
+    .await??;
 
     Ok(out_path)
 }

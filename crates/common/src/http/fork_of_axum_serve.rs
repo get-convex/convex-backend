@@ -288,7 +288,7 @@ where
                 let mut builder = Builder::new(TokioExecutor::new());
                 builder.http2().max_concurrent_streams(MAX_HTTP2_STREAMS);
 
-                tokio::spawn(async move {
+                crate::runtime::tokio_spawn("axum_serve_conn", async move {
                     match builder
                         // upgrades needed for websockets
                         .serve_connection_with_upgrades(tcp_stream, hyper_service)
@@ -400,7 +400,7 @@ where
 
         let (signal_tx, signal_rx) = watch::channel(());
         let signal_tx = Arc::new(signal_tx);
-        tokio::spawn(async move {
+        crate::runtime::tokio_spawn("await_graceful_shutdown", async move {
             signal.await;
             trace!("received graceful shutdown signal. Telling tasks to shutdown");
             drop(signal_rx);
@@ -452,7 +452,7 @@ where
 
                 let close_rx = close_rx.clone();
 
-                tokio::spawn(async move {
+                crate::runtime::tokio_spawn("axum_serve_conn", async move {
                     let mut builder = Builder::new(TokioExecutor::new());
                     builder.http2().max_concurrent_streams(MAX_HTTP2_STREAMS);
                     let conn = builder.serve_connection_with_upgrades(tcp_stream, hyper_service);

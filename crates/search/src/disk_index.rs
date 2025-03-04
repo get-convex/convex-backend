@@ -22,7 +22,10 @@ use common::{
         text_index::FragmentedTextSegment,
         vector_index::FragmentedVectorSegment,
     },
-    runtime::Runtime,
+    runtime::{
+        tokio_spawn_blocking,
+        Runtime,
+    },
     types::ObjectKey,
 };
 use storage::{
@@ -76,7 +79,8 @@ pub async fn index_reader_for_directory<P: AsRef<Path>>(
 ) -> anyhow::Result<IndexReader> {
     let timer = metrics::index_reader_for_directory_timer();
     let directory = directory.as_ref().to_path_buf();
-    let index = tokio::task::spawn_blocking(move || Index::open_in_dir(directory)).await??;
+    let index =
+        tokio_spawn_blocking("disk_index_open", move || Index::open_in_dir(directory)).await??;
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());
@@ -91,8 +95,10 @@ pub async fn index_writer_for_directory<P: AsRef<Path>>(
 ) -> anyhow::Result<IndexWriter> {
     let directory = directory.as_ref().to_path_buf();
     let schema = tantivy_schema.schema.clone();
-    let index =
-        tokio::task::spawn_blocking(move || Index::create_in_dir(&directory, schema)).await??;
+    let index = tokio_spawn_blocking("disk_index_create", move || {
+        Index::create_in_dir(&directory, schema)
+    })
+    .await??;
     index
         .tokenizers()
         .register(CONVEX_EN_TOKENIZER, convex_en());

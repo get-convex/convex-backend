@@ -53,6 +53,7 @@ use parking_lot::Mutex;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use rand::RngCore;
+use sentry::SentryFutureExt;
 use serde::Serialize;
 use thiserror::Error;
 use tokio::runtime::{
@@ -486,16 +487,45 @@ impl<T: Send> MutexWithTimeout<T> {
     }
 }
 
-/// Transitional function while we move away from using our own special
-/// `spawn`. Just wraps `tokio::spawn` with our tokio metrics
-/// integration.
+/// Binds the current tracing & sentry contexts to the provided future.
+pub fn propagate_tracing<F: Future>(
+    f: F,
+) -> tracing::instrument::Instrumented<sentry::SentryFuture<F>> {
+    let sentry_hub = sentry::Hub::current();
+    let tracing_span = tracing::Span::current();
+    tracing::Instrument::instrument(SentryFutureExt::bind_hub(f, sentry_hub), tracing_span)
+}
+
+/// Binds the current tracing & sentry contexts to the provided synchronous
+/// function.
+pub fn propagate_tracing_blocking<'a, R, F: FnOnce() -> R + 'a>(f: F) -> impl FnOnce() -> R + 'a {
+    let sentry_hub = sentry::Hub::current();
+    let tracing_span = tracing::Span::current();
+    move || {
+        let _entered = tracing_span.entered();
+        sentry::Hub::run(sentry_hub, f)
+    }
+}
+
+/// Wraps `tokio::spawn` with our tokio metrics integration and propagates
+/// tracing context.
 pub fn tokio_spawn<F>(name: &'static str, f: F) -> tokio::task::JoinHandle<F::Output>
 where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
     let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
-    tokio::spawn(monitor.instrument(f))
+    tokio::spawn(propagate_tracing(monitor.instrument(f)))
+}
+
+/// Wraps `tokio::task::spawn_blocking` and propagates tracing context.
+pub fn tokio_spawn_blocking<F, R>(_name: &'static str, f: F) -> tokio::task::JoinHandle<F::Output>
+where
+    F: FnOnce() -> R + Send + 'static,
+    R: Send + 'static,
+{
+    // TODO: do something with `_name`
+    tokio::task::spawn_blocking(propagate_tracing_blocking(f))
 }
 
 pub static GLOBAL_TASK_MANAGER: LazyLock<Mutex<TaskManager>> = LazyLock::new(|| {

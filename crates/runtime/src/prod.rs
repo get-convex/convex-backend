@@ -20,6 +20,8 @@ use common::{
     },
     pause::PauseClient,
     runtime::{
+        propagate_tracing,
+        propagate_tracing_blocking,
         JoinError,
         Runtime,
         SpawnHandle,
@@ -218,10 +220,7 @@ impl Runtime for ProdRuntime {
         f: impl Future<Output = ()> + Send + 'static,
     ) -> Box<dyn SpawnHandle> {
         let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
-        let handle = self.rt.spawn(tracing::Instrument::instrument(
-            monitor.instrument(f),
-            tracing::Span::current(),
-        ));
+        let handle = self.rt.spawn(propagate_tracing(monitor.instrument(f)));
         Box::new(FutureHandle {
             handle: Some(handle),
         })
@@ -231,7 +230,10 @@ impl Runtime for ProdRuntime {
         &self,
         f: F,
     ) -> Box<dyn SpawnHandle> {
-        Box::new(ThreadHandle::spawn(self.rt.clone(), f))
+        Box::new(ThreadHandle::spawn(
+            self.rt.clone(),
+            propagate_tracing_blocking(move || propagate_tracing(f())),
+        ))
     }
 
     fn system_time(&self) -> SystemTime {

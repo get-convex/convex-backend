@@ -1970,7 +1970,7 @@ pub mod itest {
         )
         .await
         .context(format!("Couldn't connect to {cluster_url}"))?;
-        tokio::spawn(conn);
+        common::runtime::tokio_spawn("postgres_conn", conn);
         let query = format!("CREATE DATABASE {db_name};");
         client.batch_execute(query.as_str()).await?;
 
