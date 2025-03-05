@@ -167,16 +167,15 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
             return;
         }
 
-        let event_id = sentry::with_scope(
-            |scope| {
-                scope.set_level(Some(level));
-                scope.set_tag("short_msg", err.short_msg());
-            },
-            || {
-                #[allow(clippy::disallowed_methods)]
-                sentry::integrations::anyhow::capture_anyhow(err)
-            },
-        );
+        let mut event = event_from_error(err);
+        // N.B.: we don't use `sentry::with_scope` because I think that is
+        // non-thread-safe if the Hub itself is shared across threads; but we
+        // can just attach data directly onto the event.
+        event.level = level;
+        event
+            .tags
+            .insert("short_msg".into(), err.short_msg().to_owned());
+        let event_id = sentry::capture_event(event);
         tracing::error!(
             "Reporting above error to sentry with event_id {}",
             event_id.simple()
@@ -184,6 +183,31 @@ pub fn report_error_sync(err: &mut anyhow::Error) {
     } else {
         tracing::debug!("Not reporting above error to sentry.");
     }
+}
+
+/// Construct a sentry `Event` from an `anyhow` error chain, while inserting
+/// `ErrorMetadata`'s `short_msg` into the appropriate type.
+fn event_from_error(err: &anyhow::Error) -> sentry::protocol::Event<'static> {
+    let mut event = sentry::integrations::anyhow::event_from_error(err);
+    if let Some(em) = err.downcast_ref::<ErrorMetadata>() {
+        // hacky: we don't know where in the exception chain this
+        // `ErrorMetadata` is; and if ErrorMetadata was added via `.context()`
+        // (as opposed to being the root cause), the actual error type (as found
+        // by `<dyn std::error::Error>::downcast`) won't be ErrorMetadata itself
+        // but will be a private ContextError type.
+        //
+        // So we'll just find the matching exception by string quality :shrug:
+        // This doesn't work if there are *multiple* ErrorMetadatas attached to
+        // the error but we should generally try to avoid doing that.
+        if let Some(exception) = event.exception.iter_mut().find(|e| {
+            e.value.as_deref() == Some(&*em.msg) && (e.ty == "ErrorMetadata" || e.ty == "Error")
+        }) {
+            // N.B. the existing `exception.ty` is `ErrorMetadata` if it's the
+            // root cause or `Error` otherwise.
+            exception.ty = em.short_msg.to_string();
+        }
+    }
+    event
 }
 
 /// Recapture the stack trace. Use this when an error is being handed off
@@ -700,7 +724,10 @@ mod tests {
         JsErrorProto,
     };
     use crate::{
-        errors::FrameData,
+        errors::{
+            event_from_error,
+            FrameData,
+        },
         schemas::{
             validator::{
                 ValidationContext,
@@ -827,6 +854,49 @@ mod tests {
         assert_eq!(err.downcast_ref::<JsError>().unwrap().message, "Big Error");
         assert_eq!(err.downcast::<ErrorMetadata>().unwrap().short_msg, "Error");
         Ok(())
+    }
+
+    #[test]
+    fn test_event_from_error_non_root_cause() {
+        let error = anyhow::anyhow!("message").context(ErrorMetadata::bad_request(
+            "ShortMsg",
+            "user visible message",
+        ));
+        let event = event_from_error(&error);
+        let exceptions: Vec<_> = event
+            .exception
+            .iter()
+            .map(|ex| (ex.ty.as_str(), ex.value.as_deref()))
+            .collect();
+        assert_eq!(
+            exceptions,
+            vec![
+                ("Error", Some("message")),
+                ("ShortMsg", Some("user visible message")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_event_from_error_root_cause() {
+        let error = anyhow::anyhow!(ErrorMetadata::bad_request(
+            "ShortMsg",
+            "user visible message",
+        ))
+        .context("contextual message");
+        let event = event_from_error(&error);
+        let exceptions: Vec<_> = event
+            .exception
+            .iter()
+            .map(|ex| (ex.ty.as_str(), ex.value.as_deref()))
+            .collect();
+        assert_eq!(
+            exceptions,
+            vec![
+                ("ShortMsg", Some("user visible message")),
+                ("Error", Some("contextual message")),
+            ]
+        );
     }
 
     proptest! {
