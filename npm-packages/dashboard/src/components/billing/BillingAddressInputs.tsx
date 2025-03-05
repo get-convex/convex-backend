@@ -46,8 +46,6 @@ export function BillingAddressInputs({
 
   return (
     <div className="flex flex-col gap-2">
-      <h4>Billing Address</h4>
-
       <AddressElement
         className="w-full"
         options={addressElementOptions}

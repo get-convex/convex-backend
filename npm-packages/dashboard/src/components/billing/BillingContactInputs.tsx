@@ -15,8 +15,7 @@ export function BillingContactInputs({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <h4>Billing Contact</h4>
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <TextInput
             label="Name"

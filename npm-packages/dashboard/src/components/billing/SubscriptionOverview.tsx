@@ -91,16 +91,19 @@ export function SubscriptionOverview({
               </span>
             </div>
           ) : null}
+          <hr />
           <BillingContactForm
             subscription={subscription}
             team={team}
             hasAdminPermissions={hasAdminPermissions}
           />
+          <hr />
           <BillingAddressForm
             subscription={subscription}
             team={team}
             hasAdminPermissions={hasAdminPermissions}
           />
+          <hr />
           <PaymentMethodForm
             subscription={subscription}
             team={team}
@@ -124,6 +127,7 @@ function BillingContactForm({
   team: Team;
   hasAdminPermissions: boolean;
 }) {
+  const [showForm, setShowForm] = useState(false);
   const updateBillingContact = useUpdateBillingContact(team.id);
   const formState = useFormik<BillingContactResponse>({
     initialValues: {
@@ -134,43 +138,82 @@ function BillingContactForm({
     onSubmit: async (v) => {
       await updateBillingContact(v);
       await formState.setTouched({});
+      setShowForm(false);
     },
     enableReinitialize: true,
   });
 
   return (
-    <form
-      className="w-fit"
-      onSubmit={(e) => {
-        e.preventDefault();
-        formState.handleSubmit();
-      }}
-    >
-      <BillingContactInputs
-        formState={formState}
-        disabled={!hasAdminPermissions}
-      />
-      <div className="mt-4 gap-2">
-        <Button
-          type="submit"
-          disabled={
-            !formState.dirty ||
-            !formState.isValid ||
-            formState.isSubmitting ||
-            !hasAdminPermissions
-          }
-          tip={
-            !hasAdminPermissions &&
-            "You do not have permission to update the billing contact"
-          }
-          icon={formState.isSubmitting ? <Spinner /> : null}
+    <div className="flex flex-col gap-4">
+      <h4>Billing Contact</h4>
+      {!showForm ? (
+        <>
+          <div className="text-sm">
+            <div>
+              <span className="font-semibold">
+                {subscription.billingContact.name}
+              </span>
+            </div>
+            <div>{subscription.billingContact.email}</div>
+          </div>
+          <Button
+            className="w-fit"
+            onClick={() => setShowForm(true)}
+            variant="neutral"
+            disabled={!hasAdminPermissions}
+            tip={
+              !hasAdminPermissions &&
+              "You do not have permission to update the billing contact"
+            }
+          >
+            Change billing contact
+          </Button>
+        </>
+      ) : (
+        <form
+          className="w-fit"
+          onSubmit={(e) => {
+            e.preventDefault();
+            formState.handleSubmit();
+          }}
         >
-          {formState.isSubmitting
-            ? "Saving Billing Contact..."
-            : "Save Billing Contact"}
-        </Button>
-      </div>
-    </form>
+          <BillingContactInputs
+            formState={formState}
+            disabled={!hasAdminPermissions}
+          />
+          <div className="mt-4 flex gap-2">
+            <Button
+              type="submit"
+              disabled={
+                !formState.dirty ||
+                !formState.isValid ||
+                formState.isSubmitting ||
+                !hasAdminPermissions
+              }
+              tip={
+                !hasAdminPermissions &&
+                "You do not have permission to update the billing contact"
+              }
+              icon={formState.isSubmitting ? <Spinner /> : null}
+            >
+              {formState.isSubmitting
+                ? "Saving Billing Contact..."
+                : "Save Billing Contact"}
+            </Button>
+            <Button
+              type="button"
+              variant="neutral"
+              onClick={() => {
+                formState.resetForm();
+                setShowForm(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -183,7 +226,8 @@ function BillingAddressForm({
   subscription: OrbSubscriptionResponse;
   hasAdminPermissions: boolean;
 }) {
-  const ref = useRef<HTMLFormElement>(null);
+  const [showForm, setShowForm] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   useMount(() => {
     window.location.hash === "#billingAddress" && ref.current?.scrollIntoView();
   });
@@ -197,6 +241,7 @@ function BillingAddressForm({
       if (v.billingAddress) {
         await updateBillingAddress({ billingAddress: v.billingAddress });
         await formState.setTouched({});
+        setShowForm(false);
       }
     },
     enableReinitialize: true,
@@ -215,27 +260,10 @@ function BillingAddressForm({
   );
 
   return (
-    <form
-      className="w-fit"
-      onSubmit={(e) => {
-        e.preventDefault();
-        formState.handleSubmit();
-      }}
-      ref={ref}
-    >
-      {hasAdminPermissions ? (
-        options.clientSecret ? (
-          <Elements stripe={stripePromise} options={options}>
-            <BillingAddressInputs
-              onChangeAddress={setBillingAddress}
-              existingBillingAddress={subscription.billingAddress || undefined}
-              name={subscription.billingContact.name}
-            />
-          </Elements>
-        ) : null
-      ) : (
-        <div className="flex flex-col gap-4">
-          <h4>Billing Address</h4>
+    <div className="flex flex-col gap-4" ref={ref}>
+      <h4>Billing Address</h4>
+      {!showForm ? (
+        <>
           <div className="text-sm">
             {subscription.billingAddress ? (
               <div>
@@ -256,32 +284,99 @@ function BillingAddressForm({
               <div>No billing address on file.</div>
             )}
           </div>
-        </div>
-      )}
-
-      <div className="mt-4 gap-2">
-        <Button
-          type="submit"
-          disabled={
-            !formState.dirty ||
-            !formState.values.billingAddress ||
-            formState.isSubmitting ||
-            !hasAdminPermissions
-          }
-          tip={
-            !hasAdminPermissions &&
-            "You do not have permission to update the billing address"
-          }
-          icon={formState.isSubmitting ? <Spinner /> : null}
+          <Button
+            className="w-fit"
+            onClick={() => setShowForm(true)}
+            disabled={!hasAdminPermissions}
+            variant="neutral"
+            tip={
+              !hasAdminPermissions &&
+              "You do not have permission to update the billing address"
+            }
+          >
+            {subscription.billingAddress
+              ? "Change billing address"
+              : "Add billing address"}
+          </Button>
+        </>
+      ) : (
+        <form
+          className="w-fit"
+          onSubmit={(e) => {
+            e.preventDefault();
+            formState.handleSubmit();
+          }}
         >
-          {hasAdminPermissions
-            ? formState.isSubmitting
-              ? "Saving Billing Address..."
-              : "Save Billing Address"
-            : "Change Billing Address"}
-        </Button>
-      </div>
-    </form>
+          {hasAdminPermissions ? (
+            options.clientSecret ? (
+              <Elements stripe={stripePromise} options={options}>
+                <BillingAddressInputs
+                  onChangeAddress={setBillingAddress}
+                  existingBillingAddress={
+                    subscription.billingAddress || undefined
+                  }
+                  name={subscription.billingContact.name}
+                />
+              </Elements>
+            ) : null
+          ) : (
+            <div className="flex flex-col gap-4">
+              <div className="text-sm">
+                {subscription.billingAddress ? (
+                  <div>
+                    <div>
+                      {subscription.billingAddress.line1}
+                      {subscription.billingAddress.line2 && (
+                        <div>{subscription.billingAddress.line2}</div>
+                      )}
+                      <div>
+                        {subscription.billingAddress.city},{" "}
+                        {subscription.billingAddress.state}{" "}
+                        {subscription.billingAddress.postal_code}
+                      </div>
+                      <div>{subscription.billingAddress.country}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div>No billing address on file.</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <Button
+              type="submit"
+              disabled={
+                !formState.dirty ||
+                !formState.values.billingAddress ||
+                formState.isSubmitting ||
+                !hasAdminPermissions
+              }
+              tip={
+                !hasAdminPermissions &&
+                "You do not have permission to update the billing address"
+              }
+              icon={formState.isSubmitting ? <Spinner /> : null}
+            >
+              {formState.isSubmitting
+                ? "Saving Billing Address..."
+                : "Save Billing Address"}
+            </Button>
+            <Button
+              type="button"
+              variant="neutral"
+              onClick={() => {
+                formState.resetForm();
+                setShowForm(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -323,6 +418,7 @@ function PaymentMethodForm({
           className="w-fit"
           onClick={() => setShowForm(true)}
           disabled={!hasAdminPermissions}
+          variant="neutral"
           tip={
             !hasAdminPermissions &&
             "You do not have permission to update the payment method"

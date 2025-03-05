@@ -16,6 +16,7 @@ import { cn } from "dashboard-common/lib/cn";
 import { UpgradePlanContentContainer } from "components/billing/UpgradePlanContent";
 import { useProfile } from "api/profile";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
+import { Loading } from "dashboard-common/elements/Loading";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -71,10 +72,10 @@ function Billing({ team }: { team: Team }) {
             showUpgrade && "-translate-x-[calc(100%+1.5rem)]",
           )}
         >
-          {!isOrbSubLoading && orbSub !== undefined && (
+          {!isOrbSubLoading && orbSub !== undefined ? (
             <>
               <div
-                className="flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto overflow-x-hidden scrollbar"
+                className="flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto overflow-x-hidden pr-2 scrollbar"
                 // @ts-expect-error https://github.com/facebook/react/issues/17157
                 inert={showUpgrade ? "inert" : undefined}
               >
@@ -141,6 +142,8 @@ function Billing({ team }: { team: Team }) {
                 )}
               </div>
             </>
+          ) : (
+            <Loading className="h-[18.25rem] w-full" />
           )}
         </div>
       </ErrorBoundary>

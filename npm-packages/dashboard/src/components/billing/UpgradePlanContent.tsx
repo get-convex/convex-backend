@@ -153,9 +153,12 @@ export function UpgradePlanContentContainer({
       promoCodeError={couponData.errorMessage}
       billingAddressInputs={
         options.clientSecret ? (
-          <Elements stripe={stripePromise} options={options}>
-            <BillingAddressInputs onChangeAddress={setBillingAddress} />
-          </Elements>
+          <div className="flex flex-col gap-2">
+            <h4>Billing Address</h4>
+            <Elements stripe={stripePromise} options={options}>
+              <BillingAddressInputs onChangeAddress={setBillingAddress} />
+            </Elements>
+          </div>
         ) : undefined
       }
       paymentDetailsForm={
@@ -220,7 +223,10 @@ export function UpgradePlanContent({
         )}
       </div>
 
-      <BillingContactInputs formState={formState} />
+      <div className="flex flex-col gap-2">
+        <h4>Billing Contact</h4>
+        <BillingContactInputs formState={formState} />
+      </div>
 
       {billingAddressInputs}
 

@@ -85,6 +85,7 @@ export function useUpdateBillingAddress(teamId: number) {
     path: "/teams/{team_id}/update_billing_address",
     pathParams: { team_id: teamId.toString() },
     mutateKey: "/teams/{team_id}/get_orb_subscription",
+    mutatePathParams: { team_id: teamId.toString() },
     successToast: "Billing address updated.",
   });
 }

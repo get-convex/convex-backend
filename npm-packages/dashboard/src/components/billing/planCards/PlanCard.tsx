@@ -16,7 +16,7 @@ export function PlanCard({
   return (
     <div
       className={`h-full rounded border p-3 ${
-        selected && "bg-background-tertiary"
+        selected && "border-border-selected"
       }`}
     >
       <div className="mb-4 text-content-primary">
@@ -29,7 +29,7 @@ export function PlanCard({
         </div>
       </div>
       <div>
-        <div className="mb-2 h-[3.75rem] text-content-secondary">
+        <div className="mb-2 h-[2rem] text-content-secondary">
           {plan.description}
         </div>
         {action}
