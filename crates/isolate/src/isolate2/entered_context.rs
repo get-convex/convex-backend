@@ -135,7 +135,14 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             if let Some(failure) = context_state.failure.take() {
                 match failure {
                     ContextFailure::UncatchableDeveloperError(js_error) => anyhow::bail!(js_error),
-                    ContextFailure::SystemError(error) => anyhow::bail!(error),
+                    ContextFailure::SystemError(error) => {
+                        #[cfg(test)]
+                        let error = match error.downcast::<crate::test_helpers::PanicError>() {
+                            Ok(panic) => std::panic::resume_unwind(panic.into_inner()),
+                            Err(e) => e,
+                        };
+                        anyhow::bail!(error)
+                    },
                 }
             } else if self.heap_context.oomed() {
                 // TODO: do the rest of the logging that isolate1 does

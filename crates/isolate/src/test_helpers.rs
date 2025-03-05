@@ -1,9 +1,11 @@
 use std::{
+    any::Any,
     collections::BTreeMap,
     fs::File,
     io::Read,
     sync::{
         Arc,
+        Exclusive,
         LazyLock,
     },
     time::Duration,
@@ -239,6 +241,29 @@ pub fn test_environment_data<RT: Runtime>(rt: RT) -> anyhow::Result<EnvironmentD
         file_storage,
         module_loader,
     })
+}
+
+/// Indicates that a V8 op panicked and we should panic the test
+#[derive(thiserror::Error)]
+#[error("panicked")]
+// Wrap the error in `Exclusive` to make this type `Sync` so that it can be
+// wrapped by anyhow
+pub struct PanicError(Exclusive<Box<dyn Any + Send>>);
+
+impl PanicError {
+    pub fn new(panic: Box<dyn Any + Send>) -> Self {
+        Self(Exclusive::new(panic))
+    }
+
+    pub fn into_inner(self) -> Box<dyn Any + Send> {
+        self.0.into_inner()
+    }
+}
+
+impl std::fmt::Debug for PanicError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("PanicError").finish()
+    }
 }
 
 pub struct UdfTest<RT: Runtime, P: Persistence> {

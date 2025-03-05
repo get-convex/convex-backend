@@ -1,4 +1,5 @@
 #![feature(const_type_name)]
+#![feature(exclusive_wrapper)]
 #![feature(try_blocks)]
 #![feature(iterator_try_collect)]
 #![feature(type_alias_impl_trait)]

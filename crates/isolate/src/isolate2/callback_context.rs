@@ -154,7 +154,16 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
         rv: v8::ReturnValue,
     ) {
         let mut ctx = CallbackContext::new(scope);
-        if let Err(e) = run_op(&mut ctx, args, rv) {
+        #[cfg(test)]
+        let r = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            run_op(&mut ctx, args, rv)
+        })) {
+            Ok(r) => r,
+            Err(e) => Err(crate::test_helpers::PanicError::new(e).into()),
+        };
+        #[cfg(not(test))]
+        let r = run_op(&mut ctx, args, rv);
+        if let Err(e) = r {
             ctx.handle_syscall_or_op_error(e);
         }
     }
@@ -165,7 +174,16 @@ impl<'callback, 'scope: 'callback> CallbackContext<'callback, 'scope> {
         rv: v8::ReturnValue,
     ) {
         let mut ctx = CallbackContext::new(scope);
-        if let Err(e) = start_async_op(&mut ctx, args, rv) {
+        #[cfg(test)]
+        let r = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            start_async_op(&mut ctx, args, rv)
+        })) {
+            Ok(r) => r,
+            Err(e) => Err(crate::test_helpers::PanicError::new(e).into()),
+        };
+        #[cfg(not(test))]
+        let r = start_async_op(&mut ctx, args, rv);
+        if let Err(e) = r {
             ctx.handle_syscall_or_op_error(e);
         }
     }
