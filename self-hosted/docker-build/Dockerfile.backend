@@ -12,7 +12,7 @@ FROM lukemathwalker/cargo-chef:latest-rust-1 AS chef
 WORKDIR /tmp
 COPY rust-toolchain .
 # Dummy command to just fetch the toolchain that'll get installed by running `cargo chef`
-RUN cargo search -q convex
+RUN rustup self update && rustup toolchain install
 COPY --parents crates* Cargo* ./
 RUN cargo chef prepare --recipe-path recipe.json --bin convex-local-backend
 
@@ -54,7 +54,7 @@ EOF
 # Ensure this file is copied so we'll restart here if the file changes
 COPY rust-toolchain /rust-toolchain
 # Dummy command to just fetch the toolchain and cargo index
-RUN cargo search -q convex
+RUN rustup self update && rustup toolchain install && cargo search -q convex
 
 WORKDIR /convex
 COPY scripts ./scripts
