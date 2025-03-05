@@ -122,7 +122,6 @@
     "openapi-typescript": "~7.4.2",
     "openapi-typescript-helpers": "~0.0.15",
     "@types/react-sparklines": "~1.7.5",
-    "eslint-plugin-boundaries": "~5.0.1",
-    "@storybook/addon-postcss": "~2.0.0"
+    "eslint-plugin-boundaries": "~5.0.1"
   }
 }
