@@ -8,7 +8,7 @@ use aws_sdk_s3::{
 };
 use futures_async_stream::try_stream;
 
-use crate::must_config_from_env;
+use crate::must_s3_config_from_env;
 
 #[derive(Clone, Debug)]
 pub struct S3Client(pub Client);
@@ -21,7 +21,7 @@ impl S3Client {
             true => RetryConfig::standard(),
             false => RetryConfig::disabled(),
         };
-        let config = must_config_from_env()
+        let config = must_s3_config_from_env()
             .context("AWS env variables are required when using AWS Lambda")?
             .retry_config(retry_config)
             .load()

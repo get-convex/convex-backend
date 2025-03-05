@@ -26,7 +26,7 @@ use aws_sdk_s3::{
     Client,
 };
 use aws_utils::{
-    must_config_from_env,
+    must_s3_config_from_env,
     s3::S3Client,
 };
 use bytes::Bytes;
@@ -132,7 +132,7 @@ impl<RT: Runtime> S3Storage<RT> {
         key_prefix: String,
         runtime: RT,
     ) -> anyhow::Result<Self> {
-        let config = must_config_from_env()
+        let config = must_s3_config_from_env()
             .context("AWS env variables are required when using S3 storage")?
             .retry_config(RetryConfig::standard())
             .load()

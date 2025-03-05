@@ -14,8 +14,8 @@ use aws_types::region::Region;
 
 pub mod s3;
 
-static AWS_ENDPOINT_URL: LazyLock<Option<String>> =
-    LazyLock::new(|| env::var("AWS_ENDPOINT_URL").ok());
+static S3_ENDPOINT_URL: LazyLock<Option<String>> =
+    LazyLock::new(|| env::var("S3_ENDPOINT_URL").ok());
 
 static AWS_ACCESS_KEY_ID: LazyLock<Option<String>> =
     LazyLock::new(|| env::var("AWS_ACCESS_KEY_ID").ok());
@@ -39,12 +39,16 @@ pub fn must_config_from_env() -> anyhow::Result<ConfigLoader> {
     let Some(_) = AWS_SECRET_ACCESS_KEY.clone() else {
         anyhow::bail!("AWS_SECRET_ACCESS_KEY env variable must be set");
     };
-    let Some(endpoint_url) = AWS_ENDPOINT_URL.clone() else {
-        anyhow::bail!("AWS_ENDPOINT_URL env variable must be set");
-    };
     let credentials = EnvironmentVariableCredentialsProvider::new();
     Ok(aws_config::defaults(BehaviorVersion::v2024_03_28())
-        .endpoint_url(endpoint_url)
         .region(region)
         .credentials_provider(credentials))
+}
+
+pub fn must_s3_config_from_env() -> anyhow::Result<ConfigLoader> {
+    let mut config_loader = must_config_from_env()?;
+    if let Some(s3_endpoint_url) = S3_ENDPOINT_URL.clone() {
+        config_loader = config_loader.endpoint_url(s3_endpoint_url);
+    }
+    Ok(config_loader)
 }
