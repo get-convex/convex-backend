@@ -198,7 +198,7 @@ function displayValidator(validator: ValidatorJSON): string {
     case "literal":
       switch (typeof validator.value) {
         case "string":
-          return `v.literal("${validator.value}")`;
+          return `v.literal(${JSON.stringify(validator.value)})`;
         case "number":
           return `v.literal(${validator.value})`;
         case "boolean":

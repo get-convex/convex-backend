@@ -44,7 +44,7 @@ export default defineSchema({
     anyField: v.any(),
     literalBigint: v.literal(1n),
     literalNumber: v.literal(0),
-    literalString: v.literal("hello world"),
+    literalString: v.literal("hello world\\"'\\n"),
     literalBoolean: v.literal(true),
     union: v.union(v.string(), v.float64()),
     object: v.object({ a: v.optional(v.any()) }),

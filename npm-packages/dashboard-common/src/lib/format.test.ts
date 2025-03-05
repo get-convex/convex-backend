@@ -345,7 +345,7 @@ describe("displaySchemaFromShapes", () => {
         literalString: {
           fieldType: {
             type: "literal",
-            value: "hello world",
+            value: "hello world\"'\n",
           },
           optional: false,
         },
