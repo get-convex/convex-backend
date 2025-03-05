@@ -20,7 +20,6 @@ use value::{
 pub struct EnvironmentOutcome {
     pub observed_rng: bool,
     pub observed_time: bool,
-    pub observed_identity: bool,
 }
 
 pub trait Environment {

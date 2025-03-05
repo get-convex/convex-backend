@@ -227,7 +227,6 @@ enum UdfPhase {
         rng: ChaCha12Rng,
         observed_time: bool,
         observed_rng: bool,
-        observed_identity: bool,
     },
     Finalized,
 }
@@ -447,20 +446,18 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
             rng: ChaCha12Rng::from_seed(self.execution_time_seed.rng_seed),
             observed_time: false,
             observed_rng: false,
-            observed_identity: false,
         };
         Ok(())
     }
 
     fn finish_execution(&mut self) -> anyhow::Result<EnvironmentOutcome> {
-        let (observed_time, observed_rng, observed_identity) = match self.phase {
-            UdfPhase::Importing { .. } => (false, false, false),
+        let (observed_time, observed_rng) = match self.phase {
+            UdfPhase::Importing { .. } => (false, false),
             UdfPhase::Executing {
                 observed_time,
                 observed_rng,
-                observed_identity,
                 ..
-            } => (observed_time, observed_rng, observed_identity),
+            } => (observed_time, observed_rng),
             UdfPhase::Finalized => {
                 anyhow::bail!("Phase was already finalized")
             },
@@ -470,7 +467,6 @@ impl<RT: Runtime> Environment for UdfEnvironment<RT> {
         Ok(EnvironmentOutcome {
             observed_rng,
             observed_time,
-            observed_identity,
         })
     }
 
@@ -699,7 +695,7 @@ async fn run_request<RT: Runtime>(
         path: path.for_logging(),
         arguments,
         identity: provider.tx.inert_identity(),
-        observed_identity: outcome.observed_identity,
+        observed_identity: provider.observed_identity,
         rng_seed: execution_time_seed.rng_seed,
         observed_rng: outcome.observed_rng,
         unix_timestamp: execution_time_seed.unix_timestamp,
@@ -815,6 +811,8 @@ struct Isolate2SyscallProvider<'a, RT: Runtime> {
 
     unix_timestamp: UnixTimestamp,
 
+    observed_identity: bool,
+
     prev_journal: QueryJournal,
     next_journal: QueryJournal,
 
@@ -842,6 +840,7 @@ impl<'a, RT: Runtime> Isolate2SyscallProvider<'a, RT> {
             rt,
             shared,
             unix_timestamp,
+            observed_identity: false,
             prev_journal,
             next_journal: QueryJournal::new(),
             is_system,
@@ -874,12 +873,9 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
         &self.context
     }
 
-    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
-        Ok(self.unix_timestamp)
-    }
-
     fn observe_identity(&mut self) -> anyhow::Result<()> {
-        todo!()
+        self.observed_identity = true;
+        Ok(())
     }
 
     fn persistence_version(&self) -> PersistenceVersion {
