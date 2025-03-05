@@ -1,12 +1,6 @@
 use std::{
     collections::BTreeMap,
-    sync::{
-        atomic::{
-            AtomicBool,
-            Ordering,
-        },
-        Arc,
-    },
+    sync::Arc,
 };
 
 use anyhow::Context;
@@ -95,8 +89,8 @@ enum UdfPreloaded {
         rng: Option<ChaCha12Rng>,
         observed_rng_during_execution: bool,
         unix_timestamp: Option<UnixTimestamp>,
-        observed_time_during_execution: AtomicBool,
-        observed_identity_during_execution: AtomicBool,
+        observed_time_during_execution: bool,
+        observed_identity_during_execution: bool,
         env_vars: Option<PreloadedEnvironmentVariables>,
         system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         component: ComponentId,
@@ -190,8 +184,8 @@ impl<RT: Runtime> UdfPhase<RT> {
             rng,
             observed_rng_during_execution: false,
             unix_timestamp,
-            observed_time_during_execution: AtomicBool::new(false),
-            observed_identity_during_execution: AtomicBool::new(false),
+            observed_time_during_execution: false,
+            observed_identity_during_execution: false,
             env_vars,
             system_env_vars,
             component,
@@ -406,17 +400,17 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(rng)
     }
 
-    pub fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    pub fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         let UdfPreloaded::Ready {
             unix_timestamp,
-            ref observed_time_during_execution,
+            ref mut observed_time_during_execution,
             ..
         } = self.preloaded
         else {
             anyhow::bail!("Phase not initialized");
         };
         if self.phase == Phase::Executing {
-            observed_time_during_execution.store(true, Ordering::SeqCst);
+            *observed_time_during_execution = true;
         }
         let Some(unix_timestamp) = unix_timestamp else {
             // Fail for old modules without import time timestamp populated.
@@ -428,15 +422,15 @@ impl<RT: Runtime> UdfPhase<RT> {
         Ok(unix_timestamp)
     }
 
-    pub fn observe_identity(&self) -> anyhow::Result<()> {
+    pub fn observe_identity(&mut self) -> anyhow::Result<()> {
         let UdfPreloaded::Ready {
-            ref observed_identity_during_execution,
+            ref mut observed_identity_during_execution,
             ..
         } = self.preloaded
         else {
             anyhow::bail!("Phase not initialized");
         };
-        observed_identity_during_execution.store(true, Ordering::SeqCst);
+        *observed_identity_during_execution = true;
         Ok(())
     }
 
@@ -453,9 +447,9 @@ impl<RT: Runtime> UdfPhase<RT> {
     pub fn observed_time(&self) -> bool {
         match self.preloaded {
             UdfPreloaded::Ready {
-                ref observed_time_during_execution,
+                observed_time_during_execution,
                 ..
-            } => observed_time_during_execution.load(Ordering::SeqCst),
+            } => observed_time_during_execution,
             UdfPreloaded::Created { .. } => false,
         }
     }
@@ -463,9 +457,9 @@ impl<RT: Runtime> UdfPhase<RT> {
     pub fn observed_identity(&self) -> bool {
         match self.preloaded {
             UdfPreloaded::Ready {
-                ref observed_identity_during_execution,
+                observed_identity_during_execution,
                 ..
-            } => observed_identity_during_execution.load(Ordering::SeqCst),
+            } => observed_identity_during_execution,
             UdfPreloaded::Created { .. } => false,
         }
     }

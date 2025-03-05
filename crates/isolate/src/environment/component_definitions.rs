@@ -471,7 +471,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         ))
     }
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoDateDuringDefinitionEvaluation",
             "Date unsupported when evaluating app definition"

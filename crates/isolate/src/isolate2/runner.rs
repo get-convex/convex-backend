@@ -874,11 +874,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for Isolate2SyscallProvider<'_, RT> {
         &self.context
     }
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.unix_timestamp)
     }
 
-    fn observe_identity(&self) -> anyhow::Result<()> {
+    fn observe_identity(&mut self) -> anyhow::Result<()> {
         todo!()
     }
 

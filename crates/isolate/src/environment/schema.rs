@@ -84,7 +84,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for SchemaEnvironment {
         Ok(&mut self.rng)
     }
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.unix_timestamp)
     }
 

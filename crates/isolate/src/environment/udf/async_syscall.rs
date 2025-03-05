@@ -275,8 +275,8 @@ pub trait AsyncSyscallProvider<RT: Runtime> {
     fn key_broker(&self) -> &KeyBroker;
     fn context(&self) -> &ExecutionContext;
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
-    fn observe_identity(&self) -> anyhow::Result<()>;
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
+    fn observe_identity(&mut self) -> anyhow::Result<()>;
 
     fn persistence_version(&self) -> PersistenceVersion;
     fn is_system(&self) -> bool;
@@ -350,11 +350,11 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         &self.context
     }
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         self.phase.unix_timestamp()
     }
 
-    fn observe_identity(&self) -> anyhow::Result<()> {
+    fn observe_identity(&mut self) -> anyhow::Result<()> {
         self.phase.observe_identity()
     }
 

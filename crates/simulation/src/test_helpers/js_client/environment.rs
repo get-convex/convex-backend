@@ -120,7 +120,7 @@ impl IsolateEnvironment<TestRuntime> for TestEnvironment {
         Ok(&mut self.rng)
     }
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.rt.unix_timestamp())
     }
 

@@ -83,7 +83,7 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         ))
     }
 
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp> {
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoDateDuringAuthConfig",
             "Date unsupported when evaluating auth config file"

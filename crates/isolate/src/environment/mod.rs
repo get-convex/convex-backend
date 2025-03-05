@@ -76,7 +76,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()>;
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
-    fn unix_timestamp(&self) -> anyhow::Result<UnixTimestamp>;
+    fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
 
     fn get_environment_variable(&mut self, name: EnvVarName)
         -> anyhow::Result<Option<EnvVarValue>>;
