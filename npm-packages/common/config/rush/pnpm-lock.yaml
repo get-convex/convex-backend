@@ -324,8 +324,8 @@ importers:
         specifier: ^4.0.7
         version: 4.0.9
       chalk:
-        specifier: '4'
-        version: 4.1.2
+        specifier: '5'
+        version: 5.4.1
       chokidar:
         specifier: 3.5.3
         version: 3.5.3
@@ -784,8 +784,8 @@ importers:
         specifier: ^8.2.5
         version: 8.4.1(@babel/core@7.26.0)(webpack@5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.18.20))
       chalk:
-        specifier: '4'
-        version: 4.1.2
+        specifier: '5'
+        version: 5.4.1
       cors-anywhere:
         specifier: ~0.4.4
         version: 0.4.4

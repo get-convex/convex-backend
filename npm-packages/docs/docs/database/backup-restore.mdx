@@ -13,18 +13,22 @@ Convex supports Backup & Restore of data via the
 A backup is a consistent snapshot of your table data and file storage made at
 the time of your request.
 
-Take a backup by pressing the "Backup Now" button. This may take a few seconds
-to a few hours, depending on how much data is in your deployment.
+Take a manual backup by pressing the "Backup Now" button. This may take a few
+seconds to a few hours, depending on how much data is in your deployment.
 
-Backups are stored for 7 days. You can download or delete backups via this page.
+Manual backups are stored for 7 days. You can download or delete backups via
+this page.
 
 Deployment configuration and other data (code, environment variables, scheduled
 functions, etc.) will not be included.
 
 ### Periodic Backups
 
-Schedule a periodic daily backup by checking the "Backup automatically" box. You
-can select what time of day to have the backup occur.
+Schedule a periodic daily or weekly backup by checking the "Backup
+automatically" box. You can select what time of day / day of week to have the
+backup occur.
+
+Daily backups are stored for 7 days. Weekly backups are stored for 14 days.
 
 <ProFeatureUpsell feature="Periodic backups" verb="require" />
 

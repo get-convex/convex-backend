@@ -25,6 +25,7 @@ import { useQuery } from "convex/react";
 import udfs from "dashboard-common/udfs";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
+import { Combobox } from "dashboard-common/elements/Combobox";
 import { BackupList } from "./BackupList";
 import { BackupRestoreStatus } from "./BackupRestoreStatus";
 import { BackupNowButton } from "./BackupListItem";
@@ -255,8 +256,10 @@ export function BackupScheduleSelector({
   deployment: DeploymentResponse;
   disabled: boolean;
 }) {
-  const [minutesUtc, hoursUtc] = cronspec.split(" ");
-
+  const parts = cronspec.split(" ");
+  const [minutesUtc, hoursUtc, , , dayOfWeekPart = "*"] = parts;
+  const isWeekly = dayOfWeekPart !== "*";
+  const dayOfWeekNum = isWeekly ? Number(dayOfWeekPart) : null;
   const date = new Date();
   date.setUTCHours(+hoursUtc, +minutesUtc);
 
@@ -269,11 +272,25 @@ export function BackupScheduleSelector({
           disabled={disabled}
         >
           <span className="flex flex-col truncate">
-            Daily at{" "}
-            {new Intl.DateTimeFormat(undefined, {
-              hour: "2-digit",
-              minute: "2-digit",
-            }).format(date)}
+            {isWeekly
+              ? `${
+                  [
+                    "Sundays",
+                    "Mondays",
+                    "Tuesdays",
+                    "Wednesdays",
+                    "Thursdays",
+                    "Fridays",
+                    "Saturdays",
+                  ][dayOfWeekNum!]
+                } at ${new Intl.DateTimeFormat(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(date)}`
+              : `Daily at ${new Intl.DateTimeFormat(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(date)}`}
           </span>
           <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
             <ChevronDownIcon
@@ -288,6 +305,8 @@ export function BackupScheduleSelector({
       {({ close }) => (
         <BackupScheduleSelectorInner
           defaultValue={date}
+          defaultPeriodicity={isWeekly ? "weekly" : "daily"}
+          defaultDayOfWeek={dayOfWeekNum ?? 0}
           onClose={close}
           deployment={deployment}
         />
@@ -298,10 +317,14 @@ export function BackupScheduleSelector({
 
 export function BackupScheduleSelectorInner({
   defaultValue,
+  defaultPeriodicity,
+  defaultDayOfWeek,
   onClose,
   deployment,
 }: {
   defaultValue: Date;
+  defaultPeriodicity: "daily" | "weekly";
+  defaultDayOfWeek: number;
   onClose: () => void;
   deployment: DeploymentResponse;
 }) {
@@ -314,6 +337,9 @@ export function BackupScheduleSelectorInner({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [periodicity, setPeriodicity] = useState(defaultPeriodicity);
+  const [selectedDow, setSelectedDow] = useState(defaultDayOfWeek);
+
   return (
     <form
       className="flex min-w-72 flex-col items-end gap-3"
@@ -321,14 +347,21 @@ export function BackupScheduleSelectorInner({
         e.preventDefault();
 
         const [newHoursLocal, newMinutesLocal] = value.split(":");
-        const newDate = new Date();
-        newDate.setHours(+newHoursLocal, +newMinutesLocal);
+        const nowLocal = new Date();
+        nowLocal.setHours(+newHoursLocal, +newMinutesLocal);
 
         setIsSubmitting(true);
         try {
-          await configurePeriodicBackup({
-            cronspec: `${newDate.getUTCMinutes()} ${newDate.getUTCHours()} * * *`,
-          });
+          if (periodicity === "daily") {
+            await configurePeriodicBackup({
+              cronspec: `${nowLocal.getUTCMinutes()} ${nowLocal.getUTCHours()} * * *`,
+            });
+          } else {
+            await configurePeriodicBackup({
+              cronspec: `${nowLocal.getUTCMinutes()} ${nowLocal.getUTCHours()} * * ${selectedDow}`,
+              expirationDeltaSecs: 14 * 24 * 60 * 60, // 14 days
+            });
+          }
         } finally {
           setIsSubmitting(false);
         }
@@ -338,21 +371,69 @@ export function BackupScheduleSelectorInner({
         onClose();
       }}
     >
-      <TextInput
-        id={id}
-        type="time"
-        label={`Time (${localTimezoneName()})`}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        required
-      />
-      <Button
-        type="submit"
-        disabled={value === initialValue || isSubmitting}
-        icon={isSubmitting ? <Spinner /> : undefined}
-      >
-        Change
-      </Button>
+      <div className="flex w-full flex-col gap-3">
+        <div className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-1">
+            <input
+              type="radio"
+              value="daily"
+              checked={periodicity === "daily"}
+              onChange={() => setPeriodicity("daily")}
+            />
+            Daily
+          </label>
+          <label className="flex items-center gap-1">
+            <input
+              type="radio"
+              value="weekly"
+              checked={periodicity === "weekly"}
+              onChange={() => setPeriodicity("weekly")}
+            />
+            Weekly
+          </label>
+        </div>
+        {periodicity === "weekly" && (
+          <Combobox
+            label="Day of week"
+            buttonClasses="w-full"
+            optionsWidth="full"
+            options={[
+              { value: 0, label: "Sunday" },
+              { value: 1, label: "Monday" },
+              { value: 2, label: "Tuesday" },
+              { value: 3, label: "Wednesday" },
+              { value: 4, label: "Thursday" },
+              { value: 5, label: "Friday" },
+              { value: 6, label: "Saturday" },
+            ]}
+            selectedOption={selectedDow}
+            setSelectedOption={(dow) => dow !== null && setSelectedDow(dow)}
+            disableSearch
+          />
+        )}
+        <TextInput
+          id={id}
+          type="time"
+          label={`Time (${localTimezoneName()})`}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          required
+        />
+        <div className="flex w-full justify-end">
+          <Button
+            type="submit"
+            disabled={
+              (value === initialValue &&
+                periodicity === defaultPeriodicity &&
+                defaultDayOfWeek === selectedDow) ||
+              isSubmitting
+            }
+            icon={isSubmitting ? <Spinner /> : undefined}
+          >
+            Change
+          </Button>
+        </div>
+      </div>
     </form>
   );
 }

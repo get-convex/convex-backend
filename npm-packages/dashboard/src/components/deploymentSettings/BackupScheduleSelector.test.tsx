@@ -85,6 +85,8 @@ describe("BackupScheduleSelectorInner", () => {
     const { getByDisplayValue } = render(
       <BackupScheduleSelectorInner
         defaultValue={date}
+        defaultPeriodicity="daily"
+        defaultDayOfWeek={0}
         onClose={() => {}}
         deployment={deployment}
       />,
@@ -104,6 +106,8 @@ describe("BackupScheduleSelectorInner", () => {
     const { getByDisplayValue } = render(
       <BackupScheduleSelectorInner
         defaultValue={date}
+        defaultPeriodicity="daily"
+        defaultDayOfWeek={0}
         onClose={() => {}}
         deployment={deployment}
       />,
@@ -123,6 +127,8 @@ describe("BackupScheduleSelectorInner", () => {
     const { getByDisplayValue } = render(
       <BackupScheduleSelectorInner
         defaultValue={date}
+        defaultPeriodicity="daily"
+        defaultDayOfWeek={0}
         onClose={() => {}}
         deployment={deployment}
       />,
@@ -139,6 +145,8 @@ describe("BackupScheduleSelectorInner", () => {
     const { getByLabelText, getByRole } = render(
       <BackupScheduleSelectorInner
         defaultValue={new Date()}
+        defaultPeriodicity="daily"
+        defaultDayOfWeek={0}
         onClose={() => {}}
         deployment={deployment}
       />,
@@ -164,6 +172,39 @@ describe("BackupScheduleSelectorInner", () => {
       .split(":");
     expect(useConfigurePeriodicBackup()).toBeCalledWith({
       cronspec: `${+utcMinute} ${+utcHour} * * *`,
+    });
+  });
+
+  it("allows the users to set a weekly time including selected day-of-week", async () => {
+    const user = userEvent.setup({ delay: null });
+    const selectedDow = 2;
+    const { getByLabelText, getByText } = render(
+      <BackupScheduleSelectorInner
+        defaultValue={new Date()}
+        defaultPeriodicity="weekly"
+        defaultDayOfWeek={selectedDow}
+        onClose={() => {}}
+        deployment={deployment}
+      />,
+    );
+
+    const input = getByLabelText(/Time \(.+\)/);
+    const submit = getByText("Change");
+
+    await user.clear(input);
+    await user.type(input, "09:41");
+    await user.click(submit);
+
+    const [utcHour, utcMinute] = new Date("2024-11-06 09:41")
+      .toLocaleTimeString("en-GB", {
+        hour: "numeric",
+        minute: "numeric",
+        timeZone: "UTC",
+      })
+      .split(":");
+    expect(useConfigurePeriodicBackup()).toBeCalledWith({
+      cronspec: `${+utcMinute} ${+utcHour} * * ${selectedDow}`,
+      expirationDeltaSecs: 14 * 24 * 60 * 60, // 14 days
     });
   });
 });
