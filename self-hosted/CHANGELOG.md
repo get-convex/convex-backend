@@ -10,6 +10,13 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-03-06 `be8a4f397810ce3d04dc3cb32bc81969fe64685a`
+
+- Add R2 compatibility. See
+  https://github.com/get-convex/convex-backend/pull/53.
+  [Docs](https://github.com/get-convex/convex-backend/blob/main/self-hosted/README.md#using-s3-storage)
+- Tolerate missing or malformed sourcemaps (eg. from `ai` npm library).
+
 ## 2025-02-26 `161e32648a971fb8ef591e61212f7b9fb7ff4f2c`
 
 - Add support for S3 storage for exports, snapshots, modules, files, and search
