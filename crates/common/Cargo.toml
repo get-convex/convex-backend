@@ -17,6 +17,7 @@ anyhow = { workspace = true }
 async-broadcast = { workspace = true }
 async-trait = { workspace = true }
 axum = { workspace = true }
+axum-extra = { workspace = true }
 bitvec = { workspace = true }
 byteorder = { workspace = true }
 bytes = { workspace = true }
@@ -88,7 +89,7 @@ tracy-client = { workspace = true, optional = true }
 tungstenite = { workspace = true }
 tuple_struct = { path = "../tuple_struct" }
 url = { workspace = true }
-utoipa = { version = "5" }
+utoipa = { workspace = true }
 uuid = { workspace = true }
 value = { path = "../value" }
 

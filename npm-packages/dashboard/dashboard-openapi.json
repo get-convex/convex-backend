@@ -4,7 +4,8 @@
     "title": "big_brain",
     "description": "",
     "license": {
-      "name": "LicenseRef-Convex"
+      "name": "LicenseRef-Convex",
+      "identifier": "LicenseRef-Convex"
     },
     "version": "0.1.0"
   },
@@ -1393,14 +1394,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/MemberId"
-                }
-              ]
+              "$ref": "#/components/schemas/MemberId"
             },
             "style": "form"
           },
@@ -1409,14 +1403,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/AuditLogAction"
-                }
-              ]
+              "$ref": "#/components/schemas/AuditLogAction"
             },
             "style": "form"
           },
@@ -1425,10 +1412,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "integer",
-                "null"
-              ],
+              "type": "integer",
               "format": "int64",
               "minimum": 0
             },
@@ -1439,10 +1423,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "style": "form"
           }
@@ -2106,10 +2087,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "style": "form"
           },
@@ -2118,10 +2096,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "style": "form"
           },
@@ -2130,14 +2105,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/ProjectId"
-                }
-              ]
+              "$ref": "#/components/schemas/ProjectId"
             },
             "style": "form"
           },
@@ -2146,14 +2114,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "oneOf": [
-                {
-                  "type": "null"
-                },
-                {
-                  "$ref": "#/components/schemas/InstanceName"
-                }
-              ]
+              "$ref": "#/components/schemas/InstanceName"
             },
             "style": "form"
           },
@@ -2162,10 +2123,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "style": "form"
           },
@@ -2174,10 +2132,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "style": "form"
           },
@@ -2186,10 +2141,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             },
             "style": "form"
           }

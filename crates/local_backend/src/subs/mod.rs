@@ -9,6 +9,7 @@ use ::errors::{
 };
 use anyhow::Context as _;
 use axum::{
+    body::Bytes,
     extract::{
         ws::{
             CloseFrame,
@@ -208,7 +209,7 @@ async fn run_sync_socket(
                     }
                     *last_ping_sent.lock() = Instant::now();
                     log_websocket_ping();
-                    if tx.send(Message::Ping(vec![])).await.is_err() {
+                    if tx.send(Message::Ping(Bytes::new())).await.is_err() {
                         break 'top;
                     }
                 },
@@ -220,7 +221,7 @@ async fn run_sync_socket(
                     let delay = st.runtime.monotonic_now() - send_time;
                     log_websocket_message_out(&message, delay);
                     let serialized = serde_json::to_string(&JsonValue::from(message))?;
-                    if tx.send(Message::Text(serialized)).await.is_err() {
+                    if tx.send(Message::Text(serialized.into())).await.is_err() {
                         break 'top;
                     }
                 },
@@ -290,7 +291,7 @@ async fn run_sync_socket(
             if let Some(final_message) = final_message {
                 let r: anyhow::Result<_> = try {
                     let serialized = serde_json::to_string(&JsonValue::from(final_message))?;
-                    socket.send(Message::Text(serialized)).await?;
+                    socket.send(Message::Text(serialized.into())).await?;
                 };
                 if let Err(mut e) = r {
                     if is_connection_closed_error(&*e) {
@@ -307,7 +308,7 @@ async fn run_sync_socket(
             // Convert from tungstenite::Message to axum::Message
             let close_frame = err.close_frame().map(|cf| CloseFrame {
                 code: cf.code.into(),
-                reason: cf.reason,
+                reason: cf.reason.to_string().into(),
             });
             Some(Message::Close(close_frame))
         },
@@ -410,7 +411,7 @@ mod tests {
                 let ws_shutdown_tx = st.0;
                 assert_eq!(ws.recv().await.unwrap().unwrap(), Message::Close(None));
                 let e = ws
-                    .send(Message::Text("Hello".to_string()))
+                    .send(Message::Text("Hello".into()))
                     .await
                     .expect_err("Should not be able to send");
 

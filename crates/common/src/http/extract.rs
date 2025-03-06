@@ -1,6 +1,5 @@
 use std::time::Instant;
 
-use async_trait::async_trait;
 use axum::{
     extract::{
         FromRequest,
@@ -29,7 +28,6 @@ use crate::http::HttpResponseError;
 
 pub struct RequestInitTime(pub Instant);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for RequestInitTime
 where
     S: Send + Sync,
@@ -45,7 +43,6 @@ pub struct Path<T>(pub T);
 
 /// Wrapper type around axum::extract::Path that uses HttpResponseError instead
 /// of PathRejection to make sure we get propper logging / error reporting.
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Path<T>
 where
     T: DeserializeOwned + Send,
@@ -68,7 +65,6 @@ pub struct Query<T>(pub T);
 
 /// Wrapper type around axum::extract::Query that uses HttpResponseError instead
 /// of PathRejection to make sure we get propper logging / error reporting.
-#[async_trait]
 impl<S, T> FromRequestParts<S> for Query<T>
 where
     T: DeserializeOwned + Send,
@@ -92,7 +88,6 @@ pub struct Json<T>(pub T);
 /// Fork of axum::Json that uses HttpResponseError instead of JsonRejection to
 /// make sure we get propper logging / error reporting and integrates with our
 /// tracing framework.
-#[async_trait]
 impl<S, T> FromRequest<S> for Json<T>
 where
     T: DeserializeOwned,

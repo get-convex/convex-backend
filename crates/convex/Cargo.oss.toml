@@ -26,7 +26,7 @@ serde_json = { features = [ "float_roundtrip", "preserve_order" ], version = "1"
 thiserror = { version = "2" }
 tokio = { features = [ "full" ], version = "1" }
 tokio-stream = { features = [ "io-util", "sync" ], version = "0.1" }
-tokio-tungstenite = { features = [], version = "0.21.0" }
+tokio-tungstenite = { features = [ "url" ], version = "0.26.2" }
 tracing = { version = "0.1" }
 url = { version = "2.5.4" }
 uuid = { features = [ "serde", "v4" ], version = "1.6" }

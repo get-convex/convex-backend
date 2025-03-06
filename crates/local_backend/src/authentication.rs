@@ -5,7 +5,6 @@ use anyhow::{
     anyhow,
     Context,
 };
-use async_trait::async_trait;
 use authentication::extract_bearer_token;
 use axum::{
     extract::{
@@ -39,8 +38,7 @@ use crate::{
 
 pub struct ExtractAuthenticationToken(pub AuthenticationToken);
 
-#[async_trait]
-impl<T> FromRequestParts<T> for ExtractAuthenticationToken {
+impl<T: Sync> FromRequestParts<T> for ExtractAuthenticationToken {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
@@ -105,7 +103,6 @@ impl From<ExtractAuthenticationToken> for AuthenticationToken {
 
 pub struct ExtractIdentity(pub Identity);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractIdentity
 where
     LocalAppState: FromRef<S>,
@@ -137,7 +134,6 @@ impl From<ExtractIdentity> for Identity {
 
 pub struct TryExtractIdentity(pub anyhow::Result<Identity>);
 
-#[async_trait]
 impl FromRequestParts<RouterState> for TryExtractIdentity {
     type Rejection = HttpResponseError;
 

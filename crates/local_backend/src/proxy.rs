@@ -51,7 +51,7 @@ pub async fn dev_site_proxy(
         .put(proxy_method)
         .options(proxy_method);
     let router = Router::new()
-        .route("/*rest", proxy_handler.clone())
+        .route("/{*rest}", proxy_handler.clone())
         .route("/", proxy_handler)
         .with_state(site_forward_prefix);
 

@@ -26,14 +26,14 @@ use ::metrics::{
     SERVICE_NAME,
 };
 use anyhow::Context;
-use async_trait::async_trait;
 use axum::{
     body::Body,
     error_handling::HandleErrorLayer,
     extract::{
         connect_info::IntoMakeServiceWithConnectInfo,
+        rejection::ExtensionRejection,
         FromRequestParts,
-        Host,
+        OptionalFromRequestParts,
         State,
     },
     response::{
@@ -46,6 +46,7 @@ use axum::{
     Router,
     ServiceExt,
 };
+use axum_extra::extract::Host;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
@@ -683,7 +684,7 @@ impl ConvexHttpService {
         self,
         addr: SocketAddr,
         shutdown: F,
-        middleware_fn: impl FnMut(http::Request<Body>) -> Fut + Clone + Send + 'static,
+        middleware_fn: impl FnMut(http::Request<Body>) -> Fut + Clone + Send + Sync + 'static,
     ) -> anyhow::Result<()>
     where
         F: Future<Output = ()> + Send + 'static,
@@ -920,8 +921,7 @@ pub struct ExtractResolvedHostname(pub ResolvedHostname);
 #[derive(Clone, Debug)]
 pub struct OriginalHttpUri(pub Uri);
 
-#[async_trait]
-impl<S> FromRequestParts<S> for ExtractResolvedHostname {
+impl<S: Sync> FromRequestParts<S> for ExtractResolvedHostname {
     type Rejection = Infallible;
 
     async fn from_request_parts(
@@ -952,6 +952,17 @@ impl<S> FromRequestParts<S> for ExtractResolvedHostname {
             instance_name: ::std::env::var("CONVEX_SITE").unwrap_or_default(),
             destination: RequestDestination::ConvexCloud,
         }))
+    }
+}
+
+impl<S: Sync> OptionalFromRequestParts<S> for OriginalHttpUri {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        Ok(parts.extensions.get::<Self>().cloned())
     }
 }
 
@@ -1002,7 +1013,6 @@ async fn client_version_from_req_parts(
     Ok(client_version)
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractClientVersion
 where
     S: Send + Sync,
@@ -1047,7 +1057,6 @@ async fn request_id_from_req_parts(
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractRequestId
 where
     S: Send + Sync,
@@ -1072,7 +1081,6 @@ pub const TRACEPARENT_HEADER: &str = "traceparent";
 
 pub struct ExtractTraceparent(pub Option<SpanContext>);
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractTraceparent
 where
     S: Send + Sync,
@@ -1101,7 +1109,7 @@ async fn tokio_instrumentation_middleware(
 }
 
 async fn log_middleware(
-    remote_addr: Option<axum::extract::ConnectInfo<SocketAddr>>,
+    remote_addr: Result<axum::extract::ConnectInfo<SocketAddr>, ExtensionRejection>,
     ExtractResolvedHostname(resolved_host): ExtractResolvedHostname,
     req: axum::extract::Request,
     next: axum::middleware::Next,
@@ -1109,7 +1117,7 @@ async fn log_middleware(
     let site_id = resolved_host.instance_name;
     let start = Instant::now();
 
-    let remote_addr = remote_addr.map(|connect_info| connect_info.0);
+    let remote_addr = remote_addr.ok().map(|connect_info| connect_info.0);
     let method = req.method().clone();
     let uri = req.uri().clone();
     let version = req.version();

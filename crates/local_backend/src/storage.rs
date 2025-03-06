@@ -7,16 +7,14 @@ use anyhow::Context;
 use axum::{
     body::Body,
     debug_handler,
-    extract::{
-        Host,
-        State,
-    },
+    extract::State,
     response::{
         IntoResponse,
         Response,
     },
 };
 use axum_extra::{
+    extract::Host,
     headers::{
         AcceptRanges,
         CacheControl,

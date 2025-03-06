@@ -20,8 +20,8 @@ aws-config = "1.1"
 aws-sdk-s3 = "1.14.0"
 aws-smithy-http = "0.60.8"
 aws-types = "1.1"
-axum = { version = "0.7", features = [ "ws", "original-uri", "macros", "multipart" ] }
-axum-extra = { version = "0.9.3", features = [ "typed-header", "cookie" ] }
+axum = { version = "0.8", features = [ "ws", "original-uri", "macros", "multipart" ] }
+axum-extra = { version = "0.10", features = [ "typed-header", "cookie" ] }
 base32 = "0.5.0"
 base-62 = { rev = "6f91a3da4b83f20379469835f64195bd52d7b9dd", git = "https://github.com/kryptco/base62.rs" }
 base64 = "0.13"
@@ -127,8 +127,8 @@ rusqlite = { version = "0.32", features = [ "bundled" ] }
 saffron = { git = "https://github.com/get-convex/saffron", rev = "1d842379919fb5c1988ac127cebd6167b1eb9bec", features = [ "std" ] }
 schemars = { version = "0.8" }
 semver = { version = "1", features = [ "serde" ] }
-sentry = { version = "0.35", features = [ "anyhow", "tower", "tower-http" ] }
-sentry-tracing = "0.35"
+sentry = { version = "0.36", features = [ "anyhow", "tower", "tower-http" ] }
+sentry-tracing = "0.36"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = { version = "1", features = [ "float_roundtrip", "preserve_order", "unbounded_depth" ] }
 sha1 = { version = "0.10.5", features = [ "oid" ] }
@@ -152,21 +152,22 @@ tokio-metrics-collector = { version = "0.2.1" }
 tokio-postgres = { version = "0.7.10", features = [ "with-serde_json-1" ] }
 tokio-process-stream = { version = "0.4.0" }
 tokio-stream = { version = "0.1", features = [ "io-util", "sync", "signal" ] }
-tokio-tungstenite = { version = "0.21.0", features = [ "native-tls-vendored" ] }
+tokio-tungstenite = { version = "0.26.2", features = [ "native-tls-vendored" ] }
 tokio-util = { version = "0.7.13", features = [ "io", "rt", "io-util" ] }
 tonic = { version = "0.12.3", features = [ "gzip" ] }
 tonic-build = "0.12.3"
 tonic-health = "0.12.3"
-tower = { version = "0.4", features = [ "limit", "timeout" ] }
-tower-cookies = "0.10"
+tower = { version = "0.5.2", features = [ "limit", "timeout", "util" ] }
+tower-cookies = "0.11"
 tower-http = { version = "0.6", features = [ "trace", "cors", "decompression-br", "limit" ] }
 tracing = "0.1"
 tracing-appender = { version = "0.2" }
 tracing-subscriber = { version = "0.3.17", features = [ "env-filter", "json" ] }
 tracy-client = { version = "0.18.0", default-features = false, features = [ "fibers" ] }
-tungstenite = { version = "0.21.0", features = [ "url", "native-tls-vendored" ] }
+tungstenite = { version = "0.26.2", features = [ "url", "native-tls-vendored" ] }
 url = "2.5.4"
 urlencoding = "2.1.3"
+utoipa = { version = "5.3", features = [ "axum_extras" ] }
 uuid = { version = "1.6", features = [ "serde", "v4" ] }
 vergen = { version = "8.1.0" }
 walkdir = "2"

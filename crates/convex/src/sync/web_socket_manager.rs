@@ -251,8 +251,7 @@ impl WebSocketWorker {
                         Message::Close(close_frame) => {
                             let close_frame = close_frame.context("CloseMessageWithoutFrame")?;
                             tracing::debug!("Close frame {close_frame}");
-                            let last_close_reason = close_frame.reason.as_ref();
-                            anyhow::bail!("{last_close_reason}");
+                            anyhow::bail!("{}", close_frame.reason);
                         },
                         Message::Text(t) => {
                             let json: serde_json::Value = serde_json::from_str(&t).context("JsonDeserializeError")?;
@@ -282,7 +281,7 @@ impl WebSocketWorker {
                     match request {
                         WebSocketRequest::SendMessage(message, sender) => {
                             tracing::debug!("Sending {message:?}");
-                            let msg = Message::Text(serde_json::Value::try_from(message).context("JsonSerializeError")?.to_string());
+                            let msg = Message::Text(serde_json::Value::try_from(message).context("JsonSerializeError")?.to_string().into());
                             internal.send_worker(msg.clone()).await?;
                             let _ = sender.send(());
                         },
@@ -346,7 +345,8 @@ impl WebSocketInternal {
         let msg = Message::Text(
             serde_json::Value::try_from(message)
                 .context("JSONSerializationErrorOnConnect")?
-                .to_string(),
+                .to_string()
+                .into(),
         );
         internal.send_worker(msg).await?;
 

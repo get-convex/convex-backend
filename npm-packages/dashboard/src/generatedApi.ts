@@ -3122,10 +3122,10 @@ export interface operations {
             query: {
                 from: number;
                 to: number;
-                memberId?: null | components["schemas"]["MemberId"];
-                action?: null | components["schemas"]["AuditLogAction"];
-                limit?: number | null;
-                cursor?: string | null;
+                memberId?: components["schemas"]["MemberId"];
+                action?: components["schemas"]["AuditLogAction"];
+                limit?: number;
+                cursor?: string;
             };
             header?: never;
             path: {
@@ -3649,13 +3649,13 @@ export interface operations {
             query: {
                 /** @description Uuid of a databricks query */
                 queryId: string;
-                from?: string | null;
-                to?: string | null;
-                projectId?: null | components["schemas"]["ProjectId"];
-                deploymentName?: null | components["schemas"]["InstanceName"];
-                componentPath?: string | null;
-                udfId?: string | null;
-                tableName?: string | null;
+                from?: string;
+                to?: string;
+                projectId?: components["schemas"]["ProjectId"];
+                deploymentName?: components["schemas"]["InstanceName"];
+                componentPath?: string;
+                udfId?: string;
+                tableName?: string;
             };
             header?: never;
             path: {

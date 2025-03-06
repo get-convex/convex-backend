@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use application::api::ApplicationApi;
-use async_trait::async_trait;
 use axum::{
     body::{
         Body,
@@ -11,7 +10,6 @@ use axum::{
     debug_handler,
     extract::{
         FromRequest,
-        Host,
         State,
     },
     response::{
@@ -24,6 +22,7 @@ use axum::{
     },
     RequestExt,
 };
+use axum_extra::extract::Host;
 use common::{
     http::{
         ExtractRequestId,
@@ -87,7 +86,6 @@ fn parse_forwarded(headers: &HeaderMap) -> Option<&str> {
     })
 }
 
-#[async_trait]
 impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
     type Rejection = HttpResponseError;
 
@@ -114,13 +112,11 @@ impl FromRequest<RouterState, axum::body::Body> for ExtractHttpRequestMetadata {
         // If the URI has been rewritten to `/http`, present the original URI to the
         // action. Note that this may not be the same as `OriginalUri`,
         // depending on where the rewrite takes place.
-        // We allow Extension here as we want this extraction to be fallible and
-        // optional.
-        #[allow(clippy::disallowed_types)]
-        let axum::Extension(OriginalHttpUri(uri)) = req
-            .extract_parts::<Option<axum::Extension<OriginalHttpUri>>>()
-            .await?
-            .unwrap_or_else(|| axum::Extension(OriginalHttpUri(req.uri().clone())));
+        let OriginalHttpUri(uri) = req
+            .extensions()
+            .get::<OriginalHttpUri>()
+            .cloned()
+            .unwrap_or_else(|| OriginalHttpUri(req.uri().clone()));
         let headers = req.headers().clone();
         let method = req.method().clone();
 

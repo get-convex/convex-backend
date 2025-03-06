@@ -542,7 +542,7 @@ impl ErrorMetadata {
         }
     }
 
-    pub fn close_frame(&self) -> Option<CloseFrame<'static>> {
+    pub fn close_frame(&self) -> Option<CloseFrame> {
         let code = match self.code {
             ErrorCode::NotFound
             | ErrorCode::PaginationLimit
@@ -652,7 +652,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn msg(&self) -> &str;
     fn metric_server_error_label(&self) -> Option<StaticMetricLabel>;
     fn metric_status_label_value(&self) -> &'static str;
-    fn close_frame(&self) -> Option<CloseFrame<'static>>;
+    fn close_frame(&self) -> Option<CloseFrame>;
     fn http_status(&self) -> StatusCode;
     fn map_error_metadata<F: FnOnce(ErrorMetadata) -> ErrorMetadata>(self, f: F) -> Self;
     fn wrap_error_message<F>(self, f: F) -> Self
@@ -846,7 +846,7 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     }
 
     /// Return the CloseCode to use on websocket
-    fn close_frame(&self) -> Option<CloseFrame<'static>> {
+    fn close_frame(&self) -> Option<CloseFrame> {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.close_frame();
         }

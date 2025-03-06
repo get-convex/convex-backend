@@ -65,7 +65,7 @@ export function useUsageQuery({
     pathParams: { team_id: teamId.toString() },
     queryParams: {
       queryId,
-      projectId,
+      projectId: projectId ?? undefined,
       ...(deploymentName ? { deploymentName } : {}),
       ...(functionId ? { udfId: functionId } : {}),
       ...(tableName ? { tableName } : {}),

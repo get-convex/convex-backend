@@ -166,7 +166,7 @@ pub fn router(st: LocalAppState) -> Router {
     let browser_routes = Router::new()
         // Called by the browser (and optionally authenticated by a cookie or `Authorization`
         // header). Passes version in the URL because websockets can't do it in header.
-        .route("/:client_version/sync", get(sync));
+        .route("/{client_version}/sync", get(sync));
 
     let dashboard_routes = common_dashboard_routes()
         // Scheduled jobs routes
@@ -203,7 +203,7 @@ pub fn router(st: LocalAppState) -> Router {
         )
         .route("/get_config", post(get_config))
         .route("/get_config_hashes", post(get_config_hashes))
-        .route("/schema_state/:schema_id", get(schema_state))
+        .route("/schema_state/{schema_id}", get(schema_state))
         .route("/stream_udf_execution", get(stream_udf_execution))
         .route("/stream_function_logs", get(stream_function_logs))
         .merge(import_routes())
@@ -211,7 +211,7 @@ pub fn router(st: LocalAppState) -> Router {
 
     let snapshot_export_routes = Router::new()
         .route("/request/zip", post(request_zip_export))
-        .route("/zip/:id", get(get_zip_export));
+        .route("/zip/{id}", get(get_zip_export));
 
     let api_routes = Router::new()
         .merge(cli_routes)
@@ -264,14 +264,14 @@ pub fn public_api_routes() -> Router<RouterState> {
         .route("/mutation", post(public_mutation_post))
         .route("/action", post(public_action_post))
         .route("/function", post(public_function_post))
-        .route("/run/*rest", post(public_function_post_with_path))
+        .route("/run/{*rest}", post(public_function_post_with_path))
         .layer(DefaultBodyLimit::max(*MAX_BACKEND_PUBLIC_API_REQUEST_SIZE))
 }
 
 pub fn storage_api_routes() -> Router<RouterState> {
     Router::new()
         .route("/upload", post(storage_upload))
-        .route("/:storage_id", get(storage_get))
+        .route("/{storage_id}", get(storage_get))
 }
 
 // IMPORTANT NOTE: Those routes are proxied by Usher. Any changes to the router,
@@ -316,7 +316,7 @@ where
 
 pub fn http_action_routes() -> Router<RouterState> {
     Router::new()
-        .route("/*rest", http_action_handler())
+        .route("/{*rest}", http_action_handler())
         .route("/", http_action_handler())
         .layer(DefaultBodyLimit::max(HTTP_ACTION_BODY_LIMIT))
 }

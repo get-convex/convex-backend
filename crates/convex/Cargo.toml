@@ -29,7 +29,7 @@ serde_json = { workspace = true, features = [
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 tokio-stream = { workspace = true, features = ["io-util", "sync"] }
-tokio-tungstenite = { workspace = true, features = [] }
+tokio-tungstenite = { workspace = true, features = ["url"] }
 tracing = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true, features = ["serde", "v4"] }

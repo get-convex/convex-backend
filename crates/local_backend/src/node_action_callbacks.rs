@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::Context;
-use async_trait::async_trait;
 use axum::{
     debug_handler,
     extract::{
@@ -604,7 +603,6 @@ pub struct ExtractActionIdentity {
     component_id: ComponentId,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for ExtractActionIdentity
 where
     LocalAppState: FromRef<S>,
@@ -636,8 +634,7 @@ where
 
 pub struct ExtractActionName(pub Option<String>);
 
-#[async_trait]
-impl<S> FromRequestParts<S> for ExtractActionName {
+impl<S: Sync> FromRequestParts<S> for ExtractActionName {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
@@ -658,8 +655,7 @@ impl<S> FromRequestParts<S> for ExtractActionName {
 
 pub struct ExtractExecutionContext(pub ExecutionContext);
 
-#[async_trait]
-impl<T> FromRequestParts<T> for ExtractExecutionContext {
+impl<T: Sync> FromRequestParts<T> for ExtractExecutionContext {
     type Rejection = HttpResponseError;
 
     async fn from_request_parts(
