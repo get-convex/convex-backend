@@ -47,7 +47,7 @@
     "react-popper": "^2.3.0",
     "react-use": "~17.6.0",
     "react-window": "1.8.11",
-    "recharts": "2.15.0",
+    "recharts": "2.15.1",
     "swr": "^2.2.1",
     "system-udfs": "workspace:*",
     "yup": "~0.32.11",
