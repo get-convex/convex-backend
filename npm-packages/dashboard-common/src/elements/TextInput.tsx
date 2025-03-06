@@ -15,11 +15,12 @@ type InputProps = {
   description?: React.ReactNode;
   id: string;
   type?: "text" | "search" | "email" | "time" | "password";
+  size?: "sm" | "md";
 };
 
 export const TextInput = forwardRef<
   HTMLInputElement,
-  InputProps & Omit<React.HTMLProps<HTMLInputElement>, "onChange">
+  InputProps & Omit<React.HTMLProps<HTMLInputElement>, "onChange" | "size">
 >(
   (
     {
@@ -35,6 +36,7 @@ export const TextInput = forwardRef<
       onChange,
       type = "text",
       id,
+      size = "md",
       ...rest
     },
     ref,
@@ -71,9 +73,10 @@ export const TextInput = forwardRef<
           className={classNames(
             error && "focus:border-content-error",
             !error && "focus:border-border-selected text-content-primary",
-            "block rounded px-3 py-2 bg-background-secondary",
+            "block rounded bg-background-secondary",
+            size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm",
             "disabled:text-content-secondary disabled:bg-background-tertiary placeholder-content-tertiary border focus:outline-none",
-            "text-sm shrink grow disabled:cursor-not-allowed truncate",
+            "shrink grow disabled:cursor-not-allowed truncate",
             "min-w-0",
             type === "search" && "pl-9",
             className,

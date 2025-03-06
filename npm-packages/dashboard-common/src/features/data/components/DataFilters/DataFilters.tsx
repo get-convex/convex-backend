@@ -1,35 +1,40 @@
 import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CheckIcon,
   ExclamationTriangleIcon,
+  PlusIcon,
+  QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
-import { convexToJson, jsonToConvex, ValidatorJSON } from "convex/values";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useMap } from "react-use";
 import {
   Filter,
   FilterExpression,
   FilterValidationError,
-  isTypeFilterOp,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import isEqual from "lodash/isEqual";
-import cloneDeep from "lodash/cloneDeep";
-import { useFilterHistory } from "@common/features/data/lib/useTableFilters";
 import {
   FilterEditor,
   FilterState,
 } from "@common/features/data/components/FilterEditor/FilterEditor";
+import { SchemaJson } from "@common/lib/format";
+import { Button } from "@common/elements/Button";
+import { Tooltip } from "@common/elements/Tooltip";
+import {
+  FilterButton,
+  filterMenuId,
+} from "@common/features/data/components/DataFilters/FilterButton";
+import { ValidatorJSON, convexToJson } from "convex/values";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMap } from "react-use";
+import isEqual from "lodash/isEqual";
+import cloneDeep from "lodash/cloneDeep";
 import {
   documentValidatorForTable,
   validatorForColumn,
 } from "@common/features/data/components/Table/utils/validators";
-import { SchemaJson } from "@common/lib/format";
-import { Sheet } from "@common/elements/Sheet";
-import { Button } from "@common/elements/Button";
-import { Tooltip } from "@common/elements/Tooltip";
+import { useFilterHistory } from "@common/features/data/lib/useTableFilters";
+import { cn } from "@common/lib/cn";
 
-export const filterMenuId = "filterMenu";
 export function DataFilters({
   defaultDocument,
   tableName,
@@ -41,6 +46,9 @@ export function DataFilters({
   draftFilters,
   setDraftFilters,
   activeSchema,
+  numRows,
+  numRowsLoaded,
+  hasFilters,
 }: {
   defaultDocument: GenericDocument;
   tableName: string;
@@ -52,8 +60,301 @@ export function DataFilters({
   draftFilters?: FilterExpression;
   setDraftFilters(next: FilterExpression): void;
   activeSchema: SchemaJson | null;
+  numRows?: number;
+  numRowsLoaded: number;
+  hasFilters: boolean;
+}) {
+  const {
+    showFilters,
+    setShowFilters,
+    isDirty,
+    hasInvalidFilters,
+    shownFilters,
+    onChangeFilter,
+    onDeleteFilter,
+    onAddFilter,
+    onError,
+    filterHistory,
+    currentIdx,
+    setCurrentIdx,
+    documentValidator,
+    invalidFilters,
+  } = useDataFilters({
+    tableName,
+    componentId,
+    filters,
+    onChangeFilters,
+    draftFilters,
+    setDraftFilters,
+    activeSchema,
+  });
+
+  const numRowsWeKnowOf = hasFilters ? numRowsLoaded : numRows;
+
+  return (
+    <form
+      className="flex w-full flex-col gap-2 rounded-t border border-b-0 bg-background-secondary/50 p-2"
+      id={filterMenuId}
+      data-testid="filterMenu"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onChangeFilters(draftFilters || { clauses: [] });
+      }}
+      key={currentIdx}
+    >
+      <div className="flex flex-col">
+        <div className="flex justify-between gap-2">
+          <div className="flex items-center">
+            <div
+              className={cn(
+                "flex w-full divide-x divide-border-transparent rounded border bg-background-secondary",
+                showFilters && "rounded-b-none border-b-0",
+              )}
+            >
+              <div className="flex items-center">
+                <Button
+                  size="xs"
+                  variant="neutral"
+                  className="rounded-r-none"
+                  icon={<ArrowLeftIcon className="my-[1px]" />}
+                  inline
+                  tip="Previous Filters"
+                  disabled={currentIdx + 1 >= filterHistory.length}
+                  onClick={() => {
+                    setShowFilters(true);
+                    setCurrentIdx(currentIdx + 1);
+                    setDraftFilters(filterHistory[currentIdx + 1]);
+                  }}
+                />
+                <Button
+                  size="xs"
+                  variant="neutral"
+                  className="rounded-none"
+                  icon={<ArrowRightIcon className="my-[1px]" />}
+                  tip="Next Filters"
+                  inline
+                  disabled={currentIdx <= 0}
+                  onClick={() => {
+                    setShowFilters(true);
+                    setCurrentIdx(currentIdx - 1);
+                    setDraftFilters(filterHistory[currentIdx - 1]);
+                  }}
+                />
+              </div>
+              <FilterButton
+                filters={filters}
+                onClick={() => {
+                  if (!showFilters && shownFilters.clauses.length === 0) {
+                    onAddFilter(0);
+                  }
+                  setShowFilters(!showFilters);
+                }}
+                open={showFilters}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {numRowsWeKnowOf !== undefined && (
+              <div
+                className={cn(
+                  "flex items-center gap-1",
+                  "text-xs whitespace-nowrap",
+                )}
+              >
+                <span className="font-semibold">
+                  {numRowsWeKnowOf.toLocaleString()}{" "}
+                </span>
+                {numRowsWeKnowOf === 1 ? "document" : "documents"}{" "}
+                {hasFilters && (
+                  <>
+                    {numRowsWeKnowOf !== numRows && `loaded`}
+                    <Tooltip
+                      tip="Filtered results are paginated and more documents will be loaded as you scroll."
+                      side="right"
+                    >
+                      <QuestionMarkCircledIcon />
+                    </Tooltip>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        {showFilters && (
+          <div className="w-full animate-fadeInFromLoading">
+            <div className="flex w-full flex-col gap-1 overflow-x-auto rounded rounded-tl-none border bg-background-secondary p-2 pb-2.5 scrollbar">
+              {shownFilters.clauses.map((clause, idx) => (
+                <FilterItem
+                  key={clause.id}
+                  idx={idx}
+                  autoFocusValueEditor={idx === shownFilters.clauses.length - 1}
+                  fields={tableFields}
+                  clause={clause}
+                  defaultDocument={defaultDocument}
+                  onChangeFilter={onChangeFilter}
+                  onDeleteFilter={onDeleteFilter}
+                  onApplyFilters={() =>
+                    onChangeFilters(draftFilters || { clauses: [] })
+                  }
+                  onError={onError}
+                  error={
+                    invalidFilters[idx]
+                      ? "Invalid syntax for filter value."
+                      : dataFetchErrors?.find((e) => e.filter === idx)?.error
+                  }
+                  documentValidator={documentValidator(clause.field)}
+                  shouldSurfaceValidatorErrors={activeSchema?.schemaValidation}
+                />
+              ))}
+              <div className="mt-1 flex items-center gap-1">
+                <Button
+                  variant="neutral"
+                  size="xs"
+                  className="text-xs"
+                  icon={<PlusIcon />}
+                  onClick={() => onAddFilter(shownFilters.clauses.length)}
+                >
+                  Add filter
+                </Button>
+                {isDirty ? (
+                  <Button
+                    type="submit"
+                    tip={
+                      hasInvalidFilters
+                        ? "Fix the errors above to apply your filters."
+                        : undefined
+                    }
+                    disabled={hasInvalidFilters || !isDirty}
+                    size="xs"
+                    data-testid="apply-filters"
+                    className="text-xs"
+                  >
+                    Apply Filters
+                  </Button>
+                ) : (
+                  <p className="ml-1 text-xs flex gap-0.5 font-medium text-content-secondary">
+                    <CheckIcon />
+                    Filters applied
+                  </p>
+                )}
+                {dataFetchErrors && dataFetchErrors.length > 0 && (
+                  <p
+                    className="h-4 break-words text-xs text-content-errorSecondary"
+                    role="alert"
+                  >
+                    These filters are invalid, fix or remove invalid filters to
+                    continue.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </form>
+  );
+}
+
+function FilterItem({
+  idx,
+  fields,
+  defaultDocument,
+  clause,
+  onChangeFilter,
+  onDeleteFilter,
+  onApplyFilters,
+  onError,
+  error,
+  autoFocusValueEditor = false,
+  documentValidator,
+  shouldSurfaceValidatorErrors,
+}: {
+  idx: number;
+  fields: string[];
+  defaultDocument: GenericDocument;
+  clause: Filter;
+  onChangeFilter(filter: FilterState, idx: number): void;
+  onDeleteFilter(idx: number): void;
+  onApplyFilters(): void;
+  onError(idx: number, errors: string[]): void;
+  error?: string;
+  autoFocusValueEditor?: boolean;
+  documentValidator?: ValidatorJSON;
+  shouldSurfaceValidatorErrors?: boolean;
+}) {
+  return (
+    <div className="flex items-start gap-2" key={idx}>
+      <FilterEditor
+        id={clause.id || idx.toString()}
+        fields={fields}
+        defaultDocument={defaultDocument}
+        defaultValue={clause}
+        onChange={(filter) => onChangeFilter(filter, idx)}
+        onError={(errors) => onError(idx, errors)}
+        onDelete={() => onDeleteFilter(idx)}
+        onApplyFilters={onApplyFilters}
+        autoFocusValueEditor={autoFocusValueEditor}
+        validator={documentValidator}
+        shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
+      />
+      {error && (
+        <Tooltip tip={error}>
+          <ExclamationTriangleIcon className="mt-1.5 size-4 text-content-errorSecondary" />
+        </Tooltip>
+      )}
+    </div>
+  );
+}
+
+function generateNewFilter(): Filter {
+  return {
+    // Allocate an ID for the new clause on the client side
+    // To be used for the key prop in the FilterEditor
+    id: Math.random().toString(),
+    field: "_id",
+    op: "eq",
+    value: "",
+  };
+}
+
+function validatorForFilterField(
+  documentValidator: SchemaJson["tables"][0]["documentType"],
+  tableName: string,
+  fieldName?: string,
+): ValidatorJSON | undefined {
+  if (!documentValidator || fieldName === undefined) {
+    return undefined;
+  }
+
+  switch (fieldName) {
+    case "_id":
+      return { type: "id", tableName };
+    case "_creationTime":
+      return { type: "number" };
+    default:
+      return validatorForColumn(documentValidator, fieldName);
+  }
+}
+
+function useDataFilters({
+  tableName,
+  componentId,
+  filters,
+  onChangeFilters,
+  draftFilters,
+  setDraftFilters,
+  activeSchema,
+}: {
+  tableName: string;
+  componentId: string | null;
+  filters?: FilterExpression;
+  onChangeFilters(next: FilterExpression): void;
+  draftFilters?: FilterExpression;
+  setDraftFilters(next: FilterExpression): void;
+  activeSchema: SchemaJson | null;
 }) {
   const [invalidFilters, { set: setInvalidFilters }] = useMap();
+  const [showFilters, setShowFilters] = useState(false);
 
   const isDirty = !isEqual(filters, draftFilters);
   const hasInvalidFilters =
@@ -62,7 +363,7 @@ export function DataFilters({
   const shownFilters = useMemo(
     () =>
       (draftFilters?.clauses.length ?? 0) === 0
-        ? { clauses: [generateNewFilter()] }
+        ? { clauses: [] }
         : draftFilters!,
     [draftFilters],
   );
@@ -115,17 +416,20 @@ export function DataFilters({
     [shownFilters, setDraftFilters, onChangeFilters],
   );
 
-  const onAddFilter = (idx: number) => {
-    const newFilters = {
-      ...shownFilters,
-      clauses: [
-        ...shownFilters.clauses.slice(0, idx),
-        generateNewFilter(),
-        ...shownFilters.clauses.slice(idx),
-      ],
-    };
-    setDraftFilters(newFilters);
-  };
+  const onAddFilter = useCallback(
+    (idx: number) => {
+      const newFilters = {
+        ...shownFilters,
+        clauses: [
+          ...shownFilters.clauses.slice(0, idx),
+          generateNewFilter(),
+          ...shownFilters.clauses.slice(idx),
+        ],
+      };
+      setDraftFilters(newFilters);
+    },
+    [shownFilters, setDraftFilters],
+  );
 
   const onError = useCallback(
     (idx: number, errors: string[]) => {
@@ -144,236 +448,28 @@ export function DataFilters({
     ? documentValidatorForTable(activeSchema, tableName)
     : undefined;
 
-  return (
-    <Sheet className="ml-auto w-fit p-3" padding={false}>
-      <div className="mb-2 flex w-full items-center justify-between gap-2">
-        <h5>Filters</h5>
-        <div className="flex gap-2">
-          <Button
-            size="xs"
-            variant="neutral"
-            icon={<ChevronLeftIcon />}
-            tip="Previous Filters"
-            disabled={currentIdx + 1 >= filterHistory.length}
-            onClick={() => {
-              setCurrentIdx(currentIdx + 1);
-              setDraftFilters(filterHistory[currentIdx + 1]);
-            }}
-          />
-          <Button
-            size="xs"
-            variant="neutral"
-            icon={<ChevronRightIcon />}
-            tip="Next Filters"
-            disabled={currentIdx <= 0}
-            onClick={() => {
-              setCurrentIdx(currentIdx - 1);
-              setDraftFilters(filterHistory[currentIdx - 1]);
-            }}
-          />
-        </div>
-      </div>
-      <form
-        className="flex flex-col gap-2"
-        id={filterMenuId}
-        data-testid="filterMenu"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onChangeFilters(draftFilters || { clauses: [] });
-        }}
-        key={currentIdx}
-      >
-        <div className="flex flex-col gap-1.5 px-2 scrollbar">
-          {shownFilters.clauses.map((clause, idx) => (
-            <FilterItem
-              key={clause.id}
-              idx={idx}
-              autoFocusValueEditor={idx === shownFilters.clauses.length - 1}
-              tableName={tableName}
-              fields={tableFields}
-              clause={clause}
-              defaultDocument={defaultDocument}
-              onChangeFilter={onChangeFilter}
-              onAddFilter={onAddFilter}
-              onDeleteFilter={onDeleteFilter}
-              onApplyFilters={() =>
-                onChangeFilters(draftFilters || { clauses: [] })
-              }
-              onError={onError}
-              error={
-                invalidFilters[idx]
-                  ? "Invalid syntax for filter value."
-                  : dataFetchErrors?.find((e) => e.filter === idx)?.error
-              }
-              documentValidator={documentValidator}
-              shouldSurfaceValidatorErrors={activeSchema?.schemaValidation}
-            />
-          ))}
-        </div>
-        <div className="ml-auto flex items-center justify-between gap-1">
-          {dataFetchErrors && dataFetchErrors.length > 0 && (
-            <p
-              className="h-4 break-words text-xs text-content-errorSecondary"
-              role="alert"
-            >
-              These filters are invalid, fix or remove invalid filters to
-              continue.
-            </p>
-          )}
-          <Tooltip
-            tip={
-              hasInvalidFilters
-                ? "Fix the errors above to apply your filters."
-                : !isDirty
-                  ? "Update the filters to apply changes."
-                  : undefined
-            }
-            wrapsButton
-          >
-            <Button
-              type="submit"
-              disabled={hasInvalidFilters || !isDirty}
-              size="xs"
-              data-testid="apply-filters"
-            >
-              Apply filters
-            </Button>
-          </Tooltip>
-        </div>
-      </form>
-    </Sheet>
+  const getValidatorForField = useCallback(
+    (fieldName?: string) =>
+      documentValidator
+        ? validatorForFilterField(documentValidator, tableName, fieldName)
+        : undefined,
+    [documentValidator, tableName],
   );
-}
 
-function generateNewFilter(): Filter {
   return {
-    // Allocate an ID for the new clause on the client side
-    // To be used for the key prop in the FilterEditor
-    id: Math.random().toString(),
-    field: "_id",
-    op: "eq",
-    value: "",
+    showFilters,
+    setShowFilters,
+    isDirty,
+    hasInvalidFilters,
+    shownFilters,
+    onChangeFilter,
+    onDeleteFilter,
+    onAddFilter,
+    onError,
+    filterHistory,
+    currentIdx,
+    setCurrentIdx,
+    documentValidator: getValidatorForField,
+    invalidFilters,
   };
 }
-
-function FilterItem({
-  idx,
-  fields,
-  defaultDocument,
-  clause,
-  onChangeFilter,
-  onAddFilter,
-  onDeleteFilter,
-  onApplyFilters,
-  onError,
-  error,
-  autoFocusValueEditor = false,
-  documentValidator,
-  shouldSurfaceValidatorErrors,
-  tableName,
-}: {
-  idx: number;
-  fields: string[];
-  defaultDocument: GenericDocument;
-  clause: Filter;
-  onAddFilter(idx: number): void;
-  onChangeFilter(filter: FilterState, idx: number): void;
-  onDeleteFilter(idx: number): void;
-  onApplyFilters(): void;
-  onError(idx: number, errors: string[]): void;
-  error?: string;
-  autoFocusValueEditor?: boolean;
-  documentValidator?: ValidatorJSON;
-  shouldSurfaceValidatorErrors?: boolean;
-  tableName: string;
-}) {
-  const onChange = useCallback(
-    (filter: FilterState) => {
-      onChangeFilter(filter, idx);
-    },
-    [idx, onChangeFilter],
-  );
-  const onDelete = useCallback(
-    () => onDeleteFilter(idx),
-    [idx, onDeleteFilter],
-  );
-  const onAdd = useCallback(() => onAddFilter(idx + 1), [idx, onAddFilter]);
-
-  const handleError = useCallback(
-    (errors: string[]) => onError(idx, errors),
-    [idx, onError],
-  );
-
-  // Convert the Filter into a FilterState
-  const defaultValue = useMemo<FilterState>(() => {
-    // Return an incomplete filter for either of these operators
-    if (clause.op === "anyOf" || clause.op === "noneOf") {
-      return { op: "eq" };
-    }
-    // Type filters are special because they have a value that is not a JSONValue.
-    if (isTypeFilterOp(clause.op)) {
-      return clause;
-    }
-    let value = null;
-    if (clause.value !== undefined) {
-      try {
-        value = jsonToConvex(clause.value);
-      } catch (e) {
-        // couldn't parse the value, so leave it as null
-      }
-    }
-    return {
-      field: clause.field,
-      op: clause.op,
-      value,
-    };
-  }, [clause]);
-
-  const validator = documentValidator
-    ? validatorForFilterField(documentValidator, tableName, clause.field)
-    : undefined;
-  return (
-    <div className="ml-auto flex items-start gap-2" key={idx}>
-      {error ? (
-        <Tooltip tip={error}>
-          <ExclamationTriangleIcon className="mt-2.5 h-5 w-5 text-content-errorSecondary" />
-        </Tooltip>
-      ) : (
-        <div className="w-5" />
-      )}
-      <FilterEditor
-        id={clause.id || idx.toString()}
-        fields={fields}
-        defaultDocument={defaultDocument}
-        defaultValue={defaultValue}
-        onChange={onChange}
-        onError={handleError}
-        onAdd={onAdd}
-        onDelete={onDelete}
-        onApplyFilters={onApplyFilters}
-        autoFocusValueEditor={autoFocusValueEditor}
-        validator={validator}
-        shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
-      />
-    </div>
-  );
-}
-
-const validatorForFilterField = (
-  documentValidator: SchemaJson["tables"][0]["documentType"],
-  tableName: string,
-  fieldName?: string,
-): ValidatorJSON | undefined => {
-  if (!documentValidator || fieldName === undefined) {
-    return undefined;
-  }
-
-  switch (fieldName) {
-    case "_id":
-      return { type: "id", tableName };
-    case "_creationTime":
-      return { type: "number" };
-    default:
-      return validatorForColumn(documentValidator, fieldName);
-  }
-};

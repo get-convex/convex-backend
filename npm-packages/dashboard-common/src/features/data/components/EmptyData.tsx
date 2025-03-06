@@ -7,6 +7,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useTableMetadata } from "@common/lib/useTableMetadata";
 import { Loading } from "@common/elements/Loading";
 import { Button } from "@common/elements/Button";
+import { Sheet } from "@common/elements/Sheet";
 
 export function EmptyData() {
   return (
@@ -44,52 +45,54 @@ export function EmptyDataContent({
   }
 
   return (
-    <EmptySection
-      Icon={TableIcon}
-      header={
-        noTables ? "There are no tables here yet." : "This table is empty."
-      }
-      sheet={!noTables}
-      body={
-        noTables
-          ? "Create a table to start storing data."
-          : "Create a document or run a mutation to start storing data."
-      }
-      action={
-        noTables ? (
-          <CreateNewTable tableData={tableMetadata} />
-        ) : (
-          <>
-            {openAddDocuments && (
-              <Button
-                inline
-                onClick={() => {
-                  log("open add documents panel", { how: "empty data" });
-                  openAddDocuments();
-                }}
-                size="sm"
-                disabled={
-                  !canAddDocuments ||
-                  !!(selectedNent && selectedNent.state !== "active")
-                }
-                tip={
-                  selectedNent && selectedNent.state !== "active"
-                    ? "Cannot add documents in an unmounted component."
-                    : !canAddDocuments &&
-                      "You do not have permission to add documents in production."
-                }
-                icon={<PlusIcon aria-hidden="true" />}
-              >
-                Add Documents
-              </Button>
-            )}
-          </>
-        )
-      }
-      learnMoreButton={{
-        href: "https://docs.convex.dev/quickstarts",
-        children: "Follow a quickstart guide for your favorite framework.",
-      }}
-    />
+    <Sheet padding={false} className="w-full rounded-t-none">
+      <EmptySection
+        Icon={TableIcon}
+        header={
+          noTables ? "There are no tables here yet." : "This table is empty."
+        }
+        sheet={false}
+        body={
+          noTables
+            ? "Create a table to start storing data."
+            : "Create a document or run a mutation to start storing data."
+        }
+        action={
+          noTables ? (
+            <CreateNewTable tableData={tableMetadata} />
+          ) : (
+            <>
+              {openAddDocuments && (
+                <Button
+                  inline
+                  onClick={() => {
+                    log("open add documents panel", { how: "empty data" });
+                    openAddDocuments();
+                  }}
+                  size="sm"
+                  disabled={
+                    !canAddDocuments ||
+                    !!(selectedNent && selectedNent.state !== "active")
+                  }
+                  tip={
+                    selectedNent && selectedNent.state !== "active"
+                      ? "Cannot add documents in an unmounted component."
+                      : !canAddDocuments &&
+                        "You do not have permission to add documents in production."
+                  }
+                  icon={<PlusIcon aria-hidden="true" />}
+                >
+                  Add Documents
+                </Button>
+              )}
+            </>
+          )
+        }
+        learnMoreButton={{
+          href: "https://docs.convex.dev/quickstarts",
+          children: "Follow a quickstart guide for your favorite framework.",
+        }}
+      />
+    </Sheet>
   );
 }

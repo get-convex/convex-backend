@@ -154,7 +154,6 @@ function DataRowLoaded({ index, style, data }: DataRowProps) {
         "focus:ring-none focus:border",
         didJustCreate && "animate-highlight",
         "DataRow",
-        checked && "bg-background-tertiary",
       )}
       {...row.getRowProps({
         style,

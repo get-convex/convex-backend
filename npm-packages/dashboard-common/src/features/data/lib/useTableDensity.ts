@@ -1,5 +1,5 @@
 export function useTableDensity() {
-  const dv = densityValues.normal;
+  const dv = densityValues.snug;
   return {
     densityValues: {
       ...dv,
@@ -9,12 +9,12 @@ export function useTableDensity() {
 }
 
 const densityValues: Record<
-  "normal",
+  "snug",
   { paddingX: number; paddingY: number; lineHeight: number; border: number }
 > = {
   // Even tighter values we could use in the future.
-  // snug: { paddingX: 6, paddingY: 8, lineHeight: 16, border: 1 },
-  normal: { paddingX: 12, paddingY: 12, lineHeight: 16, border: 1 },
+  snug: { paddingX: 6, paddingY: 8, lineHeight: 16, border: 1 },
+  // normal: { paddingX: 12, paddingY: 12, lineHeight: 16, border: 1 },
   // Old density values.
   // comfy: { paddingX: 12, paddingY: 16, lineHeight: 16, border: 1 },
 };

@@ -60,7 +60,7 @@ export function SidebarDetailLayout({
           onCollapse={() => setCollapsed(true)}
           onExpand={() => setCollapsed(false)}
         >
-          {sidebarComponent}
+          {!collapsed && sidebarComponent}
         </Panel>
 
         <ResizeHandle

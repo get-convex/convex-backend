@@ -65,7 +65,6 @@ export function DataContent({
     tableName,
     componentId,
   );
-  const [showFilters, setShowFilters] = useState(false);
   const [draftFilters, setDraftFilters] = useState(filters);
   useEffect(() => {
     setDraftFilters(filters);
@@ -172,9 +171,6 @@ export function DataContent({
   const defaultDocument = useDefaultDocument(tableName);
   const changeFilterAndMaybeCloseThem = (newFilters: FilterExpression) => {
     void changeFilters(newFilters);
-    if (newFilters.clauses.length === 0) {
-      setShowFilters(false);
-    }
   };
 
   return (
@@ -188,7 +184,7 @@ export function DataContent({
     >
       <Panel
         className={cn(
-          "flex shrink flex-col gap-6 overflow-hidden py-4",
+          "flex shrink flex-col gap-2 overflow-hidden py-4",
           "max-w-full",
           popupEl ? "min-w-[10rem]" : "min-w-[30rem]",
         )}
@@ -196,128 +192,131 @@ export function DataContent({
         defaultSize={80}
         minSize={10}
       >
-        <div className="flex flex-col gap-2">
-          <DataToolbar
-            popupState={popupState}
-            deleteRows={deleteRows}
-            selectedRowsIds={rowsThatAreSelected}
-            allRowsSelected={allRowsSelected === true}
-            selectedDocument={selectedDocument}
-            numRows={numRowsInTable}
-            numRowsLoaded={data.length || 0}
-            tableSchemaStatus={tableSchemaStatus}
-            tableName={tableName}
-            filters={filters}
-            hasFilters={hasFilters}
-            isProd={isProd}
-            isLoadingMore={isLoading && !isPaused}
-            showFilters={showFilters}
-            setShowFilters={setShowFilters}
-          />
-          {showFilters && (
-            <DataFilters
-              tableName={tableName}
-              componentId={componentId}
-              tableFields={tableFields}
-              defaultDocument={defaultDocument}
-              filters={filters}
-              onChangeFilters={changeFilterAndMaybeCloseThem}
-              dataFetchErrors={errors}
-              draftFilters={draftFilters}
-              setDraftFilters={setDraftFilters}
-              activeSchema={activeSchema}
-            />
-          )}
-        </div>
+        <DataToolbar
+          popupState={popupState}
+          deleteRows={deleteRows}
+          selectedRowsIds={rowsThatAreSelected}
+          allRowsSelected={allRowsSelected === true}
+          selectedDocument={selectedDocument}
+          numRows={numRowsInTable}
+          tableSchemaStatus={tableSchemaStatus}
+          tableName={tableName}
+          isProd={isProd}
+          isLoadingMore={isLoading && !isPaused}
+        />
 
-        <LoadingTransition
-          loadingState={
-            <div className="flex h-full flex-col items-center justify-center gap-8 rounded border bg-background-secondary">
-              <LoadingLogo />
-            </div>
-          }
-          loadingProps={{ shimmer: false }}
-        >
-          {status !== "LoadingFirstPage" &&
-            (data.length || status === "CanLoadMore" ? (
-              <Sheet className={classNames("w-full relative")} padding={false}>
-                {!isPaused && staleAsOf > 0 && (
-                  <LoadingFilteredData
-                    numRowsRead={numRowsRead}
-                    numRowsInTable={numRowsInTable}
-                    overlay
-                  />
-                )}
-                <Table
-                  activeSchema={activeSchema}
-                  listRef={listRef}
-                  loadMore={loadNextPage}
-                  totalRowCount={
-                    router.query.filters
-                      ? status === "Exhausted"
-                        ? data.length
-                        : // If we are filtering, we need to add 1 to the total row count to
-                          // allow the infinite loader to load more documents when scrolling.
-                          data.length + 1
-                      : numRowsInTable
-                  }
-                  hasFilters={hasFilters}
-                  patchDocument={patchDocumentField}
-                  selectedRows={selectedRows}
-                  areEditsAuthorized={areEditsAuthorized}
-                  onAuthorizeEdits={onAuthorizeEdits}
-                  tableName={tableName}
-                  componentId={componentId}
-                  isProd={isProd}
-                  data={data}
-                  columns={columns}
-                  localStorageKey={localStorageKey}
-                  hasPopup={!!popupEl}
-                  setPopup={popupState.setPopup}
-                  deleteRows={deleteRows}
-                  defaultDocument={defaultDocument}
-                  onAddDraftFilter={(filter: Filter) => {
-                    setShowFilters(true);
-                    setDraftFilters((prev) =>
-                      prev
-                        ? { clauses: [...prev.clauses, filter] }
-                        : { clauses: [filter] },
-                    );
-                  }}
-                />
-              </Sheet>
-            ) : isUsingFilters ? (
-              isLoading ? (
+        <div className="flex h-full flex-col rounded">
+          <DataFilters
+            tableName={tableName}
+            componentId={componentId}
+            tableFields={tableFields}
+            defaultDocument={defaultDocument}
+            filters={filters}
+            onChangeFilters={changeFilterAndMaybeCloseThem}
+            dataFetchErrors={errors}
+            draftFilters={draftFilters}
+            setDraftFilters={setDraftFilters}
+            activeSchema={activeSchema}
+            numRows={numRowsInTable}
+            numRowsLoaded={data.length}
+            hasFilters={hasFilters}
+          />
+
+          <LoadingTransition
+            loadingState={
+              <div className="flex h-full flex-col items-center justify-center gap-8 rounded border bg-background-secondary">
+                <LoadingLogo />
+              </div>
+            }
+            loadingProps={{ shimmer: false }}
+          >
+            {status !== "LoadingFirstPage" &&
+              (data.length || status === "CanLoadMore" ? (
                 <Sheet
-                  className="flex w-full grow animate-fadeIn items-center justify-center"
+                  className={classNames("w-full relative rounded-t-none")}
                   padding={false}
                 >
-                  <LoadingFilteredData
-                    numRowsRead={numRowsRead}
-                    numRowsInTable={numRowsInTable}
+                  {!isPaused && staleAsOf > 0 && (
+                    <LoadingFilteredData
+                      numRowsRead={numRowsRead}
+                      numRowsInTable={numRowsInTable}
+                      overlay
+                    />
+                  )}
+                  <Table
+                    activeSchema={activeSchema}
+                    listRef={listRef}
+                    loadMore={loadNextPage}
+                    totalRowCount={
+                      router.query.filters
+                        ? status === "Exhausted"
+                          ? data.length
+                          : // If we are filtering, we need to add 1 to the total row count to
+                            // allow the infinite loader to load more documents when scrolling.
+                            data.length + 1
+                        : numRowsInTable
+                    }
+                    hasFilters={hasFilters}
+                    patchDocument={patchDocumentField}
+                    selectedRows={selectedRows}
+                    areEditsAuthorized={areEditsAuthorized}
+                    onAuthorizeEdits={onAuthorizeEdits}
+                    tableName={tableName}
+                    componentId={componentId}
+                    isProd={isProd}
+                    data={data}
+                    columns={columns}
+                    localStorageKey={localStorageKey}
+                    hasPopup={!!popupEl}
+                    setPopup={popupState.setPopup}
+                    deleteRows={deleteRows}
+                    defaultDocument={defaultDocument}
+                    onAddDraftFilter={(filter: Filter) => {
+                      setDraftFilters((prev) =>
+                        prev
+                          ? { clauses: [...prev.clauses, filter] }
+                          : { clauses: [filter] },
+                      );
+                    }}
                   />
                 </Sheet>
-              ) : (
-                <div className="flex h-full flex-1 flex-col items-center gap-2 pt-8">
-                  <div className="text-content-secondary">
-                    No documents match the selected filters.
-                  </div>
-                  <Button
-                    onClick={() => changeFilters({ clauses: [] })}
-                    size="sm"
+              ) : isUsingFilters ? (
+                isLoading ? (
+                  <Sheet
+                    className="flex w-full grow animate-fadeIn items-center justify-center rounded-t-none"
+                    padding={false}
                   >
-                    Clear filters
-                  </Button>
-                </div>
-              )
-            ) : (
-              <EmptyDataContent
-                openAddDocuments={() =>
-                  popupState.setPopup({ type: "addDocuments", tableName })
-                }
-              />
-            ))}
-        </LoadingTransition>
+                    <LoadingFilteredData
+                      numRowsRead={numRowsRead}
+                      numRowsInTable={numRowsInTable}
+                    />
+                  </Sheet>
+                ) : (
+                  <div className="flex h-full flex-1 flex-col items-center gap-2 rounded-t-none border bg-background-secondary pt-8">
+                    <div className="text-content-secondary">
+                      No documents match the selected filters.
+                    </div>
+                    <Button
+                      onClick={() =>
+                        changeFilters({
+                          clauses: [],
+                        })
+                      }
+                      size="xs"
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <EmptyDataContent
+                  openAddDocuments={() =>
+                    popupState.setPopup({ type: "addDocuments", tableName })
+                  }
+                />
+              ))}
+          </LoadingTransition>
+        </div>
       </Panel>
       {popupEl}
     </PanelGroup>

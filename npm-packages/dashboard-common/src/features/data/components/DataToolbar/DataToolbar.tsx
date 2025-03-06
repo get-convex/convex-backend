@@ -1,14 +1,6 @@
-import {
-  Pencil1Icon,
-  PlusIcon,
-  QuestionMarkCircledIcon,
-  TrashIcon,
-} from "@radix-ui/react-icons";
-import classNames from "classnames";
-import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import { Pencil1Icon, PlusIcon, TrashIcon } from "@radix-ui/react-icons";
 import { useContext } from "react";
 import { Button } from "@common/elements/Button";
-import { LoadingTransition } from "@common/elements/Loading";
 import { Tooltip } from "@common/elements/Tooltip";
 import { Spinner } from "@common/elements/Spinner";
 import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
@@ -16,7 +8,6 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 import { PopupState } from "@common/features/data/lib/useToolPopup";
 import { useEnabledDebounced } from "@common/features/data/lib/useEnabledDebounced";
-import { FilterButton } from "@common/features/data/components/DataFilters/FilterButton";
 import { DataOverflowMenu } from "@common/features/data/components/DataOverflowMenu/DataOverflowMenu";
 import {
   isTableMissingFromSchema,
@@ -28,36 +19,26 @@ export type DataToolbarProps = {
   popupState: PopupState;
   allRowsSelected: boolean;
   deleteRows: (rowIds: Set<string>) => Promise<void>;
-  filters: FilterExpression | undefined;
-  hasFilters: boolean;
   isLoadingMore: boolean;
   isProd: boolean;
   tableSchemaStatus: TableSchemaStatus | undefined;
   numRows?: number;
-  numRowsLoaded: number;
   selectedRowsIds: Set<string>;
   selectedDocument: Record<string, any> | undefined;
   tableName: string;
-  showFilters: boolean;
-  setShowFilters: (show: boolean) => void;
 };
 
 export function DataToolbar({
   popupState: { popup: popupState, setPopup },
   allRowsSelected,
-  filters,
   deleteRows,
-  hasFilters,
   isLoadingMore,
   isProd,
   tableSchemaStatus,
   numRows,
-  numRowsLoaded,
   selectedRowsIds,
   selectedDocument,
   tableName,
-  showFilters,
-  setShowFilters,
 }: DataToolbarProps) {
   const popup = popupState?.type;
 
@@ -80,8 +61,6 @@ export function DataToolbar({
   const isEditingAllAndMoreThanOne = allRowsSelected && numRowsSelected !== 1;
   const isEditingMoreThanOne =
     isEditingAllAndMoreThanOne || numRowsSelected > 1;
-
-  const numRowsWeKnowOf = hasFilters ? numRowsLoaded : numRows;
 
   const {
     useLogDeploymentEvent,
@@ -118,38 +97,6 @@ export function DataToolbar({
                 )}
               </h3>
             </Tooltip>
-            <LoadingTransition
-              loadingProps={{
-                fullHeight: false,
-                className: "h-4",
-              }}
-            >
-              {numRowsWeKnowOf !== undefined && (
-                <div
-                  className={classNames(
-                    "flex items-center gap-1",
-                    "text-xs whitespace-nowrap",
-                    "text-content-secondary",
-                  )}
-                >
-                  <span className="font-semibold">
-                    {numRowsWeKnowOf.toLocaleString()}{" "}
-                  </span>
-                  {numRowsWeKnowOf === 1 ? "document" : "documents"}{" "}
-                  {hasFilters && (
-                    <>
-                      {numRowsWeKnowOf !== numRows && `loaded`}
-                      <Tooltip
-                        tip="Filtered results are paginated and more documents will be loaded as you scroll."
-                        side="right"
-                      >
-                        <QuestionMarkCircledIcon />
-                      </Tooltip>
-                    </>
-                  )}
-                </div>
-              )}
-            </LoadingTransition>
           </div>
           <div className="w-4">
             <div
@@ -208,19 +155,6 @@ export function DataToolbar({
             />
           )}
 
-          <FilterButton
-            filters={filters}
-            open={showFilters}
-            onClick={() => {
-              log(
-                showFilters ? "collapse data filters" : "expand data filters",
-                {
-                  how: "toolbar",
-                },
-              );
-              setShowFilters(!showFilters);
-            }}
-          />
           {tableSchemaStatus && (
             <DataOverflowMenu
               tableSchemaStatus={tableSchemaStatus}

@@ -1,49 +1,70 @@
+import "@testing-library/jest-dom";
+import React from "react";
 import { renderHook, act } from "@testing-library/react";
 import mockRouter from "next-router-mock";
-import { encodeURI } from "js-base64";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
-import {
-  useFilterMap,
-  useTableFilters,
-} from "@common/features/data/lib/useTableFilters";
+import { encodeURI } from "js-base64";
+import { DeploymentInfoContext } from "../../../lib/deploymentContext";
+import { mockDeploymentInfo } from "../../../lib/mockDeploymentInfo";
+import { useFilterMap, useTableFilters } from "./useTableFilters";
 
 jest.mock("next/router", () => jest.requireActual("next-router-mock"));
+
+const renderWithDeploymentInfo = <T,>(
+  callback: (...args: any[]) => T,
+  initialProps?: any,
+) => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+      {children}
+    </DeploymentInfoContext.Provider>
+  );
+  return renderHook(callback, { wrapper, initialProps });
+};
+
 describe("useTableFilters", () => {
   beforeEach(() => {
-    jest.resetAllMocks();
-    mockRouter.setCurrentUrl("/your-url");
-    mockRouter.query = { filters: undefined };
-
-    // Render useFilterMap and reset the global state
-    const { result } = renderHook(() => useFilterMap());
-    act(() => {
-      result.current[1]({});
-    });
+    mockRouter.setCurrentUrl("/some-url");
   });
 
   it("should initialize with no filters", () => {
-    const { result } = renderHook(() => useTableFilters("table1", null));
-
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters("test", null),
+    );
     expect(result.current.filters).toBeUndefined();
-    expect(result.current.hasFilters).toBe(false);
   });
 
   it("should update filters", async () => {
-    const { result } = renderHook(() => useTableFilters("table1", null));
-    const newFilters: FilterExpression = {
-      clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
-    };
-
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters("test", null),
+    );
     await act(async () => {
+      const newFilters: FilterExpression = {
+        clauses: [
+          {
+            field: "test",
+            op: "eq",
+            value: "value",
+          },
+        ],
+      };
       await result.current.changeFilters(newFilters);
     });
-
-    expect(result.current.filters).toEqual(newFilters);
-    expect(result.current.hasFilters).toBe(true);
+    expect(result.current.filters).toEqual({
+      clauses: [
+        {
+          field: "test",
+          op: "eq",
+          value: "value",
+        },
+      ],
+    });
   });
 
   it("should validate filters", async () => {
-    const { result } = renderHook(() => useTableFilters("table1", null));
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters("test", null),
+    );
     const validFilters: FilterExpression = {
       clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
     };
@@ -78,11 +99,9 @@ describe("useTableFilters", () => {
     };
 
     // Render the hook with table1.
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderWithDeploymentInfo(
       (tableName) => useTableFilters(tableName, null),
-      {
-        initialProps: table1,
-      },
+      table1,
     );
     await act(async () => {
       await result.current.changeFilters(filtersTable1);
@@ -121,7 +140,9 @@ describe("useTableFilters", () => {
     mockRouter.query.filters = encodeURI(JSON.stringify(queryFilters));
 
     // Render the hook with the table name.
-    const { result } = renderHook(() => useTableFilters(tableName, null));
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters(tableName, null),
+    );
 
     // The filters should be the same as the query filters.
     expect(result.current.filters).toEqual(queryFilters);
@@ -139,11 +160,9 @@ describe("useTableFilters", () => {
 
     mockRouter.query.filters = encodeURI(JSON.stringify(filtersTable1));
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = renderWithDeploymentInfo(
       (tableName) => useTableFilters(tableName, null),
-      {
-        initialProps: table1,
-      },
+      table1,
     );
 
     expect(result.current.filters).toEqual(filtersTable1);
@@ -168,7 +187,9 @@ describe("useTableFilters", () => {
     mockRouter.query.filters = queryFilters;
 
     // Render the hook with the table name.
-    const { result } = renderHook(() => useTableFilters(tableName, null));
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters(tableName, null),
+    );
 
     // The filters should be undefined because the query filters are invalid.
     expect(result.current.filters).toBeUndefined();
@@ -182,7 +203,9 @@ describe("useTableFilters", () => {
 
     // Render the hook with the table name.
     mockRouter.query.filters = encodeURI(JSON.stringify(newFilters));
-    const { result } = renderHook(() => useTableFilters(tableName, null));
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters(tableName, null),
+    );
 
     // The filters should be undefined because the query filters are invalid.
     expect(result.current.filters).toBeUndefined();
@@ -195,7 +218,9 @@ describe("useTableFilters", () => {
     };
 
     // Render the hook with the table name.
-    const { result } = renderHook(() => useTableFilters(tableName, null));
+    const { result } = renderWithDeploymentInfo(() =>
+      useTableFilters(tableName, null),
+    );
 
     expect(mockRouter.query.filters).toBeUndefined();
     // Change the filters.
@@ -224,7 +249,9 @@ describe("useTableFilters", () => {
   //   mockRouter.isReady = false;
 
   //   // Render the hook with the table name.
-  //   const { result, rerender } = renderHook(() => useTableFilters(tableName));
+  //   const { result, rerender } = renderWithDeploymentInfo(() =>
+  //     useTableFilters(tableName),
+  //   );
 
   //   // The filters should be undefined because the router is not ready.
   //   expect(result.current.filters).toBeUndefined();
@@ -238,4 +265,23 @@ describe("useTableFilters", () => {
   //   // The filters should be updated with the query filters.
   //   expect(result.current.filters).toEqual(queryFilters);
   // });
+});
+
+describe("useFilterMap", () => {
+  it("should convert filters to a map", () => {
+    const filters: FilterExpression = {
+      clauses: [
+        {
+          field: "test",
+          op: "eq",
+          value: "value",
+        },
+      ],
+    };
+    const { result } = renderWithDeploymentInfo(() => useFilterMap());
+    act(() => {
+      result.current[1]({ test: filters });
+    });
+    expect(result.current[0]).toEqual({ test: filters });
+  });
 });

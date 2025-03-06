@@ -46,7 +46,6 @@ describe("FilterEditor", () => {
             onDelete={jest.fn()}
             onError={jest.fn()}
             onApplyFilters={jest.fn()}
-            onAdd={jest.fn()}
             {...props}
           />
         </ConvexProvider>

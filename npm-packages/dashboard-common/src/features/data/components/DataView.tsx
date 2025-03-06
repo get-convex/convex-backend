@@ -111,6 +111,7 @@ export function DataView() {
                 >
                   {activeSchema !== undefined && (
                     <DataContent
+                      key={tableMetadata.name}
                       tableName={tableMetadata.name}
                       componentId={componentId ?? null}
                       shape={

@@ -2,7 +2,7 @@ import { decode, encodeURI, isValid } from "js-base64";
 import { useRouter } from "next/router";
 import { createGlobalState, usePrevious } from "react-use";
 
-import { useEffect } from "react";
+import { useEffect, useContext } from "react";
 import {
   FilterExpression,
   FilterExpressionSchema,
@@ -10,6 +10,7 @@ import {
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import isEqual from "lodash/isEqual";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 // Global state keeping track of filters for all tables.
 export const useFilterMap = createGlobalState(
@@ -152,8 +153,10 @@ export function useFilterHistory(
   filterHistory: FilterExpression[];
   appendFilterHistory: (value: FilterExpression) => void;
 } {
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
   const [filterHistory, setFilterHistory] = useGlobalLocalStorage(
-    `filterHistory/${componentId ? `${componentId}/` : ""}${tableName}`,
+    `filterHistory/${deployment?.name}/${componentId ? `${componentId}/` : ""}${tableName}`,
     [] as FilterExpression[],
   );
 
@@ -161,7 +164,10 @@ export function useFilterHistory(
     filterHistory,
     appendFilterHistory: (value) => {
       setFilterHistory((prev: FilterExpression[]) => {
-        if (prev.length > 0 && isEqual(prev[0], value)) {
+        if (
+          (prev.length > 0 && isEqual(prev[0], value)) ||
+          value.clauses.length === 0
+        ) {
           return prev;
         }
         const updatedHistory = [value, ...prev];

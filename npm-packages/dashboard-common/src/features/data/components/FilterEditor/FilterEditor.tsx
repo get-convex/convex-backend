@@ -1,6 +1,4 @@
-import { BackspaceIcon } from "@heroicons/react/20/solid";
-import { PlusIcon } from "@radix-ui/react-icons";
-import classNames from "classnames";
+import { BackspaceIcon } from "@heroicons/react/24/outline";
 import { GenericDocument } from "convex/server";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
@@ -56,7 +54,6 @@ export type FilterState = {
 export type FilterEditorProps = {
   fields: string[];
   onChange(filter: FilterState): void;
-  onAdd(): void;
   onDelete(): void;
   onApplyFilters(): void;
   onError(errors: string[]): void;
@@ -71,7 +68,6 @@ export type FilterEditorProps = {
 export function FilterEditor({
   fields,
   onChange,
-  onAdd,
   onDelete,
   onError,
   onApplyFilters,
@@ -104,75 +100,67 @@ export function FilterEditor({
   const [objectEditorKey, forceRerender] = useReducer((x) => x + 1, 0);
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-1.5">
-        <div className="flex gap-1.5">
-          <Combobox
-            label="Select filter field"
-            buttonClasses="w-[10rem]"
-            searchPlaceholder="Search fields..."
-            options={fields.map((field) => ({ value: field, label: field }))}
-            selectedOption={state.field}
-            setSelectedOption={selectField(
-              state,
-              dispatch,
-              defaultDocument,
-              forceRerender,
-            )}
-            // If we only have two fields, it might be caused by the shapes computation returning
-            // an “any” type. We allow the user to type arbitrary fields name in this case.
-            allowCustomValue={fields.length === ["_id", "_creationTime"].length}
-          />
-          <Combobox
-            label="Select filter operator"
-            searchPlaceholder="Search operators..."
-            buttonClasses="w-[8rem]"
-            options={operatorOptions}
-            selectedOption={state.op}
-            setSelectedOption={selectOperator(
-              state,
-              dispatch,
-              defaultDocument,
-              () => {
-                onError([]); // Clear any error state from the previous operator values.
-                forceRerender(); // Force a re-render to clear any error state from the monaco editor.
-              },
-            )}
-          />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <ValueEditor
-            {...{
-              dispatch,
-              state,
-              id,
-              objectEditorKey,
-              onChangeValue,
-              onApplyFilters,
-              onError,
-              autoFocus: autoFocusValueEditor,
-              validator,
-              shouldSurfaceValidatorErrors,
-            }}
-          />
-          <Button
-            size="sm"
-            variant="neutral"
-            inline
-            onClick={onDelete}
-            aria-label={`Delete filter ${id}`}
-            icon={<BackspaceIcon className="h-4 w-4" />}
-          />
-          <Button
-            size="sm"
-            variant="neutral"
-            inline
-            onClick={onAdd}
-            aria-label={`Add filter after ${id}`}
-            icon={<PlusIcon />}
-          />
-        </div>
-      </div>
+    <div className="flex grow min-w-0">
+      <Combobox
+        label="Select filter field"
+        size="sm"
+        optionsWidth="fixed"
+        buttonClasses="min-w-fit w-fit max-w-[7rem] truncate"
+        innerButtonClasses="rounded-r-none focus:border-r"
+        searchPlaceholder="Search fields..."
+        options={fields.map((field) => ({ value: field, label: field }))}
+        selectedOption={state.field}
+        setSelectedOption={selectField(
+          state,
+          dispatch,
+          defaultDocument,
+          forceRerender,
+        )}
+        // If we only have two fields, it might be caused by the shapes computation returning
+        // an “any” type. We allow the user to type arbitrary fields name in this case.
+        allowCustomValue={fields.length === ["_id", "_creationTime"].length}
+      />
+      <Combobox
+        label="Select filter operator"
+        searchPlaceholder="Search operators..."
+        size="sm"
+        optionsWidth="fixed"
+        buttonClasses="w-fit"
+        innerButtonClasses="w-fit rounded-r-none rounded-l-none ml-[-1px]"
+        options={operatorOptions}
+        selectedOption={state.op}
+        setSelectedOption={selectOperator(
+          state,
+          dispatch,
+          defaultDocument,
+          () => {
+            onError([]); // Clear any error state from the previous operator values.
+            forceRerender(); // Force a re-render to clear any error state from the monaco editor.
+          },
+        )}
+      />
+      <ValueEditor
+        {...{
+          dispatch,
+          state,
+          id,
+          objectEditorKey,
+          onChangeValue,
+          onApplyFilters,
+          onError,
+          autoFocus: autoFocusValueEditor,
+          validator,
+          shouldSurfaceValidatorErrors,
+        }}
+      />
+      <Button
+        size="xs"
+        variant="neutral"
+        onClick={onDelete}
+        className="ml-[-1px] rounded-l-none"
+        aria-label={`Delete filter ${id}`}
+        icon={<BackspaceIcon className="size-4" />}
+      />
     </div>
   );
 }
@@ -204,19 +192,15 @@ function ValueEditor({
     state.field === "_creationTime" && typeof state.value === "number";
 
   return (
-    <div
-      className={classNames(
-        "flex w-[18rem]",
-        // Combobox for type filter and date picker has it's own border.
-        !isTypeFilterOp(state.op) && !isDatepicker && "border rounded",
-      )}
-    >
+    <div className="ml-[-1px] grow min-w-0">
       {isTypeFilterOp(state.op) ? (
         <Combobox
           searchPlaceholder="Search types..."
           label="Select type value"
-          buttonClasses="w-[18rem]"
-          optionsWidth="full"
+          buttonClasses="w-full rounded-l-none rounded-r-none"
+          innerButtonClasses="w-full rounded-r-none rounded-l-none"
+          size="sm"
+          optionsWidth="fixed"
           options={typeOptions}
           selectedOption={state.value}
           setSelectedOption={(option) => {
@@ -225,7 +209,6 @@ function ValueEditor({
         />
       ) : isDatepicker ? (
         <DateTimePicker
-          inputClassName="w-[18rem]"
           date={
             // Convert to date from Unix timestamp, defaulting to now.
             typeof state.value === "number" ? new Date(state.value) : new Date()
@@ -238,7 +221,9 @@ function ValueEditor({
       ) : (
         <ObjectEditor
           key={objectEditorKey}
-          className="border-none pl-3"
+          className="min-w-4 rounded-none border"
+          editorClassname="px-2 py-1 mt-0 rounded bg-background-secondary rounded-l-none rounded-r-none"
+          size="sm"
           disableFolding
           defaultValue={state.value}
           onChange={onChangeValue}

@@ -103,7 +103,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
 });
 
 const button = tv({
-  base: "inline-flex animate-fadeInFromLoading select-none items-center whitespace-nowrap rounded text-sm font-medium transition-colors focus-visible:outline-0 focus-visible:ring-1 focus-visible:ring-util-accent/40 focus-visible:ring-offset-2",
+  base: "box-content inline-flex animate-fadeInFromLoading select-none items-center whitespace-nowrap rounded text-sm font-medium transition-colors focus-visible:outline-0 focus-visible:ring-1 focus-visible:ring-util-accent/40 focus-visible:ring-offset-2",
   variants: {
     variant: {
       primary:
@@ -201,7 +201,7 @@ const button = tv({
       disabled: true,
       accent: "inline",
       class:
-        "bg-transparent text-neutral-4 hover:bg-transparent dark:text-neutral-6",
+        "bg-transparent text-neutral-4 hover:bg-transparent dark:bg-transparent dark:text-neutral-6",
     },
   ],
   defaultVariants: {

@@ -29,8 +29,6 @@ import {
 import { walkAst, WalkAstOptions } from "./ast/walkAst";
 import { registerIdCommands, useIdDecorations } from "./useIdDecorations";
 
-const editorLineHeight = 18;
-
 export type ObjectEditorProps = {
   defaultValue?: Value;
   onChange(v?: Value): void;
@@ -57,6 +55,8 @@ export type ObjectEditorProps = {
   shouldSurfaceValidatorErrors?: boolean;
   // Whether to show the full table name in the decoration for ID references.
   showTableNames?: boolean;
+  size?: "sm" | "md";
+  disabled?: boolean;
 } & WalkAstOptions;
 
 // Special case -- empty documents should be formatted to include space to entry a new field right away.
@@ -84,6 +84,8 @@ export function ObjectEditor(props: ObjectEditorProps) {
     mode,
     shouldSurfaceValidatorErrors = false,
     showTableNames = false,
+    size = "md",
+    disabled = false,
   } = props;
 
   const indentTopLevel = mode === "addDocuments" || mode === "editDocument";
@@ -152,8 +154,8 @@ export function ObjectEditor(props: ObjectEditorProps) {
   const [numLines, setNumLines] = useState(
     numLinesFromCode(defaultValueString),
   );
-  const editorHeight =
-    numLines <= 2 ? 18 * 2 : Math.min(numLines, 15) * editorLineHeight;
+  const editorLineHeight = size === "sm" ? 13 : 18;
+  const editorHeight = Math.min(Math.max(numLines, 2), 15) * editorLineHeight;
 
   const handleChange = useCallback(
     (code?: string) => {
@@ -191,14 +193,16 @@ export function ObjectEditor(props: ObjectEditorProps) {
 
   const { resolvedTheme: currentTheme } = useTheme();
   const prefersDark = currentTheme === "dark";
+
   return (
     <div
       data-testid="objectEditor"
       className={cn(
         // Setting a min-h makes sure the editor is able to properly resize when the
         // parent is resized.
-        "border rounded min-h-4 w-full h-full",
+        "border rounded min-h-4 w-full h-full max-w-full",
         className,
+        disabled && "bg-background-tertiary cursor-not-allowed",
         numLines > 2 && multilineClasses,
       )}
       style={{
@@ -208,102 +212,130 @@ export function ObjectEditor(props: ObjectEditorProps) {
       }}
       onScroll={(e) => e.stopPropagation()}
     >
-      <Editor
-        height="100%"
-        className={cn(padding && "pt-2", editorClassname)}
-        defaultLanguage="javascript"
-        defaultValue={defaultValueString}
-        options={{
-          ...editorOptions,
-          ...(showLineNumbers
-            ? {
-                lineNumbers: "on",
-                lineNumbersMinChars: 5,
-                lineDecorationsWidth: 10,
+      {disabled && (
+        <div
+          className={cn(
+            "rounded bg-background-tertiary font-mono text-content-secondary",
+            size === "sm" ? "text-xs" : "text-sm",
+          )}
+        >
+          {defaultValueString}
+        </div>
+      )}
+      {!disabled && (
+        <Editor
+          height="100%"
+          width="100%"
+          className={cn(
+            padding && "pt-2",
+            editorClassname,
+            size === "sm" && "mt-[1px]",
+          )}
+          defaultLanguage="javascript"
+          defaultValue={defaultValueString}
+          options={{
+            ...editorOptions,
+            ...(showLineNumbers
+              ? {
+                  lineNumbers: "on",
+                  lineNumbersMinChars: 5,
+                  lineDecorationsWidth: 10,
+                }
+              : {}),
+            ...(size === "sm" && {
+              fontSize: 12,
+              lineHeight: 13,
+            }),
+            folding: !disableFolding,
+            theme: prefersDark ? "vs-dark" : "vs",
+          }}
+          // Never make the path look like a URI scheme.
+          path={path.replace(":", "_")}
+          onChange={handleChange}
+          beforeMount={(m) => {
+            m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+              // Disable all syntax validation and use the results from AST parsing instead.
+              noSemanticValidation: true,
+              noSyntaxValidation: true,
+              noSuggestionDiagnostics: true,
+              // The "unused block" diagnostic code.
+              diagnosticCodesToIgnore: [7028],
+            });
+            setMonaco(m);
+          }}
+          onMount={(editor, m) => {
+            registerIdCommands(m, deploymentsURI);
+
+            editor.onKeyDown((e) => {
+              if (e.keyCode === m.KeyCode.Tab) {
+                e.preventDefault();
+                moveFocus(!e.shiftKey);
               }
-            : {}),
-          folding: !disableFolding,
-          theme: prefersDark ? "vs-dark" : "vs",
-        }}
-        // Never make the path look like a URI scheme.
-        path={path.replace(":", "_")}
-        onChange={handleChange}
-        beforeMount={(m) => {
-          m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-            // Disable all syntax validation and use the results from AST parsing instead.
-            noSemanticValidation: true,
-            noSyntaxValidation: true,
-            noSuggestionDiagnostics: true,
-            // The "unused block" diagnostic code.
-            diagnosticCodesToIgnore: [7028],
-          });
-          setMonaco(m);
-        }}
-        onMount={(editor, m) => {
-          registerIdCommands(m, deploymentsURI);
-
-          if (disableFind) {
-            editor.addAction({
-              id: "find",
-              label: "find",
-              keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyF],
-              run: () => {},
             });
-          }
 
-          if (saveAction) {
-            const keybindings = [m.KeyMod.CtrlCmd | m.KeyCode.Enter];
-            if (enterSaves) {
-              keybindings.push(m.KeyCode.Enter);
+            if (disableFind) {
+              editor.addAction({
+                id: "find",
+                label: "find",
+                keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyF],
+                run: () => {},
+              });
             }
-            editor.addAction({
-              id: "saveAction",
-              label: "Save value",
-              keybindings,
-              run() {
-                saveActionRef.current?.();
-              },
+
+            if (saveAction) {
+              const keybindings = [m.KeyMod.CtrlCmd | m.KeyCode.Enter];
+              if (enterSaves) {
+                keybindings.push(m.KeyCode.Enter);
+              }
+              editor.addAction({
+                id: "saveAction",
+                label: "Save value",
+                keybindings,
+                run() {
+                  saveActionRef.current?.();
+                },
+              });
+            }
+
+            if (!autoFocus) {
+              return;
+            }
+            editor.focus();
+
+            const code = editor.getValue();
+            if (!code) {
+              return;
+            }
+            const codeLines = code.trimEnd().split("\n");
+            let lastLine = codeLines.pop();
+
+            let isMultiLineObject = false;
+            if (lastLine === "}") {
+              lastLine = codeLines.pop();
+              isMultiLineObject = true;
+            }
+            if (lastLine === undefined) {
+              return;
+            }
+
+            // Pick the location to place the cursor based on the type of the value.
+            const column =
+              isPlainObject(defaultValue) ||
+              isArray(defaultValue) ||
+              (typeof defaultValue === "string" && !isMultiLineObject)
+                ? // Arrays and objects have end braces and strings have end quotes, so we want to place the cursor before those.
+                  lastLine.length
+                : // All other types are not wrapped with anything, so we want to place the cursor after the value.
+                  lastLine.length + 1;
+            editor.setPosition({
+              // Objects rendered on multiple lines should have the last line be set to the line before the closing brace.
+              lineNumber: code.split("\n").length - (isMultiLineObject ? 1 : 0),
+              column,
             });
-          }
-
-          if (!autoFocus) {
-            return;
-          }
-          editor.focus();
-
-          const code = editor.getValue();
-          if (!code) {
-            return;
-          }
-          const codeLines = code.trimEnd().split("\n");
-          let lastLine = codeLines.pop();
-
-          let isMultiLineObject = false;
-          if (lastLine === "}") {
-            lastLine = codeLines.pop();
-            isMultiLineObject = true;
-          }
-          if (lastLine === undefined) {
-            return;
-          }
-
-          // Pick the location to place the cursor based on the type of the value.
-          const column =
-            isPlainObject(defaultValue) ||
-            isArray(defaultValue) ||
-            (typeof defaultValue === "string" && !isMultiLineObject)
-              ? // Arrays and objects have end braces and strings have end quotes, so we want to place the cursor before those.
-                lastLine.length
-              : // All other types are not wrapped with anything, so we want to place the cursor after the value.
-                lastLine.length + 1;
-          editor.setPosition({
-            // Objects rendered on multiple lines should have the last line be set to the line before the closing brace.
-            lineNumber: code.split("\n").length - (isMultiLineObject ? 1 : 0),
-            column,
-          });
-        }}
-        loading={null}
-      />
+          }}
+          loading={null}
+        />
+      )}
     </div>
   );
 }
@@ -482,3 +514,28 @@ export const editorOptions: EditorProps["options"] &
   renderLineHighlight: "none",
   fixedOverflowWidgets: true,
 };
+
+function moveFocus(forward = true) {
+  const focusableElements = Array.from(
+    document.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    ),
+    // @ts-expect-error
+  ).filter((el) => !el.disabled && el.offsetParent !== null);
+
+  const currentIndex = document.activeElement
+    ? focusableElements.indexOf(document.activeElement)
+    : -1;
+  if (currentIndex === -1) {
+    return;
+  }
+  let nextIndex = forward ? currentIndex + 1 : currentIndex - 1;
+
+  if (nextIndex >= focusableElements.length) nextIndex = 0; // Loop to first
+  if (nextIndex < 0) nextIndex = focusableElements.length - 1; // Loop to last
+
+  const nextElement = focusableElements[nextIndex];
+  if (nextElement && nextElement instanceof HTMLElement) {
+    nextElement.focus();
+  }
+}

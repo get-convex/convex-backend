@@ -2,11 +2,11 @@ import {
   ClipboardCopyIcon,
   EnterFullScreenIcon,
   ExternalLinkIcon,
+  MixerHorizontalIcon,
   Pencil1Icon,
   ResetIcon,
   TrashIcon,
 } from "@radix-ui/react-icons";
-import FunnelIcon from "@heroicons/react/24/outline/FunnelIcon";
 import React, { useCallback, useContext, useState } from "react";
 import { GenericDocument } from "convex/server";
 import { Value, convexToJson } from "convex/values";
@@ -277,7 +277,7 @@ function CellActions({
     state.selectedCell?.column !== "*select" && (
       <ContextMenu.Item
         key={state.selectedCell?.column}
-        icon={<FunnelIcon className="h-4 w-4" aria-hidden="true" />}
+        icon={<MixerHorizontalIcon aria-hidden="true" />}
         label={
           <div className="flex items-center gap-1">
             Filter by <code>{state.selectedCell?.column}</code>
@@ -390,7 +390,7 @@ function FilterWithSubmenu({
   }
   return (
     <ContextMenu.Submenu
-      icon={<FunnelIcon className="h-4 w-4" aria-hidden="true" />}
+      icon={<MixerHorizontalIcon aria-hidden="true" />}
       label={
         <div className="flex items-center gap-1">
           Filter by <code>{state.selectedCell?.column}</code>

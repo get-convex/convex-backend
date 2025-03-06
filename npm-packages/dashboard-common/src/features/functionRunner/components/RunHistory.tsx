@@ -1,8 +1,4 @@
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  CodeIcon,
-} from "@radix-ui/react-icons";
+import { ArrowLeftIcon, ArrowRightIcon, CodeIcon } from "@radix-ui/react-icons";
 import { UserIdentityAttributes } from "convex/browser";
 import { Value } from "convex/values";
 import isEqual from "lodash/isEqual";
@@ -58,7 +54,7 @@ export function RunHistory({
           setCurrentIdx(currentIdx + 1);
         }}
         disabled={currentIdx + 1 >= runHistory.length}
-        icon={<ChevronLeftIcon />}
+        icon={<ArrowLeftIcon />}
         size="xs"
         variant="neutral"
         tip="Previous Arguments"
@@ -69,7 +65,7 @@ export function RunHistory({
           setCurrentIdx(currentIdx - 1);
         }}
         disabled={currentIdx <= 0}
-        icon={<ChevronRightIcon />}
+        icon={<ArrowRightIcon />}
         size="xs"
         variant="neutral"
         tip="Next Arguments"

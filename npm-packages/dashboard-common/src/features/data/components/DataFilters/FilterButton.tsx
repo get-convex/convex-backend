@@ -1,8 +1,12 @@
-import FunnelIcon from "@heroicons/react/24/outline/FunnelIcon";
-import { ChevronUpIcon, ChevronDownIcon } from "@radix-ui/react-icons";
+import {
+  ChevronUpIcon,
+  ChevronDownIcon,
+  MixerHorizontalIcon,
+} from "@radix-ui/react-icons";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@common/elements/Button";
-import { filterMenuId } from "@common/features/data/components/DataFilters/DataFilters";
+
+export const filterMenuId = "filterMenu";
 
 export function FilterButton({
   filters,
@@ -27,9 +31,9 @@ export function FilterButton({
     validFilterNames.size === 0 ? (
       "Filter"
     ) : (
-      <div>
+      <div className="max-w-[9rem] truncate">
         Filtered by:{" "}
-        {validFilterNames.size > 3 ? (
+        {validFilterNames.size > 1 ? (
           `${validFilterNames.size} fields`
         ) : (
           <code>{Array.from(validFilterNames).join(", ")}</code>
@@ -38,21 +42,18 @@ export function FilterButton({
     );
 
   return (
-    <div>
-      <Button
-        size="sm"
-        variant={validFilterNames.size > 0 ? "primary" : "neutral"}
-        onClick={onClick}
-        aria-controls={filterMenuId}
-        icon={<FunnelIcon className="h-4 w-4" />}
-        focused={open}
-      >
-        {filterButtonContent}
-        {/*  TODO: Post-icon in button */}
-        <span className="ml-1">
-          {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
-        </span>
-      </Button>
-    </div>
+    <Button
+      size="xs"
+      variant="neutral"
+      onClick={onClick}
+      aria-controls={filterMenuId}
+      icon={<MixerHorizontalIcon className="size-3.5" />}
+      focused={open}
+      className="w-fit rounded-l-none text-xs"
+      inline
+    >
+      {filterButtonContent}
+      {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
+    </Button>
   );
 }

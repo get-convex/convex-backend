@@ -2,7 +2,6 @@ import { screen, render } from "@testing-library/react";
 import { useRouter } from "next/router";
 import userEvent from "@testing-library/user-event";
 import { useMemo } from "react";
-import { useTableFilters } from "@common/features/data/lib/useTableFilters";
 import { useToolPopup } from "@common/features/data/lib/useToolPopup";
 import { useAuthorizeProdEdits } from "@common/features/data/lib/useAuthorizeProdEdits";
 import {
@@ -101,7 +100,6 @@ describe("DataToolbar", () => {
       ...componentProps,
       ...hookProps,
     });
-    const { hasFilters, filters } = useTableFilters(tableName, null);
     const popupState = useToolPopup({
       addDocuments: jest.fn(),
       patchFields: jest.fn(),
@@ -123,12 +121,7 @@ describe("DataToolbar", () => {
         {popupState.popupEl}
         <DataToolbar
           popupState={popupState}
-          hasFilters={hasFilters}
-          filters={filters}
-          setShowFilters={jest.fn()}
-          showFilters={false}
           tableName={tableName}
-          numRowsLoaded={0}
           isProd={false}
           isLoadingMore={false}
           tableSchemaStatus={{
@@ -157,23 +150,10 @@ describe("DataToolbar", () => {
     ).not.toBeVisible();
 
     const buttons = await screen.findAllByRole("button");
-    expect(buttons).toHaveLength(3);
+    expect(buttons).toHaveLength(2);
 
     expect(buttons[0]).toHaveTextContent("Add");
-    expect(buttons[1]).toHaveTextContent("Filter");
-    expect(buttons[2]).toHaveAccessibleName("Open table settings");
-  });
-
-  it("should render content with one document", async () => {
-    setup({ numRows: 1 });
-    await screen.findByText("1");
-    await screen.findByText("document");
-  });
-
-  it("should render content with multiple documents", async () => {
-    setup({ numRows: 10 });
-    await screen.findByText("10");
-    await screen.findByText("documents");
+    expect(buttons[1]).toHaveAccessibleName("Open table settings");
   });
 
   it("should render in loading more state", async () => {
@@ -255,7 +235,7 @@ describe("DataToolbar", () => {
     );
 
     const buttons = await screen.findAllByRole("button");
-    expect(buttons).toHaveLength(3);
+    expect(buttons).toHaveLength(2);
 
     const deleteRowsButton = buttons[1];
     expect(deleteRowsButton).toHaveTextContent("Delete");
@@ -280,7 +260,7 @@ describe("DataToolbar", () => {
     );
 
     const buttons = await screen.findAllByRole("button");
-    expect(buttons).toHaveLength(3);
+    expect(buttons).toHaveLength(2);
 
     const deleteRowsButton = buttons[1];
     expect(deleteRowsButton).toHaveTextContent("Delete 2");

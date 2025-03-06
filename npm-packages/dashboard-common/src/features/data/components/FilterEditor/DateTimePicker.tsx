@@ -11,7 +11,6 @@ const dateTimeFormat = "M/d/yyyy, h:mm:ss aa";
 type DateTimePickerProps = {
   date: Date;
   onChange: (date: Date) => void;
-  inputClassName?: string;
   minDate?: Date;
   maxDate?: Date;
 };
@@ -19,7 +18,6 @@ type DateTimePickerProps = {
 export function DateTimePicker({
   date,
   onChange,
-  inputClassName,
   minDate,
   maxDate,
 }: DateTimePickerProps) {
@@ -141,7 +139,8 @@ export function DateTimePicker({
         aria-label="Date and time"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={cn("", inputClassName)}
+        className="rounded-none"
+        size="sm"
       />
       <div
         ref={popoverRef}
