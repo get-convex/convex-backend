@@ -1409,14 +1409,14 @@ export interface components {
         };
         CreateSubscriptionArgs: {
             billingAddress?: null | components["schemas"]["Address"];
+            /** Format: int64 */
+            disableThresholdCents?: number | null;
             email: string;
             name: string;
             paymentMethod?: string | null;
             planId: string;
             /** Format: int64 */
-            spendingLimitDisableThresholdCents?: number | null;
-            /** Format: int64 */
-            spendingLimitWarningThresholdCents?: number | null;
+            warningThresholdCents?: number | null;
         };
         CreateTeamArgs: {
             name: components["schemas"]["ProposedTeamName"];
@@ -1686,9 +1686,9 @@ export interface components {
         SerializedAccessToken: string;
         SetSpendingLimitArgs: {
             /** Format: int64 */
-            disableThresholdCents: number;
+            disableThresholdCents?: number | null;
             /** Format: int64 */
-            warningThresholdCents: number;
+            warningThresholdCents?: number | null;
         };
         SetupIntentResponse: {
             clientSecret: string;

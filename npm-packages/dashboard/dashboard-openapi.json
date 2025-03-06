@@ -2809,6 +2809,14 @@
               }
             ]
           },
+          "disableThresholdCents": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
           "email": {
             "type": "string"
           },
@@ -2824,15 +2832,7 @@
           "planId": {
             "type": "string"
           },
-          "spendingLimitDisableThresholdCents": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "format": "int64",
-            "minimum": 0
-          },
-          "spendingLimitWarningThresholdCents": {
+          "warningThresholdCents": {
             "type": [
               "integer",
               "null"
@@ -3806,18 +3806,20 @@
       },
       "SetSpendingLimitArgs": {
         "type": "object",
-        "required": [
-          "disableThresholdCents",
-          "warningThresholdCents"
-        ],
         "properties": {
           "disableThresholdCents": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
             "minimum": 0
           },
           "warningThresholdCents": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
             "minimum": 0
           }
