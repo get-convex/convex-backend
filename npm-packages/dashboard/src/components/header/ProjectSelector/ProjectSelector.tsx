@@ -5,11 +5,7 @@ import React, { useRef, useState } from "react";
 import { useCurrentProject, useProjects } from "api/projects";
 import { Button } from "dashboard-common/elements/Button";
 import { Popover } from "dashboard-common/elements/Popover";
-import {
-  CaretSortIcon,
-  MixerHorizontalIcon,
-  ResetIcon,
-} from "@radix-ui/react-icons";
+import { CaretSortIcon, GearIcon, ResetIcon } from "@radix-ui/react-icons";
 import { Avatar } from "elements/Avatar";
 import { useScrolling, useWindowSize } from "react-use";
 import { usePopper } from "react-popper";
@@ -233,7 +229,7 @@ function ProjectSelectorPanel({
                 onClick={close}
                 inline
                 variant="neutral"
-                icon={<MixerHorizontalIcon />}
+                icon={<GearIcon />}
                 tip="Team settings"
                 aria-label={`Team settings for ${team.name}`}
                 tipSide="right"
@@ -294,7 +290,7 @@ function ProjectSelectorPanel({
                 onClick={close}
                 inline
                 variant="neutral"
-                icon={<MixerHorizontalIcon />}
+                icon={<GearIcon />}
                 tip={`Project settings for ${lastHoveredProject.slug}`}
               />
             </div>

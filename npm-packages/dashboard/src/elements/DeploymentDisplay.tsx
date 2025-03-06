@@ -1,9 +1,5 @@
 import { CommandLineIcon, SignalIcon } from "@heroicons/react/20/solid";
-import {
-  GlobeIcon,
-  MixerHorizontalIcon,
-  Pencil2Icon,
-} from "@radix-ui/react-icons";
+import { GearIcon, GlobeIcon, Pencil2Icon } from "@radix-ui/react-icons";
 import { useCurrentDeployment, useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamMembers } from "api/teams";
 import { useProjectById } from "api/projects";
@@ -47,7 +43,7 @@ export function DeploymentDisplay({ project }: { project: ProjectDetails }) {
 
   return isProjectSettings ? (
     <div className="flex items-center gap-2">
-      <MixerHorizontalIcon />
+      <GearIcon />
       <span className="hidden sm:block">Project settings</span>
     </div>
   ) : !isDoneLoading ? null : whoseName ? (

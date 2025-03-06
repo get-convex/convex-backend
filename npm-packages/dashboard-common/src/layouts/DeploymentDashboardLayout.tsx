@@ -1,11 +1,11 @@
 import {
   FileIcon,
   TableIcon,
-  MixerHorizontalIcon,
   CodeIcon,
   StopwatchIcon,
   CounterClockwiseClockIcon,
   TextAlignBottomIcon,
+  GearIcon,
 } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
 import Link from "next/link";
@@ -97,7 +97,7 @@ export function DeploymentDashboardLayout({
         {
           key: "settings",
           label: "Settings",
-          Icon: MixerHorizontalIcon,
+          Icon: GearIcon,
           href: `${uriPrefix}/settings`,
         },
       ],

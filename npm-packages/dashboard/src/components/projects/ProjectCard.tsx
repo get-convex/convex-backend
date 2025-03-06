@@ -1,8 +1,4 @@
-import {
-  EyeOpenIcon,
-  MixerHorizontalIcon,
-  TrashIcon,
-} from "@radix-ui/react-icons";
+import { EyeOpenIcon, TrashIcon, GearIcon } from "@radix-ui/react-icons";
 import { Card, CardProps } from "elements/Card";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { Loading } from "dashboard-common/elements/Loading";
@@ -41,7 +37,7 @@ export function ProjectCard({ project }: { project: ProjectDetails }) {
 
   const dropdownItems: CardProps["dropdownItems"] = [
     {
-      Icon: MixerHorizontalIcon,
+      Icon: GearIcon,
       text: "Settings",
       action: openSettings,
     },
