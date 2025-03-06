@@ -2449,6 +2449,9 @@ async fn test_subtransaction_failure_rolls_back_table_creation(
         tx.rollback_subtransaction(tokens)?;
     };
     assert!(!TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));
+    // Regression test: take_stats used to panic.
+    let stats = tx.take_stats();
+    assert!(stats.contains_key(&"_unknown".parse()?));
     db.commit(tx).await?;
     let mut tx = db.begin(Identity::system()).await?;
     assert!(!TableModel::new(&mut tx).table_exists(TableNamespace::test_user(), &table_name));

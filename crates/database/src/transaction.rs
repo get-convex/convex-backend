@@ -676,9 +676,22 @@ impl<RT: Runtime> Transaction<RT> {
             .into_iter()
             .map(|(tablet, stats)| {
                 (
-                    self.table_mapping()
-                        .tablet_name(tablet)
-                        .expect("tablet should exist"),
+                    match self.table_mapping().tablet_name(tablet) {
+                        Ok(name) => name,
+                        Err(_) => {
+                            // This is unusual, but possible if the tablet was created in a
+                            // subtransaction that was rolled back. Such a tablet never gets
+                            // created, but might still have usage stats.
+                            tracing::warn!("Tablet {tablet} does not exist");
+                            // It's fine to return "_unknown" here because nothing requires
+                            // these to correspond to an actual table.
+                            //
+                            // We use "_unknown" to avoid colliding with valid user table names.
+                            "_unknown"
+                                .parse()
+                                .expect("'_unknown' should be a valid table name")
+                        },
+                    },
                     stats,
                 )
             })
