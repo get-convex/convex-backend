@@ -34,12 +34,15 @@ use database::{
         TableFilter,
     },
     unauthorized_error,
+    Database,
+    IndexModel,
     ResolvedQuery,
     SystemMetadataModel,
     TableModel,
     Transaction,
 };
 use errors::ErrorMetadata;
+use futures::TryStreamExt;
 use keybroker::Identity;
 use maplit::btreemap;
 use pb::storage::{
@@ -333,21 +336,42 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             .must_count(self.namespace, &FILE_STORAGE_TABLE.clone())
             .await
     }
+}
 
-    pub async fn get_total_storage_size(&mut self) -> anyhow::Result<u64> {
-        if !self.tx.identity().is_system() {
-            anyhow::bail!(unauthorized_error("get_total_storage_size"))
-        }
-
-        let query = Query::full_table_scan(FILE_STORAGE_TABLE.to_owned(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, query)?;
-        let mut total_size = 0;
-        while let Some(storage_document) = query_stream.next(self.tx, None).await? {
-            let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.try_into()?;
+pub async fn get_total_file_storage_size<RT: Runtime>(db: &Database<RT>) -> anyhow::Result<u64> {
+    let (tablet_id_to_by_id_index, snapshot_ts) = {
+        let mut tx = db.begin(Identity::system()).await?;
+        let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
+        let table_mapping = tx.table_mapping();
+        let tablet_id_to_by_id_index: BTreeMap<_, _> = table_mapping
+            .iter()
+            .filter(|(tablet_id, _, _, table_name)| {
+                **table_name == *FILE_STORAGE_TABLE && table_mapping.is_active(*tablet_id)
+            })
+            .map(|(tablet_id, ..)| {
+                anyhow::Ok((
+                    tablet_id,
+                    *by_id_indexes
+                        .get(&tablet_id)
+                        .context("_file_storage by_id index not found")?,
+                ))
+            })
+            .try_collect()?;
+        let snapshot_ts = tx.begin_timestamp();
+        (tablet_id_to_by_id_index, snapshot_ts)
+    };
+    let mut total_size = 0;
+    for (tablet_id, by_id_index) in tablet_id_to_by_id_index {
+        let table_iterator = db.table_iterator(snapshot_ts, 100);
+        let mut table_stream =
+            Box::pin(table_iterator.stream_documents_in_table(tablet_id, by_id_index, None));
+        while let Some(storage_document) = table_stream.try_next().await? {
+            let storage_entry: ParsedDocument<FileStorageEntry> =
+                storage_document.value.try_into()?;
             total_size += storage_entry.size as u64;
         }
-        Ok(total_size)
     }
+    Ok(total_size)
 }
 
 #[cfg(test)]
