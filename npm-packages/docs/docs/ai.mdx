@@ -31,22 +31,22 @@ guarantees prevent common failure modes.
 AI code generation is most effective when you provide it with a set of rules to
 follow.
 
-If you're using Cursor, add the model specific `.mdc` files in your project's
-`.cursor/rules/` directory.
+If you're using Cursor, add the `.mdc` files in your project's `.cursor/rules/`
+directory:
 
 - [Convex Cursor Rules](https://convex.link/convex_rules.mdc)
 
-<video
-  src="/video/showing_where_to_put_convex_rules.mp4"
-  autoPlay
-  loop
-  controls
-></video>
-
-For all other IDEs, you can add the following to your rules or memories.
+For all other IDEs, add the following rules file to your project and refer to it
+when prompting for changes:
 
 - [Convex Rules](https://convex.link/convex_rules.txt)
 
 We're constantly working on improving the quality of these rules for Convex by
 using rigorous evals. You can help by
 [contributing to our evals repo](https://github.com/get-convex/convex-evals).
+
+## Convex MCP Server
+
+[Setup the Convex MCP server](/docs/ai/convex-mcp-server.mdx) to give your AI
+coding agent access to the your Convex deployment to query and optimize your
+project.
