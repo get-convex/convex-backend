@@ -597,9 +597,9 @@ impl RepeatablePersistence {
         &self,
         ids: BTreeSet<DocumentPrevTsQuery>,
     ) -> anyhow::Result<BTreeMap<DocumentPrevTsQuery, DocumentLogEntry>> {
-        for DocumentPrevTsQuery { ts, .. } in &ids {
-            // Reading previous revisions of documents at ts, so ts needs to be repeatable.
-            anyhow::ensure!(*ts <= self.upper_bound);
+        for DocumentPrevTsQuery { prev_ts, .. } in &ids {
+            // Reading documents with timestamp prev_ts, so it needs to be repeatable.
+            anyhow::ensure!(*prev_ts <= self.upper_bound);
         }
         self.reader
             .previous_revisions_of_documents(ids, self.retention_validator.clone())

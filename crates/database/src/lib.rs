@@ -167,7 +167,10 @@ pub use self::{
         TableSummaries,
     },
     subscription::Subscription,
-    table_iteration::TableIterator,
+    table_iteration::{
+        MultiTableIterator,
+        TableIterator,
+    },
     table_summary::{
         TableSummary,
         TableSummaryWriter,
