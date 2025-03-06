@@ -335,6 +335,10 @@ export S3_STORAGE_FILES_BUCKET="convex-user-files"
 export S3_STORAGE_SEARCH_BUCKET="convex-search-indexes"
 ```
 
+Optionally set the `S3_ENDPOINT_URL` environment variable. This is required for
+using [R2](https://www.cloudflare.com/developer-platform/products/r2/) or some
+other drop-in replacement compatible with the AWS S3 API.
+
 Then run the backend!
 
 ## Migrating storage providers
