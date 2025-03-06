@@ -28,8 +28,10 @@
  * ```js
  * import { query } from "./_generated/server";
  *
- * export default query(async ({ db }, { arg1, arg2 }) => {
- *   // Your (read-only) code here!
+ * export default query({
+ *   handler: async ({ db }, { arg1, arg2 }) => {
+ *     // Your (read-only) code here!
+ *   },
  * });
  * ```
  *
@@ -40,8 +42,10 @@
  * ```js
  * import { mutation } from "./_generated/server";
  *
- * export default mutation(async ({ db }, { arg1, arg2 }) => {
- *   // Your mutation code here!
+ * export default mutation({
+ *   handler: async ({ db }, { arg1, arg2 }) => {
+ *     // Your mutation code here!
+ *   },
  * });
  * ```
  * @module

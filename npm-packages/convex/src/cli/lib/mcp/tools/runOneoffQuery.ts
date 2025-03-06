@@ -32,8 +32,10 @@ The query should follow Convex guidelines and use the following setup:
 \`\`\`js
 import { query, internalQuery } from "convex:/_system/repl/wrappers.js";
 
-export default query(async (ctx) => {
+export default query({
+  handler: async (ctx) => {
     console.log("Write and test your query function here!");
+  },
 });
 \`\`\`
 

@@ -164,9 +164,11 @@ export type DataModel = DataModelFromSchemaDefinition<typeof schema>;
 `;
 
 function defaultCode(tableName: string) {
-  return `export default query(async (ctx) => {
-  console.log("Write and test your query function here!");
-  return await ctx.db.query("${tableName}").take(10);
+  return `export default query({
+  handler: async (ctx) => {
+    console.log("Write and test your query function here!");
+    return await ctx.db.query("${tableName}").take(10);
+  },
 })`;
 }
 

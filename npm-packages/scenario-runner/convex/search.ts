@@ -36,8 +36,8 @@ export const replaceMessageWithSearch = mutation({
   },
 });
 
-export default query(
-  async (
+export default query({
+  handler: async (
     { db },
     {
       channel,
@@ -56,7 +56,7 @@ export default query(
       )
       .take(limit);
   },
-);
+});
 
 export const findRandomSearchDocument = query({
   args: CACHE_BREAKER_ARGS,

@@ -43,12 +43,14 @@ Another object of type `API` describing your app's internal Convex API.
 import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
 
-export default action(async ({ runMutation }, { planId, ... }) => {
-  // Call out to payment provider (e.g. Stripe) to charge customer
-  const response = await fetch(...);
-  if (response.ok) {
-    // Mark the plan as "professional" in the Convex DB
-    await runMutation(internal.plans.markPlanAsProfessional, { planId });
-  }
+export default action({
+  handler: async ({ runMutation }, { planId, ... }) => {
+    // Call out to payment provider (e.g. Stripe) to charge customer
+    const response = await fetch(...);
+    if (response.ok) {
+      // Mark the plan as "professional" in the Convex DB
+      await runMutation(internal.plans.markPlanAsProfessional, { planId });
+    }
+  },
 });
 ```

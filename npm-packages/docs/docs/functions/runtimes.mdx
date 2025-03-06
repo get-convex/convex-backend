@@ -111,6 +111,7 @@ const globalRand = Math.random(); // `globalRand` does not change between runs.
 const globalNow = Date.now(); // `globalNow` is the time when Convex functions were deployed.
 
 export const updateSomething = mutation({
+  args: {},
   handler: () => {
     const now1 = Date.now(); // `now1` is the time when the function execution started.
     const rand1 = Math.random(); // `rand1` has a new value for each function run.

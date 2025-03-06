@@ -1,8 +1,10 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
-export const list = query(async (ctx) => {
-  return await ctx.db.query("channels").collect();
+export const list = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("channels").collect();
+  },
 });
 
 export const add = mutation({

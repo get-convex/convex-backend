@@ -7,6 +7,8 @@ export const get = query({
   },
 });
 
-export const user = query(async (ctx) => {
-  return await ctx.auth.getUserIdentity();
+export const user = query({
+  handler: async (ctx) => {
+    return await ctx.auth.getUserIdentity();
+  },
 });

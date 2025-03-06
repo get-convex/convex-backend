@@ -22,8 +22,10 @@ export const list = query({
 // @snippet start generateUploadUrl
 import { mutation } from "./_generated/server";
 
-export const generateUploadUrl = mutation(async (ctx) => {
-  return await ctx.storage.generateUploadUrl();
+export const generateUploadUrl = mutation({
+  handler: async (ctx) => {
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 // @snippet end generateUploadUrl
 

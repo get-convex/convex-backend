@@ -1,8 +1,8 @@
 import { mutation } from "./_generated/server";
 
 // Send a message to the given chat channel.
-export default mutation(
-  async (
+export default mutation({
+  handler: async (
     { db },
     {
       format,
@@ -19,10 +19,12 @@ export default mutation(
     };
     await db.insert("messages", message);
   },
-);
+});
 
-export const clearMessages = mutation(async (ctx) => {
-  for (const message of await ctx.db.query("messages").collect()) {
-    await ctx.db.delete(message._id);
-  }
+export const clearMessages = mutation({
+  handler: async (ctx) => {
+    for (const message of await ctx.db.query("messages").collect()) {
+      await ctx.db.delete(message._id);
+    }
+  },
 });

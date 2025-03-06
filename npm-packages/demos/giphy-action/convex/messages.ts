@@ -2,13 +2,17 @@ import { query, mutation, action, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
-export const list = query(async (ctx) => {
-  return await ctx.db.query("messages").collect();
+export const list = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").collect();
+  },
 });
 
-export const send = mutation(async (ctx, { body, author }) => {
-  const message = { body, author, format: "text" };
-  await ctx.db.insert("messages", message);
+export const send = mutation({
+  handler: async (ctx, { body, author }) => {
+    const message = { body, author, format: "text" };
+    await ctx.db.insert("messages", message);
+  },
 });
 
 function giphyUrl(queryString: string) {
@@ -40,9 +44,9 @@ export const sendGif = action({
   },
 });
 
-export const sendGifMessage = internalMutation(
-  async (ctx, { body, author }) => {
+export const sendGifMessage = internalMutation({
+  handler: async (ctx, { body, author }) => {
     const message = { body, author, format: "giphy" };
     await ctx.db.insert("messages", message);
   },
-);
+});

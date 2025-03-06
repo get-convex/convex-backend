@@ -6453,8 +6453,10 @@ Queries receive a `db` that implements the [GenericDatabaseReader](https://docs.
 ```codeBlockLines_zEuJ
 import { query } from \"./_generated/server\";
 
-export default query(async ({ db }, { arg1, arg2 }) => {
-  // Your (read-only) code here!
+export default query({
+  handler: async ({ db }, { arg1, arg2 }) => {
+    // Your (read-only) code here!
+  },
 });
 
 ```
@@ -6466,8 +6468,10 @@ implements the [GenericDatabaseWriter](https://docs.convex.dev/api/interfaces/se
 ```codeBlockLines_zEuJ
 import { mutation } from \"./_generated/server\";
 
-export default mutation(async ({ db }, { arg1, arg2 }) => {
-  // Your mutation code here!
+export default mutation({
+  handler: async ({ db }, { arg1, arg2 }) => {
+    // Your mutation code here!
+  },
 });
 
 ```
@@ -19730,10 +19734,12 @@ TS
 ```codeBlockLines_zEuJ
 import { mutation } from \"./_generated/server\";
 
-export default mutation(async (ctx) => {
-  const preferencesId = await ctx.db.insert(\"preferences\", {});
-  const userId = await ctx.db.insert(\"users\", { preferencesId });
-  await ctx.db.patch(preferencesId, { userId });
+export default mutation({
+  handler: async (ctx) => {
+    const preferencesId = await ctx.db.insert(\"preferences\", {});
+    const userId = await ctx.db.insert(\"users\", { preferencesId });
+    await ctx.db.patch(preferencesId, { userId });
+  },
 });
 
 ```

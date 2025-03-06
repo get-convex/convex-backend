@@ -53,8 +53,10 @@ pub enum Reference {
     /// ```ts
     /// import { api, mutation } from "./_generated/server";
     ///
-    /// export const f = mutation(async (ctx, args) => {
-    ///   await ctx.runAfter(0, api.foo.bar);
+    /// export const f = mutation({
+    ///   handler: async (ctx, args) => {
+    ///     await ctx.runAfter(0, api.foo.bar);
+    ///   },
     /// });
     /// ```
     Function(CanonicalizedUdfPath),

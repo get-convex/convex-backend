@@ -16,13 +16,17 @@ export const postMessage = httpAction(async (ctx, request) => {
 });
 // @snippet end httpAction
 
-export const list = query(async (ctx) => {
-  return await ctx.db.query("messages").collect();
+export const list = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").collect();
+  },
 });
 
-export const send = mutation(async (ctx, { body, author }) => {
-  const message = { body, author };
-  await ctx.db.insert("messages", message);
+export const send = mutation({
+  handler: async (ctx, { body, author }) => {
+    const message = { body, author };
+    await ctx.db.insert("messages", message);
+  },
 });
 
 const queryByAuthor = async (ctx: ActionCtx, authorNumber: string) => {

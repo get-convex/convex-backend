@@ -2,13 +2,15 @@
 
 import { action } from "./_generated/server";
 
-export default action(async () => {
-  console.log("starting something that takes time...");
-  if (Math.random() > 0.5) {
-    fail();
-  }
-  await new Promise((r) => setTimeout(r, 15000));
-  console.log("done");
+export default action({
+  handler: async () => {
+    console.log("starting something that takes time...");
+    if (Math.random() > 0.5) {
+      fail();
+    }
+    await new Promise((r) => setTimeout(r, 15000));
+    console.log("done");
+  },
 });
 
 function fail() {

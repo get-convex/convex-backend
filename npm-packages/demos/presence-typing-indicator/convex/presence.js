@@ -21,21 +21,23 @@ const LIST_LIMIT = 20;
  * page, chat channel, game instance.
  * @param user - The user associated with the presence data.
  */
-export const update = mutation(async (ctx, { room, user, data }) => {
-  const existing = await ctx.db
-    .query("presence")
-    .withIndex("by_user_room", (q) => q.eq("user", user).eq("room", room))
-    .unique();
-  if (existing) {
-    await ctx.db.patch(existing._id, { data, updated: Date.now() });
-  } else {
-    await ctx.db.insert("presence", {
-      user,
-      data,
-      room,
-      updated: Date.now(),
-    });
-  }
+export const update = mutation({
+  handler: async (ctx, { room, user, data }) => {
+    const existing = await ctx.db
+      .query("presence")
+      .withIndex("by_user_room", (q) => q.eq("user", user).eq("room", room))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { data, updated: Date.now() });
+    } else {
+      await ctx.db.insert("presence", {
+        user,
+        data,
+        room,
+        updated: Date.now(),
+      });
+    }
+  },
 });
 
 /**
@@ -45,14 +47,16 @@ export const update = mutation(async (ctx, { room, user, data }) => {
  * page, chat channel, game instance.
  * @param user - The user associated with the presence data.
  */
-export const heartbeat = mutation(async (ctx, { room, user }) => {
-  const existing = await ctx.db
-    .query("presence")
-    .withIndex("by_user_room", (q) => q.eq("user", user).eq("room", room))
-    .unique();
-  if (existing) {
-    await ctx.db.patch(existing._id, { updated: Date.now() });
-  }
+export const heartbeat = mutation({
+  handler: async (ctx, { room, user }) => {
+    const existing = await ctx.db
+      .query("presence")
+      .withIndex("by_user_room", (q) => q.eq("user", user).eq("room", room))
+      .unique();
+    if (existing) {
+      await ctx.db.patch(existing._id, { updated: Date.now() });
+    }
+  },
 });
 
 /**
@@ -63,16 +67,18 @@ export const heartbeat = mutation(async (ctx, { room, user }) => {
  * @returns A list of presence objects, ordered by recent update, limited to
  * the most recent N.
  */
-export const list = query(async (ctx, { room }) => {
-  const presence = await ctx.db
-    .query("presence")
-    .withIndex("by_room_updated", (q) => q.eq("room", room))
-    .order("desc")
-    .take(LIST_LIMIT);
-  return presence.map(({ _creationTime, updated, user, data }) => ({
-    created: _creationTime,
-    updated,
-    user,
-    data,
-  }));
+export const list = query({
+  handler: async (ctx, { room }) => {
+    const presence = await ctx.db
+      .query("presence")
+      .withIndex("by_room_updated", (q) => q.eq("room", room))
+      .order("desc")
+      .take(LIST_LIMIT);
+    return presence.map(({ _creationTime, updated, user, data }) => ({
+      created: _creationTime,
+      updated,
+      user,
+      data,
+    }));
+  },
 });

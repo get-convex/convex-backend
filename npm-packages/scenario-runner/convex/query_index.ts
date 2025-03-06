@@ -32,8 +32,8 @@ export const queryMessagesWithSearch = query({
   },
 });
 
-export const queryMessagesWithArgs = query(
-  async (
+export const queryMessagesWithArgs = query({
+  handler: async (
     { db },
     {
       channel,
@@ -49,7 +49,7 @@ export const queryMessagesWithArgs = query(
   ) => {
     return await queryMessagesHelper(db, channel, rand, limit, table);
   },
-);
+});
 
 function queryMessagesHelper(
   db: DatabaseReader,
@@ -66,8 +66,8 @@ function queryMessagesHelper(
     .take(limit);
 }
 
-export const queryMessagesById = query(
-  async ({ db }, { id }: { id: Id<MessagesTable> }) => {
+export const queryMessagesById = query({
+  handler: async ({ db }, { id }: { id: Id<MessagesTable> }) => {
     return await db.get(id);
   },
-);
+});

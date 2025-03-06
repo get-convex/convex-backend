@@ -30,12 +30,22 @@ async function insertMessageHelper(
     });
   }
 }
-export const insertMessage = mutation(async ({ db }): Promise<void> => {
-  await insertMessageHelper(db, "global", Date.now(), rand(), 0, 1, "messages");
+export const insertMessage = mutation({
+  handler: async ({ db }): Promise<void> => {
+    await insertMessageHelper(
+      db,
+      "global",
+      Date.now(),
+      rand(),
+      0,
+      1,
+      "messages",
+    );
+  },
 });
 
-export const insertMessageWithSearch = mutation(
-  async ({ db }): Promise<void> => {
+export const insertMessageWithSearch = mutation({
+  handler: async ({ db }): Promise<void> => {
     await insertMessageHelper(
       db,
       "global",
@@ -46,7 +56,7 @@ export const insertMessageWithSearch = mutation(
       "messages_with_search",
     );
   },
-);
+});
 
 export const insertLargeMessage = mutation({
   args: {},

@@ -2,13 +2,17 @@ import { query, mutation, internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 
-export const list = query(async (ctx) => {
-  return await ctx.db.query("messages").collect();
+export const list = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").collect();
+  },
 });
 
-export const send = mutation(async (ctx, { body, author }) => {
-  const message = { body, author };
-  await ctx.db.insert("messages", message);
+export const send = mutation({
+  handler: async (ctx, { body, author }) => {
+    const message = { body, author };
+    await ctx.db.insert("messages", message);
+  },
 });
 
 // @snippet start self-destructing-message

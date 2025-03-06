@@ -2,8 +2,10 @@ import { v } from "convex/values";
 import { query, mutation, internalMutation } from "./_generated/server";
 import * as Waitlist from "./waitlist";
 
-export const list = query(async (ctx) => {
-  return await ctx.db.query("messages").collect();
+export const list = query({
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").collect();
+  },
 });
 
 export const send = mutation({

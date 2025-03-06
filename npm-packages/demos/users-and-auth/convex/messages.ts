@@ -1,19 +1,21 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 
-export const list = query(async (ctx) => {
-  const messages = await ctx.db.query("messages").collect();
-  return Promise.all(
-    messages.map(async (message) => {
-      // For each message in this channel, fetch the `User` who wrote it and
-      // insert their name into the `author` field.
-      const user = await ctx.db.get(message.user);
-      return {
-        author: user!.name,
-        ...message,
-      };
-    }),
-  );
+export const list = query({
+  handler: async (ctx) => {
+    const messages = await ctx.db.query("messages").collect();
+    return Promise.all(
+      messages.map(async (message) => {
+        // For each message in this channel, fetch the `User` who wrote it and
+        // insert their name into the `author` field.
+        const user = await ctx.db.get(message.user);
+        return {
+          author: user!.name,
+          ...message,
+        };
+      }),
+    );
+  },
 });
 
 // @snippet start load-user

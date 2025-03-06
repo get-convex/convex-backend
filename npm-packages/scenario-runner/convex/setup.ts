@@ -4,8 +4,8 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { rand } from "./common";
 
-export const setupMessages = mutation(
-  async (
+export const setupMessages = mutation({
+  handler: async (
     { db },
     { rows, channel }: { rows: number; channel: string },
   ): Promise<void> => {
@@ -30,7 +30,7 @@ export const setupMessages = mutation(
       await db.insert(MESSAGES_TABLE, message);
     }
   },
-);
+});
 
 export const setupVectors = mutation({
   args: {
