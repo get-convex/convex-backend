@@ -699,9 +699,6 @@ importers:
       '@storybook/addon-themes':
         specifier: ^7.6.16
         version: 7.6.20
-      '@storybook/addons':
-        specifier: ~7.6.16
-        version: 7.6.17(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@storybook/cli':
         specifier: ^7.6.16
         version: 7.6.20(bufferutil@4.0.9)(encoding@0.1.13)(utf-8-validate@5.0.10)
@@ -1051,9 +1048,6 @@ importers:
       '@storybook/addon-themes':
         specifier: ^7.6.16
         version: 7.6.20
-      '@storybook/addons':
-        specifier: ~7.6.16
-        version: 7.6.17(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@storybook/cli':
         specifier: ^7.6.16
         version: 7.6.20(bufferutil@4.0.9)(encoding@0.1.13)(supports-color@10.0.0)(utf-8-validate@5.0.10)
