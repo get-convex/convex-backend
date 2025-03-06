@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use aws_config::retry::RetryConfig;
 use aws_sdk_s3::{
     operation::{
-        get_object_attributes::{
-            GetObjectAttributesError,
-            GetObjectAttributesOutput,
+        head_object::{
+            HeadObjectError,
+            HeadObjectOutput,
         },
         upload_part::builders::UploadPartFluentBuilder,
     },
@@ -26,7 +26,7 @@ use aws_sdk_s3::{
     Client,
 };
 use aws_utils::{
-    must_config_from_env,
+    must_s3_config_from_env,
     s3::S3Client,
 };
 use bytes::Bytes;
@@ -132,7 +132,7 @@ impl<RT: Runtime> S3Storage<RT> {
         key_prefix: String,
         runtime: RT,
     ) -> anyhow::Result<Self> {
-        let config = must_config_from_env()
+        let config = must_s3_config_from_env()
             .context("AWS env variables are required when using S3 storage")?
             .retry_config(RetryConfig::standard())
             .load()
@@ -433,27 +433,22 @@ impl<RT: Runtime> Storage for S3Storage<RT> {
             .as_str()
             .split_once('/')
             .with_context(|| format!("Invalid fully qualified S3 key {:?}", key))?;
-        let result: Result<
-            GetObjectAttributesOutput,
-            aws_sdk_s3::error::SdkError<GetObjectAttributesError>,
-        > = self
+        let result: Result<HeadObjectOutput, aws_sdk_s3::error::SdkError<HeadObjectError>> = self
             .client
-            .get_object_attributes()
+            .head_object()
             .bucket(bucket)
             .key(s3_key)
-            .object_attributes(aws_sdk_s3::types::ObjectAttributes::Checksum)
-            .object_attributes(aws_sdk_s3::types::ObjectAttributes::ObjectSize)
             .send()
             .await;
         match result {
-            Ok(object_attributes) => {
-                let size = object_attributes
-                    .object_size
+            Ok(head_attributes) => {
+                let size = head_attributes
+                    .content_length
                     .context("Object is missing size")? as u64;
                 Ok(Some(ObjectAttributes { size }))
             },
             Err(aws_sdk_s3::error::SdkError::ServiceError(err)) => match err.err() {
-                GetObjectAttributesError::NoSuchKey(_) => Ok(None),
+                HeadObjectError::NotFound(_) => Ok(None),
                 // Other service errors from S3
                 _ => Err(err.into_err().into()),
             },
