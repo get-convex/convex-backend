@@ -850,7 +850,6 @@ fn to_fivetran_columns(
                     });
                 }
             };
-            // @TODO Code structure
         }
     }
 
