@@ -10,6 +10,7 @@ use std::{
 use futures::Future;
 use pb::error_metadata::ErrorMetadataStatusExt;
 use sentry::integrations::tower as sentry_tower;
+use tokio::net::TcpSocket;
 use tokio_metrics::Instrumented;
 use tonic::{
     server::NamedService,
@@ -29,7 +30,10 @@ use tower::{
     ServiceBuilder,
 };
 
-use crate::runtime::TaskManager;
+use crate::{
+    knobs::HTTP_SERVER_TCP_BACKLOG,
+    runtime::TaskManager,
+};
 
 pub struct ConvexGrpcService {
     routes: Routes,
@@ -86,10 +90,19 @@ impl ConvexGrpcService {
                 .set_service_status(service_name, ServingStatus::Serving)
                 .await;
         }
+        // Set SO_REUSEADDR and a bounded TCP accept backlog for our server's listening
+        // socket.
+        let socket = TcpSocket::new_v4()?;
+        socket.set_reuseaddr(true)?;
+        socket.set_nodelay(true)?;
+        socket.bind(addr)?;
+
+        let listener = socket.listen(*HTTP_SERVER_TCP_BACKLOG)?;
+        let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
         tonic::transport::Server::builder()
             .layer(convex_layers)
             .add_routes(self.routes)
-            .serve_with_shutdown(addr, shutdown)
+            .serve_with_incoming_shutdown(incoming, shutdown)
             .await?;
         tracing::info!("GRPC server shutdown complete");
         Ok(())
