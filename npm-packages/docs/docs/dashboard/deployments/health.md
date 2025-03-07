@@ -64,12 +64,6 @@ links to view and configure your integrations.
 
 ## Insights
 
-<Admonition type="info">
-
-Insights are only available for paid teams.
-
-</Admonition>
-
 ![Insights Card](/screenshots/insights.png)
 
 The Health page also surfaces insights about your deployment, with suggestions

@@ -3,7 +3,6 @@ import { useCurrentTeam } from "api/teams";
 
 import { rootComponentPath, useUsageQuery } from "api/usage";
 import omit from "lodash/omit";
-import { useMemo } from "react";
 import { useRouter } from "next/router";
 import {
   itemIdentifier,
@@ -371,12 +370,6 @@ export function useOCCByHour({
     }),
   });
 
-  // For upsell sample data.
-  const upsellData = useUpsellOCCData(functionId);
-  if (upsellData) {
-    return upsellData;
-  }
-
   return data;
 }
 
@@ -411,11 +404,6 @@ export function useBytesReadAverageByHour({
       avg: 0,
     }),
   });
-  // For upsell sample data.
-  const upsellData = useUpsellBytesReadAverageData(functionId);
-  if (upsellData) {
-    return upsellData;
-  }
 
   return data;
 }
@@ -435,8 +423,6 @@ export function useBytesReadCountByHour({
   componentPath: string | null;
 }): CountByHourData[] | undefined {
   const { query } = useRouter();
-  // For upsell sample data.
-  const upsellData = useUpsellBytesReadCountData(functionId);
   const data = useDataByHour({
     queryId: query.lowInsightsThreshold
       ? "bytesReadCountByHourLowThreshold"
@@ -456,9 +442,6 @@ export function useBytesReadCountByHour({
       count: 0,
     }),
   });
-  if (upsellData) {
-    return upsellData;
-  }
   return data;
 }
 
@@ -520,123 +503,6 @@ export function useDocumentsReadCountByHour({
 
   return data;
 }
-
-function useUpsellOCCData(functionId: string) {
-  return useMemo(() => {
-    if (
-      UPSELL_INSIGHTS.some(
-        (i) =>
-          (i.kind === "occRetried" || i.kind === "occFailedPermanently") &&
-          i.functionId === functionId,
-      )
-    ) {
-      return Array.from({ length: 72 }, (_, i) => {
-        const date = new Date();
-        date.setHours(date.getHours() - 71 + i);
-        const dateHour = date.toISOString().replace("T", " ").split(".")[0];
-        return {
-          functionId,
-          componentPath: null,
-          dateHour,
-          occCalls: Math.floor(Math.random() * 1000) + 1,
-          occTableName: "table1",
-          permanentFailure: functionId === "mutations/_writeAllTheData",
-        };
-      });
-    }
-    return null;
-  }, [functionId]);
-}
-
-function useUpsellBytesReadAverageData(functionId: string) {
-  return useMemo(() => {
-    if (
-      UPSELL_INSIGHTS.some(
-        (i) =>
-          i.kind === "bytesReadAverageThreshold" && i.functionId === functionId,
-      )
-    ) {
-      return Array.from({ length: 72 }, (_, i) => {
-        const date = new Date();
-        date.setHours(date.getHours() - 71 + i);
-        const dateHour = date.toISOString().replace("T", " ").split(".")[0];
-        return {
-          functionId,
-          componentPath: null,
-          dateHour,
-          avg: i * 100 * 1024,
-        };
-      });
-    }
-  }, [functionId]);
-}
-
-function useUpsellBytesReadCountData(functionId: string) {
-  return useMemo(() => {
-    if (
-      UPSELL_INSIGHTS.some(
-        (i) =>
-          i.kind === "bytesReadCountThreshold" && i.functionId === functionId,
-      )
-    ) {
-      return Array.from({ length: 72 }, (_, i) => {
-        const date = new Date();
-        date.setHours(date.getHours() - 71 + i);
-        const dateHour = date.toISOString().replace("T", " ").split(".")[0];
-        return {
-          functionId,
-          componentPath: null,
-          dateHour,
-          count: Math.floor(Math.random() * 1000) + 1,
-        };
-      });
-    }
-    return null;
-  }, [functionId]);
-}
-
-// Insights used for the upsells screen
-export const UPSELL_INSIGHTS: InsightsSummaryData[] = [
-  {
-    kind: "bytesReadAverageThreshold",
-    functionId: "queries/_unoptimizedFunction",
-    componentPath: null,
-    aboveThresholdCalls: 10,
-    totalCalls: 20,
-    avgBytesRead: 7 * 1024 * 1024,
-  },
-  {
-    kind: "bytesReadAverageThreshold",
-    functionId: "queries/_unoptimizedFunction2",
-    componentPath: null,
-    aboveThresholdCalls: 321,
-    totalCalls: 1000,
-    avgBytesRead: 7 * 1024 * 1024,
-  },
-  {
-    kind: "occFailedPermanently",
-    functionId: "mutations/_writeAllTheData",
-    componentPath: null,
-    occCalls: 5,
-    totalCalls: 10,
-    occTableName: "table1",
-  },
-  {
-    kind: "bytesReadCountThreshold",
-    functionId: "queries/_unoptimizedFunction3",
-    componentPath: null,
-    aboveThresholdCalls: 5,
-    totalCalls: 10000,
-  },
-  {
-    kind: "occRetried",
-    functionId: "mutations/_writeSomeOfTheData",
-    componentPath: null,
-    occCalls: 5,
-    totalCalls: 10,
-    occTableName: "table2",
-  },
-];
 
 export type ReadEventData = {
   timestamp: string;
