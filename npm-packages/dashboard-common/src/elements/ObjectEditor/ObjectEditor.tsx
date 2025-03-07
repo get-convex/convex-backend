@@ -56,6 +56,7 @@ export type ObjectEditorProps = {
   showTableNames?: boolean;
   size?: "sm" | "md";
   disabled?: boolean;
+  fixedOverflowWidgets?: boolean;
 } & WalkAstOptions;
 
 // Special case -- empty documents should be formatted to include space to entry a new field right away.
@@ -85,6 +86,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
     showTableNames = false,
     size = "md",
     disabled = false,
+    fixedOverflowWidgets = true,
   } = props;
 
   const indentTopLevel = mode === "addDocuments" || mode === "editDocument";
@@ -249,6 +251,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
             }),
             folding: !disableFolding,
             theme: prefersDark ? "vs-dark" : "vs",
+            fixedOverflowWidgets,
           }}
           // Never make the path look like a URI scheme.
           path={path.replace(":", "_")}
@@ -513,7 +516,6 @@ export const editorOptions: EditorProps["options"] &
   selectionHighlight: false,
   occurrencesHighlight: false,
   renderLineHighlight: "none",
-  fixedOverflowWidgets: true,
 };
 
 function moveFocus(forward = true) {

@@ -87,6 +87,7 @@ export function CellEditor({
         className="border-none"
         allowTopLevelUndefined={allowTopLevelUndefined}
         mode="editField"
+        fixedOverflowWidgets={false}
       />
       <div className="mr-2">
         {error ? (
