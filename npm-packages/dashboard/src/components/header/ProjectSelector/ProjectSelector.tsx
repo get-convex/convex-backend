@@ -236,7 +236,7 @@ function ProjectSelectorPanel({
               />
             )}
           </div>
-          <div className="flex flex-col items-start gap-0.5 overflow-y-auto scrollbar sm:max-h-[22rem]">
+          <div className="flex flex-col items-start gap-0.5 overflow-y-auto overflow-x-hidden scrollbar sm:max-h-[22rem]">
             {switchingTeams ? (
               <TeamMenuOptions
                 teams={teams}
