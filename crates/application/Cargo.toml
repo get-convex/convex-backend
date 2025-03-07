@@ -99,6 +99,7 @@ model = { path = "../model", features = ["testing"] }
 must-let = { workspace = true }
 node_executor = { path = "../../crates/node_executor", features = ["testing"] }
 openidconnect = { workspace = true }
+portpicker = { workspace = true }
 pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }

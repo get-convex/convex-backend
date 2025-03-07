@@ -173,7 +173,7 @@ pub async fn make_app(
     };
 
     let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
-    let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout)?);
+    let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout).await?);
     let actions = Actions::new(
         node_executor,
         config.convex_origin_url()?,

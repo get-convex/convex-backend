@@ -2904,6 +2904,9 @@ importers:
       convex:
         specifier: workspace:*
         version: link:../convex
+      express:
+        specifier: ^4.18.3
+        version: 4.21.2
       node-fetch:
         specifier: ^2.6.1
         version: 2.7.0(encoding@0.1.13)
@@ -2938,6 +2941,9 @@ importers:
       '@types/concat-stream':
         specifier: ^2.0.3
         version: 2.0.3
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.21
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
@@ -28155,7 +28161,7 @@ snapshots:
       '@storybook/client-logger': 7.6.17
       '@storybook/core-events': 7.6.17
       '@storybook/global': 5.0.0
-      qs: 6.13.1
+      qs: 6.14.0
       telejson: 7.2.0
       tiny-invariant: 1.3.3
 
@@ -28844,13 +28850,13 @@ snapshots:
     dependencies:
       '@storybook/client-logger': 7.6.17
       memoizerific: 1.11.3
-      qs: 6.13.1
+      qs: 6.14.0
 
   '@storybook/router@7.6.20':
     dependencies:
       '@storybook/client-logger': 7.6.20
       memoizerific: 1.11.3
-      qs: 6.13.1
+      qs: 6.14.0
 
   '@storybook/telemetry@7.6.20(encoding@0.1.13)(supports-color@10.0.0)':
     dependencies:
@@ -35945,7 +35951,7 @@ snapshots:
       extend: 3.0.2
       gaxios: 6.7.1(encoding@0.1.13)
       google-auth-library: 9.15.0(encoding@0.1.13)
-      qs: 6.13.1
+      qs: 6.14.0
       url-template: 2.0.8
       uuid: 9.0.1
     transitivePeerDependencies:
@@ -43651,7 +43657,7 @@ snapshots:
   url@0.11.4:
     dependencies:
       punycode: 1.4.1
-      qs: 6.13.1
+      qs: 6.14.0
 
   urlpattern-polyfill@8.0.2: {}
 

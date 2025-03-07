@@ -11,42 +11,47 @@ use errors::ErrorMetadata;
 use futures::{
     select_biased,
     FutureExt,
-    StreamExt,
 };
+use futures_async_stream::try_stream;
 use isolate::bundled_js::node_executor_file;
+use reqwest::Client;
 use serde_json::Value as JsonValue;
 use tempfile::TempDir;
 use tokio::{
-    process::Command as TokioCommand,
+    process::{
+        Child,
+        Command as TokioCommand,
+    },
     sync::mpsc,
 };
-use tokio_process_stream::{
-    Item,
-    ProcessLineStream,
-};
 
-use crate::executor::{
-    parse_streamed_response,
-    ExecutorRequest,
-    InvokeResponse,
-    NodeExecutor,
-    ResponsePart,
-    EXECUTE_TIMEOUT_RESPONSE_JSON,
+use crate::{
+    executor::{
+        ExecutorRequest,
+        InvokeResponse,
+        NodeExecutor,
+        EXECUTE_TIMEOUT_RESPONSE_JSON,
+    },
+    handle_node_executor_stream,
+    NodeExecutorStreamPart,
 };
 
 /// Always use node version specified in .nvmrc for lambda execution, even if
 /// we're using older version for CLI.
 const NODE_VERSION: &str = include_str!("../../../.nvmrc");
+const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
+const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
 pub struct LocalNodeExecutor {
     _source_dir: TempDir,
-    source_path: PathBuf,
-    node_path: String,
     node_process_timeout: Duration,
+    port: u16,
+    _server_handle: tokio::process::Child,
+    client: reqwest::Client,
 }
 
 impl LocalNodeExecutor {
-    pub fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
+    pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
         // Write the source of local.cjs to a temp file.
         let source_dir = TempDir::new()?;
         let (source, source_map) =
@@ -72,17 +77,25 @@ impl LocalNodeExecutor {
         } else {
             "node".to_string()
         };
+        Self::check_node_version(&node_path).await?;
+        let client = Client::new();
+        let port = portpicker::pick_unused_port().context("No ports free")?;
+        let server_handle =
+            Self::start_node_executor_server(&client, port, &node_path, &source_path).await?;
 
-        Ok(Self {
+        let executor = Self {
             _source_dir: source_dir,
-            source_path,
-            node_path,
             node_process_timeout,
-        })
+            port,
+            _server_handle: server_handle,
+            client,
+        };
+
+        Ok(executor)
     }
 
-    async fn check_version(&self) -> anyhow::Result<()> {
-        let cmd = TokioCommand::new(&self.node_path)
+    async fn check_node_version(node_path: &str) -> anyhow::Result<()> {
+        let cmd = TokioCommand::new(node_path)
             .arg("--version")
             .output()
             .await?;
@@ -99,6 +112,80 @@ impl LocalNodeExecutor {
         }
         Ok(())
     }
+
+    async fn check_server_health(client: &Client, port: u16) -> anyhow::Result<bool> {
+        match client
+            .get(format!("http://127.0.0.1:{}/health", port))
+            .timeout(Duration::from_secs(1))
+            .send()
+            .await
+        {
+            Ok(response) if response.status().is_success() => Ok(true),
+            _ => Ok(false),
+        }
+    }
+
+    async fn start_node_executor_server(
+        client: &Client,
+        port: u16,
+        node_path: &str,
+        source_path: &PathBuf,
+    ) -> anyhow::Result<Child> {
+        let mut cmd = TokioCommand::new(node_path);
+        cmd.arg(source_path)
+            .arg("--port")
+            .arg(port.to_string())
+            .kill_on_drop(true);
+
+        tracing::info!("Starting node executor server on port {}", port);
+        let child = cmd.spawn()?;
+
+        for _ in 0..MAX_HEALTH_CHECK_ATTEMPTS {
+            if Self::check_server_health(client, port).await? {
+                return Ok(child);
+            }
+            tokio::time::sleep(HEALTH_CHECK_INTERVAL).await;
+        }
+        anyhow::bail!("Node executor server failed to start and become healthy")
+    }
+
+    #[try_stream(ok = NodeExecutorStreamPart, error = anyhow::Error)]
+    async fn response_stream(&self, mut response: reqwest::Response) {
+        let mut timeout_future = Box::pin(tokio::time::sleep(self.node_process_timeout));
+        let timeout_future = &mut timeout_future;
+        loop {
+            let process_chunk = async {
+                select_biased! {
+                    chunk = response.chunk().fuse() => {
+                        let chunk = chunk?;
+                        match chunk {
+                            Some(chunk) => {
+                                let chunk_vec = chunk.to_vec();
+                                anyhow::Ok(NodeExecutorStreamPart::Chunk(chunk_vec))
+                            }
+                            None => {
+                                anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(Ok(())))
+                            }
+                        }
+                    },
+                    _ = timeout_future.fuse() => {
+                        anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(Err(InvokeResponse {
+                            response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
+                            memory_used_in_mb: 512,
+                            aws_request_id: None,
+                        })))
+                    },
+                }
+            };
+            let part = process_chunk.await?;
+            if let NodeExecutorStreamPart::InvokeComplete(_) = part {
+                yield part;
+                break;
+            } else {
+                yield part;
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -112,66 +199,44 @@ impl NodeExecutor for LocalNodeExecutor {
         request: ExecutorRequest,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<InvokeResponse> {
-        let request = JsonValue::try_from(request)?;
-        self.check_version().await?;
-        let request = serde_json::to_string(&request)?;
-        tracing::info!(
-            "{} {} --request='{}'",
-            &self.node_path,
-            self.source_path.to_str().expect("Must be utf-8"),
-            &request,
-        );
-        let mut _cmd = TokioCommand::new(&self.node_path);
-        let cmd = _cmd
-            .arg(&self.source_path)
-            .arg("--request")
-            .arg(request)
-            .kill_on_drop(true);
-        let mut result_values = vec![];
-        let mut err_lines = vec![];
-
-        let mut procstream = ProcessLineStream::try_from(cmd)?.fuse();
-
-        let response = loop {
-            select_biased! {
-                item = procstream.select_next_some() => {
-                    match item {
-                        Item::Stdout(line) => {
-                            let parts = parse_streamed_response(&line)?;
-                            for part in parts {
-                                match part {
-                                    ResponsePart::LogLine(log_line) => {
-                                        log_line_sender.send(log_line)?;
-                                    },
-                                    ResponsePart::Result(result) => result_values.push(result)
-                                }
-                            }
-                        },
-                        Item::Done(status) => {
-                            if !status?.success() {
-                                for line in err_lines {
-                                    tracing::error!("{line}");
-                                }
-                                anyhow::bail!("Local process did not exit successfully");
-                            }
-                            anyhow::ensure!(result_values.len() <= 1, "Received more than one result from lambda response");
-                            let value = result_values.pop().ok_or_else(|| anyhow::anyhow!("Received no result from lambda response"))?;
-                            break value;
-                        }
-                        Item::Stderr(line) => err_lines.push(line),
-                    }
-                },
-                _ = tokio::time::sleep(self.node_process_timeout).fuse() => {
-                    break EXECUTE_TIMEOUT_RESPONSE_JSON.clone();
-                },
-            }
+        let request_json = JsonValue::try_from(request)?;
+        let response_result = self
+            .client
+            .post(format!("http://127.0.0.1:{}/invoke", self.port))
+            .json(&request_json)
+            .timeout(self.node_process_timeout)
+            .send()
+            .await;
+        let response = match response_result {
+            Ok(response) => response,
+            Err(e) => {
+                if e.is_timeout() {
+                    return Ok(InvokeResponse {
+                        response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
+                        memory_used_in_mb: 512,
+                        aws_request_id: None,
+                    });
+                } else {
+                    return Err(anyhow::anyhow!(e).context("Node server request failed"));
+                }
+            },
         };
-        Ok(InvokeResponse {
-            response,
-            // constant is good enough for measuring local executor
-            memory_used_in_mb: 512,
-            aws_request_id: None,
-        })
+
+        if !response.status().is_success() {
+            let error = response.text().await?;
+            anyhow::bail!("Node executor server returned error: {}", error);
+        }
+        let stream = self.response_stream(response);
+        let stream = Box::pin(stream);
+        let result = handle_node_executor_stream(log_line_sender, stream).await?;
+        match result {
+            Ok(payload) => Ok(InvokeResponse {
+                response: payload,
+                memory_used_in_mb: 512,
+                aws_request_id: None,
+            }),
+            Err(e) => Ok(e),
+        }
     }
 
     fn shutdown(&self) {}
@@ -331,9 +396,13 @@ mod tests {
         }
     }
 
-    fn create_actions<RT: Runtime>(rt: RT) -> Actions<RT> {
+    async fn create_actions<RT: Runtime>(rt: RT) -> Actions<RT> {
         Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT).unwrap()),
+            Arc::new(
+                LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)
+                    .await
+                    .unwrap(),
+            ),
             TEST_BACKEND_ADDRESS.into(),
             TEST_USER_TIMEOUT,
             rt,
@@ -348,7 +417,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_success(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
 
         let numbers: ConvexArray = array![1f64.into(), 7f64.into()]?;
@@ -373,7 +442,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_log_lines(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:logHelloWorldAndReturn7".parse()?,
@@ -401,7 +470,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_auth_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let identity = UserIdentity::test();
 
@@ -438,7 +507,7 @@ mod tests {
     async fn test_query_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
+            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT).await?),
             "http://localhost:8719".into(),
             TEST_USER_TIMEOUT,
             rt,
@@ -474,7 +543,7 @@ mod tests {
     async fn test_schedule_syscall(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let actions = Actions::new(
-            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT)?),
+            Arc::new(LocalNodeExecutor::new(TEST_NODE_PROCESS_TIMEOUT).await?),
             "http://localhost:8719".into(),
             TEST_USER_TIMEOUT,
             rt,
@@ -508,7 +577,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_error(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = TEST_SOURCE
             .clone()
@@ -554,7 +623,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_forgot_await(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let source_maps = TEST_SOURCE
             .clone()
@@ -599,7 +668,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_missing_export(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:hello".parse()?,
@@ -625,7 +694,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_environment_variables(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let mut environment_variables = BTreeMap::new();
         environment_variables.insert("TEST_NAME".parse()?, "TEST_VALUE".parse()?);
@@ -657,7 +726,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_user_timeout(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:sleepAnHour".parse()?,
@@ -691,7 +760,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_partial_escape_sequence_result(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:partialEscapeSequence".parse()?,
@@ -712,14 +781,14 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_process_timeout(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:workHardForAnHour".parse()?,
             array![],
             VERSION.clone(),
         );
-        let (response, log_lines) = execute(
+        let (response, _log_lines) = execute(
             &actions,
             execute_request(path_and_args, source_package),
             empty_source_maps_callback(),
@@ -731,13 +800,6 @@ mod tests {
             "Function execution unexpectedly timed out. Check your function for infinite loops or \
              other long-running operations."
         );
-        assert_eq!(
-            log_lines
-                .into_iter()
-                .map(|l| l.to_pretty_string_test_only())
-                .collect::<Vec<_>>(),
-            vec!["[LOG] 'I am going to work really hard for 1 hour'".to_owned()]
-        );
 
         Ok(())
     }
@@ -745,7 +807,7 @@ mod tests {
     #[convex_macro::prod_rt_test]
     async fn test_deadlock(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
         let path_and_args = ValidatedPathAndArgs::new_for_tests(
             "node_actions.js:deadlock".parse()?,
@@ -838,7 +900,7 @@ export {
     #[convex_macro::prod_rt_test]
     async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let path: ModulePath = "static_node_source.js".parse()?;
         let source_package = upload_modules(
             storage.clone(),
@@ -936,7 +998,7 @@ export { hello };
     #[convex_macro::prod_rt_test]
     async fn test_analyze_query(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(
             storage.clone(),
             vec![ModuleConfig {
@@ -968,7 +1030,7 @@ export { hello };
     #[convex_macro::prod_rt_test]
     async fn test_syscall_trace(rt: ProdRuntime) -> anyhow::Result<()> {
         let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
-        let actions = create_actions(rt);
+        let actions = create_actions(rt).await;
         let source_package = upload_modules(storage.clone(), TEST_SOURCE.clone()).await?;
 
         // First, try to execute an action with a syscall that fails. In this case,

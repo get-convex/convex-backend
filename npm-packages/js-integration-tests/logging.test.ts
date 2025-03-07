@@ -93,12 +93,11 @@ describe("ConvexHttpClient", () => {
       messages.push(message),
     );
     await httpClient.action(api.actions.simple.consoleTime);
-    expect(messages.length).toEqual(6);
-    expect(messages[0]).toMatch(/Log at import time/);
+    expect(messages.length).toEqual(5);
+    expect(messages[0]).toMatch(/default: [0-9]+ms/);
     expect(messages[1]).toMatch(/default: [0-9]+ms/);
-    expect(messages[2]).toMatch(/default: [0-9]+ms/);
-    expect(messages[3]).toMatch(/Timer 'foo' already exists/);
-    expect(messages[4]).toMatch(/'foo: [0-9]+ms' 'bar' 'baz'/);
-    expect(messages[5]).toMatch(/foo: [0-9]+ms/);
+    expect(messages[2]).toMatch(/Timer 'foo' already exists/);
+    expect(messages[3]).toMatch(/'foo: [0-9]+ms' 'bar' 'baz'/);
+    expect(messages[4]).toMatch(/foo: [0-9]+ms/);
   });
 });

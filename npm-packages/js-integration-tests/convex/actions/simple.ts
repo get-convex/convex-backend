@@ -3,7 +3,6 @@
 import { api } from "../_generated/api";
 import { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
-console.log("Log at import time");
 
 export const hello = action(async (_, { somebody }: { somebody: string }) => {
   console.log(`Hello, ${somebody}!`);

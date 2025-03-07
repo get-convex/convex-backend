@@ -87,8 +87,9 @@ use model::{
     virtual_system_mapping,
 };
 use node_executor::{
-    local::LocalNodeExecutor,
+    noop::NoopNodeExecutor,
     Actions,
+    NodeExecutor,
 };
 use storage::Storage;
 use value::{
@@ -117,12 +118,20 @@ pub static OBJECTS_TABLE_COMPONENT: ComponentId = ComponentId::test_user();
 pub struct ApplicationFixtureArgs {
     pub tp: Option<TestPersistence>,
     pub event_logger: Option<Arc<dyn UsageEventLogger>>,
+    pub node_executor: Option<Arc<dyn NodeExecutor>>,
 }
 
 impl ApplicationFixtureArgs {
     pub fn with_event_logger(event_logger: Arc<dyn UsageEventLogger>) -> Self {
         Self {
             event_logger: Some(event_logger),
+            ..Default::default()
+        }
+    }
+
+    pub fn with_node_executor(node_executor: Arc<dyn NodeExecutor>) -> Self {
+        Self {
+            node_executor: Some(node_executor),
             ..Default::default()
         }
     }
@@ -227,8 +236,9 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             database: database.clone(),
         };
 
-        let node_process_timeout = *ACTION_USER_TIMEOUT + Duration::from_secs(5);
-        let node_executor = Arc::new(LocalNodeExecutor::new(node_process_timeout)?);
+        let node_executor = args
+            .node_executor
+            .unwrap_or_else(|| Arc::new(NoopNodeExecutor::new()));
         let actions = Actions::new(
             node_executor,
             convex_origin.clone(),

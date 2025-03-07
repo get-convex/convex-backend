@@ -1,4 +1,8 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::Arc,
+    time::Duration,
+};
 
 use common::types::{
     ModuleEnvironment,
@@ -8,10 +12,14 @@ use model::{
     config::types::ModuleConfig,
     udf_config::types::UdfConfig,
 };
+use node_executor::local::LocalNodeExecutor;
 use runtime::prod::ProdRuntime;
 
 use crate::{
-    test_helpers::ApplicationTestExt,
+    test_helpers::{
+        ApplicationFixtureArgs,
+        ApplicationTestExt,
+    },
     tests::NODE_SOURCE,
     Application,
 };
@@ -56,7 +64,13 @@ export default {
 // This test requires prod runtime since it analyzes node modules.
 #[convex_macro::prod_rt_test]
 async fn test_analyze(rt: ProdRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_node_executor(Arc::new(
+            LocalNodeExecutor::new(Duration::from_secs(10)).await?,
+        )),
+    )
+    .await?;
     let modules = vec![
         ModuleConfig {
             path: "a.js".parse()?,
@@ -162,7 +176,13 @@ export { hello, internalHello };
 }
 "#;
 
-    let application = Application::new_for_tests(&rt).await?;
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_node_executor(Arc::new(
+            LocalNodeExecutor::new(Duration::from_secs(10)).await?,
+        )),
+    )
+    .await?;
     let modules = vec![
         ModuleConfig {
             path: "isolate_source.js".parse()?,
@@ -218,7 +238,13 @@ export { hello, internalHello };
 // This test requires prod runtime since it analyzes node modules.
 #[convex_macro::prod_rt_test]
 async fn test_analyze_crons(rt: ProdRuntime) -> anyhow::Result<()> {
-    let application = Application::new_for_tests(&rt).await?;
+    let application = Application::new_for_tests_with_args(
+        &rt,
+        ApplicationFixtureArgs::with_node_executor(Arc::new(
+            LocalNodeExecutor::new(Duration::from_secs(10)).await?,
+        )),
+    )
+    .await?;
     let modules = vec![
         ModuleConfig {
             path: "a.js".parse()?,

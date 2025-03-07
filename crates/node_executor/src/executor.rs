@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use common::{
     backoff::Backoff,
@@ -33,6 +34,10 @@ use common::{
     },
 };
 use errors::ErrorMetadataAnyhowExt;
+use futures::{
+    Stream,
+    StreamExt,
+};
 use http::Uri;
 use isolate::{
     deserialize_udf_custom_error,
@@ -893,7 +898,7 @@ pub enum ResponsePart {
     Result(JsonValue),
 }
 
-pub fn parse_streamed_response(s: &str) -> anyhow::Result<Vec<ResponsePart>> {
+fn parse_streamed_response(s: &str) -> anyhow::Result<Vec<ResponsePart>> {
     let parts = s.trim().split('\n');
     parts
         .filter(|part| !part.trim().is_empty())
@@ -913,4 +918,72 @@ pub fn parse_streamed_response(s: &str) -> anyhow::Result<Vec<ResponsePart>> {
             anyhow::bail!("Invalid part")
         })
         .try_collect()
+}
+
+pub enum NodeExecutorStreamPart {
+    Chunk(Vec<u8>),
+    InvokeComplete(Result<(), InvokeResponse>),
+}
+
+pub async fn handle_node_executor_stream(
+    log_line_sender: mpsc::UnboundedSender<LogLine>,
+    mut stream: impl Stream<Item = anyhow::Result<NodeExecutorStreamPart>> + Unpin,
+) -> anyhow::Result<Result<JsonValue, InvokeResponse>> {
+    let mut remaining_chunk: Vec<u8> = vec![];
+    let mut result_values = vec![];
+    while let Some(part) = stream.next().await {
+        let part = part.with_context(|| "Error in node executor stream")?;
+        match part {
+            NodeExecutorStreamPart::Chunk(chunk) => {
+                let mut bytes: &[u8] = &[remaining_chunk, chunk].concat();
+                // Split any bytes from the previous chunk + the body of this chunk
+                // into new lines and parse them as JSON objects.
+                loop {
+                    match bytes.split_once(|b| b == &b'\n') {
+                        None => {
+                            remaining_chunk = bytes.to_vec();
+                            break;
+                        },
+                        Some((line, rest)) => {
+                            let decoded_str = String::from_utf8(line.to_vec())?;
+                            let parts = parse_streamed_response(&decoded_str)?;
+                            for part in parts {
+                                match part {
+                                    ResponsePart::LogLine(log_line) => {
+                                        log_line_sender.send(log_line)?;
+                                    },
+                                    ResponsePart::Result(result) => result_values.push(result),
+                                };
+                            }
+                            bytes = rest;
+                        },
+                    }
+                }
+            },
+            NodeExecutorStreamPart::InvokeComplete(result) => {
+                if let Err(e) = result {
+                    return Ok(Err(e));
+                }
+                let decoded_str = String::from_utf8(remaining_chunk.to_vec())?;
+                let parts = parse_streamed_response(&decoded_str)?;
+                for part in parts {
+                    match part {
+                        ResponsePart::LogLine(log_line) => {
+                            log_line_sender.send(log_line)?;
+                        },
+                        ResponsePart::Result(result) => result_values.push(result),
+                    };
+                }
+                break;
+            },
+        }
+    }
+    anyhow::ensure!(
+        result_values.len() <= 1,
+        "Received more than one result from lambda response"
+    );
+    let payload = result_values
+        .pop()
+        .ok_or_else(|| anyhow::anyhow!("Received no result from lambda response"))?;
+    Ok(Ok(payload))
 }
