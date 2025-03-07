@@ -17,7 +17,6 @@ import React, {
 import isArray from "lodash/isArray";
 import isPlainObject from "lodash/isPlainObject";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { useMount } from "react-use";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { cn } from "@common/lib/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
@@ -94,21 +93,23 @@ export function ObjectEditor(props: ObjectEditorProps) {
   const getDocumentRefs = useIdDecorations(monaco, path, showTableNames);
 
   // Initialize all markers on mount.
-  useMount(() => {
-    handleCodeChange(
-      defaultValueString,
-      mode,
-      validator,
-      "allowTopLevelUndefined" in props
-        ? // eslint-disable-next-line react/destructuring-assignment
-          !!props.allowTopLevelUndefined
-        : false,
-      shouldSurfaceValidatorErrors,
-      handleError,
-      onChange,
-      getDocumentRefs,
-    );
-  });
+  useEffect(() => {
+    monaco &&
+      handleCodeChange(
+        defaultValueString,
+        mode,
+        validator,
+        "allowTopLevelUndefined" in props
+          ? // eslint-disable-next-line react/destructuring-assignment
+            !!props.allowTopLevelUndefined
+          : false,
+        shouldSurfaceValidatorErrors,
+        handleError,
+        onChange,
+        getDocumentRefs,
+      );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monaco]);
 
   const saveActionRef = useRef(saveAction);
   useEffect(() => {

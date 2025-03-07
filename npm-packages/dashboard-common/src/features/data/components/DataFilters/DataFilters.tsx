@@ -232,7 +232,7 @@ export function DataFilters({
                     Apply Filters
                   </Button>
                 ) : (
-                  <p className="ml-1 text-xs flex gap-0.5 font-medium text-content-secondary">
+                  <p className="ml-1 flex gap-0.5 text-xs font-medium text-content-secondary">
                     <CheckIcon />
                     Filters applied
                   </p>

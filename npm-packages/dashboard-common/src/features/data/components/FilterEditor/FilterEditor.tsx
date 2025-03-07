@@ -100,7 +100,7 @@ export function FilterEditor({
   const [objectEditorKey, forceRerender] = useReducer((x) => x + 1, 0);
 
   return (
-    <div className="flex grow min-w-0">
+    <div className="flex min-w-0 grow">
       <Combobox
         label="Select filter field"
         size="sm"
@@ -192,7 +192,7 @@ function ValueEditor({
     state.field === "_creationTime" && typeof state.value === "number";
 
   return (
-    <div className="ml-[-1px] grow min-w-0">
+    <div className="ml-[-1px] min-w-0 grow">
       {isTypeFilterOp(state.op) ? (
         <Combobox
           searchPlaceholder="Search types..."
