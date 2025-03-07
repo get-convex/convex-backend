@@ -109,7 +109,10 @@ use utoipa::ToSchema;
 use self::metrics::log_http_request;
 use crate::{
     errors::report_error_sync,
-    knobs::HTTP_SERVER_TCP_BACKLOG,
+    knobs::{
+        HTTP_SERVER_TCP_BACKLOG,
+        PROPAGATE_UPSTREAM_TRACES,
+    },
     metrics::log_client_version_unsupported,
     runtime::TaskManager,
     version::{
@@ -829,8 +832,8 @@ pub async fn stats_middleware<RM: RouteMapper>(
 
     // Sampling isn't done here, and should be done upstream
     let root = match traceparent {
-        Some(span_ctx) => Span::root(route.to_owned(), span_ctx),
-        None => Span::noop(),
+        Some(span_ctx) if *PROPAGATE_UPSTREAM_TRACES => Span::root(route.to_owned(), span_ctx),
+        _ => Span::noop(),
     };
     let resp = next.run(req).in_span(root).await;
 

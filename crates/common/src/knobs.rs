@@ -1272,6 +1272,11 @@ pub static EXPORT_MAX_INFLIGHT_PREFETCH_BYTES: LazyLock<usize> = LazyLock::new(|
     .clamp(1, u32::MAX as usize)
 });
 
+/// Whether or not a service should propagate all upstream traces or perform its
+/// own sampling
+pub static PROPAGATE_UPSTREAM_TRACES: LazyLock<bool> =
+    LazyLock::new(|| env_config("PROPAGATE_UPSTREAM_TRACES", true));
+
 /// The maximum allowed age of /list_snapshot's timestamp.
 pub static LIST_SNAPSHOT_MAX_AGE_SECS: LazyLock<Duration> = LazyLock::new(|| {
     Duration::from_secs(env_config("LIST_SNAPSHOT_MAX_AGE_SECS", 30 * 24 * 60 * 60))
