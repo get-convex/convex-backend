@@ -3,7 +3,6 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Context;
 use common::{
     bootstrap_model::tables::{
         TableMetadata,
@@ -175,8 +174,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                     TableState::Active | TableState::Deleting => {},
                     TableState::Hidden => {
                         let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
-                        let creation_time =
-                            table.creation_time().context("Missing creation time")?;
+                        let creation_time = table.creation_time();
                         let age = Duration::from_millis(
                             (f64::from(now) - f64::from(creation_time)) as u64,
                         );
@@ -231,9 +229,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                 }
                 let table_metadata = table_model.get_table_metadata(*tablet_id).await?;
                 let now = CreationTime::try_from(*ts)?;
-                let creation_time = table_metadata
-                    .creation_time()
-                    .context("Missing creation time")?;
+                let creation_time = table_metadata.creation_time();
                 let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
                 if age > MAX_ORPHANED_TABLE_NAMESPACE_AGE {
                     tracing::info!(
@@ -326,7 +322,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             SystemMetadataModel::new(&mut tx, namespace)
                 .delete(document.id())
                 .await?;
-            *cursor = document.creation_time();
+            *cursor = Some(document.creation_time());
             deleted_count += 1;
         }
         if deleted_count == 0 {

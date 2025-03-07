@@ -394,9 +394,7 @@ impl TantivySearchIndexSchema {
 
         tantivy_document.add_u64(self.ts_field, ts.into());
 
-        let creation_time = document
-            .creation_time()
-            .expect("Document should have creation time");
+        let creation_time = document.creation_time();
         tantivy_document.add_f64(self.creation_time_field, creation_time.into());
 
         if let Some(ConvexValue::String(ref s)) = document.value().get_path(&self.search_field_path)

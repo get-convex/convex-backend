@@ -365,23 +365,11 @@ impl TextIndexBootstrapData {
             WriteTimestamp::Committed(revision_pair.ts()),
             revision_pair
                 .prev_document()
-                .map(|d| {
-                    anyhow::Ok((
-                        self.tantivy_schema.index_into_terms(d)?,
-                        d.creation_time()
-                            .expect("Document should have creation time"),
-                    ))
-                })
+                .map(|d| anyhow::Ok((self.tantivy_schema.index_into_terms(d)?, d.creation_time())))
                 .transpose()?,
             revision_pair
                 .document()
-                .map(|d| {
-                    anyhow::Ok((
-                        self.tantivy_schema.index_into_terms(d)?,
-                        d.creation_time()
-                            .expect("Document should have creation time"),
-                    ))
-                })
+                .map(|d| anyhow::Ok((self.tantivy_schema.index_into_terms(d)?, d.creation_time())))
                 .transpose()?,
         )
     }

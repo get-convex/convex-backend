@@ -482,9 +482,7 @@ impl<RT: Runtime> Transaction<RT> {
             }
 
             if let Some(ref document) = update.new_document {
-                let doc_creation_time = document
-                    .creation_time()
-                    .context("Insert must have a creation time")?;
+                let doc_creation_time = document.creation_time();
                 if doc_creation_time >= self.next_creation_time {
                     self.next_creation_time = doc_creation_time;
                     self.next_creation_time.increment()?;

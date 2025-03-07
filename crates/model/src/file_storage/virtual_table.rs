@@ -75,12 +75,10 @@ impl VirtualSystemDocMapper for FileStorageDocMapper {
 
         let mut fields: BTreeMap<_, _> = public_metadata_resolved.into();
         fields.insert(ID_FIELD.to_owned().into(), virtual_developer_id.into());
-        if let Some(t) = doc.creation_time() {
-            fields.insert(
-                CREATION_TIME_FIELD.to_owned().into(),
-                ConvexValue::from(f64::from(t)),
-            );
-        }
+        fields.insert(
+            CREATION_TIME_FIELD.to_owned().into(),
+            ConvexValue::from(f64::from(doc.creation_time())),
+        );
         public_metadata_resolved = fields.try_into()?;
 
         let public_doc = DeveloperDocument::new(

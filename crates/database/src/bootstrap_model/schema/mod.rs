@@ -456,9 +456,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
                 SchemaState::Active | SchemaState::Pending | SchemaState::Validated => continue,
             }
             // Break if the schemas are not old enough to be deleted
-            if schema_doc
-                .creation_time()
-                .context("Missing creation time in document")?
+            if schema_doc.creation_time()
                 > (*self
                     .tx
                     .begin_timestamp()

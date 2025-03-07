@@ -422,12 +422,19 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
 
     expected_export_entries.insert(format!("_storage/{file1_id}.jpeg"), format!("abc"));
     expected_export_entries.insert(
-            "_storage/documents.jsonl".to_string(),
-            format!(
-                "{}\n",
-                json!({"_id": file1_id.encode(), "_creationTime": f64::from(file1.creation_time().unwrap()), "sha256": "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=", "size": 3, "contentType": "image/jpeg", "internalId": file1.storage_id.to_string()}),
-            ),
-        );
+        "_storage/documents.jsonl".to_string(),
+        format!(
+            "{}\n",
+            json!({
+                "_id": file1_id.encode(),
+                "_creationTime": f64::from(file1.creation_time()),
+                "sha256": "ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=",
+                "size": 3,
+                "contentType": "image/jpeg",
+                "internalId": file1.storage_id.to_string(),
+            }),
+        ),
+    );
 
     let (_, zip_object_key, usage) = export_inner(
         &mut export_worker,

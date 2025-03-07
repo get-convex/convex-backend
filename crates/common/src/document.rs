@@ -218,12 +218,12 @@ impl CreationTime {
 #[derive(Clone, Eq, PartialEq)]
 pub struct DeveloperDocument {
     id: DeveloperDocumentId,
-    creation_time: Option<CreationTime>,
+    creation_time: CreationTime,
     value: PII<ConvexObject>,
 }
 
 impl DeveloperDocument {
-    pub fn creation_time(&self) -> Option<CreationTime> {
+    pub fn creation_time(&self) -> CreationTime {
         self.creation_time
     }
 
@@ -324,7 +324,7 @@ impl TryFrom<ResolvedDocument> for ResolvedDocumentProto {
         };
         Ok(Self {
             id: Some(id.into()),
-            creation_time: creation_time.map(|t| t.into()),
+            creation_time: Some(creation_time.into()),
             value: Some(value),
         })
     }
@@ -343,7 +343,9 @@ impl TryFrom<ResolvedDocumentProto> for ResolvedDocument {
         let id: ResolvedDocumentId = id
             .ok_or_else(|| anyhow::anyhow!("Missing id"))?
             .try_into()?;
-        let creation_time = creation_time.map(|t| t.try_into()).transpose()?;
+        let creation_time = creation_time
+            .ok_or_else(|| anyhow::anyhow!("Missing creation time"))?
+            .try_into()?;
         let value: ConvexObject = serde_json::from_slice::<JsonValue>(
             &value.ok_or_else(|| anyhow::anyhow!("Missing value"))?,
         )?
@@ -361,9 +363,9 @@ impl TryFrom<ResolvedDocumentProto> for ResolvedDocument {
 }
 
 impl ResolvedDocument {
-    fn new_internal(
+    pub fn new(
         id: ResolvedDocumentId,
-        creation_time: Option<CreationTime>,
+        creation_time: CreationTime,
         mut value: ConvexObject,
     ) -> anyhow::Result<Self> {
         let id_value: ConvexValue = id.into();
@@ -382,17 +384,17 @@ impl ResolvedDocument {
             fields.insert(ID_FIELD.to_owned().into(), id_value);
             value = fields.try_into()?;
         }
-        let creation_time_value = creation_time.map(|t| ConvexValue::from(f64::from(t)));
+        let creation_time_value = ConvexValue::from(f64::from(creation_time));
         match (
             creation_time_value,
             value.get(&FieldName::from(CREATION_TIME_FIELD.clone())),
         ) {
-            (Some(time), None) => {
+            (time, None) => {
                 let mut fields: BTreeMap<_, _> = value.into();
                 fields.insert(CREATION_TIME_FIELD.to_owned().into(), time);
                 value = fields.try_into()?;
             },
-            (l, r) if l.as_ref() == r => (),
+            (l, r) if Some(&l) == r => (),
             _ => anyhow::bail!(ErrorMetadata::bad_request(
                 "InvalidCreationTimeError",
                 format!(
@@ -411,14 +413,6 @@ impl ResolvedDocument {
         };
         doc.must_validate()?;
         Ok(doc)
-    }
-
-    pub fn new(
-        id: ResolvedDocumentId,
-        creation_time: CreationTime,
-        value: ConvexObject,
-    ) -> anyhow::Result<Self> {
-        Self::new_internal(id, Some(creation_time), value)
     }
 
     fn must_validate(&self) -> anyhow::Result<()> {
@@ -521,8 +515,8 @@ impl ResolvedDocument {
             _ => anyhow::bail!("Object {} missing _id field", object),
         };
         let creation_time = match object.get(&FieldName::from(CREATION_TIME_FIELD.clone())) {
-            Some(ConvexValue::Float64(ts)) => Some((*ts).try_into()?),
-            None => None,
+            Some(ConvexValue::Float64(ts)) => (*ts).try_into()?,
+            None => anyhow::bail!("Object {object} missing _creationTime field"),
             _ => anyhow::bail!("Object {object} has invalid _creationTime field"),
         };
         Ok(Self {
@@ -541,8 +535,8 @@ impl ResolvedDocument {
     ) -> anyhow::Result<Self> {
         let object: ConvexObject = value.try_into()?;
         let creation_time = match object.get(&FieldName::from(CREATION_TIME_FIELD.clone())) {
-            Some(ConvexValue::Float64(ts)) => Some((*ts).try_into()?),
-            None => None,
+            Some(ConvexValue::Float64(ts)) => (*ts).try_into()?,
+            None => anyhow::bail!("Object {object} missing _creationTime field"),
             _ => anyhow::bail!("Object {object} has invalid _creationTime field"),
         };
         Ok(Self {
@@ -559,7 +553,7 @@ impl ResolvedDocument {
     /// `new_value` contains an `_id` field, it must match the current `_id`
     /// field's value.
     pub fn replace_value(&self, new_value: ConvexObject) -> anyhow::Result<Self> {
-        Self::new_internal(self.id(), self.creation_time, new_value)
+        Self::new(self.id(), self.creation_time, new_value)
     }
 
     pub fn into_value(self) -> PII<ConvexObject> {
@@ -745,11 +739,7 @@ impl DocumentUpdateRef for DocumentUpdate {
 }
 
 impl DeveloperDocument {
-    pub fn new(
-        id: DeveloperDocumentId,
-        creation_time: Option<CreationTime>,
-        value: ConvexObject,
-    ) -> Self {
+    pub fn new(id: DeveloperDocumentId, creation_time: CreationTime, value: ConvexObject) -> Self {
         Self {
             id,
             creation_time,
@@ -832,7 +822,7 @@ impl HeapSize for PackedDocument {
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct ParsedDocument<D> {
     id: ResolvedDocumentId,
-    creation_time: Option<CreationTime>,
+    creation_time: CreationTime,
     value: D,
 }
 
@@ -845,7 +835,7 @@ impl<D> ParsedDocument<D> {
         self.id.into()
     }
 
-    pub fn creation_time(&self) -> Option<CreationTime> {
+    pub fn creation_time(&self) -> CreationTime {
         self.creation_time
     }
 
@@ -976,7 +966,7 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocument {
                     ConvexValue::from(f64::from(creation_time)),
                 );
                 let value = ConvexObject::try_from(object).unwrap();
-                let doc = ResolvedDocument::new_internal(id, Some(creation_time), value);
+                let doc = ResolvedDocument::new(id, creation_time, value);
                 doc.ok()
             },
         )
@@ -1031,12 +1021,12 @@ mod tests {
             table_number,
             table_name.clone(),
         );
-        let doc = ResolvedDocument::new_internal(
+        let doc = ResolvedDocument::new(
             ResolvedDocumentId::new(
                 tablet_id,
                 DeveloperDocumentId::new(table_number, internal_id),
             ),
-            Some(CreationTime::ONE),
+            CreationTime::ONE,
             assert_obj!(
                 "f" => 5
             ),

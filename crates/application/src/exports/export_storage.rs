@@ -89,11 +89,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
         let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
         let virtual_storage_id = file_storage_entry.id().developer_id;
-        let creation_time = f64::from(
-            file_storage_entry
-                .creation_time()
-                .context("file should have creation time")?,
-        );
+        let creation_time = f64::from(file_storage_entry.creation_time());
         table_upload
             .write_json_line(json!(FileStorageZipMetadata {
                 id: virtual_storage_id.encode(),

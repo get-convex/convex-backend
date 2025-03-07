@@ -299,23 +299,22 @@ impl<RT: Runtime> SnapshotImportExecutor<RT> {
         &self,
         snapshot_import: &ParsedDocument<SnapshotImport>,
     ) -> anyhow::Result<()> {
-        if let Some(creation_time) = snapshot_import.creation_time() {
-            let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
-            let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
-            log_snapshot_import_age(age);
-            if age > *MAX_IMPORT_AGE / 2 {
-                tracing::warn!(
-                    "SnapshotImport {} running too long ({:?})",
-                    snapshot_import.id(),
-                    age
-                );
-            }
-            if age > *MAX_IMPORT_AGE {
-                anyhow::bail!(ErrorMetadata::bad_request(
-                    "ImportFailed",
-                    "Import took too long. Try again or contact Convex."
-                ));
-            }
+        let creation_time = snapshot_import.creation_time();
+        let now = CreationTime::try_from(*self.database.now_ts_for_reads())?;
+        let age = Duration::from_millis((f64::from(now) - f64::from(creation_time)) as u64);
+        log_snapshot_import_age(age);
+        if age > *MAX_IMPORT_AGE / 2 {
+            tracing::warn!(
+                "SnapshotImport {} running too long ({:?})",
+                snapshot_import.id(),
+                age
+            );
+        }
+        if age > *MAX_IMPORT_AGE {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "ImportFailed",
+                "Import took too long. Try again or contact Convex."
+            ));
         }
         Ok(())
     }

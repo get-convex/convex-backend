@@ -508,23 +508,11 @@ impl TextIndexManager {
             };
             let old_value = deletion
                 .as_ref()
-                .map(|d| {
-                    anyhow::Ok((
-                        tantivy_schema.index_into_terms(d)?,
-                        d.creation_time()
-                            .expect("Document should have creation time"),
-                    ))
-                })
+                .map(|d| anyhow::Ok((tantivy_schema.index_into_terms(d)?, d.creation_time())))
                 .transpose()?;
             let new_terms = insertion
                 .as_ref()
-                .map(|d| {
-                    anyhow::Ok((
-                        tantivy_schema.index_into_terms(d)?,
-                        d.creation_time()
-                            .expect("Document should have creation time"),
-                    ))
-                })
+                .map(|d| anyhow::Ok((tantivy_schema.index_into_terms(d)?, d.creation_time())))
                 .transpose()?;
             index
                 .memory_index_mut()

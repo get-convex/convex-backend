@@ -1100,10 +1100,9 @@ async fn test_insert_new_table_for_import(rt: TestRuntime) -> anyhow::Result<()>
     let doc2 = tx.get_inner(doc2_id, table_name.clone()).await?.unwrap().0;
     assert_eq!(doc1.id(), doc1_id);
     assert_eq!(doc2.id(), doc2_id);
-    assert!(doc1.creation_time().is_some());
     assert_eq!(
         doc2.creation_time(),
-        Some(CreationTime::try_from(1699545341000.0)?)
+        CreationTime::try_from(1699545341000.0)?
     );
     // The table is still in state Hidden, so it doesn't appear in the dashboard
     let snapshot = database.latest_snapshot()?;
