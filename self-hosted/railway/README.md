@@ -91,3 +91,4 @@ See
 - **Running out of disk space**: The hobby railway configuration allocates 5GB to
   the `convex_data` volume where your SQLite database and storage lives. If you
   run out of space, you can increase the volume to 50GB by upgrading plan.
+- If you need more help feel free to join our discord [community discord](https://convex.dev/community)
