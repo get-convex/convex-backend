@@ -23,3 +23,12 @@ with our product plans. We are generally unlikely to take large or fundamental
 changes as community contributions. We think carefully about how our APIs
 contribute to a cohesive product in line with our roadmap, so we cannot promise
 that larger PRs will get the same level of attention.
+
+Instructions for building and running Convex packages locally:
+
+- [Building the backend and CLI from source](BUILD.md)
+- [Running the dashboard](npm-packages/dashboard-self-hosted/README.md)
+
+Note: If you just want to self-host Convex and not modify the codebase, we
+recommend using the pre-built Docker image or binary. See the
+[self-hosted README](../self-hosted/README.md) for more information.

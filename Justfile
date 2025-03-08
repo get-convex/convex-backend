@@ -22,6 +22,9 @@ set positional-arguments
 run-local-backend *ARGS:
   cargo run -p local_backend --bin convex-local-backend -- "$@"
 
+run-dashboard *ARGS:
+  cd {{justfile_directory()}}/npm-packages/dashboard-self-hosted; NEXT_PUBLIC_DEPLOYMENT_URL="$@" npm run dev
+
 # Uses an admin key from admin_key.txt for dev backends.
 # This uses the default admin key for local backends, which is safe as long as the backend is
 # running locally.
@@ -42,3 +45,4 @@ reset-local-backend:
 # (*) rush, the monorepo JS tool for deps and building
 rush *ARGS:
   cd {{invocation_directory()}}; "{{justfile_directory()}}/scripts/rush_from_npm-packages.sh" "$@"
+

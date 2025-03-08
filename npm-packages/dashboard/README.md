@@ -1,5 +1,13 @@
 # Convex Dashboard
 
+This is the dashboard for Convex Cloud. If you intend to contribute to the
+self-hosted dashboard, see the
+[dashboard-self-hosted README](../dashboard-self-hosted/README.md). You may also
+connect the self-hosted dashboard to a Convex Cloud deployment.
+
+The following instructions are intended for Convex employees developing the
+Cloud hosted dashboard.
+
 ## Running against a local `big-brain`.
 
 ### First time setup
