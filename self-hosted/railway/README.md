@@ -66,7 +66,7 @@ The dashboard allows you to see logs, read/write data, run functions, and more.
 You can run the dashboard locally with Docker, or deploy it to Railway.
 
 - Head over to your railway app
-- Select convex-dashboard
+- Select `convex-dashboard`
 - Visit its public url
 - Paste the admin key when prompted
 - Enjoy
