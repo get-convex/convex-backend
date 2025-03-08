@@ -951,6 +951,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/get_spending_limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_spending_limits"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/invites": {
         parameters: {
             query?: never;
@@ -1504,6 +1520,13 @@ export interface components {
         GetOptInsResponse: {
             optInsToAccept: components["schemas"]["OptInToAccept"][];
         };
+        GetSpendingLimitsResponse: {
+            /** Format: int64 */
+            disableThresholdCents?: number | null;
+            state?: null | components["schemas"]["SpendingLimitsState"];
+            /** Format: int64 */
+            warningThresholdCents?: number | null;
+        };
         InstanceAuthForDashboardInteractionsResponse: {
             adminKey: components["schemas"]["SerializedAccessToken"];
             instanceUrl: string;
@@ -1693,6 +1716,8 @@ export interface components {
         SetupIntentResponse: {
             clientSecret: string;
         };
+        /** @enum {string} */
+        SpendingLimitsState: "Running" | "Disabled" | "Warning";
         Team: {
             creator: components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
@@ -1869,6 +1894,7 @@ export type EnvVariableConfigJson = components['schemas']['EnvVariableConfigJson
 export type EnvironmentVariableJson = components['schemas']['EnvironmentVariableJson'];
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
+export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
@@ -1909,6 +1935,7 @@ export type Role = components['schemas']['Role'];
 export type SerializedAccessToken = components['schemas']['SerializedAccessToken'];
 export type SetSpendingLimitArgs = components['schemas']['SetSpendingLimitArgs'];
 export type SetupIntentResponse = components['schemas']['SetupIntentResponse'];
+export type SpendingLimitsState = components['schemas']['SpendingLimitsState'];
 export type Team = components['schemas']['Team'];
 export type TeamAccessTokenResponse = components['schemas']['TeamAccessTokenResponse'];
 export type TeamCurrentBillingPeriodResponse = components['schemas']['TeamCurrentBillingPeriodResponse'];
@@ -3248,6 +3275,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectMemberRoleResponse"][];
+                };
+            };
+        };
+    };
+    get_spending_limits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetSpendingLimitsResponse"];
                 };
             };
         };

@@ -1589,6 +1589,31 @@
         }
       }
     },
+    "/teams/{team_id}/get_spending_limits": {
+      "get": {
+        "operationId": "get_spending_limits",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSpendingLimitsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/invites": {
       "get": {
         "operationId": "pending_invitations_for_team",
@@ -3184,6 +3209,37 @@
           }
         }
       },
+      "GetSpendingLimitsResponse": {
+        "type": "object",
+        "properties": {
+          "disableThresholdCents": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "state": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/SpendingLimitsState"
+              }
+            ]
+          },
+          "warningThresholdCents": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
       "InstanceAuthForDashboardInteractionsResponse": {
         "oneOf": [
           {
@@ -3836,6 +3892,14 @@
             "type": "string"
           }
         }
+      },
+      "SpendingLimitsState": {
+        "type": "string",
+        "enum": [
+          "Running",
+          "Disabled",
+          "Warning"
+        ]
       },
       "Team": {
         "type": "object",
