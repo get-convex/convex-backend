@@ -2,7 +2,7 @@
 
 ## Deploying to Railway.com
 
-You can view the ready to deploy [template here](https://railway.com/template/OKpPqB?referralCode=OAdiMp)
+You can view the ready to deploy [template here](https://railway.com/template/OKpPqB)
 
 or use one click deploy button below:
 
