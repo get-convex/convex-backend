@@ -171,7 +171,7 @@ function BillingContactForm({
         </>
       ) : (
         <form
-          className="w-fit"
+          className="max-w-64"
           onSubmit={(e) => {
             e.preventDefault();
             formState.handleSubmit();
@@ -301,7 +301,7 @@ function BillingAddressForm({
         </>
       ) : (
         <form
-          className="w-fit"
+          className="w-full"
           onSubmit={(e) => {
             e.preventDefault();
             formState.handleSubmit();

@@ -205,7 +205,7 @@ export function UpgradePlanContent({
         requiresPaymentMethod={requiresPaymentMethod}
         couponDurationInMonths={couponDurationInMonths}
       />
-      <div className="flex w-fit items-center gap-2">
+      <div className="flex max-w-64 items-center gap-2">
         <TextInput
           label="Promo code"
           placeholder="Enter a promo code"
