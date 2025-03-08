@@ -213,7 +213,8 @@ html.dark {
 [class*="codicon-"].hover-decoration {
   position: relative;
   top: 0.125rem;
-  line-height: 0.875rem;
+  /* This is important to ensure the icon does not push the text out of the line */
+  line-height: 9px;
 }
 
 /* Recharts style */
