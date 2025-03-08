@@ -6,7 +6,7 @@ You can view the ready to deploy [template here](https://railway.com/template/OK
 
 or use one click deploy button below:
 
-[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/template/OKpPqB?referralCode=OAdiMp)
+[![Deploy on Railway.com](https://railway.com/button.svg)](https://railway.com/template/OKpPqB)
 
 ## Setup
 
