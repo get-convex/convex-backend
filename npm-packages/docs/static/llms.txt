@@ -10410,7 +10410,7 @@ Limits are applied per team unless stated otherwise.
 
 |  | Starter | Professional |
 | --- | --- | --- |
-| Developers | 1-2 | 1-20<br>$25/member per month |
+| Developers | 1-6 | 1-20<br>$25/member per month |
 | Projects | 20 | 100 |
 
 ## Database [​](https://docs.convex.dev/production/state/limits\\#database \"Direct link to Database\")
