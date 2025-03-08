@@ -578,7 +578,9 @@ impl JsError {
                             Ok(maybe_source_map) => maybe_source_map,
                             Err(err) => {
                                 // This is not expected so report an error.
-                                let mut err = err.context("Failed to lookup source_map");
+                                let mut err = err
+                                    .context(ErrorMetadata::operational_internal_server_error())
+                                    .context("Failed to lookup source_map");
                                 report_error_sync(&mut err);
                                 continue;
                             },
