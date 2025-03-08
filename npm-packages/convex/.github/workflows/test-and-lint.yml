@@ -21,7 +21,7 @@ jobs:
       - name: Node setup
         uses: actions/setup-node@v4
         with:
-          node-version: "18.18.0"
+          node-version: "18.20.6-12900463507"
 
       - name: NPM v8
         run: npm install -g npm@8 --registry=https://registry.npmjs.org
