@@ -42,6 +42,14 @@ export function MultiSelectCombobox({
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(
     null,
   );
+
+  // Force tabindex to 0
+  useEffect(() => {
+    if (referenceElement?.children[0]) {
+      (referenceElement.children[0] as HTMLElement).tabIndex = 0;
+    }
+  }, [referenceElement]);
+
   const [isOpen, setIsOpen] = useState(false);
 
   const { styles, attributes, update } = usePopper(

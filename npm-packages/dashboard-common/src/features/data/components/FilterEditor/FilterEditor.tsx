@@ -192,7 +192,7 @@ function ValueEditor({
     state.field === "_creationTime" && typeof state.value === "number";
 
   return (
-    <div className="ml-[-1px] min-w-0 grow">
+    <div className="ml-[-1px] min-w-0 grow focus-within:z-20">
       {isTypeFilterOp(state.op) ? (
         <Combobox
           searchPlaceholder="Search types..."
@@ -221,7 +221,7 @@ function ValueEditor({
       ) : (
         <ObjectEditor
           key={objectEditorKey}
-          className="min-w-4 rounded-none border"
+          className="min-w-4 rounded-none border focus-within:border focus-within:border-border-selected"
           editorClassname="px-2 py-1 mt-0 rounded bg-background-secondary rounded-l-none rounded-r-none"
           size="sm"
           disableFolding

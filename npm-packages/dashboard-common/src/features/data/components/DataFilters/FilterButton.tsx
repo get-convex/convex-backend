@@ -5,6 +5,7 @@ import {
 } from "@radix-ui/react-icons";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@common/elements/Button";
+import { cn } from "@common/lib/cn";
 
 export const filterMenuId = "filterMenu";
 
@@ -49,7 +50,10 @@ export function FilterButton({
       aria-controls={filterMenuId}
       icon={<MixerHorizontalIcon className="size-3.5" />}
       focused={open}
-      className="w-fit rounded-l-none text-xs"
+      className={cn(
+        "w-fit rounded-l-none text-xs border",
+        open && "rounded-b-none border-b-0",
+      )}
       inline
     >
       {filterButtonContent}

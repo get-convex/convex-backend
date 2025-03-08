@@ -107,17 +107,15 @@ export function DataFilters({
       <div className="flex flex-col">
         <div className="flex justify-between gap-2">
           <div className="flex items-center">
-            <div
-              className={cn(
-                "flex w-full divide-x divide-border-transparent rounded border bg-background-secondary",
-                showFilters && "rounded-b-none border-b-0",
-              )}
-            >
+            <div className="flex w-full rounded bg-background-secondary">
               <div className="flex items-center">
                 <Button
                   size="xs"
                   variant="neutral"
-                  className="rounded-r-none"
+                  className={cn(
+                    "rounded-r-none border border-r-0",
+                    showFilters && "rounded-b-none border-b-0",
+                  )}
                   icon={<ArrowLeftIcon className="my-[1px]" />}
                   inline
                   tip="Previous Filters"
@@ -131,7 +129,10 @@ export function DataFilters({
                 <Button
                   size="xs"
                   variant="neutral"
-                  className="rounded-none"
+                  className={cn(
+                    "rounded-none border border-x-0",
+                    showFilters && "border-b-0",
+                  )}
                   icon={<ArrowRightIcon className="my-[1px]" />}
                   tip="Next Filters"
                   inline

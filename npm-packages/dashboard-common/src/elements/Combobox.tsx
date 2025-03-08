@@ -53,7 +53,7 @@ export function Combobox<T>({
   disabled?: boolean;
   unknownLabel?: (value: T) => string;
   processFilterOption?: (option: string) => string;
-  size?: "xs" | "sm" | "md";
+  size?: "sm" | "md";
   icon?: React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
@@ -62,6 +62,14 @@ export function Combobox<T>({
   const [popperElement, setPopperElement] = useState<HTMLDivElement | null>(
     null,
   );
+
+  // Force tabindex to 0
+  useEffect(() => {
+    if (referenceElement?.children[0]) {
+      (referenceElement.children[0] as HTMLElement).tabIndex = 0;
+    }
+  }, [referenceElement]);
+
   const [isOpen, setIsOpen] = useState(false);
 
   const { styles, attributes, update } = usePopper(
@@ -150,11 +158,10 @@ export function Combobox<T>({
                   className={cn(
                     "flex gap-1 w-full items-center group",
                     "truncate relative text-left text-content-primary rounded disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
-                    "border focus:border-border-selected focus:outline-none bg-background-secondary text-sm",
+                    "border focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-none bg-background-secondary text-sm",
                     "hover:bg-background-tertiary",
                     "cursor-pointer",
                     open && "border-border-selected z-10",
-                    size === "xs" && "py-0.25 px-0.25 text-xs",
                     size === "sm" && "py-1 px-2 text-xs",
                     size === "md" && "py-2 px-3",
                     innerButtonClasses,
