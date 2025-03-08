@@ -72,10 +72,12 @@ export default queryGeneric({
         });
       }
     }
-
-    const [builtinFilters, typeFilters] = partitionFiltersByOperator(
-      parsedFilters?.clauses,
+    const enabledFilters = parsedFilters?.clauses?.filter(
+      (f) => f.enabled !== false,
     );
+
+    const [builtinFilters, typeFilters] =
+      partitionFiltersByOperator(enabledFilters);
 
     const queryInitializer = db.query(table);
     let query: OrderedQuery<any> | undefined = undefined;

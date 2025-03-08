@@ -51,6 +51,26 @@ describe("filters", () => {
       ]);
     });
 
+    it("should partition filters with enabled field", () => {
+      expect(
+        partitionFiltersByOperator([
+          { field: "foo", op: "type", value: "string", enabled: true },
+          { field: "foo", op: "eq", value: "bar", enabled: false },
+          { field: "foo", op: "notype", value: "string", enabled: true },
+          { field: "foo", op: "neq", value: "bar", enabled: false },
+        ]),
+      ).toStrictEqual([
+        [
+          { field: "foo", op: "eq", value: "bar", enabled: false },
+          { field: "foo", op: "neq", value: "bar", enabled: false },
+        ],
+        [
+          { field: "foo", op: "type", value: "string", enabled: true },
+          { field: "foo", op: "notype", value: "string", enabled: true },
+        ],
+      ]);
+    });
+
     it("should return empty lists", () => {
       expect(partitionFiltersByOperator([])).toStrictEqual([[], []]);
     });
@@ -74,7 +94,10 @@ describe("filters", () => {
     test.each<{
       name: string;
       page: GenericDocument[];
-      filters: Omit<ValidFilterByType, "id">[];
+      filters: (
+        | Omit<ValidFilterByType, "id">
+        | (Omit<ValidFilterByType, "id" | "enabled"> & { enabled?: boolean })
+      )[];
       expected: GenericDocument[];
     }>([
       {
@@ -152,8 +175,49 @@ describe("filters", () => {
         ],
         expected: [samplePage[1]],
       },
+      {
+        name: "respects enabled=false",
+        page: samplePage,
+        filters: [
+          {
+            field: "variableType",
+            op: "type",
+            value: "string",
+            enabled: false,
+          },
+        ],
+        expected: samplePage,
+      },
+      {
+        name: "respects enabled=true",
+        page: samplePage,
+        filters: [
+          { field: "variableType", op: "type", value: "string", enabled: true },
+        ],
+        expected: [samplePage[0], samplePage[1], samplePage[6]],
+      },
+      {
+        name: "mixed enabled filters",
+        page: samplePage,
+        filters: [
+          { field: "variableType", op: "type", value: "string", enabled: true },
+          { field: "name", op: "type", value: "string", enabled: false },
+        ],
+        expected: [samplePage[0], samplePage[1], samplePage[6]],
+      },
+      {
+        name: "respects missing enabled field (backward compatibility)",
+        page: samplePage,
+        filters: [
+          { field: "variableType", op: "type", value: "string" }, // enabled field is missing
+        ],
+        expected: [samplePage[0], samplePage[1], samplePage[6]],
+      },
     ])(`filterPage $name`, ({ page, filters, expected }) => {
-      const filteredPage = applyTypeFilters(page, filters);
+      const filteredPage = applyTypeFilters(
+        page,
+        filters as ValidFilterByType[],
+      );
       expect(filteredPage).toEqual(expected);
     });
   });

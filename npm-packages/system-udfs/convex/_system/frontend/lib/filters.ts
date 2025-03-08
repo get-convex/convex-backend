@@ -18,6 +18,7 @@ export interface FilterExpression {
 export type FilterCommon = {
   id?: string;
   field?: string;
+  enabled?: boolean;
 };
 
 export type FilterByBuiltin = {
@@ -26,8 +27,10 @@ export type FilterByBuiltin = {
 };
 
 export type ValidFilterByBuiltin = {
-  [P in keyof FilterCommon]-?: FilterCommon[P];
-} & { [P in keyof FilterByBuiltin]-?: FilterByBuiltin[P] };
+  [P in keyof Omit<FilterCommon, "enabled">]-?: FilterCommon[P];
+} & { [P in keyof FilterByBuiltin]-?: FilterByBuiltin[P] } & {
+  enabled?: boolean;
+};
 
 export type FilterByOr = {
   op: "anyOf" | "noneOf";
@@ -35,8 +38,10 @@ export type FilterByOr = {
 };
 
 export type ValidFilterByOr = {
-  [P in keyof FilterCommon]-?: FilterCommon[P];
-} & { [P in keyof FilterByOr]-?: FilterByOr[P] };
+  [P in keyof Omit<FilterCommon, "enabled">]-?: FilterCommon[P];
+} & { [P in keyof FilterByOr]-?: FilterByOr[P] } & {
+  enabled?: boolean;
+};
 
 export type ValidFilterByBuiltInOrOr = ValidFilterByBuiltin | ValidFilterByOr;
 
@@ -61,8 +66,10 @@ export type FilterByType = {
 };
 
 export type ValidFilterByType = {
-  [P in keyof FilterCommon]-?: FilterCommon[P];
-} & { [P in keyof FilterByBuiltin]-?: FilterByType[P] };
+  [P in keyof Omit<FilterCommon, "enabled">]-?: FilterCommon[P];
+} & { [P in keyof FilterByBuiltin]-?: FilterByType[P] } & {
+  enabled?: boolean;
+};
 
 const TypeFilterOpKeys = ["type", "notype"] as const;
 
@@ -95,6 +102,7 @@ const FilterSchema = z.array(
       field: z.string().optional(),
       value: z.any().optional(),
       id: z.string().optional(),
+      enabled: z.boolean().optional(),
     }),
     z.object({
       op: z.union([z.literal("type"), z.literal("notype")]),
@@ -102,11 +110,15 @@ const FilterSchema = z.array(
       // @ts-expect-error I don't know how to fix this type error,
       // but i'll test to make sure this works.
       value: z.union(TypeFilterSchema).optional(),
+      id: z.string().optional(),
+      enabled: z.boolean().optional(),
     }),
     z.object({
       op: z.union([z.literal("anyOf"), z.literal("noneOf")]),
       field: z.string().optional(),
       value: z.array(z.any()).optional(),
+      id: z.string().optional(),
+      enabled: z.boolean().optional(),
     }),
   ]),
 );
@@ -172,9 +184,10 @@ export function applyTypeFilters(
   page: GenericDocument[],
   filters: FilterByType[],
 ) {
-  const validatedFilters = filters.filter<ValidFilterByType>(
-    (f): f is ValidFilterByType => isValidFilter(f),
-  );
+  const validatedFilters = filters
+    .filter<ValidFilterByType>((f): f is ValidFilterByType => isValidFilter(f))
+    // Only apply filters that are enabled (or where enabled is undefined for backward compatibility)
+    .filter((f) => f.enabled !== false);
   return page.filter((doc) => {
     for (const filter of validatedFilters) {
       const value = doc[filter.field];
