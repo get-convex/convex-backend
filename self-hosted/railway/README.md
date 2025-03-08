@@ -1,5 +1,10 @@
 # Self-hosting Convex with [Railway.com](https://railway.com/)
 
+Instructions for railway self-hosting is community maintained. For help, please
+join the [community discord](https://convex.dev/community). Thanks to
+[orenaksakal](https://github.com/orenaksakal) for the work in putting the
+instructions together.
+
 ## Deploying to Railway.com
 
 You can view the ready to deploy

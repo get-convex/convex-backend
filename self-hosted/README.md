@@ -170,7 +170,7 @@ You can run the Convex backend on a hosting provider of your choice. We include
 [Fly.io](https://fly.io/). See our dedicated [Fly instructions](./fly/README.md)
 to get started.
 
-## Backend hosting on Railway.com
+## Backend hosting on Railway.com [Community maintained]
 
 You can run the Convex backend on a hosting provider of your choice. We include
 ready made template to make it easy to deploy your backend to
