@@ -49,6 +49,8 @@ export function DataFilters({
   numRows,
   numRowsLoaded,
   hasFilters,
+  showFilters,
+  setShowFilters,
 }: {
   defaultDocument: GenericDocument;
   tableName: string;
@@ -63,10 +65,10 @@ export function DataFilters({
   numRows?: number;
   numRowsLoaded: number;
   hasFilters: boolean;
+  showFilters: boolean;
+  setShowFilters: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const {
-    showFilters,
-    setShowFilters,
     isDirty,
     hasInvalidFilters,
     shownFilters,
@@ -354,7 +356,6 @@ function useDataFilters({
   activeSchema: SchemaJson | null;
 }) {
   const [invalidFilters, { set: setInvalidFilters }] = useMap();
-  const [showFilters, setShowFilters] = useState(false);
 
   const isDirty = !isEqual(filters, draftFilters);
   const hasInvalidFilters =
@@ -457,19 +458,17 @@ function useDataFilters({
   );
 
   return {
-    showFilters,
-    setShowFilters,
     isDirty,
     hasInvalidFilters,
     shownFilters,
     onChangeFilter,
     onDeleteFilter,
-    onAddFilter,
     onError,
+    onAddFilter,
+    invalidFilters,
     filterHistory,
     currentIdx,
     setCurrentIdx,
     documentValidator: getValidatorForField,
-    invalidFilters,
   };
 }

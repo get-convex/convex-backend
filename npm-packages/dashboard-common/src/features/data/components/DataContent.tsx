@@ -66,6 +66,7 @@ export function DataContent({
     componentId,
   );
   const [draftFilters, setDraftFilters] = useState(filters);
+  const [showFilters, setShowFilters] = useState(false);
   useEffect(() => {
     setDraftFilters(filters);
   }, [filters]);
@@ -220,6 +221,8 @@ export function DataContent({
             numRows={numRowsInTable}
             numRowsLoaded={data.length}
             hasFilters={hasFilters}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
           />
 
           <LoadingTransition
@@ -277,6 +280,7 @@ export function DataContent({
                           ? { clauses: [...prev.clauses, filter] }
                           : { clauses: [filter] },
                       );
+                      setShowFilters(true);
                     }}
                   />
                 </Sheet>
