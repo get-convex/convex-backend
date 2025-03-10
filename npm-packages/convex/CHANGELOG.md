@@ -1,6 +1,24 @@
 # Changelog
 
-## Unreleased
+## 1.20.0
+
+- Calling registered functions directly like helper functions no longer
+  typechecks. See release notes for 1.18.0 for more.
+
+- The `npx convex login --auth-flow paste` flag can be used to explicitly opt
+  into the manual token paste login method.
+
+- Upgrade esbuild for a sourcemap bug fix.
+
+- Fix FieldTypeFromFieldPath to handle union of nested values and primitives.
+
+## 1.19.5
+
+- `npx convex mcp start` runs an MCP server. AI agents can introspect deployment
+  schema (both declared and inferred) and function APIs, read data from tables,
+  call functions,and write oneoff queries in JS.
+
+## 1.19.3
 
 - Upgrade esbuild from 0.23 to 0.25 to address security warnings about
   https://github.com/evanw/esbuild/security/advisories/GHSA-67mh-4wv8-2f99
