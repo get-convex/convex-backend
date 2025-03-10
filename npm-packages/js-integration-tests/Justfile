@@ -6,18 +6,6 @@ _default:
     @just --list
 
 # Run with `RUST_LOG=info` to get backend logs too
-# Use to run tests locally (includes build steps)
-test *ARGS:
-    #!/usr/bin/env bash
-    just rush build -t .
-    cargo build -p backend_harness --bin backend-harness \
-    -p backend --bin backend -p usher --bin usher \
-    -p funrun --bin funrun
-    export DEPLOYMENT_URL="http://carnitas.local.convex.cloud:8002"
-    export SITE_URL="http://carnitas.local.convex.site:8002"
-    just _test backend-debug "$@"
-
-# Run with `RUST_LOG=info` to get backend logs too
 # Run open source tests locally (includes build steps)
 test-open-source *ARGS:
     #!/usr/bin/env bash

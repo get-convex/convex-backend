@@ -14,7 +14,7 @@ rerun the rush build, it only spins up a backend and re-runs the test suite.
 
 ```sh
 just test someFile.test.ts
-just _test backend-debug someFile.test.ts
+just _test conductor-debug someFile.test.ts
 ```
 
 Remember that your file name needs to end in `.test.ts` or `.test.tsx`.
