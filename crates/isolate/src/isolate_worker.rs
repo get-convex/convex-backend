@@ -32,6 +32,7 @@ use crate::{
     metrics::{
         finish_service_request_timer,
         is_developer_ok,
+        record_component_function_path,
         service_request_timer,
         RequestStatus,
     },
@@ -71,6 +72,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 drop(queue_timer);
                 // TODO: Add metrics with funrun tagging
                 let timer = service_request_timer(&request.udf_type);
+                record_component_function_path(request.path_and_args.path());
                 let udf_path = request.path_and_args.path().udf_path.to_owned();
                 let environment = DatabaseUdfEnvironment::new(
                     self.rt.clone(),
@@ -115,6 +117,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 drop(queue_timer);
                 let timer = service_request_timer(&UdfType::Action);
                 let path = request.params.path_and_args.path();
+                record_component_function_path(path);
                 let udf_path = path.udf_path.to_owned();
                 let component = path.component.to_owned();
                 let environment = ActionEnvironment::new(
@@ -186,6 +189,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                 let timer = service_request_timer(&UdfType::HttpAction);
                 let udf_path: CanonicalizedUdfPath =
                     request.http_module_path.path().udf_path.clone();
+                record_component_function_path(request.http_module_path.path());
                 let environment = ActionEnvironment::new(
                     self.rt.clone(),
                     request.http_module_path.path().component,

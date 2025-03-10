@@ -1,14 +1,17 @@
 use std::{
+    borrow::Cow,
     sync::Arc,
     time::Duration,
 };
 
 use common::{
+    components::ResolvedComponentFunctionPath,
     types::UdfType,
     version::Version,
 };
 use deno_core::v8;
 use errors::ErrorMetadata;
+use fastrace::Event;
 use metrics::{
     log_counter,
     log_counter_with_labels,
@@ -631,4 +634,18 @@ register_convex_counter!(
 );
 pub fn log_isolate_out_of_memory() {
     log_counter(&ISOLATE_OUT_OF_MEMORY_TOTAL, 1);
+}
+
+pub fn record_component_function_path(component_function_path: &ResolvedComponentFunctionPath) {
+    let mut labels = vec![(
+        Cow::Borrowed("udf_path"),
+        Cow::Owned(component_function_path.udf_path.to_string()),
+    )];
+    if let Some(component_path) = &component_function_path.component_path {
+        labels.push((
+            Cow::Borrowed("component"),
+            Cow::Owned(component_path.to_string()),
+        ));
+    }
+    Event::add_to_local_parent("component_function_path", || labels);
 }
