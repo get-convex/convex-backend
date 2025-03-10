@@ -25,6 +25,7 @@ import {
 } from "generatedApi";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import { Callout } from "dashboard-common/elements/Callout";
 import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
@@ -172,6 +173,7 @@ export function SpendingLimitsSection({
     | {
         disableThresholdCents: number | null;
         warningThresholdCents: number | null;
+        state: null | "Running" | "Disabled" | "Warning";
       }
     | undefined;
   currentSpend: ReturnType<typeof useGetCurrentSpend>;
@@ -183,6 +185,14 @@ export function SpendingLimitsSection({
   return (
     <div className="flex flex-col gap-4">
       <h4>Usage Spending Limits</h4>
+
+      {currentSpendLimit?.state === "Disabled" && (
+        <Callout variant="error">
+          Your projects are disabled because you exceeded your spending limit.
+          Increase it to re-enable your projects.
+        </Callout>
+      )}
+
       {!showForm ? (
         <>
           <div className="flex flex-wrap gap-x-12 gap-y-4">
