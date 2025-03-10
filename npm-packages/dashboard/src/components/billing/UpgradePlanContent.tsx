@@ -6,18 +6,16 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useDebounce } from "react-use";
 import { Elements } from "@stripe/react-stripe-js";
 import { useGetCoupon, useCreateSubscription } from "api/billing";
-import { useFormik } from "formik";
+import { FormikProvider, useFormik, useFormikContext } from "formik";
 import * as Yup from "yup";
-import {
-  Address,
-  CreateSubscriptionArgs,
-  PlanResponse,
-  Team,
-} from "generatedApi";
+import { Address, PlanResponse, Team } from "generatedApi";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import { useStripePaymentSetup } from "../../hooks/useStripe";
 import { BillingContactInputs } from "./BillingContactInputs";
+import { SpendingLimits, spendingLimitsSchema } from "./SpendingLimits";
+import { UpgradeFormState } from "./upgradeFormState";
+import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export const debounceDurationMs = 200;
 
@@ -32,9 +30,6 @@ export type UpgradePlanContentProps = {
   setPaymentMethod: (paymentMethod?: string) => void;
   billingAddressInputs: React.ReactNode;
   paymentDetailsForm: React.ReactNode;
-  formState: ReturnType<
-    typeof useFormik<CreateSubscriptionArgs & { promoCode?: string }>
-  >;
 };
 
 export const CreateSubscriptionSchema = Yup.object().shape({
@@ -62,7 +57,9 @@ export function UpgradePlanContentContainer({
   onUpgradeComplete: () => void;
 }) {
   const createSubscription = useCreateSubscription(team.id);
-  const formState = useFormik<CreateSubscriptionArgs & { promoCode?: string }>({
+  const { spendingLimits } = useLaunchDarkly();
+
+  const formState = useFormik<UpgradeFormState>({
     initialValues: {
       promoCode: "",
       name: profileName || "",
@@ -70,8 +67,19 @@ export function UpgradePlanContentContainer({
       planId: plan.id,
       paymentMethod: undefined,
       billingAddress: undefined,
+      spendingLimitEnabled: true,
+      spendingLimitDisableThresholdUsd: null,
+      spendingLimitWarningThresholdUsd: null,
     },
-    validationSchema: CreateSubscriptionSchema,
+    validationSchema: spendingLimits
+      ? CreateSubscriptionSchema.concat(
+          spendingLimitsSchema(
+            // A new billing cycle starts when the user upgrades, so it is safe to use 0 as the current
+            // spend even if the user has spent money in the current billing cycle on a previous plan.
+            0,
+          ),
+        )
+      : CreateSubscriptionSchema,
     onSubmit: async (v) => {
       await createSubscription({
         planId: v.planId,
@@ -79,6 +87,18 @@ export function UpgradePlanContentContainer({
         billingAddress: v.billingAddress,
         name: v.name,
         email: v.email,
+        ...(spendingLimits
+          ? {
+              disableThresholdCents:
+                v.spendingLimitDisableThresholdUsd === null
+                  ? null
+                  : v.spendingLimitDisableThresholdUsd * 100,
+              warningThresholdCents:
+                v.spendingLimitWarningThresholdUsd === null
+                  ? null
+                  : v.spendingLimitWarningThresholdUsd * 100,
+            }
+          : {}),
       });
       onUpgradeComplete();
     },
@@ -134,46 +154,49 @@ export function UpgradePlanContentContainer({
   );
 
   return (
-    <UpgradePlanContent
-      {...props}
-      plan={plan}
-      formState={formState}
-      setPaymentMethod={(p) => {
-        if (!p) {
-          resetClientSecret();
+    <FormikProvider value={formState}>
+      <UpgradePlanContent
+        {...props}
+        plan={plan}
+        setPaymentMethod={(p) => {
+          if (!p) {
+            resetClientSecret();
+          }
+          void formState.setFieldValue("paymentMethod", p);
+        }}
+        teamMemberDiscountPct={couponData.coupon?.percentOff}
+        requiresPaymentMethod={
+          couponData.coupon ? couponData.coupon.requiresPaymentMethod : true
         }
-        void formState.setFieldValue("paymentMethod", p);
-      }}
-      teamMemberDiscountPct={couponData.coupon?.percentOff}
-      requiresPaymentMethod={
-        couponData.coupon ? couponData.coupon.requiresPaymentMethod : true
-      }
-      couponDurationInMonths={couponData.coupon?.durationInMonths ?? undefined}
-      isLoadingPromo={couponData.isLoading}
-      promoCodeError={couponData.errorMessage}
-      billingAddressInputs={
-        options.clientSecret ? (
-          <div className="flex flex-col gap-2">
-            <h4>Billing Address</h4>
+        couponDurationInMonths={
+          couponData.coupon?.durationInMonths ?? undefined
+        }
+        isLoadingPromo={couponData.isLoading}
+        promoCodeError={couponData.errorMessage}
+        billingAddressInputs={
+          options.clientSecret ? (
+            <div className="flex flex-col gap-2">
+              <h4>Billing Address</h4>
+              <Elements stripe={stripePromise} options={options}>
+                <BillingAddressInputs onChangeAddress={setBillingAddress} />
+              </Elements>
+            </div>
+          ) : undefined
+        }
+        paymentDetailsForm={
+          // Using dependency injection to pass in the Stripe form
+          // so we can test the UpgradePlanContent component in isolation
+          options.clientSecret ? (
             <Elements stripe={stripePromise} options={options}>
-              <BillingAddressInputs onChangeAddress={setBillingAddress} />
+              <PaymentDetailsForm
+                retrieveSetupIntent={retrieveSetupIntent}
+                confirmSetup={confirmSetup}
+              />
             </Elements>
-          </div>
-        ) : undefined
-      }
-      paymentDetailsForm={
-        // Using dependency injection to pass in the Stripe form
-        // so we can test the UpgradePlanContent component in isolation
-        options.clientSecret ? (
-          <Elements stripe={stripePromise} options={options}>
-            <PaymentDetailsForm
-              retrieveSetupIntent={retrieveSetupIntent}
-              confirmSetup={confirmSetup}
-            />
-          </Elements>
-        ) : undefined
-      }
-    />
+          ) : undefined
+        }
+      />
+    </FormikProvider>
   );
 }
 
@@ -188,8 +211,10 @@ export function UpgradePlanContent({
   setPaymentMethod,
   billingAddressInputs,
   paymentDetailsForm,
-  formState,
 }: UpgradePlanContentProps) {
+  const formState = useFormikContext<UpgradeFormState>();
+  const { spendingLimits } = useLaunchDarkly();
+
   if (teamMemberDiscountPct < 0 || teamMemberDiscountPct > 1) {
     throw new Error(
       `Invalid teamMemberDiscountPct: ${teamMemberDiscountPct}. Must be between 0 and 1.`,
@@ -229,6 +254,13 @@ export function UpgradePlanContent({
       </div>
 
       {billingAddressInputs}
+
+      {spendingLimits && (
+        <div className="flex flex-col gap-2">
+          <h4>Usage Spending Limits</h4>
+          <SpendingLimits />
+        </div>
+      )}
 
       {requiresPaymentMethod && !formState.values.paymentMethod && (
         <div className="flex flex-col gap-2">

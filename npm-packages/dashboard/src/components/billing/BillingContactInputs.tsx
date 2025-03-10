@@ -1,15 +1,14 @@
 import { TextInput } from "dashboard-common/elements/TextInput";
-import { useFormik } from "formik";
-import { BillingContactResponse, CreateSubscriptionArgs } from "generatedApi";
+import { useFormik, useFormikContext } from "formik";
+import { BillingContactResponse } from "generatedApi";
+import { UpgradeFormState } from "./upgradeFormState";
 
 export function BillingContactInputs({
   formState,
   disabled = false,
 }: {
   formState:
-    | ReturnType<
-        typeof useFormik<CreateSubscriptionArgs & { promoCode?: string }>
-      >
+    | ReturnType<typeof useFormikContext<UpgradeFormState>>
     | ReturnType<typeof useFormik<BillingContactResponse>>;
   disabled?: boolean;
 }) {

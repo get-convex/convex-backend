@@ -5,7 +5,7 @@ import {
   renderHook,
   waitFor,
 } from "@testing-library/react";
-import { useFormik } from "formik";
+import { FormikProvider, useFormik } from "formik";
 import { act } from "react";
 import { CreateSubscriptionArgs, PlanResponse } from "generatedApi";
 import {
@@ -57,15 +57,16 @@ describe("UpgradePlanContent", () => {
 
   function renderUI(props?: Partial<UpgradePlanContentProps>) {
     render(
-      <UpgradePlanContent
-        formState={mockFormState.result.current}
-        plan={mockPlan}
-        numMembers={mockNumMembers}
-        setPaymentMethod={jest.fn()}
-        billingAddressInputs={null}
-        paymentDetailsForm={null} // Add the required paymentDetailsForm property
-        {...props}
-      />,
+      <FormikProvider value={mockFormState.result.current}>
+        <UpgradePlanContent
+          plan={mockPlan}
+          numMembers={mockNumMembers}
+          setPaymentMethod={jest.fn()}
+          billingAddressInputs={null}
+          paymentDetailsForm={null} // Add the required paymentDetailsForm property
+          {...props}
+        />
+      </FormikProvider>,
     );
   }
 
@@ -116,7 +117,7 @@ describe("UpgradePlanContent", () => {
         country: "US",
       },
     });
-    renderUI({ formState: mockFormState.result.current });
+    renderUI();
     act(() => {
       const upgradePlanButton = screen.getByTestId("upgrade-plan-button");
       expect(upgradePlanButton).not.toBeDisabled();

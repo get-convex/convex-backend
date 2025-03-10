@@ -2,19 +2,26 @@ import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import React, { forwardRef } from "react";
 import { Button } from "@common/elements/Button";
+import { cn } from "@common/lib/cn";
 
 type InputProps = {
   label?: string;
   labelHidden?: boolean;
   outerClassname?: string;
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
-  Icon?: React.FC<{ className: string | undefined }>;
   SearchIcon?: React.FC<{ className: string | undefined }>;
+  /** A non-interactive element appearing to the left of the input. */
+  leftAddon?: React.ReactNode;
+  /** A non-interactive element appearing to the right of the input. */
+  rightAddon?: React.ReactNode;
+  /** An interactive element appearing to the right of the input. */
+  Icon?: React.FC<{ className: string | undefined }>;
+  /** The action on `Icon`. */
   action?: () => void;
   error?: string;
   description?: React.ReactNode;
   id: string;
-  type?: "text" | "search" | "email" | "time" | "password";
+  type?: "text" | "search" | "email" | "time" | "password" | "number";
   size?: "sm" | "md";
 };
 
@@ -29,6 +36,8 @@ export const TextInput = forwardRef<
       labelHidden = false,
       Icon,
       SearchIcon,
+      leftAddon,
+      rightAddon,
       action = () => {},
       error,
       description,
@@ -55,13 +64,14 @@ export const TextInput = forwardRef<
           outerClassname,
         )}
       >
-        {type === "search" && (
+        {(type === "search" || leftAddon !== undefined) && (
           <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
-            {SearchIcon ? (
-              <SearchIcon className="text-content-secondary" />
-            ) : (
-              <MagnifyingGlassIcon className="text-content-secondary" />
-            )}
+            {leftAddon ??
+              (SearchIcon ? (
+                <SearchIcon className="text-content-secondary" />
+              ) : (
+                <MagnifyingGlassIcon className="text-content-secondary" />
+              ))}
           </div>
         )}
         <input
@@ -70,7 +80,7 @@ export const TextInput = forwardRef<
           spellCheck={false}
           id={id}
           name={id}
-          className={classNames(
+          className={cn(
             error && "focus:border-content-error",
             !error && "focus:border-border-selected text-content-primary",
             "block rounded bg-background-secondary",
@@ -78,11 +88,17 @@ export const TextInput = forwardRef<
             "disabled:text-content-secondary disabled:bg-background-tertiary placeholder-content-tertiary border focus:outline-none",
             "shrink grow disabled:cursor-not-allowed truncate",
             "min-w-0",
-            type === "search" && "pl-9",
+            (type === "search" || leftAddon !== undefined) && "pl-9",
+            rightAddon !== undefined && "pr-9",
             className,
           )}
           {...rest}
         />
+        {rightAddon !== undefined && (
+          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+            {rightAddon}
+          </div>
+        )}
         {Icon && (
           <Button
             size="sm"

@@ -11,9 +11,11 @@ const flagDefaults: {
     }
   >;
   canonicalCustomDomains: boolean;
+  spendingLimits: boolean;
 } = {
   oauthProviderConfiguration: {},
   canonicalCustomDomains: false,
+  spendingLimits: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

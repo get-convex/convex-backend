@@ -4,6 +4,8 @@ import {
   useUpdateBillingContact,
   useUpdatePaymentMethod,
   useResumeSubscription,
+  useGetCurrentSpend,
+  useGetSpendingLimits,
 } from "api/billing";
 import { Loading } from "dashboard-common/elements/Loading";
 import { Button } from "dashboard-common/elements/Button";
@@ -21,11 +23,20 @@ import {
   OrbSubscriptionResponse,
   Team,
 } from "generatedApi";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { Invoices } from "./Invoices";
 import { BillingAddressInputs } from "./BillingAddressInputs";
+import {
+  formatUsd,
+  SpendingLimitsForm,
+  SpendingLimitsValue,
+  useSubmitSpendingLimits,
+} from "./SpendingLimits";
+import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export function SubscriptionOverview({
   team,
@@ -40,6 +51,8 @@ export function SubscriptionOverview({
   const resumeSubscription = useResumeSubscription(team.id);
   const [isResuming, setIsResuming] = useState(false);
   const { invoices, isLoading: isLoadingInvoices } = useListInvoices(team.id);
+  const { spendingLimits } = useLaunchDarkly();
+
   if (isLoading || isLoadingInvoices) {
     return <Loading className="h-60 w-full" fullHeight={false} />;
   }
@@ -92,6 +105,15 @@ export function SubscriptionOverview({
             </div>
           ) : null}
           <hr />
+          {spendingLimits && (
+            <>
+              <SpendingLimitsSectionContainer
+                team={team}
+                hasAdminPermissions={hasAdminPermissions}
+              />
+              <hr />
+            </>
+          )}
           <BillingContactForm
             subscription={subscription}
             team={team}
@@ -115,6 +137,154 @@ export function SubscriptionOverview({
         <Invoices invoices={invoices} />
       )}
     </>
+  );
+}
+
+function SpendingLimitsSectionContainer({
+  team,
+  hasAdminPermissions,
+}: {
+  team: Team;
+  hasAdminPermissions: boolean;
+}) {
+  const submitSpendingLimits = useSubmitSpendingLimits(team);
+
+  const currentSpend = useGetCurrentSpend(team.id);
+  const { spendingLimits } = useGetSpendingLimits(team.id);
+
+  return (
+    <SpendingLimitsSection
+      currentSpendLimit={spendingLimits}
+      hasAdminPermissions={hasAdminPermissions}
+      onSubmit={submitSpendingLimits}
+      currentSpend={currentSpend}
+    />
+  );
+}
+
+export function SpendingLimitsSection({
+  currentSpendLimit,
+  currentSpend,
+  hasAdminPermissions,
+  onSubmit,
+}: {
+  currentSpendLimit:
+    | {
+        disableThresholdCents: number | null;
+        warningThresholdCents: number | null;
+      }
+    | undefined;
+  currentSpend: ReturnType<typeof useGetCurrentSpend>;
+  hasAdminPermissions: boolean;
+  onSubmit: (v: SpendingLimitsValue) => Promise<void>;
+}) {
+  const [showForm, setShowForm] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h4>Usage Spending Limits</h4>
+      {!showForm ? (
+        <>
+          <div className="flex flex-wrap gap-x-12 gap-y-4">
+            {currentSpendLimit === undefined ? (
+              <>
+                <Loading className="h-12 w-36" fullHeight={false} />
+                <Loading className="h-12 w-36" fullHeight={false} />
+              </>
+            ) : currentSpendLimit.disableThresholdCents === null &&
+              currentSpendLimit.warningThresholdCents === null ? (
+              <p>You don’t have any spending limits set.</p>
+            ) : (
+              <>
+                {currentSpendLimit.disableThresholdCents !== null && (
+                  <CostLabel
+                    label="Spending limit"
+                    priceCents={currentSpendLimit.disableThresholdCents}
+                    tooltip={`If your usage exceeds ${currentSpendLimit.disableThresholdCents === 0 ? "the built-in limits of your plan" : "this amount"}, all your projects will be paused.`}
+                  />
+                )}
+                {currentSpendLimit.warningThresholdCents !== null && (
+                  <CostLabel
+                    label="Warning threshold"
+                    priceCents={currentSpendLimit.warningThresholdCents}
+                    tooltip="If your usage exceeds this amount, admins in your team will be notified by email."
+                  />
+                )}
+              </>
+            )}
+          </div>
+
+          <Button
+            className="w-fit"
+            onClick={() => setShowForm(true)}
+            variant="neutral"
+            disabled={!hasAdminPermissions}
+            tip={
+              !hasAdminPermissions &&
+              "You do not have permission to change your spending limits"
+            }
+          >
+            {currentSpendLimit === null
+              ? "Set spending limits"
+              : "Change spending limits"}
+          </Button>
+        </>
+      ) : (
+        <SpendingLimitsForm
+          defaultValue={
+            currentSpendLimit === undefined
+              ? undefined
+              : {
+                  spendingLimitEnabled: true,
+                  spendingLimitDisableThresholdUsd:
+                    currentSpendLimit.disableThresholdCents === null
+                      ? null
+                      : currentSpendLimit.disableThresholdCents / 100,
+                  spendingLimitWarningThresholdUsd:
+                    currentSpendLimit.warningThresholdCents === null
+                      ? null
+                      : currentSpendLimit.warningThresholdCents / 100,
+                }
+          }
+          currentSpendingUsd={
+            currentSpend === undefined
+              ? undefined
+              : (currentSpend.totalCents ?? 0) / 100
+          }
+          onSubmit={async (v) => {
+            await onSubmit(v);
+            setShowForm(false);
+          }}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function CostLabel({
+  label,
+  priceCents,
+  tooltip,
+}: {
+  label: string;
+  priceCents: number;
+  tooltip: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="flex items-center gap-1 text-content-secondary">
+        {label}
+        <Tooltip tip={tooltip} side="top">
+          <QuestionMarkCircledIcon className="text-content-tertiary" />
+        </Tooltip>
+      </span>
+      <span className="flex items-baseline gap-1">
+        {/* eslint-disable-next-line no-restricted-syntax */}
+        <div className="text-lg font-medium">{formatUsd(priceCents / 100)}</div>
+        <span className="text-sm text-content-secondary">/ month</span>
+      </span>
+    </div>
   );
 }
 

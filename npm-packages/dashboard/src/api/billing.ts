@@ -167,3 +167,71 @@ export function useListPlans(teamId?: number) {
     isLoading,
   };
 }
+
+export function useGetCurrentSpend(teamId: number) {
+  const { data, error, isLoading } = useBBQuery({
+    path: "/teams/{team_id}/get_current_spend",
+    pathParams: { team_id: teamId.toString() },
+    swrOptions: {
+      refreshInterval: 1000 * 60,
+    },
+  });
+
+  if (error) {
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
+    throw error;
+  }
+
+  return {
+    totalCents: data?.totalCents,
+    isLoading,
+  };
+}
+
+export function useGetSpendingLimits(teamId: number): {
+  spendingLimits:
+    | {
+        disableThresholdCents: number | null;
+        state: null | "Running" | "Disabled" | "Warning";
+        warningThresholdCents: number | null;
+      }
+    | undefined;
+  isLoading: boolean;
+} {
+  const { data, error, isLoading } = useBBQuery({
+    path: "/teams/{team_id}/get_spending_limits",
+    pathParams: { team_id: teamId.toString() },
+    swrOptions: {
+      refreshInterval: 1000 * 60,
+    },
+  });
+
+  if (error) {
+    // eslint-disable-next-line @typescript-eslint/no-throw-literal
+    throw error;
+  }
+
+  return {
+    spendingLimits:
+      data === undefined
+        ? undefined
+        : {
+            // The `?? null` checks are only necessary to fix an issue in the
+            // OpenAPI codegen, the server always sends a value.
+            state: data.state ?? null,
+            disableThresholdCents: data.disableThresholdCents ?? null,
+            warningThresholdCents: data.warningThresholdCents ?? null,
+          },
+    isLoading,
+  };
+}
+
+export function useSetSpendingLimit(teamId: number) {
+  return useBBMutation({
+    path: "/teams/{team_id}/set_spending_limit",
+    pathParams: { team_id: teamId.toString() },
+    mutateKey: "/teams/{team_id}/get_spending_limits",
+    mutatePathParams: { team_id: teamId.toString() },
+    successToast: "Spending limit updated.",
+  });
+}

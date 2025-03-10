@@ -9,6 +9,17 @@ jest.mock("api/billing", () => ({
   useListInvoices: () => [],
   useUpdateBillingContact: () => jest.fn(),
   useUpdateBillingAddress: () => jest.fn(),
+  useGetCurrentSpend: () => jest.fn().mockReturnValue({ totalCents: 0 }),
+  useSetSpendingLimit: () => jest.fn(),
+  useGetSpendingLimits: () =>
+    jest.fn().mockReturnValue({
+      spendingLimits: {
+        disableThresholdCents: 1000,
+        warningThresholdCents: 500,
+        state: "Running",
+      },
+      isLoading: false,
+    }),
 }));
 
 jest.mock("../../hooks/useStripe", () => ({
