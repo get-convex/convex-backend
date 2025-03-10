@@ -9,6 +9,7 @@ register_convex_histogram!(
     "Time taken to retrieve a module from the cache",
     &STATUS_LABEL
 );
+
 pub fn module_cache_get_module_timer() -> StatusTimer {
     StatusTimer::new(&MODULE_CACHE_GET_MODULE_SECONDS)
 }

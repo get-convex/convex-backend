@@ -43,6 +43,7 @@ use database::{
 use imbl::OrdMap;
 use isolate::ActionCallbacks;
 use keybroker::Identity;
+pub use metrics::record_module_sizes;
 use model::{
     config::types::ModuleConfig,
     environment_variables::types::{

@@ -74,6 +74,9 @@ impl<RT: Runtime> ModuleLoader<RT> for ModuleCache<RT> {
             )
             .await?;
 
+        let source_size = result.source.len();
+        let source_map_size = result.source_map.as_ref().map(|sm| sm.len());
+        function_runner::record_module_sizes(source_size, source_map_size);
         timer.finish();
         Ok(result)
     }

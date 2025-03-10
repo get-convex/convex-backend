@@ -26,6 +26,8 @@ use model::{
 use storage::Storage;
 use sync_types::CanonicalizedModulePath;
 
+use crate::record_module_sizes;
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct ModuleCacheKey {
     instance_name: String,
@@ -94,7 +96,10 @@ impl<RT: Runtime> ModuleLoader<RT> for FunctionRunnerModuleLoader<RT> {
                 .boxed(),
             )
             .await?;
-
+        record_module_sizes(
+            result.source.len(),
+            result.source_map.as_ref().map(|sm| sm.len()),
+        );
         Ok(result)
     }
 }

@@ -1,5 +1,9 @@
+use std::borrow::Cow;
+
+use fastrace::Event;
 use metrics::{
     log_counter_with_labels,
+    log_distribution,
     log_distribution_with_labels,
     register_convex_counter,
     register_convex_histogram,
@@ -66,4 +70,36 @@ register_convex_histogram!(
 );
 pub fn begin_tx_timer() -> Timer<VMHistogram> {
     Timer::new(&FUNCTION_RUNNER_BEGIN_TX_SECONDS)
+}
+
+register_convex_histogram!(
+    MODULE_CACHE_SOURCE_SIZE_BYTES_TOTAL,
+    "Size in bytes of module source code retrieved from cache",
+);
+
+register_convex_histogram!(
+    MODULE_CACHE_SOURCE_MAP_SIZE_BYTES_TOTAL,
+    "Size in bytes of module source maps retrieved from cache",
+);
+pub fn record_module_sizes(source_size: usize, source_map_size: Option<usize>) {
+    log_distribution(&MODULE_CACHE_SOURCE_SIZE_BYTES_TOTAL, source_size as f64);
+    if let Some(map_size) = source_map_size {
+        log_distribution(&MODULE_CACHE_SOURCE_MAP_SIZE_BYTES_TOTAL, map_size as f64);
+    }
+    Event::add_to_local_parent("module_cache_get_module", || {
+        [
+            (
+                Cow::Borrowed("module_cache_source_size"),
+                Cow::Owned(source_size.to_string()),
+            ),
+            (
+                Cow::Borrowed("module_cache_source_map_size"),
+                Cow::Owned(
+                    source_map_size
+                        .map(|s| s.to_string())
+                        .unwrap_or("None".to_string()),
+                ),
+            ),
+        ]
+    });
 }
