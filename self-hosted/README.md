@@ -459,15 +459,6 @@ Executing Migration 114/115. MigrationComplete(115)
 Self-hosted Convex supports all the free-tier features of the cloud-hosted
 product. The cloud-hosted product is optimized for scale.
 
-## Known issues
-
-- Node actions in the self-hosted Convex backend run using node directly in the
-  container. Each request has a cold start, so node action requests are
-  noticeably slower than in the cloud-hosted product, where they run on AWS
-  Lambda. We recommend using
-  [V8 actions](https://docs.convex.dev/functions/actions#choosing-the-runtime-use-node)
-  as much as possible, which are faster in both products.
-
 # Questions and contributions
 
 - Join our [Discord community](https://discord.gg/convex) for help and

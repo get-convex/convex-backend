@@ -10,6 +10,12 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## 2025-03-10 `5143fec81f146ca67495c12c6b7a15c5802c37e2`
+
+- Speed up Node actions by 50x. No more cold starts on every request. See
+  [this commit](https://github.com/get-convex/convex-backend/commit/6be386a490909dda5b8fb1c12b6cca25326847c6)
+  for more details.
+
 ## 2025-03-06 `be8a4f397810ce3d04dc3cb32bc81969fe64685a`
 
 - Add R2 compatibility. See
