@@ -126,7 +126,11 @@ export type FieldTypeFromFieldPathInner<
       First,
       Record<never, never>
     > extends infer FieldValue
-    ? FieldValue extends GenericDocument
+    ? // The fact that `extends infer` extracts the generic document out of a union of a
+      // Value and record of Values (GenericDocument) is due to the feature
+      // "Distributive Conditional Types" in the TypeScript Handbook:
+      // https://www.typescriptlang.org/docs/handbook/2/conditional-types.html#distributive-conditional-types
+      FieldValue extends GenericDocument
       ? FieldTypeFromFieldPath<FieldValue, Second>
       : undefined
     : undefined
