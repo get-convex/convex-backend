@@ -2926,6 +2926,9 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.171.0
         version: 3.723.0
+      '@commander-js/extra-typings':
+        specifier: ^11.1.0
+        version: 11.1.0(commander@11.1.0)
       '@sendgrid/mail':
         specifier: ^7.7.0
         version: 7.7.0

@@ -52,7 +52,7 @@ pub struct LocalNodeExecutor {
 
 impl LocalNodeExecutor {
     pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
-        // Write the source of local.cjs to a temp file.
+        // Create a single temp directory for both source files and Node.js temp files
         let source_dir = TempDir::new()?;
         let (source, source_map) =
             node_executor_file("local.cjs").expect("local.cjs not generated!");
@@ -81,7 +81,8 @@ impl LocalNodeExecutor {
         let client = Client::new();
         let port = portpicker::pick_unused_port().context("No ports free")?;
         let server_handle =
-            Self::start_node_executor_server(&client, port, &node_path, &source_path).await?;
+            Self::start_node_executor_server(&client, port, &node_path, &source_path, &source_dir)
+                .await?;
 
         let executor = Self {
             _source_dir: source_dir,
@@ -130,11 +131,14 @@ impl LocalNodeExecutor {
         port: u16,
         node_path: &str,
         source_path: &PathBuf,
+        temp_dir: &TempDir,
     ) -> anyhow::Result<Child> {
         let mut cmd = TokioCommand::new(node_path);
         cmd.arg(source_path)
             .arg("--port")
             .arg(port.to_string())
+            .arg("--tempdir")
+            .arg(temp_dir.path())
             .kill_on_drop(true);
 
         tracing::info!("Starting node executor server on port {}", port);

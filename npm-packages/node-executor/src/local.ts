@@ -1,30 +1,20 @@
-import { Command } from "commander";
+import { Command } from "@commander-js/extra-typings";
 import { invoke } from "./executor";
 import { v4 as uuidv4 } from "uuid";
 import { log, setDebugLogging } from "./log";
 import os from "node:os";
-import crypto from "crypto";
-import fs from "node:fs";
 import express, { Request, Response } from "express";
 
 const DEFAULT_PORT = 3002;
 
-async function setupTempDir() {
-  // Monkey-patch os.tmpdir to avoid filesystem write races
-  const prevTempdir = os.tmpdir();
-  const seed = crypto.randomBytes(20).toString("hex");
-  const tempdir = `${prevTempdir}/${seed}`;
-  fs.mkdirSync(tempdir);
-  os.tmpdir = () => tempdir;
-  return tempdir;
-}
-
-async function startServer(port: number, debug: boolean) {
+async function startServer(port: number, debug: boolean, tempdir: string) {
   setDebugLogging(debug);
   const app = express();
   app.use(express.json());
 
-  const tempdir = await setupTempDir();
+  // Override os.tmpdir to use the provided tempdir
+  os.tmpdir = () => tempdir;
+  log(`Node executor using tempdir: ${tempdir}`);
 
   // Add health check endpoint
   app.get("/health", (_req: Request, res: Response) => {
@@ -62,19 +52,9 @@ async function startServer(port: number, debug: boolean) {
     }
   });
 
-  const server = app.listen(port, () => {
+  app.listen(port, () => {
     log(`Node executor server listening on port ${port}`);
   });
-
-  // Handle cleanup on process exit
-  const cleanup = () => {
-    server.close();
-    fs.rmSync(tempdir, { recursive: true });
-    process.exit(0);
-  };
-
-  process.on("SIGINT", cleanup);
-  process.on("SIGTERM", cleanup);
 }
 
 const program = new Command();
@@ -86,9 +66,14 @@ program
   .usage("command [options]")
   .option("--debug", "print debug output", false)
   .option("--port <number>", "port to listen on", DEFAULT_PORT.toString())
+  .option(
+    "--tempdir <path>",
+    "temporary directory to use for downloading code and dependencies",
+    "",
+  )
   .action(async (options) => {
     const port = parseInt(options.port, 10);
-    await startServer(port, options.debug);
+    await startServer(port, options.debug, options.tempdir);
   });
 
 program.parseAsync(process.argv);
