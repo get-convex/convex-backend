@@ -47,4 +47,5 @@ _test *ARGS:
     export CONVEX_TRACE_FILE="1"  # log to a file
     export RUST_LOG=${RUST_LOG:-0}
     echo "Additional logs are available in npm-packages/js-integration-tests/*.log"
-    UDF_USE_FUNRUN=true ../../target/debug/backend-harness --provisioner "$1" --package-dir . -- npm run test-integration -- "${@:2}"
+    UDF_USE_FUNRUN=true ../../target/debug/backend-harness --provisioner "$1" \
+      --package-dir . -- npm run test-integration -- "${@:2}"

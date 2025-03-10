@@ -25,6 +25,7 @@ jobs:
           ACTIONS_USER_TIMEOUT_SECS: "20"
           CONVEX_CLOUD_ORIGIN: "http://127.0.0.1:3210"
           CONVEX_SITE_ORIGIN: "http://127.0.0.1:3211"
+          DISABLE_BEACON: "true"
         ports:
           - "3210:3210" # Backend API
           - "3211:3211" # Site proxy
