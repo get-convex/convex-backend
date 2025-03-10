@@ -100,7 +100,7 @@ export function LastDeployed() {
                     : ""
                 } update is available for Convex (${serverVersion} → ${latestVersion})`}
                 className="bg-util-accent p-0.5 px-1 text-white"
-                href="https://www.npmjs.com/package/convex?activeTab=versions"
+                href="https://github.com/get-convex/convex-js/blob/main/CHANGELOG.md#changelog"
                 target="_blank"
               >
                 Update Available
