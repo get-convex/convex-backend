@@ -9,7 +9,12 @@ import { Loading } from "dashboard-common/elements/Loading";
 import * as Sentry from "@sentry/nextjs";
 import { Checkbox } from "dashboard-common/elements/Checkbox";
 import { cn } from "dashboard-common/lib/cn";
-import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
+import {
+  ExclamationTriangleIcon,
+  QuestionMarkCircledIcon,
+} from "@radix-ui/react-icons";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import Link from "next/link";
 
 export type SpendingLimitsValue = {
   spendingLimitEnabled: boolean;
@@ -196,7 +201,7 @@ export function SpendingLimits() {
               <span className="mt-0.5 flex gap-1.5 text-content-warning">
                 <ExclamationTriangleIcon />
                 <span className="block flex-1">
-                  If your usage exceeds{" "}
+                  If your <UsageDefinition /> exceeds{" "}
                   {spendingLimitDisableThresholdUsd === 0
                     ? "the built-in limits of your plan, "
                     : "this amount, "}
@@ -217,7 +222,7 @@ export function SpendingLimits() {
           disabled={spendingLimitDisableThresholdUsd === 0}
           description={
             <>
-              If your usage exceeds this amount,
+              If your <UsageDefinition /> exceeds this amount,
               <br />
               admins in your team will be notified by email.
             </>
@@ -225,6 +230,31 @@ export function SpendingLimits() {
         />
       )}
     </div>
+  );
+}
+
+function UsageDefinition() {
+  return (
+    <Tooltip
+      tip={
+        <>
+          Resources used beyond the{" "}
+          <Link
+            className="text-content-link hover:underline"
+            href="https://www.convex.dev/pricing"
+          >
+            built-in resources of your plan
+          </Link>
+          . Seat fees are not counted in your spending limits.
+        </>
+      }
+      side="right"
+    >
+      <div className="flex gap-0.5">
+        <span className="underline decoration-dotted">usage</span>
+        <QuestionMarkCircledIcon />
+      </div>
+    </Tooltip>
   );
 }
 
