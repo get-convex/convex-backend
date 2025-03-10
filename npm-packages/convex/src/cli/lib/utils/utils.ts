@@ -1139,6 +1139,10 @@ export function deploymentFetch(
  * fails has changed with the environment.
  */
 export function isWebContainer(): boolean {
+  // Dynamic require as used here doesn't work with tsx
+  if (process.env.CONVEX_RUNNING_LIVE_IN_MONOREPO) {
+    return false;
+  }
   const dynamicRequire = require;
   if (process.versions.webcontainer === undefined) {
     return false;
