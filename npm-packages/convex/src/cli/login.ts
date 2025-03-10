@@ -17,6 +17,14 @@ export const login = new Command("login")
     "--no-open",
     "Don't automatically open the login link in the default browser",
   )
+  .addOption(
+    new Option(
+      "--login-flow <mode>",
+      `How to log in; defaults to guessing based on the environment.`,
+    )
+      .choices(["paste", "auto", "poll"] as const)
+      .default("auto" as const),
+  )
   // These options are hidden from the help/usage message, but allow overriding settings for testing.
   // Change the auth credentials with the auth provider
   .addOption(new Option("--override-auth-url <url>").hideHelp())

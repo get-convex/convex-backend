@@ -4,6 +4,7 @@ import {
   bigBrainAPI,
   logAndHandleFetchError,
   throwingFetch,
+  isWebContainer,
 } from "./utils/utils.js";
 import open from "open";
 import chalk from "chalk";
@@ -278,6 +279,7 @@ export async function performLogin(
     overrideAuthUsername,
     overrideAuthPassword,
     overrideAccessToken,
+    authFlow,
     open,
     acceptOptIns,
     dumpAccessToken,
@@ -288,6 +290,7 @@ export async function performLogin(
     overrideAuthUsername?: string;
     overrideAuthPassword?: string;
     overrideAccessToken?: string;
+    authFlow?: "auto" | "paste" | "poll";
     // default `true`
     open?: boolean;
     // default `true`
@@ -296,6 +299,7 @@ export async function performLogin(
     deviceName?: string;
   } = {},
 ) {
+  authFlow = authFlow || "auto";
   // Get access token from big-brain
   // Default the device name to the hostname, but allow the user to change this if the terminal is interactive.
   // On Macs, the `hostname()` may be a weirdly-truncated form of the computer name. Attempt to read the "real" name before falling back to hostname.
@@ -324,15 +328,23 @@ export async function performLogin(
   const issuer = overrideAuthUrl ?? "https://auth.convex.dev";
   let auth0;
   let accessToken: string;
-  try {
-    auth0 = await Issuer.discover(issuer);
-  } catch {
-    // Couldn't contact https://auth.convex.dev/.well-known/openid-configuration,
-    // proceed with manual auth.
+
+  if (authFlow === "paste" || (authFlow === "auto" && isWebContainer())) {
     accessToken = await promptString(ctx, {
       message:
         "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
     });
+  } else {
+    try {
+      auth0 = await Issuer.discover(issuer);
+    } catch {
+      // Couldn't contact https://auth.convex.dev/.well-known/openid-configuration,
+      // proceed with manual auth.
+      accessToken = await promptString(ctx, {
+        message:
+          "Open https://dashboard.convex.dev/auth, log in and paste the token here:",
+      });
+    }
   }
 
   // typical path

@@ -1132,3 +1132,22 @@ export function deploymentFetch(
     return func;
   };
 }
+
+/**
+ * Whether this is likely to be a WebContainer,
+ * WebContainers can't complete the Auth0 login but where that login flow
+ * fails has changed with the environment.
+ */
+export function isWebContainer(): boolean {
+  const dynamicRequire = require;
+  if (process.versions.webcontainer === undefined) {
+    return false;
+  }
+  let blitzInternalEnv: unknown;
+  try {
+    blitzInternalEnv = dynamicRequire("@blitz/internal/env");
+    // totally fine for this require to fail
+    // eslint-disable-next-line no-empty
+  } catch {}
+  return blitzInternalEnv !== null && blitzInternalEnv !== undefined;
+}
