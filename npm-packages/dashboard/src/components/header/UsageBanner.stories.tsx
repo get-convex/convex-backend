@@ -41,3 +41,9 @@ export const Paused: Story = {
     variant: "Paused",
   },
 };
+
+export const ExceededSpendingLimit: Story = {
+  args: {
+    variant: "ExceededSpendingLimit",
+  },
+};

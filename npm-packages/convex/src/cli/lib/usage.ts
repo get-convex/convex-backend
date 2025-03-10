@@ -66,7 +66,7 @@ export async function usageStateWarning(ctx: Context) {
     await warn(
       ctx,
       "Your projects are disabled because the team exceeded Starter plan limits.",
-      "Decrease your usage or upgrade to reenable your projects.",
+      "Decrease your usage or upgrade to re-enable your projects.",
     );
   } else if (usageState === "Paused") {
     await warn(

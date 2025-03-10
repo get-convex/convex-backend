@@ -188,7 +188,7 @@ export function useGetCurrentSpend(teamId: number) {
   };
 }
 
-export function useGetSpendingLimits(teamId: number): {
+export function useGetSpendingLimits(teamId: number | null): {
   spendingLimits:
     | {
         disableThresholdCents: number | null;
@@ -200,7 +200,7 @@ export function useGetSpendingLimits(teamId: number): {
 } {
   const { data, error, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_spending_limits",
-    pathParams: { team_id: teamId.toString() },
+    pathParams: { team_id: teamId?.toString() ?? "" },
     swrOptions: {
       refreshInterval: 1000 * 60,
     },

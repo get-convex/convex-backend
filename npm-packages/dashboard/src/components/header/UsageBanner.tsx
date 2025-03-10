@@ -10,13 +10,28 @@ import { useTeamUsageState } from "api/usage";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Team } from "generatedApi";
+import { useGetSpendingLimits } from "api/billing";
 
-export type Variant = "Approaching" | "Exceeded" | "Disabled" | "Paused";
+export type Variant =
+  | "Approaching"
+  | "Exceeded"
+  | "Disabled"
+  | "Paused"
+  | "ExceededSpendingLimit";
 
 export function useCurrentUsageBanner(teamId: number | null): Variant | null {
   const { isDismissed } = useDismiss(teamId);
 
-  const currentVariant = useTeamUsageState(teamId);
+  const spendingLimits = useGetSpendingLimits(teamId);
+
+  const currentVariantPro =
+    spendingLimits.spendingLimits?.state === "Disabled"
+      ? "ExceededSpendingLimit"
+      : null;
+  const currentVariantFree = useTeamUsageState(teamId);
+
+  const currentVariant = currentVariantPro ?? currentVariantFree;
+
   if (
     !currentVariant ||
     currentVariant === "Default" ||
@@ -80,7 +95,29 @@ export function UsageBanner({
       </div>
 
       <div className="col-span-2 flex items-center justify-end">
-        {variant !== "Paused" && (
+        {variant === "Paused" ? (
+          <Button
+            variant="unstyled"
+            className={classNames(
+              primaryButtonClassFull,
+              "disabled:opacity-50 disabled:pointer-events-none",
+            )}
+            disabled={isRestoringTeam}
+            onClick={async () => {
+              setIsRestoringTeam(true);
+              void unpauseTeam();
+            }}
+          >
+            Enable All Projects
+          </Button>
+        ) : variant === "ExceededSpendingLimit" ? (
+          <Link
+            className={primaryButtonClassFull}
+            href={`/${team.slug}/settings/billing`}
+          >
+            Billing Settings
+          </Link>
+        ) : (
           <>
             <Link
               className={secondaryButtonClassFull}
@@ -96,23 +133,6 @@ export function UsageBanner({
               Upgrade
             </Link>
           </>
-        )}
-
-        {variant === "Paused" && (
-          <Button
-            variant="unstyled"
-            className={classNames(
-              primaryButtonClassFull,
-              "disabled:opacity-50 disabled:pointer-events-none",
-            )}
-            disabled={isRestoringTeam}
-            onClick={async () => {
-              setIsRestoringTeam(true);
-              void unpauseTeam();
-            }}
-          >
-            Enable All Projects
-          </Button>
         )}
 
         {isDismissable(variant) && (
@@ -176,7 +196,7 @@ function getVariantDetails(variant: Variant): {
     case "Disabled":
       return {
         title:
-          "Your projects are disabled because the team exceeded Starter plan limits. Decrease your usage or upgrade to reenable your projects.",
+          "Your projects are disabled because the team exceeded Starter plan limits. Decrease your usage or upgrade to re-enable your projects.",
         ...dangerStyle,
       };
     case "Paused":
@@ -186,8 +206,16 @@ function getVariantDetails(variant: Variant): {
           "Your projects are disabled because the team previously exceeded Starter plan limits.",
         ...dangerStyle,
       };
-    default:
+    case "ExceededSpendingLimit":
+      return {
+        title:
+          "Your projects are disabled because you exceeded your spending limit. Increase it to re-enable your projects.",
+        ...dangerStyle,
+      };
+    default: {
+      const _exhaustiveCheck: never = variant;
       throw new Error("Unexpected variant");
+    }
   }
 }
 
