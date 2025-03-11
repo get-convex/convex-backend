@@ -5,7 +5,6 @@ use common::{
     },
     execution_context::ExecutionContext,
 };
-use fastrace::Event;
 use futures::{
     future::BoxFuture,
     select_biased,
@@ -632,7 +631,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
                 .phase
                 .begin_execution(rng_seed, unix_timestamp)?;
         }
-        Event::add_to_local_parent("execution", Vec::new);
         let global = scope.get_current_context().global(&mut scope);
         let promise_r =
             scope.with_try_catch(|s| invoke.call(s, global.into(), &[args_v8_str.into()]));
