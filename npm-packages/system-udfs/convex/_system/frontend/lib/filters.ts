@@ -67,7 +67,7 @@ export type FilterByType = {
 
 export type ValidFilterByType = {
   [P in keyof Omit<FilterCommon, "enabled">]-?: FilterCommon[P];
-} & { [P in keyof FilterByBuiltin]-?: FilterByType[P] } & {
+} & { [P in keyof FilterByType]-?: FilterByType[P] } & {
   enabled?: boolean;
 };
 

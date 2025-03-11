@@ -14,6 +14,7 @@ import {
   useActiveSchema,
 } from "@common/features/data/lib/helpers";
 import { TableSchemaStatus } from "@common/features/data/components/TableSchema";
+import { useRouter } from "next/router";
 
 export type DataToolbarProps = {
   popupState: PopupState;
@@ -210,17 +211,11 @@ export function documentsLabel(numDocuments: number, allRowsSelected: boolean) {
 }
 
 export function DataToolbarSkeleton() {
+  const { query } = useRouter();
   return (
-    <div className="flex justify-between">
-      <div className="flex h-12 flex-col gap-2">
-        <div className="h-6 w-36 rounded bg-neutral-8/20 dark:bg-neutral-3/10" />
-        <div className="h-4 w-16 rounded bg-neutral-8/20 dark:bg-neutral-3/10" />
-      </div>
-      <div className="flex h-[2.375rem] gap-2">
-        <div className="w-36 rounded bg-neutral-8/20 dark:bg-neutral-3/10" />
-        <div className="w-28 rounded bg-neutral-8/20 dark:bg-neutral-3/10" />
-        <div className="w-[2.375rem] rounded bg-neutral-8/20 dark:bg-neutral-3/10" />
-      </div>
+    <div className="flex items-end justify-between">
+      <h3 className="font-mono">{query.table}</h3>
+      <div className="flex h-[2.375rem] gap-2" />
     </div>
   );
 }

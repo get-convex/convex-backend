@@ -72,6 +72,7 @@ describe("FilterEditor", () => {
     const columnOption = await screen.findByText("myColumn");
     await user.click(columnOption);
     expect(onChange).toHaveBeenLastCalledWith({
+      enabled: true,
       field: "myColumn",
       op: "eq",
       value: 0,
@@ -84,6 +85,7 @@ describe("FilterEditor", () => {
     await user.click(operatorOption);
     expect(operatorSelector).toHaveTextContent("not equal");
     expect(onChange).toHaveBeenLastCalledWith({
+      enabled: true,
       field: "myColumn",
       op: "neq",
       value: 0,
@@ -100,6 +102,7 @@ describe("FilterEditor", () => {
     expect(valueInput).toHaveDisplayValue("123");
 
     expect(onChange).toHaveBeenLastCalledWith({
+      enabled: true,
       field: "myColumn",
       op: "neq",
       value: 123,

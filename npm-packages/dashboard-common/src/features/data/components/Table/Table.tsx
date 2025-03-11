@@ -361,7 +361,7 @@ export function Table({
 
 export function TableSkeleton() {
   return (
-    <div className="flex h-full items-center justify-center rounded bg-background-secondary">
+    <div className="flex h-full items-center justify-center rounded border bg-background-secondary">
       <LoadingLogo />
     </div>
   );

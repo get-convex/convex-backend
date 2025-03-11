@@ -16,6 +16,8 @@ import { Combobox, type Option } from "@common/elements/Combobox";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
 import { Button } from "@common/elements/Button";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
+import { Checkbox } from "@common/elements/Checkbox";
+import { Tooltip } from "@common/elements/Tooltip";
 
 export const operatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]
@@ -45,6 +47,7 @@ const typeOptions: Option<string>[] = [
 
 export type FilterState = {
   field?: string;
+  enabled?: boolean;
 } & (
   | { op: FilterByBuiltin["op"]; value?: Value }
   | { op: FilterByType["op"]; value?: TypeFilterValue }
@@ -84,6 +87,7 @@ export function FilterEditor({
       field: undefined,
       op: "eq",
       value: null,
+      enabled: true,
     },
   );
 
@@ -101,6 +105,18 @@ export function FilterEditor({
 
   return (
     <div className="flex min-w-0 grow">
+      <Tooltip
+        tip={state.enabled ? "Disable Filter" : "Enable Filter"}
+        className="w-fit"
+      >
+        <Checkbox
+          checked={state.enabled !== false}
+          onChange={(e) => {
+            dispatch({ enabled: e.currentTarget.checked });
+          }}
+          className="mr-2 self-center"
+        />
+      </Tooltip>
       <Combobox
         label="Select filter field"
         size="sm"
@@ -117,7 +133,7 @@ export function FilterEditor({
           forceRerender,
         )}
         // If we only have two fields, it might be caused by the shapes computation returning
-        // an “any” type. We allow the user to type arbitrary fields name in this case.
+        // an "any" type. We allow the user to type arbitrary fields name in this case.
         allowCustomValue={fields.length === ["_id", "_creationTime"].length}
       />
       <Combobox

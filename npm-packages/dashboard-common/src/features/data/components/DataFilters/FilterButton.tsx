@@ -23,7 +23,9 @@ export function FilterButton({
         filters.clauses
           .filter(
             (filter) =>
-              filter.field !== undefined && filter.value !== undefined,
+              filter.field !== undefined &&
+              filter.value !== undefined &&
+              filter.enabled !== false,
           )
           .map((filter) => filter.field),
       )

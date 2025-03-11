@@ -215,5 +215,5 @@ export function CreateNewTable({ tableData }: { tableData: TableMetadata }) {
 }
 
 export function DataSideBarSkeleton() {
-  return <div className="h-full w-full border-r bg-background-secondary" />;
+  return <div className="h-full w-full bg-background-secondary" />;
 }

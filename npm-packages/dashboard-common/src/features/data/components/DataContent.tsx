@@ -357,7 +357,7 @@ function LoadingFilteredData({
 
 export function DataContentSkeleton() {
   return (
-    <div className="flex h-full grow flex-col gap-6 p-6">
+    <div className="flex h-full grow flex-col gap-2 p-6">
       <DataToolbarSkeleton />
       <TableSkeleton />
     </div>

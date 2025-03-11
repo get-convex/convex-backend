@@ -317,6 +317,7 @@ function generateNewFilter(): Filter {
     field: "_id",
     op: "eq",
     value: "",
+    enabled: true,
   };
 }
 
@@ -391,6 +392,7 @@ function useDataFilters({
             filter.value !== undefined
               ? convexToJson(filter.value)
               : filter.value,
+          enabled: filter.enabled,
         };
       }
 
