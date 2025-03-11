@@ -29,10 +29,7 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
-    sync::{
-        oneshot_receiver_closed,
-        spsc,
-    },
+    sync::spsc,
     types::{
         PersistenceVersion,
         UdfType,
@@ -1025,7 +1022,7 @@ async fn tokio_thread<RT: Runtime>(
 
         // Eventually we'll attempt to cleanup the isolate thread in these conditions.
         _ = rt.wait(total_timeout) => Err(anyhow::anyhow!("Total timeout exceeded")),
-        _ = oneshot_receiver_closed(&mut sender) => Err(anyhow::anyhow!("Cancelled")),
+        _ = sender.closed() => Err(anyhow::anyhow!("Cancelled")),
     };
     let _ = sender.send(r.map(|r| (tx, r)));
     drop(client);

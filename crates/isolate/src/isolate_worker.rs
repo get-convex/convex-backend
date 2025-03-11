@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use common::{
     runtime::Runtime,
-    sync::oneshot_receiver_closed,
     types::UdfType,
 };
 use futures::FutureExt;
@@ -84,12 +83,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                     client_id.clone(),
                 );
                 let r = environment
-                    .run(
-                        client_id,
-                        isolate,
-                        isolate_clean,
-                        oneshot_receiver_closed(&mut response).boxed(),
-                    )
+                    .run(client_id, isolate, isolate_clean, response.closed().boxed())
                     .await;
                 let status = match &r {
                     Ok((_tx, outcome)) => {
@@ -139,7 +133,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         isolate,
                         isolate_clean,
                         request.params.clone(),
-                        oneshot_receiver_closed(&mut response).boxed(),
+                        response.closed().boxed(),
                     )
                     .await;
 
@@ -211,7 +205,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         request.http_module_path,
                         request.routed_path,
                         request.http_request,
-                        oneshot_receiver_closed(&mut response).boxed(),
+                        response.closed().boxed(),
                     )
                     .await;
                 let status = match &r {

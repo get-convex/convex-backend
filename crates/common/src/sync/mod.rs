@@ -4,7 +4,6 @@ pub mod state_channel;
 
 use std::sync::Arc;
 
-use futures::future;
 pub use tokio::sync::{
     broadcast,
     watch,
@@ -14,14 +13,8 @@ pub use tokio::sync::{
 };
 use tokio::sync::{
     mpsc,
-    oneshot,
     Semaphore,
 };
-
-/// Wait until a sender's corresponding receiver has been closed.
-pub async fn oneshot_receiver_closed<T>(sender: &mut oneshot::Sender<T>) {
-    future::poll_fn(|cx| sender.poll_closed(cx)).await
-}
 
 pub struct RendezvousSender<T> {
     semaphore: Arc<Semaphore>,
