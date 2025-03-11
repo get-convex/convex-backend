@@ -11,7 +11,7 @@ import { useRouter } from "next/router";
 import { Team } from "generatedApi";
 import { Plans } from "components/billing/Plans";
 import { SubscriptionOverview } from "components/billing/SubscriptionOverview";
-import { ErrorBoundary } from "@sentry/nextjs";
+import { ErrorBoundary, captureMessage } from "@sentry/nextjs";
 import { cn } from "dashboard-common/lib/cn";
 import { UpgradePlanContentContainer } from "components/billing/UpgradePlanContent";
 import { useProfile } from "api/profile";
@@ -160,6 +160,7 @@ function BillingPage() {
 export default withAuthenticatedPage(BillingPage);
 
 function BillingErrorFallback({ eventId }: { eventId: string | null }) {
+  captureMessage("BillingErrorFallback triggered");
   return (
     <Callout variant="error" className="w-fit">
       <div className="flex flex-col gap-2">

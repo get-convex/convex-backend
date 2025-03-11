@@ -15,6 +15,7 @@ import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCallback, useEffect } from "react";
 import { usePrevious } from "react-use";
+import { captureException } from "@sentry/nextjs";
 import { getGoogleAnalyticsClientId, reportHttpError } from "../hooks/fetching";
 
 export const client = createClient<BigBrainPaths>({
@@ -73,11 +74,29 @@ export function useBBQuery<QueryPath extends Path<"get">>({
       );
   }, [paused, mutate, path, pathParams, queryParams, previousPaused]);
 
-  return useQuery(path, requestOptions, {
+  const res = useQuery(path, requestOptions, {
     keepPreviousData: true,
     isPaused: () => paused,
     ...swrOptions,
   });
+  if ("error" in res && !!res.error) {
+    if (
+      typeof res.error === "object" &&
+      "code" in res.error &&
+      "message" in res.error
+    ) {
+      captureException(
+        new Error(
+          `Server responded with ${res.error.code} ${res.error.message}`,
+        ),
+      );
+    } else {
+      captureException(
+        new Error(`Server responded with error: ${JSON.stringify(res.error)}`),
+      );
+    }
+  }
+  return res;
 }
 
 // Makes a mutative API request, handling errors and toasts.

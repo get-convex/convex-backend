@@ -1,3 +1,4 @@
+import { captureMessage } from "@sentry/nextjs";
 import { Callout } from "dashboard-common/elements/Callout";
 import Link from "next/link";
 
@@ -6,6 +7,7 @@ export default function Custom500() {
 }
 
 export function Fallback({ eventId }: { eventId: string | null }) {
+  captureMessage("ErrorBoundary triggered");
   return (
     <div className="h-full grow">
       <div className="flex h-full flex-col items-center justify-center">
