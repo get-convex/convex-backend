@@ -1,5 +1,6 @@
 import { Command, Option, OptionValues } from "@commander-js/extra-typings";
 import { OneoffCtx } from "../../bundler/context.js";
+import { LogMode } from "./logs.js";
 import {
   CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
@@ -43,7 +44,7 @@ declare module "@commander-js/extra-typings" {
     addDevOptions(): Command<
       Args,
       Opts & {
-        tailLogs?: boolean;
+        tailLogs?: LogMode;
         verbose?: boolean;
         run?: string;
         runComponent?: string;
@@ -257,9 +258,11 @@ Command.prototype.addDevOptions = function () {
     )
     .addOption(
       new Option(
-        "--tail-logs",
-        "Tail this project's Convex logs in this terminal.",
-      ),
+        "--tail-logs [mode]",
+        "Choose whether to tail Convex function logs in this terminal",
+      )
+        .choices(["always", "pause-on-deploy", "disable"] as const)
+        .default("pause-on-deploy"),
     )
     .addOption(new Option("--trace-events").default(false).hideHelp())
     .addOption(new Option("--debug-bundle-path <path>").hideHelp())
@@ -277,7 +280,7 @@ export async function normalizeDevOptions(
     untilSuccess: boolean;
     run?: string;
     runComponent?: string;
-    tailLogs?: boolean;
+    tailLogs?: LogMode;
     traceEvents: boolean;
     debugBundlePath?: string;
     liveComponentSources?: boolean;
@@ -308,7 +311,7 @@ export async function normalizeDevOptions(
     untilSuccess: cmdOptions.untilSuccess,
     run: cmdOptions.run,
     runComponent: cmdOptions.runComponent,
-    tailLogs: !!cmdOptions.tailLogs,
+    tailLogs: cmdOptions.tailLogs ?? "pause-on-deploy",
     traceEvents: cmdOptions.traceEvents,
     debugBundlePath: cmdOptions.debugBundlePath,
     liveComponentSources: !!cmdOptions.liveComponentSources,

@@ -8,6 +8,32 @@ import { nextBackoff } from "./dev.js";
 import chalk from "chalk";
 import { deploymentFetch } from "./utils/utils.js";
 
+export type LogMode = "always" | "pause-on-deploy" | "disable";
+
+export class LogManager {
+  private paused: boolean = false;
+
+  constructor(private mode: LogMode) {}
+
+  async waitForUnpaused() {
+    while (this.paused) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+
+  beginDeploy() {
+    if (this.mode === "pause-on-deploy") {
+      this.paused = true;
+    }
+  }
+
+  endDeploy() {
+    if (this.mode === "pause-on-deploy") {
+      this.paused = false;
+    }
+  }
+}
+
 const MAX_UDF_STREAM_FAILURE_COUNT = 5;
 
 type LogDestination = "stdout" | "stderr";
@@ -39,6 +65,7 @@ export async function watchLogs(
   options?: {
     success: boolean;
     history?: number | boolean;
+    logManager?: LogManager;
   },
 ) {
   let numFailures = 0;
@@ -55,6 +82,10 @@ export async function watchLogs(
       );
       cursorMs = newCursor;
       numFailures = 0;
+
+      // Delay printing logs until the log manager is unpaused.
+      await options?.logManager?.waitForUnpaused();
+
       // The first execution, we just want to fetch the current head cursor so we don't send stale
       // logs to the client.
       if (isFirst) {

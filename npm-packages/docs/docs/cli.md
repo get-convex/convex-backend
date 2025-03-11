@@ -69,7 +69,8 @@ npx convex dev
 Watches the local filesystem. When you change a [function](/docs/functions.mdx)
 or the [schema](/docs/database/schemas.mdx), the new versions are pushed to your
 dev deployment and the [generated types](/generated-api/) in `convex/_generated`
-are updated.
+are updated. By default, logs from your dev deployment are displayed in the
+terminal.
 
 It's also possible to
 [run a Convex deployment locally](/docs/cli/local-deployments-for-dev.mdx) for
@@ -113,20 +114,23 @@ Use `--prod` to run functions in the production deployment for a project.
 
 ### Tail deployment logs
 
+You can choose how to pipe logs from your dev deployment to your console:
+
 ```sh
+# Show all logs continuously
+npx convex dev --tail-logs always
+
+# Pause logs during deploys to see sync issues (default)
+npx convex dev
+
+# Don't display logs while developing
+npx convex dev --tail-logs disable
+
+# Tail logs without deploying
 npx convex logs
 ```
 
-This pipes logs from your dev deployment to your console. This can be followed
-with `--prod` to tail the prod deployment logs instead.
-
-You can also simultaneously deploy code to the Convex dev deployment, watching
-for filesystem changes, and pipe logs generated on your dev deployment to your
-console:
-
-```sh
-npx convex dev --tail-logs
-```
+Use `--prod` with `npx convex logs` to tail the prod deployment logs instead.
 
 ### Import data from a file
 

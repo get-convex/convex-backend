@@ -13,6 +13,8 @@ import { typeCheckFunctionsInMode } from "./typecheck.js";
 import { ensureHasConvexDependency, functionsDir } from "./utils/utils.js";
 import { handleDebugBundlePath } from "./debugBundlePath.js";
 
+import { LogManager } from "./logs.js";
+
 export type PushOptions = {
   adminKey: string;
   verbose: boolean;
@@ -25,6 +27,7 @@ export type PushOptions = {
   url: string;
   writePushRequest?: string;
   liveComponentSources: boolean;
+  logManager?: LogManager;
 };
 
 export async function runNonComponentsPush(

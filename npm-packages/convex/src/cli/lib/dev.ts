@@ -12,7 +12,7 @@ import {
 import { runPush } from "./components.js";
 import { performance } from "perf_hooks";
 import path from "path";
-import { watchLogs } from "./logs.js";
+import { LogManager, LogMode, watchLogs } from "./logs.js";
 import { PushOptions } from "./push.js";
 import {
   formatDuration,
@@ -36,18 +36,24 @@ export async function devAgainstDeployment(
     untilSuccess: boolean;
     run?: string;
     runComponent?: string;
-    tailLogs: boolean;
+    tailLogs: LogMode;
     traceEvents: boolean;
     debugBundlePath?: string;
     liveComponentSources: boolean;
   },
 ) {
+  const logManager = new LogManager(devOptions.tailLogs);
+
   const promises = [];
-  if (devOptions.tailLogs) {
+  if (devOptions.tailLogs !== "disable") {
     promises.push(
-      watchLogs(ctx, credentials.url, credentials.adminKey, "stderr"),
+      watchLogs(ctx, credentials.url, credentials.adminKey, "stderr", {
+        logManager,
+        success: false,
+      }),
     );
   }
+
   promises.push(
     watchAndPush(
       ctx,
@@ -61,6 +67,7 @@ export async function devAgainstDeployment(
         debugBundlePath: devOptions.debugBundlePath,
         codegen: devOptions.codegen,
         liveComponentSources: devOptions.liveComponentSources,
+        logManager, // Pass logManager to control logs during deploy
       },
       devOptions,
     ),
@@ -92,10 +99,15 @@ export async function watchAndPush(
     tableNameTriggeringRetry = null;
     shouldRetryOnDeploymentEnvVarChange = false;
     const ctx = new WatchContext(cmdOptions.traceEvents);
+    options.logManager?.beginDeploy();
     showSpinner(ctx, "Preparing Convex functions...");
     try {
       await runPush(ctx, options);
       const end = performance.now();
+      // NOTE: If `runPush` throws, `endDeploy` will not be called.
+      // This allows you to see the output from the failed deploy without
+      // logs getting in the way.
+      options.logManager?.endDeploy();
       numFailures = 0;
       logFinishedStep(
         ctx,
