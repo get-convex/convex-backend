@@ -169,18 +169,13 @@ export function useListPlans(teamId?: number) {
 }
 
 export function useGetCurrentSpend(teamId: number) {
-  const { data, error, isLoading } = useBBQuery({
+  const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_current_spend",
     pathParams: { team_id: teamId.toString() },
     swrOptions: {
       refreshInterval: 1000 * 60,
     },
   });
-
-  if (error) {
-    // eslint-disable-next-line @typescript-eslint/no-throw-literal
-    throw error;
-  }
 
   return {
     totalCents: data?.totalCents,
@@ -198,18 +193,13 @@ export function useGetSpendingLimits(teamId: number | null): {
     | undefined;
   isLoading: boolean;
 } {
-  const { data, error, isLoading } = useBBQuery({
+  const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_spending_limits",
     pathParams: { team_id: teamId?.toString() ?? "" },
     swrOptions: {
       refreshInterval: 1000 * 60,
     },
   });
-
-  if (error) {
-    // eslint-disable-next-line @typescript-eslint/no-throw-literal
-    throw error;
-  }
 
   return {
     spendingLimits:
