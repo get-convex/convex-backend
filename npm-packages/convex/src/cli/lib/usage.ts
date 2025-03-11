@@ -40,6 +40,26 @@ async function teamUsageState(ctx: Context) {
   return usageState;
 }
 
+async function teamSpendingLimitsState(ctx: Context) {
+  const configuredDeployment = (await getConfiguredDeployment(ctx)).name;
+  if (configuredDeployment === null) {
+    return null;
+  }
+
+  const { teamId } = await fetchTeamAndProject(ctx, configuredDeployment);
+
+  const response = (await bigBrainAPI({
+    ctx,
+    method: "GET",
+    url: "dashboard/teams/" + teamId + "/get_spending_limits",
+  })) as {
+    disableThresholdCents: number | null;
+    state: null | "Running" | "Disabled" | "Warning";
+  };
+
+  return response.state;
+}
+
 export async function usageStateWarning(ctx: Context) {
   // Skip the warning if the user doesn’t have an auth token
   // (which can happen for instance when using a deploy key)
@@ -48,9 +68,18 @@ export async function usageStateWarning(ctx: Context) {
     return;
   }
 
-  const usageState = await teamUsageState(ctx);
+  const [usageState, spendingLimitsState] = await Promise.all([
+    teamUsageState(ctx),
+    teamSpendingLimitsState(ctx),
+  ]);
 
-  if (usageState === "Approaching") {
+  if (spendingLimitsState === "Disabled") {
+    await warn(
+      ctx,
+      "Your projects are disabled because you exceeded your spending limit.",
+      "Increase it from the dashboard to re-enable your projects.",
+    );
+  } else if (usageState === "Approaching") {
     await warn(
       ctx,
       "Your projects are approaching the Starter plan limits.",
