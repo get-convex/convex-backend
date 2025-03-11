@@ -4,6 +4,8 @@ import { ComponentProps } from "react";
 import udfs from "@common/udfs";
 import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -17,12 +19,14 @@ export default {
 function Example(args: ComponentProps<typeof DataFilters>) {
   return (
     <ConvexProvider client={mockClient}>
-      <DataFilters
-        {...args}
-        filters={{ clauses: [] }}
-        // eslint-disable-next-line no-alert
-        onChangeFilters={() => alert("Filters applied!")}
-      />
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <DataFilters
+          {...args}
+          filters={{ clauses: [] }}
+          // eslint-disable-next-line no-alert
+          onChangeFilters={() => alert("Filters applied!")}
+        />
+      </DeploymentInfoContext.Provider>
     </ConvexProvider>
   );
 }

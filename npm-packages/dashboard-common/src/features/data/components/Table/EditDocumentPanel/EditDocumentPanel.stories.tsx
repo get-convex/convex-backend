@@ -4,6 +4,9 @@ import React from "react";
 import udfs from "@common/udfs";
 import { EditDocumentPanel } from "@common/features/data/components/Table/EditDocumentPanel/EditDocumentPanel";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { Panel, PanelGroup } from "react-resizable-panels";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -12,9 +15,17 @@ const mockClient = mockConvexReactClient()
 
 export default {
   component: EditDocumentPanel,
+  args: {
+    tableName: "users",
+  },
   render: (args) => (
     <ConvexProvider client={mockClient}>
-      <EditDocumentPanel {...args} />
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <PanelGroup direction="horizontal" className="fixed inset-0 size-full">
+          <Panel />
+          <EditDocumentPanel {...args} />
+        </PanelGroup>
+      </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
 } as Meta<typeof EditDocumentPanel>;

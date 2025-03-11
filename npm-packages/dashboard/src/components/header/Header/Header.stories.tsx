@@ -1,11 +1,20 @@
-import { StoryObj } from "@storybook/react";
-
+import { Meta, StoryObj } from "@storybook/react";
+import { UserProfile, UserProvider } from "@auth0/nextjs-auth0/client";
 import { BreadcrumbLink } from "../BreadcrumbLink/BreadcrumbLink";
 import { Breadcrumbs } from "../Breadcrumbs/Breadcrumbs";
 import { NavBar } from "../NavBar/NavBar";
 import { Header } from "./Header";
 
-export default { component: Header };
+const mockUser = {} as unknown as UserProfile;
+
+export default {
+  component: Header,
+  render: (args) => (
+    <UserProvider user={mockUser}>
+      <Header {...args} />
+    </UserProvider>
+  ),
+} as Meta<typeof Header>;
 
 export const Default: StoryObj<typeof Header> = {
   args: {

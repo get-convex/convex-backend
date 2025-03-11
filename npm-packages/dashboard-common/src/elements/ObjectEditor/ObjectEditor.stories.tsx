@@ -3,6 +3,8 @@ import { ConvexProvider } from "convex/react";
 import udfs from "@common/udfs";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
@@ -13,9 +15,11 @@ export default {
   component: ObjectEditor,
   render: (args) => (
     <ConvexProvider client={mockClient}>
-      <div className="h-64">
-        <ObjectEditor {...args} path="document" mode="editField" />
-      </div>
+      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+        <div className="h-64">
+          <ObjectEditor {...args} path="document" mode="editField" />
+        </div>
+      </DeploymentInfoContext.Provider>
     </ConvexProvider>
   ),
 } as Meta<typeof ObjectEditor>;
