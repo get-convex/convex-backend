@@ -1,10 +1,23 @@
-// @ts-nocheck
-// TODO: CX-4916 fix the types in this file.
-import { StoryObj } from "@storybook/react";
+import { Meta, StoryObj } from "@storybook/react";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { DeploymentEventContent } from "@common/elements/DeploymentEventContent";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+import { SchemaJson } from "@common/lib/format";
+
+// Workaround to go around an issue in Storybook where BigInts as argument
+// fail to be serialized.
+// TODO(ENG-8621) Remove this once Storybook is updated to 8.0, which fixes the issue
+// @ts-expect-error
+// eslint-disable-next-line no-extend-native, func-names
+BigInt.prototype.toJSON = function () {
+  return this.toString();
+};
+
+/** Helper to make sure the serialized values in the story are correct */
+function schemaJsonAsString(value: SchemaJson): string {
+  return JSON.stringify(value);
+}
 
 export default {
   component: DeploymentEventContent,
@@ -15,98 +28,78 @@ export default {
       </DeploymentInfoContext.Provider>
     ),
   ],
-};
+} satisfies Meta<typeof DeploymentEventContent>;
 
-export const CreateEnvironmentVariable: StoryObj<
-  typeof DeploymentEventContent
-> = {
+type Story = StoryObj<typeof DeploymentEventContent>;
+
+export const CreateEnvironmentVariable: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
       _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-      // @ts-expect-error
       action: "create_environment_variable",
       metadata: {
-        // @ts-expect-error
         variable_name: "envVar",
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const DeleteEnvironmentVariable: StoryObj<
-  typeof DeploymentEventContent
-> = {
+export const DeleteEnvironmentVariable: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
       _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-      // @ts-expect-error
       action: "delete_environment_variable",
       metadata: {
-        // @ts-expect-error
         variable_name: "envVar",
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const UpdateEnvironmentVariable: StoryObj<
-  typeof DeploymentEventContent
-> = {
+export const UpdateEnvironmentVariable: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
       _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-      // @ts-expect-error
       action: "update_environment_variable",
       metadata: {
-        // @ts-expect-error
         variable_name: "envVar",
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const ReplaceEnvironmentVariable: StoryObj<
-  typeof DeploymentEventContent
-> = {
+export const ReplaceEnvironmentVariable: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
       _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-      // @ts-expect-error
       action: "replace_environment_variable",
       metadata: {
-        // @ts-expect-error
         previous_variable_name: "envVar",
         variable_name: "envVar2",
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const UpdateIndexes: StoryObj<typeof DeploymentEventContent> = {
+export const UpdateIndexes: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
       _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-      // @ts-expect-error
       action: "build_indexes",
       metadata: {
-        // @ts-expect-error
         added_indexes: [
           { name: "my_index", type: "database", fields: ["field1", "field2"] },
           {
@@ -127,13 +120,12 @@ export const UpdateIndexes: StoryObj<typeof DeploymentEventContent> = {
         ],
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PausingDeployment: StoryObj<typeof DeploymentEventContent> = {
+export const PausingDeployment: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -144,12 +136,12 @@ export const PausingDeployment: StoryObj<typeof DeploymentEventContent> = {
         new_state: "paused",
       },
       memberName: "member@convex.dev",
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const ResumingDeployment: StoryObj<typeof DeploymentEventContent> = {
+export const ResumingDeployment: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -160,12 +152,12 @@ export const ResumingDeployment: StoryObj<typeof DeploymentEventContent> = {
         new_state: "running",
       },
       memberName: "member@convex.dev",
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfig: StoryObj<typeof DeploymentEventContent> = {
+export const PushConfig: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -179,15 +171,12 @@ export const PushConfig: StoryObj<typeof DeploymentEventContent> = {
         schema: null,
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfigWithVersionChange: StoryObj<
-  typeof DeploymentEventContent
-> = {
+export const PushConfigWithVersionChange: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -201,34 +190,31 @@ export const PushConfigWithVersionChange: StoryObj<
         schema: null,
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfigWithAuthChange: StoryObj<typeof DeploymentEventContent> =
-  {
-    args: {
-      event: {
-        _id: "" as Id<"_deployment_audit_log">,
-        _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-        action: "push_config",
-        metadata: {
-          auth: { added: ["auth1", "auth2"], removed: ["auth3", "auth4"] },
-          server_version: null,
-          modules: { added: [], removed: [] },
-          crons: { added: [], updated: [], deleted: [] },
-          schema: null,
-        },
-        memberName: "member@convex.dev",
-        // @ts-expect-error
-        member_id: 1,
+export const PushConfigWithAuthChange: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config",
+      metadata: {
+        auth: { added: ["auth1", "auth2"], removed: ["auth3", "auth4"] },
+        server_version: null,
+        modules: { added: [], removed: [] },
+        crons: { added: [], updated: [], deleted: [] },
+        schema: null,
       },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
     },
-  };
+  },
+};
 
-export const PushConfigWithChange: StoryObj<typeof DeploymentEventContent> = {
+export const PushConfigWithChange: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -241,163 +227,142 @@ export const PushConfigWithChange: StoryObj<typeof DeploymentEventContent> = {
         crons: { added: [], updated: [], deleted: [] },
         schema: {
           previous_schema_id: "" as Id<"_schemas">,
-          previous_schema: {
-            _creationTime: 1684788174774.141,
-            _id: "" as Id<"_schemas">,
-            schema: JSON.stringify({
-              tables: [
-                {
-                  tableName: "messages",
-                  indexes: [],
-                  searchIndexes: [],
-                  documentType: {
-                    type: "object",
-                    value: {
-                      author: {
-                        fieldType: { type: "string" },
-                        optional: false,
-                      },
-                      body: { fieldType: { type: "string" }, optional: false },
-                      isRemoved: {
-                        fieldType: {
-                          type: "object",
-                          value: {
-                            booleanOrNumber: {
-                              fieldType: {
-                                type: "union",
-                                value: [
-                                  { type: "boolean" },
-                                  { type: "number" },
-                                ],
-                              },
-                              optional: false,
+          previous_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "messages",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    author: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    body: { fieldType: { type: "string" }, optional: false },
+                    isRemoved: {
+                      fieldType: {
+                        type: "object",
+                        value: {
+                          booleanOrNumber: {
+                            fieldType: {
+                              type: "union",
+                              value: [{ type: "boolean" }, { type: "number" }],
                             },
-                            nestedObject: {
-                              fieldType: {
-                                type: "object",
-                                value: {
-                                  property: {
-                                    fieldType: { type: "string" },
-                                    optional: false,
-                                  },
+                            optional: false,
+                          },
+                          nestedObject: {
+                            fieldType: {
+                              type: "object",
+                              value: {
+                                property: {
+                                  fieldType: { type: "string" },
+                                  optional: false,
                                 },
                               },
-                              optional: false,
                             },
-                            numbers: {
-                              fieldType: {
-                                type: "set",
-                                value: { type: "number" },
-                              },
-                              optional: false,
+                            optional: false,
+                          },
+                          numbers: {
+                            fieldType: {
+                              type: "array",
+                              value: { type: "number" },
                             },
-                            string: {
-                              fieldType: { type: "string" },
-                              optional: true,
-                            },
+                            optional: false,
+                          },
+                          string: {
+                            fieldType: { type: "string" },
+                            optional: true,
                           },
                         },
-                        optional: false,
                       },
+                      optional: false,
                     },
                   },
                 },
-              ],
-              schemaValidation: true,
-            }),
-            state: {
-              state: "overwritten",
-            },
-          },
+              },
+            ],
+            schemaValidation: true,
+          }),
           next_schema_id: "" as Id<"_schemas">,
-          next_schema: {
-            _creationTime: 1684788230173.204,
-            _id: "" as Id<"_schemas">,
-            schema: JSON.stringify({
-              tables: [
-                {
-                  tableName: "messages",
-                  indexes: [],
-                  searchIndexes: [],
-                  documentType: {
-                    type: "object",
-                    value: {
-                      author: {
-                        fieldType: { type: "string" },
-                        optional: false,
-                      },
-                      body: { fieldType: { type: "string" }, optional: false },
-                      isRemoved: {
-                        fieldType: {
-                          type: "object",
-                          value: {
-                            booleanOrNumber: {
-                              fieldType: {
-                                type: "union",
-                                value: [
-                                  { type: "boolean" },
-                                  { type: "number" },
-                                ],
-                              },
-                              optional: false,
+          next_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "messages",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    author: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    body: { fieldType: { type: "string" }, optional: false },
+                    isRemoved: {
+                      fieldType: {
+                        type: "object",
+                        value: {
+                          booleanOrNumber: {
+                            fieldType: {
+                              type: "union",
+                              value: [{ type: "boolean" }, { type: "number" }],
                             },
-                            nestedObject: {
-                              fieldType: {
-                                type: "object",
-                                value: {
-                                  property: {
-                                    fieldType: {
-                                      type: "array",
-                                      value: {
-                                        type: "union",
-                                        value: [
-                                          { type: "string" },
-                                          { type: "bigint" },
-                                          { type: "null" },
-                                        ],
-                                      },
+                            optional: false,
+                          },
+                          nestedObject: {
+                            fieldType: {
+                              type: "object",
+                              value: {
+                                property: {
+                                  fieldType: {
+                                    type: "array",
+                                    value: {
+                                      type: "union",
+                                      value: [
+                                        { type: "string" },
+                                        { type: "bigint" },
+                                        { type: "null" },
+                                      ],
                                     },
-                                    optional: false,
                                   },
+                                  optional: false,
                                 },
                               },
-                              optional: false,
                             },
-                            numbers: {
-                              fieldType: {
-                                type: "set",
-                                value: { type: "number" },
-                              },
-                              optional: false,
+                            optional: false,
+                          },
+                          numbers: {
+                            fieldType: {
+                              type: "array",
+                              value: { type: "number" },
                             },
-                            string: {
-                              fieldType: { type: "string" },
-                              optional: true,
-                            },
+                            optional: false,
+                          },
+                          string: {
+                            fieldType: { type: "string" },
+                            optional: true,
                           },
                         },
-                        optional: false,
                       },
+                      optional: false,
                     },
                   },
                 },
-              ],
-              schemaValidation: true,
-            }),
-            state: {
-              state: "active",
-            },
-          },
+              },
+            ],
+            schemaValidation: true,
+          }),
         },
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfigWithAddition: StoryObj<typeof DeploymentEventContent> = {
+export const PushConfigWithAddition: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -412,94 +377,83 @@ export const PushConfigWithAddition: StoryObj<typeof DeploymentEventContent> = {
           previous_schema_id: null,
           previous_schema: null,
           next_schema_id: "" as Id<"_schemas">,
-          next_schema: {
-            _creationTime: 1684788230173.204,
-            _id: "" as Id<"_schemas">,
-            schema: JSON.stringify({
-              tables: [
-                {
-                  tableName: "messages",
-                  indexes: [],
-                  searchIndexes: [],
-                  documentType: {
-                    type: "object",
-                    value: {
-                      author: {
-                        fieldType: { type: "string" },
-                        optional: false,
-                      },
-                      body: { fieldType: { type: "string" }, optional: false },
-                      isRemoved: {
-                        fieldType: {
-                          type: "object",
-                          value: {
-                            booleanOrNumber: {
-                              fieldType: {
-                                type: "union",
-                                value: [
-                                  { type: "boolean" },
-                                  { type: "number" },
-                                ],
-                              },
-                              optional: false,
+          next_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "messages",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    author: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    body: { fieldType: { type: "string" }, optional: false },
+                    isRemoved: {
+                      fieldType: {
+                        type: "object",
+                        value: {
+                          booleanOrNumber: {
+                            fieldType: {
+                              type: "union",
+                              value: [{ type: "boolean" }, { type: "number" }],
                             },
-                            nestedObject: {
-                              fieldType: {
-                                type: "object",
-                                value: {
-                                  property: {
-                                    fieldType: {
-                                      type: "array",
-                                      value: {
-                                        type: "union",
-                                        value: [
-                                          { type: "string" },
-                                          { type: "bigint" },
-                                          { type: "null" },
-                                        ],
-                                      },
+                            optional: false,
+                          },
+                          nestedObject: {
+                            fieldType: {
+                              type: "object",
+                              value: {
+                                property: {
+                                  fieldType: {
+                                    type: "array",
+                                    value: {
+                                      type: "union",
+                                      value: [
+                                        { type: "string" },
+                                        { type: "bigint" },
+                                        { type: "null" },
+                                      ],
                                     },
-                                    optional: false,
                                   },
+                                  optional: false,
                                 },
                               },
-                              optional: false,
                             },
-                            numbers: {
-                              fieldType: {
-                                type: "set",
-                                value: { type: "number" },
-                              },
-                              optional: false,
+                            optional: false,
+                          },
+                          numbers: {
+                            fieldType: {
+                              type: "array",
+                              value: { type: "number" },
                             },
-                            string: {
-                              fieldType: { type: "string" },
-                              optional: true,
-                            },
+                            optional: false,
+                          },
+                          string: {
+                            fieldType: { type: "string" },
+                            optional: true,
                           },
                         },
-                        optional: false,
                       },
+                      optional: false,
                     },
                   },
                 },
-              ],
-              schemaValidation: true,
-            }),
-            state: {
-              state: "active",
-            },
-          },
+              },
+            ],
+            schemaValidation: true,
+          }),
         },
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfigWithDeletion: StoryObj<typeof DeploymentEventContent> = {
+export const PushConfigWithDeletion: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -512,88 +466,75 @@ export const PushConfigWithDeletion: StoryObj<typeof DeploymentEventContent> = {
         crons: { added: [], updated: [], deleted: [] },
         schema: {
           previous_schema_id: "" as Id<"_schemas">,
-          previous_schema: {
-            _creationTime: 1684788174774.141,
-            _id: "" as Id<"_schemas">,
-            schema: JSON.stringify({
-              tables: [
-                {
-                  tableName: "messages",
-                  indexes: [],
-                  searchIndexes: [],
-                  documentType: {
-                    type: "object",
-                    value: {
-                      author: {
-                        fieldType: { type: "string" },
-                        optional: false,
-                      },
-                      body: { fieldType: { type: "string" }, optional: false },
-                      isRemoved: {
-                        fieldType: {
-                          type: "object",
-                          value: {
-                            booleanOrNumber: {
-                              fieldType: {
-                                type: "union",
-                                value: [
-                                  { type: "boolean" },
-                                  { type: "number" },
-                                ],
-                              },
-                              optional: false,
+          previous_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "messages",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    author: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    body: { fieldType: { type: "string" }, optional: false },
+                    isRemoved: {
+                      fieldType: {
+                        type: "object",
+                        value: {
+                          booleanOrNumber: {
+                            fieldType: {
+                              type: "union",
+                              value: [{ type: "boolean" }, { type: "number" }],
                             },
-                            nestedObject: {
-                              fieldType: {
-                                type: "object",
-                                value: {
-                                  property: {
-                                    fieldType: { type: "string" },
-                                    optional: false,
-                                  },
+                            optional: false,
+                          },
+                          nestedObject: {
+                            fieldType: {
+                              type: "object",
+                              value: {
+                                property: {
+                                  fieldType: { type: "string" },
+                                  optional: false,
                                 },
                               },
-                              optional: false,
                             },
-                            numbers: {
-                              fieldType: {
-                                type: "set",
-                                value: { type: "number" },
-                              },
-                              optional: false,
+                            optional: false,
+                          },
+                          numbers: {
+                            fieldType: {
+                              type: "array",
+                              value: { type: "number" },
                             },
-                            string: {
-                              fieldType: { type: "string" },
-                              optional: true,
-                            },
+                            optional: false,
+                          },
+                          string: {
+                            fieldType: { type: "string" },
+                            optional: true,
                           },
                         },
-                        optional: false,
                       },
+                      optional: false,
                     },
                   },
                 },
-              ],
-              schemaValidation: true,
-            }),
-            state: {
-              state: "overwritten",
-            },
-          },
+              },
+            ],
+            schemaValidation: true,
+          }),
           next_schema_id: null,
           next_schema: null,
         },
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfigWithEnforcementChange: StoryObj<
-  typeof DeploymentEventContent
-> = {
+export const PushConfigWithEnforcementChange: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
@@ -606,743 +547,730 @@ export const PushConfigWithEnforcementChange: StoryObj<
         crons: { added: [], updated: [], deleted: [] },
         schema: {
           previous_schema_id: "" as Id<"_schemas">,
-          previous_schema: {
-            _creationTime: 1684788174774.141,
-            _id: "" as Id<"_schemas">,
-            schema: JSON.stringify({
-              tables: [
-                {
-                  tableName: "messages",
-                  indexes: [],
-                  searchIndexes: [],
-                  documentType: {
-                    type: "object",
-                    value: {
-                      author: {
-                        fieldType: { type: "string" },
-                        optional: false,
-                      },
-                      body: { fieldType: { type: "string" }, optional: false },
+          previous_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "messages",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    author: {
+                      fieldType: { type: "string" },
+                      optional: false,
                     },
+                    body: { fieldType: { type: "string" }, optional: false },
                   },
                 },
-              ],
-              schemaValidation: false,
-            }),
-            state: {
-              state: "overwritten",
-            },
-          },
+              },
+            ],
+            schemaValidation: false,
+          }),
           next_schema_id: "" as Id<"_schemas">,
-          next_schema: {
-            _creationTime: 1684788230173.204,
-            _id: "" as Id<"_schemas">,
-            schema: JSON.stringify({
-              tables: [
-                {
-                  tableName: "messages",
-                  indexes: [],
-                  searchIndexes: [],
-                  documentType: {
-                    type: "object",
-                    value: {
-                      author: {
-                        fieldType: { type: "string" },
-                        optional: false,
-                      },
-                      body: { fieldType: { type: "string" }, optional: false },
+          next_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "messages",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    author: {
+                      fieldType: { type: "string" },
+                      optional: false,
                     },
+                    body: { fieldType: { type: "string" }, optional: false },
                   },
                 },
-              ],
-              schemaValidation: true,
-            }),
-            state: {
-              state: "active",
-            },
-          },
+              },
+            ],
+            schemaValidation: true,
+          }),
         },
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const PushConfigWithLargeDiff: StoryObj<typeof DeploymentEventContent> =
-  {
-    args: {
-      event: {
-        _id: "" as Id<"_deployment_audit_log">,
-        _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-        action: "push_config",
-        metadata: {
-          auth: {
-            added: [],
-            removed: [],
-          },
-          crons: {
-            added: [],
-            deleted: [],
-            updated: [],
-          },
-          modules: {
-            added: [],
-            removed: [],
-          },
-          schema: {
-            next_schema: {
-              _id: "" as Id<"_schemas">,
-              _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-              schema: JSON.stringify({
-                tables: [
+export const PushConfigWithLargeDiff: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config",
+      metadata: {
+        auth: {
+          added: [],
+          removed: [],
+        },
+        crons: {
+          added: [],
+          deleted: [],
+          updated: [],
+        },
+        modules: {
+          added: [],
+          removed: [],
+        },
+        schema: {
+          next_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "games",
+                indexes: [
                   {
-                    tableName: "games",
-                    indexes: [
-                      {
-                        indexDescriptor: "s",
-                        fields: ["slug", "_creationTime"],
-                      },
-                    ],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        hostId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                        nextGameId: {
-                          fieldType: { type: "id", tableName: "games" },
-                          optional: true,
-                        },
-                        playerIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "users" },
-                          },
-                          optional: false,
-                        },
-                        roundIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "rounds" },
-                          },
-                          optional: false,
-                        },
-                        slug: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        state: {
-                          fieldType: {
-                            type: "union",
-                            value: [
-                              {
-                                type: "object",
-                                value: {
-                                  stage: {
-                                    fieldType: {
-                                      type: "union",
-                                      value: [
-                                        { type: "literal", value: "lobby" },
-                                        { type: "literal", value: "generate" },
-                                        { type: "literal", value: "recap" },
-                                      ],
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                              {
-                                type: "object",
-                                value: {
-                                  roundId: {
-                                    fieldType: {
-                                      type: "id",
-                                      tableName: "rounds",
-                                    },
-                                    optional: false,
-                                  },
-                                  stage: {
-                                    fieldType: {
-                                      type: "literal",
-                                      value: "rounds",
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                            ],
-                          },
-                          optional: false,
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tableName: "publicGame",
-                    indexes: [],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        roundId: {
-                          fieldType: { type: "id", tableName: "rounds" },
-                          optional: false,
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tableName: "rounds",
-                    indexes: [
-                      {
-                        indexDescriptor: "public_game",
-                        fields: [
-                          "publicRound",
-                          "stage",
-                          "lastUsed",
-                          "_creationTime",
-                        ],
-                      },
-                    ],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        authorId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                        imageStorageId: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        lastUsed: {
-                          fieldType: { type: "number" },
-                          optional: true,
-                        },
-                        publicRound: {
-                          fieldType: { type: "boolean" },
-                          optional: true,
-                        },
-                        stage: {
-                          fieldType: {
-                            type: "union",
-                            value: [
-                              { type: "literal", value: "label" },
-                              { type: "literal", value: "guess" },
-                              { type: "literal", value: "reveal" },
-                            ],
-                          },
-                          optional: false,
-                        },
-                        stageEnd: {
-                          fieldType: { type: "number" },
-                          optional: false,
-                        },
-                        stageStart: {
-                          fieldType: { type: "number" },
-                          optional: false,
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tableName: "sessions",
-                    indexes: [],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        gameIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "games" },
-                          },
-                          optional: false,
-                        },
-                        submissionIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "submissions" },
-                          },
-                          optional: false,
-                        },
-                        userId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tableName: "submissions",
-                    indexes: [],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        authorId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                        prompt: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        result: {
-                          fieldType: {
-                            type: "union",
-                            value: [
-                              {
-                                type: "object",
-                                value: {
-                                  elapsedMs: {
-                                    fieldType: { type: "number" },
-                                    optional: false,
-                                  },
-                                  status: {
-                                    fieldType: {
-                                      type: "literal",
-                                      value: "waiting",
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                              {
-                                type: "object",
-                                value: {
-                                  details: {
-                                    fieldType: { type: "string" },
-                                    optional: false,
-                                  },
-                                  status: {
-                                    fieldType: {
-                                      type: "literal",
-                                      value: "generating",
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                              {
-                                type: "object",
-                                value: {
-                                  elapsedMs: {
-                                    fieldType: { type: "number" },
-                                    optional: false,
-                                  },
-                                  reason: {
-                                    fieldType: { type: "string" },
-                                    optional: false,
-                                  },
-                                  status: {
-                                    fieldType: {
-                                      type: "literal",
-                                      value: "failed",
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                              {
-                                type: "object",
-                                value: {
-                                  elapsedMs: {
-                                    fieldType: { type: "number" },
-                                    optional: false,
-                                  },
-                                  imageStorageId: {
-                                    fieldType: { type: "string" },
-                                    optional: false,
-                                  },
-                                  status: {
-                                    fieldType: {
-                                      type: "literal",
-                                      value: "saved",
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                            ],
-                          },
-                          optional: false,
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tableName: "users",
-                    indexes: [
-                      {
-                        indexDescriptor: "by_token",
-                        fields: ["tokenIdentifier", "_creationTime"],
-                      },
-                    ],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        claimedByUserId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: true,
-                        },
-                        name: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        password_hash: {
-                          fieldType: { type: "string" },
-                          optional: true,
-                        },
-                        pictureUrl: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        tokenIdentifier: {
-                          fieldType: { type: "string" },
-                          optional: true,
-                        },
-                      },
-                    },
+                    indexDescriptor: "s",
+                    fields: ["slug", "_creationTime"],
                   },
                 ],
-                schemaValidation: true,
-              }),
-              state: {
-                state: "overwritten",
-              },
-            },
-            next_schema_id: "" as Id<"_schemas">,
-            previous_schema: {
-              _id: "" as Id<"_schemas">,
-              _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-              schema: JSON.stringify({
-                tables: [
-                  {
-                    tableName: "games",
-                    indexes: [
-                      {
-                        indexDescriptor: "s",
-                        fields: ["slug", "_creationTime"],
-                      },
-                    ],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        hostId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                        nextGameId: {
-                          fieldType: { type: "id", tableName: "games" },
-                          optional: true,
-                        },
-                        playerIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "users" },
-                          },
-                          optional: false,
-                        },
-                        roundIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "rounds" },
-                          },
-                          optional: false,
-                        },
-                        slug: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        state: {
-                          fieldType: {
-                            type: "union",
-                            value: [
-                              {
-                                type: "object",
-                                value: {
-                                  stage: {
-                                    fieldType: {
-                                      type: "union",
-                                      value: [
-                                        { type: "literal", value: "lobby" },
-                                        { type: "literal", value: "generate" },
-                                        { type: "literal", value: "recap" },
-                                      ],
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                              {
-                                type: "object",
-                                value: {
-                                  roundId: {
-                                    fieldType: {
-                                      type: "id",
-                                      tableName: "rounds",
-                                    },
-                                    optional: false,
-                                  },
-                                  stage: {
-                                    fieldType: {
-                                      type: "literal",
-                                      value: "rounds",
-                                    },
-                                    optional: false,
-                                  },
-                                },
-                              },
-                            ],
-                          },
-                          optional: false,
-                        },
-                      },
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    hostId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
                     },
-                  },
-                  {
-                    tableName: "publicGame",
-                    indexes: [],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        roundId: {
-                          fieldType: { type: "id", tableName: "rounds" },
-                          optional: false,
-                        },
-                      },
+                    nextGameId: {
+                      fieldType: { type: "id", tableName: "games" },
+                      optional: true,
                     },
-                  },
-                  {
-                    tableName: "rounds",
-                    indexes: [
-                      {
-                        indexDescriptor: "public_game",
-                        fields: [
-                          "publicRound",
-                          "stage",
-                          "lastUsed",
-                          "_creationTime",
-                        ],
+                    playerIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "users" },
                       },
-                    ],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        authorId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                        imageStorageId: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        lastUsed: {
-                          fieldType: { type: "number" },
-                          optional: true,
-                        },
-                        options: {
-                          fieldType: {
-                            type: "array",
+                      optional: false,
+                    },
+                    roundIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "rounds" },
+                      },
+                      optional: false,
+                    },
+                    slug: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    state: {
+                      fieldType: {
+                        type: "union",
+                        value: [
+                          {
+                            type: "object",
                             value: {
-                              type: "object",
-                              value: {
-                                authorId: {
-                                  fieldType: { type: "id", tableName: "users" },
-                                  optional: false,
+                              stage: {
+                                fieldType: {
+                                  type: "union",
+                                  value: [
+                                    { type: "literal", value: "lobby" },
+                                    { type: "literal", value: "generate" },
+                                    { type: "literal", value: "recap" },
+                                  ],
                                 },
-                                likes: {
-                                  fieldType: {
-                                    type: "array",
-                                    value: { type: "id", tableName: "users" },
-                                  },
-                                  optional: false,
-                                },
-                                prompt: {
-                                  fieldType: { type: "string" },
-                                  optional: false,
-                                },
-                                votes: {
-                                  fieldType: {
-                                    type: "array",
-                                    value: { type: "id", tableName: "users" },
-                                  },
-                                  optional: false,
-                                },
+                                optional: false,
                               },
                             },
                           },
-                          optional: false,
-                        },
-                        publicRound: {
-                          fieldType: { type: "boolean" },
-                          optional: true,
-                        },
-                        stage: {
-                          fieldType: {
-                            type: "union",
-                            value: [
-                              { type: "literal", value: "label" },
-                              { type: "literal", value: "guess" },
-                              { type: "literal", value: "reveal" },
-                            ],
+                          {
+                            type: "object",
+                            value: {
+                              roundId: {
+                                fieldType: {
+                                  type: "id",
+                                  tableName: "rounds",
+                                },
+                                optional: false,
+                              },
+                              stage: {
+                                fieldType: {
+                                  type: "literal",
+                                  value: "rounds",
+                                },
+                                optional: false,
+                              },
+                            },
                           },
-                          optional: false,
-                        },
-                        stageEnd: {
-                          fieldType: { type: "number" },
-                          optional: false,
-                        },
-                        stageStart: {
-                          fieldType: { type: "number" },
-                          optional: false,
-                        },
+                        ],
                       },
+                      optional: false,
                     },
                   },
-                  {
-                    tableName: "sessions",
-                    indexes: [],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        gameIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "games" },
-                          },
-                          optional: false,
-                        },
-                        submissionIds: {
-                          fieldType: {
-                            type: "array",
-                            value: { type: "id", tableName: "submissions" },
-                          },
-                          optional: false,
-                        },
-                        userId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                      },
+                },
+              },
+              {
+                tableName: "publicGame",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    roundId: {
+                      fieldType: { type: "id", tableName: "rounds" },
+                      optional: false,
                     },
                   },
+                },
+              },
+              {
+                tableName: "rounds",
+                indexes: [
                   {
-                    tableName: "submissions",
-                    indexes: [],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        authorId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: false,
-                        },
-                        prompt: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tableName: "users",
-                    indexes: [
-                      {
-                        indexDescriptor: "by_token",
-                        fields: ["tokenIdentifier", "_creationTime"],
-                      },
+                    indexDescriptor: "public_game",
+                    fields: [
+                      "publicRound",
+                      "stage",
+                      "lastUsed",
+                      "_creationTime",
                     ],
-                    searchIndexes: [],
-                    documentType: {
-                      type: "object",
-                      value: {
-                        claimedByUserId: {
-                          fieldType: { type: "id", tableName: "users" },
-                          optional: true,
-                        },
-                        name: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        password_hash: {
-                          fieldType: { type: "string" },
-                          optional: true,
-                        },
-                        pictureUrl: {
-                          fieldType: { type: "string" },
-                          optional: false,
-                        },
-                        tokenIdentifier: {
-                          fieldType: { type: "string" },
-                          optional: true,
-                        },
-                      },
-                    },
                   },
                 ],
-                schemaValidation: true,
-              }),
-              state: {
-                state: "overwritten",
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    authorId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                    imageStorageId: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    lastUsed: {
+                      fieldType: { type: "number" },
+                      optional: true,
+                    },
+                    publicRound: {
+                      fieldType: { type: "boolean" },
+                      optional: true,
+                    },
+                    stage: {
+                      fieldType: {
+                        type: "union",
+                        value: [
+                          { type: "literal", value: "label" },
+                          { type: "literal", value: "guess" },
+                          { type: "literal", value: "reveal" },
+                        ],
+                      },
+                      optional: false,
+                    },
+                    stageEnd: {
+                      fieldType: { type: "number" },
+                      optional: false,
+                    },
+                    stageStart: {
+                      fieldType: { type: "number" },
+                      optional: false,
+                    },
+                  },
+                },
               },
-            },
-            previous_schema_id: "" as Id<"_schemas">,
-          },
-          server_version: null,
+              {
+                tableName: "sessions",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    gameIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "games" },
+                      },
+                      optional: false,
+                    },
+                    submissionIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "submissions" },
+                      },
+                      optional: false,
+                    },
+                    userId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "submissions",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    authorId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                    prompt: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    result: {
+                      fieldType: {
+                        type: "union",
+                        value: [
+                          {
+                            type: "object",
+                            value: {
+                              elapsedMs: {
+                                fieldType: { type: "number" },
+                                optional: false,
+                              },
+                              status: {
+                                fieldType: {
+                                  type: "literal",
+                                  value: "waiting",
+                                },
+                                optional: false,
+                              },
+                            },
+                          },
+                          {
+                            type: "object",
+                            value: {
+                              details: {
+                                fieldType: { type: "string" },
+                                optional: false,
+                              },
+                              status: {
+                                fieldType: {
+                                  type: "literal",
+                                  value: "generating",
+                                },
+                                optional: false,
+                              },
+                            },
+                          },
+                          {
+                            type: "object",
+                            value: {
+                              elapsedMs: {
+                                fieldType: { type: "number" },
+                                optional: false,
+                              },
+                              reason: {
+                                fieldType: { type: "string" },
+                                optional: false,
+                              },
+                              status: {
+                                fieldType: {
+                                  type: "literal",
+                                  value: "failed",
+                                },
+                                optional: false,
+                              },
+                            },
+                          },
+                          {
+                            type: "object",
+                            value: {
+                              elapsedMs: {
+                                fieldType: { type: "number" },
+                                optional: false,
+                              },
+                              imageStorageId: {
+                                fieldType: { type: "string" },
+                                optional: false,
+                              },
+                              status: {
+                                fieldType: {
+                                  type: "literal",
+                                  value: "saved",
+                                },
+                                optional: false,
+                              },
+                            },
+                          },
+                        ],
+                      },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "users",
+                indexes: [
+                  {
+                    indexDescriptor: "by_token",
+                    fields: ["tokenIdentifier", "_creationTime"],
+                  },
+                ],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    claimedByUserId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: true,
+                    },
+                    name: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    password_hash: {
+                      fieldType: { type: "string" },
+                      optional: true,
+                    },
+                    pictureUrl: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    tokenIdentifier: {
+                      fieldType: { type: "string" },
+                      optional: true,
+                    },
+                  },
+                },
+              },
+            ],
+            schemaValidation: true,
+          }),
+          next_schema_id: "" as Id<"_schemas">,
+          previous_schema: schemaJsonAsString({
+            tables: [
+              {
+                tableName: "games",
+                indexes: [
+                  {
+                    indexDescriptor: "s",
+                    fields: ["slug", "_creationTime"],
+                  },
+                ],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    hostId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                    nextGameId: {
+                      fieldType: { type: "id", tableName: "games" },
+                      optional: true,
+                    },
+                    playerIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "users" },
+                      },
+                      optional: false,
+                    },
+                    roundIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "rounds" },
+                      },
+                      optional: false,
+                    },
+                    slug: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    state: {
+                      fieldType: {
+                        type: "union",
+                        value: [
+                          {
+                            type: "object",
+                            value: {
+                              stage: {
+                                fieldType: {
+                                  type: "union",
+                                  value: [
+                                    { type: "literal", value: "lobby" },
+                                    { type: "literal", value: "generate" },
+                                    { type: "literal", value: "recap" },
+                                  ],
+                                },
+                                optional: false,
+                              },
+                            },
+                          },
+                          {
+                            type: "object",
+                            value: {
+                              roundId: {
+                                fieldType: {
+                                  type: "id",
+                                  tableName: "rounds",
+                                },
+                                optional: false,
+                              },
+                              stage: {
+                                fieldType: {
+                                  type: "literal",
+                                  value: "rounds",
+                                },
+                                optional: false,
+                              },
+                            },
+                          },
+                        ],
+                      },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "publicGame",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    roundId: {
+                      fieldType: { type: "id", tableName: "rounds" },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "rounds",
+                indexes: [
+                  {
+                    indexDescriptor: "public_game",
+                    fields: [
+                      "publicRound",
+                      "stage",
+                      "lastUsed",
+                      "_creationTime",
+                    ],
+                  },
+                ],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    authorId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                    imageStorageId: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    lastUsed: {
+                      fieldType: { type: "number" },
+                      optional: true,
+                    },
+                    options: {
+                      fieldType: {
+                        type: "array",
+                        value: {
+                          type: "object",
+                          value: {
+                            authorId: {
+                              fieldType: { type: "id", tableName: "users" },
+                              optional: false,
+                            },
+                            likes: {
+                              fieldType: {
+                                type: "array",
+                                value: { type: "id", tableName: "users" },
+                              },
+                              optional: false,
+                            },
+                            prompt: {
+                              fieldType: { type: "string" },
+                              optional: false,
+                            },
+                            votes: {
+                              fieldType: {
+                                type: "array",
+                                value: { type: "id", tableName: "users" },
+                              },
+                              optional: false,
+                            },
+                          },
+                        },
+                      },
+                      optional: false,
+                    },
+                    publicRound: {
+                      fieldType: { type: "boolean" },
+                      optional: true,
+                    },
+                    stage: {
+                      fieldType: {
+                        type: "union",
+                        value: [
+                          { type: "literal", value: "label" },
+                          { type: "literal", value: "guess" },
+                          { type: "literal", value: "reveal" },
+                        ],
+                      },
+                      optional: false,
+                    },
+                    stageEnd: {
+                      fieldType: { type: "number" },
+                      optional: false,
+                    },
+                    stageStart: {
+                      fieldType: { type: "number" },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "sessions",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    gameIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "games" },
+                      },
+                      optional: false,
+                    },
+                    submissionIds: {
+                      fieldType: {
+                        type: "array",
+                        value: { type: "id", tableName: "submissions" },
+                      },
+                      optional: false,
+                    },
+                    userId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "submissions",
+                indexes: [],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    authorId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: false,
+                    },
+                    prompt: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                  },
+                },
+              },
+              {
+                tableName: "users",
+                indexes: [
+                  {
+                    indexDescriptor: "by_token",
+                    fields: ["tokenIdentifier", "_creationTime"],
+                  },
+                ],
+                searchIndexes: [],
+                documentType: {
+                  type: "object",
+                  value: {
+                    claimedByUserId: {
+                      fieldType: { type: "id", tableName: "users" },
+                      optional: true,
+                    },
+                    name: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    password_hash: {
+                      fieldType: { type: "string" },
+                      optional: true,
+                    },
+                    pictureUrl: {
+                      fieldType: { type: "string" },
+                      optional: false,
+                    },
+                    tokenIdentifier: {
+                      fieldType: { type: "string" },
+                      optional: true,
+                    },
+                  },
+                },
+              },
+            ],
+            schemaValidation: true,
+          }),
+          previous_schema_id: "" as Id<"_schemas">,
         },
-        memberName: "member@convex.dev",
-        // @ts-expect-error
-        member_id: 1,
-      },
-    },
-  };
-
-export const SnapshotImportZip: StoryObj<typeof DeploymentEventContent> = {
-  args: {
-    event: {
-      _id: "" as Id<"_deployment_audit_log">,
-      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
-      action: "snapshot_import",
-      metadata: {
-        table_names: ["_storage", "users", "friendships"],
-        table_count: 4,
-        import_mode: "Replace",
-        import_format: { format: "zip" },
+        server_version: null,
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
     },
   },
 };
 
-export const SnapshotImportCsv: StoryObj<typeof DeploymentEventContent> = {
+export const SnapshotImportZip: Story = {
   args: {
     event: {
       _id: "" as Id<"_deployment_audit_log">,
       _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
       action: "snapshot_import",
       metadata: {
-        table_names: ["users"],
-        table_count: 1,
-        import_mode: "RequireEmpty",
-        import_format: { format: "csv" },
+        table_names: [
+          {
+            table_names: ["_storage", "users", "friendships"],
+            component: null,
+          },
+        ],
+        table_count: BigInt(4),
+        import_mode: "Replace",
+        import_format: { format: "zip" },
+        requestor: {
+          type: "snapshotImport",
+        },
+        table_names_deleted: [],
+        table_count_deleted: BigInt(0),
       },
       memberName: "member@convex.dev",
-      // @ts-expect-error
-      member_id: 1,
+      member_id: BigInt(1),
+    },
+  },
+};
+
+export const SnapshotImportCsv: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "snapshot_import",
+      metadata: {
+        table_names: [
+          {
+            table_names: ["users"],
+            component: null,
+          },
+        ],
+        table_count: BigInt(4),
+        import_mode: "RequireEmpty",
+        import_format: { format: "csv", table: "users" },
+        requestor: {
+          type: "snapshotImport",
+        },
+        table_names_deleted: [],
+        table_count_deleted: BigInt(0),
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
     },
   },
 };

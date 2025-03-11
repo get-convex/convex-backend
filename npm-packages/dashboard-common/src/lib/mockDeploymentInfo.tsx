@@ -42,7 +42,9 @@ export const mockDeploymentInfo: DeploymentInfo = {
   ErrorBoundary: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
-  TeamMemberLink: () => <div />,
+  TeamMemberLink: ({ name }: { name: string }) => (
+    <span className="font-semibold">{name}</span>
+  ),
   useTeamUsageState: () => "Default",
   teamsURI: "",
   projectsURI: "",
