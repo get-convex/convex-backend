@@ -282,7 +282,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                     .expect("Invalid built-in virtual_tables table");
                 let mut tx = self.db.begin_system().await?;
                 TableModel::new(&mut tx)
-                    .delete_table(TableNamespace::Global, virtual_tables_table)
+                    .delete_active_table(TableNamespace::Global, virtual_tables_table)
                     .await?;
                 self.db
                     .commit_with_write_source(tx, "migration_111")

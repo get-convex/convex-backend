@@ -237,7 +237,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                          {component_id:?}"
                     );
                     table_model
-                        .delete_table(*namespace, table_name.clone())
+                        .delete_active_table(*namespace, table_name.clone())
                         .await?;
                 }
             }

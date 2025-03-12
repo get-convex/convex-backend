@@ -194,7 +194,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         self.tx.table_mapping().iter_active_user_tables().count()
     }
 
-    pub async fn delete_table(
+    pub async fn delete_active_table(
         &mut self,
         namespace: TableNamespace,
         table_name: TableName,
@@ -219,6 +219,11 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
         let table_metadata = self.get_table_metadata(tablet_id).await?;
         // We don't need to validate hidden table with the schema.
         anyhow::ensure!(table_metadata.state == TableState::Hidden);
+        self.delete_table_by_id_bypassing_schema_enforcement(tablet_id)
+            .await
+    }
+
+    pub async fn delete_table(&mut self, tablet_id: TabletId) -> anyhow::Result<()> {
         self.delete_table_by_id_bypassing_schema_enforcement(tablet_id)
             .await
     }
@@ -384,7 +389,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "TableConflict",
                 format!(
-                    "New table {table} has IDs that conflict with existing internal table. \
+                    "New table `{table}` has IDs that conflict with existing internal table. \
                      Consider importing this table without `_id` fields or import into a new \
                      deployment."
                 )
@@ -610,7 +615,7 @@ mod tests {
         let mut tx = new_tx(rt).await?;
         let mut model = TableModel::new(&mut tx);
         model
-            .delete_table(TableNamespace::test_user(), TableName::from_str("missing")?)
+            .delete_active_table(TableNamespace::test_user(), TableName::from_str("missing")?)
             .await
     }
 
@@ -635,7 +640,7 @@ mod tests {
             .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::test_user(), table_name.clone())
+            .delete_active_table(TableNamespace::test_user(), table_name.clone())
             .await?;
         assert!(!model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
@@ -655,7 +660,7 @@ mod tests {
             .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::test_user(), table_name.clone())
+            .delete_active_table(TableNamespace::test_user(), table_name.clone())
             .await?;
         assert!(!model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
@@ -675,7 +680,7 @@ mod tests {
             .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::test_user(), table_name.clone())
+            .delete_active_table(TableNamespace::test_user(), table_name.clone())
             .await?;
         assert!(!model.table_exists(TableNamespace::test_user(), &table_name));
         Ok(())
@@ -693,7 +698,7 @@ mod tests {
             .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         let result = model
-            .delete_table(TableNamespace::test_user(), table_name.clone())
+            .delete_active_table(TableNamespace::test_user(), table_name.clone())
             .await;
         let error = result.unwrap_err();
         assert!(
@@ -723,7 +728,7 @@ mod tests {
             .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         let result = model
-            .delete_table(TableNamespace::test_user(), table_name.clone())
+            .delete_active_table(TableNamespace::test_user(), table_name.clone())
             .await;
         let error = result.unwrap_err();
         assert!(
@@ -754,7 +759,7 @@ mod tests {
             .insert_table_metadata(TableNamespace::test_user(), &table_name)
             .await?;
         model
-            .delete_table(TableNamespace::test_user(), table_name.clone())
+            .delete_active_table(TableNamespace::test_user(), table_name.clone())
             .await?;
 
         let mut schema_model = SchemaModel::new_root_for_test(&mut tx);

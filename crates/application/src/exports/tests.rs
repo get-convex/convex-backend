@@ -567,7 +567,7 @@ async fn test_export_with_table_delete(rt: TestRuntime) -> anyhow::Result<()> {
     db.commit(tx).await?;
     let mut tx = db.begin(Identity::system()).await?;
     TableModel::new(&mut tx)
-        .delete_table(TableNamespace::test_user(), "table_0".parse()?)
+        .delete_active_table(TableNamespace::test_user(), "table_0".parse()?)
         .await?;
     db.commit(tx).await?;
 

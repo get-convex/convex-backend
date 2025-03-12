@@ -724,15 +724,13 @@ impl<'a, RT: Runtime> ComponentConfigModel<'a, RT> {
             // tables defined in the schema cannot be deleted, so we delete the _schemas
             // table first to remove that restriction
             TableModel::new(self.tx)
-                .delete_table(namespace, SCHEMAS_TABLE.clone())
+                .delete_active_table(namespace, SCHEMAS_TABLE.clone())
                 .await?;
 
-            // then delete all tables, including system tables
+            // then delete all tables, including system tables and hidden tables
             let namespaced_table_mapping = self.tx.table_mapping().namespace(namespace);
-            for (_, _, table_name) in namespaced_table_mapping.iter() {
-                TableModel::new(self.tx)
-                    .delete_table(namespace, table_name.clone())
-                    .await?;
+            for (tablet_id, ..) in namespaced_table_mapping.iter() {
+                TableModel::new(self.tx).delete_table(tablet_id).await?;
             }
         }
 

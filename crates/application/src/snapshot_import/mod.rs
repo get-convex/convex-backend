@@ -895,7 +895,9 @@ async fn finalize_import<RT: Runtime>(
                             .count(namespace, &table_name)
                             .await?
                             .unwrap_or(0);
-                        table_model.delete_table(namespace, table_name).await?;
+                        table_model
+                            .delete_active_table(namespace, table_name)
+                            .await?;
                     }
                     schema_constraints.validate(tx).await?;
                     let mut table_model = TableModel::new(tx);

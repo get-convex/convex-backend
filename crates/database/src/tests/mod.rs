@@ -1569,7 +1569,7 @@ async fn test_interrupted_import_then_delete_table(rt: TestRuntime) -> anyhow::R
         .is_none());
     // Delete the active table.
     TableModel::new(&mut tx)
-        .delete_table(TableNamespace::test_user(), table_name.clone())
+        .delete_active_table(TableNamespace::test_user(), table_name.clone())
         .await?;
     database.commit(tx).await?;
 

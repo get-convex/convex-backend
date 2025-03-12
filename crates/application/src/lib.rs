@@ -2518,7 +2518,7 @@ impl<RT: Runtime> Application<RT> {
             let mut table_model = TableModel::new(&mut tx);
             count += table_model.must_count(table_namespace, &table_name).await?;
             table_model
-                .delete_table(table_namespace, table_name)
+                .delete_active_table(table_namespace, table_name)
                 .await?;
         }
         self.commit(tx, "delete_tables").await?;

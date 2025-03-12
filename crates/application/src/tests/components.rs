@@ -1,5 +1,10 @@
+use std::collections::BTreeSet;
+
 use common::{
-    bootstrap_model::components::ComponentState,
+    bootstrap_model::{
+        components::ComponentState,
+        tables::TableState,
+    },
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
@@ -487,5 +492,53 @@ async fn test_infinite_loop_in_component(rt: TestRuntime) -> anyhow::Result<()> 
         .await?
         .unwrap_err();
     assert_contains(&err.error, "Cross component call depth limit exceeded");
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_delete_component_with_hidden_tables(rt: TestRuntime) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application.load_component_tests_modules("mounted").await?;
+
+    // insert table for import
+    let mut tx = application.begin(Identity::system()).await?;
+    let (_, component_id) =
+        BootstrapComponentsModel::new(&mut tx).must_component_path_to_ids(&component_path())?;
+    let mut table_model = TableModel::new(&mut tx);
+    let hidden_table_name = "hiddentable".parse()?;
+    let tablet_id_and_table_number = table_model
+        .insert_table_for_import(
+            TableNamespace::from(component_id),
+            &hidden_table_name,
+            None,
+            &BTreeSet::new(),
+        )
+        .await?;
+    application.commit_test(tx).await?;
+
+    // Ensure the hidden table exists
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    let table_metadata = table_model
+        .get_table_metadata(tablet_id_and_table_number.tablet_id)
+        .await?
+        .into_value();
+    assert_eq!(table_metadata.namespace, TableNamespace::from(component_id));
+    assert_eq!(table_metadata.state, TableState::Hidden);
+
+    // Delete the component
+    let component_id = unmount_component(&application).await?;
+    application
+        .delete_component(&Identity::system(), component_id)
+        .await?;
+
+    // Ensure the hidden table is also deleted
+    let mut tx = application.begin(Identity::system()).await?;
+    let mut table_model = TableModel::new(&mut tx);
+    let table_metadata = table_model
+        .get_table_metadata(tablet_id_and_table_number.tablet_id)
+        .await?
+        .into_value();
+    assert_eq!(table_metadata.state, TableState::Deleting);
     Ok(())
 }
