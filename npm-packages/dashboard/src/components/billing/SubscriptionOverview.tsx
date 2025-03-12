@@ -26,13 +26,13 @@ import {
 import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import { Callout } from "dashboard-common/elements/Callout";
+import { formatUsd } from "dashboard-common/lib/utils";
 import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";
 import { Invoices } from "./Invoices";
 import { BillingAddressInputs } from "./BillingAddressInputs";
 import {
-  formatUsd,
   SpendingLimitsForm,
   SpendingLimitsValue,
   useSubmitSpendingLimits,

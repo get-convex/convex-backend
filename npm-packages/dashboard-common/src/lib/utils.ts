@@ -99,3 +99,11 @@ export function documentHref(
     },
   };
 }
+
+export function formatUsd(usd: number) {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+  }).format(usd);
+}

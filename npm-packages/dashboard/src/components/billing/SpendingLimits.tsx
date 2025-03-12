@@ -15,6 +15,7 @@ import {
 } from "@radix-ui/react-icons";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
 import Link from "next/link";
+import { formatUsd } from "dashboard-common/lib/utils";
 
 export type SpendingLimitsValue = {
   // null = disabled (= checkbox unchecked)
@@ -324,13 +325,4 @@ function SpendLimitInput({
       />
     </div>
   );
-}
-
-export function formatUsd(usd: number) {
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(usd);
 }

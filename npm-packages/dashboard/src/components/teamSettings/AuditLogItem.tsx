@@ -1,5 +1,10 @@
 import { Disclosure } from "@headlessui/react";
-import { ChevronUpIcon, ChevronDownIcon } from "@radix-ui/react-icons";
+import {
+  ChevronUpIcon,
+  ChevronDownIcon,
+  QuestionMarkCircledIcon,
+  ArrowRightIcon,
+} from "@radix-ui/react-icons";
 import { Button } from "dashboard-common/elements/Button";
 import { ReadonlyCode } from "dashboard-common/elements/ReadonlyCode";
 import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
@@ -18,6 +23,8 @@ import Link from "next/link";
 import { useDeploymentById } from "api/deployments";
 import { BackupIdentifier } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
+import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { formatUsd } from "dashboard-common/lib/utils";
 
 // TODO: Figure out how to get typing on metadata in
 // big brain
@@ -503,46 +510,40 @@ function EntryAction({
       );
     }
     case "setSpendingLimit": {
+      const { previous, current } = metadata;
       if (
-        !metadata.current?.disableThresholdCents ||
-        !metadata.current?.warningThresholdCents
+        !isValidSpendingLimitDiff(previous) ||
+        !isValidSpendingLimitDiff(current)
       ) {
         captureMessage(`Found malformed metadata for ${action}`);
         return <UnhandledAction action={action} />;
       }
-      if (!metadata.previous?.disableThresholdCents) {
-        return (
-          <span>
-            set a spending limit with a soft limit of{" "}
-            <span className="font-semibold">
-              ${metadata.current.warningThresholdCents / 100}
-            </span>{" "}
-            and a hard limit of{" "}
-            <span className="font-semibold">
-              ${metadata.current.disableThresholdCents / 100}
-            </span>
-          </span>
-        );
-      }
+
       return (
-        <span>
-          updated the spending limit from a soft limit of{" "}
-          <span className="font-semibold">
-            ${metadata.previous.warningThresholdCents / 100}
-          </span>{" "}
-          and a hard limit of{" "}
-          <span className="font-semibold">
-            ${metadata.previous.disableThresholdCents / 100}
-          </span>{" "}
-          to a soft limit of{" "}
-          <span className="font-semibold">
-            ${metadata.current.warningThresholdCents / 100}
-          </span>
-          and a hard limit of{" "}
-          <span className="font-semibold">
-            ${metadata.current.disableThresholdCents / 100}
-          </span>
-        </span>
+        <>
+          <span>made a change to the spending limits:</span>
+          <br />
+          <div className="mt-2 inline-grid grid-cols-[auto_auto_auto_auto] items-center gap-x-2 gap-y-1.5">
+            {previous.warningThresholdCents !==
+              current.warningThresholdCents && (
+              <SpendingLimitLine
+                label="Warning threshold"
+                tooltip="When your team exceeds this spending level, team admins will be notified."
+                previousValue={previous.warningThresholdCents}
+                currentValue={current.warningThresholdCents}
+              />
+            )}
+            {previous.disableThresholdCents !==
+              current.disableThresholdCents && (
+              <SpendingLimitLine
+                label="Spending limit"
+                tooltip="When your team exceeds this spending level, your projects will be disabled."
+                previousValue={previous.disableThresholdCents}
+                currentValue={current.disableThresholdCents}
+              />
+            )}
+          </div>
+        </>
       );
     }
     default:
@@ -856,5 +857,59 @@ function AccessTokenSettingsLink({
         </>
       )}
     </>
+  );
+}
+
+type SpendingLimitDiff = {
+  warningThresholdCents: number | null;
+  disableThresholdCents: number | null;
+};
+
+function isValidSpendingLimitDiff(value: unknown): value is SpendingLimitDiff {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  return (
+    "warningThresholdCents" in value &&
+    "disableThresholdCents" in value &&
+    (typeof value.warningThresholdCents === "number" ||
+      value.warningThresholdCents === null) &&
+    (typeof value.disableThresholdCents === "number" ||
+      value.disableThresholdCents === null)
+  );
+}
+
+function SpendingLimitLine({
+  label,
+  tooltip,
+  previousValue,
+  currentValue,
+}: {
+  label: string;
+  tooltip: string;
+  previousValue: number | null;
+  currentValue: number | null;
+}) {
+  return (
+    <div className="contents">
+      <header className="mr-2 flex items-center gap-1">
+        <div className="text-content-secondary">{label}</div>
+        <Tooltip tip={tooltip} side="top">
+          <QuestionMarkCircledIcon className="text-content-tertiary" />
+        </Tooltip>
+      </header>
+      <SpendingValue valueCents={previousValue} />
+      <ArrowRightIcon className="text-content-tertiary" />
+      <SpendingValue valueCents={currentValue} />
+    </div>
+  );
+}
+
+function SpendingValue({ valueCents }: { valueCents: number | null }) {
+  return (
+    <div className="text-right font-medium tabular-nums text-content-primary">
+      {valueCents === null ? "None" : formatUsd(valueCents / 100)}
+    </div>
   );
 }
