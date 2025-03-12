@@ -41,10 +41,11 @@ export function loadDeploymentConfig(
   ctx: Context,
   deploymentName: string,
 ): LocalDeploymentConfig | null {
-  const configFile = path.join(
-    deploymentStateDir(deploymentName),
-    "config.json",
-  );
+  const dir = deploymentStateDir(deploymentName);
+  const configFile = path.join(dir, "config.json");
+  if (!ctx.fs.stat(dir).isDirectory()) {
+    return null;
+  }
   if (ctx.fs.exists(configFile)) {
     return JSON.parse(ctx.fs.readUtf8File(configFile));
   }
