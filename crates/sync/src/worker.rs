@@ -76,6 +76,7 @@ use sync_types::{
     IdentityVersion,
     QueryId,
     QuerySetModification,
+    QuerySetVersion,
     SerializedQueryJournal,
     SessionId,
     StateModification,
@@ -232,9 +233,9 @@ pub struct SyncWorker<RT: Runtime> {
     // Has an update been scheduled for the future?
     update_scheduled: bool,
 
-    /// Timer to track time between handling ModifyQuerySet message and sending
+    /// Timers to track time between handling ModifyQuerySet message and sending
     /// the Transition with the update
-    modify_query_to_transition_timer: Option<StatusTimer>,
+    modify_query_to_transition_timers: BTreeMap<QuerySetVersion, StatusTimer>,
 
     on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
 }
@@ -281,7 +282,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             action_futures: FuturesUnordered::new(),
             transition_future: None,
             update_scheduled: false,
-            modify_query_to_transition_timer: None,
+            modify_query_to_transition_timers: BTreeMap::new(),
             on_connect: Some((connect_timer(), on_connect)),
         }
     }
@@ -466,14 +467,8 @@ impl<RT: Runtime> SyncWorker<RT> {
                 self.state
                     .modify_query_set(base_version, new_version, modifications)?;
                 self.schedule_update();
-                // Only set the timer if it's not already set. It's possible the Transition is
-                // batching updates from multiple ModifyQuerySet messages and we want to capture
-                // the total time from the first ModifyQuerySet message to the Transition with
-                // its update.
-                if self.modify_query_to_transition_timer.is_none() {
-                    self.modify_query_to_transition_timer =
-                        Some(modify_query_to_transition_timer());
-                }
+                self.modify_query_to_transition_timers
+                    .insert(new_version, modify_query_to_transition_timer());
             },
             ClientMessage::Mutation {
                 request_id,
@@ -927,7 +922,12 @@ impl<RT: Runtime> SyncWorker<RT> {
         };
         timer.finish();
         metrics::log_query_set_size(self.state.num_queries());
-        if let Some(timer) = self.modify_query_to_transition_timer.take() {
+        // Only retain timers for queries that haven't been updated yet. Finish the
+        // timers for everything up through the new version.
+        let finished_timers = self
+            .modify_query_to_transition_timers
+            .extract_if(|version, _| *version <= new_version.query_set);
+        for (_, timer) in finished_timers {
             timer.finish();
         }
         Ok(transition)
