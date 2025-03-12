@@ -85,10 +85,20 @@ export function useBBQuery<QueryPath extends Path<"get">>({
         new Error(
           `Server responded with ${res.error.code} ${res.error.message}`,
         ),
+        {
+          fingerprint:
+            res.error.code === "AccessTokenInvalid" ||
+            res.error.code === "InvalidIdentity"
+              ? [res.error.code]
+              : [path, res.error.code as string],
+        },
       );
     } else if (Object.keys(res.error).length > 0) {
       captureException(
         new Error(`Server responded with error: ${JSON.stringify(res.error)}`),
+        {
+          fingerprint: [path, JSON.stringify(res.error)],
+        },
       );
     }
   }
