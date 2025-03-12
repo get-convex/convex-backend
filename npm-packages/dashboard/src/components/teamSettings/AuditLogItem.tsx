@@ -504,22 +504,22 @@ function EntryAction({
     }
     case "setSpendingLimit": {
       if (
-        !metadata.current?.disableThreshold ||
-        !metadata.current?.warningThreshold
+        !metadata.current?.disableThresholdCents ||
+        !metadata.current?.warningThresholdCents
       ) {
         captureMessage(`Found malformed metadata for ${action}`);
         return <UnhandledAction action={action} />;
       }
-      if (!metadata.previous?.disableThreshold) {
+      if (!metadata.previous?.disableThresholdCents) {
         return (
           <span>
             set a spending limit with a soft limit of{" "}
             <span className="font-semibold">
-              ${metadata.current.warningThreshold / 100}
+              ${metadata.current.warningThresholdCents / 100}
             </span>{" "}
             and a hard limit of{" "}
             <span className="font-semibold">
-              ${metadata.current.disableThreshold / 100}
+              ${metadata.current.disableThresholdCents / 100}
             </span>
           </span>
         );
@@ -528,19 +528,19 @@ function EntryAction({
         <span>
           updated the spending limit from a soft limit of{" "}
           <span className="font-semibold">
-            ${metadata.previous.warningThreshold / 100}
+            ${metadata.previous.warningThresholdCents / 100}
           </span>{" "}
           and a hard limit of{" "}
           <span className="font-semibold">
-            ${metadata.previous.disableThreshold / 100}
+            ${metadata.previous.disableThresholdCents / 100}
           </span>{" "}
           to a soft limit of{" "}
           <span className="font-semibold">
-            ${metadata.current.warningThreshold / 100}
+            ${metadata.current.warningThresholdCents / 100}
           </span>
           and a hard limit of{" "}
           <span className="font-semibold">
-            ${metadata.current.disableThreshold / 100}
+            ${metadata.current.disableThresholdCents / 100}
           </span>
         </span>
       );
