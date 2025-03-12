@@ -102,6 +102,28 @@ and view your invoices.
 
 ![Team billing page](/screenshots/teams_billing.png)
 
+### Spending limits
+
+When you have an active Convex subscription, you can set the spending limits for
+your team on the
+[billing page](https://dashboard.convex.dev/team/settings/billing):
+
+- The **warning threshold** is only a soft limit: if it is exceeded, the team
+  will be notified by email, but no other action will be taken.
+- The **disable threshold** is a hard limit: if it is exceeded, all projects in
+  the team will be disabled. This will cause errors to be thrown when attempting
+  to run functions in your projects. You can re-enable projects by increasing or
+  removing the limit.
+
+Spending limits only apply to the resources used by your team’s projects beyond
+the amounts included in your plan. The seat fees (the amount paid for each
+developer in your team) are not counted towards the limits. For instance, if you
+send the spending limit to $0/month, you will be billed for the seat fees only
+and the projects will be disabled if you exceed the built-in resources included
+in your plan.
+
+![The team billing page with some spending limits set.](/screenshots/teams_billing_spending_limits.png)
+
 ## Usage
 
 On the [usage page](https://dashboard.convex.dev/team/settings/usage) you can
