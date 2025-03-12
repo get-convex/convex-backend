@@ -17,7 +17,7 @@ To test a new component layout,
 1. Add a project to the `projects` directory. The project should have a `convex`
    folder inside and `convex.config.ts` (If your test does not use components,
    use `udf-tests`).
-2. Add the project to `COMPONENT_TESTS_LAYOUTS` in `isolate/build.rs.
+2. Add the project to `COMPONENT_TESTS_PROJECTS` in `isolate/build.rs.
 3. Add the project to `rush.json`.
 4. Run `just rush update`.
 5. Write your tests in `application/src/tests/components.rs`.

@@ -6,6 +6,7 @@ pub mod components;
 mod cron_jobs;
 mod environment_variables;
 mod fivetran_import;
+mod http_action;
 mod indexes;
 mod mutation;
 mod occ_retries;

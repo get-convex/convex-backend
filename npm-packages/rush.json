@@ -573,6 +573,10 @@
       "projectFolder": "component-tests/projects/basic"
     },
     {
+      "packageName": "component-tests-http-actions",
+      "projectFolder": "component-tests/projects/http_actions"
+    },
+    {
       "packageName": "scenario-runner",
       "projectFolder": "scenario-runner"
     },

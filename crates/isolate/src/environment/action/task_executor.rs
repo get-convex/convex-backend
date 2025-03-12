@@ -173,6 +173,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
     }
 
     async fn run_sleep(&self, until: UnixTimestamp) -> anyhow::Result<UnixTimestamp> {
+        self.rt.pause_client().wait("begin_run_sleep").await;
         let now = self.rt.unix_timestamp();
         if now >= until {
             return Ok(until);

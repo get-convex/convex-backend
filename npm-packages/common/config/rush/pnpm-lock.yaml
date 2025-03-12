@@ -151,6 +151,22 @@ importers:
         specifier: ~5.0.3
         version: 5.0.4
 
+  ../../component-tests/projects/http_actions:
+    dependencies:
+      convex:
+        specifier: workspace:*
+        version: link:../../../convex
+      prettier:
+        specifier: 3.4.2
+        version: 3.4.2
+    devDependencies:
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.70
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+
   ../../component-tests/projects/mounted:
     dependencies:
       convex:
