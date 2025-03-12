@@ -282,7 +282,6 @@ export function UpgradePlanContent({
       {(!requiresPaymentMethod || formState.values.paymentMethod) && (
         <form
           className="mt-2 flex flex-col items-start gap-4 text-sm"
-          aria-label={`Upgrade to ${plan.name}`}
           onSubmit={async (e) => {
             e.preventDefault();
             await formState.handleSubmit();
