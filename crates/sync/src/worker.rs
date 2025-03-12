@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::BTreeMap,
     sync::{
         atomic::{
@@ -499,6 +500,15 @@ impl<RT: Runtime> SyncWorker<RT> {
                 let api = self.api.clone();
                 let host = self.host.clone();
                 let caller = FunctionCaller::SyncWorker(client_version);
+
+                let mutation_queue_size =
+                    self.mutation_sender.max_capacity() - self.mutation_sender.capacity();
+                Event::add_to_parent("mutation_queue_size", &root, || {
+                    vec![(
+                        Cow::Borrowed("mutation_queue_size"),
+                        Cow::Owned(mutation_queue_size.to_string()),
+                    )]
+                });
 
                 let future = async move {
                     rt.with_timeout("mutation", SYNC_WORKER_PROCESS_TIMEOUT, async move {
