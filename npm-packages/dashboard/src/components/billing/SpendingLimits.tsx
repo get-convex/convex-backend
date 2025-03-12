@@ -200,7 +200,7 @@ export function SpendingLimits() {
       <SpendLimitInput
         formKey="spendingLimitDisableThresholdUsd"
         label="Limit usage spending to"
-        accessibleInputLabel="Spend Limit"
+        accessibleInputLabel="Disable Threshold"
         description={
           spendingLimitDisableThresholdUsd !== null && (
             <span className="mt-0.5 flex gap-1.5 text-content-warning">

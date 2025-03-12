@@ -215,7 +215,7 @@ export function SpendingLimitsSection({
                 )}
                 {currentSpendLimit.disableThresholdCents !== null && (
                   <CostLabel
-                    label="Spending limit"
+                    label="Disable threshold"
                     priceCents={currentSpendLimit.disableThresholdCents}
                     tooltip={`If your usage exceeds ${currentSpendLimit.disableThresholdCents === 0 ? "the built-in limits of your plan" : "this amount"}, all your projects will be paused.`}
                   />

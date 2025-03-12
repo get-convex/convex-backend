@@ -31,7 +31,7 @@ describe("SpendingLimitsForm", () => {
     await userEvent.click(spendLimitCheckbox);
     expect(spendLimitCheckbox).toBeChecked();
 
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
     await userEvent.clear(spendLimitInput);
     await userEvent.type(spendLimitInput, "0");
 
@@ -72,7 +72,7 @@ describe("SpendingLimitsForm", () => {
     );
 
     // Find the spend limit input
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
 
     // Enter a non-numeric value
     const nonNumericValue = "not a number";
@@ -114,7 +114,7 @@ describe("SpendingLimitsForm", () => {
     expect(warningThresholdCheckbox).toBeChecked();
 
     // Enter two values that don’t match
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
     await userEvent.clear(spendLimitInput);
     await userEvent.type(spendLimitInput, "100");
 
@@ -147,7 +147,7 @@ describe("SpendingLimitsForm", () => {
     );
 
     // Find the spend limit input
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
 
     // Enter a value less than the current spending
     await userEvent.type(spendLimitInput, "99");
@@ -173,7 +173,7 @@ describe("SpendingLimitsForm", () => {
       />,
     );
 
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    const spendLimitInput = screen.getByLabelText("Disable Threshold");
     await userEvent.clear(spendLimitInput);
     await userEvent.type(spendLimitInput, "0");
     await userEvent.click(document.body);
@@ -230,7 +230,7 @@ describe("SpendingLimitsForm", () => {
     const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
     await userEvent.click(spendLimitCheckbox);
     expect(spendLimitCheckbox).not.toBeChecked();
-    expect(screen.getByLabelText("Spend Limit")).toBeDisabled();
+    expect(screen.getByLabelText("Disable Threshold")).toBeDisabled();
 
     const warningThresholdCheckbox = screen.getByLabelText(
       "Warn when spending exceeds",

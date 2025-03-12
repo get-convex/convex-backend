@@ -536,7 +536,7 @@ function EntryAction({
             {previous.disableThresholdCents !==
               current.disableThresholdCents && (
               <SpendingLimitLine
-                label="Spending limit"
+                label="Disable threshold"
                 tooltip="When your team exceeds this spending level, your projects will be disabled."
                 previousValue={previous.disableThresholdCents}
                 currentValue={current.disableThresholdCents}
