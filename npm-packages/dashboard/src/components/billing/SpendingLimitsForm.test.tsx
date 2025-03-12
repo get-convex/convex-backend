@@ -8,11 +8,6 @@ jest.mock("api/billing", () => ({
 }));
 
 describe("SpendingLimitsForm", () => {
-  const defaultValue = {
-    spendingLimitEnabled: true,
-    spendingLimitDisableThresholdUsd: null,
-    spendingLimitWarningThresholdUsd: null,
-  };
   const mockOnSubmit = jest.fn();
 
   beforeEach(() => {
@@ -22,12 +17,19 @@ describe("SpendingLimitsForm", () => {
   it("should allow setting a zero spend limit", async () => {
     render(
       <SpendingLimitsForm
-        defaultValue={defaultValue}
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: 42,
+          spendingLimitDisableThresholdUsd: null,
+        }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
         currentSpendingUsd={0}
       />,
     );
+
+    const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
+    await userEvent.click(spendLimitCheckbox);
+    expect(spendLimitCheckbox).toBeChecked();
 
     const spendLimitInput = screen.getByLabelText("Spend Limit");
     await userEvent.clear(spendLimitInput);
@@ -50,91 +52,19 @@ describe("SpendingLimitsForm", () => {
     // Verify that onSubmit was called with the correct values
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledWith({
-        spendingLimitEnabled: true,
-        spendingLimitDisableThresholdUsd: 0,
         spendingLimitWarningThresholdUsd: null,
+        spendingLimitDisableThresholdUsd: 0,
       });
     });
-  });
-
-  it("should auto-populate a warning threshold when setting a spend limit", async () => {
-    render(
-      <SpendingLimitsForm
-        defaultValue={defaultValue}
-        onSubmit={mockOnSubmit}
-        onCancel={jest.fn()}
-        currentSpendingUsd={0}
-      />,
-    );
-
-    // Find the spend limit input
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
-
-    await userEvent.clear(spendLimitInput);
-    await userEvent.type(spendLimitInput, "11");
-
-    // Blur the input
-    await userEvent.click(document.body);
-
-    // The warning threshold field should appear and be auto-populated with 80% of the spend limit
-    const warningThresholdInput = screen.getByLabelText(
-      "Warn when spending exceeds",
-    );
-    const expectedThreshold = 8; // 80% of 11, floored
-
-    await waitFor(() => {
-      expect(warningThresholdInput).toHaveValue(expectedThreshold);
-    });
-
-    // The form should be valid and the submit button should be enabled
-    const submitButton = screen.getByRole("button", {
-      name: "Save Spending Limits",
-    });
-    expect(submitButton).not.toBeDisabled();
-
-    // Click the submit button
-    await userEvent.click(submitButton);
-
-    // Verify that onSubmit was called with the correct values
-    await waitFor(() => {
-      expect(mockOnSubmit).toHaveBeenCalledWith({
-        spendingLimitEnabled: true,
-        spendingLimitDisableThresholdUsd: 11,
-        spendingLimitWarningThresholdUsd: expectedThreshold,
-      });
-    });
-  });
-
-  it("should not auto-populate a warning threshold when it already has a value", async () => {
-    render(
-      <SpendingLimitsForm
-        defaultValue={{
-          ...defaultValue,
-          spendingLimitWarningThresholdUsd: 10,
-        }}
-        onSubmit={mockOnSubmit}
-        onCancel={jest.fn()}
-        currentSpendingUsd={0}
-      />,
-    );
-
-    // Find the spend limit input
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
-    await userEvent.clear(spendLimitInput);
-    await userEvent.type(spendLimitInput, "100");
-    await userEvent.click(document.body);
-
-    // The warning threshold field’s value should not change
-    const warningThresholdInput = screen.getByLabelText(
-      "Warn when spending exceeds",
-    );
-    expect(warningThresholdInput).toHaveValue(10);
   });
 
   it("should not allow submission when spend limit is not a number", async () => {
     render(
       <SpendingLimitsForm
-        defaultValue={defaultValue}
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: null,
+          spendingLimitDisableThresholdUsd: undefined,
+        }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
         currentSpendingUsd={0}
@@ -162,93 +92,54 @@ describe("SpendingLimitsForm", () => {
   it("should not allow submission when warning threshold is higher than spend limit", async () => {
     render(
       <SpendingLimitsForm
-        defaultValue={defaultValue}
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: null,
+          spendingLimitDisableThresholdUsd: null,
+        }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
         currentSpendingUsd={0}
       />,
     );
 
-    // Find the spend limit input
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    // Enable both checkboxes
+    const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
+    await userEvent.click(spendLimitCheckbox);
+    expect(spendLimitCheckbox).toBeChecked();
 
-    // Enter a value higher than fixed costs
-    const higherValue = 50;
-    await userEvent.clear(spendLimitInput);
-    await userEvent.type(spendLimitInput, higherValue.toString());
-
-    // Find the warning threshold input
-    const warningThresholdInput = screen.getByLabelText(
+    const warningThresholdCheckbox = screen.getByLabelText(
       "Warn when spending exceeds",
     );
+    await userEvent.click(warningThresholdCheckbox);
+    expect(warningThresholdCheckbox).toBeChecked();
 
-    // Enter a value higher than the spend limit
-    const higherThreshold = 60;
-    await userEvent.clear(warningThresholdInput);
-    await userEvent.type(warningThresholdInput, higherThreshold.toString());
-
-    // The form should not be valid and the submit button should be disabled
-    const submitButton = screen.getByRole("button", {
-      name: "Save Spending Limits",
-    });
-    expect(submitButton).toBeDisabled();
-  });
-
-  it("should reset the warning threshold to null when spend limit is set again to zero", async () => {
-    render(
-      <SpendingLimitsForm
-        defaultValue={defaultValue}
-        onSubmit={mockOnSubmit}
-        onCancel={jest.fn()}
-        currentSpendingUsd={0}
-      />,
-    );
-
-    // Find the spend limit input
+    // Enter two values that don’t match
     const spendLimitInput = screen.getByLabelText("Spend Limit");
-
-    // Enter a value higher than zero
-    const higherValue = 50;
     await userEvent.clear(spendLimitInput);
-    await userEvent.type(spendLimitInput, higherValue.toString());
+    await userEvent.type(spendLimitInput, "100");
 
-    // Enter a value in the warning threshold input
-    const warningThresholdInput = screen.getByLabelText(
-      "Warn when spending exceeds",
-    );
-    const warningThresholdValue = 40;
+    const warningThresholdInput = screen.getByLabelText("Warning Threshold");
     await userEvent.clear(warningThresholdInput);
-    await userEvent.type(
-      warningThresholdInput,
-      warningThresholdValue.toString(),
-    );
+    await userEvent.type(warningThresholdInput, "101");
 
-    // Set the spend limit to zero
-    await userEvent.clear(spendLimitInput);
-    await userEvent.type(spendLimitInput, "0");
+    // Blur the inputs
+    await userEvent.click(document.body);
 
-    // The warning threshold field should not be visible
-    expect(warningThresholdInput).not.toBeInTheDocument();
-
-    // When submitting the form, the warning threshold should be null
-    const submitButton = screen.getByRole("button", {
-      name: "Save Spending Limits",
-    });
-    await userEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(mockOnSubmit).toHaveBeenCalledWith({
-        spendingLimitEnabled: true,
-        spendingLimitDisableThresholdUsd: 0,
-        spendingLimitWarningThresholdUsd: null,
-      });
-    });
+    // Error message should be visible
+    expect(
+      screen.getByText(
+        "The warning threshold must be less than the spend limit.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("should not allow submission when spend limit is less than current spending", async () => {
     render(
       <SpendingLimitsForm
-        defaultValue={defaultValue}
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: null,
+          spendingLimitDisableThresholdUsd: undefined,
+        }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
         currentSpendingUsd={1000}
@@ -269,18 +160,51 @@ describe("SpendingLimitsForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("allows setting a spend limit that is equal to the current spending", async () => {
+    render(
+      <SpendingLimitsForm
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: null,
+          spendingLimitDisableThresholdUsd: undefined,
+        }}
+        onSubmit={mockOnSubmit}
+        onCancel={jest.fn()}
+        currentSpendingUsd={0}
+      />,
+    );
+
+    const spendLimitInput = screen.getByLabelText("Spend Limit");
+    await userEvent.clear(spendLimitInput);
+    await userEvent.type(spendLimitInput, "0");
+    await userEvent.click(document.body);
+
+    const submitButton = screen.getByRole("button", {
+      name: "Save Spending Limits",
+    });
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledWith({
+        spendingLimitWarningThresholdUsd: null,
+        spendingLimitDisableThresholdUsd: 0,
+      });
+    });
+  });
+
   it("does not allow setting a negative spend limit", async () => {
     render(
       <SpendingLimitsForm
-        defaultValue={defaultValue}
+        defaultValue={{
+          spendingLimitWarningThresholdUsd: undefined,
+          spendingLimitDisableThresholdUsd: null,
+        }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
         currentSpendingUsd={undefined}
       />,
     );
 
-    const spendLimitInput = screen.getByLabelText("Spend Limit");
-    await userEvent.clear(spendLimitInput);
+    const spendLimitInput = screen.getByLabelText("Warning Threshold");
     await userEvent.type(spendLimitInput, "-1");
     await userEvent.click(document.body);
 
@@ -289,13 +213,12 @@ describe("SpendingLimitsForm", () => {
     ).toBeInTheDocument();
   });
 
-  it("should remove the existing disable spend limit when disabling spending limits", async () => {
+  it("should erase the existing values when disabling spending limits", async () => {
     render(
       <SpendingLimitsForm
         defaultValue={{
-          spendingLimitEnabled: true,
-          spendingLimitDisableThresholdUsd: 100,
-          spendingLimitWarningThresholdUsd: 80,
+          spendingLimitWarningThresholdUsd: 1234,
+          spendingLimitDisableThresholdUsd: 5678,
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
@@ -303,10 +226,18 @@ describe("SpendingLimitsForm", () => {
       />,
     );
 
-    // Disable spending limits
-    const checkbox = screen.getByRole("checkbox");
-    await userEvent.click(checkbox);
-    expect(checkbox).not.toBeChecked();
+    // Disable both spending limits
+    const spendLimitCheckbox = screen.getByLabelText("Limit usage spending to");
+    await userEvent.click(spendLimitCheckbox);
+    expect(spendLimitCheckbox).not.toBeChecked();
+    expect(screen.getByLabelText("Spend Limit")).toBeDisabled();
+
+    const warningThresholdCheckbox = screen.getByLabelText(
+      "Warn when spending exceeds",
+    );
+    await userEvent.click(warningThresholdCheckbox);
+    expect(warningThresholdCheckbox).not.toBeChecked();
+    expect(screen.getByLabelText("Warning Threshold")).toBeDisabled();
 
     // Submit the form
     const submitButton = screen.getByRole("button", {
@@ -316,9 +247,8 @@ describe("SpendingLimitsForm", () => {
 
     await waitFor(() => {
       expect(mockOnSubmit).toHaveBeenCalledWith({
-        spendingLimitEnabled: false,
+        spendingLimitWarningThresholdUsd: null,
         spendingLimitDisableThresholdUsd: null,
-        spendingLimitWarningThresholdUsd: 80,
       });
     });
   });

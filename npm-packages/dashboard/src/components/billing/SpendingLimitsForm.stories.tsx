@@ -8,36 +8,73 @@ const meta: Meta<typeof SpendingLimitsForm> = {
 export default meta;
 type Story = StoryObj<typeof SpendingLimitsForm>;
 
-export const DefaultWithSpendingLimitEnabled: Story = {
+export const Default: Story = {
   args: {
     defaultValue: {
-      spendingLimitEnabled: true,
+      spendingLimitWarningThresholdUsd: undefined,
       spendingLimitDisableThresholdUsd: null,
-      spendingLimitWarningThresholdUsd: null,
     },
     currentSpendingUsd: 0,
   },
 };
 
-export const DefaultWithSpendingLimitDisabled: Story = {
+export const BothThresholdsDisabled: Story = {
   args: {
     defaultValue: {
-      spendingLimitEnabled: false,
-      spendingLimitDisableThresholdUsd: null,
       spendingLimitWarningThresholdUsd: null,
+      spendingLimitDisableThresholdUsd: null,
     },
     currentSpendingUsd: 0,
   },
 };
 
-export const DefaultWithHighCurrentSpending: Story = {
+export const BothThresholdsEmpty: Story = {
   args: {
     defaultValue: {
-      spendingLimitEnabled: true,
-      spendingLimitDisableThresholdUsd: null,
+      spendingLimitWarningThresholdUsd: undefined,
+      spendingLimitDisableThresholdUsd: undefined,
+    },
+    currentSpendingUsd: 0,
+  },
+};
+
+export const DisableThresholdOnly: Story = {
+  args: {
+    defaultValue: {
       spendingLimitWarningThresholdUsd: null,
+      spendingLimitDisableThresholdUsd: 100,
+    },
+    currentSpendingUsd: 0,
+  },
+};
+
+export const WarningThresholdOnly: Story = {
+  args: {
+    defaultValue: {
+      spendingLimitWarningThresholdUsd: 100,
+      spendingLimitDisableThresholdUsd: null,
+    },
+    currentSpendingUsd: 0,
+  },
+};
+
+export const HighCurrentSpending: Story = {
+  args: {
+    defaultValue: {
+      spendingLimitWarningThresholdUsd: null,
+      spendingLimitDisableThresholdUsd: undefined,
     },
     currentSpendingUsd: 1234,
+  },
+};
+
+export const ZeroUsageSpending: Story = {
+  args: {
+    defaultValue: {
+      spendingLimitWarningThresholdUsd: null,
+      spendingLimitDisableThresholdUsd: 0,
+    },
+    currentSpendingUsd: 0,
   },
 };
 
@@ -45,38 +82,5 @@ export const Loading: Story = {
   args: {
     defaultValue: undefined,
     currentSpendingUsd: 0,
-  },
-};
-
-export const ZeroUsageSpending: Story = {
-  args: {
-    defaultValue: {
-      spendingLimitEnabled: true,
-      spendingLimitDisableThresholdUsd: 0,
-      spendingLimitWarningThresholdUsd: null,
-    },
-    currentSpendingUsd: 0,
-  },
-};
-
-export const DisabledWithWarningThreshold: Story = {
-  args: {
-    defaultValue: {
-      spendingLimitEnabled: false,
-      spendingLimitDisableThresholdUsd: null,
-      spendingLimitWarningThresholdUsd: 20,
-    },
-    currentSpendingUsd: 25,
-  },
-};
-
-export const EnabledWithWarningThreshold: Story = {
-  args: {
-    defaultValue: {
-      spendingLimitEnabled: true,
-      spendingLimitDisableThresholdUsd: 30,
-      spendingLimitWarningThresholdUsd: 20,
-    },
-    currentSpendingUsd: 25,
   },
 };

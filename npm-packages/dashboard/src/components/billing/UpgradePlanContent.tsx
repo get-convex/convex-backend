@@ -67,20 +67,26 @@ export function UpgradePlanContentContainer({
       planId: plan.id,
       paymentMethod: undefined,
       billingAddress: undefined,
-      spendingLimitEnabled: true,
+      spendingLimitWarningThresholdUsd: undefined,
       spendingLimitDisableThresholdUsd: null,
-      spendingLimitWarningThresholdUsd: null,
     },
     validationSchema: spendingLimits
       ? CreateSubscriptionSchema.concat(
-          spendingLimitsSchema(
+          spendingLimitsSchema({
             // A new billing cycle starts when the user upgrades, so it is safe to use 0 as the current
             // spend even if the user has spent money in the current billing cycle on a previous plan.
-            0,
-          ),
+            currentSpendingUsd: 0,
+          }),
         )
       : CreateSubscriptionSchema,
     onSubmit: async (v) => {
+      if (
+        v.spendingLimitWarningThresholdUsd === undefined ||
+        v.spendingLimitDisableThresholdUsd === undefined
+      ) {
+        throw new Error("Form submitted in an invalid state: empty value");
+      }
+
       await createSubscription({
         planId: v.planId,
         paymentMethod: v.paymentMethod,
@@ -89,14 +95,14 @@ export function UpgradePlanContentContainer({
         email: v.email,
         ...(spendingLimits
           ? {
-              disableThresholdCents:
-                v.spendingLimitDisableThresholdUsd === null
-                  ? null
-                  : v.spendingLimitDisableThresholdUsd * 100,
               warningThresholdCents:
                 v.spendingLimitWarningThresholdUsd === null
                   ? null
                   : v.spendingLimitWarningThresholdUsd * 100,
+              disableThresholdCents:
+                v.spendingLimitDisableThresholdUsd === null
+                  ? null
+                  : v.spendingLimitDisableThresholdUsd * 100,
             }
           : {}),
       });

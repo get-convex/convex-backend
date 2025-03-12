@@ -14,9 +14,8 @@ const DEFAULT_FORM_STATE: UpgradeFormState = {
   name: "",
   planId: "",
   paymentMethod: "abc",
-  spendingLimitEnabled: false,
-  spendingLimitDisableThresholdUsd: null,
   spendingLimitWarningThresholdUsd: null,
+  spendingLimitDisableThresholdUsd: null,
 };
 
 export default {

@@ -245,15 +245,14 @@ export function SpendingLimitsSection({
             currentSpendLimit === undefined
               ? undefined
               : {
-                  spendingLimitEnabled: true,
-                  spendingLimitDisableThresholdUsd:
-                    currentSpendLimit.disableThresholdCents === null
-                      ? null
-                      : currentSpendLimit.disableThresholdCents / 100,
                   spendingLimitWarningThresholdUsd:
                     currentSpendLimit.warningThresholdCents === null
                       ? null
                       : currentSpendLimit.warningThresholdCents / 100,
+                  spendingLimitDisableThresholdUsd:
+                    currentSpendLimit.disableThresholdCents === null
+                      ? null
+                      : currentSpendLimit.disableThresholdCents / 100,
                 }
           }
           currentSpendingUsd={
