@@ -5,8 +5,8 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@microsoft/rush": "^5.148.0",
-    "@rushstack/lockfile-explorer": "^1.7.16",
+    "@microsoft/rush": "^5.150.0",
+    "@rushstack/lockfile-explorer": "^1.7.25",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "dprint": "0.48.0",

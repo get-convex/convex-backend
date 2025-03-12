@@ -195,7 +195,7 @@ export function SpendingLimitsSection({
 
       {!showForm ? (
         <>
-          <div className="flex flex-wrap gap-x-12 gap-y-4">
+          <div className="flex flex-wrap gap-x-8 gap-y-4">
             {currentSpendLimit === undefined ? (
               <>
                 <Loading className="h-12 w-36" fullHeight={false} />
@@ -206,18 +206,18 @@ export function SpendingLimitsSection({
               <p>You don’t have any spending limits set.</p>
             ) : (
               <>
-                {currentSpendLimit.disableThresholdCents !== null && (
-                  <CostLabel
-                    label="Spending limit"
-                    priceCents={currentSpendLimit.disableThresholdCents}
-                    tooltip={`If your usage exceeds ${currentSpendLimit.disableThresholdCents === 0 ? "the built-in limits of your plan" : "this amount"}, all your projects will be paused.`}
-                  />
-                )}
                 {currentSpendLimit.warningThresholdCents !== null && (
                   <CostLabel
                     label="Warning threshold"
                     priceCents={currentSpendLimit.warningThresholdCents}
                     tooltip="If your usage exceeds this amount, admins in your team will be notified by email."
+                  />
+                )}
+                {currentSpendLimit.disableThresholdCents !== null && (
+                  <CostLabel
+                    label="Spending limit"
+                    priceCents={currentSpendLimit.disableThresholdCents}
+                    tooltip={`If your usage exceeds ${currentSpendLimit.disableThresholdCents === 0 ? "the built-in limits of your plan" : "this amount"}, all your projects will be paused.`}
                   />
                 )}
               </>
