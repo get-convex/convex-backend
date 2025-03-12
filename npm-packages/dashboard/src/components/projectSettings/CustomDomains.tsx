@@ -7,8 +7,9 @@ import {
 import classNames from "classnames";
 import { Button } from "dashboard-common/elements/Button";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Combobox } from "dashboard-common/elements/Combobox";
+import { Combobox, Option } from "dashboard-common/elements/Combobox";
 import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
+import { captureMessage } from "@sentry/nextjs";
 import {
   ENVIRONMENT_VARIABLES_ROW_CLASSES,
   ENVIRONMENT_VARIABLE_NAME_COLUMN,
@@ -39,6 +40,7 @@ import { WaitForDeploymentApi } from "dashboard-common/lib/deploymentContext";
 import { useQuery } from "convex/react";
 import udfs from "dashboard-common/udfs";
 import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
+import { Loading } from "dashboard-common/elements/Loading";
 import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export function CustomDomains({
@@ -185,7 +187,6 @@ function CanonicalDomainForm({
   const deploymentUrl = useDeploymentUrl();
   const canonicalCloudUrl = useQuery(udfs.convexCloudUrl.default);
   const canonicalSiteUrl = useQuery(udfs.convexSiteUrl.default);
-  const defaultSiteUrl = `https://${deploymentName}.convex.site`;
 
   return (
     <div className="flex flex-col gap-3">
@@ -202,8 +203,12 @@ function CanonicalDomainForm({
             <code>process.env.CONVEX_CLOUD_URL</code>
           </span>
         }
-        defaultUrl={deploymentUrl}
-        canonicalUrl={canonicalCloudUrl}
+        defaultUrl={{ kind: "default", url: deploymentUrl }}
+        canonicalUrl={
+          canonicalCloudUrl === undefined
+            ? { kind: "loading" }
+            : { kind: "loaded", url: canonicalCloudUrl }
+        }
         vanityDomains={vanityDomains}
         requestDestination="convexCloud"
       />
@@ -213,14 +218,63 @@ function CanonicalDomainForm({
             <code>process.env.CONVEX_SITE_URL</code>
           </span>
         }
-        defaultUrl={defaultSiteUrl}
-        canonicalUrl={canonicalSiteUrl}
+        defaultUrl={
+          deploymentUrl === `https://${deploymentName}.convex.cloud`
+            ? { kind: "default", url: `https://${deploymentName}.convex.site` }
+            : { kind: "unknownDefault" }
+        }
+        canonicalUrl={
+          canonicalSiteUrl === undefined
+            ? { kind: "loading" }
+            : { kind: "loaded", url: canonicalSiteUrl }
+        }
         vanityDomains={vanityDomains}
         requestDestination="convexSite"
       />
     </div>
   );
 }
+
+type DefaultUrlOption =
+  | {
+      // The default url for this deployment, before any overrides were applied.
+      kind: "default";
+      url: string;
+    }
+  | {
+      // In this case, we don't know what the default url should be.
+      // In some cases the deployment doesn't expose its default url through an API.
+      kind: "unknownDefault";
+    };
+
+type UrlOption =
+  | {
+      // Either a default url or a canonical url that has yet to be loaded
+      // from the deployment. This should be a transient state.
+      kind: "loading";
+    }
+  | DefaultUrlOption
+  | {
+      // The current canonical url for the deployment, which doesn't match the
+      // default or any custom domains.
+      // If you switch away from this URL, you probably won't be able to switch
+      // back to it.
+      kind: "disconnectedCanonical";
+      url: string;
+    }
+  | {
+      kind: "custom";
+      url: string;
+    };
+
+type CanonicalUrl =
+  | {
+      kind: "loading";
+    }
+  | {
+      kind: "loaded";
+      url: string;
+    };
 
 function CanonicalUrlCombobox({
   label,
@@ -230,8 +284,8 @@ function CanonicalUrlCombobox({
   requestDestination,
 }: {
   label: React.ReactNode;
-  defaultUrl: string;
-  canonicalUrl: string | undefined;
+  defaultUrl: DefaultUrlOption;
+  canonicalUrl: CanonicalUrl;
   vanityDomains?: VanityDomainResponse[];
   requestDestination: "convexCloud" | "convexSite";
 }) {
@@ -242,27 +296,56 @@ function CanonicalUrlCombobox({
       ) || [],
     [vanityDomains, requestDestination],
   );
-  const isDisconnected =
-    canonicalUrl !== undefined &&
-    canonicalUrl !== defaultUrl &&
-    !vanityDomainsForRequestDestination.some(
-      (v) => `https://${v.domain}` === canonicalUrl,
+  const canonicalIsKnownDefault =
+    canonicalUrl.kind === "loaded" &&
+    defaultUrl.kind === "default" &&
+    canonicalUrl.url === defaultUrl.url;
+  const canonicalIsCustom =
+    canonicalUrl.kind === "loaded" &&
+    vanityDomainsForRequestDestination.some(
+      (v) => `https://${v.domain}` === canonicalUrl.url,
     );
-  const updateCanonicalUrl = useUpdateCanonicalUrl(
-    requestDestination,
-    defaultUrl,
-  );
-  const options = useMemo(
+  // If we don't know what the default should be, and we don't recognize the canonical URL,
+  // assume that the canonical URL is the default.
+  const canonicalIsUnknownDefault =
+    canonicalUrl.kind === "loaded" &&
+    defaultUrl.kind === "unknownDefault" &&
+    !canonicalIsCustom;
+  const canonicalIsDefault =
+    canonicalIsKnownDefault || canonicalIsUnknownDefault;
+  const effectiveDefaultUrl: UrlOption = useMemo(() => {
+    if (canonicalIsUnknownDefault) {
+      return { kind: "default", url: canonicalUrl.url };
+    }
+    return defaultUrl;
+  }, [canonicalIsUnknownDefault, canonicalUrl, defaultUrl]);
+  const canonicalUrlOption: UrlOption = useMemo(() => {
+    if (canonicalUrl.kind === "loading") {
+      return { kind: "loading" };
+    }
+    if (canonicalIsCustom) {
+      return { kind: "custom", url: canonicalUrl.url };
+    }
+    if (canonicalIsDefault) {
+      return { kind: "default", url: canonicalUrl.url };
+    }
+    return { kind: "disconnectedCanonical", url: canonicalUrl.url };
+  }, [canonicalIsCustom, canonicalIsDefault, canonicalUrl]);
+  const updateCanonicalUrl = useUpdateCanonicalUrl(requestDestination);
+  const options: Option<UrlOption>[] = useMemo(
     () => [
       {
-        label: `${defaultUrl} (default)`,
-        value: defaultUrl,
+        label:
+          effectiveDefaultUrl.kind === "default"
+            ? `${effectiveDefaultUrl.url} (default)`
+            : "default",
+        value: effectiveDefaultUrl,
       },
-      ...(isDisconnected
+      ...(canonicalUrlOption.kind === "disconnectedCanonical"
         ? [
             {
-              label: `${canonicalUrl} (disconnected)`,
-              value: canonicalUrl,
+              label: `${canonicalUrlOption.url} (disconnected)`,
+              value: canonicalUrlOption,
             },
           ]
         : []),
@@ -270,17 +353,20 @@ function CanonicalUrlCombobox({
         label: `https://${v.domain}${
           v.verificationTime ? "" : " (unverified)"
         }`,
-        value: `https://${v.domain}`,
+        value: { kind: "custom" as const, url: `https://${v.domain}` },
       })),
     ],
     [
-      defaultUrl,
-      canonicalUrl,
-      isDisconnected,
+      effectiveDefaultUrl,
+      canonicalUrlOption,
       vanityDomainsForRequestDestination,
     ],
   );
   const disabled = options.length <= 1;
+
+  if (canonicalUrlOption.kind === "loading") {
+    return <Loading className="h-8 w-full" fullHeight={false} />;
+  }
 
   return (
     <div className="flex flex-col gap-1">
@@ -294,12 +380,17 @@ function CanonicalUrlCombobox({
         buttonClasses="w-fit"
         optionsWidth="fit"
         options={options}
-        selectedOption={canonicalUrl}
-        setSelectedOption={async (value: string | null) => {
-          if (value === null) {
+        selectedOption={canonicalUrlOption}
+        setSelectedOption={async (value: UrlOption | null) => {
+          if (value === null || value.kind === "loading") {
+            captureMessage("Unexpected value selected in CanonicalUrlCombobox");
             return;
           }
-          await updateCanonicalUrl(value);
+          await updateCanonicalUrl(
+            value.kind === "default" || value.kind === "unknownDefault"
+              ? null
+              : value.url,
+          );
         }}
         disableSearch
       />
