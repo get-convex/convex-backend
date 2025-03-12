@@ -7,7 +7,6 @@ use std::{
             Ordering,
         },
         Arc,
-        LazyLock,
     },
     time::Duration,
 };
@@ -27,7 +26,6 @@ use application::{
     RedactedActionError,
     RedactedMutationError,
 };
-use cmd_util::env::env_config;
 use common::{
     components::{
         CanonicalizedComponentFunctionPath,
@@ -38,6 +36,7 @@ use common::{
     http::ResolvedHostname,
     knobs::SYNC_MAX_SEND_TRANSITION_COUNT,
     runtime::{
+        try_join_buffer_unordered,
         Runtime,
         WithTimeout,
     },
@@ -62,7 +61,6 @@ use futures::{
     },
     select_biased,
     stream::{
-        self,
         Buffered,
         FuturesUnordered,
     },
@@ -104,12 +102,6 @@ use crate::{
     state::SyncState,
     ServerMessage,
 };
-
-// The maximum number of threads that a single sync session can consume. This is
-// a poor man's mechanism to prevent a single connection to consume all UDFs,
-// which doesn't work well in grant scheme of things.
-pub static SYNC_SESSION_MAX_EXEC_THREADS: LazyLock<usize> =
-    LazyLock::new(|| env_config("SYNC_SESSION_MAX_EXEC_THREADS", 8));
 
 // Buffer up to a thousand function and mutations executions.
 const OPERATION_QUEUE_BUFFER_SIZE: usize = 1000;
@@ -763,99 +755,105 @@ impl<RT: Runtime> SyncWorker<RT> {
 
         // Step 4: Refresh subscriptions up to new_ts and run queries which
         // subscriptions are no longer current.
-        let mut futures = vec![];
-        for query in self.state.need_fetch() {
-            let api = self.api.clone();
-            let host = self.host.clone();
-            let identity_ = identity.clone();
-            let client_version = self.config.client_version.clone();
-            let current_subscription = remaining_subscriptions.remove(&query.query_id);
-            let span = Span::enter_with_local_parent("update_query")
-                .with_property(|| ("udf_path", query.udf_path.clone().to_string()));
-            let subscriptions_client = subscriptions_client.clone();
-            let future = async move {
-                let new_subscription = match current_subscription {
-                    Some(subscription) => {
-                        if subscription.extend_validity(new_ts).await? {
-                            Some(subscription)
-                        } else {
-                            None
-                        }
-                    },
-                    None => None,
-                };
-                let (query_result, subscription) = match new_subscription {
-                    Some(subscription) => (QueryResult::Refresh, subscription),
-                    None => {
-                        // We failed to refresh the subscription or it was invalid to start
-                        // with. Rerun the query.
-                        let caller = FunctionCaller::SyncWorker(client_version);
-                        let ts = ExecuteQueryTimestamp::At(new_ts);
-
-                        // This query run might have been triggered due to invalidation
-                        // of a subscription. The sync worker is effectively the owner
-                        // of the query so we do not want to re-use the original query request id.
-                        let request_id = RequestId::new();
-                        let udf_return = match query.component_path {
-                            None => {
-                                api.execute_public_query(
-                                    &host,
-                                    request_id,
-                                    identity_,
-                                    ExportPath::from(query.udf_path.canonicalize()),
-                                    query.args,
-                                    caller,
-                                    ts,
-                                    query.journal,
-                                )
-                                .await?
+        let api = self.api.clone();
+        let need_fetch: Vec<_> = self.state.need_fetch().collect();
+        let host = self.host.clone();
+        let client_version = self.config.client_version.clone();
+        let subscriptions_client = subscriptions_client.clone();
+        Ok(async move {
+            let future_results: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
+                "update_queries_inner",
+                need_fetch.into_iter().map(move |query| {
+                    let api = api.clone();
+                    let host = host.clone();
+                    let identity_ = identity.clone();
+                    let client_version = client_version.clone();
+                    let current_subscription = remaining_subscriptions.remove(&query.query_id);
+                    let span = Span::enter_with_local_parent("update_query")
+                        .with_property(|| ("udf_path", query.udf_path.clone().to_string()));
+                    let subscriptions_client = subscriptions_client.clone();
+                    async move {
+                        let new_subscription = match current_subscription {
+                            Some(subscription) => {
+                                if subscription.extend_validity(new_ts).await? {
+                                    Some(subscription)
+                                } else {
+                                    None
+                                }
                             },
-                            Some(ref p) => {
-                                let path = Self::parse_admin_component_path(
-                                    p,
-                                    &query.udf_path,
-                                    &identity_,
-                                )?;
-                                api.execute_admin_query(
-                                    &host,
-                                    request_id,
-                                    identity_,
-                                    path,
-                                    query.args,
-                                    caller,
-                                    ts,
-                                    query.journal,
+                            None => None,
+                        };
+                        let (query_result, subscription) = match new_subscription {
+                            Some(subscription) => (QueryResult::Refresh, subscription),
+                            None => {
+                                // We failed to refresh the subscription or it was invalid to start
+                                // with. Rerun the query.
+                                let caller = FunctionCaller::SyncWorker(client_version);
+                                let ts = ExecuteQueryTimestamp::At(new_ts);
+
+                                // This query run might have been triggered due to invalidation
+                                // of a subscription. The sync worker is effectively the owner
+                                // of the query so we do not want to re-use the original query
+                                // request id.
+                                let request_id = RequestId::new();
+                                let udf_return = match query.component_path {
+                                    None => {
+                                        api.execute_public_query(
+                                            &host,
+                                            request_id,
+                                            identity_,
+                                            ExportPath::from(query.udf_path.canonicalize()),
+                                            query.args,
+                                            caller,
+                                            ts,
+                                            query.journal,
+                                        )
+                                        .await?
+                                    },
+                                    Some(ref p) => {
+                                        let path = Self::parse_admin_component_path(
+                                            p,
+                                            &query.udf_path,
+                                            &identity_,
+                                        )?;
+                                        api.execute_admin_query(
+                                            &host,
+                                            request_id,
+                                            identity_,
+                                            path,
+                                            query.args,
+                                            caller,
+                                            ts,
+                                            query.journal,
+                                        )
+                                        .await?
+                                    },
+                                };
+                                let subscription =
+                                    subscriptions_client.subscribe(udf_return.token).await?;
+                                (
+                                    QueryResult::Rerun {
+                                        result: udf_return.result,
+                                        log_lines: udf_return.log_lines,
+                                        journal: udf_return.journal,
+                                    },
+                                    subscription,
                                 )
-                                .await?
                             },
                         };
-                        let subscription = subscriptions_client.subscribe(udf_return.token).await?;
-                        (
-                            QueryResult::Rerun {
-                                result: udf_return.result,
-                                log_lines: udf_return.log_lines,
-                                journal: udf_return.journal,
-                            },
-                            subscription,
-                        )
-                    },
-                };
-                Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
-            }
-            .in_span(span);
-            futures.push(future);
-        }
-        Ok(async move {
-            let mut udf_results = vec![];
-            // Limit a single sync worker concurrency to prevent it from consuming
-            // all resources.
-            let mut futures =
-                stream::iter(futures).buffer_unordered(*SYNC_SESSION_MAX_EXEC_THREADS);
+                        Ok::<_, anyhow::Error>((query.query_id, query_result, subscription))
+                    }
+                    .in_span(span)
+                }),
+            )
+            .await;
 
-            while let Some(result) = futures.next().await {
-                let (query_id, result, subscription) = result?;
+            let mut udf_results = vec![];
+            for result in future_results? {
+                let (query_id, result, subscription) = result;
                 udf_results.push((query_id, result, subscription));
             }
+
             Ok(TransitionState {
                 udf_results,
                 state_modifications,
