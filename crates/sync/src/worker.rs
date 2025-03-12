@@ -96,6 +96,7 @@ use crate::{
     metrics::{
         self,
         connect_timer,
+        modify_query_to_transition_timer,
         mutation_queue_timer,
         TypedClientEvent,
     },
@@ -231,6 +232,10 @@ pub struct SyncWorker<RT: Runtime> {
     // Has an update been scheduled for the future?
     update_scheduled: bool,
 
+    /// Timer to track time between handling ModifyQuerySet message and sending
+    /// the Transition with the update
+    modify_query_to_transition_timer: Option<StatusTimer>,
+
     on_connect: Option<(StatusTimer, Box<dyn FnOnce(SessionId) + Send>)>,
 }
 
@@ -276,6 +281,7 @@ impl<RT: Runtime> SyncWorker<RT> {
             action_futures: FuturesUnordered::new(),
             transition_future: None,
             update_scheduled: false,
+            modify_query_to_transition_timer: None,
             on_connect: Some((connect_timer(), on_connect)),
         }
     }
@@ -460,6 +466,14 @@ impl<RT: Runtime> SyncWorker<RT> {
                 self.state
                     .modify_query_set(base_version, new_version, modifications)?;
                 self.schedule_update();
+                // Only set the timer if it's not already set. It's possible the Transition is
+                // batching updates from multiple ModifyQuerySet messages and we want to capture
+                // the total time from the first ModifyQuerySet message to the Transition with
+                // its update.
+                if self.modify_query_to_transition_timer.is_none() {
+                    self.modify_query_to_transition_timer =
+                        Some(modify_query_to_transition_timer());
+                }
             },
             ClientMessage::Mutation {
                 request_id,
@@ -703,7 +717,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                "udf_type".into() => UdfType::Query.to_lowercase_string().into(),
             },
         );
-        let _gaurd = root.set_local_parent();
+        let _guard = root.set_local_parent();
         let timer = metrics::update_queries_timer();
         let current_version = self.state.current_version();
 
@@ -913,7 +927,9 @@ impl<RT: Runtime> SyncWorker<RT> {
         };
         timer.finish();
         metrics::log_query_set_size(self.state.num_queries());
-
+        if let Some(timer) = self.modify_query_to_transition_timer.take() {
+            timer.finish();
+        }
         Ok(transition)
     }
 }

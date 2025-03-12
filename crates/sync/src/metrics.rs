@@ -58,6 +58,15 @@ pub fn update_queries_timer() -> StatusTimer {
 }
 
 register_convex_histogram!(
+    MODIFY_QUERY_TO_TRANSITION_SECONDS,
+    "Time between getting a ModifyQuerySet message and sending the Transition",
+    &STATUS_LABEL
+);
+pub fn modify_query_to_transition_timer() -> StatusTimer {
+    StatusTimer::new(&MODIFY_QUERY_TO_TRANSITION_SECONDS)
+}
+
+register_convex_histogram!(
     SYNC_MUTATION_QUEUE_SECONDS,
     "Time between a mutation entering and exiting the single threaded sync worker queue",
     &STATUS_LABEL
