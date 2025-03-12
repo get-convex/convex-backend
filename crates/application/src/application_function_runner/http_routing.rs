@@ -12,10 +12,12 @@ use common::{
         run_function_and_collect_log_lines,
         LogLevel,
         LogLine,
-        LogLines,
         SystemLogMetadata,
     },
-    runtime::Runtime,
+    runtime::{
+        tokio_spawn,
+        Runtime,
+    },
     types::{
         FunctionCaller,
         ModuleEnvironment,
@@ -30,7 +32,6 @@ use database::{
 use errors::ErrorMetadataAnyhowExt;
 use function_runner::server::HttpActionMetadata;
 use futures::{
-    stream::FusedStream,
     FutureExt,
     StreamExt,
 };
@@ -56,6 +57,7 @@ use udf::{
     HttpActionResult,
 };
 use usage_tracking::FunctionUsageTracker;
+use value::sha256::Sha256Digest;
 
 use super::ApplicationFunctionRunner;
 use crate::function_log::HttpActionStatusCode;
@@ -88,7 +90,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         "This Convex deployment does not have HTTP actions enabled.".to_string(),
                     );
                     for part in response_parts {
-                        response_streamer.send_part(part)?;
+                        response_streamer.send_part(part)??;
                     }
                     return Ok(udf::HttpActionResult::Streamed);
                 },
@@ -132,7 +134,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .boxed();
 
         let context_ = context.clone();
-        let mut outcome_and_log_lines_fut = Box::pin(
+
+        // Stream `response_stream` from the isolate, to `response_streamer`
+        // in the application.
+        let stream_result_fut = tokio_spawn(
+            "http_action_response_streamer",
+            Self::forward_http_action_stream(
+                UnboundedReceiverStream::new(isolate_response_receiver),
+                response_streamer,
+            ),
+        );
+
+        // NOTE: this will run in parallel with `stream_result_fut`, which is
+        // running on a spawned coroutine.
+        let (outcome_result, mut log_lines) =
             run_function_and_collect_log_lines(outcome_future, log_line_receiver, |log_line| {
                 self.function_log.log_http_action_progress(
                     route.clone(),
@@ -143,55 +158,20 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     ModuleEnvironment::Isolate,
                 )
             })
-            .fuse(),
-        );
+            .await;
 
-        let mut result_for_logging = None;
-        let mut response_stream = UnboundedReceiverStream::new(isolate_response_receiver).fuse();
-
-        let (outcome_result, mut log_lines): (anyhow::Result<HttpActionOutcome>, LogLines) = loop {
-            tokio::select! {
-                Some(result) = response_stream.next(), if !response_stream.is_terminated() => {
-                    match result {
-                        HttpActionResponsePart::Head(h) => {
-                            result_for_logging = Some(Ok(HttpActionStatusCode(h.status)));
-                            response_streamer.send_part(HttpActionResponsePart::Head(h))?;
-                        },
-                        HttpActionResponsePart::BodyChunk(bytes) => {
-                            response_streamer.send_part(HttpActionResponsePart::BodyChunk(bytes))?;
-                        }
-                    }
-                },
-                outcome_and_log_lines = &mut outcome_and_log_lines_fut => {
-                    break outcome_and_log_lines
-                }
-            }
-        };
-
-        while let Some(part) = response_stream.next().await {
-            match part {
-                HttpActionResponsePart::Head(h) => {
-                    result_for_logging = Some(Ok(HttpActionStatusCode(h.status)));
-                    response_streamer.send_part(HttpActionResponsePart::Head(h))?;
-                },
-                HttpActionResponsePart::BodyChunk(bytes) => {
-                    response_streamer.send_part(HttpActionResponsePart::BodyChunk(bytes))?;
-                },
-            }
-        }
-
-        let response_sha256 = response_streamer.complete();
+        let (result_for_logging, response_sha256) = stream_result_fut.await??;
 
         match outcome_result {
             Ok(outcome) => {
                 let result = outcome.result.clone();
                 let result_for_logging = match &result {
                     HttpActionResult::Error(e) => Err(e.clone()),
-                    HttpActionResult::Streamed => result_for_logging.ok_or_else(|| {
+                    HttpActionResult::Streamed => Ok(result_for_logging.ok_or_else(|| {
                         anyhow::anyhow!(
                             "Result should be populated for successfully completed HTTP action"
                         )
-                    })?,
+                    })?),
                 };
                 self.function_log.log_http_action(
                     outcome,
@@ -228,7 +208,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         ));
                         self.function_log.log_http_action(
                             outcome.clone(),
-                            r,
+                            Ok(r),
                             log_lines,
                             start.elapsed(),
                             caller,
@@ -277,6 +257,47 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 Err(e)
             },
         }
+    }
+
+    // Forwards from `response_stream` to `response_streamer`.
+    async fn forward_http_action_stream(
+        mut response_stream: UnboundedReceiverStream<HttpActionResponsePart>,
+        mut response_streamer: HttpActionResponseStreamer,
+    ) -> anyhow::Result<(Option<HttpActionStatusCode>, Sha256Digest)> {
+        let mut result_for_logging = None;
+        loop {
+            // If the `response_stream` is still open, detect when `response_streamer`
+            // closes, which makes us close `response_stream`.
+            // This signals to the isolate that the client has disconnected.
+            let streamer_close = if response_stream.as_ref().is_closed() {
+                // We need the conditional to avoid a busy-loop. If `response_streamer`
+                // is closed, `response_streamer.sender.closed()` will resolve immediately,
+                // so we make sure that only happens once.
+                futures::future::Either::Left(futures::future::pending())
+            } else {
+                futures::future::Either::Right(response_streamer.sender.closed())
+            };
+            tokio::select! {
+                _ = streamer_close => {
+                    response_stream.close();
+                },
+                part = response_stream.next() => {
+                    let Some(part) = part else {
+                        break;
+                    };
+                    if let HttpActionResponsePart::Head(h) = &part {
+                        result_for_logging = Some(HttpActionStatusCode(h.status));
+                    }
+                    // If the `response_streamer` is closed, the inner Result
+                    // will have an error. That's fine; we want to keep letting
+                    // the isolate send data and `response_streamer` will keep
+                    // accumulating data into its hash.
+                    let _ = response_streamer.send_part(part)?;
+                }
+            }
+        }
+        let response_sha256 = response_streamer.complete();
+        Ok((result_for_logging, response_sha256))
     }
 
     async fn route_http_action(

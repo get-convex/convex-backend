@@ -556,7 +556,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             .ok_or_else(|| anyhow::anyhow!("No HTTP response streamer for HTTP action"))?;
         match part {
             Ok(HttpActionResponsePart::Head(h)) => {
-                streamer.send_part(HttpActionResponsePart::Head(h))?;
+                streamer.send_part(HttpActionResponsePart::Head(h))??;
             },
             Ok(HttpActionResponsePart::BodyChunk(b)) => {
                 if streamer.total_bytes_sent() > HTTP_ACTION_BODY_LIMIT {
@@ -576,7 +576,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                         },
                     })?;
                 } else {
-                    streamer.send_part(HttpActionResponsePart::BodyChunk(b))?;
+                    streamer.send_part(HttpActionResponsePart::BodyChunk(b))??;
                 }
             },
             Err(e) => environment.trace_system(SystemWarning {

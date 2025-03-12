@@ -276,32 +276,39 @@ impl HttpActionResponseStreamer {
         self.total_bytes_sent
     }
 
-    fn send_head(&mut self, head: HttpActionResponseHead) -> anyhow::Result<()> {
+    fn send_head(
+        &mut self,
+        head: HttpActionResponseHead,
+    ) -> anyhow::Result<Result<(), mpsc::error::SendError<HttpActionResponsePart>>> {
         if self.has_started() {
             anyhow::bail!("Sending HTTP response head after other response parts");
         };
         self.head = Some(head.clone());
-        self.sender.send(HttpActionResponsePart::Head(head))?;
-        Ok(())
+        Ok(self.sender.send(HttpActionResponsePart::Head(head)))
     }
 
-    fn send_body(&mut self, bytes: Bytes) -> anyhow::Result<()> {
+    fn send_body(
+        &mut self,
+        bytes: Bytes,
+    ) -> anyhow::Result<Result<(), mpsc::error::SendError<HttpActionResponsePart>>> {
         anyhow::ensure!(
             self.has_started(),
             "Sending response body before response head"
         );
         self.total_bytes_sent += bytes.len();
         self.sha256.update(&bytes);
-        self.sender.send(HttpActionResponsePart::BodyChunk(bytes))?;
-        Ok(())
+        Ok(self.sender.send(HttpActionResponsePart::BodyChunk(bytes)))
     }
 
-    pub fn send_part(&mut self, part: HttpActionResponsePart) -> anyhow::Result<()> {
-        match part {
+    pub fn send_part(
+        &mut self,
+        part: HttpActionResponsePart,
+    ) -> anyhow::Result<Result<(), mpsc::error::SendError<HttpActionResponsePart>>> {
+        let send_result = match part {
             HttpActionResponsePart::Head(h) => self.send_head(h)?,
             HttpActionResponsePart::BodyChunk(b) => self.send_body(b)?,
-        }
-        Ok(())
+        };
+        Ok(send_result)
     }
 
     pub fn complete(self) -> Sha256Digest {

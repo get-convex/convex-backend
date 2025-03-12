@@ -4,6 +4,7 @@
 #![feature(coroutines)]
 #![feature(round_char_boundary)]
 #![feature(duration_constructors)]
+#![feature(assert_matches)]
 
 use std::{
     collections::{
@@ -1256,6 +1257,7 @@ impl<RT: Runtime> Application<RT> {
                 caller.allowed_visibility(),
             )
             .await?;
+        let rt_ = self.runtime.clone();
 
         // Spawn running the action in a separate future. This way, even if we
         // get cancelled, it will continue to run to completion.
@@ -1276,8 +1278,12 @@ impl<RT: Runtime> Application<RT> {
                 )
                 .in_span(span)
                 .await;
-            // Don't log errors if the caller has gone away.
-            _ = tx.send(result);
+            if let Err(Err(mut e)) = tx.send(result) {
+                // If the caller has gone away, and the result is a system error,
+                // log to sentry.
+                report_error(&mut e).await;
+            }
+            rt_.pause_client().wait("end_run_http_action").await;
         });
         let result = rx
             .await
@@ -1288,7 +1294,7 @@ impl<RT: Runtime> Application<RT> {
                     RedactedJsError::from_js_error(error, block_logging, RequestId::new())
                         .to_http_response_parts();
                 for part in response_parts {
-                    response_streamer.send_part(part)?;
+                    response_streamer.send_part(part)??;
                 }
             },
             Ok(HttpActionResult::Streamed) => (),
@@ -1415,8 +1421,8 @@ impl<RT: Runtime> Application<RT> {
                 }),
             UdfType::HttpAction => {
                 anyhow::bail!(
-                    "HTTP actions not supported in the /functions endpoint. A “not found” message \
-                     should be returned instead."
+                    "HTTP actions not supported in the /functions endpoint. A \"not found\" \
+                     message should be returned instead."
                 )
             },
         }

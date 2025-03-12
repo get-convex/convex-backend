@@ -193,8 +193,6 @@ async fn test_http_action_not_found(rt: TestRuntime) -> anyhow::Result<()> {
     Ok(())
 }
 
-// TODO(lee) enable once http action disconnects are detected
-#[ignore]
 #[convex_macro::test_runtime]
 async fn test_http_action_disconnect(
     rt: TestRuntime,
