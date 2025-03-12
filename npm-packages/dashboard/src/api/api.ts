@@ -79,18 +79,14 @@ export function useBBQuery<QueryPath extends Path<"get">>({
     isPaused: () => paused,
     ...swrOptions,
   });
-  if ("error" in res && !!res.error) {
-    if (
-      typeof res.error === "object" &&
-      "code" in res.error &&
-      "message" in res.error
-    ) {
+  if ("error" in res && !!res.error && typeof res.error === "object") {
+    if ("code" in res.error && "message" in res.error) {
       captureException(
         new Error(
           `Server responded with ${res.error.code} ${res.error.message}`,
         ),
       );
-    } else {
+    } else if (Object.keys(res.error).length > 0) {
       captureException(
         new Error(`Server responded with error: ${JSON.stringify(res.error)}`),
       );
