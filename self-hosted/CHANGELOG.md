@@ -10,6 +10,11 @@ Different versions are not guaranteed to be compatible with one another.
 Follow the instructions in the [README](README.md#software-upgrades) to upgrade
 your self-hosted backend and dashboard.
 
+## Upcoming
+
+- Speed up pushing to node actions with
+  [external packages](https://docs.convex.dev/functions/bundling#external-packages).
+
 ## 2025-03-10 `5143fec81f146ca67495c12c6b7a15c5802c37e2`
 
 - Speed up Node actions by 50x. No more cold starts on every request. See

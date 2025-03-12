@@ -100,12 +100,15 @@ async function buildDepsInner(
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true, mode: 0o744 });
 
-  // Set npm cache directory
-  process.env.NPM_CONFIG_CACHE = `${dir}/.npm`;
-  // NPM config values are case-insensitive but some libraries rely on using one env var over the other.
-  // Ex. Sharp, the image-processing library, relies on using process.env.npm_config_cache
-  // as a build cache directory for libvips, but will not work with process.env.NPM_CONFIG_CACHE.
-  process.env.npm_config_cache = `${dir}/.npm`;
+  // file: is used for local backends that are using local node rather than lambda to execute.
+  if (url.protocol !== "file:") {
+    // Set npm cache directory
+    process.env.NPM_CONFIG_CACHE = `${dir}/.npm`;
+    // NPM config values are case-insensitive but some libraries rely on using one env var over the other.
+    // Ex. Sharp, the image-processing library, relies on using process.env.npm_config_cache
+    // as a build cache directory for libvips, but will not work with process.env.NPM_CONFIG_CACHE.
+    process.env.npm_config_cache = `${dir}/.npm`;
+  }
 
   // Create package.json with the dependencies as entries
   const deps_json = Object.fromEntries(deps.map((v) => [v.package, v.version]));
