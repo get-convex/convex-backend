@@ -347,9 +347,13 @@ pub static TRANSACTION_MAX_READ_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
     env_config("TRANSACTION_MAX_READ_SIZE_BYTES", 1 << 23) // 8 MiB
 });
 
-/// Maximum number of intervals that can be read in a transcation.
+/// Maximum number of intervals that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SET_INTERVALS: LazyLock<usize> =
     LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SET_INTERVALS", 4096));
+
+/// Intervals that can be read in a transaction before warning.
+pub static TRANSACTION_WARN_READ_SET_INTERVALS: LazyLock<usize> =
+    LazyLock::new(|| env_config("TRANSACTION_WARN_READ_SET_INTERVALS", 3072));
 
 /// Write max_repeatable_ts if there have been no commits for this duration.
 pub static MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY: LazyLock<Duration> = LazyLock::new(|| {

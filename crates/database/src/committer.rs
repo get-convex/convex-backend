@@ -34,6 +34,7 @@ use common::{
         COMMIT_TRACE_THRESHOLD,
         MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY,
         MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY,
+        TRANSACTION_WARN_READ_SET_INTERVALS,
     },
     persistence::{
         ConflictStrategy,
@@ -841,6 +842,15 @@ impl<RT: Runtime> Committer<RT> {
         }
         let commit_timer = metrics::commit_timer();
         metrics::log_write_tx(&transaction);
+
+        // Trace if the transaction has a lot of read intervals.
+        if transaction.reads.num_intervals() > *TRANSACTION_WARN_READ_SET_INTERVALS {
+            tracing::warn!(
+                "Transaction with write source {write_source:?} has {} read intervals: {}",
+                transaction.reads.num_intervals(),
+                transaction.reads.top_three_intervals()
+            );
+        }
 
         let table_mapping = transaction.table_mapping.clone();
         let component_registry = transaction.component_registry.clone();

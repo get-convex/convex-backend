@@ -95,6 +95,7 @@ pub fn log_write_tx(tx: &FinalTransaction) {
         &DATABASE_WRITE_TX_READ_INTERVALS_TOTAL,
         tx.reads.num_intervals() as f64,
     );
+
     let user_size = tx.writes.user_size();
     let system_size = tx.writes.system_size();
 
