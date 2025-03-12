@@ -80,34 +80,22 @@ export function UpgradePlanContentContainer({
         )
       : CreateSubscriptionSchema,
     onSubmit: async (v) => {
-      let spendingLimitsValue = {};
-      if (spendingLimits) {
-        if (
-          v.spendingLimitWarningThresholdUsd === undefined ||
-          v.spendingLimitDisableThresholdUsd === undefined
-        ) {
-          throw new Error("Form submitted in an invalid state: empty value");
-        }
-
-        spendingLimitsValue = {
-          warningThresholdCents:
-            v.spendingLimitWarningThresholdUsd === null
-              ? null
-              : v.spendingLimitWarningThresholdUsd * 100,
-          disableThresholdCents:
-            v.spendingLimitDisableThresholdUsd === null
-              ? null
-              : v.spendingLimitDisableThresholdUsd * 100,
-        };
-      }
-
       await createSubscription({
         planId: v.planId,
         paymentMethod: v.paymentMethod,
         billingAddress: v.billingAddress,
         name: v.name,
         email: v.email,
-        ...spendingLimitsValue,
+        ...(spendingLimits && {
+          warningThresholdCents:
+            typeof v.spendingLimitWarningThresholdUsd === "number"
+              ? v.spendingLimitWarningThresholdUsd * 100
+              : v.spendingLimitWarningThresholdUsd,
+          disableThresholdCents:
+            typeof v.spendingLimitDisableThresholdUsd === "number"
+              ? v.spendingLimitDisableThresholdUsd * 100
+              : v.spendingLimitDisableThresholdUsd,
+        }),
       });
       onUpgradeComplete();
     },

@@ -85,22 +85,15 @@ export function useSubmitSpendingLimits(team: Team) {
 
   return useCallback(
     async (v: SpendingLimitsValue) => {
-      if (
-        v.spendingLimitWarningThresholdUsd === undefined ||
-        v.spendingLimitDisableThresholdUsd === undefined
-      ) {
-        throw new Error("Form submitted in an invalid state: empty value");
-      }
-
       await setSpendingLimit({
         warningThresholdCents:
-          v.spendingLimitWarningThresholdUsd === null
-            ? null
-            : v.spendingLimitWarningThresholdUsd * 100,
+          typeof v.spendingLimitWarningThresholdUsd === "number"
+            ? v.spendingLimitWarningThresholdUsd * 100
+            : v.spendingLimitWarningThresholdUsd,
         disableThresholdCents:
-          v.spendingLimitDisableThresholdUsd === null
-            ? null
-            : v.spendingLimitDisableThresholdUsd * 100,
+          typeof v.spendingLimitDisableThresholdUsd === "number"
+            ? v.spendingLimitDisableThresholdUsd * 100
+            : v.spendingLimitDisableThresholdUsd,
       });
     },
     [setSpendingLimit],
