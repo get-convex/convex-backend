@@ -168,10 +168,10 @@ export function useListPlans(teamId?: number) {
   };
 }
 
-export function useGetCurrentSpend(teamId: number) {
+export function useGetCurrentSpend(teamId: number | null) {
   const { data, isLoading } = useBBQuery({
     path: "/teams/{team_id}/get_current_spend",
-    pathParams: { team_id: teamId.toString() },
+    pathParams: { team_id: teamId?.toString() ?? "" },
     swrOptions: {
       refreshInterval: 1000 * 60,
     },

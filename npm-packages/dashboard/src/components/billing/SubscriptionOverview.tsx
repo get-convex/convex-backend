@@ -150,7 +150,7 @@ function SpendingLimitsSectionContainer({
 }) {
   const submitSpendingLimits = useSubmitSpendingLimits(team);
 
-  const currentSpend = useGetCurrentSpend(team.id);
+  const currentSpend = useGetCurrentSpend(hasAdminPermissions ? team.id : null);
   const { spendingLimits } = useGetSpendingLimits(team.id);
 
   return (
