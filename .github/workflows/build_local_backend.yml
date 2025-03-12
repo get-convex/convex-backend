@@ -101,4 +101,4 @@ jobs:
         env:
           CI_PGUSER: postgres
           CI_PGPASSWORD: postgres
-        run: DISABLE_FUZZY_TEXT_SEARCH=true cargo nextest run --profile ci
+        run: cargo nextest run --profile ci

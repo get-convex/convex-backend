@@ -673,23 +673,17 @@ impl TantivySearchIndexSchema {
     fn compile_tokens_with_typo_tolerance(
         search_field: Field,
         tokens: &Vec<String>,
-        disable_fuzzy_text_search: bool,
     ) -> anyhow::Result<Vec<QueryTerm>> {
         let mut res = vec![];
 
         let mut it = tokens.iter().peekable();
-        let exact_search_max_word_length = if disable_fuzzy_text_search {
-            MAX_TEXT_TERM_LENGTH
-        } else {
-            EXACT_SEARCH_MAX_WORD_LENGTH
-        };
         while let Some(text) = it.next() {
             let term = Term::from_field_text(search_field, text);
             anyhow::ensure!(term.as_str().is_some(), "Term was not valid UTF8");
 
             let char_count = text.chars().count();
             let is_prefix = it.peek().is_none();
-            let num_typos = if char_count <= exact_search_max_word_length {
+            let num_typos = if char_count <= MAX_TEXT_TERM_LENGTH {
                 0
             } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
                 1
@@ -714,7 +708,6 @@ impl TantivySearchIndexSchema {
         &self,
         query: &InternalSearch,
         version: SearchVersion,
-        disable_fuzzy_text_search: bool,
     ) -> anyhow::Result<(CompiledQuery, QueryReads)> {
         let timer = metrics::compile_timer();
 
@@ -801,11 +794,9 @@ impl TantivySearchIndexSchema {
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
             // Only the V2 search codepath can generate QueryTerm::Fuzzy
-            SearchVersion::V2 => Self::compile_tokens_with_typo_tolerance(
-                self.search_field,
-                &tokens,
-                disable_fuzzy_text_search,
-            )?,
+            SearchVersion::V2 => {
+                Self::compile_tokens_with_typo_tolerance(self.search_field, &tokens)?
+            },
         };
 
         let text_reads = text_query

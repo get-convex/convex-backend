@@ -39,7 +39,6 @@ test-self-hosted *ARGS:
 # Run tests without building the NPM packages or binaries
 _test *ARGS:
     #!/usr/bin/env bash
-    export DISABLE_FUZZY_TEXT_SEARCH=true
     export ACTIONS_USER_TIMEOUT_SECS=20
     export DATABASE_UDF_SYSTEM_TIMEOUT_SECONDS=30
     export DATABASE_UDF_USER_TIMEOUT_SECONDS=10

@@ -21,7 +21,6 @@ use common::{
         IndexMetadata,
     },
     floating_point::assert_approx_equal,
-    knobs::DISABLE_FUZZY_TEXT_SEARCH,
     pause::PauseController,
     persistence::Persistence,
     query::{
@@ -858,16 +857,10 @@ fn test_union_rank() {
 }
 
 #[convex_macro::test_runtime]
-async fn test_fuzzy_mem(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_prefix_mem(rt: TestRuntime) -> anyhow::Result<()> {
     let mut scenario = Scenario::new(rt).await?;
 
     scenario._patch("a", "the quick brow fox", "test").await?;
-    if !*DISABLE_FUZZY_TEXT_SEARCH {
-        let results = scenario
-            ._query_with_scores("brown", None, None, SearchVersion::V2)
-            .await?;
-        assert_eq!(results.len(), 1);
-    }
 
     // Exact match w/o prefix will fail
     let results = scenario
@@ -889,42 +882,6 @@ async fn test_fuzzy_mem(rt: TestRuntime) -> anyhow::Result<()> {
         ._query_with_scores("aghh", None, None, SearchVersion::V2)
         .await?;
     assert_eq!(results.len(), 1);
-
-    // Prefix + fuzzy
-    if !*DISABLE_FUZZY_TEXT_SEARCH {
-        let results = scenario
-            ._query_with_scores("ahhhhh", None, None, SearchVersion::V2)
-            .await?;
-        assert_eq!(results.len(), 1);
-        //
-        // Edit distance 2
-        scenario
-            ._patch("c", "my name is bartholomew", "test")
-            .await?;
-        let results = scenario
-            ._query_with_scores("batholmew runs fast", None, None, SearchVersion::V2)
-            .await?;
-        assert_eq!(results.len(), 1);
-    }
-
-    Ok(())
-}
-
-#[convex_macro::test_runtime]
-async fn test_fuzzy_disk(rt: TestRuntime) -> anyhow::Result<()> {
-    if !*DISABLE_FUZZY_TEXT_SEARCH {
-        let mut scenario = Scenario::new(rt).await?;
-        scenario._patch("key1", "rakeeb wuz here", "test").await?;
-        scenario.backfill().await?;
-        scenario
-            ._patch("key2", "rakeeb wuz not here", "test")
-            .await?;
-
-        let results = scenario
-            ._query_with_scores("is rakeem present?", None, None, SearchVersion::V2)
-            .await?;
-        assert_eq!(results.len(), 2);
-    }
 
     Ok(())
 }
@@ -952,24 +909,22 @@ async fn test_fuzzy_disk_snapshot_shortlist_ids_valid_with_empty_memory_index(
 // See https://github.com/get-convex/convex/pull/20649
 #[convex_macro::test_runtime]
 async fn unrelated_sentences_are_queryable_after_flush(rt: TestRuntime) -> anyhow::Result<()> {
-    if !*DISABLE_FUZZY_TEXT_SEARCH {
-        let mut scenario = Scenario::new(rt).await?;
-        scenario._patch("key1", "rakeeb wuz here", "test").await?;
-        scenario
-            ._patch("key2", "some other sentence", "test")
-            .await?;
-        scenario.backfill().await?;
+    let mut scenario = Scenario::new(rt).await?;
+    scenario._patch("key1", "rakeeb wuz here", "test").await?;
+    scenario
+        ._patch("key2", "some other sentence", "test")
+        .await?;
+    scenario.backfill().await?;
 
-        let results = scenario
-            ._query_with_scores("rakeem", None, None, SearchVersion::V2)
-            .await?;
-        assert_eq!(results.len(), 1);
+    let results = scenario
+        ._query_with_scores("rakeeb", None, None, SearchVersion::V2)
+        .await?;
+    assert_eq!(results.len(), 1);
 
-        let results = scenario
-            ._query_with_scores("senence", None, None, SearchVersion::V2)
-            .await?;
-        assert_eq!(results.len(), 1);
-    }
+    let results = scenario
+        ._query_with_scores("sentenc", None, None, SearchVersion::V2)
+        .await?;
+    assert_eq!(results.len(), 1);
 
     Ok(())
 }

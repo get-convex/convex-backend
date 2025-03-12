@@ -138,7 +138,7 @@ impl Dataset {
                     q.query,
                 )],
             };
-            let (compiled_query, _) = schema.compile(&internal_search, SearchVersion::V1, false)?;
+            let (compiled_query, _) = schema.compile(&internal_search, SearchVersion::V1)?;
             compiled.insert(q.name, compiled_query);
         }
 

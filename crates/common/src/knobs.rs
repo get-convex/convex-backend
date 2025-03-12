@@ -1230,10 +1230,6 @@ pub static PARTITION_LOADER_MAX_STALE_SECS: LazyLock<Duration> =
 pub static CLAIM_INSTANCE_TIMEOUT_SECS: LazyLock<Duration> =
     LazyLock::new(|| Duration::from_secs(env_config("CLAIM_INSTANCE_TIMEOUT_SECS", 10)));
 
-/// Disable fuzzy matches on text search results
-pub static DISABLE_FUZZY_TEXT_SEARCH: LazyLock<bool> =
-    LazyLock::new(|| env_config("DISABLE_FUZZY_TEXT_SEARCH", true));
-
 /// The maximum number of bytes to buffer in an multipart upload.
 /// There may be stricter limits imposed by the storage provider, but this is
 /// the target max size for the buffer to protect against memory exhaustion.
