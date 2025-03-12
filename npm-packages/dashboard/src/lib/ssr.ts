@@ -168,11 +168,12 @@ const getProps: GetServerSideProps<{
     return {
       props: { accessToken: token.accessToken, initialData },
       redirect:
-        optInsToAccept && optInsToAccept.length > 0 && resolvedUrl !== "/accept"
+        optInsToAccept &&
+        optInsToAccept.length > 0 &&
+        !resolvedUrl.startsWith("/accept")
           ? {
-              destination: "/accept",
+              destination: `/accept${resolvedUrl ? `?from=${encodeURIComponent(resolvedUrl)}` : ""}`,
               permanent: false,
-              query: resolvedUrl ? { from: resolvedUrl } : undefined,
             }
           : undefined,
     };
