@@ -276,7 +276,7 @@ type CanonicalUrl =
       url: string;
     };
 
-function CanonicalUrlCombobox({
+export function CanonicalUrlCombobox({
   label,
   defaultUrl,
   canonicalUrl,
