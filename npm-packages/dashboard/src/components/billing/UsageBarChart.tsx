@@ -140,7 +140,7 @@ export function UsageStackedBarChart({
           />
         ))}
         <Legend
-          content={
+          content={() => (
             <div className="flex flex-wrap gap-3 pl-[72px]">
               {Object.entries(categories).map(([tag, { name, color }]) =>
                 Object.hasOwn(totalByTag, tag) ? (
@@ -158,7 +158,7 @@ export function UsageStackedBarChart({
                 ) : null,
               )}
             </div>
-          }
+          )}
         />
       </DailyChart>
     </div>
