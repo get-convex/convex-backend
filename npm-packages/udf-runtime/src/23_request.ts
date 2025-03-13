@@ -338,6 +338,17 @@ export class Request {
   }
 }
 
+// Stream in Rust -> AbortSignal in JS
+function extractAbortSignal(signalId: string) {
+  const abortController = new AbortController();
+  const stream = extractStream(signalId);
+  stream
+    .getReader()
+    .read()
+    .then(() => abortController.abort());
+  return abortController.signal;
+}
+
 export const requestFromConvexJson = ({
   convexJson,
 }: {
@@ -345,12 +356,12 @@ export const requestFromConvexJson = ({
 }) => {
   const stream =
     convexJson.streamId === null ? null : extractStream(convexJson.streamId);
+  const signal = extractAbortSignal(convexJson.signal);
   const request = new Request(convexJson.url, {
     headers: convexJson.headerPairs,
     body: stream,
     method: convexJson.method,
-    // TODO(lee) construct signal here, passed in from rust,
-    // which will populate the signal in the HTTP action request object.
+    signal,
   });
   return request;
 };
@@ -375,9 +386,7 @@ export const convexV8ObjectFromRequest = async (request: Request) => {
   ) {
     headerPairs.push(["content-length", String(request[_contentLength])]);
   }
-  const signal = request.signal
-    ? constructAbortSignalStreamId(request.signal)
-    : null;
+  const signal = constructAbortSignalStreamId(request.signal);
   return {
     url: request.url,
     headerPairs,

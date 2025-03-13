@@ -1,8 +1,4 @@
-use std::{
-    future::Future,
-    pin::Pin,
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use common::{
     http::{
@@ -44,7 +40,7 @@ pub struct HttpRequestV8 {
     pub url: String,
     pub method: String,
     pub stream_id: Option<uuid::Uuid>,
-    pub signal: Option<uuid::Uuid>,
+    pub signal: uuid::Uuid,
 }
 
 impl HttpRequestV8 {
@@ -63,15 +59,11 @@ impl HttpRequestV8 {
             },
             None => drop(body_sender),
         };
-        let signal: Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> = match self.signal {
-            Some(signal_id) => {
-                let (signal_sender, signal_receiver) = spsc::unbounded_channel();
-                provider
-                    .new_stream_listener(signal_id, StreamListener::RustStream(signal_sender))?;
-                let signal_stream = signal_receiver.into_stream();
-                Box::pin(signal_stream.into_future().map(|_| ()))
-            },
-            None => Box::pin(futures::future::pending()),
+        let signal = {
+            let (signal_sender, signal_receiver) = spsc::unbounded_channel();
+            provider.new_stream_listener(self.signal, StreamListener::RustStream(signal_sender))?;
+            let signal_stream = signal_receiver.into_stream();
+            Box::pin(signal_stream.into_future().map(|_| ()))
         };
 
         Ok(HttpRequestStream {
@@ -86,6 +78,7 @@ impl HttpRequestV8 {
     pub fn from_request(
         request: HttpActionRequestHead,
         stream_id: Option<uuid::Uuid>,
+        signal: uuid::Uuid,
     ) -> anyhow::Result<Self> {
         let mut header_pairs: Vec<(String, String)> = vec![];
 
@@ -103,9 +96,7 @@ impl HttpRequestV8 {
             url: request.url.to_string(),
             method: request.method.to_string(),
             stream_id,
-            // TODO(lee) pass through a stream id for the signal,
-            // which will populate the signal in the HTTP action request object.
-            signal: None,
+            signal,
         })
     }
 }

@@ -225,6 +225,15 @@ pub struct ActionEnvironment<RT: Runtime> {
     heap_stats: SharedIsolateHeapStats,
 }
 
+impl<RT: Runtime> Drop for ActionEnvironment<RT> {
+    fn drop(&mut self) {
+        self.pending_task_sender.close();
+        if let Some(mut running_tasks) = self.running_tasks.take() {
+            running_tasks.shutdown();
+        }
+    }
+}
+
 impl<RT: Runtime> ActionEnvironment<RT> {
     pub fn new(
         rt: RT,
@@ -376,7 +385,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let outcome = HttpActionOutcome::new(
             Some(route),
             request_head,
-            self.identity.into(),
+            self.identity.clone().into(),
             start_unix_timestamp,
             result,
             Some(self.syscall_trace.lock().clone()),
@@ -484,9 +493,13 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             },
             None => None,
         };
-        let request_str =
-            serde_json::to_value(HttpRequestV8::from_request(http_request.head, stream_id)?)?
-                .to_string();
+        let signal = Self::signal_http_action_abort(&mut scope)?;
+        let request_str = serde_json::to_value(HttpRequestV8::from_request(
+            http_request.head,
+            stream_id,
+            signal,
+        )?)?
+        .to_string();
         metrics::log_argument_length(&request_str);
         let args_v8_str = v8::String::new(&mut scope, &request_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
@@ -514,6 +527,36 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             Ok(()) => Ok((route, HttpActionResult::Streamed)),
             Err(e) => Ok((route, HttpActionResult::Error(e))),
         }
+    }
+
+    // AbortSignal passed to HTTP action request is implemented as a
+    // ReadableStream which gets closed when the client requesting the HTTP action
+    // goes away.
+    fn signal_http_action_abort<'a, 'b: 'a>(
+        scope: &mut ExecutionScope<'a, 'b, RT, Self>,
+    ) -> anyhow::Result<uuid::Uuid> {
+        let state = scope.state_mut()?;
+        let response_streamer = state
+            .environment
+            .http_response_streamer
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No HTTP response streamer for HTTP action"))?;
+        // NOTE: this clone extends the lifetime of the response_streamer sender to the
+        // lifetime of the TaskExecutor thread. Make sure that thread gets
+        // shutdown before waiting for the response_streamer's receiver to
+        // close. Currently the thread is shutdown in Drop for ActionEnvironment.
+        let response_streamer_ = response_streamer.clone();
+        let sender_closed_fut = async move {
+            response_streamer_.sender.closed().await;
+        };
+        let sender_closed =
+            Box::pin(futures::stream::once(sender_closed_fut).filter_map(|_| async move { None }));
+        let stream_id = state.create_request_stream()?;
+        state
+            .environment
+            .send_stream(stream_id, Some(sender_closed));
+
+        Ok(stream_id)
     }
 
     fn stream_http_result<'a, 'b: 'a>(
@@ -671,7 +714,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             path: path.for_logging(),
             arguments,
             unix_timestamp: start_unix_timestamp,
-            identity: self.identity.into(),
+            identity: self.identity.clone().into(),
             result: match result? {
                 Ok(v) => Ok(JsonPackedValue::pack(v)),
                 Err(e) => Err(e),
