@@ -22,8 +22,6 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use fastrace::{
-    collector::SpanContext,
-    func_path,
     future::FutureExt as _,
     Span,
 };
@@ -129,10 +127,11 @@ pub async fn try_join_buffered<
 ) -> anyhow::Result<C> {
     assert_send(
         stream::iter(tasks.map(|task| {
-            let span = SpanContext::current_local_parent()
-                .map(|ctx| Span::root(format!("{}::{name}", func_path!()), ctx))
-                .unwrap_or(Span::noop());
-            assert_send(try_join(name, assert_send(task), span))
+            assert_send(try_join(
+                name,
+                assert_send(task),
+                Span::enter_with_local_parent(name),
+            ))
         }))
         .buffered(JOIN_BUFFER_SIZE)
         .try_collect(),
@@ -159,14 +158,9 @@ pub async fn try_join_buffer_unordered<
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| {
-            let span = SpanContext::current_local_parent()
-                .map(|ctx| Span::root(format!("{}::{name}", func_path!()), ctx))
-                .unwrap_or(Span::noop());
-            try_join(name, task, span)
-        }))
-        .buffer_unordered(JOIN_BUFFER_SIZE)
-        .try_collect(),
+        stream::iter(tasks.map(|task| try_join(name, task, Span::enter_with_local_parent(name))))
+            .buffer_unordered(JOIN_BUFFER_SIZE)
+            .try_collect(),
     )
     .await
 }
