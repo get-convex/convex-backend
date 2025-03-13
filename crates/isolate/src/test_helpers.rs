@@ -534,10 +534,9 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
         args: Vec<ConvexValue>,
         identity: Identity,
     ) -> anyhow::Result<UdfOutcome> {
-        // TODO: This will panic if used within a prod_rt test.
         // Bump time before running a mutation so we have a higher creation time than
         // previous mutations.
-        tokio::time::advance(Duration::from_secs(1)).await;
+        self.rt.wait(Duration::from_micros(10)).await;
 
         let mut tx = self.database.begin(identity.clone()).await?;
         let path = ComponentFunctionPath {
