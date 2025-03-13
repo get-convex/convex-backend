@@ -28,5 +28,6 @@ Sentry.init({
   ignoreErrors: [
     "ResizeObserver loop completed with undelivered notifications.",
     "ConvexReactClient has already been closed.",
+    /.*AccessTokenInvalid.*/,
   ],
 });
