@@ -506,12 +506,6 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
             })
             .await
     }
-
-    // TODO(ENG-8142): Remove this implementation once we fully move to
-    // conductor. In conductor, we manually shutdown the pool.
-    async fn shutdown(&self) -> anyhow::Result<()> {
-        self.read_pool.clone().shutdown().await
-    }
 }
 
 #[derive(Clone)]
