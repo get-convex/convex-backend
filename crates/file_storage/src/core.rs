@@ -23,7 +23,10 @@ use common::{
     },
 };
 use database::Transaction;
-use errors::ErrorMetadata;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use futures::{
     stream::{
         self,
@@ -148,12 +151,9 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                 ),
             Err(e) => {
                 // Return the error for each requested storage id.
-                // Re-wrap the error with anyhow::anyhow to clone it. This loses
-                // ErrorMetadata, but an error from CanonicalUrlsModel should be
-                // a system error anyway.
                 return storage_ids
                     .into_keys()
-                    .map(|batch_key| (batch_key, Err(anyhow::anyhow!("{e:#}"))))
+                    .map(|batch_key| (batch_key, Err(e.clone_error())))
                     .collect();
             },
         };

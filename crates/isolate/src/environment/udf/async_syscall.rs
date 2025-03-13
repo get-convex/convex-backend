@@ -105,7 +105,6 @@ use crate::{
         action::parse_name_or_reference,
         helpers::{
             parse_version,
-            syscall_error::clone_error_for_batch,
             with_argument_error,
             ArgName,
         },
@@ -431,7 +430,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             Err(e) => {
                 return storage_ids
                     .into_keys()
-                    .map(|batch_key| (batch_key, Err(clone_error_for_batch(&e))))
+                    .map(|batch_key| (batch_key, Err(e.clone_error())))
                     .collect();
             },
         };
@@ -440,7 +439,7 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
             Err(e) => {
                 return storage_ids
                     .into_keys()
-                    .map(|batch_key| (batch_key, Err(clone_error_for_batch(&e))))
+                    .map(|batch_key| (batch_key, Err(e.clone_error())))
                     .collect();
             },
         };
@@ -1144,9 +1143,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let tx = match provider.tx() {
             Ok(tx) => tx,
             Err(e) => {
-                return (0..batch_size)
-                    .map(|_| Err(clone_error_for_batch(&e)))
-                    .collect_vec();
+                return (0..batch_size).map(|_| Err(e.clone_error())).collect_vec();
             },
         };
 

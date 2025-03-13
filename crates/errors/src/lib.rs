@@ -658,6 +658,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn wrap_error_message<F>(self, f: F) -> Self
     where
         F: FnOnce(String) -> String;
+    fn clone_error(&self) -> Self;
 }
 
 impl ErrorMetadataAnyhowExt for anyhow::Error {
@@ -889,6 +890,14 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
         // No underlying code. Just use .context()
         let new_msg = f(self.to_string());
         self.context(new_msg)
+    }
+
+    // NB: This function loses the backtrace for `e` and creates a new backtrace.
+    fn clone_error(&self) -> Self {
+        match self.downcast_ref::<ErrorMetadata>() {
+            Some(error_metadata) => error_metadata.clone().into(),
+            None => anyhow::anyhow!("{self:#}"),
+        }
     }
 }
 
