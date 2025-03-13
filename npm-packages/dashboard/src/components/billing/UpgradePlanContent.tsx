@@ -1,5 +1,4 @@
 import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { Spinner } from "dashboard-common/elements/Spinner";
 import { TextInput } from "dashboard-common/elements/TextInput";
 import React, { useCallback, useEffect, useState } from "react";
@@ -286,7 +285,19 @@ export function UpgradePlanContent({
                 Change payment method
               </Button>
             )}
-            <Tooltip
+            <Button
+              data-testid="upgrade-plan-button"
+              className="w-fit"
+              size="sm"
+              disabled={
+                isLoadingPromo ||
+                (requiresPaymentMethod && !formState.values.paymentMethod) ||
+                !formState.values.billingAddress ||
+                !formState.isValid ||
+                formState.isSubmitting
+              }
+              type="submit"
+              icon={formState.isSubmitting && <Spinner />}
               tip={
                 requiresPaymentMethod && !formState.values.paymentMethod
                   ? "Add a payment method to continue."
@@ -296,27 +307,11 @@ export function UpgradePlanContent({
                       ? "Enter a billing contact email to continue."
                       : !formState.values.billingAddress
                         ? "Enter a billing address to continue."
-                        : ""
+                        : undefined
               }
-              className="w-fit text-left"
             >
-              <Button
-                data-testid="upgrade-plan-button"
-                className="w-fit"
-                size="sm"
-                disabled={
-                  isLoadingPromo ||
-                  (requiresPaymentMethod && !formState.values.paymentMethod) ||
-                  !formState.values.billingAddress ||
-                  !formState.isValid ||
-                  formState.isSubmitting
-                }
-                type="submit"
-                icon={formState.isSubmitting && <Spinner />}
-              >
-                Confirm and Upgrade
-              </Button>
-            </Tooltip>
+              Confirm and Upgrade
+            </Button>
           </div>
         </form>
       )}
