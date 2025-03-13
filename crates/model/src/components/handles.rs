@@ -256,10 +256,12 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
 
         for (_, remaining_handle) in existing_handles {
             let (id, mut metadata) = remaining_handle.into_id_and_value();
-            metadata.deleted_ts = Some(*self.tx.begin_timestamp());
-            SystemMetadataModel::new_global(self.tx)
-                .replace(id, metadata.try_into()?)
-                .await?;
+            if metadata.deleted_ts.is_none() {
+                metadata.deleted_ts = Some(*self.tx.begin_timestamp());
+                SystemMetadataModel::new_global(self.tx)
+                    .replace(id, metadata.try_into()?)
+                    .await?;
+            }
         }
 
         Ok(())
