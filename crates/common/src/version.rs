@@ -18,7 +18,6 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use tuple_struct::tuple_struct_string;
 use value::export::ValueFormat;
 
 // Threshold for each of our clients
@@ -46,8 +45,6 @@ pub static DEPRECATION_THRESHOLD: LazyLock<DeprecationThreshold> = LazyLock::new
 // feature enabled
 pub static MIN_NPM_VERSION_FOR_FUZZY_SEARCH: LazyLock<Version> =
     LazyLock::new(|| env_config("MIN_NPM_VERSION_FOR_FUZZY_SEARCH", Version::new(1, 6, 1000)));
-
-tuple_struct_string!(BackendVersion);
 
 #[derive(Debug, Serialize, PartialEq, Eq)]
 pub enum ClientVersionState {
