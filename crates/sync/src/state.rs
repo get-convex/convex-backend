@@ -153,7 +153,7 @@ impl SyncState {
             invalidation_futures: FuturesUnordered::new(),
             queries: BTreeMap::new(),
             in_progress_queries: BTreeMap::new(),
-            identity: Identity::Unknown,
+            identity: Identity::Unknown(None),
 
             refill_needed: false,
 

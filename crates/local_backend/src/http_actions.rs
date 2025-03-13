@@ -156,11 +156,17 @@ pub async fn http_any_method(
     ExtractResolvedHostname(host): ExtractResolvedHostname,
     ExtractHttpRequestMetadata(http_request_metadata): ExtractHttpRequestMetadata,
 ) -> Result<impl IntoResponse, HttpResponseError> {
+    // The `Authorization` header for the request may contain a token corresponding
+    // to Convex auth, or it could be something separate managed by the developer.
+    // Try to extract the identity based on the Convex auth, but allow the request
+    // to go through if the header does not seem to specify Convex auth.
+    let identity = identity_result.unwrap_or_else(|e| Identity::Unknown(e.downcast().ok()));
+
     let mut http_response_stream = stream_http_response(
         host,
         request_id,
         http_request_metadata,
-        identity_result,
+        identity,
         st.api.clone(),
     );
     let head = http_response_stream.try_next().await?;
@@ -187,14 +193,9 @@ async fn stream_http_response(
     host: ResolvedHostname,
     request_id: RequestId,
     http_request_metadata: HttpActionRequest,
-    identity_result: anyhow::Result<Identity>,
+    identity: Identity,
     application: Arc<dyn ApplicationApi>,
 ) {
-    // The `Authorization` header for the request may contain a token corresponding
-    // to Convex auth, or it could be something separate managed by the developer.
-    // Try to extract the identity based on the Convex auth, but allow the request
-    // to go through if the header does not seem to specify Convex auth.
-    let identity = identity_result.unwrap_or(Identity::Unknown);
     let (http_response_sender, http_response_receiver) = mpsc::unbounded_channel();
 
     tokio::pin! {

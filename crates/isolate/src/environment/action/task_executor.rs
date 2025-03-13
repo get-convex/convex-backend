@@ -57,6 +57,7 @@ use crate::{
         },
         AsyncOpRequest,
     },
+    metrics::log_http_action_with_unknown_identity,
     ActionCallbacks,
 };
 
@@ -190,6 +191,15 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let user_identity = match self.identity.clone() {
             Identity::User(identity) => Some(identity.attributes),
             Identity::ActingUser(_, identity) => Some(identity),
+            Identity::Unknown(Some(error_message)) => {
+                log_http_action_with_unknown_identity();
+                tracing::info!(
+                    "Http Action called getUserIdentity with unknown identity: {}",
+                    error_message.short_msg,
+                );
+                // Switch this from None -> anyhow::bail!(error_message) if this metric is low
+                None
+            },
             _ => None,
         };
         if let Some(user_identity) = user_identity {

@@ -57,6 +57,7 @@ use pb::{
     convex_identity::{
         unchecked_identity::Identity as UncheckedIdentityProto,
         ActingUser,
+        UnknownIdentity,
     },
     convex_keys::{
         admin_key::Identity as AdminIdentityProto,
@@ -125,7 +126,11 @@ pub enum Identity {
     // ActingUser keeps track of the ID of the admin acting as a user,
     // and that user's fake attributes
     ActingUser(AdminIdentity, UserIdentityAttributes),
-    Unknown,
+    // Unknown(None) means no identity was provided.
+    // Unknown(Some(error_message)) means an error occurred while parsing the identity.
+    // We allow the request to go through, but keep the error to throw when code tries to
+    // access the identity (eg ctx.getUserIdentity())
+    Unknown(Option<ErrorMetadata>), // include an optional error message
 }
 
 impl From<Identity> for AuthenticationToken {
@@ -159,7 +164,9 @@ impl From<Identity> for pb::convex_identity::UncheckedIdentity {
                     attributes: Some(attributes.into()),
                 })
             },
-            Identity::Unknown => UncheckedIdentityProto::Unknown(()),
+            Identity::Unknown(error_message) => UncheckedIdentityProto::Unknown(UnknownIdentity {
+                error_message: error_message.map(|e| e.into()),
+            }),
         };
         Self {
             identity: Some(identity),
@@ -193,7 +200,9 @@ impl Identity {
                     attributes.ok_or_else(|| anyhow::anyhow!("Missing user attributes"))?;
                 Ok(Identity::ActingUser(admin_identity, attributes.try_into()?))
             },
-            UncheckedIdentityProto::Unknown(()) => Ok(Identity::Unknown),
+            UncheckedIdentityProto::Unknown(UnknownIdentity { error_message }) => Ok(
+                Identity::Unknown(error_message.map(|e| e.try_into()).transpose()?),
+            ),
         }
     }
 
@@ -222,7 +231,7 @@ impl From<Identity> for InertIdentity {
         match i {
             Identity::InstanceAdmin(i) => InertIdentity::InstanceAdmin(i.instance_name),
             Identity::System(_) => InertIdentity::System,
-            Identity::Unknown => InertIdentity::Unknown,
+            Identity::Unknown(_) => InertIdentity::Unknown,
             Identity::User(user) => InertIdentity::User(user.attributes.token_identifier),
             Identity::ActingUser(identity, user) => match identity.principal {
                 AdminIdentityPrincipal::Member(member_id) => {
@@ -244,7 +253,7 @@ impl PartialEq for Identity {
             (Self::User(l), Self::User(r)) => {
                 l.attributes.token_identifier == r.attributes.token_identifier
             },
-            (Self::Unknown, Self::Unknown) => true,
+            (Self::Unknown(_), Self::Unknown(_)) => true,
             (
                 Self::ActingUser(l_admin_identity, l_attributes),
                 Self::ActingUser(r_admin_identity, r_attributes),
@@ -252,7 +261,7 @@ impl PartialEq for Identity {
             (Self::InstanceAdmin(_), _)
             | (Self::System(_), _)
             | (Self::User(_), _)
-            | (Self::Unknown, _)
+            | (Self::Unknown(_), _)
             | (Self::ActingUser(..), _) => false,
         }
     }
@@ -265,7 +274,9 @@ impl Identity {
         match self.clone() {
             Identity::InstanceAdmin(i) => IdentityCacheKey::InstanceAdmin(i.instance_name),
             Identity::System(_) => IdentityCacheKey::System,
-            Identity::Unknown => IdentityCacheKey::Unknown,
+            Identity::Unknown(error_message) => {
+                IdentityCacheKey::Unknown(error_message.map(|e| e.to_string()))
+            },
             Identity::User(user) => IdentityCacheKey::User(user.attributes),
             Identity::ActingUser(identity, user) => match identity.principal {
                 AdminIdentityPrincipal::Member(member_id) => {
@@ -335,7 +346,7 @@ impl Identity {
     }
 
     pub fn assert_present(&self) -> anyhow::Result<()> {
-        if *self == Identity::Unknown {
+        if matches!(self, Identity::Unknown(_)) {
             anyhow::bail!(ErrorMetadata::unauthenticated(
                 "AuthorizationMissing",
                 "This request requires the HTTP `Authorization` header.",

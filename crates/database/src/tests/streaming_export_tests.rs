@@ -173,7 +173,7 @@ async fn test_document_deltas(rt: TestRuntime) -> anyhow::Result<()> {
 
     let deltas_auth = db
         .document_deltas(
-            Identity::Unknown,
+            Identity::Unknown(None),
             None,
             StreamingExportTableFilter::default(),
             200,
@@ -398,7 +398,7 @@ async fn test_snapshot_list(rt: TestRuntime) -> anyhow::Result<()> {
 
     let snapshot_auth = db
         .list_snapshot(
-            Identity::Unknown,
+            Identity::Unknown(None),
             None,
             None,
             StreamingExportTableFilter::default(),

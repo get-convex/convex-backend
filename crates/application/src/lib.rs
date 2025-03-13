@@ -2584,7 +2584,7 @@ impl<RT: Runtime> Application<RT> {
     }
 
     async fn bail_if_not_running(&self) -> anyhow::Result<()> {
-        let backend_state = BackendStateModel::new(&mut self.begin(Identity::Unknown).await?)
+        let backend_state = BackendStateModel::new(&mut self.begin(Identity::Unknown(None)).await?)
             .get_backend_state()
             .await?;
         if backend_state.is_stopped() {
@@ -2773,7 +2773,7 @@ impl<RT: Runtime> Application<RT> {
                 .await?;
                 Identity::user(identity)
             },
-            AuthenticationToken::None => Identity::Unknown,
+            AuthenticationToken::None => Identity::Unknown(None),
         };
         Ok(identity)
     }

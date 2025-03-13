@@ -1,4 +1,4 @@
-import { httpRouter } from "convex/server";
+import { httpRouter, UserIdentity } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { ConvexError } from "convex/values";
 
@@ -74,9 +74,15 @@ http.route({
   path: "/authHeader",
   method: "GET",
   handler: httpAction(async ({ auth }, request) => {
-    const identity = await auth.getUserIdentity();
+    let identity: UserIdentity | null | "error" = null;
+    try {
+      identity = await auth.getUserIdentity();
+    } catch (e) {
+      identity = "error";
+    }
+
     const result = {
-      hasUserIdentity: identity !== null,
+      identity,
       authorizationHeader: request.headers.get("Authorization"),
     };
     return new Response(JSON.stringify(result));

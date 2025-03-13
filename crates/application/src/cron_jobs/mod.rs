@@ -162,7 +162,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let mut running_job_ids = HashSet::new();
         let mut next_job_ready_time = None;
         loop {
-            let mut tx = self.database.begin(Identity::Unknown).await?;
+            let mut tx = self.database.begin(Identity::Unknown(None)).await?;
             let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
             let is_backend_stopped = backend_state.is_stopped();
 
@@ -696,7 +696,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
     ) -> anyhow::Result<Option<Transaction<RT>>> {
         let mut tx = self
             .database
-            .begin_with_usage(Identity::Unknown, usage_tracker)
+            .begin_with_usage(Identity::Unknown(None), usage_tracker)
             .await?;
         // Verify that the cron job has not changed.
         let new_job = tx

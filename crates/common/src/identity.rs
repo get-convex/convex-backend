@@ -69,7 +69,7 @@ pub enum IdentityCacheKey {
     /// System admin.
     System,
     /// Unknown.
-    Unknown,
+    Unknown(Option<String>),
     User(UserIdentityAttributes),
     ActingUser(MemberId, UserIdentityAttributes),
 }
@@ -79,7 +79,7 @@ impl HeapSize for IdentityCacheKey {
         match self {
             IdentityCacheKey::InstanceAdmin(s) => s.heap_size(),
             IdentityCacheKey::System => 0,
-            IdentityCacheKey::Unknown => 0,
+            IdentityCacheKey::Unknown(s) => s.heap_size(),
             IdentityCacheKey::User(u) => u.heap_size(),
             IdentityCacheKey::ActingUser(_m, u) => u.heap_size(),
         }

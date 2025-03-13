@@ -14,6 +14,6 @@ pub fn propagate_component_auth(
     if caller.is_root() && callee_is_root {
         identity.clone()
     } else {
-        Identity::Unknown
+        Identity::Unknown(None)
     }
 }

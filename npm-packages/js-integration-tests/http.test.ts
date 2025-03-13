@@ -9,13 +9,14 @@ describe("HTTP actions", () => {
         Authorization: "Bearer helloworld",
       },
     });
+    expect(response.status).toEqual(200);
     const result = await response.json();
 
     // The request should go through, propagating the header value.
     // But `auth.getUserIdentity` will return null since this header does not
     // correspond to a Convex managed auth provider
     expect(result.authorizationHeader).toEqual("Bearer helloworld");
-    expect(result.hasUserIdentity).toEqual(false);
+    expect(result.identity).toEqual(null);
   });
 
   test("short custom authorization header", async () => {
@@ -26,13 +27,14 @@ describe("HTTP actions", () => {
         Authorization: "a",
       },
     });
+    expect(response.status).toEqual(200);
     const result = await response.json();
 
     // The request should go through, propagating the header value.
     // But `auth.getUserIdentity` will return null since this header does not
     // correspond to a Convex managed auth provider
     expect(result.authorizationHeader).toEqual("a");
-    expect(result.hasUserIdentity).toEqual(false);
+    expect(result.identity).toEqual(null);
   });
 
   // TODO: add a test for a header value for a Convex managed auth provider.

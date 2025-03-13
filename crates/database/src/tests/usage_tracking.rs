@@ -71,7 +71,7 @@ async fn vector_insert_with_no_index_does_not_count_usage(rt: TestRuntime) -> an
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = fixtures
         .db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     add_document_vec_array(&mut tx, &table_name, [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
@@ -102,7 +102,7 @@ async fn vector_insert_counts_usage_for_backfilling_indexes(rt: TestRuntime) -> 
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = fixtures
         .db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
@@ -137,7 +137,7 @@ async fn vector_insert_counts_usage_for_enabled_indexes(rt: TestRuntime) -> anyh
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = fixtures
         .db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
@@ -172,7 +172,7 @@ async fn vectors_in_segment_count_as_usage(rt: TestRuntime) -> anyhow::Result<()
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = fixtures
         .db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
@@ -211,7 +211,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = fixtures
         .db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     add_document_vec_array(&mut tx, index_name.table(), [3f64, 4f64]).await?;
     fixtures.db.commit(tx).await?;
@@ -220,7 +220,7 @@ async fn vector_query_counts_bandwidth(rt: TestRuntime) -> anyhow::Result<()> {
     let (_, usage_stats) = fixtures
         .db
         .vector_search(
-            Identity::Unknown,
+            Identity::Unknown(None),
             VectorSearch {
                 index_name: index_name.clone(),
                 component_id: ComponentId::Root,
@@ -268,7 +268,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
 
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     let obj = assert_obj!("key" => vec![0; 100]);
     let table_name: TableName = "my_table".parse()?;
@@ -297,7 +297,7 @@ async fn test_usage_tracking_basic_insert_and_get(rt: TestRuntime) -> anyhow::Re
     // Database egress counted for read to user table, rounded up
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     UserFacingModel::new_root_for_test(&mut tx)
         .get_with_ts(doc_id, None)
@@ -358,7 +358,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     let obj = assert_obj!("key" => 1);
     let obj2 = assert_obj!("key" => 3);
@@ -392,7 +392,7 @@ async fn test_usage_tracking_insert_with_index(rt: TestRuntime) -> anyhow::Resul
 
     let tx_usage = FunctionUsageTracker::new();
     let mut tx = db
-        .begin_with_usage(Identity::Unknown, tx_usage.clone())
+        .begin_with_usage(Identity::Unknown(None), tx_usage.clone())
         .await?;
     let index_query = Query::index_range(IndexRange {
         index_name,

@@ -97,7 +97,7 @@ async fn test_udf_visibility(rt: TestRuntime) -> anyhow::Result<()> {
         .await?;
     t.database.commit(tx).await?;
 
-    tx = t.database.begin(Identity::Unknown).await?;
+    tx = t.database.begin(Identity::Unknown(None)).await?;
 
     let result = ValidatedPathAndArgs::new(
         AllowedVisibility::PublicOnly,

@@ -649,3 +649,12 @@ pub fn record_component_function_path(component_function_path: &ResolvedComponen
     }
     Event::add_to_local_parent("component_function_path", || labels);
 }
+
+register_convex_counter!(
+    HTTP_ACTION_WITH_UNKNOWN_IDENTITY_TOTAL,
+    "Number of HTTP actions that were called with an unknown identity",
+);
+
+pub fn log_http_action_with_unknown_identity() {
+    log_counter(&HTTP_ACTION_WITH_UNKNOWN_IDENTITY_TOTAL, 1);
+}
