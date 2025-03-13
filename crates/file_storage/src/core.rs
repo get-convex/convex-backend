@@ -135,7 +135,11 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
         component: ComponentId,
         storage_ids: BTreeMap<BatchKey, FileStorageId>,
     ) -> BTreeMap<BatchKey, anyhow::Result<Option<String>>> {
-        let canonical_origin = match CanonicalUrlsModel::new(tx).get_canonical_urls().await {
+        let canonical_origin = match CanonicalUrlsModel::new(tx)
+            .get_canonical_urls()
+            .await
+            .context("Fetching canonical urls failed")
+        {
             Ok(canonical_urls) => canonical_urls
                 .get(&RequestDestination::ConvexCloud)
                 .map_or_else(
@@ -149,7 +153,7 @@ impl<RT: Runtime> TransactionalFileStorage<RT> {
                 // a system error anyway.
                 return storage_ids
                     .into_keys()
-                    .map(|batch_key| (batch_key, Err(anyhow::anyhow!(e.to_string()))))
+                    .map(|batch_key| (batch_key, Err(anyhow::anyhow!("{e:#}"))))
                     .collect();
             },
         };
