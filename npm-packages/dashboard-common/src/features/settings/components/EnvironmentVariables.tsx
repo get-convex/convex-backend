@@ -184,24 +184,19 @@ function EnvironmentVariablesForm<T extends BaseEnvironmentVariable>({
       existingEnvironmentVariables.has(v.oldEnvVar.name),
     );
     if (newEditedVars.length !== oldEditedVars.length) {
-      formState.setFieldValue("editedVars", newEditedVars);
+      void formState.setFieldValue("editedVars", newEditedVars);
     }
 
     const newDeletedVars = oldDeletedVars.filter((v) =>
       existingEnvironmentVariables.has(v.name),
     );
     if (newDeletedVars.length !== oldDeletedVars.length) {
-      formState.setFieldValue("deletedVars", newDeletedVars);
+      void formState.setFieldValue("deletedVars", newDeletedVars);
     }
   }, [environmentVariables, formState]);
 
   return (
-    <Form
-      className="flex flex-col"
-      placeholder={undefined}
-      onPointerEnterCapture={undefined}
-      onPointerLeaveCapture={undefined}
-    >
+    <Form className="flex flex-col">
       {environmentVariables === undefined ? (
         <Spinner />
       ) : (
@@ -535,7 +530,7 @@ function EnvironmentVariableListItem<
             ...formState.values.editedVars.slice(0, editIndex),
             ...formState.values.editedVars.slice(editIndex + 1),
           ];
-          formState.setFieldValue("editedVars", newEditedVars);
+          void formState.setFieldValue("editedVars", newEditedVars);
 
           // https://github.com/jaredpalmer/formik/issues/2059#issuecomment-612733378
           setTimeout(() =>
@@ -563,7 +558,7 @@ function EnvironmentVariableListItem<
             ...formState.values.deletedVars.slice(0, deleteIndex),
             ...formState.values.deletedVars.slice(deleteIndex + 1),
           ];
-          formState.setFieldValue("deletedVars", newDeletedVars);
+          void formState.setFieldValue("deletedVars", newDeletedVars);
         }}
       />
     );
@@ -574,7 +569,7 @@ function EnvironmentVariableListItem<
       hasAdminPermissions={hasAdminPermissions}
       environmentVariable={environmentVariable}
       onEdit={() => {
-        formState.setFieldValue("editedVars", [
+        void formState.setFieldValue("editedVars", [
           ...formState.values.editedVars,
           {
             oldEnvVar: environmentVariable,
@@ -586,7 +581,7 @@ function EnvironmentVariableListItem<
         ]);
       }}
       onDelete={() => {
-        formState.setFieldValue("deletedVars", [
+        void formState.setFieldValue("deletedVars", [
           ...formState.values.deletedVars,
           environmentVariable,
         ]);
@@ -620,8 +615,8 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
       }
     });
 
-    formState.setFieldValue("newVars", newVars, true);
-    formState.setFieldValue("tooManyEnvVars", tooManyEnvVars);
+    void formState.setFieldValue("newVars", newVars, true);
+    void formState.setFieldValue("tooManyEnvVars", tooManyEnvVars);
 
     // https://github.com/jaredpalmer/formik/issues/2059#issuecomment-612733378
     setTimeout(() =>
@@ -645,12 +640,12 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
                     ...formState.values.newVars.slice(0, index),
                     ...formState.values.newVars.slice(index + 1),
                   ];
-                  formState.setFieldValue("newVars", newVars);
-                  formState.setFieldValue("tooManyEnvVars", false);
+                  void formState.setFieldValue("newVars", newVars);
+                  void formState.setFieldValue("tooManyEnvVars", false);
 
                   // https://github.com/jaredpalmer/formik/issues/2059#issuecomment-612733378
                   setTimeout(() => {
-                    formState.setTouched({
+                    void formState.setTouched({
                       newVars: newVars.map(() => ({ name: true, value: true })),
                     });
                   });
@@ -675,7 +670,7 @@ function NewEnvVars<T extends BaseEnvironmentVariable>({
               type="button"
               variant="neutral"
               onClick={() => {
-                formState.setFieldValue("newVars", [
+                void formState.setFieldValue("newVars", [
                   ...formState.values.newVars,
                   {
                     name: "",

@@ -36,7 +36,7 @@
     "dashboard-common": "workspace:*",
     "date-fns": "^2.29.3",
     "fetch-retry": "~6.0.0",
-    "formik": "~2.2.9",
+    "formik": "^2.4.6",
     "launchdarkly-react-client-sdk": "^3.0.4",
     "lodash": "~4.17.21",
     "next": "14.2.21",

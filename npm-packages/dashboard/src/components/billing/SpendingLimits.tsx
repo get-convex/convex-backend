@@ -130,12 +130,7 @@ export function SpendingLimitsForm({
       }}
     >
       {({ isSubmitting, isValid }) => (
-        <Form
-          className="flex flex-col items-start gap-4"
-          placeholder={undefined}
-          onPointerEnterCapture={undefined}
-          onPointerLeaveCapture={undefined}
-        >
+        <Form className="flex flex-col items-start gap-4">
           {isLoading ? (
             <Loading className="h-[176px] w-full max-w-64" fullHeight={false} />
           ) : (
@@ -170,7 +165,7 @@ export function SpendingLimits() {
 
   useEffect(() => {
     if (spendingLimitDisableThresholdUsd === 0) {
-      setFieldValue("spendingLimitWarningThresholdUsd", null);
+      void setFieldValue("spendingLimitWarningThresholdUsd", null);
     }
   }, [
     spendingLimitDisableThresholdUsd,
@@ -282,7 +277,10 @@ function SpendLimitInput({
           id={checkboxId}
           checked={value !== null}
           onChange={() => {
-            formState.setFieldValue(formKey, value === null ? undefined : null);
+            void formState.setFieldValue(
+              formKey,
+              value === null ? undefined : null,
+            );
           }}
           disabled={disabled}
         />
