@@ -250,21 +250,21 @@ function CronElement({ cronDiff }: { cronDiff: Infer<typeof cronDiffType> }) {
   const cronElement = (
     <div>
       {cronDiff.added.map((name) => (
-        <div className="flex items-start gap-1.5">
+        <div key={name} className="flex items-start gap-1.5">
           <Added />
           <span>cron job </span>
           <span className="font-mono font-semibold">{name}</span>
         </div>
       ))}
       {cronDiff.updated.map((name) => (
-        <div className="flex items-start gap-1.5">
+        <div key={name} className="flex items-start gap-1.5">
           <Updated />
           <span>cron job </span>
           <span className="font-mono font-semibold">{name}</span>
         </div>
       ))}
       {cronDiff.deleted.map((name) => (
-        <div className="flex items-start gap-1.5">
+        <div key={name} className="flex items-start gap-1.5">
           <Deleted />
           <span>cron job </span>
           <span className="font-mono font-semibold">{name}</span>
@@ -516,6 +516,7 @@ function SnapshotImportContent({
     <div className="flex flex-col gap-3 text-sm">
       {table_names.map(({ table_name, component }) => (
         <SnapshotImportIntoTable
+          key={`${table_name} ${component}`}
           table={table_name}
           component={component}
           import_mode={event.metadata.import_mode}
@@ -524,6 +525,7 @@ function SnapshotImportContent({
       {omittedTables > 0 ? <span>and {omittedTables} more</span> : null}
       {table_names_deleted.map(({ table_name, component }) => (
         <SnapshotImportIntoTable
+          key={`${table_name} ${component}`}
           table={table_name}
           component={component}
           import_mode={event.metadata.import_mode}

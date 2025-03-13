@@ -1219,6 +1219,29 @@ export const PushConfigWithLargeDiff: Story = {
   },
 };
 
+export const PushConfigWithCron: Story = {
+  args: {
+    event: {
+      _id: "" as Id<"_deployment_audit_log">,
+      _creationTime: Date.parse("12/19/2022, 10:00:00 AM"),
+      action: "push_config",
+      metadata: {
+        auth: { added: [], removed: [] },
+        server_version: null,
+        modules: { added: [], removed: [] },
+        crons: {
+          added: ["added cron job 1", "added cron job 2", "added cron job 3"],
+          deleted: ["removed cron 1", "removed cron 2", "removed cron 3"],
+          updated: ["updated cron 1", "updated cron 2", "updated cron 3"],
+        },
+        schema: null,
+      },
+      memberName: "member@convex.dev",
+      member_id: BigInt(1),
+    },
+  },
+};
+
 export const SnapshotImportZip: Story = {
   args: {
     event: {
