@@ -21,9 +21,14 @@ use common::{
         ConvexHttpService,
         NoopRouteMapper,
     },
+    pause::PauseController,
     runtime::Runtime,
-    testing::assert_contains,
+    testing::{
+        assert_contains,
+        TestPersistence,
+    },
 };
+use database::UserFacingModel;
 use http::{
     Request,
     StatusCode,
@@ -36,15 +41,25 @@ use runtime::{
     prod::ProdRuntime,
     testing::TestRuntime,
 };
+use semver::Version;
 use serde_json::json;
-use value::ConvexValue;
+use tokio::select;
+use value::{
+    val,
+    ConvexValue,
+    TableNamespace,
+};
 
 use crate::{
-    test_helpers::UdfTest,
+    test_helpers::{
+        UdfTest,
+        UdfTestConfig,
+    },
     tests::http_action::{
         http_post_request,
         http_request,
     },
+    IsolateConfig,
 };
 
 #[convex_macro::test_runtime]
@@ -316,5 +331,62 @@ async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
     t.action("fetch:fetchBlockedOnTimeouts", assert_obj!())
         .await?;
 
+    Ok(())
+}
+
+#[convex_macro::prod_rt_test]
+async fn test_fetch_abort(rt: ProdRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default_with_config(
+        UdfTestConfig {
+            isolate_config: IsolateConfig::default(),
+            udf_server_version: Version::parse("1000.0.0").unwrap(),
+        },
+        3,
+        rt.clone(),
+    )
+    .await?;
+    let (pause_controller, pause_client) = PauseController::new();
+    let hold = pause_controller.hold("pause_fetch");
+    let router = Router::new().route(
+        "/pause",
+        get(|| async move {
+            pause_client.wait("pause_fetch").await;
+            Response::builder().body(Body::from("ok")).unwrap()
+        }),
+    );
+    rt.spawn("test_router", serve(router, 4548));
+
+    // fetchAbort is an action that fetches from /pause, and in parallel it
+    // waits for triggerAbort. When triggerAbort is called, it aborts the fetch
+    // and waits for the fetch to throw an error, then returns success.
+
+    let mut result_fut = Box::pin(t.action("fetch:fetchAbort", assert_obj!()));
+    let paused = select! {
+        _ = &mut result_fut => {
+            anyhow::bail!("fetchAbort should pause");
+        },
+        paused = hold.wait_for_blocked() => {
+            let paused = paused.unwrap();
+            trigger_abort(&t).await?;
+            paused
+        },
+    };
+
+    // The action is able to finish before the fetch returns.
+    let result = result_fut.await?;
+    assert_eq!(result, val!("success"));
+    paused.unpause();
+
+    Ok(())
+}
+
+async fn trigger_abort(t: &UdfTest<ProdRuntime, TestPersistence>) -> anyhow::Result<()> {
+    let mut tx = t.database.begin(Identity::system()).await?;
+    // NOTE: you can't run a mutation in prod_rt_test, because time is paused but
+    // raw_mutation advances time.
+    UserFacingModel::new(&mut tx, TableNamespace::Global)
+        .insert("triggerAbort".parse()?, assert_obj!())
+        .await?;
+    t.database.commit(tx).await?;
     Ok(())
 }

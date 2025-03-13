@@ -3,10 +3,40 @@
 // https://github.com/denoland/deno/blob/main/LICENSE.md
 import { wrapInTests } from "./js_builtins/testHelpers";
 import { assert, expect } from "chai";
-import { action, query } from "./_generated/server";
+import { action, ActionCtx, query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 export const fromQuery = query(async () => {
   await fetch("http://localhost:4545/assets/fixture.json");
+});
+
+export const checkForAbort = query({
+  args: {},
+  handler: async (ctx) => {
+    const abort = await ctx.db.query("triggerAbort" as any).first();
+    return abort !== null;
+  },
+});
+
+async function fetchAbortTest(ctx: ActionCtx) {
+  const controller = new AbortController();
+  void (async () => {
+    while (!(await ctx.runQuery(api.fetch.checkForAbort))) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+    controller.abort();
+  })();
+  const responseFetch = fetch("http://localhost:4548/pause", {
+    method: "GET",
+    signal: controller.signal,
+  });
+  await expect(responseFetch).to.be.rejectedWith("AbortError");
+}
+
+export const fetchAbort = action(async (ctx) => {
+  return await wrapInTests({
+    fetchAbortTest: () => fetchAbortTest(ctx),
+  });
 });
 
 export default action(async () => {
@@ -85,7 +115,7 @@ export default action(async () => {
     // fetchClientCertBadPrivateKey,
     // fetchClientCertNotPrivateKey,
     // fetchCustomClientPrivateKey,
-    // fetchAbortWhileUploadStreaming,
+    fetchAbortWhileUploadStreaming,
     // fetchAbortWhileUploadStreamingWithReason,
     // fetchAbortWhileUploadStreamingWithPrimitiveReason,
     // fetchHeaderValueShouldNotPanic,
@@ -1292,26 +1322,30 @@ async function fetchResponseContentLength() {
 //   client.close();
 // }
 
-// async function fetchAbortWhileUploadStreaming(): Promise<void> {
-//   const abortController = new AbortController();
-//   try {
-//     await fetch("http://localhost:5552/echo_server", {
-//       method: "POST",
-//       body: new ReadableStream({
-//         pull(controller) {
-//           abortController.abort();
-//           controller.enqueue(new Uint8Array([1, 2, 3, 4]));
-//         },
-//       }),
-//       signal: abortController.signal,
-//     });
-//     fail("Fetch didn't reject.");
-//   } catch (error) {
-//     assert(error instanceof DOMException);
-//     assertEquals(error.name, "AbortError");
-//     assertEquals(error.message, "The signal has been aborted");
-//   }
-// }
+async function fetchAbortWhileUploadStreaming(): Promise<void> {
+  const abortController = new AbortController();
+  try {
+    await fetch("http://localhost:4545/echo_server", {
+      method: "POST",
+      body: new ReadableStream({
+        pull(_controller) {
+          abortController.abort();
+          // controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+        },
+      }),
+      signal: abortController.signal,
+    });
+    expect.fail("Fetch didn't reject.");
+  } catch (error) {
+    expect(error).to.be.instanceOf(Error);
+    if (error instanceof Error) {
+      expect(error.message).to.equal("AbortError");
+    }
+    // expect(error).to.be.instanceOf(DOMException);
+    // expect(error.name).to.equal("AbortError");
+    // expect(error.message).to.equal("The signal has been aborted");
+  }
+}
 
 // async function fetchAbortWhileUploadStreamingWithReason(): Promise<void> {
 //   const abortController = new AbortController();

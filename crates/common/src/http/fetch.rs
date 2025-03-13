@@ -13,11 +13,13 @@ use std::{
 };
 
 use async_trait::async_trait;
+use bytes::Bytes;
+use errors::ErrorMetadata;
 use futures::{
     future::BoxFuture,
     StreamExt,
-    TryStreamExt,
 };
+use futures_async_stream::try_stream;
 use http::StatusCode;
 use reqwest::{
     redirect,
@@ -25,6 +27,7 @@ use reqwest::{
     Proxy,
     Url,
 };
+use tokio::select;
 
 use crate::http::{
     HttpRequestStream,
@@ -85,7 +88,7 @@ impl ProxiedFetchClient {
 
 #[async_trait]
 impl FetchClient for ProxiedFetchClient {
-    async fn fetch(&self, request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
+    async fn fetch(&self, mut request: HttpRequestStream) -> anyhow::Result<HttpResponseStream> {
         let mut request_builder = self
             .http_client
             .request(request.method, request.url.as_str());
@@ -95,7 +98,15 @@ impl FetchClient for ProxiedFetchClient {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
         let raw_request = request_builder.build()?;
-        let raw_response = self.http_client.execute(raw_request).await?;
+        let raw_response = select! {
+            response = self.http_client.execute(raw_request) => {
+                response?
+            },
+            _ = &mut request.signal => {
+                // TODO: This should turn into a DOMException with name "AbortError"
+                anyhow::bail!(ErrorMetadata::bad_request("RequestAborted", "AbortError"));
+            },
+        };
         if raw_response.status() == StatusCode::PROXY_AUTHENTICATION_REQUIRED {
             // SSRF mitigated -- our proxy blocked this request because it was
             // directed at a non-public IP range. Don't send back the raw HTTP response as
@@ -108,14 +119,17 @@ impl FetchClient for ProxiedFetchClient {
             status,
             headers,
             url: Some(request.url),
-            body: Some(raw_response.bytes_stream().map_err(|e| e.into()).boxed()),
+            body: Some(cancelable_body_stream(
+                raw_response.bytes_stream(),
+                request.signal,
+            )),
         };
         Ok(response)
     }
 
     async fn internal_fetch(
         &self,
-        request: HttpRequestStream,
+        mut request: HttpRequestStream,
         _purpose: InternalFetchPurpose,
     ) -> anyhow::Result<HttpResponseStream> {
         let mut request_builder = self
@@ -127,16 +141,56 @@ impl FetchClient for ProxiedFetchClient {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
         let raw_request = request_builder.build()?;
-        let raw_response = self.internal_http_client.execute(raw_request).await?;
+        let raw_response = select! {
+            response = self.internal_http_client.execute(raw_request) => {
+                response?
+            },
+            _ = &mut request.signal => {
+                // TODO: This should turn into a DOMException with name "AbortError"
+                anyhow::bail!(ErrorMetadata::bad_request("RequestAborted", "AbortError"));
+            },
+        };
         let status = raw_response.status();
         let headers = raw_response.headers().to_owned();
         let response = HttpResponseStream {
             status,
             headers,
             url: Some(request.url),
-            body: Some(raw_response.bytes_stream().map_err(|e| e.into()).boxed()),
+            body: Some(cancelable_body_stream(
+                raw_response.bytes_stream(),
+                request.signal,
+            )),
         };
         Ok(response)
+    }
+}
+
+#[try_stream(boxed, ok = Bytes, error = anyhow::Error)]
+async fn cancelable_body_stream<E: Into<anyhow::Error>>(
+    stream: impl futures::stream::Stream<Item = Result<Bytes, E>> + Send + 'static,
+    mut signal: BoxFuture<'static, ()>,
+) {
+    let mut stream = Box::pin(stream);
+    loop {
+        let result = async {
+            select! {
+                item = stream.next() => {
+                    item.transpose().map_err(Into::<anyhow::Error>::into)
+                },
+                _ = &mut signal => {
+                    // TODO: This should turn into a DOMException with name "AbortError"
+                    Err(anyhow::anyhow!(ErrorMetadata::bad_request("RequestAborted", "AbortError")))
+                },
+            }
+        };
+        match result.await? {
+            Some(item) => {
+                yield item;
+            },
+            None => {
+                break;
+            },
+        }
     }
 }
 

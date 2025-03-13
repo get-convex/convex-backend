@@ -52,7 +52,7 @@ export interface RequestInit {
   /** A boolean to set request's keepalive. */
   //keepalive?: boolean;
   /** An AbortSignal to set request's signal. */
-  //signal?: AbortSignal | null;
+  signal?: AbortSignal | null;
   //priority?: "high" | "low" | "auto";
 }
 
@@ -64,6 +64,7 @@ export class Request {
   private readonly _method: string;
   private _bodyStream: ReadableStream | null;
   private _bodyUsed = false;
+  private _signal: AbortSignal;
   [_contentLength]: number | null;
 
   constructor(input: string | URL | Request, options?: RequestInit) {
@@ -71,11 +72,14 @@ export class Request {
       throw new TypeError("Request URL is undefined");
     }
     this[_contentLength] = null;
+    // By default, the signal never aborts.
+    this._signal = new AbortSignal();
     if (input instanceof Request) {
       // Copy initial values from the request. Options can still override them.
       this._url = new URL(input.url).href;
       this._method = input.method;
       this._headers = new Headers(input.headers);
+      this._signal = input.signal;
       // TODO(presley): https://developer.mozilla.org/en-US/docs/Web/API/Request/Request
       // * If this object exists on another origin to the constructor call, the Request.referrer is stripped out.
       // * If this object has a Request.mode of navigate, the mode value is converted to same-origin.
@@ -101,6 +105,9 @@ export class Request {
     }
     if (options?.headers !== undefined) {
       this._headers = new Headers(options?.headers);
+    }
+    if (options?.signal !== undefined && options.signal !== null) {
+      this._signal = options.signal;
     }
 
     if (options?.body !== null && options?.body !== undefined) {
@@ -323,7 +330,7 @@ export class Request {
   }
 
   get signal() {
-    return throwNotImplementedMethodError("get signal", "Request");
+    return this._signal;
   }
 
   get duplex() {
@@ -342,9 +349,22 @@ export const requestFromConvexJson = ({
     headers: convexJson.headerPairs,
     body: stream,
     method: convexJson.method,
+    // TODO(lee) construct signal here, passed in from rust,
+    // which will populate the signal in the HTTP action request object.
   });
   return request;
 };
+
+// AbortSignal in JS -> stream in Rust
+function constructAbortSignalStreamId(signal: AbortSignal): string {
+  return constructStreamId(
+    new ReadableStream({
+      start(controller) {
+        signal.addEventListener("abort", () => controller.close());
+      },
+    }),
+  );
+}
 
 export const convexV8ObjectFromRequest = async (request: Request) => {
   const streamId = request.body ? constructStreamId(request.body) : null;
@@ -355,11 +375,15 @@ export const convexV8ObjectFromRequest = async (request: Request) => {
   ) {
     headerPairs.push(["content-length", String(request[_contentLength])]);
   }
+  const signal = request.signal
+    ? constructAbortSignalStreamId(request.signal)
+    : null;
   return {
     url: request.url,
     headerPairs,
     method: request.method,
     streamId,
+    signal,
   };
 };
 

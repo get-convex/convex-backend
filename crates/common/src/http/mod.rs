@@ -202,6 +202,8 @@ impl From<HttpRequest> for HttpRequestStream {
             url: value.url,
             method: value.method,
             body,
+            // This kind of HttpRequest can't be aborted.
+            signal: Box::pin(futures::future::pending()),
         }
     }
 }
@@ -272,6 +274,7 @@ pub struct HttpRequestStream {
     pub url: Url,
     pub method: Method,
     pub body: Pin<Box<dyn Stream<Item = anyhow::Result<bytes::Bytes>> + Sync + Send + 'static>>,
+    pub signal: Pin<Box<dyn Future<Output = ()> + Sync + Send + 'static>>,
 }
 
 impl std::fmt::Debug for HttpRequestStream {
