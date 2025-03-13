@@ -42,6 +42,7 @@ const subscription: OrbSubscriptionResponse = {
     email: "",
   },
   status: "active",
+  nextBillingPeriodStart: "2025-09-25",
 };
 
 const team: Team = {

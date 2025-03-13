@@ -1604,6 +1604,7 @@ export interface components {
             billingContact: components["schemas"]["BillingContactResponse"];
             /** Format: int64 */
             endDate?: number | null;
+            nextBillingPeriodStart: string;
             paymentMethod?: null | components["schemas"]["PaymentMethodResponse"];
             plan: components["schemas"]["PlanResponse"];
             status: string;

@@ -3524,7 +3524,8 @@
         "required": [
           "plan",
           "billingContact",
-          "status"
+          "status",
+          "nextBillingPeriodStart"
         ],
         "properties": {
           "billingAddress": {
@@ -3546,6 +3547,9 @@
               "null"
             ],
             "format": "int64"
+          },
+          "nextBillingPeriodStart": {
+            "type": "string"
           },
           "paymentMethod": {
             "oneOf": [
