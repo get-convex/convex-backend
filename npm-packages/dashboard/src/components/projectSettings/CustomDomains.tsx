@@ -41,7 +41,6 @@ import { useQuery } from "convex/react";
 import udfs from "dashboard-common/udfs";
 import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
 import { Loading } from "dashboard-common/elements/Loading";
-import { useLaunchDarkly } from "../../hooks/useLaunchDarkly";
 
 export function CustomDomains({
   team,
@@ -59,7 +58,6 @@ export function CustomDomains({
     hasEntitlement ? deployment?.name : undefined,
   );
   const hasEditAccess = hasEntitlement && hasAdminPermissions;
-  const { canonicalCustomDomains } = useLaunchDarkly();
 
   const proCallout = hasEntitlement ? null : (
     <Callout>
@@ -135,7 +133,7 @@ export function CustomDomains({
                 </div>
               </>
             )}
-            {deployment && canonicalCustomDomains && (
+            {deployment && (
               <div className="border-t">
                 <ProdProvider deploymentName={deployment.name}>
                   <CanonicalDomainForm

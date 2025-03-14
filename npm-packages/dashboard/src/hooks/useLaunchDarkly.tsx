@@ -10,11 +10,9 @@ const flagDefaults: {
       allowImplicitFlow?: boolean;
     }
   >;
-  canonicalCustomDomains: boolean;
   spendingLimits: boolean;
 } = {
   oauthProviderConfiguration: {},
-  canonicalCustomDomains: false,
   spendingLimits: false,
 };
 
