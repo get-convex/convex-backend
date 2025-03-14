@@ -14,6 +14,7 @@
     "storybook": "storybook dev -s ./public -p 6006 --no-open",
     "build-storybook": "storybook build",
     "test": "npm run checkApiSpec && npm run build:generated && jest",
+    "test-storybook": "test-storybook --failOnConsole",
     "clean": "shx rm -rf .next",
     "corsAnywhere": "node cors-anywhere.js",
     "pullEnv": "vercel env pull .env.local",
@@ -69,6 +70,7 @@
     "@storybook/cli": "^7.6.16",
     "@storybook/nextjs": "^7.6.16",
     "@storybook/react": "^7.6.16",
+    "@storybook/test-runner": "0.16.0",
     "@storybook/types": "^7.6.16",
     "@tailwindcss/forms": "^0.5.6",
     "@testing-library/jest-dom": "~6.6.0",
@@ -120,6 +122,9 @@
     "openapi-typescript": "~7.4.2",
     "openapi-typescript-helpers": "~0.0.15",
     "@types/react-sparklines": "~1.7.5",
-    "eslint-plugin-boundaries": "~5.0.1"
+    "eslint-plugin-boundaries": "~5.0.1",
+    "concurrently": "~8.2.2",
+    "wait-on": "^8.0.2",
+    "http-server": "^14.1.1"
   }
 }
