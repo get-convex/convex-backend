@@ -3,6 +3,7 @@ use std::sync::Arc;
 use parking_lot::{
     RwLock,
     RwLockReadGuard,
+    RwLockUpgradableReadGuard,
     RwLockWriteGuard,
 };
 
@@ -53,5 +54,9 @@ impl<T> Writer<T> {
 
     pub fn read(&self) -> RwLockReadGuard<T> {
         self.inner.read()
+    }
+
+    pub fn upgradable_read(&self) -> RwLockUpgradableReadGuard<T> {
+        self.inner.upgradable_read()
     }
 }

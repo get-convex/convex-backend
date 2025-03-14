@@ -81,7 +81,10 @@ use futures::{
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
-use parking_lot::Mutex;
+use parking_lot::{
+    Mutex,
+    RwLockUpgradableReadGuard,
+};
 use prometheus::VMHistogram;
 use tokio::sync::{
     mpsc::{
@@ -763,14 +766,6 @@ impl<RT: Runtime> Committer<RT> {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
-        // Grab the `SnapshotManager` lock first. This is held until the end of this
-        // function.
-        let mut snapshot_manager = self.snapshot_manager.write();
-
-        // This is the only time the `ConflictLogger` lock is acquired -- always under
-        // the `SnapshotManager` write lock.
-        // This is important as a reader should never be able to observe state that is
-        // inconsistent between the conflict logger and the index snapshot.
         let (ordered_updates, write_source) = match self.pending_writes.pop_first(pending_write) {
             None => panic!("commit at {commit_ts} not pending"),
             Some((ts, document_updates, write_source)) => {
@@ -780,6 +775,8 @@ impl<RT: Runtime> Committer<RT> {
                 (document_updates, write_source)
             },
         };
+
+        let snapshot_manager = self.snapshot_manager.upgradable_read();
 
         let new_snapshot = {
             let timer = metrics::commit_validate_index_write_timer();
@@ -804,6 +801,9 @@ impl<RT: Runtime> Committer<RT> {
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
+        // Acquire a write lock on the SnapshotManager now before appending to
+        // the WriteLog, so that the two can't be observed to diverge.
+        let mut snapshot_manager = RwLockUpgradableReadGuard::upgrade(snapshot_manager);
         let timer = metrics::write_log_append_timer();
         self.log.append(
             commit_ts,
