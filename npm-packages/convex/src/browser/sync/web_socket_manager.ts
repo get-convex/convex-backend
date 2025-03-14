@@ -159,6 +159,15 @@ export class WebSocketManager {
     this.connect();
   }
 
+  private setSocketState(state: Socket) {
+    this.socket = state;
+    this._logVerbose(
+      `socket state changed: ${this.socket.state}, paused: ${
+        "paused" in this.socket ? this.socket.paused : undefined
+      }`,
+    );
+  }
+
   private connect() {
     if (this.socket.state === "terminated") {
       return;
@@ -174,11 +183,11 @@ export class WebSocketManager {
 
     const ws = new this.webSocketConstructor(this.uri);
     this._logVerbose("constructed WebSocket");
-    this.socket = {
+    this.setSocketState({
       state: "connecting",
       ws,
       paused: "no",
-    };
+    });
 
     // Kick off server inactivity timer before WebSocket connection is established
     // so we can detect cases where handshake fails.
@@ -191,11 +200,11 @@ export class WebSocketManager {
       if (this.socket.state !== "connecting") {
         throw new Error("onopen called with socket not in connecting state");
       }
-      this.socket = {
+      this.setSocketState({
         state: "ready",
         ws,
         paused: this.socket.paused === "yes" ? "uninitialized" : "no",
-      };
+      });
       this.resetServerInactivityTimeout();
       if (this.socket.paused === "no") {
         this._hasEverConnected = true;
@@ -261,8 +270,14 @@ export class WebSocketManager {
    * @returns Whether the message (might have been) sent.
    */
   sendMessage(message: ClientMessage) {
-    this._logVerbose(`sending message with type ${message.type}`);
-
+    const messageForLog = {
+      type: message.type,
+      ...(message.type === "Authenticate" && message.tokenType === "User"
+        ? {
+            value: `...${message.value.slice(-7)}`,
+          }
+        : {}),
+    };
     if (this.socket.state === "ready" && this.socket.paused === "no") {
       const encodedMessage = encodeClientMessage(message);
       const request = JSON.stringify(encodedMessage);
@@ -275,8 +290,19 @@ export class WebSocketManager {
         this.closeAndReconnect("FailedToSendMessage");
       }
       // We are not sure if this was sent or not.
+      this._logVerbose(
+        `sent message with type ${message.type}: ${JSON.stringify(
+          messageForLog,
+        )}`,
+      );
       return true;
     }
+    this._logVerbose(
+      `message not sent (socket state: ${this.socket.state}, paused: ${"paused" in this.socket ? this.socket.paused : undefined}): ${JSON.stringify(
+        messageForLog,
+      )}`,
+    );
+
     return false;
   }
 
@@ -390,7 +416,7 @@ export class WebSocketManager {
       case "connecting":
       case "ready": {
         const result = this.close();
-        this.socket = { state: "terminated" };
+        this.setSocketState({ state: "terminated" });
         return result;
       }
       default: {
@@ -428,17 +454,16 @@ export class WebSocketManager {
    * Create a new WebSocket after a previous `stop()`, unless `terminate()` was
    * called before.
    */
-  restart(): void {
+  tryRestart(): void {
     switch (this.socket.state) {
       case "stopped":
         break;
       case "terminated":
-        // If we're terminating we ignore restart
-        return;
       case "connecting":
       case "ready":
       case "disconnected":
-        throw new Error("`restart()` is only valid after `stop()`");
+        this.logger.logVerbose("Restart called without stopping first");
+        return;
       default: {
         // Enforce that the switch-case is exhaustive.
         const _: never = this.socket;

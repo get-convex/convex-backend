@@ -293,6 +293,10 @@ export type AuthError = {
   type: "AuthError";
   error: string;
   baseVersion: IdentityVersion;
+  // True if this error is in response to processing a new `Authenticate` message.
+  // Other AuthErrors may occur due to executing a function with expired auth and
+  // should be handled differently.
+  authUpdateAttempted: boolean;
 };
 type FatalError = {
   type: "FatalError";
