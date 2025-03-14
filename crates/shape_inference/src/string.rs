@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     marker::PhantomData,
     ops::Deref,
 };
@@ -20,10 +21,18 @@ use crate::ShapeCounter;
 ///
 /// String literals that are valid `Id`s in some table `t` are subtypes of
 /// `id<t>`, and all string literals and `id`s are subtypes of `string`.
-#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct StringLiteralShape<C: ShapeConfig> {
     pub literal: ConvexString,
     _cfg: PhantomData<C>,
+}
+
+impl<C: ShapeConfig + fmt::Debug> fmt::Debug for StringLiteralShape<C> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StringLiteralShape")
+            .field("literal", &self.literal)
+            .finish()
+    }
 }
 
 impl<C: ShapeConfig> StringLiteralShape<C> {
