@@ -777,7 +777,7 @@ impl PackedDocument {
     }
 
     pub fn unpack(&self) -> ResolvedDocument {
-        let value = ConvexValue::try_from(self.0.clone()).expect("Couldn't unpack packed value");
+        let value = ConvexValue::try_from(self.0.as_ref()).expect("Couldn't unpack packed value");
         let document_id = self.1;
         ResolvedDocument::from_packed(value, document_id)
             .expect("Packed value wasn't a valid document?")
