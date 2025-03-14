@@ -13,7 +13,7 @@ export function useDeployments(projectId?: number) {
     },
     swrOptions: {
       revalidateOnMount: initialData === undefined,
-      refreshInterval: 5000,
+      refreshInterval: 30 * 1000,
     },
   });
 

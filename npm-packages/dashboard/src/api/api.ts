@@ -17,10 +17,18 @@ import { useCallback, useEffect } from "react";
 import { usePrevious } from "react-use";
 import { captureException } from "@sentry/nextjs";
 import { getGoogleAnalyticsClientId, reportHttpError } from "../hooks/fetching";
+import { forceCheckIsOnline } from "./onlineStatus";
 
 export const client = createClient<BigBrainPaths>({
   baseUrl: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/api/dashboard`,
 });
+
+// These are the error messages that we consider to be network errors, indicating that Big Brain may be offline.
+const fetchErrorMessages = [
+  "Failed to fetch", // Chromium
+  "Load failed", // Safari
+  "NetworkError when attempting to fetch resource.", // Firefox
+];
 
 const useQuery = createQueryHook(client, "big-brain");
 
@@ -80,6 +88,14 @@ export function useBBQuery<QueryPath extends Path<"get">>({
     ...swrOptions,
   });
   if ("error" in res && !!res.error && typeof res.error === "object") {
+    if (
+      res.error instanceof TypeError &&
+      fetchErrorMessages.some((msg) => (res.error as TypeError).message === msg)
+    ) {
+      // Check if we're online when we encounter network errors
+      // Use forceCheckIsOnline to bypass the cache and get the current status
+      void forceCheckIsOnline();
+    }
     if ("code" in res.error && "message" in res.error) {
       captureException(
         new Error(
