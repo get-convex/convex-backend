@@ -68,7 +68,7 @@ fn index_registry_bootstrap(bencher: divan::Bencher, num_indexes: usize) {
     bencher.bench(|| {
         IndexRegistry::bootstrap(
             &id_generator,
-            index_documents.values().map(|(_, d)| d),
+            index_documents.values().map(|(_, d)| d.clone()),
             PersistenceVersion::default(),
         )
         .unwrap();

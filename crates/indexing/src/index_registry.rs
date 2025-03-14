@@ -108,7 +108,7 @@ impl IndexRegistry {
     #[fastrace::trace]
     pub fn bootstrap<'a>(
         table_mapping: &TableMapping,
-        index_documents: impl Iterator<Item = &'a ResolvedDocument>,
+        index_documents: impl Iterator<Item = ResolvedDocument>,
         persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Self> {
         let index_table = table_mapping
@@ -130,25 +130,24 @@ impl IndexRegistry {
 
         for document in index_documents {
             anyhow::ensure!(document.id().tablet_id == index_table);
-            let metadata = TabletIndexMetadata::from_document(document.clone())?;
+            let metadata = TabletIndexMetadata::from_document(document)?;
             if metadata.name == meta_index_name {
                 anyhow::ensure!(meta_index.is_none());
-                meta_index = Some(document);
+                meta_index = Some(metadata);
             } else {
-                regular_indexes.push(document);
+                regular_indexes.push(metadata);
             }
         }
 
-        let meta_index_doc = meta_index
+        let meta_index = meta_index
             .ok_or_else(|| anyhow::anyhow!("Missing `by_id` index for {}", *INDEX_TABLE))?;
-        let meta_index = TabletIndexMetadata::from_document(meta_index_doc.clone())?;
 
         // First insert the `_index` table scan index.
         index.insert(Index::new(meta_index.id().internal_id(), meta_index));
 
-        // Populate the metadata by feeding all remaining index documents.
-        for document in regular_indexes {
-            index.update(None, Some(document))?;
+        // Then insert the rest of the indexes.
+        for metadata in regular_indexes {
+            index.insert(Index::new(metadata.id().internal_id(), metadata));
         }
 
         Ok(index)
@@ -226,7 +225,7 @@ impl IndexRegistry {
 
     // Verifies if an update is valid.
     fn verify_update(
-        &mut self,
+        &self,
         old_document: Option<&ResolvedDocument>,
         new_document: Option<&ResolvedDocument>,
     ) -> anyhow::Result<()> {

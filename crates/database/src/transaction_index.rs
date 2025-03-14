@@ -917,7 +917,7 @@ mod tests {
 
         let index_registry = IndexRegistry::bootstrap(
             id_generator,
-            index_documents.values().map(|(_, d)| d),
+            index_documents.values().map(|(_, d)| d.clone()),
             PersistenceVersion::default(),
         )?;
         let index = BackendInMemoryIndexes::bootstrap(&index_registry, index_documents, ts)?;

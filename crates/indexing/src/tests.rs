@@ -116,7 +116,7 @@ fn test_metadata_add_and_drop_index() -> anyhow::Result<()> {
     let index_documents = index_documents(&mut id_generator, vec![])?;
     let mut index_registry = IndexRegistry::bootstrap(
         &id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )?;
 
@@ -158,7 +158,7 @@ fn test_metadata_rename_index() -> anyhow::Result<()> {
     let index_documents = index_documents(&mut id_generator, vec![])?;
     let mut index_registry = IndexRegistry::bootstrap(
         &id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )?;
     let table = id_generator.user_table_id(&"messages".parse()?);
@@ -243,7 +243,7 @@ fn test_metadata_change_index() -> anyhow::Result<()> {
     let index_documents = index_documents(&mut id_generator, indexes)?;
     let mut index_registry = IndexRegistry::bootstrap(
         &id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )?;
 
@@ -322,7 +322,7 @@ fn test_second_pending_index_for_name_fails() -> anyhow::Result<()> {
     let index_documents = index_documents(&mut id_generator, indexes)?;
     let mut index_registry = IndexRegistry::bootstrap(
         &id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )?;
     let table = id_generator.user_table_id(&"messages".parse()?);
@@ -380,7 +380,7 @@ fn test_metadata_index_updates() -> anyhow::Result<()> {
     let index_documents = index_documents(&mut id_generator, indexes)?;
     let mut index_registry = IndexRegistry::bootstrap(
         &id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )?;
     let mut in_memory_indexes =
@@ -557,7 +557,7 @@ async fn test_load_into_memory(_rt: TestRuntime) -> anyhow::Result<()> {
     let index_documents = index_documents(&mut id_generator, indexes)?;
     let mut index_registry = IndexRegistry::bootstrap(
         &id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )?;
     let mut in_memory_indexes =
@@ -700,7 +700,7 @@ fn default_registry(id_generator: &mut TestIdGenerator) -> anyhow::Result<IndexR
     let index_documents = index_documents(id_generator, vec![])?;
     IndexRegistry::bootstrap(
         id_generator,
-        index_documents.values().map(|(_, d)| d),
+        index_documents.values().map(|(_, d)| d.clone()),
         PersistenceVersion::default(),
     )
 }

@@ -299,7 +299,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         );
         let index_registry = IndexRegistry::bootstrap(
             &table_mapping,
-            index_documents.collect::<Vec<_>>().iter(),
+            index_documents,
             persistence_snapshot.persistence().version(),
         )?;
 

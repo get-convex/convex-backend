@@ -373,7 +373,7 @@ impl<RT: Runtime> IndexWorker<RT> {
     ) -> anyhow::Result<()> {
         let index_registry = IndexRegistry::bootstrap(
             table_mapping,
-            index_documents.values(),
+            index_documents.into_values(),
             self.persistence_version,
         )?;
 

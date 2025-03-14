@@ -446,7 +446,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         let persistence_version = persistence_snapshot.persistence().version();
         let index_registry = IndexRegistry::bootstrap(
             &table_mapping,
-            index_documents.values().map(|(_, d)| d),
+            index_documents.values().map(|(_, d)| d.clone()),
             persistence_version,
         )?;
         Ok((
@@ -1224,7 +1224,7 @@ impl<RT: Runtime> Database<RT> {
             .collect::<BTreeMap<_, _>>();
         let mut index_registry = IndexRegistry::bootstrap(
             &table_mapping,
-            index_documents.values().map(|(_, d)| d),
+            index_documents.values().map(|(_, d)| d.clone()),
             persistence.reader().version(),
         )?;
         let mut in_memory_indexes =
