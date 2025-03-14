@@ -1,5 +1,4 @@
 import path from "path";
-import { z } from "zod";
 import { Context } from "../../bundler/context.js";
 import { entryPoints } from "../../bundler/index.js";
 import {
@@ -15,12 +14,13 @@ import {
 } from "../lib/deployApi/componentDefinition.js";
 import { ComponentDefinitionPath } from "../lib/deployApi/paths.js";
 import { Identifier, Reference } from "../lib/deployApi/types.js";
-import {
-  ConvexValidator,
-  convexValidator,
-} from "../lib/deployApi/validator.js";
 import { CanonicalizedModulePath } from "../lib/deployApi/paths.js";
-import { Value, jsonToConvex } from "../../values/value.js";
+import {
+  AnalyzedFunction,
+  AnalyzedModule,
+  Visibility,
+} from "../lib/deployApi/modules.js";
+import { parseValidator, validatorToType } from "./validator_helpers.js";
 
 export function componentApiJs() {
   const lines = [];
@@ -72,59 +72,12 @@ export async function componentApiDTS(
   startPush: StartPushResponse,
   rootComponent: ComponentDirectory,
   componentDirectory: ComponentDirectory,
+  opts: { staticApi: boolean },
 ) {
   const definitionPath = toComponentDefinitionPath(
     rootComponent,
     componentDirectory,
   );
-  const absModulePaths = await entryPoints(ctx, componentDirectory.path);
-  const modulePaths = absModulePaths.map((p) =>
-    path.relative(componentDirectory.path, p),
-  );
-
-  const lines = [];
-  lines.push(header("Generated `api` utility."));
-  for (const modulePath of modulePaths) {
-    const ident = moduleIdentifier(modulePath);
-    const path = importPath(modulePath);
-    lines.push(`import type * as ${ident} from "../${path}.js";`);
-  }
-  lines.push(`
-    import type {
-      ApiFromModules,
-      FilterApi,
-      FunctionReference,
-    } from "convex/server";
-    /**
-     * A utility for referencing Convex functions in your app's API.
-     *
-     * Usage:
-     * \`\`\`js
-     * const myFunctionReference = api.myModule.myFunction;
-     * \`\`\`
-     */
-    declare const fullApi: ApiFromModules<{
-  `);
-  for (const modulePath of modulePaths) {
-    const ident = moduleIdentifier(modulePath);
-    const path = importPath(modulePath);
-    lines.push(`  "${path}": typeof ${ident},`);
-  }
-  lines.push(`}>;`);
-  for await (const line of codegenApiWithMounts(
-    ctx,
-    startPush,
-    definitionPath,
-  )) {
-    lines.push(line);
-  }
-  lines.push(`
-    export declare const api: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "public">>;
-    export declare const internal: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "internal">>;
-  `);
-
-  lines.push(`
-  export declare const components: {`);
 
   const analysis = startPush.analysis[definitionPath];
   if (!analysis) {
@@ -134,6 +87,26 @@ export async function componentApiDTS(
       printedMessage: `No analysis found for component ${definitionPath} orig: ${definitionPath}\nin\n${Object.keys(startPush.analysis).toString()}`,
     });
   }
+
+  const lines = [];
+  lines.push(header("Generated `api` utility."));
+  let apiLines: AsyncGenerator<string>;
+  if (opts.staticApi) {
+    apiLines = codegenStaticApiObjects(ctx, analysis);
+  } else {
+    apiLines = codegenDynamicApiObjects(
+      ctx,
+      componentDirectory,
+      startPush,
+      definitionPath,
+    );
+  }
+  for await (const line of apiLines) {
+    lines.push(line);
+  }
+
+  lines.push(`
+  export declare const components: {`);
   for (const childComponent of analysis.definition.childComponents) {
     const childComponentAnalysis = startPush.analysis[childComponent.path];
     if (!childComponentAnalysis) {
@@ -155,6 +128,171 @@ export async function componentApiDTS(
   lines.push("};");
 
   return lines.join("\n");
+}
+
+async function* codegenStaticApiObjects(
+  ctx: Context,
+  analysis: EvaluatedComponentDefinition,
+) {
+  yield `import type { FunctionReference } from "convex/server";`;
+
+  const apiTree = await buildApiTree(ctx, analysis.functions, {
+    kind: "public",
+  });
+  yield `
+  /**
+   * A utility for referencing Convex functions in your app's public API.
+   *
+   * Usage:
+   * \`\`\`js
+   * const myFunctionReference = api.myModule.myFunction;
+   * \`\`\`
+   */`;
+  yield `export declare const api:`;
+  yield* codegenApiTree(ctx, apiTree);
+  yield ";";
+
+  yield `
+  /**
+   * A utility for referencing Convex functions in your app's internal API.
+   *
+   * Usage:
+   * \`\`\`js
+   * const myFunctionReference = internal.myModule.myFunction;
+   * \`\`\`
+   */`;
+  const internalTree = await buildApiTree(ctx, analysis.functions, {
+    kind: "internal",
+  });
+  yield `export declare const internal:`;
+  yield* codegenApiTree(ctx, internalTree);
+  yield ";";
+}
+
+async function* codegenDynamicApiObjects(
+  ctx: Context,
+  componentDirectory: ComponentDirectory,
+  startPush: StartPushResponse,
+  definitionPath: ComponentDefinitionPath,
+) {
+  const absModulePaths = await entryPoints(ctx, componentDirectory.path);
+  const modulePaths = absModulePaths.map((p) =>
+    path.relative(componentDirectory.path, p),
+  );
+  for (const modulePath of modulePaths) {
+    const ident = moduleIdentifier(modulePath);
+    const path = importPath(modulePath);
+    yield `import type * as ${ident} from "../${path}.js";`;
+  }
+  yield `
+    import type {
+      ApiFromModules,
+      FilterApi,
+      FunctionReference,
+    } from "convex/server";
+
+    /**
+     * A utility for referencing Convex functions in your app's API.
+     *
+     * Usage:
+     * \`\`\`js
+     * const myFunctionReference = api.myModule.myFunction;
+     * \`\`\`
+     */
+    declare const fullApi: ApiFromModules<{
+  `;
+  for (const modulePath of modulePaths) {
+    const ident = moduleIdentifier(modulePath);
+    const path = importPath(modulePath);
+    yield `  "${path}": typeof ${ident},`;
+  }
+  yield `}>;`;
+  yield* codegenApiWithMounts(ctx, startPush, definitionPath);
+  yield `
+    export declare const api: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "public">>;
+    export declare const internal: FilterApi<typeof fullApiWithMounts, FunctionReference<any, "internal">>;
+  `;
+}
+
+interface ApiTree {
+  [identifier: string]:
+    | { type: "branch"; branch: ApiTree }
+    | { type: "leaf"; leaf: AnalyzedFunction };
+}
+
+async function buildApiTree(
+  ctx: Context,
+  functions: Record<CanonicalizedModulePath, AnalyzedModule>,
+  visibility: Visibility,
+): Promise<ApiTree> {
+  const root: ApiTree = {};
+  for (const [modulePath, module] of Object.entries(functions)) {
+    const p = importPath(modulePath);
+    if (p.startsWith("_deps/")) {
+      continue;
+    }
+    for (const f of module.functions) {
+      if (f.visibility?.kind !== visibility.kind) {
+        continue;
+      }
+      let current = root;
+      for (const pathComponent of p.split("/")) {
+        let next = current[pathComponent];
+        if (!next) {
+          next = { type: "branch", branch: {} };
+          current[pathComponent] = next;
+        }
+        if (next.type === "leaf") {
+          return await ctx.crash({
+            exitCode: 1,
+            errorType: "fatal",
+            printedMessage: `Ambiguous function name: ${f.name} in ${modulePath}`,
+          });
+        }
+        current = next.branch;
+      }
+      if (current[f.name]) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Duplicate function name: ${f.name} in ${modulePath}`,
+        });
+      }
+      current[f.name] = { type: "leaf", leaf: f };
+    }
+  }
+  return root;
+}
+
+async function* codegenApiTree(
+  ctx: Context,
+  tree: ApiTree,
+): AsyncGenerator<string> {
+  yield "{";
+  for (const [identifier, subtree] of Object.entries(tree)) {
+    if (subtree.type === "branch") {
+      yield `"${identifier}":`;
+      yield* codegenApiTree(ctx, subtree.branch);
+      yield ",";
+    } else {
+      const visibility = subtree.leaf.visibility?.kind;
+      if (!visibility) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage: `Function ${subtree.leaf.name} has no visibility`,
+        });
+      }
+      const ref = await codegenFunctionReference(
+        ctx,
+        subtree.leaf,
+        visibility,
+        true,
+      );
+      yield `"${identifier}": ${ref},`;
+    }
+  }
+  yield "}";
 }
 
 async function* codegenApiWithMounts(
@@ -372,7 +510,20 @@ export async function resolveFunctionReference(
       printedMessage: `Function not found: ${functionName}`,
     });
   }
+  return await codegenFunctionReference(
+    ctx,
+    analyzedFunction,
+    visibility,
+    false,
+  );
+}
 
+async function codegenFunctionReference(
+  ctx: Context,
+  analyzedFunction: AnalyzedFunction,
+  visibility: "public" | "internal",
+  useIdType: boolean,
+): Promise<string> {
   // The server sends down `udfType` capitalized.
   const udfType = analyzedFunction.udfType.toLowerCase();
 
@@ -381,7 +532,7 @@ export async function resolveFunctionReference(
     const argsValidator = parseValidator(analyzedFunction.args);
     if (argsValidator) {
       if (argsValidator.type === "object" || argsValidator.type === "any") {
-        argsType = validatorToType(argsValidator);
+        argsType = validatorToType(argsValidator, useIdType);
       } else {
         // eslint-disable-next-line no-restricted-syntax
         throw new Error(
@@ -402,7 +553,7 @@ export async function resolveFunctionReference(
   try {
     const returnsValidator = parseValidator(analyzedFunction.returns);
     if (returnsValidator) {
-      returnsType = validatorToType(returnsValidator);
+      returnsType = validatorToType(returnsValidator, useIdType);
     }
   } catch (e) {
     return await ctx.crash({
@@ -416,81 +567,9 @@ export async function resolveFunctionReference(
   return `FunctionReference<"${udfType}", "${visibility}", ${argsType}, ${returnsType}>`;
 }
 
-function parseValidator(validator: string | null): ConvexValidator | null {
-  if (!validator) {
-    return null;
-  }
-  return z.nullable(convexValidator).parse(JSON.parse(validator));
-}
-
 function canonicalizeModulePath(modulePath: string): CanonicalizedModulePath {
   if (!modulePath.endsWith(".js")) {
     return modulePath + ".js";
   }
   return modulePath;
-}
-
-function validatorToType(validator: ConvexValidator): string {
-  if (validator.type === "null") {
-    return "null";
-  } else if (validator.type === "number") {
-    return "number";
-  } else if (validator.type === "bigint") {
-    return "bigint";
-  } else if (validator.type === "boolean") {
-    return "boolean";
-  } else if (validator.type === "string") {
-    return "string";
-  } else if (validator.type === "bytes") {
-    return "ArrayBuffer";
-  } else if (validator.type === "any") {
-    return "any";
-  } else if (validator.type === "literal") {
-    const convexValue = jsonToConvex(validator.value);
-    return convexValueToLiteral(convexValue);
-  } else if (validator.type === "id") {
-    return "string";
-  } else if (validator.type === "array") {
-    return `Array<${validatorToType(validator.value)}>`;
-  } else if (validator.type === "record") {
-    return `Record<${validatorToType(validator.keys)}, ${validatorToType(validator.values.fieldType)}>`;
-  } else if (validator.type === "union") {
-    return validator.value.map(validatorToType).join(" | ");
-  } else if (validator.type === "object") {
-    return objectValidatorToType(validator.value);
-  } else {
-    // eslint-disable-next-line no-restricted-syntax
-    throw new Error(`Unsupported validator type`);
-  }
-}
-
-function objectValidatorToType(
-  fields: Record<string, { fieldType: ConvexValidator; optional: boolean }>,
-): string {
-  const fieldStrings: string[] = [];
-  for (const [fieldName, field] of Object.entries(fields)) {
-    const fieldType = validatorToType(field.fieldType);
-    fieldStrings.push(`${fieldName}${field.optional ? "?" : ""}: ${fieldType}`);
-  }
-  return `{ ${fieldStrings.join(", ")} }`;
-}
-
-function convexValueToLiteral(value: Value): string {
-  if (value === null) {
-    return "null";
-  }
-  if (typeof value === "bigint") {
-    return `${value}n`;
-  }
-  if (typeof value === "number") {
-    return `${value}`;
-  }
-  if (typeof value === "boolean") {
-    return `${value}`;
-  }
-  if (typeof value === "string") {
-    return `"${value}"`;
-  }
-  // eslint-disable-next-line no-restricted-syntax
-  throw new Error(`Unsupported literal type`);
 }

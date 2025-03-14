@@ -3,6 +3,7 @@ import { canonicalizedModulePath, componentDefinitionPath } from "./paths.js";
 import { Identifier, Reference, identifier, reference } from "./types.js";
 import { analyzedModule, udfConfig } from "./modules.js";
 import { looseObject } from "./utils.js";
+import { convexValidator } from "./validator.js";
 
 export const componentArgumentValidator = looseObject({
   type: z.literal("value"),
@@ -59,9 +60,42 @@ export const componentDefinitionMetadata = looseObject({
   }),
 });
 
+export const indexSchema = looseObject({
+  indexDescriptor: z.string(),
+  fields: z.array(z.string()),
+});
+
+export const vectorIndexSchema = looseObject({
+  indexDescriptor: z.string(),
+  vectorField: z.string(),
+  dimensions: z.number().optional(),
+  filterFields: z.array(z.string()),
+});
+
+export const searchIndexSchema = looseObject({
+  indexDescriptor: z.string(),
+  searchField: z.string(),
+  filterFields: z.array(z.string()),
+});
+
+export const tableDefinition = looseObject({
+  tableName: z.string(),
+  indexes: z.array(indexSchema),
+  searchIndexes: z.array(searchIndexSchema).optional().nullable(),
+  vectorIndexes: z.array(vectorIndexSchema).optional().nullable(),
+  documentType: convexValidator,
+});
+export type TableDefinition = z.infer<typeof tableDefinition>;
+
+export const analyzedSchema = looseObject({
+  tables: z.array(tableDefinition),
+  schemaValidation: z.boolean(),
+});
+export type AnalyzedSchema = z.infer<typeof analyzedSchema>;
+
 export const evaluatedComponentDefinition = looseObject({
   definition: componentDefinitionMetadata,
-  schema: z.any(),
+  schema: analyzedSchema.optional().nullable(),
   functions: z.record(canonicalizedModulePath, analyzedModule),
   udfConfig,
 });

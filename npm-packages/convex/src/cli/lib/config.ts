@@ -68,6 +68,12 @@ export interface ProjectConfig {
   prodUrl?: string;
   // deprecated
   authInfo?: AuthInfo[];
+
+  // These are beta flags for using static codegen from the `api.d.ts` and `dataModel.d.ts` files.
+  codegen: {
+    staticApi: boolean;
+    staticDataModel: boolean;
+  };
 }
 
 export interface Config {
@@ -167,6 +173,34 @@ export async function parseProjectConfig(
     }
   }
 
+  if (typeof obj.codegen === "undefined") {
+    obj.codegen = {};
+  }
+  if (typeof obj.codegen !== "object") {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage: "Expected `codegen` in `convex.json` to be an object",
+    });
+  }
+  if (typeof obj.codegen.staticApi === "undefined") {
+    obj.codegen.staticApi = false;
+  }
+  if (typeof obj.codegen.staticDataModel === "undefined") {
+    obj.codegen.staticDataModel = false;
+  }
+  if (
+    typeof obj.codegen.staticApi !== "boolean" ||
+    typeof obj.codegen.staticDataModel !== "boolean"
+  ) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem data",
+      printedMessage:
+        "Expected `codegen.staticApi` and `codegen.staticDataModel` in `convex.json` to be booleans",
+    });
+  }
+
   return obj;
 }
 
@@ -259,6 +293,10 @@ export async function readProjectConfig(ctx: Context): Promise<{
           externalPackages: [],
         },
         generateCommonJSApi: false,
+        codegen: {
+          staticApi: false,
+          staticDataModel: false,
+        },
       },
       configPath: configName(),
     };
@@ -553,6 +591,15 @@ function stripDefaults(projectConfig: ProjectConfig): any {
   if (Object.keys(stripped.node).length === 0) {
     delete stripped.node;
   }
+  if (stripped.codegen.staticApi === false) {
+    delete stripped.codegen.staticApi;
+  }
+  if (stripped.codegen.staticDataModel === false) {
+    delete stripped.codegen.staticDataModel;
+  }
+  if (Object.keys(stripped.codegen).length === 0) {
+    delete stripped.codegen;
+  }
   return stripped;
 }
 
@@ -608,6 +655,11 @@ export async function pullConfig(
       },
       // This field is not stored in the backend, it only affects the client.
       generateCommonJSApi: false,
+      // This field is also not stored in the backend, it only affects the client.
+      codegen: {
+        staticApi: false,
+        staticDataModel: false,
+      },
       project,
       team,
       prodUrl: origin,

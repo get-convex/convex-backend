@@ -5,8 +5,9 @@ import { entryPoints } from "../../bundler/index.js";
 import { apiCodegen } from "../codegen_templates/api.js";
 import { apiCjsCodegen } from "../codegen_templates/api_cjs.js";
 import {
-  dataModel,
-  dataModelWithoutSchema,
+  dynamicDataModelDTS,
+  noSchemaDataModelDTS,
+  staticDataModelDTS,
 } from "../codegen_templates/dataModel.js";
 import { readmeCodegen } from "../codegen_templates/readme.js";
 import { serverCodegen } from "../codegen_templates/server.js";
@@ -186,14 +187,14 @@ export async function doInitialComponentCodegen(
   const writtenFiles = [];
 
   // First, `dataModel.d.ts` imports from the developer's `schema.js` file.
-  const schemaFiles = await doDataModelCodegen(
+  const dataModelFiles = await doInitialComponentDataModelCodegen(
     ctx,
     tmpDir,
-    componentDirectory.path,
+    componentDirectory,
     codegenDir,
     opts,
   );
-  writtenFiles.push(...schemaFiles);
+  writtenFiles.push(...dataModelFiles);
 
   // Next, the `server.d.ts` file imports from `dataModel.d.ts`.
   const serverFiles = await doInitialComponentServerCodegen(
@@ -250,8 +251,34 @@ export async function doFinalComponentCodegen(
   const codegenDir = path.join(componentDirectory.path, "_generated");
   ctx.fs.mkdir(codegenDir, { allowExisting: true, recursive: true });
 
-  // Only `server.d.ts` and `api.d.ts` depend on analyze results, where we replace the stub
-  // generated during initial codegen with a more precise type.
+  // `dataModel.d.ts`, `server.d.ts` and `api.d.ts` depend on analyze results, where we
+  // replace the stub generated during initial codegen with a more precise type.
+  const hasSchemaFile = schemaFileExists(ctx, componentDirectory.path);
+  let dataModelContents: string;
+  if (hasSchemaFile) {
+    if (projectConfig.codegen.staticDataModel) {
+      dataModelContents = await staticDataModelDTS(
+        ctx,
+        startPushResponse,
+        rootComponent,
+        componentDirectory,
+      );
+    } else {
+      dataModelContents = dynamicDataModelDTS();
+    }
+  } else {
+    dataModelContents = noSchemaDataModelDTS();
+  }
+  const dataModelDTSPath = path.join(codegenDir, "dataModel.d.ts");
+  await writeFormattedFile(
+    ctx,
+    tmpDir,
+    dataModelContents,
+    "typescript",
+    dataModelDTSPath,
+    opts,
+  );
+
   const serverDTSPath = path.join(codegenDir, "server.d.ts");
   const serverContents = await componentServerDTS(componentDirectory);
   await writeFormattedFile(
@@ -269,6 +296,7 @@ export async function doFinalComponentCodegen(
     startPushResponse,
     rootComponent,
     componentDirectory,
+    { staticApi: projectConfig.codegen.staticApi },
   );
   await writeFormattedFile(
     ctx,
@@ -336,6 +364,16 @@ async function doTsconfigCodegen(
   );
 }
 
+function schemaFileExists(ctx: Context, functionsDir: string) {
+  let schemaPath = path.join(functionsDir, "schema.ts");
+  let hasSchemaFile = ctx.fs.exists(schemaPath);
+  if (!hasSchemaFile) {
+    schemaPath = path.join(functionsDir, "schema.js");
+    hasSchemaFile = ctx.fs.exists(schemaPath);
+  }
+  return hasSchemaFile;
+}
+
 async function doDataModelCodegen(
   ctx: Context,
   tmpDir: TempDir,
@@ -343,18 +381,15 @@ async function doDataModelCodegen(
   codegenDir: string,
   opts?: { dryRun?: boolean; debug?: boolean },
 ) {
-  let schemaPath = path.join(functionsDir, "schema.ts");
-  let hasSchemaFile = ctx.fs.exists(schemaPath);
-  if (!hasSchemaFile) {
-    schemaPath = path.join(functionsDir, "schema.js");
-    hasSchemaFile = ctx.fs.exists(schemaPath);
-  }
-  const schemaContent = hasSchemaFile ? dataModel : dataModelWithoutSchema;
+  const hasSchemaFile = schemaFileExists(ctx, functionsDir);
+  const schemaContent = hasSchemaFile
+    ? dynamicDataModelDTS()
+    : noSchemaDataModelDTS();
 
   await writeFormattedFile(
     ctx,
     tmpDir,
-    schemaContent.DTS,
+    schemaContent,
     "typescript",
     path.join(codegenDir, "dataModel.d.ts"),
     opts,
@@ -421,6 +456,34 @@ async function doInitialComponentServerCodegen(
   }
 
   return ["server.js", "server.d.ts"];
+}
+
+async function doInitialComponentDataModelCodegen(
+  ctx: Context,
+  tmpDir: TempDir,
+  componentDirectory: ComponentDirectory,
+  codegenDir: string,
+  opts?: { dryRun?: boolean; debug?: boolean },
+) {
+  const hasSchemaFile = schemaFileExists(ctx, componentDirectory.path);
+  const dataModelContext = hasSchemaFile
+    ? dynamicDataModelDTS()
+    : noSchemaDataModelDTS();
+  const dataModelPath = path.join(codegenDir, "dataModel.d.ts");
+
+  // Don't write our stub if the file already exists, since it may have
+  // better type information from `doFinalComponentDataModelCodegen`.
+  if (!ctx.fs.exists(dataModelPath)) {
+    await writeFormattedFile(
+      ctx,
+      tmpDir,
+      dataModelContext,
+      "typescript",
+      dataModelPath,
+      opts,
+    );
+  }
+  return ["dataModel.d.ts"];
 }
 
 async function doInitialComponentApiCodegen(
