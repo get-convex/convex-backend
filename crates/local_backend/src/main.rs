@@ -2,7 +2,6 @@
 
 use std::time::Duration;
 
-use anyhow::anyhow;
 use clap::Parser;
 use cmd_util::env::config_service;
 use common::{
@@ -68,8 +67,6 @@ fn main() -> Result<(), MainError> {
     } else {
         tracing::info!("Sentry is not enabled.")
     }
-
-    sodiumoxide::init().map_err(|()| anyhow!("sodiumoxide initialization failed"))?;
 
     let tokio = ProdRuntime::init_tokio()?;
     let runtime = ProdRuntime::new(&tokio);

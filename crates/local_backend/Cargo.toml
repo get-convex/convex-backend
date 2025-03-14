@@ -51,7 +51,6 @@ sentry = { workspace = true }
 sentry-tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sodiumoxide = { workspace = true }
 sqlite = { path = "../sqlite" }
 storage = { path = "../storage" }
 sync = { path = "../sync" }

@@ -79,6 +79,7 @@ itertools = "0.14"
 jsonschema = "0.28"
 levenshtein_automata = "0.2.1"
 libc = "0.2"
+libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
 multer = "3.1.0"
 lru = "0.12.0"
 maplit = "1"
@@ -135,7 +136,6 @@ sha1 = { version = "0.10.5", features = [ "oid" ] }
 sha2 = { version = "0.10.8" }
 short_future = { version = "0.1.1" }
 slab = "0.4.9"
-sodiumoxide = "^0.2"
 sourcemap = "8"
 strum = { version = "0.26", features = [ "derive" ] }
 sucds = { version = "0.8.1", features = [ "intrinsics" ] }
