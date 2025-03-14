@@ -86,7 +86,7 @@ impl TryFrom<Vec<FieldPath>> for IndexedFields {
 
         let mut seen: HashSet<_> = HashSet::new();
         for field in fields.iter() {
-            if !seen.insert(field.clone()) {
+            if !seen.insert(field) {
                 anyhow::bail!(index_validation_error::fields_not_unique_within_index(
                     field
                 ));
