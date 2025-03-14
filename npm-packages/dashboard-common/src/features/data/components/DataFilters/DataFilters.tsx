@@ -100,6 +100,9 @@ export function DataFilters({
       data-testid="filterMenu"
       onSubmit={(e) => {
         e.preventDefault();
+        if (hasInvalidFilters) {
+          return;
+        }
         onChangeFilters(draftFilters || { clauses: [] });
       }}
       key={currentIdx}
@@ -196,9 +199,12 @@ export function DataFilters({
                   defaultDocument={defaultDocument}
                   onChangeFilter={onChangeFilter}
                   onDeleteFilter={onDeleteFilter}
-                  onApplyFilters={() =>
-                    onChangeFilters(draftFilters || { clauses: [] })
-                  }
+                  onApplyFilters={() => {
+                    if (hasInvalidFilters) {
+                      return;
+                    }
+                    onChangeFilters(draftFilters || { clauses: [] });
+                  }}
                   onError={onError}
                   error={
                     invalidFilters[idx]
@@ -227,7 +233,7 @@ export function DataFilters({
                         ? "Fix the errors above to apply your filters."
                         : undefined
                     }
-                    disabled={hasInvalidFilters || !isDirty}
+                    disabled={hasInvalidFilters}
                     size="xs"
                     data-testid="apply-filters"
                     className="text-xs"

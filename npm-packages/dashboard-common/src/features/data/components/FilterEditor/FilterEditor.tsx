@@ -103,6 +103,11 @@ export function FilterEditor({
 
   const [objectEditorKey, forceRerender] = useReducer((x) => x + 1, 0);
 
+  const clearErrors = useCallback(() => {
+    onError([]); // Clear any error state from the previous operator values.
+    forceRerender(); // Force a re-render to clear any error state from the monaco editor.
+  }, [onError, forceRerender]);
+
   return (
     <div className="flex min-w-0 grow">
       <Tooltip
@@ -131,6 +136,7 @@ export function FilterEditor({
           dispatch,
           defaultDocument,
           forceRerender,
+          clearErrors,
         )}
         // If we only have two fields, it might be caused by the shapes computation returning
         // an "any" type. We allow the user to type arbitrary fields name in this case.
@@ -149,10 +155,7 @@ export function FilterEditor({
           state,
           dispatch,
           defaultDocument,
-          () => {
-            onError([]); // Clear any error state from the previous operator values.
-            forceRerender(); // Force a re-render to clear any error state from the monaco editor.
-          },
+          clearErrors,
         )}
       />
       <ValueEditor
@@ -264,6 +267,7 @@ const selectField =
     dispatch: React.Dispatch<Partial<FilterState>>,
     defaultDocument: GenericDocument,
     forceRerender: () => void,
+    clearErrors: () => void,
   ) =>
   (option: string | null) => {
     if (option === null) {
@@ -278,6 +282,7 @@ const selectField =
       });
     } else if (option === "_creationTime") {
       // Switching to creation time should always set the value to the current time.
+      clearErrors();
       dispatch({ field: option, op: "lte", value: Date.now() });
     } else {
       // Switching to any other field should set the value to the default value for that field.
