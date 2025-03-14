@@ -47,6 +47,7 @@ use common::{
         TimestampRange,
     },
     runtime::{
+        block_in_place,
         Runtime,
         SpawnHandle,
     },
@@ -860,7 +861,7 @@ impl<RT: Runtime> Committer<RT> {
             index_writes,
             document_writes,
             pending_write,
-        } = match self.validate_commit(transaction, write_source) {
+        } = match block_in_place(|| self.validate_commit(transaction, write_source)) {
             Ok(v) => v,
             Err(e) => {
                 let _ = result.send(Err(e));
