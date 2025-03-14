@@ -399,7 +399,7 @@ type AnyInterfaceType = {
 } & AnyFunctionReference;
 export type AnyComponentReference = Record<string, AnyInterfaceType>;
 
-type AnyChildComponents = Record<string, AnyComponentReference>;
+export type AnyChildComponents = Record<string, AnyComponentReference>;
 
 /**
  * @internal

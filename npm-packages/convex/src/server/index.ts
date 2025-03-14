@@ -173,6 +173,7 @@ export {
   defineComponent,
   componentsGeneric,
   createFunctionHandle,
+  type AnyChildComponents,
 } from "./components/index.js";
 /**
  * @internal
