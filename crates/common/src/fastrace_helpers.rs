@@ -87,7 +87,7 @@ pub fn set_sampling_config(config_str: &str) {
     match config_str.parse() {
         Ok(config) => {
             *SAMPLING_CONFIG_FROM_LOADER.lock() = Some(config);
-            tracing::info!("Sampling config set to: {}", config_str);
+            tracing::info!("Sampling config set to: {}", config_str.replace("\n", ""));
         },
         Err(e) => {
             tracing::error!("Failed to parse sampling config: {}", e);
