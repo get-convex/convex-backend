@@ -32,7 +32,7 @@ use common::{
         CursorPosition,
         Order,
     },
-    runtime::try_join_buffer_unordered,
+    runtime::try_join,
     static_span,
     types::{
         DatabaseIndexUpdate,
@@ -47,7 +47,11 @@ use common::{
     value::Size,
 };
 use errors::ErrorMetadata;
-use futures::TryStreamExt;
+use futures::{
+    stream,
+    StreamExt as _,
+    TryStreamExt,
+};
 use imbl::OrdMap;
 use itertools::Itertools;
 use value::{
@@ -507,40 +511,34 @@ impl DatabaseIndexSnapshot {
             }
         }
 
-        let batch_keys_to_fetch = ranges_to_fetch.keys().cloned().collect_vec();
         let persistence = self.persistence.clone();
-        let fetch_results_or_cancelled: anyhow::Result<Vec<_>> = try_join_buffer_unordered(
-            "fetch_cache_misses",
-            ranges_to_fetch.into_iter().map(
-                move |(batch_key, (index_id, range_request, cache_results))| {
-                    let persistence = persistence.clone();
-                    async move {
-                        let fetch_result = Self::fetch_cache_misses(
-                            persistence,
-                            index_id,
-                            range_request.clone(),
-                            cache_results,
-                        )
-                        .await;
-                        anyhow::Ok((batch_key, index_id, range_request, fetch_result))
-                    }
-                },
-            ),
-        )
-        .await;
-        let fetch_results = match fetch_results_or_cancelled {
-            Ok(fetch_results) => fetch_results,
-            Err(e) => {
-                // If the task was cancelled, return the error.
-                for batch_key in batch_keys_to_fetch {
-                    results.insert(batch_key, Err(anyhow::anyhow!(e.to_string())));
+        let fetch_results: Vec<_> = stream::iter(ranges_to_fetch.into_iter().map(
+            move |(batch_key, (index_id, range_request, cache_results))| {
+                let persistence = persistence.clone();
+                async move {
+                    let any_misses = cache_results.iter().any(|result| {
+                        matches!(result, DatabaseIndexSnapshotCacheResult::CacheMiss(_))
+                    });
+                    let fut = Self::fetch_cache_misses(
+                        persistence,
+                        index_id,
+                        range_request.clone(),
+                        cache_results,
+                    );
+                    let fetch_result = if any_misses {
+                        // Only spawn onto a new task if any database reads are required
+                        try_join("fetch_cache_misses", fut).await
+                    } else {
+                        fut.await
+                    };
+                    (batch_key, index_id, range_request, fetch_result)
                 }
-                return results;
             },
-        };
+        ))
+        .buffer_unordered(20)
+        .collect()
+        .await;
 
-        // We've spawned all tasks into the JoinSet so it will only ever be None when
-        // we're done, and it will only error if the job panics.
         for (batch_key, index_id, range_request, fetch_result) in fetch_results {
             let result: anyhow::Result<_> = try {
                 let (fetch_result_vec, cache_miss_results, cursor) = fetch_result?;

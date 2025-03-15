@@ -126,15 +126,9 @@ pub async fn try_join_buffered<
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| {
-            assert_send(try_join(
-                name,
-                assert_send(task),
-                Span::enter_with_local_parent(name),
-            ))
-        }))
-        .buffered(JOIN_BUFFER_SIZE)
-        .try_collect(),
+        stream::iter(tasks.map(|task| assert_send(try_join(name, assert_send(task)))))
+            .buffered(JOIN_BUFFER_SIZE)
+            .try_collect(),
     )
     .await
 }
@@ -158,7 +152,7 @@ pub async fn try_join_buffer_unordered<
         + 'static,
 ) -> anyhow::Result<C> {
     assert_send(
-        stream::iter(tasks.map(|task| try_join(name, task, Span::enter_with_local_parent(name))))
+        stream::iter(tasks.map(|task| try_join(name, task)))
             .buffer_unordered(JOIN_BUFFER_SIZE)
             .try_collect(),
     )
@@ -168,9 +162,8 @@ pub async fn try_join_buffer_unordered<
 pub async fn try_join<T: Send + 'static>(
     name: &'static str,
     fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
-    span: Span,
 ) -> anyhow::Result<T> {
-    let handle = tokio_spawn(name, fut.in_span(span));
+    let handle = tokio_spawn(name, fut.in_span(Span::enter_with_local_parent(name)));
     handle.await?.map_err(recapture_stacktrace)
 }
 
