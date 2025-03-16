@@ -185,7 +185,7 @@ impl ReadSet {
         updates: impl Iterator<
             Item = (
                 &'a Timestamp,
-                impl Iterator<Item = (&'a ResolvedDocumentId, &'a PackedDocumentUpdate)>,
+                impl Iterator<Item = &'a (ResolvedDocumentId, PackedDocumentUpdate)>,
                 &'a WriteSource,
             ),
         >,

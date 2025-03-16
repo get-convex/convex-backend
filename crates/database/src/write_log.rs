@@ -1,7 +1,6 @@
 use std::{
     borrow::Cow,
     collections::{
-        btree_map,
         BTreeMap,
         VecDeque,
     },
@@ -59,7 +58,6 @@ impl HeapSize for PackedDocumentUpdate {
     }
 }
 
-type Writes = WithHeapSize<BTreeMap<ResolvedDocumentId, PackedDocumentUpdate>>;
 type OrderedWrites = WithHeapSize<Vec<(ResolvedDocumentId, PackedDocumentUpdate)>>;
 
 impl PackedDocumentUpdate {
@@ -80,7 +78,7 @@ impl PackedDocumentUpdate {
     }
 }
 
-pub type IterWrites<'a> = btree_map::Iter<'a, ResolvedDocumentId, PackedDocumentUpdate>;
+pub type IterWrites<'a> = std::slice::Iter<'a, (ResolvedDocumentId, PackedDocumentUpdate)>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WriteSource(pub(crate) Option<Cow<'static, str>>);
@@ -152,7 +150,7 @@ impl WriteLogManager {
         }
     }
 
-    fn append(&mut self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
+    fn append(&mut self, ts: Timestamp, writes: OrderedWrites, write_source: WriteSource) {
         assert!(self.log.max_ts() < ts, "{:?} >= {}", self.log.max_ts(), ts);
 
         self.log
@@ -215,7 +213,7 @@ impl WriteLogManager {
 /// they may trigger subscriptions.
 #[derive(Clone)]
 struct WriteLog {
-    by_ts: WithHeapSize<Vector<Arc<(Timestamp, Writes, WriteSource)>>>,
+    by_ts: WithHeapSize<Vector<Arc<(Timestamp, OrderedWrites, WriteSource)>>>,
     purged_ts: Timestamp,
     persistence_version: PersistenceVersion,
 }
@@ -397,7 +395,9 @@ pub struct LogWriter {
 }
 
 impl LogWriter {
-    pub fn append(&mut self, ts: Timestamp, writes: Writes, write_source: WriteSource) {
+    // N.B.: `writes` is `OrderedWrites` because that's what the committer
+    // already has, but the write log doesn't actually care about the ordering.
+    pub fn append(&mut self, ts: Timestamp, writes: OrderedWrites, write_source: WriteSource) {
         block_in_place(|| self.inner.lock().append(ts, writes, write_source));
     }
 
@@ -451,13 +451,13 @@ impl PendingWrites {
     ) -> impl Iterator<
         Item = (
             &Timestamp,
-            impl Iterator<Item = (&ResolvedDocumentId, &PackedDocumentUpdate)>,
+            impl Iterator<Item = &(ResolvedDocumentId, PackedDocumentUpdate)>,
             &WriteSource,
         ),
     > {
         self.by_ts
             .range(from..=to)
-            .map(|(ts, (w, source))| (ts, w.iter().map(|(id, update)| (id, update)), source))
+            .map(|(ts, (w, source))| (ts, w.iter(), source))
     }
 
     pub fn is_stale(
@@ -526,7 +526,6 @@ mod tests {
         value::FieldPath,
     };
     use convex_macro::test_runtime;
-    use maplit::btreemap;
     use runtime::testing::TestRuntime;
     use value::val;
 
@@ -550,11 +549,7 @@ mod tests {
         assert_eq!(log_manager.log.max_ts(), Timestamp::must(1000));
 
         for ts in (1002..=1010).step_by(2) {
-            log_manager.append(
-                Timestamp::must(ts),
-                btreemap!().into(),
-                WriteSource::unknown(),
-            );
+            log_manager.append(Timestamp::must(ts), vec![].into(), WriteSource::unknown());
             assert_eq!(log_manager.log.purged_ts, Timestamp::must(1000));
             assert_eq!(log_manager.log.max_ts(), Timestamp::must(ts));
         }
@@ -638,13 +633,14 @@ mod tests {
         let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("k" => 5))?;
         log_manager.append(
             Timestamp::must(1003),
-            btreemap! {
-                id => PackedDocumentUpdate::pack(DocumentUpdate {
+            vec![(
+                id,
+                PackedDocumentUpdate::pack(DocumentUpdate {
                     id,
                     old_document: None,
                     new_document: Some(doc.clone()),
                 }),
-            }
+            )]
             .into(),
             WriteSource::unknown(),
         );
@@ -751,13 +747,14 @@ mod tests {
             WriteLogManager::new(Timestamp::must(1000), PersistenceVersion::default());
         delete_log_manager.append(
             Timestamp::must(1003),
-            btreemap! {
-                id => PackedDocumentUpdate::pack(DocumentUpdate {
+            vec![(
+                id,
+                PackedDocumentUpdate::pack(DocumentUpdate {
                     id,
                     old_document: Some(doc),
                     new_document: None,
                 }),
-            }
+            )]
             .into(),
             WriteSource::unknown(),
         );

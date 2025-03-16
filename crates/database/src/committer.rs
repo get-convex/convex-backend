@@ -806,11 +806,7 @@ impl<RT: Runtime> Committer<RT> {
         // the WriteLog, so that the two can't be observed to diverge.
         let mut snapshot_manager = RwLockUpgradableReadGuard::upgrade(snapshot_manager);
         let timer = metrics::write_log_append_timer();
-        self.log.append(
-            commit_ts,
-            ordered_updates.into_iter().collect(),
-            write_source,
-        );
+        self.log.append(commit_ts, ordered_updates, write_source);
         drop(timer);
 
         if let Some(table_summaries) = new_snapshot.table_summaries.as_ref() {
