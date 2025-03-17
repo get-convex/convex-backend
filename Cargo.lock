@@ -1791,6 +1791,7 @@ dependencies = [
  "tokio-metrics",
  "tokio-metrics-collector",
  "tokio-stream",
+ "tokio-util",
  "tonic",
  "tonic-health",
  "tower 0.5.2",

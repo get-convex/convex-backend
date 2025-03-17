@@ -78,6 +78,7 @@ tokio = { workspace = true }
 tokio-metrics = { workspace = true }
 tokio-metrics-collector = { workspace = true }
 tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }
 tower = { workspace = true }

@@ -60,6 +60,7 @@ use tokio::runtime::{
 };
 use tokio_metrics::Instrumented;
 use tokio_metrics_collector::TaskMonitor;
+use tokio_util::task::AbortOnDropHandle;
 use uuid::Uuid;
 use value::heap_size::HeapSize;
 
@@ -163,7 +164,10 @@ pub async fn try_join<T: Send + 'static>(
     name: &'static str,
     fut: impl Future<Output = anyhow::Result<T>> + Send + 'static,
 ) -> anyhow::Result<T> {
-    let handle = tokio_spawn(name, fut.in_span(Span::enter_with_local_parent(name)));
+    let handle = AbortOnDropHandle::new(tokio_spawn(
+        name,
+        fut.in_span(Span::enter_with_local_parent(name)),
+    ));
     handle.await?.map_err(recapture_stacktrace)
 }
 
