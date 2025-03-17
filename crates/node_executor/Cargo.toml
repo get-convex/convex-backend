@@ -27,7 +27,7 @@ maplit = { workspace = true }
 metrics = { path = "../metrics" }
 model = { path = "../model" }
 portpicker = { workspace = true }
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sourcemap = { workspace = true }
