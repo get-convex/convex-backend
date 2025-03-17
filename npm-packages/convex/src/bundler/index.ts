@@ -13,6 +13,7 @@ import {
   createExternalPlugin,
   findExactVersionAndDependencies,
 } from "./external.js";
+import { Dirent } from "fs";
 export { nodeFs, RecordingFs } from "./fs.js";
 export type { Filesystem } from "./fs.js";
 
@@ -27,7 +28,7 @@ export function* walkDir(
   depth?: number,
 ): Generator<{ isDir: boolean; path: string; depth: number }, void, void> {
   depth = depth ?? 0;
-  for (const dirEntry of fs.listDir(dirPath).sort()) {
+  for (const dirEntry of fs.listDir(dirPath).sort(consistentPathSort)) {
     const childPath = path.join(dirPath, dirEntry.name);
     if (dirEntry.isDirectory()) {
       yield { isDir: true, path: childPath, depth };
@@ -36,6 +37,16 @@ export function* walkDir(
       yield { isDir: false, path: childPath, depth };
     }
   }
+}
+
+// Sort consistent with unix directory listings.
+function consistentPathSort(a: Dirent, b: Dirent) {
+  for (let i = 0; i < Math.min(a.name.length, b.name.length); i++) {
+    if (a.name.charCodeAt(i) !== b.name.charCodeAt(i)) {
+      return a.name.charCodeAt(i) - b.name.charCodeAt(i);
+    }
+  }
+  return a.name.length - b.name.length;
 }
 
 // Convex specific module environment.
