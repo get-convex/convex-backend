@@ -29,8 +29,8 @@ pub const EXACT_SEARCH_MAX_WORD_LENGTH: usize = 4;
 /// Max word-length in characters for 1-typo search in typo-tolerance
 pub const SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH: usize = 8;
 
-/// The max number of term matches that can occur for each fuzzy query term
-pub const MAX_FUZZY_MATCHES_PER_QUERY_TERM: usize = 16;
+/// The max number of term matches that can occur for each prefix query term
+pub const MAX_PREFIX_MATCHES_PER_QUERY_TERM: usize = 16;
 
 /// The max number of positions we return for each term matched by a query term
 pub const MAX_POSITIONS_PER_MATCHED_TERM: usize = 16;

@@ -54,6 +54,7 @@ use common::{
         Timestamp,
     },
 };
+use constants::CONVEX_EN_TOKENIZER;
 pub use constants::{
     convex_en,
     EXACT_SEARCH_MAX_WORD_LENGTH,
@@ -61,10 +62,6 @@ pub use constants::{
     MAX_FILTER_CONDITIONS,
     MAX_QUERY_TERMS,
     SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
-};
-use constants::{
-    CONVEX_EN_TOKENIZER,
-    MAX_TEXT_TERM_LENGTH,
 };
 use convex_query::OrTerm;
 use errors::ErrorMetadata;
@@ -681,25 +678,8 @@ impl TantivySearchIndexSchema {
             let term = Term::from_field_text(search_field, text);
             anyhow::ensure!(term.as_str().is_some(), "Term was not valid UTF8");
 
-            let char_count = text.chars().count();
             let is_prefix = it.peek().is_none();
-            let num_typos = if char_count <= MAX_TEXT_TERM_LENGTH {
-                0
-            } else if char_count <= SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH {
-                1
-            } else {
-                2
-            };
-
-            if num_typos == 0 && !is_prefix {
-                res.push(QueryTerm::Exact(term))
-            } else {
-                res.push(QueryTerm::Fuzzy {
-                    term,
-                    max_distance: num_typos,
-                    prefix: is_prefix,
-                })
-            }
+            res.push(QueryTerm::new(term, is_prefix))
         }
         Ok(res)
     }
@@ -790,7 +770,7 @@ impl TantivySearchIndexSchema {
                 .map(|text| {
                     let term = Term::from_field_text(self.search_field, text);
                     anyhow::ensure!(term.as_str().is_some(), "Term was not valid UTF8");
-                    Ok(QueryTerm::Exact(term))
+                    Ok(QueryTerm::new(term, false))
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?,
             // Only the V2 search codepath can generate QueryTerm::Fuzzy

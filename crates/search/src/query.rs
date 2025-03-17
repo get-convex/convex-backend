@@ -112,42 +112,32 @@ impl From<CompiledQuery> for pb::searchlight::TextQuery {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum QueryTerm {
-    Exact(Term),
-    Fuzzy {
-        term: Term,
-        max_distance: u8,
-        prefix: bool,
-    },
+pub struct QueryTerm {
+    term: Term,
+    /// If the term is the last in a search query, it can be a prefix match for
+    /// typeahead suggestions.
+    prefix: bool,
 }
 
 impl QueryTerm {
+    pub fn new(term: Term, prefix: bool) -> Self {
+        QueryTerm { term, prefix }
+    }
+
     pub fn term(&self) -> &Term {
-        match self {
-            Self::Exact(term) => term,
-            Self::Fuzzy { term, .. } => term,
-        }
+        &self.term
     }
 
     pub fn into_term(self) -> Term {
-        match self {
-            QueryTerm::Exact(term) => term,
-            QueryTerm::Fuzzy { term, .. } => term,
-        }
+        self.term
     }
 
     pub fn max_distance(&self) -> u32 {
-        match self {
-            QueryTerm::Exact(..) => 0,
-            QueryTerm::Fuzzy { max_distance, .. } => *max_distance as u32,
-        }
+        0
     }
 
     pub fn prefix(&self) -> bool {
-        match self {
-            QueryTerm::Exact(..) => false,
-            QueryTerm::Fuzzy { prefix, .. } => *prefix,
-        }
+        self.prefix
     }
 
     pub fn try_from_text_query_term_proto(
@@ -156,12 +146,12 @@ impl QueryTerm {
     ) -> anyhow::Result<QueryTerm> {
         let qterm = match value.term_type {
             None => anyhow::bail!("No TermType in QueryTerm"),
-            Some(pb::searchlight::text_query_term::TermType::Exact(exact)) => {
-                QueryTerm::Exact(Term::from_field_text(search_field, &exact.token))
+            Some(pb::searchlight::text_query_term::TermType::Exact(exact)) => QueryTerm {
+                term: Term::from_field_text(search_field, &exact.token),
+                prefix: false,
             },
-            Some(pb::searchlight::text_query_term::TermType::Fuzzy(fuzzy)) => QueryTerm::Fuzzy {
+            Some(pb::searchlight::text_query_term::TermType::Fuzzy(fuzzy)) => QueryTerm {
                 term: Term::from_field_text(search_field, &fuzzy.token),
-                max_distance: fuzzy.max_distance as u8,
                 prefix: fuzzy.prefix,
             },
         };
@@ -173,20 +163,21 @@ impl TryFrom<QueryTerm> for TextQueryTerm {
     type Error = anyhow::Error;
 
     fn try_from(value: QueryTerm) -> Result<Self, Self::Error> {
-        Ok(match value {
-            QueryTerm::Exact(term) => {
-                TextQueryTerm::Exact(term.as_str().context("Term was not a string")?.to_string())
-            },
-            QueryTerm::Fuzzy {
-                term,
-                max_distance,
-                prefix,
-            } => TextQueryTerm::Fuzzy {
-                token: term.as_str().context("Term was not a string")?.to_string(),
-                max_distance: max_distance.try_into()?,
-                prefix,
-            },
-        })
+        let term = value
+            .term
+            .as_str()
+            .context("Term was not a string")?
+            .to_string();
+        let text_query_term = if value.prefix {
+            TextQueryTerm::Fuzzy {
+                token: term,
+                max_distance: 0.try_into()?,
+                prefix: value.prefix,
+            }
+        } else {
+            TextQueryTerm::Exact(term)
+        };
+        Ok(text_query_term)
     }
 }
 
@@ -195,23 +186,17 @@ impl From<QueryTerm> for pb::searchlight::TextQueryTerm {
         let term = value.term();
         let term_str = term.as_str().expect("QueryTerm not a string").to_string();
 
-        let term_type =
-            match value {
-                QueryTerm::Exact(_) => pb::searchlight::text_query_term::TermType::Exact(
-                    pb::searchlight::ExactTextTerm { token: term_str },
-                ),
-                QueryTerm::Fuzzy {
-                    max_distance,
-                    prefix,
-                    ..
-                } => pb::searchlight::text_query_term::TermType::Fuzzy(
-                    pb::searchlight::FuzzyTextTerm {
-                        token: term_str,
-                        max_distance: max_distance as u32,
-                        prefix,
-                    },
-                ),
-            };
+        let term_type = if value.prefix {
+            pb::searchlight::text_query_term::TermType::Fuzzy(pb::searchlight::FuzzyTextTerm {
+                token: term_str,
+                max_distance: 0,
+                prefix: value.prefix,
+            })
+        } else {
+            pb::searchlight::text_query_term::TermType::Exact(pb::searchlight::ExactTextTerm {
+                token: term_str,
+            })
+        };
         Self {
             term_type: Some(term_type),
         }

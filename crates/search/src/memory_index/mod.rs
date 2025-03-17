@@ -50,7 +50,7 @@ use crate::{
         TokenMatchAggregator,
     },
     constants::{
-        MAX_FUZZY_MATCHES_PER_QUERY_TERM,
+        MAX_PREFIX_MATCHES_PER_QUERY_TERM,
         MAX_UNIQUE_QUERY_TERMS,
     },
     convex_query::OrTerm,
@@ -387,35 +387,27 @@ impl MemoryTextIndex {
                 continue;
             }
 
-            let term_matches = match query_term {
-                QueryTerm::Exact(term) => {
-                    if let Some(term_id) = self.term_table.get(term) {
-                        vec![(0, term.clone(), term_id)]
-                    } else {
-                        vec![]
-                    }
-                },
-                QueryTerm::Fuzzy {
-                    term,
-                    max_distance,
-                    prefix,
-                } => {
-                    // We want `terms_heap` to be a min-heap where higher distances compare to lower
-                    // values. BinaryHeap is already a max-heap that will yield
-                    // distances of higher values first, so we can just use
-                    // this.
-                    let mut terms_heap = BinaryHeap::<(EditDistance, Term, TermId)>::new();
-                    for (term_id, dist, match_term) in
-                        self.term_table.get_fuzzy(term, *max_distance, *prefix)
-                    {
-                        terms_heap.push((dist, match_term, term_id));
+            let term = query_term.term();
+            let term_matches = if query_term.prefix() {
+                // We want `terms_heap` to be a min-heap where higher distances compare to lower
+                // values. BinaryHeap is already a max-heap that will yield
+                // distances of higher values first, so we can just use
+                // this.
+                let mut terms_heap = BinaryHeap::<(EditDistance, Term, TermId)>::new();
+                for (term_id, dist, match_term) in
+                    self.term_table.get_fuzzy(term, 0, query_term.prefix())
+                {
+                    terms_heap.push((dist, match_term, term_id));
 
-                        if terms_heap.len() > MAX_FUZZY_MATCHES_PER_QUERY_TERM {
-                            terms_heap.pop();
-                        }
+                    if terms_heap.len() > MAX_PREFIX_MATCHES_PER_QUERY_TERM {
+                        terms_heap.pop();
                     }
-                    terms_heap.into_sorted_vec()
-                },
+                }
+                terms_heap.into_sorted_vec()
+            } else if let Some(term_id) = self.term_table.get(term) {
+                vec![(0, term.clone(), term_id)]
+            } else {
+                vec![]
             };
 
             query_term_matches.insert(query_term.clone(), term_matches);
