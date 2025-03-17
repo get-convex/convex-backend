@@ -320,6 +320,37 @@ function urlSearchParamsOverridingEntriesNotChangeForEach() {
   assert.strictEqual(loopCount, 1);
 }
 
+function urlSearchParamsIterator() {
+  // Test direct iteration
+  const params = new URLSearchParams("a=1&b=2&c=3");
+  const pairs: [string, string][] = [];
+  for (const pair of params) {
+    pairs.push(pair);
+  }
+  assert.deepEqual(pairs, [
+    ["a", "1"],
+    ["b", "2"],
+    ["c", "3"],
+  ]);
+
+  // Test that direct iteration matches entries()
+  const entriesPairs = [...params.entries()];
+  assert.deepEqual(pairs, entriesPairs);
+
+  // Test with array spread operator
+  const spreadPairs = [...params];
+  assert.deepEqual(spreadPairs, pairs);
+
+  // Test order is maintained with multiple values for same key
+  const paramsWithDupes = new URLSearchParams("a=1&b=2&a=3");
+  const pairsWithDupes = [...paramsWithDupes];
+  assert.deepEqual(pairsWithDupes, [
+    ["a", "1"],
+    ["b", "2"],
+    ["a", "3"],
+  ]);
+}
+
 function urlSearchParamsNonString() {
   // @ts-expect-error intentional error
   const params = new URLSearchParams({ a: 123 });
@@ -360,6 +391,7 @@ export default query(async () => {
     // urlSearchParamsCustomSymbolIteratorWithNonStringParams
     // urlSearchParamsOverridingAppendNotChangeConstructorAndSet
     urlSearchParamsOverridingEntriesNotChangeForEach,
+    urlSearchParamsIterator,
     urlSearchParamsNonString,
   });
 });

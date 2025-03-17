@@ -149,6 +149,10 @@ class URLSearchParams {
     return {};
   }
 
+  [Symbol.iterator](): IterableIterator<[string, string]> {
+    return this.entries();
+  }
+
   values(): IterableIterator<string> {
     return this._searchParamPairs.map(([, value]) => value)[Symbol.iterator]();
   }
