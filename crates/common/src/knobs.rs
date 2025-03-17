@@ -1246,7 +1246,7 @@ pub static STORAGE_MAX_INTERMEDIATE_PART_SIZE: LazyLock<usize> =
 /// Minimum number of milliseconds a commit needs to take to send traces to
 /// honeycomb.
 pub static COMMIT_TRACE_THRESHOLD: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("COMMIT_TRACE_THRESHOLD", 250)));
+    LazyLock::new(|| Duration::from_millis(env_config("COMMIT_TRACE_THRESHOLD", 350)));
 
 /// How many instances a Conductor will try to simultaneously load (on startup,
 /// or when it discovers new instances) Going too high means that the Conductor
