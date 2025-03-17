@@ -1557,8 +1557,9 @@ impl<RT: Runtime> Database<RT> {
         self.write_commits_since_load.load(Ordering::SeqCst)
     }
 
+    // TODO: consider making this function non-async
     pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
-        self.subscriptions.subscribe(token).await
+        self.subscriptions.subscribe(token)
     }
 
     fn streaming_export_table_filter(

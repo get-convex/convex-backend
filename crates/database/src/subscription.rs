@@ -34,6 +34,12 @@ use common::{
     },
 };
 use fastrace::future::FutureExt as _;
+use futures::{
+    future::BoxFuture,
+    stream::FuturesUnordered,
+    FutureExt as _,
+    StreamExt as _,
+};
 use indexing::interval::IntervalMap;
 use parking_lot::Mutex;
 use prometheus::VMHistogram;
@@ -44,7 +50,6 @@ use tokio::sync::{
         self,
         error::TrySendError,
     },
-    oneshot,
     watch,
 };
 
@@ -77,20 +82,18 @@ pub struct SubscriptionsClient {
 }
 
 impl SubscriptionsClient {
-    pub async fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
+    pub fn subscribe(&self, token: Token) -> anyhow::Result<Subscription> {
         let token = match self.log.refresh_reads_until_max_ts(token)? {
             Some(t) => t,
-            None => return Ok(Subscription::invalid(self.sender.clone())),
+            None => return Ok(Subscription::invalid()),
         };
-        let (tx, rx) = oneshot::channel();
-        let request = SubscriptionRequest::Subscribe { token, result: tx };
-        self.sender.clone().try_send(request).map_err(|e| match e {
+        let (subscription, sender) = Subscription::new(&token);
+        let request = SubscriptionRequest::Subscribe { token, sender };
+        self.sender.try_send(request).map_err(|e| match e {
             TrySendError::Full(..) => metrics::subscriptions_worker_full_error().into(),
             TrySendError::Closed(..) => metrics::shutdown_error(),
         })?;
-        // The only reason we might fail here if the subscriptions worker is shutting
-        // down.
-        rx.await.map_err(|_| metrics::shutdown_error())
+        Ok(subscription)
     }
 
     pub fn shutdown(&self) {
@@ -98,20 +101,28 @@ impl SubscriptionsClient {
     }
 }
 
+/// The other half of a `Subscription`, owned by the subscription worker.
+/// On drop, this will invalidate the subscription.
+pub struct SubscriptionSender {
+    valid_ts: Arc<AtomicI64>,
+    valid_tx: watch::Sender<SubscriptionState>,
+}
+
+impl Drop for SubscriptionSender {
+    fn drop(&mut self) {
+        self.valid_ts.store(-1, Ordering::SeqCst);
+        _ = self.valid_tx.send(SubscriptionState::Invalid);
+    }
+}
+
 enum SubscriptionRequest {
     Subscribe {
         token: Token,
-
-        // Returns a subscriptions and the timestamp it was created.
-        // The client is responsible to check the log until the timestamp.
-        result: oneshot::Sender<Subscription>,
+        sender: SubscriptionSender,
     },
-    Cancel(SubscriptionKey),
 }
 
-pub struct SubscriptionsWorker {
-    subscriptions: SubscriptionManager,
-}
+pub enum SubscriptionsWorker {}
 
 impl SubscriptionsWorker {
     pub(crate) fn start<RT: Runtime>(
@@ -122,34 +133,34 @@ impl SubscriptionsWorker {
         let (tx, rx) = mpsc::channel(SUBSCRIPTIONS_BUFFER);
 
         let log_reader = log.reader();
-        let worker = Self {
-            subscriptions: SubscriptionManager::new(tx.clone(), log, persistence_version),
-        };
-
-        let handle = runtime.spawn("subscription_worker", worker.go(rx));
+        let mut manager = SubscriptionManager::new(log, persistence_version);
+        let handle = runtime.spawn("subscription_worker", async move {
+            manager.run_worker(rx).await
+        });
         SubscriptionsClient {
             handle: Arc::new(Mutex::new(handle)),
             log: log_reader,
             sender: tx,
         }
     }
+}
 
-    async fn go(mut self, mut rx: mpsc::Receiver<SubscriptionRequest>) {
+impl SubscriptionManager {
+    async fn run_worker(&mut self, mut rx: mpsc::Receiver<SubscriptionRequest>) {
         tracing::info!("Starting subscriptions worker");
         loop {
-            tokio::select! {
-                request = rx.recv() => {
+            futures::select_biased! {
+                // N.B.: `futures` select macro (not `tokio`) needed for `select_next_some`
+                key = self.closed_subscriptions.select_next_some() => {
+                    self.remove(key);
+                },
+                request = rx.recv().fuse() => {
                     match request {
-                        Some(SubscriptionRequest::Subscribe { token, result }) => {
-                            match self.subscriptions.subscribe(token) {
-                                Ok(s) => {
-                                    let _: Result<_, _> = result.send(s);
-                                },
+                        Some(SubscriptionRequest::Subscribe { token, sender, }) => {
+                            match self.subscribe(token, sender) {
+                                Ok(_) => (),
                                 Err(mut e) => report_error(&mut e).await,
                             }
-                        },
-                        Some(SubscriptionRequest::Cancel(key)) => {
-                            self.subscriptions.remove(key);
                         },
                         None => {
                             tracing::info!("All clients have gone away, shutting down subscriptions worker...");
@@ -157,8 +168,8 @@ impl SubscriptionsWorker {
                         },
                     }
                 },
-                next_ts = self.subscriptions.wait_for_next_ts() => {
-                    if let Err(mut e) = self.subscriptions.advance_log(next_ts) {
+                next_ts = self.log.wait_for_higher_ts(self.processed_ts).fuse() => {
+                    if let Err(mut e) = self.advance_log(next_ts) {
                         report_error(&mut e).await;
                     }
                 },
@@ -174,6 +185,8 @@ pub struct SubscriptionManager {
     subscriptions: SubscriptionMap,
     next_seq: Sequence,
 
+    closed_subscriptions: FuturesUnordered<BoxFuture<'static, SubscriptionKey>>,
+
     log: LogOwner,
 
     // The timestamp until which the worker has processed the log, which may be lagging behind
@@ -183,14 +196,12 @@ pub struct SubscriptionManager {
     // `processed_ts`.
     processed_ts: Timestamp,
 
-    sender: mpsc::Sender<SubscriptionRequest>,
     persistence_version: PersistenceVersion,
 }
 
 struct Subscriber {
     reads: Arc<ReadSet>,
-    valid_ts: Arc<AtomicI64>,
-    valid: watch::Sender<SubscriptionState>,
+    sender: SubscriptionSender,
     seq: Sequence,
 }
 
@@ -201,28 +212,27 @@ impl SubscriptionManager {
         use crate::write_log::new_write_log;
 
         let (log_owner, ..) = new_write_log(Timestamp::MIN, PersistenceVersion::V5);
-        let (tx, _) = mpsc::channel(10);
-        Self::new(tx, log_owner, PersistenceVersion::V5)
+        Self::new(log_owner, PersistenceVersion::V5)
     }
 
-    fn new(
-        tx: mpsc::Sender<SubscriptionRequest>,
-        log: LogOwner,
-        persistence_version: PersistenceVersion,
-    ) -> Self {
+    fn new(log: LogOwner, persistence_version: PersistenceVersion) -> Self {
         let processed_ts = log.max_ts();
         Self {
             subscribers: Slab::new(),
             subscriptions: SubscriptionMap::new(),
             next_seq: 0,
+            closed_subscriptions: FuturesUnordered::new(),
             log,
             processed_ts,
-            sender: tx,
             persistence_version,
         }
     }
 
-    pub fn subscribe(&mut self, mut token: Token) -> anyhow::Result<Subscription> {
+    pub fn subscribe(
+        &mut self,
+        mut token: Token,
+        sender: SubscriptionSender,
+    ) -> anyhow::Result<SubscriberId> {
         // The client may not have fully refreshed their token past our
         // processed timestamp, so finish the job for them if needed.
         //
@@ -233,7 +243,11 @@ impl SubscriptionManager {
         if token.ts() < self.processed_ts {
             token = match self.log.refresh_token(token, self.processed_ts)? {
                 Some(t) => t,
-                None => return Ok(Subscription::invalid(self.sender.clone())),
+                None => {
+                    // N.B.: we only use the returned value for tests which
+                    // don't encounter this case
+                    return Ok(usize::MAX);
+                },
             };
         }
         assert!(token.ts() >= self.processed_ts);
@@ -243,28 +257,36 @@ impl SubscriptionManager {
 
         self.subscriptions.insert(subscriber_id, token.reads());
 
-        let valid_ts = Arc::new(AtomicI64::new(i64::from(token.ts())));
-        let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
         let seq: usize = self.next_seq;
         let key = SubscriptionKey {
             id: subscriber_id,
             seq,
         };
         self.next_seq += 1;
+        let valid_tx = sender.valid_tx.clone();
         entry.insert(Subscriber {
             reads: token.reads_owned(),
-            valid_ts: valid_ts.clone(),
-            valid: valid_tx,
+            sender,
             seq,
         });
-        let subscription = Subscription {
-            valid_ts,
-            valid: valid_rx,
-            key: Some(key),
-            sender: self.sender.clone(),
-            _timer: metrics::subscription_timer(),
-        };
-        Ok(subscription)
+        self.closed_subscriptions.push(
+            async move {
+                valid_tx.closed().await;
+                key
+            }
+            .boxed(),
+        );
+        Ok(subscriber_id)
+    }
+
+    #[cfg(any(test, feature = "testing"))]
+    pub fn subscribe_for_testing(
+        &mut self,
+        token: Token,
+    ) -> anyhow::Result<(Subscription, SubscriberId)> {
+        let (subscription, sender) = Subscription::new(&token);
+        let id = self.subscribe(token, sender)?;
+        Ok((subscription, id))
     }
 
     pub fn advance_log(&mut self, next_ts: Timestamp) -> anyhow::Result<()> {
@@ -292,6 +314,7 @@ impl SubscriptionManager {
             for (subscriber_id, subscriber) in &mut self.subscribers {
                 if !to_notify.contains(&subscriber_id) {
                     subscriber
+                        .sender
                         .valid_ts
                         .store(i64::from(next_ts), Ordering::SeqCst);
                 }
@@ -309,10 +332,6 @@ impl SubscriptionManager {
 
             Ok(())
         })
-    }
-
-    pub async fn wait_for_next_ts(&mut self) -> Timestamp {
-        self.log.wait_for_higher_ts(self.processed_ts).await
     }
 
     #[allow(unused)]
@@ -363,9 +382,8 @@ impl SubscriptionManager {
 
     fn _remove(&mut self, id: SubscriberId) {
         let entry = self.subscribers.remove(id);
-        entry.valid_ts.store(-1, Ordering::SeqCst);
-        let _ = entry.valid.send(SubscriptionState::Invalid);
         self.subscriptions.remove(id, &entry.reads);
+        // dropping `entry.sender` will invalidate the subscription
     }
 }
 
@@ -379,25 +397,26 @@ enum SubscriptionState {
 pub struct Subscription {
     valid_ts: Arc<AtomicI64>, // -1 means invalid
     valid: watch::Receiver<SubscriptionState>,
-    key: Option<SubscriptionKey>,
-    sender: mpsc::Sender<SubscriptionRequest>,
     _timer: Timer<VMHistogram>,
 }
 
 impl Subscription {
-    #[allow(unused)]
-    #[cfg(any(test, feature = "testing"))]
-    fn id(&self) -> &SubscriberId {
-        &self.key.as_ref().unwrap().id
+    fn new(token: &Token) -> (Self, SubscriptionSender) {
+        let valid_ts = Arc::new(AtomicI64::new(i64::from(token.ts())));
+        let (valid_tx, valid_rx) = watch::channel(SubscriptionState::Valid);
+        let subscription = Subscription {
+            valid_ts: valid_ts.clone(),
+            valid: valid_rx,
+            _timer: metrics::subscription_timer(),
+        };
+        (subscription, SubscriptionSender { valid_ts, valid_tx })
     }
 
-    fn invalid(sender: mpsc::Sender<SubscriptionRequest>) -> Self {
+    fn invalid() -> Self {
         let (_, receiver) = watch::channel(SubscriptionState::Invalid);
         Subscription {
             valid_ts: Arc::new(AtomicI64::new(-1)),
             valid: receiver,
-            key: None,
-            sender,
             _timer: metrics::subscription_timer(),
         }
     }
@@ -421,14 +440,6 @@ impl Subscription {
                 .await;
         }
         .in_span(span)
-    }
-}
-
-impl Drop for Subscription {
-    fn drop(&mut self) {
-        if let Some(key) = self.key.take() {
-            let _: Result<_, _> = self.sender.try_send(SubscriptionRequest::Cancel(key));
-        }
     }
 }
 
@@ -528,6 +539,7 @@ mod tests {
         SINGLE_TYPO_SEARCH_MAX_WORD_LENGTH,
     };
     use sync_types::Timestamp;
+    use tokio::sync::mpsc;
     use value::{
         ConvexObject,
         ConvexString,
@@ -765,10 +777,11 @@ mod tests {
         let mut subscriptions = vec![];
         let tokens = vec![first, second];
         for token in &tokens {
-            subscriptions.push(subscription_manager.subscribe(token.clone()).unwrap());
-        }
-        for subscription in subscriptions {
-            subscription_manager._remove(*subscription.id());
+            let (subscriber, id) = subscription_manager
+                .subscribe_for_testing(token.clone())
+                .unwrap();
+            subscriptions.push(subscriber);
+            subscription_manager._remove(id);
         }
 
         assert!(
@@ -803,8 +816,10 @@ mod tests {
         )?;
 
         let mut subscription_manager = SubscriptionManager::new_for_testing();
-        let subscription = subscription_manager.subscribe(token.clone()).unwrap();
-        subscription_manager._remove(*subscription.id());
+        let (_subscription, id) = subscription_manager
+            .subscribe_for_testing(token.clone())
+            .unwrap();
+        subscription_manager._remove(id);
 
         assert!(notify_subscribed_tokens(
             &mut id_generator,
@@ -826,9 +841,11 @@ mod tests {
                 let mut subscription_manager = SubscriptionManager::new_for_testing();
                 let mut subscriptions = vec![];
                 for token in &tokens {
-                    subscriptions.push(subscription_manager.subscribe(token.clone()).unwrap());
+                    subscriptions.push(
+                        subscription_manager.subscribe_for_testing(token.clone()).unwrap(),
+                    );
                 }
-                for (token, id) in tokens.into_iter().zip(subscriptions.into_iter()) {
+                for (token, (_, id)) in tokens.into_iter().zip(subscriptions.into_iter()) {
                     let notifications = notify_subscribed_tokens(
                         &mut id_generator,
                         &mut subscription_manager,
@@ -838,7 +855,7 @@ mod tests {
                     if !contains_text_query(token) {
                         assert!(notifications.is_empty());
                     } else {
-                        assert_eq!(notifications, btreeset! { *id.id() });
+                        assert_eq!(notifications, btreeset! { id });
                     }
                 }
                 anyhow::Ok(())
@@ -853,7 +870,7 @@ mod tests {
             let test = async move {
                 let mut id_generator = TestIdGenerator::new();
                 let mut subscription_manager = SubscriptionManager::new_for_testing();
-                subscription_manager.subscribe(token.clone()).unwrap();
+                subscription_manager.subscribe_for_testing(token.clone()).unwrap();
                 let notifications =
                     notify_subscribed_tokens(
                         &mut id_generator, &mut subscription_manager, vec![mismatch]
@@ -871,10 +888,12 @@ mod tests {
                 let mut subscription_manager = SubscriptionManager::new_for_testing();
                 let mut subscriptions = vec![];
                 for token in &tokens {
-                subscriptions.push(subscription_manager.subscribe(token.clone()).unwrap());
+                    subscriptions.push(
+                        subscription_manager.subscribe_for_testing(token.clone()).unwrap(),
+                    );
                 }
-                for subscription in &subscriptions {
-                    subscription_manager._remove(*subscription.id());
+                for (_, id) in &subscriptions {
+                    subscription_manager._remove(*id);
                 }
                 let notifications = notify_subscribed_tokens(
                     &mut id_generator,
@@ -897,8 +916,9 @@ mod tests {
                 let mut id_generator = TestIdGenerator::new();
                 let mut subscription_manager = SubscriptionManager::new_for_testing();
                 for token in &tokens {
-                    let subscription = subscription_manager.subscribe(token.clone()).unwrap();
-                    subscription_manager._remove(*subscription.id());
+                    let (_subscription, id) = subscription_manager
+                        .subscribe_for_testing(token.clone()).unwrap();
+                    subscription_manager._remove(id);
                 }
                 let notifications = notify_subscribed_tokens(
                     &mut id_generator,
@@ -932,5 +952,28 @@ mod tests {
             }
         }
         to_notify
+    }
+
+    fn disconnected_rx<T>() -> mpsc::Receiver<T> {
+        mpsc::channel(1).1
+    }
+
+    #[tokio::test]
+    async fn test_cleans_up_dropped_subscriptions() {
+        let mut subscription_manager = SubscriptionManager::new_for_testing();
+        let (subscription, id) = subscription_manager
+            .subscribe_for_testing(Token::empty(Timestamp::MIN))
+            .unwrap();
+        subscription_manager.run_worker(disconnected_rx()).await;
+        assert!(subscription_manager.subscribers.get(id).is_some());
+        // The worker should notice that the `Subscription` dropped and clean up its
+        // state.
+        drop(subscription);
+        // HAX: this is relying on the fact that `run_worker` internally uses
+        // `select_biased!` and polls for closed subscriptions before reading
+        // from `rx`
+        subscription_manager.run_worker(disconnected_rx()).await;
+        assert!(subscription_manager.subscribers.get(id).is_none());
+        assert!(subscription_manager.subscribers.is_empty());
     }
 }
