@@ -10541,7 +10541,7 @@ requests, [let us know on Discord](https://convex.dev/community)!
 If any of these limits don't work for you,
 [let us know](https://convex.dev/community)!
 
-Please see our [plans and pricing page](https://www.convex.dev/plans) for
+Please see our [plans and pricing page](https://www.convex.dev/pricing) for
 resource limits. After these limits are hit on a free plan, new mutations that
 attempt to commit more insertions or updates may fail. Paid plans have no hard
 resource limits - they can scale to billions of documents and TBs of storage.
@@ -17093,7 +17093,7 @@ subscription.
 On paid plans, you can also update your billing contact details, payment method,
 and view your invoices.
 
-[Learn more about Convex pricing](https://www.convex.dev/plans).
+[Learn more about Convex pricing](https://www.convex.dev/pricing).
 
 ![Team billing page](https://docs.convex.dev/assets/images/teams_billing-52fb5e7787443bac74030153c75f3a80.png)
 
@@ -17103,7 +17103,7 @@ On the [usage page](https://dashboard.convex.dev/team/settings/usage) you can
 see all the resources consumed by your team, and how you're tracking against
 your plan's limits.
 
-[Learn more about Convex pricing](https://www.convex.dev/plans).
+[Learn more about Convex pricing](https://www.convex.dev/pricing).
 
 ![Team usage page](https://docs.convex.dev/assets/images/teams_usage-714de6c9b025dd8a5724545347f16ff7.png)
 
@@ -19816,7 +19816,7 @@ deploy and maintain a production version of your app.
 When you sign up for Convex, a Convex team is created for you. You can
 [create more teams from the dashboard](https://docs.convex.dev/dashboard/teams) and add other
 people to them as members. You can upgrade your team to the
-[Pro plan](https://www.convex.dev/plans) for additional features, higher limits
+[Pro plan](https://www.convex.dev/pricing) for additional features, higher limits
 and usage-based pricing.
 
 Each team can have multiple projects. When you run `npx convex dev` for the
@@ -19873,7 +19873,7 @@ pull-request (or commits to a shared branch).
      deployment with data from a prod deployment.
    - [Data import](https://docs.convex.dev/database/import-export/import) can be used to populate a
      dev deployment with synthetic seed data.
-   - Members of a team with the [Pro plan](https://www.convex.dev/plans) can get
+   - Members of a team with the [Pro plan](https://www.convex.dev/pricing) can get
      separate
      [preview deployments](https://docs.convex.dev/production/hosting/preview-deployments) to
      test each other's pull-requests.
@@ -23323,7 +23323,7 @@ Convex supports streaming export. Convex provides connector implementations for
 [Fivetran and Airbyte](https://docs.convex.dev/production/integrations/streaming-import-export).
 Those connectors use the following APIs.
 
-Sign up for a [Professional plan](https://www.convex.dev/plans) for streaming
+Sign up for a [Professional plan](https://www.convex.dev/pricing) for streaming
 export support. You can also read the
 [documentation on streaming export](https://docs.convex.dev/production/integrations/streaming-import-export).
 

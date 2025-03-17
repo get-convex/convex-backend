@@ -98,7 +98,7 @@ subscription.
 On paid plans, you can also update your billing contact details, payment method,
 and view your invoices.
 
-[Learn more about Convex pricing](https://www.convex.dev/plans).
+[Learn more about Convex pricing](https://www.convex.dev/pricing).
 
 ![Team billing page](/screenshots/teams_billing.png)
 
@@ -130,7 +130,7 @@ On the [usage page](https://dashboard.convex.dev/team/settings/usage) you can
 see all the resources consumed by your team, and how you're tracking against
 your plan's limits.
 
-[Learn more about Convex pricing](https://www.convex.dev/plans).
+[Learn more about Convex pricing](https://www.convex.dev/pricing).
 
 ![Team usage page](/screenshots/teams_usage.png)
 
