@@ -48,6 +48,7 @@ use common::{
     },
     runtime::{
         block_in_place,
+        try_join,
         Runtime,
         SpawnHandle,
     },
@@ -733,7 +734,6 @@ impl<RT: Runtime> Committer<RT> {
     /// transaction must be published and made visible. If we are unsure whether
     /// the write went through, we crash the process and recover from whatever
     /// has been written to persistence.
-    #[fastrace::trace]
     async fn write_to_persistence(
         persistence: Arc<dyn Persistence>,
         index_writes: BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -882,7 +882,11 @@ impl<RT: Runtime> Committer<RT> {
                     &table_mapping,
                     &component_registry,
                 );
-                Self::write_to_persistence(persistence, index_writes, document_writes).await?;
+                try_join(
+                    "Committer::write_to_persistence",
+                    Self::write_to_persistence(persistence, index_writes, document_writes),
+                )
+                .await?;
                 Ok(PersistenceWrite::Commit {
                     pending_write,
                     commit_timer,
