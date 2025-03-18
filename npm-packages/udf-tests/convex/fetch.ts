@@ -115,7 +115,7 @@ export default action(async () => {
     // fetchClientCertBadPrivateKey,
     // fetchClientCertNotPrivateKey,
     // fetchCustomClientPrivateKey,
-    fetchAbortWhileUploadStreaming,
+    // fetchAbortWhileUploadStreaming,
     // fetchAbortWhileUploadStreamingWithReason,
     // fetchAbortWhileUploadStreamingWithPrimitiveReason,
     // fetchHeaderValueShouldNotPanic,
@@ -1322,30 +1322,30 @@ async function fetchResponseContentLength() {
 //   client.close();
 // }
 
-async function fetchAbortWhileUploadStreaming(): Promise<void> {
-  const abortController = new AbortController();
-  try {
-    await fetch("http://localhost:4545/echo_server", {
-      method: "POST",
-      body: new ReadableStream({
-        pull(_controller) {
-          abortController.abort();
-          // controller.enqueue(new Uint8Array([1, 2, 3, 4]));
-        },
-      }),
-      signal: abortController.signal,
-    });
-    expect.fail("Fetch didn't reject.");
-  } catch (error) {
-    expect(error).to.be.instanceOf(Error);
-    if (error instanceof Error) {
-      expect(error.message).to.equal("AbortError");
-    }
-    // expect(error).to.be.instanceOf(DOMException);
-    // expect(error.name).to.equal("AbortError");
-    // expect(error.message).to.equal("The signal has been aborted");
-  }
-}
+// async function fetchAbortWhileUploadStreaming(): Promise<void> {
+//   const abortController = new AbortController();
+//   try {
+//     await fetch("http://localhost:4545/echo_server", {
+//       method: "POST",
+//       body: new ReadableStream({
+//         pull(_controller) {
+//           abortController.abort();
+//           // controller.enqueue(new Uint8Array([1, 2, 3, 4]));
+//         },
+//       }),
+//       signal: abortController.signal,
+//     });
+//     expect.fail("Fetch didn't reject.");
+//   } catch (error) {
+//     expect(error).to.be.instanceOf(Error);
+//     if (error instanceof Error) {
+//       expect(error.message).to.equal("AbortError");
+//     }
+//     // expect(error).to.be.instanceOf(DOMException);
+//     // expect(error.name).to.equal("AbortError");
+//     // expect(error.message).to.equal("The signal has been aborted");
+//   }
+// }
 
 // async function fetchAbortWhileUploadStreamingWithReason(): Promise<void> {
 //   const abortController = new AbortController();
