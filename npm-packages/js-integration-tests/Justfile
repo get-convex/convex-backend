@@ -6,7 +6,7 @@ _default:
     @just --list
 
 test *ARGS:
-    just test-conductor *ARGS
+    just test-conductor "$@"
 
 # Run with `RUST_LOG=info` to get backend logs too
 # Run open source tests locally (includes build steps)
