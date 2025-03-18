@@ -42,7 +42,10 @@ use usage_tracking::{
 use crate::{
     exports::{
         export_inner,
-        metrics::export_timer,
+        metrics::{
+            export_timer,
+            log_export_failed,
+        },
     },
     metrics::log_worker_starting,
 };
@@ -177,6 +180,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         tracing::info!("Export {} canceled", export.id());
                         return Ok(());
                     }
+                    log_export_failed();
                     report_error(&mut e).await;
                     let delay = self.backoff.fail(&mut self.runtime.rng());
                     tracing::error!("Export failed, retrying in {delay:?}");

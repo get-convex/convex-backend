@@ -1,4 +1,6 @@
 use metrics::{
+    log_counter,
+    register_convex_counter,
     register_convex_histogram,
     StaticMetricLabel,
     StatusTimer,
@@ -16,4 +18,12 @@ pub fn export_timer(instance_name: &str) -> StatusTimer {
         instance_name.to_owned(),
     ));
     timer
+}
+
+register_convex_counter!(
+    SNAPSHOT_EXPORT_FAILED_TOTAL,
+    "Number of snapshot export attempts that failed",
+);
+pub fn log_export_failed() {
+    log_counter(&SNAPSHOT_EXPORT_FAILED_TOTAL, 1);
 }
