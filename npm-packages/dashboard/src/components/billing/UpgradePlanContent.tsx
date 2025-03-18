@@ -72,9 +72,10 @@ export function UpgradePlanContentContainer({
     validationSchema: spendingLimits
       ? CreateSubscriptionSchema.concat(
           spendingLimitsSchema({
-            // A new billing cycle starts when the user upgrades, so it is safe to use 0 as the current
-            // spend even if the user has spent money in the current billing cycle on a previous plan.
-            currentSpendingUsd: 0,
+            // A new billing cycle starts when the user upgrades, so we don’t need to show the
+            // warning about setting a spending limit lower than the amount spent in the current
+            // billing cycle.
+            currentSpending: undefined,
           }),
         )
       : CreateSubscriptionSchema,

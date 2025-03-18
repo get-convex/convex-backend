@@ -10,6 +10,11 @@ jest.mock("api/billing", () => ({
 describe("SpendingLimitsForm", () => {
   const mockOnSubmit = jest.fn();
 
+  const currentSpending = {
+    totalCents: 0,
+    nextBillingPeriodStart: "2025-09-25",
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -23,7 +28,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={0}
+        currentSpending={currentSpending}
       />,
     );
 
@@ -67,7 +72,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={0}
+        currentSpending={currentSpending}
       />,
     );
 
@@ -98,7 +103,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={0}
+        currentSpending={currentSpending}
       />,
     );
 
@@ -142,7 +147,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={1000}
+        currentSpending={{ ...currentSpending, totalCents: 1000_00 }}
       />,
     );
 
@@ -155,7 +160,7 @@ describe("SpendingLimitsForm", () => {
 
     expect(
       screen.getByText(
-        "The spend limit must be greater than the spending in the current billing cycle ($1,000).",
+        "The spend limit must be greater than the spending in the current billing cycle ($1,000). You will be able to lower your spending limit at the start of the next billing cycle (September 25, 2025 at midnight UTC).",
       ),
     ).toBeInTheDocument();
   });
@@ -169,7 +174,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={0}
+        currentSpending={currentSpending}
       />,
     );
 
@@ -200,7 +205,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={undefined}
+        currentSpending={undefined}
       />,
     );
 
@@ -222,7 +227,7 @@ describe("SpendingLimitsForm", () => {
         }}
         onSubmit={mockOnSubmit}
         onCancel={jest.fn()}
-        currentSpendingUsd={0}
+        currentSpending={currentSpending}
       />,
     );
 

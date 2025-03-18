@@ -15,7 +15,7 @@ import { Sheet } from "dashboard-common/elements/Sheet";
 import { useFormik } from "formik";
 import { useStripeAddressSetup, useStripePaymentSetup } from "hooks/useStripe";
 import { Elements } from "@stripe/react-stripe-js";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useMount } from "react-use";
 import {
   Address,
@@ -109,6 +109,7 @@ export function SubscriptionOverview({
           {spendingLimits && (
             <>
               <SpendingLimitsSectionContainer
+                subscription={subscription}
                 team={team}
                 hasAdminPermissions={hasAdminPermissions}
               />
@@ -142,23 +143,41 @@ export function SubscriptionOverview({
 }
 
 function SpendingLimitsSectionContainer({
+  subscription,
   team,
   hasAdminPermissions,
 }: {
+  subscription: OrbSubscriptionResponse;
   team: Team;
   hasAdminPermissions: boolean;
 }) {
   const submitSpendingLimits = useSubmitSpendingLimits(team);
 
-  const currentSpend = useGetCurrentSpend(hasAdminPermissions ? team.id : null);
+  const { totalCents } = useGetCurrentSpend(
+    hasAdminPermissions ? team.id : null,
+  );
+  const currentSpend = useMemo(() => {
+    if (
+      totalCents === undefined ||
+      subscription.nextBillingPeriodStart === undefined
+    ) {
+      return undefined;
+    }
+
+    return {
+      totalCents,
+      nextBillingPeriodStart: subscription.nextBillingPeriodStart,
+    };
+  }, [totalCents, subscription.nextBillingPeriodStart]);
+
   const { spendingLimits } = useGetSpendingLimits(team.id);
 
   return (
     <SpendingLimitsSection
       currentSpendLimit={spendingLimits}
+      currentSpend={currentSpend}
       hasAdminPermissions={hasAdminPermissions}
       onSubmit={submitSpendingLimits}
-      currentSpend={currentSpend}
     />
   );
 }
@@ -176,7 +195,9 @@ export function SpendingLimitsSection({
         state: null | "Running" | "Disabled" | "Warning";
       }
     | undefined;
-  currentSpend: ReturnType<typeof useGetCurrentSpend>;
+  currentSpend:
+    | { totalCents: number; nextBillingPeriodStart: string }
+    | undefined;
   hasAdminPermissions: boolean;
   onSubmit: (v: SpendingLimitsValue) => Promise<void>;
 }) {
@@ -255,11 +276,7 @@ export function SpendingLimitsSection({
                       : currentSpendLimit.disableThresholdCents / 100,
                 }
           }
-          currentSpendingUsd={
-            currentSpend === undefined
-              ? undefined
-              : (currentSpend.totalCents ?? 0) / 100
-          }
+          currentSpending={currentSpend}
           onSubmit={async (v) => {
             await onSubmit(v);
             setShowForm(false);

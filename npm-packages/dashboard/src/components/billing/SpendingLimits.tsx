@@ -3,10 +3,8 @@ import React, { useCallback, useEffect, useId } from "react";
 import { TextInput } from "@common/elements/TextInput";
 import { Form, Formik, getIn, useFormikContext } from "formik";
 import { Button } from "dashboard-common/elements/Button";
-import { Team } from "generatedApi";
 import { useSetSpendingLimit } from "api/billing";
 import { Loading } from "dashboard-common/elements/Loading";
-import * as Sentry from "@sentry/nextjs";
 import { Checkbox } from "dashboard-common/elements/Checkbox";
 import { cn } from "dashboard-common/lib/cn";
 import {
@@ -16,6 +14,7 @@ import {
 import { Tooltip } from "dashboard-common/elements/Tooltip";
 import Link from "next/link";
 import { formatUsd } from "dashboard-common/lib/utils";
+import { Team } from "generatedApi";
 
 export type SpendingLimitsValue = {
   // null = disabled (= checkbox unchecked)
@@ -26,14 +25,12 @@ export type SpendingLimitsValue = {
 };
 
 export function spendingLimitsSchema({
-  currentSpendingUsd,
+  currentSpending,
 }: {
-  currentSpendingUsd: number | undefined;
+  currentSpending:
+    | { totalCents: number; nextBillingPeriodStart: string }
+    | undefined;
 }) {
-  if (currentSpendingUsd && currentSpendingUsd < 0) {
-    Sentry.captureMessage("Negative spending");
-  }
-
   const baseSchema = Yup.mixed()
     .test(
       "is-spending-value",
@@ -48,11 +45,19 @@ export function spendingLimitsSchema({
 
   const disableSchema = baseSchema.test(
     "is-greater-than-current-spending",
-    `The spend limit must be greater than the spending in the current billing cycle (${formatUsd(currentSpendingUsd ?? -1)}).`,
+    currentSpending !== undefined
+      ? `The spend limit must be greater than the spending in the current billing cycle (${formatUsd(currentSpending.totalCents / 100)}). ${
+          currentSpending.nextBillingPeriodStart
+            ? `You will be able to lower your spending limit at the start of the next billing cycle (${formatDate(
+                currentSpending.nextBillingPeriodStart,
+              )} at midnight UTC).`
+            : ""
+        }`
+      : "",
     (value) =>
-      currentSpendingUsd === undefined ||
+      currentSpending === undefined ||
       value === null ||
-      currentSpendingUsd <= value,
+      currentSpending.totalCents <= value,
   );
 
   return Yup.object().shape({
@@ -104,12 +109,17 @@ export function SpendingLimitsForm({
   defaultValue,
   onSubmit,
   onCancel,
-  currentSpendingUsd,
+  currentSpending,
 }: {
   defaultValue: SpendingLimitsValue | undefined;
   onSubmit: (values: SpendingLimitsValue) => Promise<void>;
   onCancel: () => void;
-  currentSpendingUsd: number | undefined;
+  currentSpending:
+    | {
+        totalCents: number;
+        nextBillingPeriodStart: string;
+      }
+    | undefined;
 }) {
   const isLoading = defaultValue === undefined;
 
@@ -124,7 +134,7 @@ export function SpendingLimitsForm({
             }
           : defaultValue
       }
-      validationSchema={spendingLimitsSchema({ currentSpendingUsd })}
+      validationSchema={spendingLimitsSchema({ currentSpending })}
       onSubmit={async (e) => {
         await onSubmit(e);
       }}
@@ -316,4 +326,21 @@ function SpendLimitInput({
       />
     </div>
   );
+}
+
+function formatDate(dateString: string) {
+  const parts = dateString.split("-");
+  if (parts.length !== 3) {
+    throw new Error("Invalid date string");
+  }
+
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+
+  return new Date(year, month, day).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }

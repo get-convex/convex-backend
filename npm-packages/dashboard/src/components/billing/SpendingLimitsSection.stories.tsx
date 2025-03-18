@@ -25,14 +25,14 @@ export const NoSpendingLimits: Story = {
       warningThresholdCents: null,
       state: null,
     },
-    currentSpend: { totalCents: 5000, isLoading: false },
+    currentSpend: { totalCents: 5000, nextBillingPeriodStart: "2025-09-25" },
   },
 };
 
 export const Loading: Story = {
   args: {
     currentSpendLimit: undefined,
-    currentSpend: { totalCents: undefined, isLoading: true },
+    currentSpend: undefined,
   },
 };
 
@@ -43,7 +43,7 @@ export const SomeSpendingLimits: Story = {
       warningThresholdCents: 8000,
       state: "Running",
     },
-    currentSpend: { totalCents: 5000, isLoading: false },
+    currentSpend: { totalCents: 5000, nextBillingPeriodStart: "2025-09-25" },
   },
 };
 
@@ -54,7 +54,7 @@ export const ZeroSpendingLimits: Story = {
       warningThresholdCents: null,
       state: "Running",
     },
-    currentSpend: { totalCents: 0, isLoading: false },
+    currentSpend: { totalCents: 0, nextBillingPeriodStart: "2025-09-25" },
   },
 };
 
@@ -65,7 +65,7 @@ export const WarningOnly: Story = {
       warningThresholdCents: 100_00,
       state: "Running",
     },
-    currentSpend: { totalCents: 0, isLoading: false },
+    currentSpend: { totalCents: 0, nextBillingPeriodStart: "2025-09-25" },
   },
 };
 
@@ -76,7 +76,7 @@ export const NoAdminPermissions: Story = {
       warningThresholdCents: 42_000_00,
       state: "Running",
     },
-    currentSpend: { totalCents: 5000, isLoading: false },
+    currentSpend: { totalCents: 5000, nextBillingPeriodStart: "2025-09-25" },
     hasAdminPermissions: false,
   },
 };
@@ -88,6 +88,9 @@ export const ExceededSpendingLimit: Story = {
       warningThresholdCents: 90_000_00,
       state: "Disabled",
     },
-    currentSpend: { totalCents: 100_000_00, isLoading: false },
+    currentSpend: {
+      totalCents: 100_000_00,
+      nextBillingPeriodStart: "2025-09-25",
+    },
   },
 };

@@ -1,8 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { SpendingLimitsForm } from "./SpendingLimits";
 
+const currentSpending = {
+  totalCents: 0,
+  nextBillingPeriodStart: "2025-09-25",
+} as const;
+
 const meta: Meta<typeof SpendingLimitsForm> = {
   component: SpendingLimitsForm,
+  args: {},
 };
 
 export default meta;
@@ -14,7 +20,6 @@ export const Default: Story = {
       spendingLimitWarningThresholdUsd: undefined,
       spendingLimitDisableThresholdUsd: null,
     },
-    currentSpendingUsd: 0,
   },
 };
 
@@ -24,7 +29,6 @@ export const BothThresholdsDisabled: Story = {
       spendingLimitWarningThresholdUsd: null,
       spendingLimitDisableThresholdUsd: null,
     },
-    currentSpendingUsd: 0,
   },
 };
 
@@ -34,7 +38,6 @@ export const BothThresholdsEmpty: Story = {
       spendingLimitWarningThresholdUsd: undefined,
       spendingLimitDisableThresholdUsd: undefined,
     },
-    currentSpendingUsd: 0,
   },
 };
 
@@ -44,7 +47,6 @@ export const DisableThresholdOnly: Story = {
       spendingLimitWarningThresholdUsd: null,
       spendingLimitDisableThresholdUsd: 100,
     },
-    currentSpendingUsd: 0,
   },
 };
 
@@ -54,7 +56,6 @@ export const WarningThresholdOnly: Story = {
       spendingLimitWarningThresholdUsd: 100,
       spendingLimitDisableThresholdUsd: null,
     },
-    currentSpendingUsd: 0,
   },
 };
 
@@ -64,7 +65,10 @@ export const HighCurrentSpending: Story = {
       spendingLimitWarningThresholdUsd: null,
       spendingLimitDisableThresholdUsd: undefined,
     },
-    currentSpendingUsd: 1234,
+    currentSpending: {
+      ...currentSpending,
+      totalCents: 123_456_78,
+    },
   },
 };
 
@@ -74,13 +78,11 @@ export const ZeroUsageSpending: Story = {
       spendingLimitWarningThresholdUsd: null,
       spendingLimitDisableThresholdUsd: 0,
     },
-    currentSpendingUsd: 0,
   },
 };
 
 export const Loading: Story = {
   args: {
     defaultValue: undefined,
-    currentSpendingUsd: 0,
   },
 };
