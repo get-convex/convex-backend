@@ -38,6 +38,7 @@ use headers::ContentType;
 use keybroker::Identity;
 use maplit::btreeset;
 use model::{
+    components::config::ComponentConfigModel,
     exports::types::{
         ExportFormat,
         ExportRequestor,
@@ -578,6 +579,39 @@ async fn test_export_with_table_delete(rt: TestRuntime) -> anyhow::Result<()> {
         },
         ExportRequestor::SnapshotExport,
         |_| async { Ok(()) },
+    )
+    .await?;
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_export_with_namespace_without_component(rt: TestRuntime) -> anyhow::Result<()> {
+    let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
+    let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let file_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+    let mut export_worker = ExportWorker::new_test(rt, db.clone(), storage, file_storage);
+
+    // Make a namespace without a component.
+    let mut tx = db.begin(Identity::system()).await?;
+    let id = ComponentConfigModel::new(&mut tx)
+        .initialize_component_namespace(false)
+        .await?;
+    TableModel::new(&mut tx)
+        .insert_table_metadata(TableNamespace::ByComponent(id), &"table_0".parse()?)
+        .await?;
+    db.commit(tx).await?;
+
+    // Export the namespace.
+    let (..) = export_inner(
+        &mut export_worker,
+        ExportFormat::Zip {
+            include_storage: false,
+        },
+        ExportRequestor::CloudBackup,
+        |s| async move {
+            tracing::info!("{s}");
+            Ok(())
+        },
     )
     .await?;
     Ok(())

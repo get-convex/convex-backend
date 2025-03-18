@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use anyhow::Context;
 use bytes::Bytes;
 use common::{
     self,
@@ -277,9 +276,12 @@ where
     sorted_tables.sort_by_key(|(_, (_, _, _, table_summary))| table_summary.total_size());
     for (tablet_id, (namespace, _, table_name, table_summary)) in sorted_tables {
         let component_id: ComponentId = (*namespace).into();
-        let component_path = component_ids_to_paths
-            .get(&component_id)
-            .context("Component missing")?;
+        let Some(component_path) = component_ids_to_paths.get(&component_id) else {
+            tracing::info!(
+                "Table {table_name} in namespace {namespace:?} has no component. Skipping."
+            );
+            continue;
+        };
         let in_component_str = component_path.in_component_str();
         let path_prefix = get_export_path_prefix(component_path);
         let by_id = by_id_indexes
