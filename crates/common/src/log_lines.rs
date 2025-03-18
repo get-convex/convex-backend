@@ -139,7 +139,7 @@ pub struct LogLineStructured {
 }
 
 impl LogLineStructured {
-    pub fn to_pretty_string(self) -> String {
+    pub fn to_pretty_string(&self) -> String {
         let LogLineStructured {
             messages,
             level,
@@ -147,7 +147,7 @@ impl LogLineStructured {
             timestamp: _timestamp,
             system_metadata: _system_metadata,
         } = self;
-        if is_truncated {
+        if *is_truncated {
             format!("[{level}] {}{TRUNCATED_LINE_SUFFIX}", messages.join(" "))
         } else {
             format!("[{level}] {}", messages.join(" "))

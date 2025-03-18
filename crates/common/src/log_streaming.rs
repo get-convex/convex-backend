@@ -5,7 +5,12 @@ use std::{
     time::Duration,
 };
 
-use serde::Deserialize;
+use serde::{
+    ser::SerializeMap,
+    Deserialize,
+    Serialize,
+    Serializer,
+};
 use serde_json::{
     json,
     Value as JsonValue,
@@ -172,21 +177,45 @@ impl LogEvent {
     }
 
     pub fn to_json_map(
-        self,
+        &self,
         format: LogEventFormatVersion,
     ) -> anyhow::Result<serde_json::Map<String, JsonValue>> {
-        let ms = self.timestamp.as_ms_since_epoch()?;
-        let value = match format {
-            LogEventFormatVersion::V1 => match self.event {
+        let object = self.to_json_serializer(format, serde_json::value::Serializer)?;
+        let JsonValue::Object(fields) = object else {
+            unreachable!();
+        };
+        Ok(fields)
+    }
+
+    pub fn to_json_serializer<S: Serializer>(
+        &self,
+        format: LogEventFormatVersion,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        let ms = self
+            .timestamp
+            .as_ms_since_epoch()
+            .map_err(serde::ser::Error::custom)?;
+        macro_rules! serialize_map {
+            ({$(
+                $key:literal: $value:expr
+            ),* $(,)?}) => {{
+                let mut map_builder = serializer.serialize_map(None)?;
+                $(map_builder.serialize_entry($key, &$value)?;)*
+                map_builder.end()
+            }}
+        }
+        match format {
+            LogEventFormatVersion::V1 => match &self.event {
                 StructuredLogEvent::Verification => {
-                    json!({
+                    serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_verification",
                         "message": "Convex connection test"
                     })
                 },
                 StructuredLogEvent::Console { source, log_line } => {
-                    json!({
+                    serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_console",
                         "_functionPath": source.udf_path,
@@ -202,11 +231,11 @@ impl LogEvent {
                     usage_stats,
                 } => {
                     let (reason, status) = match error {
-                        Some(err) => (json!(err.to_string()), "failure"),
-                        None => (JsonValue::Null, "success"),
+                        Some(err) => (Some(err.to_string()), "failure"),
+                        None => (None, "success"),
                     };
                     let execution_time_ms = execution_time.as_millis();
-                    json!({
+                    serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_execution_record",
                         "_functionPath": source.udf_path,
@@ -227,12 +256,12 @@ impl LogEvent {
                     source,
                     udf_server_version,
                 } => {
-                    let message = error.message;
+                    let message = &error.message;
                     let frames: Option<Vec<String>> = error
                         .frames
                         .as_ref()
                         .map(|frames| frames.0.iter().map(|frame| frame.to_string()).collect());
-                    json!({
+                    serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_exception",
                         "_functionPath": source.udf_path,
@@ -245,7 +274,7 @@ impl LogEvent {
                     })
                 },
                 StructuredLogEvent::DeploymentAuditLog { action, metadata } => {
-                    json!({
+                    serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_audit_log",
                         "action": action,
@@ -253,9 +282,9 @@ impl LogEvent {
                     })
                 },
             },
-            LogEventFormatVersion::V2 => match self.event {
+            LogEventFormatVersion::V2 => match &self.event {
                 StructuredLogEvent::Verification => {
-                    json!({
+                    serialize_map!({
                         "timestamp": ms,
                         "topic": "verification",
                         "message": "Convex connection test"
@@ -270,15 +299,17 @@ impl LogEvent {
                         is_truncated,
                         system_metadata,
                     } = log_line;
-                    let timestamp_ms = timestamp.as_ms_since_epoch()?;
-                    json!({
+                    let timestamp_ms = timestamp
+                        .as_ms_since_epoch()
+                        .map_err(serde::ser::Error::custom)?;
+                    serialize_map!({
                         "timestamp": timestamp_ms,
                         "topic": "console",
                         "function": function_source,
                         "log_level": level.to_string(),
                         "message": messages.join(" "),
                         "is_truncated": is_truncated,
-                        "system_code": system_metadata.map(|s| s.code)
+                        "system_code": system_metadata.as_ref().map(|s| &s.code)
                     })
                 },
                 StructuredLogEvent::FunctionExecution {
@@ -292,21 +323,31 @@ impl LogEvent {
                         Some(error) => ("failure", Some(error.to_string())),
                         None => ("success", None),
                     };
-                    json!({
+                    #[derive(Serialize)]
+                    struct Usage {
+                        database_read_bytes: u64,
+                        database_write_bytes: u64,
+                        file_storage_read_bytes: u64,
+                        file_storage_write_bytes: u64,
+                        vector_storage_read_bytes: u64,
+                        vector_storage_write_bytes: u64,
+                        action_memory_used_mb: Option<u64>,
+                    }
+                    serialize_map!({
                         "timestamp": ms,
                         "topic": "function_execution",
                         "function": function_source,
                         "execution_time_ms": execution_time.as_millis(),
                         "status": status,
                         "error_message": error_message,
-                        "usage": {
-                            "database_read_bytes": usage_stats.database_read_bytes,
-                            "database_write_bytes": usage_stats.database_write_bytes,
-                            "file_storage_read_bytes": usage_stats.storage_read_bytes,
-                            "file_storage_write_bytes": usage_stats.storage_write_bytes,
-                            "vector_storage_read_bytes": usage_stats.vector_index_read_bytes,
-                            "vector_storage_write_bytes": usage_stats.vector_index_write_bytes,
-                            "action_memory_used_mb": usage_stats.action_memory_used_mb
+                        "usage": Usage {
+                            database_read_bytes: usage_stats.database_read_bytes,
+                            database_write_bytes: usage_stats.database_write_bytes,
+                            file_storage_read_bytes: usage_stats.storage_read_bytes,
+                            file_storage_write_bytes: usage_stats.storage_write_bytes,
+                            vector_storage_read_bytes: usage_stats.vector_index_read_bytes,
+                            vector_storage_write_bytes: usage_stats.vector_index_write_bytes,
+                            action_memory_used_mb: usage_stats.action_memory_used_mb
                         }
                     })
                 },
@@ -318,12 +359,12 @@ impl LogEvent {
                     source,
                     udf_server_version,
                 } => {
-                    let message = error.message;
+                    let message = &error.message;
                     let frames: Option<Vec<String>> = error
                         .frames
                         .as_ref()
                         .map(|frames| frames.0.iter().map(|frame| frame.to_string()).collect());
-                    json!({
+                    serialize_map!({
                         "_timestamp": ms,
                         "_topic":  "_exception",
                         "_functionPath": source.udf_path,
@@ -336,20 +377,16 @@ impl LogEvent {
                     })
                 },
                 StructuredLogEvent::DeploymentAuditLog { action, metadata } => {
-                    json!({
+                    serialize_map!({
                         "timestamp": ms,
                         "topic": "audit_log",
                         "audit_log_action": action,
                         // stringified JSON to avoid
-                        "audit_log_metadata": serde_json::to_string(&JsonValue::Object(metadata))?
+                        "audit_log_metadata": serde_json::to_string(metadata).map_err(serde::ser::Error::custom)?
                     })
                 },
             },
-        };
-        let JsonValue::Object(fields) = value else {
-            unreachable!();
-        };
-        Ok(fields)
+        }
     }
 }
 
@@ -426,7 +463,7 @@ impl FunctionEventSource {
         }
     }
 
-    pub fn to_json_map(self) -> serde_json::Map<String, JsonValue> {
+    pub fn to_json_map(&self) -> serde_json::Map<String, JsonValue> {
         let udf_type = match self.udf_type {
             UdfType::Query => "query",
             UdfType::Mutation => "mutation",
@@ -441,7 +478,7 @@ impl FunctionEventSource {
         }) else {
             unreachable!()
         };
-        if let Some(component_path_str) = self.component_path.serialize() {
+        if let Some(component_path_str) = self.component_path.clone().serialize() {
             fields.insert(
                 "component_path".to_string(),
                 JsonValue::String(component_path_str),
