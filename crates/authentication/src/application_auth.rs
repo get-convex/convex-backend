@@ -40,13 +40,25 @@ impl ApplicationAuth {
             .is_encrypted_admin_key(&admin_key_or_access_token)
         {
             // assume this is a legacy Deploy Key
-            log_deploy_key_use(DeployKeyType::Legacy);
-            self.key_broker
+            let result = self
+                .key_broker
                 .check_admin_key(&admin_key_or_access_token)
                 .context(ErrorMetadata::unauthenticated(
                     "BadAdminKey",
                     "The provided admin key was invalid for this instance",
-                ))
+                ));
+            match &result {
+                Ok(Identity::InstanceAdmin(_)) => {
+                    log_deploy_key_use(DeployKeyType::Legacy);
+                },
+                Ok(Identity::System(_)) => {
+                    log_deploy_key_use(DeployKeyType::System);
+                },
+                _ => {
+                    log_deploy_key_use(DeployKeyType::Unknown);
+                },
+            }
+            result
         } else {
             // assume this is an Access Token
             // Access Tokens are base64 encoded strings
