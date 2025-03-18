@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
+use anyhow::Context as _;
 use bytes::Bytes;
 use common::{
-    self,
     async_compat::TokioAsyncWriteCompatExt,
     bootstrap_model::tables::TABLES_TABLE,
     components::{
@@ -15,13 +15,13 @@ use common::{
     types::{
         IndexId,
         ObjectKey,
-        RepeatableTimestamp,
         TableName,
         Timestamp,
     },
 };
 use database::{
     IndexModel,
+    MultiTableIterator,
     TableSummary,
     COMPONENTS_TABLE,
 };
@@ -37,9 +37,12 @@ use futures::{
 use itertools::Itertools;
 use keybroker::Identity;
 use maplit::btreemap;
-use model::exports::types::{
-    ExportFormat,
-    ExportRequestor,
+use model::{
+    exports::types::{
+        ExportFormat,
+        ExportRequestor,
+    },
+    file_storage::FILE_STORAGE_TABLE,
 };
 use serde_json::json;
 use shape_inference::export_context::{
@@ -91,7 +94,8 @@ where
     let (ts, tables, component_ids_to_paths, by_id_indexes, system_tables) = {
         let mut tx = worker.database.begin(Identity::system()).await?;
         let by_id_indexes = IndexModel::new(&mut tx).by_id_indexes().await?;
-        let snapshot = worker.database.snapshot(tx.begin_timestamp())?;
+        let ts = tx.begin_timestamp();
+        let snapshot = worker.database.snapshot(ts)?;
         let table_summaries = snapshot.must_table_summaries()?;
         let tables: BTreeMap<_, _> = snapshot
             .table_registry
@@ -109,13 +113,13 @@ where
             })
             .collect();
         let component_ids_to_paths = snapshot.component_ids_to_paths();
-        let system_tables = snapshot
+        let system_tables: BTreeMap<_, _> = snapshot
             .table_registry
             .iter_active_system_tables()
             .map(|(id, namespace, _, name)| ((namespace, name.clone()), id))
             .collect();
         (
-            tx.begin_timestamp(),
+            ts,
             tables,
             component_ids_to_paths,
             by_id_indexes,
@@ -132,12 +136,24 @@ where
             let writer = ChannelWriter::new(sender, 5 * (1 << 20));
             let usage = FunctionUsageTracker::new();
 
+            let mut tablet_ids: Vec<_> = tables.keys().copied().collect();
+            if include_storage {
+                for &component_id in component_ids_to_paths.keys() {
+                    tablet_ids.push(
+                        *system_tables
+                            .get(&(component_id.into(), FILE_STORAGE_TABLE.clone()))
+                            .context("_file_storage does not exist")?,
+                    );
+                }
+            }
+            let table_iterator = worker.database.table_iterator(ts, 1000).multi(tablet_ids);
+
             let zipper = construct_zip_snapshot(
                 worker,
                 writer,
-                tables.clone(),
+                tables,
+                table_iterator,
                 component_ids_to_paths,
-                ts,
                 by_id_indexes,
                 system_tables,
                 include_storage,
@@ -184,10 +200,9 @@ async fn write_tables_table<'a, 'b: 'a>(
 }
 
 pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
-    worker: &ExportWorker<RT>,
     path_prefix: &str,
     zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
-    snapshot_ts: RepeatableTimestamp,
+    table_iterator: &mut MultiTableIterator<RT>,
     component_path: &ComponentPath,
     tablet_id: &TabletId,
     table_name: TableName,
@@ -199,7 +214,6 @@ pub async fn write_table<'a, 'b: 'a, RT: Runtime>(
         .start_table(path_prefix, table_name.clone())
         .await?;
 
-    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
     pin_mut!(stream);
 
@@ -230,8 +244,8 @@ async fn construct_zip_snapshot<F, Fut, RT: Runtime>(
     worker: &ExportWorker<RT>,
     mut writer: ChannelWriter,
     tables: BTreeMap<TabletId, (TableNamespace, TableNumber, TableName, TableSummary)>,
+    mut table_iterator: MultiTableIterator<RT>,
     component_ids_to_paths: BTreeMap<ComponentId, ComponentPath>,
-    snapshot_ts: RepeatableTimestamp,
     by_id_indexes: BTreeMap<TabletId, IndexId>,
     system_tables: BTreeMap<(TableNamespace, TableName), TabletId>,
     include_storage: bool,
@@ -301,10 +315,9 @@ where
         update_progress(format!("Backing up {table_name}{in_component_str}")).await?;
 
         write_table(
-            worker,
             &path_prefix,
             &mut zip_snapshot_upload,
-            snapshot_ts,
+            &mut table_iterator,
             component_path,
             tablet_id,
             table_name.clone(),
@@ -314,6 +327,8 @@ where
         )
         .in_span(root)
         .await?;
+
+        table_iterator.unregister_table(*tablet_id)?;
     }
 
     // Backup the storage tables last - since the upload/download can be slower
@@ -339,7 +354,7 @@ where
                 &mut zip_snapshot_upload,
                 namespace,
                 &component_path,
-                snapshot_ts,
+                &mut table_iterator,
                 &by_id_indexes,
                 &system_tables,
                 &usage,

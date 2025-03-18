@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use bytes::Bytes;
 use common::{
-    self,
     components::ComponentPath,
     document::ParsedDocument,
     knobs::{
@@ -14,10 +13,10 @@ use common::{
     runtime::Runtime,
     types::{
         IndexId,
-        RepeatableTimestamp,
         TableName,
     },
 };
+use database::MultiTableIterator;
 use fastrace::{
     future::FutureExt,
     Span,
@@ -65,7 +64,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     zip_snapshot_upload: &'a mut ZipSnapshotUpload<'b>,
     namespace: TableNamespace,
     component_path: &ComponentPath,
-    snapshot_ts: RepeatableTimestamp,
+    table_iterator: &mut MultiTableIterator<RT>,
     by_id_indexes: &BTreeMap<TabletId, IndexId>,
     system_tables: &BTreeMap<(TableNamespace, TableName), TabletId>,
     usage: &FunctionUsageTracker,
@@ -83,27 +82,27 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     let mut table_upload = zip_snapshot_upload
         .start_system_table(path_prefix, FILE_STORAGE_VIRTUAL_TABLE.clone())
         .await?;
-    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
-    let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
-    pin_mut!(stream);
-    while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-        let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
-        let virtual_storage_id = file_storage_entry.id().developer_id;
-        let creation_time = f64::from(file_storage_entry.creation_time());
-        table_upload
-            .write_json_line(json!(FileStorageZipMetadata {
-                id: virtual_storage_id.encode(),
-                creation_time: Some(creation_time),
-                sha256: Some(file_storage_entry.sha256.as_base64()),
-                size: Some(file_storage_entry.size),
-                content_type: file_storage_entry.content_type.clone(),
-                internal_id: Some(file_storage_entry.storage_id.to_string()),
-            }))
-            .await?;
+    {
+        let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
+        pin_mut!(stream);
+        while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
+            let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
+            let virtual_storage_id = file_storage_entry.id().developer_id;
+            let creation_time = f64::from(file_storage_entry.creation_time());
+            table_upload
+                .write_json_line(json!(FileStorageZipMetadata {
+                    id: virtual_storage_id.encode(),
+                    creation_time: Some(creation_time),
+                    sha256: Some(file_storage_entry.sha256.as_base64()),
+                    size: Some(file_storage_entry.size),
+                    content_type: file_storage_entry.content_type.clone(),
+                    internal_id: Some(file_storage_entry.storage_id.to_string()),
+                }))
+                .await?;
+        }
     }
     table_upload.complete().await?;
 
-    let table_iterator = worker.database.table_iterator(snapshot_ts, 1000);
     let max_prefetch_bytes = *EXPORT_MAX_INFLIGHT_PREFETCH_BYTES;
     let inflight_bytes_semaphore = tokio::sync::Semaphore::new(max_prefetch_bytes);
     let files_stream = table_iterator
