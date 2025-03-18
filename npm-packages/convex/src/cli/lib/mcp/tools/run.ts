@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
-import { fetchDeploymentCredentialsProvisionProd } from "../../api.js";
+import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import { parseArgs, parseFunctionName } from "../../run.js";
 import { readProjectConfig } from "../../config.js";
 import { ConvexHttpClient } from "../../../../browser/index.js";
 import { Value } from "../../../../values/index.js";
 import { Logger } from "../../../../browser/logging.js";
-
+import { getDeploymentSelection } from "../../deploymentSelection.js";
 const inputSchema = z.object({
   deploymentSelector: z
     .string()
@@ -49,8 +49,10 @@ export const RunTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const metadata = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      metadata,
       deployment,
     );
     const parsedArgs = await parseArgs(ctx, args.args);

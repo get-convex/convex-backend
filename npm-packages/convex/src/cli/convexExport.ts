@@ -3,13 +3,13 @@ import chalk from "chalk";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { oneoffContext } from "../bundler/context.js";
 import {
-  fetchDeploymentCredentialsProvisionProd,
-  deploymentSelectionFromOptions,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { actionDescription } from "./lib/command.js";
 import { exportFromDeployment } from "./lib/convexExport.js";
-
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 export const convexExport = new Command("export")
   .summary("Export data from your deployment to a ZIP file")
   .description(
@@ -21,31 +21,30 @@ export const convexExport = new Command("export")
   .addDeploymentSelectionOptions(actionDescription("Export data from"))
   .showHelpAfterError()
   .action(async (options) => {
-    const ctx = oneoffContext();
-
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      options,
-    );
-
-    const {
-      adminKey,
-      url: deploymentUrl,
-      deploymentName,
-    } = await fetchDeploymentCredentialsProvisionProd(ctx, deploymentSelection);
-
+    const ctx = await oneoffContext(options);
     await ensureHasConvexDependency(ctx, "export");
+
+    const deploymentSelection = await getDeploymentSelection(ctx, options);
+
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+
+    const deployment = await loadSelectedDeploymentCredentials(
+      ctx,
+      deploymentSelection,
+      selectionWithinProject,
+    );
 
     const deploymentNotice = options.prod
       ? ` in your ${chalk.bold("prod")} deployment`
       : "";
     await exportFromDeployment(ctx, {
       ...options,
-      deploymentUrl,
-      adminKey,
+      deploymentUrl: deployment.url,
+      adminKey: deployment.adminKey,
       deploymentNotice,
       snapshotExportDashboardLink: deploymentDashboardUrlPage(
-        deploymentName ?? null,
+        deployment.deploymentFields?.deploymentName ?? null,
         "/settings/snapshot-export",
       ),
     });

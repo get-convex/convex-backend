@@ -8,10 +8,8 @@ import {
   showSpinner,
 } from "../bundler/context.js";
 import {
-  fetchDeploymentCredentialsWithinCurrentProject,
-  deploymentSelectionFromOptions,
-  projectSelection,
-  storeAdminKeyEnvVar,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import {
   gitBranchFromEnvironment,
@@ -22,27 +20,22 @@ import { PushOptions } from "./lib/push.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
+  CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   bigBrainAPI,
-  getConfiguredDeployment,
-  readAdminKeyFromEnvVar,
 } from "./lib/utils/utils.js";
 import { runFunctionAndLog } from "./lib/run.js";
 import { usageStateWarning } from "./lib/usage.js";
-import {
-  CONVEX_DEPLOYMENT_VAR_NAME,
-  deploymentTypeFromAdminKey,
-  getConfiguredDeploymentFromEnvVar,
-  isPreviewDeployKey,
-} from "./lib/deployment.js";
+import { getTeamAndProjectFromPreviewAdminKey } from "./lib/deployment.js";
 import { runPush } from "./lib/components.js";
 import { promptYesNo } from "./lib/utils/prompts.js";
 import { deployToDeployment, runCommand } from "./lib/deploy2.js";
-
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
+import { deploymentNameAndTypeFromSelection } from "./lib/deploymentSelection.js";
 export const deploy = new Command("deploy")
   .summary("Deploy to your prod deployment")
   .description(
     "Deploy to your deployment. By default, this deploys to your prod deployment.\n\n" +
-      "Deploys to a preview deployment if the `CONVEX_DEPLOY_KEY` environment variable is set to a Preview Deploy Key.",
+      `Deploys to a preview deployment if the \`${CONVEX_DEPLOY_KEY_ENV_VAR_NAME}\` environment variable is set to a Preview Deploy Key.`,
   )
   .allowExcessArguments(false)
   .addDeployOptions()
@@ -82,22 +75,23 @@ export const deploy = new Command("deploy")
     new Option(
       "--env-file <envFile>",
       `Path to a custom file of environment variables, for choosing the \
-deployment, e.g. ${CONVEX_DEPLOYMENT_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+deployment, e.g. ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
 Same format as .env.local or .env files, and overrides them.`,
     ),
   )
   .addOption(new Option("--partition-id <id>").hideHelp())
   .showHelpAfterError()
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(cmdOptions);
 
-    storeAdminKeyEnvVar(cmdOptions.adminKey);
-    const configuredDeployKey = readAdminKeyFromEnvVar() ?? null;
+    const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
     if (
       cmdOptions.checkBuildEnvironment === "enable" &&
       isNonProdBuildEnvironment() &&
-      configuredDeployKey !== null &&
-      deploymentTypeFromAdminKey(configuredDeployKey) === "prod"
+      deploymentSelection.kind === "existingDeployment" &&
+      deploymentSelection.deploymentToActOn.source === "deployKey" &&
+      deploymentSelection.deploymentToActOn.deploymentFields?.deploymentType ===
+        "prod"
     ) {
       await ctx.crash({
         exitCode: 1,
@@ -108,11 +102,9 @@ Same format as .env.local or .env files, and overrides them.`,
       });
     }
 
-    if (
-      configuredDeployKey !== null &&
-      isPreviewDeployKey(configuredDeployKey)
-    ) {
-      await usageStateWarning(ctx);
+    if (deploymentSelection.kind === "preview") {
+      // TODO -- add usage state warnings here too once we can do it without a deployment name
+      // await usageStateWarning(ctx);
       if (cmdOptions.previewName !== undefined) {
         await ctx.crash({
           exitCode: 1,
@@ -121,10 +113,25 @@ Same format as .env.local or .env files, and overrides them.`,
             "The `--preview-name` flag has been deprecated in favor of `--preview-create`. Please re-run the command using `--preview-create` instead.",
         });
       }
-      await deployToNewPreviewDeployment(ctx, {
-        ...cmdOptions,
-        configuredDeployKey,
-      });
+
+      const teamAndProjectSlugs = await getTeamAndProjectFromPreviewAdminKey(
+        ctx,
+        deploymentSelection.previewDeployKey,
+      );
+      await deployToNewPreviewDeployment(
+        ctx,
+        {
+          previewDeployKey: deploymentSelection.previewDeployKey,
+          projectSelection: {
+            kind: "teamAndProjectSlugs",
+            teamSlug: teamAndProjectSlugs.teamSlug,
+            projectSlug: teamAndProjectSlugs.projectSlug,
+          },
+        },
+        {
+          ...cmdOptions,
+        },
+      );
     } else {
       await deployToExistingDeployment(ctx, cmdOptions);
     }
@@ -132,8 +139,15 @@ Same format as .env.local or .env files, and overrides them.`,
 
 async function deployToNewPreviewDeployment(
   ctx: Context,
+  deploymentSelection: {
+    previewDeployKey: string;
+    projectSelection: {
+      kind: "teamAndProjectSlugs";
+      teamSlug: string;
+      projectSlug: string;
+    };
+  },
   options: {
-    configuredDeployKey: string;
     dryRun?: boolean | undefined;
     previewCreate?: string | undefined;
     previewRun?: string | undefined;
@@ -180,17 +194,12 @@ async function deployToNewPreviewDeployment(
     }
     return;
   }
-
   const data = await bigBrainAPI({
     ctx,
     method: "POST",
     url: "claim_preview_deployment",
     data: {
-      projectSelection: await projectSelection(
-        ctx,
-        (await getConfiguredDeployment(ctx)).name,
-        options.configuredDeployKey,
-      ),
+      projectSelection: deploymentSelection.projectSelection,
       identifier: previewName,
       partitionId: options.partitionId
         ? parseInt(options.partitionId)
@@ -208,6 +217,7 @@ async function deployToNewPreviewDeployment(
   });
 
   const pushOptions: PushOptions = {
+    deploymentName: data.deploymentName,
     adminKey: previewAdminKey,
     verbose: !!options.verbose,
     dryRun: false,
@@ -264,38 +274,39 @@ async function deployToExistingDeployment(
     envFile?: string | undefined;
   },
 ) {
-  const deploymentSelection = await deploymentSelectionFromOptions(ctx, {
-    ...options,
-    implicitProd: true,
-  });
-  if (deploymentSelection.kind !== "urlWithAdminKey") {
-    await usageStateWarning(ctx);
-  }
-  const { name: configuredDeploymentName, type: configuredDeploymentType } =
-    getConfiguredDeploymentFromEnvVar();
-  const { adminKey, url, deploymentName, deploymentType } =
-    await fetchDeploymentCredentialsWithinCurrentProject(
+  const selectionWithinProject =
+    await deploymentSelectionWithinProjectFromOptions(ctx, {
+      ...options,
+      implicitProd: true,
+    });
+  const deploymentSelection = await getDeploymentSelection(ctx, options);
+  const deploymentToActOn = await loadSelectedDeploymentCredentials(
+    ctx,
+    deploymentSelection,
+    selectionWithinProject,
+  );
+  if (deploymentToActOn.deploymentFields !== null) {
+    await usageStateWarning(
       ctx,
-      deploymentSelection,
+      deploymentToActOn.deploymentFields.deploymentName,
     );
-  if (
-    deploymentSelection.kind !== "deployKey" &&
-    deploymentName !== undefined &&
-    deploymentType !== undefined &&
-    configuredDeploymentName !== null
-  ) {
+  }
+  const configuredDeployment =
+    deploymentNameAndTypeFromSelection(deploymentSelection);
+  if (configuredDeployment !== null && configuredDeployment.name !== null) {
     const shouldPushToProd =
-      deploymentName === configuredDeploymentName ||
+      configuredDeployment.name ===
+        deploymentToActOn.deploymentFields?.deploymentName ||
       (options.yes ??
         (await askToConfirmPush(
           ctx,
           {
-            configuredName: configuredDeploymentName,
-            configuredType: configuredDeploymentType,
-            requestedName: deploymentName,
-            requestedType: deploymentType,
+            configuredName: configuredDeployment.name,
+            configuredType: configuredDeployment.type,
+            requestedName: deploymentToActOn.deploymentFields?.deploymentName!,
+            requestedType: deploymentToActOn.deploymentFields?.deploymentType!,
           },
-          url,
+          deploymentToActOn.url,
         )));
     if (!shouldPushToProd) {
       await ctx.crash({
@@ -306,7 +317,16 @@ async function deployToExistingDeployment(
     }
   }
 
-  await deployToDeployment(ctx, { url, adminKey }, options);
+  await deployToDeployment(
+    ctx,
+    {
+      url: deploymentToActOn.url,
+      adminKey: deploymentToActOn.adminKey,
+      deploymentName:
+        deploymentToActOn.deploymentFields?.deploymentName ?? null,
+    },
+    options,
+  );
 }
 
 async function askToConfirmPush(

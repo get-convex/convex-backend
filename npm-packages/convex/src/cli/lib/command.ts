@@ -1,13 +1,13 @@
-import { Command, Option, OptionValues } from "@commander-js/extra-typings";
+import { Command, Option } from "@commander-js/extra-typings";
 import { OneoffCtx } from "../../bundler/context.js";
 import { LogMode } from "./logs.js";
 import {
+  CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
   CONVEX_SELF_HOSTED_URL_VAR_NAME,
   parseInteger,
   parsePositiveInteger,
 } from "./utils/utils.js";
-import { CONVEX_DEPLOYMENT_VAR_NAME } from "./deployment.js";
 
 declare module "@commander-js/extra-typings" {
   interface Command<Args extends any[] = [], Opts extends OptionValues = {}> {
@@ -29,6 +29,7 @@ declare module "@commander-js/extra-typings" {
     addDeploymentSelectionOptions(action: ActionDescription): Command<
       Args,
       Opts & {
+        envFile?: string;
         url?: string;
         adminKey?: string;
         prod?: boolean;
@@ -186,7 +187,7 @@ Command.prototype.addDeploymentSelectionOptions = function (
       new Option(
         "--env-file <envFile>",
         `Path to a custom file of environment variables, for choosing the \
-deployment, e.g. ${CONVEX_DEPLOYMENT_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+deployment, e.g. ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
 Same format as .env.local or .env files, and overrides them.`,
       ),
     )

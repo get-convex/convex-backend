@@ -16,6 +16,7 @@ import {
 } from "./lib/mcp/requestContext.js";
 import { mcpTool, convexTools } from "./lib/mcp/tools/index.js";
 import { Mutex } from "./lib/utils/mutex.js";
+import { initializeBigBrainAuth } from "./lib/deploymentSelection.js";
 
 export const mcp = new Command("mcp")
   .summary("Manage the Model Context Protocol server for Convex [BETA]")
@@ -37,7 +38,7 @@ mcp
   )
   .addDeploymentSelectionOptions(actionDescription("Run the MCP server on"))
   .action(async (options) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(options);
     try {
       const server = makeServer(options);
       const transport = new StdioServerTransport();
@@ -74,6 +75,7 @@ function makeServer(options: McpOptions) {
     CallToolRequestSchema,
     async (request: CallToolRequest) => {
       const ctx = new RequestContext(options);
+      await initializeBigBrainAuth(ctx, options);
       try {
         const authorized = await checkAuthorization(ctx, false);
         if (!authorized) {

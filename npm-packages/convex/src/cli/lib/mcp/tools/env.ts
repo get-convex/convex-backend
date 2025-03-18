@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
-import { fetchDeploymentCredentialsProvisionProd } from "../../api.js";
+import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import {
   envSetInDeployment,
@@ -8,6 +8,7 @@ import {
   EnvVar,
 } from "../../env.js";
 import { runSystemQuery } from "../../run.js";
+import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 // List Environment Variables
 const envListInputSchema = z.object({
@@ -40,8 +41,10 @@ export const EnvListTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      deploymentSelection,
       deployment,
     );
     const variables = (await runSystemQuery(ctx, {
@@ -85,8 +88,10 @@ export const EnvGetTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      deploymentSelection,
       deployment,
     );
     const envVar = (await runSystemQuery(ctx, {
@@ -128,8 +133,10 @@ export const EnvSetTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      deploymentSelection,
       deployment,
     );
     const deploymentInfo = {
@@ -169,8 +176,10 @@ export const EnvRemoveTool: ConvexTool<
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      deploymentSelection,
       deployment,
     );
     const deploymentInfo = {

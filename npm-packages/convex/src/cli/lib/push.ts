@@ -25,6 +25,7 @@ export type PushOptions = {
   debugBundlePath?: string;
   codegen: boolean;
   url: string;
+  deploymentName: string | null;
   writePushRequest?: string;
   liveComponentSources: boolean;
   logManager?: LogManager;
@@ -155,13 +156,12 @@ export async function runNonComponentsPush(
     totalBeforePush: (timePushStarts - timeRunPushStarts) / 1000,
     moduleDiffStats: stats,
   };
-  await pushConfig(
-    ctx,
-    localConfig,
-    options.adminKey,
-    options.url,
-    timing,
+  await pushConfig(ctx, localConfig, {
+    adminKey: options.adminKey,
+    url: options.url,
+    deploymentName: options.deploymentName,
+    pushMetrics: timing,
     schemaId,
     bundledModuleInfos,
-  );
+  });
 }

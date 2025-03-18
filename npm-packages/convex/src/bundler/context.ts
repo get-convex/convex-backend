@@ -4,7 +4,7 @@ import ora, { Ora } from "ora";
 import { Filesystem, nodeFs } from "./fs.js";
 import { format } from "util";
 import ProgressBar from "progress";
-
+import { initializeBigBrainAuth } from "../cli/lib/deploymentSelection.js";
 // How the error should be handled when running `npx convex dev`.
 export type ErrorType =
   // The error was likely caused by the state of the developer's local
@@ -34,6 +34,23 @@ export type ErrorType =
   // developer will need to take a manual commandline action.
   | "fatal";
 
+export type BigBrainAuth = {
+  header: string;
+} & (
+  | {
+      kind: "projectKey";
+      projectKey: string;
+    }
+  | {
+      kind: "previewDeployKey";
+      previewDeployKey: string;
+    }
+  | {
+      kind: "accessToken";
+      accessToken: string;
+    }
+);
+
 export interface Context {
   fs: Filesystem;
   deprecationMessagePrinted: boolean;
@@ -50,6 +67,11 @@ export interface Context {
   removeCleanup(
     handle: string,
   ): (exitCode: number, err?: any) => Promise<void> | null;
+  bigBrainAuth(): BigBrainAuth | null;
+  /**
+   * Prefer using `updateBigBrainAuthAfterLogin` in `deploymentSelection.ts` instead
+   */
+  _updateBigBrainAuth(auth: BigBrainAuth | null): void;
 }
 
 async function flushAndExit(exitCode: number, err?: any) {
@@ -77,6 +99,8 @@ class OneoffContextImpl {
   public fs: Filesystem = nodeFs;
   public deprecationMessagePrinted: boolean = false;
   public spinner: Ora | undefined = undefined;
+  private _bigBrainAuth: BigBrainAuth | null = null;
+
   crash = async (args: {
     exitCode: number;
     errorType?: ErrorType;
@@ -89,7 +113,7 @@ class OneoffContextImpl {
     return await this.flushAndExit(args.exitCode, args.errForSentry);
   };
   flushAndExit = async (exitCode: number, err?: any) => {
-    logVerbose(this, "Flushing and exiting");
+    logVerbose(this, "Flushing and exiting, error:", err);
     const cleanupFns = this._cleanupFns;
     // Clear the cleanup functions so that there's no risk of running them twice
     // if this somehow gets triggered twice.
@@ -112,9 +136,28 @@ class OneoffContextImpl {
     delete this._cleanupFns[handle];
     return value ?? null;
   }
+  bigBrainAuth(): BigBrainAuth | null {
+    return this._bigBrainAuth;
+  }
+  _updateBigBrainAuth(auth: BigBrainAuth | null): void {
+    logVerbose(this, `Updating big brain auth to ${auth?.kind ?? "null"}`);
+    this._bigBrainAuth = auth;
+  }
 }
 
-export const oneoffContext: () => OneoffCtx = () => new OneoffContextImpl();
+export const oneoffContext: (args: {
+  url?: string;
+  adminKey?: string;
+  envFile?: string;
+}) => Promise<OneoffCtx> = async (args) => {
+  const ctx = new OneoffContextImpl();
+  await initializeBigBrainAuth(ctx, {
+    url: args.url,
+    adminKey: args.adminKey,
+    envFile: args.envFile,
+  });
+  return ctx;
+};
 // console.error before it started being red by default in Node v20
 function logToStderr(...args: unknown[]) {
   process.stderr.write(`${format(...args)}\n`);

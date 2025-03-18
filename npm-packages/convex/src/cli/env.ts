@@ -3,8 +3,8 @@ import chalk from "chalk";
 import { Context, oneoffContext } from "../bundler/context.js";
 import {
   DeploymentSelectionOptions,
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsWithinCurrentProject,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
@@ -14,6 +14,7 @@ import {
   envRemoveInDeployment,
   envSetInDeployment,
 } from "./lib/env.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
 const envSet = new Command("set")
   // Pretend value is required
@@ -29,37 +30,45 @@ const envSet = new Command("set")
   .allowExcessArguments(false)
   .action(async (originalName, originalValue, _options, cmd) => {
     const options = cmd.optsWithGlobals();
-    const ctx = oneoffContext();
+    const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env set");
-    const deployment = await selectEnvDeployment(ctx, options);
     await envSetInDeployment(ctx, deployment, originalName, originalValue);
   });
 
 async function selectEnvDeployment(
-  ctx: Context,
   options: DeploymentSelectionOptions,
-) {
-  const deploymentSelection = await deploymentSelectionFromOptions(
+): Promise<{
+  ctx: Context;
+  deployment: {
+    deploymentUrl: string;
+    adminKey: string;
+    deploymentNotice: string;
+  };
+}> {
+  const ctx = await oneoffContext(options);
+  const deploymentSelection = await getDeploymentSelection(ctx, options);
+  const selectionWithinProject =
+    await deploymentSelectionWithinProjectFromOptions(ctx, options);
+  const {
+    adminKey,
+    url: deploymentUrl,
+    deploymentFields,
+  } = await loadSelectedDeploymentCredentials(
     ctx,
-    options,
+    deploymentSelection,
+    selectionWithinProject,
   );
-  const { adminKey, url, deploymentName, deploymentType } =
-    await fetchDeploymentCredentialsWithinCurrentProject(
-      ctx,
-      deploymentSelection,
-    );
   const deploymentNotice =
-    deploymentType !== undefined || deploymentName !== undefined
-      ? ` (on${
-          deploymentType !== undefined ? " " + chalk.bold(deploymentType) : ""
-        } deployment${
-          deploymentName !== undefined ? " " + chalk.bold(deploymentName) : ""
-        })`
+    deploymentFields !== null
+      ? ` (on ${chalk.bold(deploymentFields.deploymentType)} deployment${chalk.bold(deploymentFields.deploymentName)}`
       : "";
   return {
-    deploymentUrl: url,
-    adminKey,
-    deploymentNotice,
+    ctx,
+    deployment: {
+      deploymentUrl,
+      adminKey,
+      deploymentNotice,
+    },
   };
 }
 
@@ -70,10 +79,9 @@ const envGet = new Command("get")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (envVarName, _options, cmd) => {
-    const ctx = oneoffContext();
-    await ensureHasConvexDependency(ctx, "env get");
     const options = cmd.optsWithGlobals();
-    const deployment = await selectEnvDeployment(ctx, options);
+    const { ctx, deployment } = await selectEnvDeployment(options);
+    await ensureHasConvexDependency(ctx, "env get");
     await envGetInDeployment(ctx, deployment, envVarName);
   });
 
@@ -89,10 +97,9 @@ const envRemove = new Command("remove")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (name, _options, cmd) => {
-    const ctx = oneoffContext();
     const options = cmd.optsWithGlobals();
+    const { ctx, deployment } = await selectEnvDeployment(options);
     await ensureHasConvexDependency(ctx, "env remove");
-    const deployment = await selectEnvDeployment(ctx, options);
     await envRemoveInDeployment(ctx, deployment, name);
   });
 
@@ -102,10 +109,9 @@ const envList = new Command("list")
   .configureHelp({ showGlobalOptions: true })
   .allowExcessArguments(false)
   .action(async (_options, cmd) => {
-    const ctx = oneoffContext();
-    await ensureHasConvexDependency(ctx, "env list");
     const options = cmd.optsWithGlobals();
-    const deployment = await selectEnvDeployment(ctx, options);
+    const { ctx, deployment } = await selectEnvDeployment(options);
+    await ensureHasConvexDependency(ctx, "env list");
     await envListInDeployment(ctx, deployment);
   });
 

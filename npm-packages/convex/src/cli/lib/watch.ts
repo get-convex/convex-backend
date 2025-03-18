@@ -1,7 +1,12 @@
 import chokidar from "chokidar";
 import path from "path";
 import { Observations, RecordingFs, WatchEvent } from "../../bundler/fs.js";
-import { Context, ErrorType, logFailure } from "../../bundler/context.js";
+import {
+  BigBrainAuth,
+  Context,
+  ErrorType,
+  logFailure,
+} from "../../bundler/context.js";
 import * as Sentry from "@sentry/node";
 import { Ora } from "ora";
 
@@ -102,10 +107,12 @@ export class WatchContext implements Context {
   fs: RecordingFs;
   deprecationMessagePrinted: boolean;
   spinner: Ora | undefined;
+  private _bigBrainAuth: BigBrainAuth | null;
 
-  constructor(traceEvents: boolean) {
+  constructor(traceEvents: boolean, bigBrainAuth: BigBrainAuth | null) {
     this.fs = new RecordingFs(traceEvents);
     this.deprecationMessagePrinted = false;
+    this._bigBrainAuth = bigBrainAuth;
   }
 
   async crash(args: {
@@ -138,5 +145,13 @@ export class WatchContext implements Context {
     const value = this._cleanupFns[handle];
     delete this._cleanupFns[handle];
     return value ?? null;
+  }
+
+  bigBrainAuth(): BigBrainAuth | null {
+    return this._bigBrainAuth;
+  }
+
+  _updateBigBrainAuth(auth: BigBrainAuth | null): void {
+    this._bigBrainAuth = auth;
   }
 }

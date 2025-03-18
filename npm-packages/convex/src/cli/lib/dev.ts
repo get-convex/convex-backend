@@ -26,7 +26,11 @@ import { Value } from "../../values/index.js";
 
 export async function devAgainstDeployment(
   ctx: OneoffCtx,
-  credentials: { url: string; adminKey: string },
+  credentials: {
+    url: string;
+    adminKey: string;
+    deploymentName: string | null;
+  },
   devOptions: {
     verbose: boolean;
     typecheck: "enable" | "try" | "disable";
@@ -98,7 +102,11 @@ export async function watchAndPush(
     const start = performance.now();
     tableNameTriggeringRetry = null;
     shouldRetryOnDeploymentEnvVarChange = false;
-    const ctx = new WatchContext(cmdOptions.traceEvents);
+
+    const ctx = new WatchContext(
+      cmdOptions.traceEvents,
+      outerCtx.bigBrainAuth(),
+    );
     options.logManager?.beginDeploy();
     showSpinner(ctx, "Preparing Convex functions...");
     try {

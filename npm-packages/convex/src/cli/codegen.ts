@@ -1,7 +1,7 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
 import { runCodegen } from "./lib/components.js";
-
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 export const codegen = new Command("codegen")
   .summary("Generate backend type definitions")
   .description(
@@ -36,9 +36,10 @@ export const codegen = new Command("codegen")
     ).hideHelp(),
   )
   .action(async (options) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(options);
+    const deploymentSelection = await getDeploymentSelection(ctx, options);
 
-    await runCodegen(ctx, {
+    await runCodegen(ctx, deploymentSelection, {
       dryRun: !!options.dryRun,
       debug: !!options.debug,
       typecheck: options.typecheck,

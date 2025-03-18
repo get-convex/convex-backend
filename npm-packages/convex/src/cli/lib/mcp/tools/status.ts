@@ -1,13 +1,14 @@
 import { RequestContext } from "../requestContext.js";
 import {
-  DeploymentSelection,
-  fetchDeploymentCredentialsProvisionProd,
+  DeploymentSelectionWithinProject,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "../../api.js";
-import { deploymentSelectionFromOptions } from "../../api.js";
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { deploymentDashboardUrlPage } from "../../../dashboard.js";
 import { encodeDeploymentSelector } from "../deploymentSelector.js";
+import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 const projectDirDescription = `
 The root directory of the Convex project. This is usually the editor's workspace directory
@@ -38,7 +39,7 @@ deployment associated with the project. Pass the deployment selector to other
 tools to target a specific deployment.
 
 When deployed to Convex Cloud, projects have a development ({"kind": "ownDev"}) and
-production ({"kind": "ownProd"}) deployment. Generally default to using the development
+production ({"kind": "prod"}) deployment. Generally default to using the development
 deployment unless you'd specifically like to debug issues in production.
 
 When running locally, there will be a single "urlWithAdminKey" deployment.
@@ -60,28 +61,41 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       });
     }
     process.chdir(projectDir);
-    const deployment = await deploymentSelectionFromOptions(ctx, ctx.options);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, ctx.options);
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
-      deployment,
+      deploymentSelection,
+      selectionWithinProject,
     );
     const availableDeployments = [
       {
-        kind: deployment.kind,
-        deploymentSelector: encodeDeploymentSelector(projectDir, deployment),
+        kind: selectionWithinProject.kind,
+        deploymentSelector: encodeDeploymentSelector(
+          projectDir,
+          selectionWithinProject,
+        ),
         url: credentials.url,
         dashboardUrl:
-          credentials.deploymentName &&
-          deploymentDashboardUrlPage(credentials.deploymentName, ""),
+          credentials.deploymentFields?.deploymentName &&
+          deploymentDashboardUrlPage(
+            credentials.deploymentFields.deploymentName,
+            "",
+          ),
       },
     ];
-    if (deployment.kind === "ownDev") {
-      const prodDeployment: DeploymentSelection = { kind: "ownProd" };
-      const prodCredentials = await fetchDeploymentCredentialsProvisionProd(
+    if (selectionWithinProject.kind === "ownDev") {
+      const prodDeployment: DeploymentSelectionWithinProject = { kind: "prod" };
+      const prodCredentials = await loadSelectedDeploymentCredentials(
         ctx,
+        deploymentSelection,
         prodDeployment,
       );
-      if (prodCredentials.deploymentName && prodCredentials.deploymentType) {
+      if (
+        prodCredentials.deploymentFields?.deploymentName &&
+        prodCredentials.deploymentFields.deploymentType
+      ) {
         availableDeployments.push({
           kind: prodDeployment.kind,
           deploymentSelector: encodeDeploymentSelector(
@@ -90,7 +104,7 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
           ),
           url: prodCredentials.url,
           dashboardUrl: deploymentDashboardUrlPage(
-            prodCredentials.deploymentName,
+            prodCredentials.deploymentFields.deploymentName,
             "",
           ),
         });

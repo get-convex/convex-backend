@@ -21,7 +21,11 @@ export const typecheck = new Command("typecheck")
   )
   .allowExcessArguments(false)
   .action(async () => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
     const { configPath, config: localConfig } = await readConfig(ctx, false);
     await ensureHasConvexDependency(ctx, "typecheck");
     await typeCheckFunctions(

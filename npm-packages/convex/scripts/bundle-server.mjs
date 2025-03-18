@@ -14,7 +14,11 @@ const out = [];
 // Only bundle "setup.ts" from `udf/_system`.
 const udfDir = process.argv[2];
 const setupPath = path.join(udfDir, "setup.ts");
-const ctx = oneoffContext();
+const ctx = await oneoffContext({
+  url: undefined,
+  adminKey: undefined,
+  envFile: undefined,
+});
 const setupBundles = (
   await bundle(ctx, process.argv[2], [setupPath], true, "browser")
 ).modules;

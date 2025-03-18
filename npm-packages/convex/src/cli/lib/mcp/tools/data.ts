@@ -1,9 +1,10 @@
-import { fetchDeploymentCredentialsProvisionProd } from "../../api.js";
 import { z } from "zod";
 import { runSystemQuery } from "../../run.js";
 import { ConvexTool } from "./index.js";
 import { PaginationResult } from "../../../../server/pagination.js";
 import { decodeDeploymentSelector } from "../deploymentSelector.js";
+import { loadSelectedDeploymentCredentials } from "../../api.js";
+import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -44,8 +45,10 @@ export const DataTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      deploymentSelection,
       deployment,
     );
     const paginationResult = (await runSystemQuery(ctx, {

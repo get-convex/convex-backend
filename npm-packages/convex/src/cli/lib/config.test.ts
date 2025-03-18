@@ -5,7 +5,11 @@ import stripAnsi from "strip-ansi";
 
 test("parseProjectConfig", async () => {
   // Make a context that throws on crashes so we can detect them.
-  const originalContext = oneoffContext();
+  const originalContext = await oneoffContext({
+    url: undefined,
+    adminKey: undefined,
+    envFile: undefined,
+  });
   const ctx = {
     ...originalContext,
     crash: (args: { printedMessage: string | null }) => {

@@ -12,7 +12,10 @@ import {
   DeploymentName,
   fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows,
   createProject,
-  DeploymentSelection,
+  DeploymentSelectionWithinProject,
+  loadSelectedDeploymentCredentials,
+  checkAccessToSelectedProject,
+  validateDeploymentSelectionForExistingDeployment,
 } from "./lib/api.js";
 import {
   configFilepath,
@@ -22,20 +25,16 @@ import {
   writeProjectConfig,
 } from "./lib/config.js";
 import {
-  CONVEX_DEPLOYMENT_VAR_NAME,
   DeploymentDetails,
   eraseDeploymentEnvVar,
   writeDeploymentEnvVar,
 } from "./lib/deployment.js";
 import { finalizeConfiguration } from "./lib/init.js";
 import {
-  bigBrainAPIMaybeThrows,
   functionsDir,
-  getConfiguredDeployment,
   hasProjects,
   logAndHandleFetchError,
   selectDevDeploymentType,
-  ThrowingFetchError,
   validateOrSelectProject,
   validateOrSelectTeam,
 } from "./lib/utils/utils.js";
@@ -46,7 +45,11 @@ import { doCodegen, doInitCodegen } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 import { promptOptions, promptString } from "./lib/utils/prompts.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
-
+import {
+  DeploymentSelection,
+  deploymentNameFromSelection,
+} from "./lib/deploymentSelection.js";
+import { ensureLoggedIn } from "./lib/login.js";
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
@@ -62,6 +65,27 @@ type ChosenConfiguration =
   // `--configure` was not specified
   | null;
 
+type ConfigureCmdOptions = {
+  selectionWithinProject: DeploymentSelectionWithinProject;
+  prod: boolean;
+  localOptions: {
+    ports?: {
+      cloud: number;
+      site: number;
+    };
+    backendVersion?: string | undefined;
+    forceUpgrade: boolean;
+  };
+  team?: string | undefined;
+  project?: string | undefined;
+  devDeployment?: "cloud" | "local" | undefined;
+  local?: boolean | undefined;
+  cloud?: boolean | undefined;
+  url?: string | undefined;
+  adminKey?: string | undefined;
+  envFile?: string | undefined;
+};
+
 /**
  * As of writing, this is used by:
  * - `npx convex dev`
@@ -71,68 +95,20 @@ type ChosenConfiguration =
  */
 export async function deploymentCredentialsOrConfigure(
   ctx: Context,
+  deploymentSelection: DeploymentSelection,
   chosenConfiguration: ChosenConfiguration,
-  cmdOptions: {
-    deploymentSelection: DeploymentSelection;
-    prod: boolean;
-    localOptions: {
-      ports?: {
-        cloud: number;
-        site: number;
-      };
-      backendVersion?: string | undefined;
-      forceUpgrade: boolean;
-    };
-    team?: string | undefined;
-    project?: string | undefined;
-    devDeployment?: "cloud" | "local" | undefined;
-    local?: boolean | undefined;
-    cloud?: boolean | undefined;
-    url?: string | undefined;
-    adminKey?: string | undefined;
-    envFile?: string | undefined;
-  },
+  cmdOptions: ConfigureCmdOptions,
   partitionId?: number | undefined,
 ): Promise<
   DeploymentCredentials & {
-    deploymentName?: DeploymentName;
+    deploymentFields: {
+      deploymentName: DeploymentName;
+      deploymentType: string;
+      projectSlug: string;
+      teamSlug: string;
+    } | null;
   }
 > {
-  if (cmdOptions.deploymentSelection.kind === "urlWithAdminKey") {
-    const credentials = await handleManuallySetUrlAndAdminKey(ctx, {
-      url: cmdOptions.deploymentSelection.url,
-      adminKey: cmdOptions.deploymentSelection.adminKey,
-    });
-    return { ...credentials };
-  }
-
-  if (
-    cmdOptions.deploymentSelection.kind !== "ownDev" &&
-    cmdOptions.deploymentSelection.kind !== "ownProd" &&
-    cmdOptions.deploymentSelection.kind !== "deployKey" &&
-    cmdOptions.deploymentSelection.kind !== "projectKey"
-  ) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: `Invalid deployment selection: ${cmdOptions.deploymentSelection.kind}.`,
-    });
-  }
-
-  if (cmdOptions.deploymentSelection.kind === "projectKey") {
-    const {
-      deploymentName,
-      deploymentUrl: url,
-      adminKey,
-    } = await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
-      ctx,
-      { teamSlug: null, projectSlug: null },
-      cmdOptions.deploymentSelection.prod ? "prod" : "dev",
-      partitionId,
-    );
-    return { deploymentName, url, adminKey };
-  }
-
   const config = readGlobalConfig(ctx);
   const globallyForceCloud = !!config?.optOutOfLocalDevDeploymentsUntilBetaOver;
   if (globallyForceCloud && cmdOptions.local) {
@@ -143,26 +119,155 @@ export async function deploymentCredentialsOrConfigure(
         "Can't specify --local when local deployments are disabled on this machine. Run `npx convex disable-local-deployments --undo-global` to allow use of --local.",
     });
   }
-  const { projectSlug, teamSlug, devDeployment } = await selectProject(
-    ctx,
-    chosenConfiguration,
-    {
-      team: cmdOptions.team,
-      project: cmdOptions.project,
-      devDeployment: cmdOptions.devDeployment,
-      local: globallyForceCloud ? false : cmdOptions.local,
-      cloud: globallyForceCloud ? true : cmdOptions.cloud,
-      partitionId,
-    },
-  );
 
+  switch (deploymentSelection.kind) {
+    case "existingDeployment":
+      await validateDeploymentSelectionForExistingDeployment(
+        ctx,
+        cmdOptions.selectionWithinProject,
+        deploymentSelection.deploymentToActOn.source,
+      );
+      if (deploymentSelection.deploymentToActOn.deploymentFields === null) {
+        // erase `CONVEX_DEPLOYMENT` from .env.local + set the url env var
+        await handleManuallySetUrlAndAdminKey(ctx, {
+          url: deploymentSelection.deploymentToActOn.url,
+          adminKey: deploymentSelection.deploymentToActOn.adminKey,
+        });
+      }
+      return {
+        url: deploymentSelection.deploymentToActOn.url,
+        adminKey: deploymentSelection.deploymentToActOn.adminKey,
+        deploymentFields:
+          deploymentSelection.deploymentToActOn.deploymentFields,
+      };
+    case "chooseProject": {
+      await ensureLoggedIn(ctx);
+      return await handleChooseProject(
+        ctx,
+        chosenConfiguration,
+        {
+          globallyForceCloud,
+          partitionId,
+        },
+        cmdOptions,
+      );
+    }
+    case "preview":
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "Use `npx convex deploy` to use preview deployments.",
+      });
+    case "deploymentWithinProject": {
+      await ensureLoggedIn(ctx);
+      const projectSlugs = await checkAccessToSelectedProject(
+        ctx,
+        deploymentSelection.targetProject,
+      );
+      if (projectSlugs === null) {
+        logMessage(ctx, "You don't have access to the selected project.");
+        const result = await handleChooseProject(
+          ctx,
+          chosenConfiguration,
+          {
+            globallyForceCloud,
+            partitionId,
+          },
+          cmdOptions,
+        );
+        return result;
+      }
+      if (chosenConfiguration === "new") {
+        const result = await handleChooseProject(
+          ctx,
+          chosenConfiguration,
+          {
+            globallyForceCloud,
+            partitionId,
+          },
+          cmdOptions,
+        );
+        return result;
+      }
+
+      const selectedDeployment = await loadSelectedDeploymentCredentials(
+        ctx,
+        deploymentSelection,
+        cmdOptions.selectionWithinProject,
+        // We'll start running it below
+        { ensureLocalRunning: false },
+      );
+
+      if (selectedDeployment.deploymentFields !== null) {
+        await updateEnvAndConfigForDeploymentSelection(
+          ctx,
+          {
+            url: selectedDeployment.url,
+            deploymentName: selectedDeployment.deploymentFields.deploymentName,
+            teamSlug: selectedDeployment.deploymentFields.teamSlug,
+            projectSlug: selectedDeployment.deploymentFields.projectSlug,
+            deploymentType: selectedDeployment.deploymentFields
+              .deploymentType as DeploymentType,
+          },
+          deploymentNameFromSelection(deploymentSelection),
+        );
+        if (
+          selectedDeployment.deploymentFields !== null &&
+          selectedDeployment.deploymentFields.deploymentType === "local"
+        ) {
+          await handleLocalDeployment(ctx, {
+            teamSlug: selectedDeployment.deploymentFields.teamSlug!,
+            projectSlug: selectedDeployment.deploymentFields.projectSlug!,
+            forceUpgrade: cmdOptions.localOptions.forceUpgrade,
+            ports: cmdOptions.localOptions.ports,
+            backendVersion: cmdOptions.localOptions.backendVersion,
+          });
+        }
+        return selectedDeployment;
+      }
+      return {
+        url: selectedDeployment.url,
+        adminKey: selectedDeployment.adminKey,
+        deploymentFields: selectedDeployment.deploymentFields,
+      };
+    }
+  }
+}
+
+async function handleChooseProject(
+  ctx: Context,
+  chosenConfiguration: ChosenConfiguration,
+  args: {
+    globallyForceCloud: boolean;
+    partitionId?: number | undefined;
+  },
+  cmdOptions: ConfigureCmdOptions,
+): Promise<
+  DeploymentCredentials & {
+    deploymentFields: {
+      deploymentName: DeploymentName;
+      deploymentType: DeploymentType;
+      projectSlug: string;
+      teamSlug: string;
+    };
+  }
+> {
+  await ensureLoggedIn(ctx);
+  const project = await selectProject(ctx, chosenConfiguration, {
+    team: cmdOptions.team,
+    project: cmdOptions.project,
+    devDeployment: cmdOptions.devDeployment,
+    local: args.globallyForceCloud ? false : cmdOptions.local,
+    cloud: args.globallyForceCloud ? true : cmdOptions.cloud,
+    partitionId: args.partitionId,
+  });
   // TODO complain about any non-default cmdOptions.localOptions here
   // because we're ignoring them if this isn't a local development.
 
   const deploymentOptions: DeploymentOptions =
-    cmdOptions.deploymentSelection.kind === "ownProd"
+    cmdOptions.selectionWithinProject.kind === "prod"
       ? { kind: "prod" }
-      : devDeployment === "local"
+      : project.devDeployment === "local"
         ? { kind: "local", ...cmdOptions.localOptions }
         : { kind: "dev" };
   const {
@@ -170,20 +275,32 @@ export async function deploymentCredentialsOrConfigure(
     deploymentUrl: url,
     adminKey,
   } = await ensureDeploymentProvisioned(ctx, {
-    teamSlug,
-    projectSlug,
+    teamSlug: project.teamSlug,
+    projectSlug: project.projectSlug,
     deploymentOptions,
-    partitionId,
+    partitionId: args.partitionId,
   });
-  await updateEnvAndConfigForDeploymentSelection(ctx, {
+  await updateEnvAndConfigForDeploymentSelection(
+    ctx,
+    {
+      url,
+      deploymentName,
+      teamSlug: project.teamSlug,
+      projectSlug: project.projectSlug,
+      deploymentType: deploymentOptions.kind,
+    },
+    null,
+  );
+  return {
     url,
-    deploymentName,
-    teamSlug,
-    projectSlug,
-    deploymentType: deploymentOptions.kind,
-  });
-
-  return { deploymentName, url, adminKey };
+    adminKey,
+    deploymentFields: {
+      deploymentName,
+      deploymentType: deploymentOptions.kind,
+      projectSlug: project.projectSlug,
+      teamSlug: project.teamSlug,
+    },
+  };
 }
 
 export async function handleManuallySetUrlAndAdminKey(
@@ -228,36 +345,11 @@ async function selectProject(
   projectSlug: string;
   devDeployment: "cloud" | "local";
 }> {
-  let result:
-    | {
-        teamSlug: string;
-        projectSlug: string;
-        devDeployment: "cloud" | "local";
-      }
-    | "AccessDenied"
-    | null = null;
-
-  const forceDevDeployment = cmdOptions.cloud
-    ? "cloud"
-    : cmdOptions.local
-      ? "local"
-      : undefined;
-
-  if (chosenConfiguration === null) {
-    result = await getConfiguredProjectSlugs(ctx);
-    if (result !== null && result !== "AccessDenied") {
-      return {
-        ...result,
-        ...(forceDevDeployment ? { devDeployment: forceDevDeployment } : {}),
-      };
-    }
-  }
-  const reconfigure = result === "AccessDenied";
   // Prompt the user to select a project.
   const choice =
     chosenConfiguration !== "ask" && chosenConfiguration !== null
       ? chosenConfiguration
-      : await askToConfigure(ctx, reconfigure);
+      : await askToConfigure(ctx);
   switch (choice) {
     case "new":
       return selectNewProject(ctx, chosenConfiguration, cmdOptions);
@@ -269,100 +361,6 @@ async function selectProject(
         errorType: "fatal",
         printedMessage: "No project selected.",
       });
-  }
-}
-
-async function getConfiguredProjectSlugs(ctx: Context): Promise<
-  | {
-      projectSlug: string;
-      teamSlug: string;
-      devDeployment: "cloud" | "local";
-    }
-  | "AccessDenied"
-  | null
-> {
-  // Try and infer the project from the deployment name
-  const { name: deploymentName, type } = await getConfiguredDeployment(ctx);
-  const devDeployment = type === "local" ? "local" : "cloud";
-  if (deploymentName !== null) {
-    const result = await getTeamAndProjectSlugForDeployment(ctx, {
-      deploymentName,
-    });
-    if (result !== null) {
-      return { ...result, devDeployment };
-    } else {
-      logFailure(
-        ctx,
-        `You don't have access to the project with deployment ${chalk.bold(
-          deploymentName,
-        )}, as configured in ${chalk.bold(CONVEX_DEPLOYMENT_VAR_NAME)}`,
-      );
-      return "AccessDenied";
-    }
-  }
-  // Try and infer the project from `convex.json`
-  const { projectConfig } = await readProjectConfig(ctx);
-  const { team, project } = projectConfig;
-  if (typeof team === "string" && typeof project === "string") {
-    const hasAccess = await hasAccessToProject(ctx, {
-      teamSlug: team,
-      projectSlug: project,
-    });
-    if (!hasAccess) {
-      logFailure(
-        ctx,
-        `You don't have access to the project ${chalk.bold(project)} in team ${chalk.bold(team)} as configured in ${chalk.bold("convex.json")}`,
-      );
-      return "AccessDenied";
-    }
-    return { teamSlug: team, projectSlug: project, devDeployment: "cloud" };
-  }
-  return null;
-}
-
-async function getTeamAndProjectSlugForDeployment(
-  ctx: Context,
-  selector: { deploymentName: string },
-): Promise<{ teamSlug: string; projectSlug: string } | null> {
-  try {
-    const body = await bigBrainAPIMaybeThrows({
-      ctx,
-      url: `/api/deployment/${selector.deploymentName}/team_and_project`,
-      method: "GET",
-    });
-    return { teamSlug: body.team, projectSlug: body.project };
-  } catch (err) {
-    if (
-      err instanceof ThrowingFetchError &&
-      (err.serverErrorData?.code === "DeploymentNotFound" ||
-        err.serverErrorData?.code === "ProjectNotFound")
-    ) {
-      return null;
-    }
-    return logAndHandleFetchError(ctx, err);
-  }
-}
-
-async function hasAccessToProject(
-  ctx: Context,
-  selector: { projectSlug: string; teamSlug: string },
-): Promise<boolean> {
-  try {
-    await bigBrainAPIMaybeThrows({
-      ctx,
-      url: `/api/teams/${selector.teamSlug}/projects/${selector.projectSlug}/deployments`,
-      method: "GET",
-    });
-    return true;
-  } catch (err) {
-    if (
-      err instanceof ThrowingFetchError &&
-      (err.serverErrorData?.code === "TeamNotFound" ||
-        err.serverErrorData?.code === "ProjectNotFound")
-    ) {
-      return false;
-    }
-    return logAndHandleFetchError(ctx, err);
   }
 }
 
@@ -514,17 +512,12 @@ async function selectExistingProject(
   return { teamSlug, projectSlug, devDeployment };
 }
 
-async function askToConfigure(
-  ctx: Context,
-  reconfigure: boolean,
-): Promise<"new" | "existing"> {
+async function askToConfigure(ctx: Context): Promise<"new" | "existing"> {
   if (!(await hasProjects(ctx))) {
     return "new";
   }
   return await promptOptions(ctx, {
-    message: reconfigure
-      ? "Configure a different project?"
-      : "What would you like to configure?",
+    message: "What would you like to configure?",
     default: "new",
     choices: [
       { name: "create a new project", value: "new" },
@@ -566,7 +559,11 @@ async function ensureDeploymentProvisioned(
       const credentials =
         await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
           ctx,
-          { teamSlug: options.teamSlug, projectSlug: options.projectSlug },
+          {
+            kind: "teamAndProjectSlugs",
+            teamSlug: options.teamSlug,
+            projectSlug: options.projectSlug,
+          },
           options.deploymentOptions.kind,
           options.partitionId,
         );
@@ -602,6 +599,7 @@ async function updateEnvAndConfigForDeploymentSelection(
     projectSlug: string;
     deploymentType: DeploymentType;
   },
+  existingValue: string | null,
 ) {
   const { configPath, projectConfig: existingProjectConfig } =
     await readProjectConfig(ctx);
@@ -609,11 +607,16 @@ async function updateEnvAndConfigForDeploymentSelection(
   const functionsPath = functionsDir(configName(), existingProjectConfig);
 
   const { wroteToGitIgnore, changedDeploymentEnvVar } =
-    await writeDeploymentEnvVar(ctx, options.deploymentType, {
-      team: options.teamSlug,
-      project: options.projectSlug,
-      deploymentName: options.deploymentName,
-    });
+    await writeDeploymentEnvVar(
+      ctx,
+      options.deploymentType,
+      {
+        team: options.teamSlug,
+        project: options.projectSlug,
+        deploymentName: options.deploymentName,
+      },
+      existingValue,
+    );
   const projectConfig = await upgradeOldAuthInfoToAuthConfig(
     ctx,
     existingProjectConfig,

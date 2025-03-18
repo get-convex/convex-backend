@@ -43,8 +43,8 @@ import { handleDebugBundlePath } from "./debugBundlePath.js";
 import chalk from "chalk";
 import { StartPushRequest, StartPushResponse } from "./deployApi/startPush.js";
 import {
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsProvisionProd,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./api.js";
 import {
   FinishPushDiff,
@@ -55,7 +55,7 @@ import {
   DEFINITION_FILENAME_JS,
   DEFINITION_FILENAME_TS,
 } from "./components/constants.js";
-
+import { DeploymentSelection } from "./deploymentSelection.js";
 async function findComponentRootPath(ctx: Context, functionsDir: string) {
   // Default to `.ts` but fallback to `.js` if not present.
   let componentRootPath = path.resolve(
@@ -69,7 +69,11 @@ async function findComponentRootPath(ctx: Context, functionsDir: string) {
   return componentRootPath;
 }
 
-export async function runCodegen(ctx: Context, options: CodegenOptions) {
+export async function runCodegen(
+  ctx: Context,
+  deploymentSelection: DeploymentSelection,
+  options: CodegenOptions,
+) {
   // This also ensures the current directory is the project root.
   await ensureHasConvexDependency(ctx, "codegen");
 
@@ -82,13 +86,12 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
   );
 
   if (ctx.fs.exists(componentRootPath)) {
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      options,
-    );
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
+      selectionWithinProject,
     );
 
     await startComponentsPushAndCodegen(
@@ -98,7 +101,9 @@ export async function runCodegen(ctx: Context, options: CodegenOptions) {
       configPath,
       {
         ...options,
-        ...credentials,
+        deploymentName: credentials.deploymentFields?.deploymentName ?? null,
+        url: credentials.url,
+        adminKey: credentials.adminKey,
         generateCommonJSApi: options.commonjs,
         verbose: options.dryRun,
         codegen: true,
@@ -147,6 +152,7 @@ async function startComponentsPushAndCodegen(
     typecheckComponents: boolean;
     adminKey: string;
     url: string;
+    deploymentName: string | null;
     verbose: boolean;
     debugBundlePath?: string;
     dryRun: boolean;

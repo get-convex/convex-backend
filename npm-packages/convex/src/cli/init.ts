@@ -23,7 +23,13 @@ export const init = new Command("init")
     ),
   )
   .action(async (_options) => {
-    return oneoffContext().crash({
+    return (
+      await oneoffContext({
+        url: undefined,
+        adminKey: undefined,
+        envFile: undefined,
+      })
+    ).crash({
       exitCode: 1,
       errorType: "fatal",
       errForSentry:

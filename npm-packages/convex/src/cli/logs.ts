@@ -1,11 +1,12 @@
 import { Command } from "@commander-js/extra-typings";
 import { oneoffContext } from "../bundler/context.js";
 import {
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsProvisionProd,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { logsForDeployment } from "./lib/logs.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
 export const logs = new Command("logs")
   .summary("Watch logs from your deployment")
@@ -17,21 +18,21 @@ export const logs = new Command("logs")
   .addDeploymentSelectionOptions(actionDescription("Watch logs from"))
   .showHelpAfterError()
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(cmdOptions);
 
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      cmdOptions,
-    );
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, cmdOptions);
+    const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
+    const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
+      selectionWithinProject,
     );
-    const deploymentName = credentials.deploymentName
-      ? ` ${credentials.deploymentName}`
+    const deploymentName = deployment.deploymentFields?.deploymentName
+      ? ` ${deployment.deploymentFields.deploymentName}`
       : "";
     const deploymentNotice = ` for ${cmdOptions.prod ? "production" : "dev"} deployment${deploymentName}`;
-    await logsForDeployment(ctx, credentials, {
+    await logsForDeployment(ctx, deployment, {
       history: cmdOptions.history,
       success: cmdOptions.success,
       deploymentNotice,

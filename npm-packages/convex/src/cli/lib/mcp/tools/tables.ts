@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
-import { fetchDeploymentCredentialsProvisionProd } from "../../api.js";
+import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { runSystemQuery } from "../../run.js";
 import { deploymentFetch } from "../../utils/utils.js";
 import { decodeDeploymentSelector } from "../deploymentSelector.js";
+import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 const inputSchema = z.object({
   deploymentSelector: z
@@ -34,8 +35,10 @@ export const TablesTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       args.deploymentSelector,
     );
     process.chdir(projectDir);
-    const credentials = await fetchDeploymentCredentialsProvisionProd(
+    const deploymentSelection = await getDeploymentSelection(ctx, ctx.options);
+    const credentials = await loadSelectedDeploymentCredentials(
       ctx,
+      deploymentSelection,
       deployment,
     );
     const schemaResponse: any = await runSystemQuery(ctx, {

@@ -1,30 +1,18 @@
-import * as dotenv from "dotenv";
-import { Context, logVerbose } from "../../bundler/context.js";
-import {
-  CONVEX_DEPLOYMENT_VAR_NAME,
-  deploymentNameFromAdminKeyOrCrash,
-  deploymentTypeFromAdminKey,
-  getConfiguredDeploymentFromEnvVar,
-  getTeamAndProjectFromPreviewAdminKey,
-  isPreviewDeployKey,
-  isProjectKey,
-} from "./deployment.js";
-import { buildEnvironment } from "./envvars.js";
+import { Context, logVerbose, logWarning } from "../../bundler/context.js";
+import { getTeamAndProjectFromPreviewAdminKey } from "./deployment.js";
 import { assertLocalBackendRunning } from "./localDeployment/run.js";
-import { checkAuthorization, performLogin } from "./login.js";
 import {
-  CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
-  CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME,
-  CONVEX_SELF_HOSTED_URL_VAR_NAME,
-  ENV_VAR_FILE_PATH,
+  ThrowingFetchError,
   bigBrainAPI,
   bigBrainAPIMaybeThrows,
-  getAuthHeaderForBigBrain,
-  getConfiguredDeployment,
-  getConfiguredDeploymentNameOrCrash,
-  readAdminKeyFromEnvVar,
+  logAndHandleFetchError,
 } from "./utils/utils.js";
 import { z } from "zod";
+import {
+  DeploymentSelection,
+  ProjectSelection,
+} from "./deploymentSelection.js";
+import { loadLocalDeploymentCredentials } from "./localDeployment/localDeployment.js";
 
 export type DeploymentName = string;
 export type DeploymentType = "dev" | "prod" | "local";
@@ -38,7 +26,7 @@ export type Project = {
 
 type AdminKey = string;
 
-// Provision a new empty project and return the slugs.
+// Provision a new project, creating a deployment of type `deploymentTypeToProvision`
 export async function createProject(
   ctx: Context,
   {
@@ -93,37 +81,257 @@ export async function createProject(
   };
 }
 
-// Dev
-export async function fetchDeploymentCredentialsForName(
+// ----------------------------------------------------------------------
+// Helpers for `deploymentSelectionFromOptions`
+// ----------------------------------------------------------------------
+
+export const deploymentSelectionWithinProjectSchema = z.discriminatedUnion(
+  "kind",
+  [
+    z.object({ kind: z.literal("previewName"), previewName: z.string() }),
+    z.object({ kind: z.literal("deploymentName"), deploymentName: z.string() }),
+    z.object({ kind: z.literal("prod"), partitionId: z.number().optional() }),
+    z.object({
+      kind: z.literal("implicitProd"),
+      partitionId: z.number().optional(),
+    }),
+    z.object({ kind: z.literal("ownDev"), partitionId: z.number().optional() }),
+  ],
+);
+
+export type DeploymentSelectionWithinProject = z.infer<
+  typeof deploymentSelectionWithinProjectSchema
+>;
+
+type DeploymentSelectionOptionsWithinProject = {
+  prod?: boolean | undefined;
+  // Whether this command defaults to prod when no other flags are provided. If
+  // this is not set, the default will be "ownDev"
+  implicitProd?: boolean;
+
+  previewName?: string | undefined;
+  deploymentName?: string | undefined;
+  partitionId?: string | undefined;
+};
+
+export type DeploymentSelectionOptions =
+  DeploymentSelectionOptionsWithinProject & {
+    url?: string | undefined;
+    adminKey?: string | undefined;
+    envFile?: string | undefined;
+  };
+
+export async function deploymentSelectionWithinProjectFromOptions(
   ctx: Context,
-  deploymentName: DeploymentName,
-  deploymentType: DeploymentType,
-): Promise<
-  | {
-      deploymentName: string;
-      adminKey: string;
-      url: string;
-      deploymentType: DeploymentType;
+  options: DeploymentSelectionOptions,
+): Promise<DeploymentSelectionWithinProject> {
+  if (options.previewName !== undefined) {
+    return { kind: "previewName", previewName: options.previewName };
+  }
+  if (options.deploymentName !== undefined) {
+    return { kind: "deploymentName", deploymentName: options.deploymentName };
+  }
+  const partitionId = options.partitionId
+    ? parseInt(options.partitionId)
+    : undefined;
+  if (options.prod) {
+    return { kind: "prod", partitionId };
+  }
+  if (options.implicitProd) {
+    return { kind: "implicitProd", partitionId };
+  }
+  return { kind: "ownDev", partitionId };
+}
+
+export async function validateDeploymentSelectionForExistingDeployment(
+  ctx: Context,
+  deploymentSelection: DeploymentSelectionWithinProject,
+  source: "selfHosted" | "deployKey" | "cliArgs",
+) {
+  if (
+    deploymentSelection.kind === "ownDev" ||
+    deploymentSelection.kind === "implicitProd"
+  ) {
+    // These are both considered the "default" selection depending on the command, so this is always fine
+    return;
+  }
+  switch (source) {
+    case "selfHosted":
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "The `--prod`, `--preview-name`, and `--deployment-name` flags cannot be used with a self-hosted deployment.",
+      });
+    case "deployKey":
+      logWarning(
+        ctx,
+        "Ignoring `--prod`, `--preview-name`, or `--deployment-name` flags and using deployment from CONVEX_DEPLOY_KEY",
+      );
+      break;
+    case "cliArgs":
+      logWarning(
+        ctx,
+        "Ignoring `--prod`, `--preview-name`, or `--deployment-name` flags since this command was run with --url and --admin-key",
+      );
+      break;
+  }
+}
+
+// ----------------------------------------------------------------------
+// Helpers for `checkAccessToSelectedProject`
+// ----------------------------------------------------------------------
+
+async function hasAccessToProject(
+  ctx: Context,
+  selector: { projectSlug: string; teamSlug: string },
+): Promise<boolean> {
+  try {
+    await bigBrainAPIMaybeThrows({
+      ctx,
+      url: `/api/teams/${selector.teamSlug}/projects/${selector.projectSlug}/deployments`,
+      method: "GET",
+    });
+    return true;
+  } catch (err) {
+    if (
+      err instanceof ThrowingFetchError &&
+      (err.serverErrorData?.code === "TeamNotFound" ||
+        err.serverErrorData?.code === "ProjectNotFound")
+    ) {
+      return false;
     }
-  | { error: unknown }
-> {
+    return logAndHandleFetchError(ctx, err);
+  }
+}
+
+export async function checkAccessToSelectedProject(
+  ctx: Context,
+  projectSelection: ProjectSelection,
+): Promise<{ teamSlug: string; projectSlug: string } | null> {
+  switch (projectSelection.kind) {
+    case "deploymentName": {
+      const result = await getTeamAndProjectSlugForDeployment(ctx, {
+        deploymentName: projectSelection.deploymentName,
+      });
+      return result;
+    }
+    case "teamAndProjectSlugs": {
+      const hasAccess = await hasAccessToProject(ctx, {
+        teamSlug: projectSelection.teamSlug,
+        projectSlug: projectSelection.projectSlug,
+      });
+      if (!hasAccess) {
+        return null;
+      }
+      return {
+        teamSlug: projectSelection.teamSlug,
+        projectSlug: projectSelection.projectSlug,
+      };
+    }
+    case "projectDeployKey":
+      // Ideally we would be able to do an explicit check here, but if the key is invalid,
+      // it will instead fail as soon as we try to use the key.
+      return null;
+    default: {
+      const _exhaustivenessCheck: never = projectSelection;
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: `Invalid project selection: ${(projectSelection as any).kind}`,
+      });
+    }
+  }
+}
+
+async function getTeamAndProjectSlugForDeployment(
+  ctx: Context,
+  selector: { deploymentName: string },
+): Promise<{ teamSlug: string; projectSlug: string } | null> {
+  try {
+    const body = await bigBrainAPIMaybeThrows({
+      ctx,
+      url: `/api/deployment/${selector.deploymentName}/team_and_project`,
+      method: "GET",
+    });
+    return { teamSlug: body.team, projectSlug: body.project };
+  } catch (err) {
+    if (
+      err instanceof ThrowingFetchError &&
+      (err.serverErrorData?.code === "DeploymentNotFound" ||
+        err.serverErrorData?.code === "ProjectNotFound")
+    ) {
+      return null;
+    }
+    return logAndHandleFetchError(ctx, err);
+  }
+}
+
+// ----------------------------------------------------------------------
+// Helpers for fetching deployment credentials
+// ----------------------------------------------------------------------
+
+// Used by dev for upgrade from team and project in convex.json to CONVEX_DEPLOYMENT
+export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+  ctx: Context,
+  projectSelection:
+    | { kind: "teamAndProjectSlugs"; teamSlug: string; projectSlug: string }
+    | { kind: "projectDeployKey"; projectDeployKey: string },
+  deploymentType: DeploymentType,
+  partitionId: number | undefined,
+): Promise<{
+  deploymentName: string;
+  deploymentUrl: string;
+  adminKey: AdminKey;
+}> {
+  if (projectSelection.kind === "projectDeployKey") {
+    const auth = ctx.bigBrainAuth();
+    const doesAuthMatch =
+      auth !== null &&
+      auth.kind === "projectKey" &&
+      auth.projectKey === projectSelection.projectDeployKey;
+    if (!doesAuthMatch) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        errForSentry: new Error(
+          "Expected project deploy key to match the big brain auth header",
+        ),
+        printedMessage: "Unexpected error when loading the Convex deployment",
+      });
+    }
+  }
   let data;
   try {
     data = await bigBrainAPIMaybeThrows({
       ctx,
       method: "POST",
-      url: "deployment/authorize_for_name",
+      url: "deployment/provision_and_authorize",
       data: {
-        deploymentName,
+        teamSlug:
+          projectSelection.kind === "teamAndProjectSlugs"
+            ? projectSelection.teamSlug
+            : null,
+        projectSlug:
+          projectSelection.kind === "teamAndProjectSlugs"
+            ? projectSelection.projectSlug
+            : null,
         deploymentType,
+        partitionId,
       },
     });
-  } catch (error: unknown) {
-    return { error };
+  } catch (error) {
+    const msg = "Unknown error during authorization: " + error;
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "transient",
+      errForSentry: new Error(msg),
+      printedMessage: msg,
+    });
   }
-  const adminKey: string = data.adminKey;
-  const url: string = data.url;
-  const resultDeploymentType: DeploymentType = data.deploymentType;
+  const adminKey = data.adminKey;
+  const url = data.url;
+  const deploymentName = data.deploymentName;
   if (adminKey === undefined || url === undefined) {
     const msg = "Unknown error during authorization: " + JSON.stringify(data);
     return await ctx.crash({
@@ -133,421 +341,244 @@ export async function fetchDeploymentCredentialsForName(
       printedMessage: msg,
     });
   }
-  return {
-    deploymentName,
-    adminKey,
-    url,
-    deploymentType: resultDeploymentType,
-  };
+  return { adminKey, deploymentUrl: url, deploymentName };
 }
 
-export const deploymentSelectionSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("deployKey") }),
-  z.object({ kind: z.literal("previewName"), previewName: z.string() }),
-  z.object({ kind: z.literal("deploymentName"), deploymentName: z.string() }),
-  z.object({ kind: z.literal("ownProd"), partitionId: z.number().optional() }),
-  z.object({ kind: z.literal("ownDev") }),
-  z.object({ kind: z.literal("projectKey"), prod: z.boolean() }),
-  z.object({
-    kind: z.literal("urlWithAdminKey"),
-    url: z.string(),
-    adminKey: z.string(),
-  }),
-  z.object({ kind: z.literal("urlWithLogin"), url: z.string() }),
-]);
-
-export type DeploymentSelection = z.infer<typeof deploymentSelectionSchema>;
-
-export function storeAdminKeyEnvVar(adminKeyOption?: string | null) {
-  if (adminKeyOption) {
-    // So we don't have to worry about passing through the admin key everywhere
-    // if it's explicitly overridden by a CLI option, override the env variable
-    // directly.
-    process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME] = adminKeyOption;
-  }
-}
-
-export type DeploymentSelectionOptions = {
-  // Whether to default to prod
-  prod?: boolean | undefined;
-  // Whether to default to prod implied by the command, not as an explicit
-  // choice by the user.
-  implicitProd?: boolean | undefined;
-
-  previewName?: string | undefined;
-  deploymentName?: string | undefined;
-  url?: string | undefined;
-  adminKey?: string | undefined;
-  partitionId?: string | undefined;
-  envFile?: string | undefined;
-};
-
-export async function deploymentSelectionFromOptions(
+async function fetchExistingDevDeploymentCredentialsOrCrash(
   ctx: Context,
-  options: DeploymentSelectionOptions,
-  extraCloudFlags: [string, string][] = [],
-): Promise<DeploymentSelection> {
-  if (options.envFile) {
-    // If --env-file is provided, use that instead of .env.local and .env.
-    dotenv.config({ path: options.envFile });
-  } else {
-    dotenv.config({ path: ENV_VAR_FILE_PATH });
-    dotenv.config();
-  }
-  storeAdminKeyEnvVar(options.adminKey);
-  const adminKey = readAdminKeyFromEnvVar();
-  const url = options.url;
-  if (url !== undefined && adminKey !== undefined) {
-    return { kind: "urlWithAdminKey", url, adminKey };
-  }
-  const cloudFlags: [string, string][] = [
-    ["previewName", "--preview-name"],
-    ["prod", "--prod"],
-    ["deploymentName", "--deployment-name"],
-    ...extraCloudFlags,
-  ];
-  const selfHostedCredentials = await selfHostedCredentialsFromEnv(
-    ctx,
-    options,
-    cloudFlags,
-  );
-  if (selfHostedCredentials) {
-    return {
-      kind: "urlWithAdminKey",
-      url: selfHostedCredentials.selfHostedUrl,
-      adminKey: selfHostedCredentials.selfHostedAdminKey,
-    };
-  }
-  // Now we know we're not self-hosted, we can talk to cloud convex.
-  if (url !== undefined) {
-    return { kind: "urlWithLogin", url };
-  }
-  if (options.previewName !== undefined) {
-    return { kind: "previewName", previewName: options.previewName };
-  }
-  if (options.deploymentName !== undefined) {
-    return { kind: "deploymentName", deploymentName: options.deploymentName };
-  }
-  const wantProd = options.prod === true || options.implicitProd === true;
-  if (adminKey !== undefined) {
-    if (isProjectKey(adminKey)) {
-      return { kind: "projectKey", prod: wantProd };
-    }
-    return { kind: "deployKey" };
-  }
-  const partitionId = options.partitionId
-    ? parseInt(options.partitionId)
-    : undefined;
-  return {
-    kind: wantProd ? "ownProd" : "ownDev",
-    partitionId,
-  };
-}
-
-export async function selfHostedCredentialsFromEnv(
-  ctx: Context,
-  options: { envFile?: string | undefined } & Record<string, unknown>,
-  cloudFlags: [string, string][],
-): Promise<
-  | {
-      selfHostedUrl: string;
-      selfHostedAdminKey: AdminKey;
-    }
-  | undefined
-> {
-  if (options.envFile) {
-    // If --env-file is provided, use that instead of .env.local and .env.
-    dotenv.config({ path: options.envFile });
-  } else {
-    dotenv.config({ path: ENV_VAR_FILE_PATH });
-    dotenv.config();
-  }
-  const selfHostedUrl = process.env[CONVEX_SELF_HOSTED_URL_VAR_NAME];
-  const selfHostedAdminKey = process.env[CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME];
-  if (!!selfHostedUrl !== !!selfHostedAdminKey) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "fatal",
-      printedMessage: `Env variables ${CONVEX_SELF_HOSTED_URL_VAR_NAME} and ${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME} must be set together.`,
-    });
-  }
-  if (selfHostedUrl && selfHostedAdminKey) {
-    const configuredDeployment = getConfiguredDeploymentFromEnvVar();
-    // The SELF_HOSTED env variables and CONVEX_DEPLOYMENT are mutually exclusive.
-    if (configuredDeployment.name) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: `Env variable ${CONVEX_SELF_HOSTED_URL_VAR_NAME} indicates a self-hosted deployment, which is incompatible with cloud-hosted env variable ${CONVEX_DEPLOYMENT_VAR_NAME}. Remove one of them before running the command again.`,
-      });
-    }
-    for (const [flag, flagName] of cloudFlags) {
-      if (options[flag]) {
-        return await ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          printedMessage: `Env variable ${CONVEX_SELF_HOSTED_URL_VAR_NAME} indicates a self-hosted deployment, which is incompatible with cloud-hosted flag ${flagName}. Remove one of them before running the command again.`,
-        });
-      }
-    }
-    return { selfHostedUrl, selfHostedAdminKey };
-  }
-  return undefined;
-}
-
-// Deploy
-export async function fetchDeploymentCredentialsWithinCurrentProject(
-  ctx: Context,
-  deploymentSelection: DeploymentSelection,
+  deploymentName: DeploymentName,
 ): Promise<{
+  deploymentName: string;
+  adminKey: string;
   url: string;
-  adminKey: AdminKey;
-  deploymentName?: string;
-  deploymentType?: string | undefined;
+  deploymentType: DeploymentType;
 }> {
-  if (deploymentSelection.kind === "urlWithAdminKey") {
-    return {
-      adminKey: deploymentSelection.adminKey,
-      url: deploymentSelection.url,
-    };
-  }
-
-  const configuredAdminKey = readAdminKeyFromEnvVar();
-
-  // Crash if we know that DEPLOY_KEY (adminKey) is required
-  if (configuredAdminKey === undefined) {
-    const buildEnvironmentExpectsConvexDeployKey = buildEnvironment();
-    if (buildEnvironmentExpectsConvexDeployKey) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage:
-          `${buildEnvironmentExpectsConvexDeployKey} build environment detected but ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} is not set. ` +
-          `Set this environment variable to deploy from this environment. See https://docs.convex.dev/production/hosting`,
-      });
-    }
-    const header = await getAuthHeaderForBigBrain(ctx);
-    if (!header) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage:
-          `Error: You are not logged in. Log in with \`npx convex dev\` or set the ${CONVEX_DEPLOY_KEY_ENV_VAR_NAME} environment variable. ` +
-          `See https://docs.convex.dev/production/hosting`,
-      });
-    }
-    const configuredDeployment = (await getConfiguredDeployment(ctx)).name;
-    if (configuredDeployment === null) {
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage:
-          "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
-      });
-    }
-  }
-
-  const data = await fetchDeploymentCredentialsWithinCurrentProjectInner(
-    ctx,
-    deploymentSelection,
-    configuredAdminKey,
-  );
-  const { deploymentName, adminKey, deploymentType, url } = data;
-  if (
-    adminKey === undefined ||
-    url === undefined ||
-    deploymentName === undefined
-  ) {
-    const msg = "Unknown error during authorization: " + JSON.stringify(data);
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "transient",
-      errForSentry: new Error(msg),
-      printedMessage: msg,
-    });
-  }
+  const slugs = await fetchTeamAndProject(ctx, deploymentName);
+  const credentials =
+    await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+      ctx,
+      {
+        kind: "teamAndProjectSlugs",
+        teamSlug: slugs.team,
+        projectSlug: slugs.project,
+      },
+      "dev",
+      undefined,
+    );
   return {
     deploymentName,
-    adminKey,
-    url,
-    deploymentType,
+    adminKey: credentials.adminKey,
+    url: credentials.deploymentUrl,
+    deploymentType: "dev",
   };
 }
 
-type ProjectSelection =
-  | {
-      kind: "deploymentName";
-      // Identify a project by one of the deployments in it.
-      deploymentName: string;
-    }
-  | {
-      kind: "teamAndProjectSlugs";
-      // Identify a project by its team and slug.
-      teamSlug: string;
-      projectSlug: string;
-    };
+// ----------------------------------------------------------------------
+// Helpers for `loadSelectedDeploymentCredentials`
+// ----------------------------------------------------------------------
 
-export async function projectSelection(
+async function handleOwnDev(
   ctx: Context,
-  configuredDeployment: string | null,
-  configuredAdminKey: string | undefined,
-): Promise<ProjectSelection> {
-  if (
-    configuredAdminKey !== undefined &&
-    isPreviewDeployKey(configuredAdminKey)
-  ) {
-    const { teamSlug, projectSlug } =
-      await getTeamAndProjectFromPreviewAdminKey(ctx, configuredAdminKey);
-    return {
-      kind: "teamAndProjectSlugs",
-      teamSlug,
-      projectSlug,
-    };
-  }
-  if (configuredAdminKey !== undefined) {
-    return {
-      kind: "deploymentName",
-      deploymentName: await deploymentNameFromAdminKeyOrCrash(
-        ctx,
-        configuredAdminKey,
-      ),
-    };
-  }
-  if (configuredDeployment) {
-    return {
-      kind: "deploymentName",
-      deploymentName: configuredDeployment,
-    };
-  }
-  return await ctx.crash({
-    exitCode: 1,
-    errorType: "fatal",
-    printedMessage:
-      "Select project by setting `CONVEX_DEPLOYMENT` with `npx convex dev` or `CONVEX_DEPLOY_KEY` from the Convex dashboard.",
-  });
-}
-
-async function fetchDeploymentCredentialsWithinCurrentProjectInner(
-  ctx: Context,
-  deploymentSelection: Exclude<
-    DeploymentSelection,
-    { kind: "urlWithAdminKey"; url: string; adminKey: string }
-  >,
-  configuredAdminKey: string | undefined,
+  projectSelection: ProjectSelection,
+  partitionId: number | undefined,
 ): Promise<{
-  deploymentName?: string;
-  adminKey?: string;
-  url?: string;
-  deploymentType?: string;
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: string;
 }> {
-  const configuredDeployment = getConfiguredDeploymentFromEnvVar().name;
-  switch (deploymentSelection.kind) {
-    case "ownDev": {
-      return {
-        ...(await fetchExistingDevDeploymentCredentialsOrCrash(
+  switch (projectSelection.kind) {
+    case "deploymentName": {
+      if (projectSelection.deploymentType === "local") {
+        const credentials = await loadLocalDeploymentCredentials(
           ctx,
-          configuredDeployment!,
-        )),
-        deploymentName: configuredDeployment!,
+          projectSelection.deploymentName,
+        );
+        return {
+          deploymentName: projectSelection.deploymentName,
+          adminKey: credentials.adminKey,
+          url: credentials.deploymentUrl,
+          deploymentType: "local",
+        };
+      }
+      // Note -- this returns the deployment with that name iff it's a dev deployment,
+      // but it does not actually check that the deployment belongs to the current member.
+      const credentials = await fetchExistingDevDeploymentCredentialsOrCrash(
+        ctx,
+        projectSelection.deploymentName,
+      );
+      return {
+        ...credentials,
+        deploymentName: projectSelection.deploymentName,
       };
     }
-    case "ownProd":
-      return await bigBrainAPI({
+    case "teamAndProjectSlugs":
+    case "projectDeployKey": {
+      // Note -- this provisions a dev deployment if one doesn't exist
+      const credentials =
+        await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+          ctx,
+          projectSelection,
+          "dev",
+          partitionId,
+        );
+      return {
+        url: credentials.deploymentUrl,
+        adminKey: credentials.adminKey,
+        deploymentName: credentials.deploymentName,
+        deploymentType: "dev",
+      };
+    }
+  }
+}
+
+async function handleProd(
+  ctx: Context,
+  projectSelection: ProjectSelection,
+  partitionId: number | undefined,
+): Promise<{
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: string;
+}> {
+  switch (projectSelection.kind) {
+    case "deploymentName": {
+      const credentials = await bigBrainAPI({
         ctx,
         method: "POST",
         url: "deployment/authorize_prod",
         data: {
-          deploymentName: configuredDeployment,
-          partitionId: deploymentSelection.partitionId,
+          deploymentName: projectSelection.deploymentName,
+          partitionId: partitionId,
         },
       });
-    case "previewName":
+      return credentials;
+    }
+    case "teamAndProjectSlugs":
+    case "projectDeployKey": {
+      const credentials =
+        await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+          ctx,
+          projectSelection,
+          "prod",
+          partitionId,
+        );
+      return {
+        url: credentials.deploymentUrl,
+        adminKey: credentials.adminKey,
+        deploymentName: credentials.deploymentName,
+        deploymentType: "prod",
+      };
+    }
+  }
+}
+
+async function handlePreview(
+  ctx: Context,
+  previewName: string,
+  projectSelection: ProjectSelection,
+): Promise<{
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: string;
+}> {
+  switch (projectSelection.kind) {
+    case "deploymentName":
+    case "teamAndProjectSlugs":
       return await bigBrainAPI({
         ctx,
         method: "POST",
         url: "deployment/authorize_preview",
         data: {
-          previewName: deploymentSelection.previewName,
-          projectSelection: await projectSelection(
-            ctx,
-            configuredDeployment,
-            configuredAdminKey,
-          ),
+          previewName: previewName,
+          projectSelection: projectSelection,
         },
       });
+
+    case "projectDeployKey":
+      // TODO -- this should be supported
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "Project deploy keys are not supported for preview deployments",
+      });
+  }
+}
+
+async function handleDeploymentName(
+  ctx: Context,
+  deploymentName: string,
+  projectSelection: ProjectSelection,
+): Promise<{
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: string;
+}> {
+  switch (projectSelection.kind) {
     case "deploymentName":
+    case "teamAndProjectSlugs":
       return await bigBrainAPI({
         ctx,
         method: "POST",
         url: "deployment/authorize_within_current_project",
         data: {
-          selectedDeploymentName: deploymentSelection.deploymentName,
-          projectSelection: await projectSelection(
-            ctx,
-            configuredDeployment,
-            configuredAdminKey,
-          ),
+          selectedDeploymentName: deploymentName,
+          projectSelection: projectSelection,
         },
       });
-    case "deployKey": {
-      const deploymentName = await deploymentNameFromAdminKeyOrCrash(
+    case "projectDeployKey":
+      // TODO -- this should be supported
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "Project deploy keys are not supported with the --deployment-name flag",
+      });
+  }
+}
+
+async function fetchDeploymentCredentialsWithinCurrentProject(
+  ctx: Context,
+  projectSelection: ProjectSelection,
+  deploymentSelection: DeploymentSelectionWithinProject,
+): Promise<{
+  deploymentName: string;
+  adminKey: string;
+  url: string;
+  deploymentType: string;
+}> {
+  switch (deploymentSelection.kind) {
+    case "ownDev": {
+      return await handleOwnDev(
         ctx,
-        configuredAdminKey!,
+        projectSelection,
+        deploymentSelection.partitionId,
       );
-      let url = await deriveUrlFromAdminKey(ctx, configuredAdminKey!);
-      // We cannot derive the deployment URL from the deploy key
-      // when running against local big brain, so use the name to get the URL.
-      if (process.env.CONVEX_PROVISION_HOST !== undefined) {
-        url = await bigBrainAPI({
-          ctx,
-          method: "POST",
-          url: "deployment/url_for_key",
-          data: {
-            deployKey: configuredAdminKey,
-          },
-        });
-      }
-      const deploymentType = deploymentTypeFromAdminKey(configuredAdminKey!);
-      return {
-        adminKey: configuredAdminKey,
-        url,
-        deploymentName,
-        deploymentType,
-      };
     }
-    case "projectKey": {
-      const deploymentType = deploymentSelection.prod ? "prod" : "dev";
-      const credentials =
-        await fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
-          ctx,
-          { teamSlug: null, projectSlug: null },
-          deploymentType,
-          undefined /* partitionId */,
-        );
-      return {
-        adminKey: credentials.adminKey,
-        url: credentials.deploymentUrl,
-        deploymentName: credentials.deploymentName,
-        deploymentType: deploymentType,
-      };
+    case "implicitProd":
+    case "prod": {
+      return await handleProd(
+        ctx,
+        projectSelection,
+        deploymentSelection.partitionId,
+      );
     }
-    case "urlWithLogin":
-      return {
-        ...(await bigBrainAPI({
-          ctx,
-          method: "POST",
-          url: "deployment/authorize_within_current_project",
-          data: {
-            selectedDeploymentName: configuredDeployment,
-            projectSelection: await projectSelection(
-              ctx,
-              configuredDeployment,
-              configuredAdminKey,
-            ),
-          },
-        })),
-        url: deploymentSelection.url,
-      };
+    case "previewName":
+      return await handlePreview(
+        ctx,
+        deploymentSelection.previewName,
+        projectSelection,
+      );
+    case "deploymentName":
+      return await handleDeploymentName(
+        ctx,
+        deploymentSelection.deploymentName,
+        projectSelection,
+      );
     default: {
       const _exhaustivenessCheck: never = deploymentSelection;
       return ctx.crash({
@@ -561,62 +592,132 @@ async function fetchDeploymentCredentialsWithinCurrentProjectInner(
   }
 }
 
-// Run, Import, many others
-export async function fetchDeploymentCredentialsProvisionProd(
+async function _loadExistingDeploymentCredentialsForProject(
   ctx: Context,
-  deploymentSelection: DeploymentSelection,
+  targetProject: ProjectSelection,
+  deploymentSelection: DeploymentSelectionWithinProject,
   { ensureLocalRunning } = { ensureLocalRunning: true },
 ): Promise<{
+  adminKey: string;
   url: string;
-  adminKey: AdminKey;
-  deploymentName?: string;
-  deploymentType?: string;
+  deploymentFields: {
+    deploymentName: string;
+    deploymentType: string;
+    projectSlug: string;
+    teamSlug: string;
+  } | null;
 }> {
-  if (
-    deploymentSelection.kind === "ownDev" &&
-    !(await checkAuthorization(ctx, false))
-  ) {
-    await performLogin(ctx);
+  const projectSlugs = await checkAccessToSelectedProject(ctx, targetProject);
+  if (projectSlugs === null) {
+    return await ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage:
+        "You don't have access to the selected project. Run `npx convex dev` to select a different project.",
+    });
   }
-
-  if (deploymentSelection.kind !== "ownDev") {
-    const result = await fetchDeploymentCredentialsWithinCurrentProject(
-      ctx,
-      deploymentSelection,
-    );
-    logVerbose(
-      ctx,
-      `Deployment URL: ${result.url}, Deployment Name: ${result.deploymentName}, Deployment Type: ${result.deploymentType}`,
-    );
-    return {
-      url: result.url,
-      adminKey: result.adminKey,
-      deploymentName: result.deploymentName,
-      deploymentType: result.deploymentType,
-    };
-  }
-
-  const configuredDeployment = await getConfiguredDeploymentNameOrCrash(ctx);
-  const result = await fetchExistingDevDeploymentCredentialsOrCrash(
+  const result = await fetchDeploymentCredentialsWithinCurrentProject(
     ctx,
-    configuredDeployment,
+    targetProject,
+    deploymentSelection,
   );
   logVerbose(
     ctx,
-    `Deployment URL: ${result.url}, Deployment Name: ${configuredDeployment}, Deployment Type: ${result.deploymentType}`,
+    `Deployment URL: ${result.url}, Deployment Name: ${result.deploymentName}, Deployment Type: ${result.deploymentType}`,
   );
-  if (ensureLocalRunning && configuredDeployment?.startsWith("local-")) {
+  if (ensureLocalRunning && result.deploymentType === "local") {
     await assertLocalBackendRunning(ctx, {
       url: result.url,
-      deploymentName: configuredDeployment,
+      deploymentName: result.deploymentName,
     });
   }
   return {
-    url: result.url,
-    adminKey: result.adminKey,
-    deploymentType: result.deploymentType,
-    deploymentName: configuredDeployment,
+    ...result,
+    deploymentFields: {
+      deploymentName: result.deploymentName,
+      deploymentType: result.deploymentType,
+      projectSlug: projectSlugs.projectSlug,
+      teamSlug: projectSlugs.teamSlug,
+    },
   };
+}
+// This is used by most commands (notably not `dev` and `deploy`) to determine
+// which deployment to act on, taking into account the deployment selection flags.
+//
+export async function loadSelectedDeploymentCredentials(
+  ctx: Context,
+  deploymentSelection: DeploymentSelection,
+  selectionWithinProject: DeploymentSelectionWithinProject,
+  { ensureLocalRunning } = { ensureLocalRunning: true },
+): Promise<{
+  adminKey: string;
+  url: string;
+  deploymentFields: {
+    deploymentName: string;
+    deploymentType: string;
+    projectSlug: string;
+    teamSlug: string;
+  } | null;
+}> {
+  switch (deploymentSelection.kind) {
+    case "existingDeployment":
+      await validateDeploymentSelectionForExistingDeployment(
+        ctx,
+        selectionWithinProject,
+        deploymentSelection.deploymentToActOn.source,
+      );
+      // We're already set up.
+      logVerbose(
+        ctx,
+        `Deployment URL: ${deploymentSelection.deploymentToActOn.url}, Deployment Name: ${deploymentSelection.deploymentToActOn.deploymentFields?.deploymentName ?? "unknown"}, Deployment Type: ${deploymentSelection.deploymentToActOn.deploymentFields?.deploymentType ?? "unknown"}`,
+      );
+      return {
+        adminKey: deploymentSelection.deploymentToActOn.adminKey,
+        url: deploymentSelection.deploymentToActOn.url,
+        deploymentFields:
+          deploymentSelection.deploymentToActOn.deploymentFields,
+      };
+    case "chooseProject":
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
+      });
+    case "preview": {
+      const slugs = await getTeamAndProjectFromPreviewAdminKey(
+        ctx,
+        deploymentSelection.previewDeployKey,
+      );
+      return await _loadExistingDeploymentCredentialsForProject(
+        ctx,
+        {
+          kind: "teamAndProjectSlugs",
+          teamSlug: slugs.teamSlug,
+          projectSlug: slugs.projectSlug,
+        },
+        selectionWithinProject,
+        { ensureLocalRunning },
+      );
+    }
+    case "deploymentWithinProject": {
+      return await _loadExistingDeploymentCredentialsForProject(
+        ctx,
+        deploymentSelection.targetProject,
+        selectionWithinProject,
+        { ensureLocalRunning },
+      );
+    }
+
+    default: {
+      const _exhaustivenessCheck: never = deploymentSelection;
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: "Unknown deployment type",
+      });
+    }
+  }
 }
 
 export async function fetchTeamAndProject(
@@ -649,38 +750,29 @@ export async function fetchTeamAndProject(
   return data;
 }
 
-// Used by dev for upgrade from team and project in convex.json to CONVEX_DEPLOYMENT
-export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows(
+export async function fetchTeamAndProjectForKey(
   ctx: Context,
-  {
-    teamSlug,
-    projectSlug,
-  }:
-    | { teamSlug: string; projectSlug: string }
-    | { teamSlug: null; projectSlug: null },
-  deploymentType: DeploymentType,
-  partitionId: number | undefined,
-): Promise<{
-  deploymentName: string;
-  deploymentUrl: string;
-  adminKey: AdminKey;
-}> {
-  const data = await bigBrainAPIMaybeThrows({
+  // Deployment deploy key, like `prod:happy-animal-123|<stuff>`
+  deployKey: string,
+) {
+  const data = (await bigBrainAPI({
     ctx,
     method: "POST",
-    url: "deployment/provision_and_authorize",
+    url: `deployment/team_and_project_for_key`,
     data: {
-      teamSlug,
-      projectSlug,
-      deploymentType,
-      partitionId,
+      deployKey: deployKey,
     },
-  });
-  const deploymentName = data.deploymentName;
-  const adminKey = data.adminKey;
-  const url = data.url;
-  if (adminKey === undefined || url === undefined) {
-    const msg = "Unknown error during authorization: " + JSON.stringify(data);
+  })) as {
+    team: string; // slug
+    project: string; // slug
+    teamId: number;
+    projectId: number;
+  };
+
+  const { team, project } = data;
+  if (team === undefined || project === undefined) {
+    const msg =
+      "Unknown error when fetching team and project: " + JSON.stringify(data);
     return await ctx.crash({
       exitCode: 1,
       errorType: "transient",
@@ -688,59 +780,6 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
       printedMessage: msg,
     });
   }
-  return { adminKey, deploymentUrl: url, deploymentName };
-}
 
-type Credentials = {
-  url: string;
-  adminKey: AdminKey;
-  deploymentType: DeploymentType;
-};
-
-type DevCredentials = Credentials & {
-  deploymentType: "dev";
-};
-
-function credentialsAsDevCredentials(cred: Credentials): DevCredentials {
-  if (cred.deploymentType === "dev") {
-    return cred as DevCredentials;
-  }
-  // Getting this wrong is a programmer error.
-  // eslint-disable-next-line no-restricted-syntax
-  throw new Error("Credentials are not for a dev deployment.");
-}
-
-async function fetchExistingDevDeploymentCredentialsOrCrash(
-  ctx: Context,
-  deploymentName: DeploymentName,
-): Promise<DevCredentials> {
-  const credentials = await fetchDeploymentCredentialsForName(
-    ctx,
-    deploymentName,
-    "dev",
-  );
-  if ("error" in credentials) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem data",
-      errForSentry: credentials.error,
-      printedMessage: `Failed to authorize "${deploymentName}" configured in CONVEX_DEPLOYMENT, run \`npx convex dev\` to configure a Convex project`,
-    });
-  }
-  if (credentials.deploymentType !== "dev") {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem data",
-      printedMessage: `Deployment "${deploymentName}" is not a dev deployment`,
-    });
-  }
-  return credentialsAsDevCredentials(credentials);
-}
-
-// This returns the url of the deployment from an admin key in the format
-//      "tall-forest-1234|1a2b35123541"
-//   or "prod:tall-forest-1234|1a2b35123541"
-async function deriveUrlFromAdminKey(ctx: Context, adminKey: string) {
-  const deploymentName = await deploymentNameFromAdminKeyOrCrash(ctx, adminKey);
-  return `https://${deploymentName}.convex.cloud`;
+  return data;
 }

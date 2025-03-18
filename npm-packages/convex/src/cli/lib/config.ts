@@ -30,7 +30,6 @@ import {
   logAndHandleFetchError,
   ThrowingFetchError,
 } from "./utils/utils.js";
-import { getTargetDeploymentName } from "./deployment.js";
 import { createHash } from "crypto";
 import { promisify } from "util";
 import zlib from "zlib";
@@ -757,22 +756,25 @@ export type PushMetrics = {
 export async function pushConfig(
   ctx: Context,
   config: Config,
-  adminKey: string,
-  url: string,
-  pushMetrics?: PushMetrics,
-  schemaId?: string,
-  bundledModuleInfos?: BundledModuleInfo[],
+  options: {
+    adminKey: string;
+    url: string;
+    deploymentName: string | null;
+    pushMetrics?: PushMetrics;
+    schemaId?: string;
+    bundledModuleInfos?: BundledModuleInfo[];
+  },
 ): Promise<void> {
   const serializedConfig = configJSON(
     config,
-    adminKey,
-    schemaId,
-    pushMetrics,
-    bundledModuleInfos,
+    options.adminKey,
+    options.schemaId,
+    options.pushMetrics,
+    options.bundledModuleInfos,
   );
   const fetch = deploymentFetch(ctx, {
-    deploymentUrl: url,
-    adminKey,
+    deploymentUrl: options.url,
+    adminKey: options.adminKey,
   });
   try {
     if (config.nodeDependencies.length > 0) {
@@ -797,53 +799,12 @@ export async function pushConfig(
       },
     });
   } catch (error: unknown) {
-    const data: ErrorData | undefined =
-      error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
-    if (data?.code === "AuthConfigMissingEnvironmentVariable") {
-      const errorMessage = data.message || "(no error message given)";
-      // If `npx convex dev` is running using --url there might not be a configured deployment
-      const configuredDeployment = getTargetDeploymentName();
-      const [, variableName] =
-        errorMessage.match(/Environment variable (\S+)/i) ?? [];
-      const variableQuery =
-        variableName !== undefined ? `?var=${variableName}` : "";
-      const dashboardUrl = deploymentDashboardUrlPage(
-        configuredDeployment,
-        `/settings/environment-variables${variableQuery}`,
-      );
-      const message =
-        `Environment variable ${chalk.bold(
-          variableName,
-        )} is used in auth config file but ` +
-        `its value was not set. Go to:\n\n    ${chalk.bold(
-          dashboardUrl,
-        )}\n\n  to set it up. `;
-      await ctx.crash({
-        exitCode: 1,
-        errorType: "invalid filesystem or env vars",
-        errForSentry: error,
-        printedMessage: message,
-      });
-    }
-
-    const message = "Error: Unable to push deployment config to " + url;
-    if (data?.code === "InternalServerError") {
-      const configuredDeployment = getTargetDeploymentName();
-      if (configuredDeployment?.startsWith("local-")) {
-        printLocalDeploymentOnError(ctx);
-        return ctx.crash({
-          exitCode: 1,
-          errorType: "fatal",
-          errForSentry: new LocalDeploymentError(
-            "InternalServerError while pushing to local deployment",
-          ),
-          printedMessage: message,
-        });
-      }
-    }
-
-    logFailure(ctx, message);
-    return await logAndHandleFetchError(ctx, error);
+    await handlePushConfigError(
+      ctx,
+      error,
+      "Error: Unable to push deployment config to " + options.url,
+      options.deploymentName,
+    );
   }
 }
 
@@ -1064,4 +1025,61 @@ export function diffConfig(
   }
 
   return { diffString: diff, stats };
+}
+
+export async function handlePushConfigError(
+  ctx: Context,
+  error: unknown,
+  defaultMessage: string,
+  deploymentName: string | null,
+) {
+  const data: ErrorData | undefined =
+    error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
+  if (data?.code === "AuthConfigMissingEnvironmentVariable") {
+    const errorMessage = data.message || "(no error message given)";
+    const [, variableName] =
+      errorMessage.match(/Environment variable (\S+)/i) ?? [];
+    const envVarMessage =
+      `Environment variable ${chalk.bold(
+        variableName,
+      )} is used in auth config file but ` + `its value was not set.`;
+    let setEnvVarInstructions =
+      "Go set it in the dashboard or using `npx convex env set`";
+
+    // If `npx convex dev` is running using --url there might not be a configured deployment
+    if (deploymentName !== null) {
+      const variableQuery =
+        variableName !== undefined ? `?var=${variableName}` : "";
+      const dashboardUrl = deploymentDashboardUrlPage(
+        deploymentName,
+        `/settings/environment-variables${variableQuery}`,
+      );
+      setEnvVarInstructions = `Go to:\n\n    ${chalk.bold(
+        dashboardUrl,
+      )}\n\n  to set it up. `;
+    }
+    await ctx.crash({
+      exitCode: 1,
+      errorType: "invalid filesystem or env vars",
+      errForSentry: error,
+      printedMessage: envVarMessage + "\n" + setEnvVarInstructions,
+    });
+  }
+
+  if (data?.code === "InternalServerError") {
+    if (deploymentName?.startsWith("local-")) {
+      printLocalDeploymentOnError(ctx);
+      return ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        errForSentry: new LocalDeploymentError(
+          "InternalServerError while pushing to local deployment",
+        ),
+        printedMessage: defaultMessage,
+      });
+    }
+  }
+
+  logFailure(ctx, defaultMessage);
+  return await logAndHandleFetchError(ctx, error);
 }

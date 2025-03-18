@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { DeploymentSelection, deploymentSelectionSchema } from "../api.js";
+import {
+  DeploymentSelectionWithinProject,
+  deploymentSelectionWithinProjectSchema,
+} from "../api.js";
 
 // Unfortunately, MCP clients don't seem to handle nested JSON objects very
 // well (even though this is within spec). To work around this, encode the
@@ -7,7 +10,7 @@ import { DeploymentSelection, deploymentSelectionSchema } from "../api.js";
 // opaquely pass around.
 export function encodeDeploymentSelector(
   projectDir: string,
-  deployment: DeploymentSelection,
+  deployment: DeploymentSelectionWithinProject,
 ) {
   const payload = {
     projectDir,
@@ -18,7 +21,7 @@ export function encodeDeploymentSelector(
 
 const payloadSchema = z.object({
   projectDir: z.string(),
-  deployment: deploymentSelectionSchema,
+  deployment: deploymentSelectionWithinProjectSchema,
 });
 
 export function decodeDeploymentSelector(encoded: string) {

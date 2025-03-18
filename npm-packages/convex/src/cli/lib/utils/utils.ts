@@ -16,17 +16,11 @@ import {
 } from "../../../bundler/context.js";
 import { version } from "../../version.js";
 import { Project } from "../api.js";
-import {
-  getConfiguredDeploymentFromEnvVar,
-  isPreviewDeployKey,
-  isProjectKey,
-} from "../deployment.js";
 import { promptOptions, promptSearch, promptYesNo } from "./prompts.js";
 import {
   bigBrainEnableFeatureMetadata,
   projectHasExistingCloudDev,
 } from "../localDeployment/bigBrain.js";
-import { readGlobalConfig } from "./globalConfig.js";
 
 const retryingFetch = fetchRetryFactory(fetch);
 
@@ -36,6 +30,7 @@ export const provisionHost =
 const BIG_BRAIN_URL = `${provisionHost}/api/`;
 export const ENV_VAR_FILE_PATH = ".env.local";
 export const CONVEX_DEPLOY_KEY_ENV_VAR_NAME = "CONVEX_DEPLOY_KEY";
+export const CONVEX_DEPLOYMENT_ENV_VAR_NAME = "CONVEX_DEPLOYMENT";
 export const CONVEX_SELF_HOSTED_URL_VAR_NAME = "CONVEX_SELF_HOSTED_URL";
 export const CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME =
   "CONVEX_SELF_HOSTED_ADMIN_KEY";
@@ -561,34 +556,8 @@ export function rootDirectory(): string {
   return path.join(os.homedir(), dirName);
 }
 
-export function readAdminKeyFromEnvVar(): string | undefined {
-  return process.env[CONVEX_DEPLOY_KEY_ENV_VAR_NAME] ?? undefined;
-}
-
-export async function getAuthHeaderForBigBrain(
-  ctx: Context,
-): Promise<string | null> {
-  if (process.env.CONVEX_OVERRIDE_ACCESS_TOKEN) {
-    return `Bearer ${process.env.CONVEX_OVERRIDE_ACCESS_TOKEN}`;
-  }
-  const adminKey = readAdminKeyFromEnvVar();
-  if (adminKey !== undefined && isProjectKey(adminKey)) {
-    // project keys override the global config
-    // TODO: should preview keys also?
-    return `Bearer ${adminKey}`;
-  }
-  const globalConfig = readGlobalConfig(ctx);
-  if (globalConfig) {
-    return `Bearer ${globalConfig.accessToken}`;
-  }
-  if (adminKey !== undefined && isPreviewDeployKey(adminKey)) {
-    return `Bearer ${adminKey}`;
-  }
-  return null;
-}
-
 export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {
-  const authHeader = await getAuthHeaderForBigBrain(ctx);
+  const authHeader = await ctx.bigBrainAuth()?.header;
   const bigBrainHeaders: Record<string, string> = authHeader
     ? {
         Authorization: authHeader,
@@ -830,33 +799,6 @@ export async function isInExistingProject(ctx: Context) {
     });
   }
   return !!parentConvexJson;
-}
-
-export async function getConfiguredDeploymentNameOrCrash(
-  ctx: Context,
-): Promise<string> {
-  const configuredDeployment = (await getConfiguredDeployment(ctx)).name;
-  if (configuredDeployment !== null) {
-    return configuredDeployment;
-  }
-  return await ctx.crash({
-    exitCode: 1,
-    errorType: "invalid filesystem data",
-    printedMessage:
-      "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
-  });
-}
-
-export async function getConfiguredDeployment(ctx: Context) {
-  const { parentPackageJson } = await findParentConfigs(ctx);
-  if (parentPackageJson !== path.resolve("package.json")) {
-    return await ctx.crash({
-      exitCode: 1,
-      errorType: "invalid filesystem data",
-      printedMessage: "Run this command from the root directory of a project.",
-    });
-  }
-  return getConfiguredDeploymentFromEnvVar();
 }
 
 // `spawnAsync` is the async version of Node's `spawnSync` (and `spawn`).

@@ -396,6 +396,7 @@ export async function runInDeployment(
   args: {
     deploymentUrl: string;
     adminKey: string;
+    deploymentName: string | null;
     functionName: string;
     argsString: string;
     identityString?: string;
@@ -414,6 +415,7 @@ export async function runInDeployment(
       {
         url: args.deploymentUrl,
         adminKey: args.adminKey,
+        deploymentName: args.deploymentName,
         verbose: false,
         dryRun: false,
         typecheck: args.typecheck,

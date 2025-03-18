@@ -3,35 +3,10 @@ import { Context } from "../../bundler/context.js";
 import { changedEnvVarFile, getEnvVarRegex } from "./envvars.js";
 import {
   CONVEX_DEPLOY_KEY_ENV_VAR_NAME,
+  CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   ENV_VAR_FILE_PATH,
-  readAdminKeyFromEnvVar,
 } from "./utils/utils.js";
 import { DeploymentType } from "./api.js";
-
-export const CONVEX_DEPLOYMENT_VAR_NAME = "CONVEX_DEPLOYMENT";
-
-// Return the "target" deployment name, from admin key or from CONVEX_DEPLOYMENT.
-// Admin key is set either via a CLI option or via CONVEX_DEPLOY_KEY
-export function getTargetDeploymentName() {
-  return (
-    getDeploymentNameFromAdminKey() ?? getConfiguredDeploymentFromEnvVar().name
-  );
-}
-
-export function getConfiguredDeploymentFromEnvVar(): {
-  type: "dev" | "prod" | "preview" | "local" | null;
-  name: string | null;
-} {
-  dotenv.config({ path: ENV_VAR_FILE_PATH });
-  dotenv.config();
-  const raw = process.env[CONVEX_DEPLOYMENT_VAR_NAME] ?? null;
-  if (raw === null || raw === "") {
-    return { type: null, name: null };
-  }
-  const name = stripDeploymentTypePrefix(raw);
-  const type = getDeploymentTypeFromConfiguredDeployment(raw);
-  return { type, name };
-}
 
 // Given a deployment string like "dev:tall-forest-1234"
 // returns only the slug "tall-forest-1234".
@@ -41,7 +16,7 @@ export function stripDeploymentTypePrefix(deployment: string) {
 }
 
 // Handling legacy CONVEX_DEPLOYMENT without type prefix as well
-function getDeploymentTypeFromConfiguredDeployment(raw: string) {
+export function getDeploymentTypeFromConfiguredDeployment(raw: string) {
   const typeRaw = raw.split(":")[0];
   const type =
     typeRaw === "prod" ||
@@ -57,6 +32,7 @@ export async function writeDeploymentEnvVar(
   ctx: Context,
   deploymentType: DeploymentType,
   deployment: { team: string; project: string; deploymentName: string },
+  existingValue: string | null,
 ): Promise<{ wroteToGitIgnore: boolean; changedDeploymentEnvVar: boolean }> {
   const existingFile = ctx.fs.exists(ENV_VAR_FILE_PATH)
     ? ctx.fs.readUtf8File(ENV_VAR_FILE_PATH)
@@ -66,12 +42,8 @@ export async function writeDeploymentEnvVar(
     deploymentType,
     deployment,
   );
-  // Also update process.env directly, because `dotfile.config()` doesn't pick
-  // up changes to the file.
-  const existingValue = process.env[CONVEX_DEPLOYMENT_VAR_NAME];
   const deploymentEnvVarValue =
     deploymentType + ":" + deployment.deploymentName;
-  process.env[CONVEX_DEPLOYMENT_VAR_NAME] = deploymentEnvVarValue;
 
   if (changedFile !== null) {
     ctx.fs.writeUtf8File(ENV_VAR_FILE_PATH, changedFile);
@@ -96,12 +68,12 @@ export async function eraseDeploymentEnvVar(ctx: Context): Promise<boolean> {
     return false;
   }
   const config = dotenv.parse(existingFile);
-  const existing = config[CONVEX_DEPLOYMENT_VAR_NAME];
+  const existing = config[CONVEX_DEPLOYMENT_ENV_VAR_NAME];
   if (existing === undefined) {
     return false;
   }
   const changedFile = existingFile.replace(
-    getEnvVarRegex(CONVEX_DEPLOYMENT_VAR_NAME),
+    getEnvVarRegex(CONVEX_DEPLOYMENT_ENV_VAR_NAME),
     "",
   );
   ctx.fs.writeUtf8File(ENV_VAR_FILE_PATH, changedFile);
@@ -136,7 +108,7 @@ export function changesToEnvVarFile(
   const commentAfterValue = `team: ${team}, project: ${project}`;
   return changedEnvVarFile(
     existingFile,
-    CONVEX_DEPLOYMENT_VAR_NAME,
+    CONVEX_DEPLOYMENT_ENV_VAR_NAME,
     deploymentValue,
     commentAfterValue,
     commentOnPreviousLine,
@@ -172,14 +144,6 @@ export function changesToGitIgnore(existingFile: string | null): string | null {
   } else {
     return null;
   }
-}
-
-export function getDeploymentNameFromAdminKey() {
-  const adminKey = readAdminKeyFromEnvVar();
-  if (adminKey === undefined) {
-    return null;
-  }
-  return deploymentNameFromAdminKey(adminKey);
 }
 
 export async function deploymentNameFromAdminKeyOrCrash(

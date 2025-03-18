@@ -4,9 +4,12 @@ import { findLatestVersionWithBinary } from "./run.js";
 import { components } from "@octokit/openapi-types";
 import stripAnsi from "strip-ansi";
 
-test("findLatestVersionWithBinary", async () => {
-  // Make a context that throws on crashes so we can detect them.
-  const originalContext = oneoffContext();
+async function setupContext() {
+  const originalContext = await oneoffContext({
+    url: undefined,
+    adminKey: undefined,
+    envFile: undefined,
+  });
   const ctx = {
     ...originalContext,
     crash: (args: { printedMessage: string | null }) => {
@@ -16,6 +19,11 @@ test("findLatestVersionWithBinary", async () => {
       throw new Error();
     },
   };
+  return ctx;
+}
+test("findLatestVersionWithBinary", async () => {
+  // Make a context that throws on crashes so we can detect them.
+  const ctx = await setupContext();
   const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => {
     // Do nothing
     return true;

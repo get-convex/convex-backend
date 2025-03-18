@@ -40,7 +40,11 @@ export const login = new Command("login")
   // Hidden option for tests to check if the user is logged in.
   .addOption(new Option("--check-login").hideHelp())
   .action(async (options, cmd: Command) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
     if (
       !options.force &&
       (await checkAuthorization(ctx, !!options.acceptOptIns))

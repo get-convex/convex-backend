@@ -1,12 +1,12 @@
 import { oneoffContext } from "../bundler/context.js";
 import {
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsWithinCurrentProject,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { Command, Option } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 import { functionSpecForDeployment } from "./lib/functionSpec.js";
-
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 export const functionSpec = new Command("function-spec")
   .summary("List function metadata from your deployment")
   .description(
@@ -20,16 +20,15 @@ export const functionSpec = new Command("function-spec")
   )
   .showHelpAfterError()
   .action(async (options) => {
-    const ctx = oneoffContext();
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      options,
-    );
-
+    const ctx = await oneoffContext(options);
+    const deploymentSelection = await getDeploymentSelection(ctx, options);
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, options);
     const { adminKey, url: deploymentUrl } =
-      await fetchDeploymentCredentialsWithinCurrentProject(
+      await loadSelectedDeploymentCredentials(
         ctx,
         deploymentSelection,
+        selectionWithinProject,
       );
 
     await functionSpecForDeployment(ctx, {

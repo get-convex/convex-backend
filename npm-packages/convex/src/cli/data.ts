@@ -1,12 +1,13 @@
 import chalk from "chalk";
 import { oneoffContext } from "../bundler/context.js";
 import {
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsProvisionProd,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 import { dataInDeployment } from "./lib/data.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
 export const data = new Command("data")
   .summary("List tables and print data from your database")
@@ -21,25 +22,24 @@ export const data = new Command("data")
   .addDeploymentSelectionOptions(actionDescription("Inspect the database in"))
   .showHelpAfterError()
   .action(async (tableName, options) => {
-    const ctx = oneoffContext();
-    const deploymentSelection = await deploymentSelectionFromOptions(
+    const ctx = await oneoffContext(options);
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+
+    const deploymentSelection = await getDeploymentSelection(ctx, options);
+    const deployment = await loadSelectedDeploymentCredentials(
       ctx,
-      options,
+      deploymentSelection,
+      selectionWithinProject,
     );
 
-    const {
-      adminKey,
-      url: deploymentUrl,
-      deploymentName,
-    } = await fetchDeploymentCredentialsProvisionProd(ctx, deploymentSelection);
-
-    const deploymentNotice = deploymentName
-      ? `${chalk.bold(deploymentName)} deployment's `
+    const deploymentNotice = deployment.deploymentFields?.deploymentName
+      ? `${chalk.bold(deployment.deploymentFields.deploymentName)} deployment's `
       : "";
 
     await dataInDeployment(ctx, {
-      deploymentUrl,
-      adminKey,
+      deploymentUrl: deployment.url,
+      adminKey: deployment.adminKey,
       deploymentNotice,
       tableName,
       ...options,

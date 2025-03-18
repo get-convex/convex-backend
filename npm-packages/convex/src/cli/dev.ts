@@ -1,13 +1,15 @@
 import { Command, Option } from "@commander-js/extra-typings";
 import { logVerbose, oneoffContext } from "../bundler/context.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
-import { checkAuthorization, performLogin } from "./lib/login.js";
 import { usageStateWarning } from "./lib/usage.js";
 import { normalizeDevOptions } from "./lib/command.js";
 import { devAgainstDeployment } from "./lib/dev.js";
-import { deploymentSelectionFromOptions } from "./lib/api.js";
-import { CONVEX_DEPLOYMENT_VAR_NAME } from "./lib/deployment.js";
-import { CONVEX_SELF_HOSTED_URL_VAR_NAME } from "./lib/utils/utils.js";
+import { deploymentSelectionWithinProjectFromOptions } from "./lib/api.js";
+import {
+  CONVEX_DEPLOYMENT_ENV_VAR_NAME,
+  CONVEX_SELF_HOSTED_URL_VAR_NAME,
+} from "./lib/utils/utils.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
 export const dev = new Command("dev")
   .summary("Develop against a dev deployment, watching for changes")
@@ -61,7 +63,7 @@ export const dev = new Command("dev")
     new Option(
       "--env-file <envFile>",
       `Path to a custom file of environment variables, for choosing the \
-deployment, e.g. ${CONVEX_DEPLOYMENT_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
+deployment, e.g. ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} or ${CONVEX_SELF_HOSTED_URL_VAR_NAME}. \
 Same format as .env.local or .env files, and overrides them.`,
     ),
   )
@@ -98,7 +100,7 @@ Same format as .env.local or .env files, and overrides them.`,
   )
   .showHelpAfterError()
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(cmdOptions);
     process.on("SIGINT", async () => {
       logVerbose(ctx, "Received SIGINT, cleaning up...");
       await ctx.flushAndExit(-2);
@@ -106,19 +108,8 @@ Same format as .env.local or .env files, and overrides them.`,
 
     const devOptions = await normalizeDevOptions(ctx, cmdOptions);
 
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      cmdOptions,
-      [
-        ["prod", "--prod"],
-        ["local", "--local"],
-        ["cloud", "--cloud"],
-        ["team", "--team"],
-        ["project", "--project"],
-        ["devDeployment", "--dev-deployment"],
-        ["configure", "--configure"],
-      ],
-    );
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, cmdOptions);
 
     if (cmdOptions.configure === undefined) {
       if (cmdOptions.team || cmdOptions.project || cmdOptions.devDeployment)
@@ -168,38 +159,39 @@ Same format as .env.local or .env files, and overrides them.`,
       localOptions["forceUpgrade"] = cmdOptions.localForceUpgrade;
     }
 
-    if (
-      deploymentSelection.kind !== "urlWithAdminKey" &&
-      deploymentSelection.kind !== "projectKey"
-    ) {
-      if (!(await checkAuthorization(ctx, false))) {
-        await performLogin(ctx, cmdOptions);
-      }
-    }
-
     const partitionId = cmdOptions.partitionId
       ? parseInt(cmdOptions.partitionId)
       : undefined;
     const configure =
       cmdOptions.configure === true ? "ask" : (cmdOptions.configure ?? null);
+    const deploymentSelection = await getDeploymentSelection(ctx, cmdOptions);
     const credentials = await deploymentCredentialsOrConfigure(
       ctx,
+      deploymentSelection,
       configure,
       {
         ...cmdOptions,
         localOptions,
-        deploymentSelection,
+        selectionWithinProject,
       },
       partitionId,
     );
 
-    if (deploymentSelection.kind !== "urlWithAdminKey") {
-      await usageStateWarning(ctx);
+    if (credentials.deploymentFields !== null) {
+      await usageStateWarning(ctx, credentials.deploymentFields.deploymentName);
     }
 
     if (cmdOptions.skipPush) {
       return;
     }
 
-    await devAgainstDeployment(ctx, credentials, devOptions);
+    await devAgainstDeployment(
+      ctx,
+      {
+        url: credentials.url,
+        adminKey: credentials.adminKey,
+        deploymentName: credentials.deploymentFields?.deploymentName ?? null,
+      },
+      devOptions,
+    );
   });

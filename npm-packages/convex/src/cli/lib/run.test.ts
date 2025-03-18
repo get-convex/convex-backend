@@ -3,7 +3,11 @@ import { parseFunctionName } from "./run.js";
 import { oneoffContext } from "../../bundler/context.js";
 
 test("parseFunctionName", async () => {
-  const originalContext = oneoffContext();
+  const originalContext = await oneoffContext({
+    url: undefined,
+    adminKey: undefined,
+    envFile: undefined,
+  });
   const files = new Set<string>();
   const ctx = {
     ...originalContext,

@@ -20,7 +20,11 @@ export const deployments = new Command("deployments")
   .description("List deployments associated with a project")
   .allowExcessArguments(false)
   .action(async () => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
     const { projectConfig: config } = await readProjectConfig(ctx);
 
     const url = `teams/${config.team}/projects/${config.project}/deployments`;

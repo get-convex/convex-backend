@@ -135,6 +135,29 @@ export async function handleLocalDeployment(
   };
 }
 
+export async function loadLocalDeploymentCredentials(
+  ctx: Context,
+  deploymentName: string,
+): Promise<{
+  deploymentName: string;
+  deploymentUrl: string;
+  adminKey: string;
+}> {
+  const config = loadDeploymentConfig(ctx, deploymentName);
+  if (config === null) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Failed to load deployment config",
+    });
+  }
+  return {
+    deploymentName,
+    deploymentUrl: localDeploymentUrl(config.ports.cloud),
+    adminKey: config.adminKey,
+  };
+}
+
 async function handleOffline(
   ctx: Context,
   options: {

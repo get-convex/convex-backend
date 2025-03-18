@@ -8,12 +8,7 @@ import {
   showSpinner,
 } from "../../bundler/context.js";
 import { spawnSync } from "child_process";
-import {
-  deploymentFetch,
-  ErrorData,
-  logAndHandleFetchError,
-  ThrowingFetchError,
-} from "./utils/utils.js";
+import { deploymentFetch, logAndHandleFetchError } from "./utils/utils.js";
 import {
   schemaStatus,
   SchemaStatus,
@@ -26,8 +21,6 @@ import {
   ComponentDefinitionConfig,
 } from "./deployApi/definitionConfig.js";
 import chalk from "chalk";
-import { getTargetDeploymentName } from "./deployment.js";
-import { deploymentDashboardUrlPage } from "../dashboard.js";
 import { finishPushDiff, FinishPushDiff } from "./deployApi/finishPush.js";
 import { Reporter, Span } from "./tracing.js";
 import { promisify } from "node:util";
@@ -36,6 +29,7 @@ import { PushOptions } from "./push.js";
 import { runPush } from "./components.js";
 import { suggestedEnvVarName } from "./envvars.js";
 import { runSystemQuery } from "./run.js";
+import { handlePushConfigError } from "./config.js";
 
 const brotli = promisify(zlib.brotliCompress);
 
@@ -63,6 +57,7 @@ export async function startPush(
   request: StartPushRequest,
   options: {
     url: string;
+    deploymentName: string | null;
   },
 ): Promise<StartPushResponse> {
   const custom = (_k: string | number, s: any) =>
@@ -94,36 +89,12 @@ export async function startPush(
     });
     return startPushResponse.parse(await response.json());
   } catch (error: unknown) {
-    const data: ErrorData | undefined =
-      error instanceof ThrowingFetchError ? error.serverErrorData : undefined;
-    if (data?.code === "AuthConfigMissingEnvironmentVariable") {
-      const errorMessage = data.message || "(no error message given)";
-      // If `npx convex dev` is running using --url there might not be a configured deployment
-      const configuredDeployment = getTargetDeploymentName();
-      const [, variableName] =
-        errorMessage.match(/Environment variable (\S+)/i) ?? [];
-      const variableQuery =
-        variableName !== undefined ? `?var=${variableName}` : "";
-      const dashboardUrl = deploymentDashboardUrlPage(
-        configuredDeployment,
-        `/settings/environment-variables${variableQuery}`,
-      );
-      const message =
-        `Environment variable ${chalk.bold(
-          variableName,
-        )} is used in auth config file but ` +
-        `its value was not set. Go to:\n\n    ${chalk.bold(
-          dashboardUrl,
-        )}\n\n  to set it up. `;
-      await ctx.crash({
-        exitCode: 1,
-        errorType: "invalid filesystem or env vars",
-        errForSentry: error,
-        printedMessage: message,
-      });
-    }
-    logFailure(ctx, "Error: Unable to start push to " + options.url);
-    return await logAndHandleFetchError(ctx, error);
+    return await handlePushConfigError(
+      ctx,
+      error,
+      "Error: Unable to start push to " + options.url,
+      options.deploymentName,
+    );
   }
 }
 
@@ -312,6 +283,7 @@ export async function deployToDeployment(
   credentials: {
     url: string;
     adminKey: string;
+    deploymentName: string | null;
   },
   options: {
     verbose?: boolean | undefined;
@@ -334,6 +306,7 @@ export async function deployToDeployment(
   await runCommand(ctx, { ...options, url, adminKey });
 
   const pushOptions: PushOptions = {
+    deploymentName: credentials.deploymentName,
     adminKey,
     verbose: !!options.verbose,
     dryRun: !!options.dryRun,

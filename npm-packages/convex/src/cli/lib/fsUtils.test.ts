@@ -1,15 +1,20 @@
 import { test, expect, describe, beforeEach, afterEach } from "vitest";
-import { oneoffContext } from "../../bundler/context.js";
+import { oneoffContext, Context } from "../../bundler/context.js";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { recursivelyDelete } from "./fsUtils.js";
 
-describe("fsUtils", () => {
+describe("fsUtils", async () => {
   let tmpDir: string;
-  const ctx = oneoffContext();
+  let ctx: Context;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
     tmpDir = fs.mkdtempSync(`${os.tmpdir()}${path.sep}`);
   });
 

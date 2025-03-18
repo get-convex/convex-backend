@@ -3,10 +3,11 @@ import chalk from "chalk";
 import open from "open";
 import { logMessage, logOutput, oneoffContext } from "../bundler/context.js";
 import {
-  deploymentSelectionFromOptions,
-  fetchDeploymentCredentialsProvisionProd,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
 const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   ? "http://localhost:6789"
@@ -22,34 +23,28 @@ export const dashboard = new Command("dashboard")
   .addDeploymentSelectionOptions(actionDescription("Open the dashboard for"))
   .showHelpAfterError()
   .action(async (options) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(options);
 
-    const deploymentSelection = await deploymentSelectionFromOptions(
-      ctx,
-      options,
-    );
-    const { deploymentName } = await fetchDeploymentCredentialsProvisionProd(
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+    const deploymentSelection = await getDeploymentSelection(ctx, options);
+    const deployment = await loadSelectedDeploymentCredentials(
       ctx,
       deploymentSelection,
+      selectionWithinProject,
       { ensureLocalRunning: false },
     );
 
-    if (deploymentName === undefined) {
-      if (deploymentSelection.kind === "urlWithAdminKey") {
-        const msg = `Self-hosted deployment configured.\n\`${chalk.bold("npx convex dashboard")}\` is not supported for self-hosted deployments.\nSee self-hosting instructions for how to self-host the dashboard.`;
-        logMessage(ctx, chalk.yellow(msg));
-        return;
-      }
-      return await ctx.crash({
-        exitCode: 1,
-        errorType: "invalid filesystem data",
-        printedMessage: `No Convex deployment configured, run \`${chalk.bold(
-          "npx convex dev",
-        )}\``,
-      });
+    if (deployment.deploymentFields === null) {
+      const msg = `Self-hosted deployment configured.\n\`${chalk.bold("npx convex dashboard")}\` is not supported for self-hosted deployments.\nSee self-hosting instructions for how to self-host the dashboard.`;
+      logMessage(ctx, chalk.yellow(msg));
+      return;
     }
 
-    const loginUrl = deploymentDashboardUrlPage(deploymentName, "");
+    const loginUrl = deploymentDashboardUrlPage(
+      deployment.deploymentFields.deploymentName,
+      "",
+    );
 
     if (options.open) {
       logMessage(

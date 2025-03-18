@@ -2,18 +2,33 @@ import { Command } from "@commander-js/extra-typings";
 import chalk from "chalk";
 import open from "open";
 import { Context, logMessage, oneoffContext } from "../bundler/context.js";
-import { getTargetDeploymentName } from "./lib/deployment.js";
 import { bigBrainFetch, deprecationCheckWarning } from "./lib/utils/utils.js";
+import {
+  getDeploymentSelection,
+  deploymentNameFromSelection,
+} from "./lib/deploymentSelection.js";
 
 export const docs = new Command("docs")
   .description("Open the docs in the browser")
   .allowExcessArguments(false)
   .option("--no-open", "Print docs URL instead of opening it in your browser")
   .action(async (options) => {
-    const ctx = oneoffContext();
-    // Usually we'd call `getConfiguredDeploymentName` but in this
-    // command we don't care at all if the user is in the right directory
-    const configuredDeployment = getTargetDeploymentName();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
+    const deploymentSelection = await getDeploymentSelection(ctx, {
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
+    const configuredDeployment =
+      deploymentNameFromSelection(deploymentSelection);
+    if (configuredDeployment === null) {
+      await openDocs(ctx, options.open);
+      return;
+    }
     const getCookieUrl = `get_cookie/${configuredDeployment}`;
     const fetch = await bigBrainFetch(ctx);
     try {

@@ -7,7 +7,11 @@ export const update = new Command("update")
   .description("Print instructions for updating the convex package")
   .allowExcessArguments(false)
   .action(async () => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
     let updateInstructions = "npm install convex@latest\n";
     const packages = await loadPackageJson(ctx);
     const oldPackageNames = Object.keys(packages).filter((name) =>

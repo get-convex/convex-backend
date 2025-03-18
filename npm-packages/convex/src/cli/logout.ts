@@ -7,7 +7,11 @@ export const logout = new Command("logout")
   .description("Log out of Convex on this machine")
   .allowExcessArguments(false)
   .action(async () => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
 
     recursivelyDelete(ctx, globalConfigPath());
 

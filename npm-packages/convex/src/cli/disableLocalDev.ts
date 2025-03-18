@@ -1,11 +1,14 @@
 import { Command } from "@commander-js/extra-typings";
 import { logFinishedStep, oneoffContext } from "../bundler/context.js";
-import { getConfiguredDeployment } from "./lib/utils/utils.js";
 import { deploymentCredentialsOrConfigure } from "./configure.js";
 import {
   modifyGlobalConfig,
   readGlobalConfig,
 } from "./lib/utils/globalConfig.js";
+import {
+  deploymentNameAndTypeFromSelection,
+  getDeploymentSelection,
+} from "./lib/deploymentSelection.js";
 
 export const disableLocalDeployments = new Command("disable-local-deployments")
   .description(
@@ -18,7 +21,11 @@ export const disableLocalDeployments = new Command("disable-local-deployments")
   .option("--undo-global", "Re-enable local deployments on this machine.")
   .allowExcessArguments(false)
   .action(async (cmdOptions) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext({
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
 
     if (cmdOptions.undoGlobal) {
       return disableLocalDeploymentsGloballyUntilBetaOver(true);
@@ -29,14 +36,23 @@ export const disableLocalDeployments = new Command("disable-local-deployments")
       );
     }
 
-    const { type } = await getConfiguredDeployment(ctx);
-    if (type !== "local") {
+    const deploymentSelection = await getDeploymentSelection(ctx, {
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
+    const configuredDeployment =
+      deploymentNameAndTypeFromSelection(deploymentSelection);
+    if (
+      configuredDeployment?.type !== null &&
+      configuredDeployment?.type !== "local"
+    ) {
       logFinishedStep(ctx, "Local development is already not being used.");
       return;
     }
 
-    await deploymentCredentialsOrConfigure(ctx, null, {
-      deploymentSelection: { kind: "ownDev" },
+    await deploymentCredentialsOrConfigure(ctx, deploymentSelection, "ask", {
+      selectionWithinProject: { kind: "ownDev" },
       prod: false,
       localOptions: {
         forceUpgrade: false,
@@ -53,7 +69,11 @@ export const disableLocalDeployments = new Command("disable-local-deployments")
 async function disableLocalDeploymentsGloballyUntilBetaOver(
   reenable: boolean,
 ): Promise<void> {
-  const ctx = oneoffContext();
+  const ctx = await oneoffContext({
+    url: undefined,
+    adminKey: undefined,
+    envFile: undefined,
+  });
 
   // Ensure this is not used in CI or scripts, since it has global effects and will be deprecated
   // in the future.

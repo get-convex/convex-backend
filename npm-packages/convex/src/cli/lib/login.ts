@@ -1,6 +1,5 @@
 import { errors, BaseClient, custom } from "openid-client";
 import {
-  getAuthHeaderForBigBrain,
   bigBrainAPI,
   logAndHandleFetchError,
   throwingFetch,
@@ -18,6 +17,7 @@ import {
   logFinishedStep,
   logMessage,
   logOutput,
+  logVerbose,
   showSpinner,
 } from "../../bundler/context.js";
 import { Issuer } from "openid-client";
@@ -29,6 +29,7 @@ import {
   globalConfigPath,
   modifyGlobalConfig,
 } from "./utils/globalConfig.js";
+import { updateBigBrainAuthAfterLogin } from "./deploymentSelection.js";
 
 const SCOPE = "openid email profile";
 /// This value was created long ago, and cannot be changed easily.
@@ -41,12 +42,17 @@ custom.setHttpOptionsDefaults({
   timeout: parseInt(process.env.OPENID_CLIENT_TIMEOUT || "10000"),
 });
 
+interface AuthorizeArgs {
+  authnToken: string;
+  deviceName: string;
+}
+
 export async function checkAuthorization(
   ctx: Context,
   acceptOptIns: boolean,
 ): Promise<boolean> {
-  const header = await getAuthHeaderForBigBrain(ctx);
-  if (!header) {
+  const header = ctx.bigBrainAuth()?.header ?? null;
+  if (header === null) {
     return false;
   }
   try {
@@ -293,7 +299,7 @@ export async function performLogin(
     authFlow?: "auto" | "paste" | "poll";
     // default `true`
     open?: boolean;
-    // default `true`
+    // default `false`
     acceptOptIns?: boolean;
     dumpAccessToken?: boolean;
     deviceName?: string;
@@ -384,10 +390,6 @@ export async function performLogin(
     });
   }
 
-  interface AuthorizeArgs {
-    authnToken: string;
-    deviceName: string;
-  }
   const authorizeArgs: AuthorizeArgs = {
     authnToken: accessToken!,
     deviceName: deviceName,
@@ -412,6 +414,13 @@ export async function performLogin(
     });
   }
 
+  logVerbose(ctx, `performLogin: updating big brain auth after login`);
+  await updateBigBrainAuthAfterLogin(ctx, data.accessToken);
+
+  logVerbose(
+    ctx,
+    `performLogin: checking opt ins, acceptOptIns: ${acceptOptIns}`,
+  );
   // Do opt in to TOS and Privacy Policy stuff
   const shouldContinue = await optins(ctx, acceptOptIns ?? false);
   if (!shouldContinue) {
@@ -461,4 +470,11 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
   const args: AcceptOptInsArgs = { optInsAccepted };
   await bigBrainAPI({ ctx, method: "POST", url: "accept_opt_ins", data: args });
   return true;
+}
+
+export async function ensureLoggedIn(ctx: Context) {
+  const isLoggedIn = await checkAuthorization(ctx, false);
+  if (!isLoggedIn) {
+    await performLogin(ctx, { acceptOptIns: false });
+  }
 }

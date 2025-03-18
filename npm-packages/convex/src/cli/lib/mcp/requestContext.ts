@@ -1,4 +1,4 @@
-import { Context, ErrorType } from "../../../bundler/context.js";
+import { BigBrainAuth, Context, ErrorType } from "../../../bundler/context.js";
 import { Filesystem, nodeFs } from "../../../bundler/fs.js";
 import { Ora } from "ora";
 import { DeploymentSelectionOptions } from "../api.js";
@@ -13,7 +13,7 @@ export class RequestContext implements Context {
   spinner: Ora | undefined;
   _cleanupFns: Record<string, (exitCode: number, err?: any) => Promise<void>> =
     {};
-
+  _bigBrainAuth: BigBrainAuth | null = null;
   constructor(public options: McpOptions) {
     this.fs = nodeFs;
     this.deprecationMessagePrinted = false;
@@ -49,6 +49,14 @@ export class RequestContext implements Context {
     const value = this._cleanupFns[handle];
     delete this._cleanupFns[handle];
     return value ?? null;
+  }
+
+  bigBrainAuth(): BigBrainAuth | null {
+    return this._bigBrainAuth;
+  }
+
+  _updateBigBrainAuth(auth: BigBrainAuth | null): void {
+    this._bigBrainAuth = auth;
   }
 }
 

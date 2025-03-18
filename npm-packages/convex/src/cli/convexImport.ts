@@ -2,13 +2,14 @@ import chalk from "chalk";
 import { ensureHasConvexDependency } from "./lib/utils/utils.js";
 import { oneoffContext } from "../bundler/context.js";
 import {
-  fetchDeploymentCredentialsProvisionProd,
-  deploymentSelectionFromOptions,
+  deploymentSelectionWithinProjectFromOptions,
+  loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
 import { deploymentDashboardUrlPage } from "./dashboard.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
+import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 
 export const convexImport = new Command("import")
   .summary("Import data from a file to your deployment")
@@ -23,36 +24,37 @@ export const convexImport = new Command("import")
   .addDeploymentSelectionOptions(actionDescription("Import data into"))
   .showHelpAfterError()
   .action(async (filePath, options) => {
-    const ctx = oneoffContext();
+    const ctx = await oneoffContext(options);
 
     await ensureHasConvexDependency(ctx, "import");
 
-    const deploymentSelection = await deploymentSelectionFromOptions(
+    const selectionWithinProject =
+      await deploymentSelectionWithinProjectFromOptions(ctx, options);
+
+    const deploymentSelection = await getDeploymentSelection(ctx, options);
+    const deployment = await loadSelectedDeploymentCredentials(
       ctx,
-      options,
+      deploymentSelection,
+      selectionWithinProject,
     );
 
     const deploymentNotice = options.prod
       ? ` in your ${chalk.bold("prod")} deployment`
       : "";
 
-    const {
-      adminKey,
-      url: deploymentUrl,
-      deploymentName,
-    } = await fetchDeploymentCredentialsProvisionProd(ctx, deploymentSelection);
-
     await importIntoDeployment(ctx, filePath, {
       ...options,
-      deploymentUrl,
-      adminKey,
+      deploymentUrl: deployment.url,
+      adminKey: deployment.adminKey,
       deploymentNotice,
-      snapshotImportDashboardLink: snapshotImportDashboardLink(deploymentName),
+      snapshotImportDashboardLink: snapshotImportDashboardLink(
+        deployment.deploymentFields?.deploymentName ?? null,
+      ),
     });
   });
 
-function snapshotImportDashboardLink(deploymentName: string | undefined) {
-  return deploymentName === undefined
+function snapshotImportDashboardLink(deploymentName: string | null) {
+  return deploymentName === null
     ? "https://dashboard.convex.dev/deployment/settings/snapshots"
     : deploymentDashboardUrlPage(deploymentName, "/settings/snapshots");
 }
