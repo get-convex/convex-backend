@@ -19,18 +19,9 @@
 //!    for an explanation of the algorithm.
 //! 5) Compound types, like arrays, are stored sequentially, with a null
 //!    terminator at the end.
-use std::{
-    cmp::Ordering,
-    io::{
-        self,
-        Write,
-    },
-};
+use std::cmp::Ordering;
 
-use byteorder::{
-    BigEndian,
-    WriteBytesExt,
-};
+use bytes::BufMut;
 
 use crate::ConvexValue;
 
@@ -73,23 +64,22 @@ const OBJECT_TAG: u8 = 0x15;
 pub const TERMINATOR_BYTE: u8 = 0x0;
 const ESCAPE_BYTE: u8 = 0xFF;
 
-pub fn write_escaped_bytes<W: Write>(buf: &[u8], writer: &mut W) -> io::Result<()> {
+pub fn write_escaped_bytes(buf: &[u8], writer: &mut impl BufMut) {
     for &byte in buf {
-        writer.write_u8(byte)?;
+        writer.put_u8(byte);
         if byte == TERMINATOR_BYTE {
-            writer.write_u8(ESCAPE_BYTE)?;
+            writer.put_u8(ESCAPE_BYTE);
         }
     }
-    writer.write_u8(TERMINATOR_BYTE)?;
-    Ok(())
+    writer.put_u8(TERMINATOR_BYTE);
 }
 
-fn write_escaped_string<W: Write>(buf: &str, writer: &mut W) -> io::Result<()> {
+fn write_escaped_string(buf: &str, writer: &mut impl BufMut) {
     write_escaped_bytes(buf.as_bytes(), writer)
 }
 
 #[allow(clippy::match_overlapping_arm)]
-fn write_tagged_int<W: Write>(n: i64, writer: &mut W) -> io::Result<()> {
+fn write_tagged_int(n: i64, writer: &mut impl BufMut) {
     // Our integer tag values are chosen such that their distance from the zero tag
     // represents how many bytes they should take.
     let tag_diff = match n {
@@ -108,9 +98,8 @@ fn write_tagged_int<W: Write>(n: i64, writer: &mut W) -> io::Result<()> {
     // Check that all of the bytes we're leaving off aren't used.
     let empty = if n < 0 { 0xFF } else { 0 };
     assert!(buf[..(8 - num_bytes)].iter().all(|&b| b == empty));
-    writer.write_u8(tag)?;
-    writer.write_all(&buf[(8 - num_bytes)..])?;
-    Ok(())
+    writer.put_u8(tag);
+    writer.put(&buf[(8 - num_bytes)..]);
 }
 
 /// Generate the sort key for a sequence of `Value`s.
@@ -118,10 +107,9 @@ pub fn values_to_bytes(values: &[Option<ConvexValue>]) -> Vec<u8> {
     let mut out = vec![];
     for value in values {
         match value {
-            None => out.write_u8(UNDEFINED_TAG),
+            None => out.put_u8(UNDEFINED_TAG),
             Some(value) => value.write_sort_key(&mut out),
         }
-        .expect("Failed to write to vec?")
     }
     out
 }
@@ -137,11 +125,17 @@ pub mod sorting_decode {
             BTreeMap,
             BTreeSet,
         },
-        io::Read,
+        io::{
+            self,
+            Read,
+        },
     };
 
     use anyhow::bail;
-    use byteorder::ReadBytesExt;
+    use byteorder::{
+        BigEndian,
+        ReadBytesExt,
+    };
 
     use super::*;
     use crate::ConvexObject;
@@ -340,22 +334,21 @@ impl ConvexValue {
     /// Generate the sort key for a given `Value`.
     pub fn sort_key(&self) -> Vec<u8> {
         let mut out = vec![];
-        self.write_sort_key(&mut out)
-            .expect("Failed to write to vec?");
+        self.write_sort_key(&mut out);
         out
     }
 
     /// Write a `Value`'s sort key out to a writer.
-    pub fn write_sort_key<W: Write>(&self, writer: &mut W) -> io::Result<()> {
+    pub fn write_sort_key(&self, writer: &mut impl BufMut) {
         match self {
             ConvexValue::Null => {
-                writer.write_u8(NULL_TAG)?;
+                writer.put_u8(NULL_TAG);
             },
             ConvexValue::Int64(0) => {
-                writer.write_u8(ZERO_INT64_TAG)?;
+                writer.put_u8(ZERO_INT64_TAG);
             },
             ConvexValue::Int64(i) => {
-                write_tagged_int(*i, writer)?;
+                write_tagged_int(*i, writer);
             },
             ConvexValue::Float64(f) => {
                 let mut f = f.to_bits();
@@ -367,55 +360,54 @@ impl ConvexValue {
                 else {
                     f |= 1 << 63;
                 }
-                writer.write_u8(FLOAT64_TAG)?;
-                writer.write_u64::<BigEndian>(f)?;
+                writer.put_u8(FLOAT64_TAG);
+                writer.put_u64(f); // N.B.: always big-endian
             },
             ConvexValue::Boolean(false) => {
-                writer.write_u8(FALSE_BOOLEAN_TAG)?;
+                writer.put_u8(FALSE_BOOLEAN_TAG);
             },
             ConvexValue::Boolean(true) => {
-                writer.write_u8(TRUE_BOOLEAN_TAG)?;
+                writer.put_u8(TRUE_BOOLEAN_TAG);
             },
             ConvexValue::String(s) => {
-                writer.write_u8(STRING_TAG)?;
-                write_escaped_string(s, writer)?;
+                writer.put_u8(STRING_TAG);
+                write_escaped_string(s, writer);
             },
             ConvexValue::Bytes(b) => {
-                writer.write_u8(BYTES_TAG)?;
-                write_escaped_bytes(b, writer)?;
+                writer.put_u8(BYTES_TAG);
+                write_escaped_bytes(b, writer);
             },
             ConvexValue::Array(ref array) => {
-                writer.write_u8(ARRAY_TAG)?;
+                writer.put_u8(ARRAY_TAG);
                 for element in array {
-                    element.write_sort_key(writer)?;
+                    element.write_sort_key(writer);
                 }
-                writer.write_u8(TERMINATOR_BYTE)?;
+                writer.put_u8(TERMINATOR_BYTE);
             },
             ConvexValue::Set(ref set) => {
-                writer.write_u8(SET_TAG)?;
+                writer.put_u8(SET_TAG);
                 for element in set {
-                    element.write_sort_key(writer)?;
+                    element.write_sort_key(writer);
                 }
-                writer.write_u8(TERMINATOR_BYTE)?;
+                writer.put_u8(TERMINATOR_BYTE);
             },
             ConvexValue::Map(ref map) => {
-                writer.write_u8(MAP_TAG)?;
+                writer.put_u8(MAP_TAG);
                 for (key, value) in map {
-                    key.write_sort_key(writer)?;
-                    value.write_sort_key(writer)?;
+                    key.write_sort_key(writer);
+                    value.write_sort_key(writer);
                 }
-                writer.write_u8(TERMINATOR_BYTE)?;
+                writer.put_u8(TERMINATOR_BYTE);
             },
             ConvexValue::Object(ref object) => {
-                writer.write_u8(OBJECT_TAG)?;
+                writer.put_u8(OBJECT_TAG);
                 for (field, value) in object.iter() {
-                    write_escaped_string(field, writer)?;
-                    value.write_sort_key(writer)?;
+                    write_escaped_string(field, writer);
+                    value.write_sort_key(writer);
                 }
-                writer.write_u8(TERMINATOR_BYTE)?;
+                writer.put_u8(TERMINATOR_BYTE);
             },
         }
-        Ok(())
     }
 }
 
