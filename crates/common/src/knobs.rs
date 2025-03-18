@@ -720,14 +720,23 @@ pub static APPLICATION_FUNCTION_RUNNER_SEMAPHORE_TIMEOUT: LazyLock<Duration> =
         ))
     });
 
+/// Default max function concurrency limit for basic plan instances.
+/// This value is used as the default for all APPLICATION_MAX_CONCURRENT
+/// constants and is also used to determine if an instance is on a pro plan.
+pub static DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY: usize = 16;
+
 /// The maximum number of queries that can be run concurrently by an
 /// application.
 ///
 /// This is a per backend limit applied before FunctionRunner implementations.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_QUERIES: LazyLock<usize> =
-    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_QUERIES", 16));
+pub static APPLICATION_MAX_CONCURRENT_QUERIES: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "APPLICATION_MAX_CONCURRENT_QUERIES",
+        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
+    )
+});
 
 /// The maximum number of mutations that can be run concurrently by an
 /// application.
@@ -735,8 +744,12 @@ pub static APPLICATION_MAX_CONCURRENT_QUERIES: LazyLock<usize> =
 /// This is a per backend limit applied before FunctionRunner implementations.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> =
-    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_MUTATIONS", 16));
+pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "APPLICATION_MAX_CONCURRENT_MUTATIONS",
+        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
+    )
+});
 
 /// The maximum number of v8 actions that can be run concurrently by an
 /// application.
@@ -752,8 +765,12 @@ pub static APPLICATION_MAX_CONCURRENT_MUTATIONS: LazyLock<usize> =
 /// knob.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> =
-    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_V8_ACTIONS", 16));
+pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "APPLICATION_MAX_CONCURRENT_V8_ACTIONS",
+        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
+    )
+});
 
 /// The maximum number of node actions that can be run concurrently by an
 /// application
@@ -764,8 +781,12 @@ pub static APPLICATION_MAX_CONCURRENT_V8_ACTIONS: LazyLock<usize> =
 /// limit, we'll see 429 error responses for node actions.
 ///
 /// The value here may be overridden by big brain.
-pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> =
-    LazyLock::new(|| env_config("APPLICATION_MAX_CONCURRENT_NODE_ACTIONS", 16));
+pub static APPLICATION_MAX_CONCURRENT_NODE_ACTIONS: LazyLock<usize> = LazyLock::new(|| {
+    env_config(
+        "APPLICATION_MAX_CONCURRENT_NODE_ACTIONS",
+        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
+    )
+});
 
 /// Number of threads to execute V8 actions.
 ///
@@ -780,7 +801,7 @@ pub static APPLICATION_MAX_CONCURRENT_HTTP_ACTIONS: LazyLock<usize> = LazyLock::
         if cfg!(any(test, feature = "testing")) {
             2
         } else {
-            16
+            DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY
         },
     )
 });

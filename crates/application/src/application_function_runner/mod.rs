@@ -42,6 +42,7 @@ use common::{
         APPLICATION_MAX_CONCURRENT_NODE_ACTIONS,
         APPLICATION_MAX_CONCURRENT_QUERIES,
         APPLICATION_MAX_CONCURRENT_V8_ACTIONS,
+        DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY,
         ISOLATE_MAX_USER_HEAP_SIZE,
         UDF_EXECUTOR_OCC_INITIAL_BACKOFF,
         UDF_EXECUTOR_OCC_MAX_BACKOFF,
@@ -479,9 +480,14 @@ impl Limiter {
                 anyhow::bail!(ErrorMetadata::rate_limited(
                     "TooManyConcurrentRequests",
                     format!(
-                        "Too many concurrent requests. Your backend is limited to {} concurrent {}s. To get more resources, upgrade to Convex Pro. If you are already on Convex Pro, please contact support.",
+                        "Too many concurrent requests. Your backend is limited to {} concurrent {}s. {}",
                         self.total_permits,
                         self.udf_type.to_lowercase_string(),
+                        if self.total_permits > DEFAULT_APPLICATION_MAX_FUNCTION_CONCURRENCY {
+                            "If you need more resources, please contact support."
+                        } else {
+                            "To get more resources, upgrade to Convex Pro. If you are already on Convex Pro, please contact support."
+                        }
                     ),
                 ));
             },
