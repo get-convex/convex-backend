@@ -48,7 +48,7 @@ Alternatively see the
 version of this quickstart.
 
 <StepByStep>
-  <Step title="Create a React app">
+  <Step title="Create a Next.js app">
     Create a Next.js app using the `npx create-next-app` command.
 
     Choose the default option for every prompt (hit Enter).
@@ -65,9 +65,7 @@ version of this quickstart.
 
   </Step>
   <Step title="Install the Convex client and server library">
-    To get started, install the `convex`
-    package which provides a convenient interface for working
-    with Convex from a React app.
+    To get started, install the `convex` package.
 
     Navigate to your app and install `convex`.
 
@@ -106,9 +104,7 @@ version of this quickstart.
   </Step>
 
   <Step title="Add the sample data to your database">
-    Now that your project is ready, add a `tasks` table
-    with the sample data into your Convex database with
-    the `import` command.
+    Use the [`import`](/database/import-export/import) command to add a `tasks` table with the sample data into your Convex database.
 
     ```
     npx convex import --table tasks sampleData.jsonl
@@ -117,12 +113,11 @@ version of this quickstart.
   </Step>
 
   <Step title="Expose a database query">
-    Add a new file <JSDialectFileName name="tasks.ts" /> in the `convex/` folder
-    with a query function that loads the data.
+    In the `convex/` folder, add a new file <JSDialectFileName name="tasks.ts" /> with a query function that loads the data.
 
     Exporting a query function from this file
     declares an API function named after the file
-    and the export name, `api.tasks.get`.
+    and the export name: `api.tasks.get`.
 
     <TSAndJSSnippet
       sourceTS={tasks}
@@ -133,8 +128,9 @@ version of this quickstart.
   </Step>
 
   <Step title="Create a client component for the Convex provider">
-    Add a new file <JSDialectFileName name="ConvexClientProvider.tsx" /> in the `app/` folder. Include the `"use client";` directive, create a
-    `ConvexReactClient` and a component that wraps its children in a `ConvexProvider`.
+    For `<ConvexProvider>` to work on the client, `ConvexReactClient` must be passed to it.
+
+    In the `app/` folder, add a new file <JSDialectFileName name="ConvexClientProvider.tsx" /> with the following code. This creates a client component that wraps `<ConvexProvider>` and passes it the `<ConvexReactClient>`.
 
     <TSAndJSSnippet
       sourceTS={ConvexClientProvider}
@@ -145,7 +141,7 @@ version of this quickstart.
   </Step>
 
   <Step title="Wire up the ConvexClientProvider">
-    In <JSDialectFileName name="app/layout.tsx" ext="js" />, wrap the children of the `body` element with the `ConvexClientProvider`.
+    In <JSDialectFileName name="app/layout.tsx" ext="js" />, wrap the children of the `body` element with the `<ConvexClientProvider>`.
 
     <TSAndJSSnippet
       sourceTS={layout}
@@ -158,7 +154,7 @@ version of this quickstart.
   </Step>
 
   <Step title="Display the data in your app">
-    In <JSDialectFileName name="app/page.tsx" ext="js" />, use the `useQuery` hook to fetch from your `api.tasks.get`
+    In <JSDialectFileName name="app/page.tsx" ext="js" />, use the `useQuery()` hook to fetch from your `api.tasks.get`
     API function.
 
     <TSAndJSSnippet
@@ -172,7 +168,7 @@ version of this quickstart.
   </Step>
 
   <Step title="Start the app">
-    Start the app, open [http://localhost:3000](http://localhost:3000) in a browser,
+    Run your Next.js development server, open [http://localhost:3000](http://localhost:3000) in a browser,
     and see the list of tasks.
 
     ```sh
