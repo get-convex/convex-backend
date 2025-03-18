@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.0
+
+- `npx convex dev` tails logs by default. See the `--tail-logs` option for more.
+
+- Improvement to the `.unique()` error message to print `_id`s
+  [PR](https://github.com/get-convex/convex-backend/pull/59)
+
+- Fixes to avoid race conditions in auth
+  [PR](https://github.com/get-convex/convex-js/pull/29)
+
 ## 1.20.0
 
 - Calling registered functions directly like helper functions no longer
