@@ -146,7 +146,8 @@ export async function suggestedEnvVarName(ctx: Context): Promise<{
   }
 
   // TanStackStart currently supports VITE_FOO for browser-side envvars.
-  const isTanStackStart = "@tanstack/start" in packages;
+  const isTanStackStart =
+    "@tanstack/start" in packages || "@tanstack/react-start" in packages;
 
   if (isTanStackStart) {
     return {
