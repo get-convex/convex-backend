@@ -1,35 +1,38 @@
-import { Index, OrderedQuery } from "convex/server";
-import { decode } from "js-base64";
 import {
-  Expression,
-  ExpressionOrValue,
   FilterBuilder,
   GenericDocument,
   GenericTableInfo,
+  Index,
+  OrderedQuery,
   PaginationResult,
+  paginationOptsValidator,
 } from "convex/server";
+import { decode } from "js-base64";
 import {
   FilterByBuiltin,
   FilterByOr,
   FilterExpression,
   FilterExpressionSchema,
   FilterValidationError,
-  ValidFilterByBuiltInOrOr,
   ValidFilterByBuiltin,
   ValidFilterByOr,
+  applyIndexFilters,
   applyTypeFilters,
   findErrorsInFilters,
+  findIndexByName,
+  getAvailableIndexes,
   isValidFilter,
-  parseAndFilterToSingleTable,
-  partitionFiltersByIndexes,
   partitionFiltersByOperator,
+  validateIndexFilter,
 } from "./lib/filters";
-import { Value, jsonToConvex } from "convex/values";
 import { queryGeneric } from "../secretSystemTables";
 import { getSchemaByState } from "./getSchemas";
 import { maximumBytesRead, maximumRowsRead } from "../paginationLimits";
-import { paginationOptsValidator } from "convex/server";
-import { v } from "convex/values";
+import { jsonToConvex, v } from "convex/values";
+import { Expression } from "convex/server";
+import { ExpressionOrValue } from "convex/server";
+import { Value } from "convex/values";
+import { UNDEFINED_PLACEHOLDER } from "./patchDocumentsFields";
 
 export default queryGeneric({
   args: {
@@ -76,15 +79,57 @@ export default queryGeneric({
       (f) => f.enabled !== false,
     );
 
-    const [builtinFilters, typeFilters] =
-      partitionFiltersByOperator(enabledFilters);
-
     const queryInitializer = db.query(table);
     let query: OrderedQuery<any> | undefined = undefined;
+
+    // Get the order from parsedFilters, default to "desc" if not specified
+    const order = parsedFilters?.order || "desc";
+
+    const indexFilter = parsedFilters?.index;
+    const hasIndexFilter =
+      indexFilter && indexFilter.clauses.filter((c) => c.enabled).length > 0;
+    if (indexFilter) {
+      // Let's find out if we can use an index from the schema.
+      const schemaData = await getSchemaByState(
+        (db as any).privateSystem,
+        "active",
+      );
+
+      // Get available indexes using the helper function
+      const indexes = getAvailableIndexes(table, schemaData);
+
+      // Find the selected index by name
+      const selectedIndex = findIndexByName(indexFilter.name, indexes);
+
+      // Validate the index filter
+      const validationError = validateIndexFilter(
+        indexFilter.name,
+        indexFilter.clauses,
+        selectedIndex,
+      );
+
+      if (validationError) {
+        return {
+          page: [validationError],
+          isDone: true,
+          continueCursor: "",
+        };
+      }
+
+      query = queryInitializer
+        .withIndex(indexFilter.name, (q) =>
+          applyIndexFilters(q, indexFilter.clauses, selectedIndex as Index),
+        )
+        .order(order);
+    }
+
+    const [builtinFilters, typeFilters] =
+      partitionFiltersByOperator(enabledFilters);
 
     if (builtinFilters !== undefined && builtinFilters.length > 0) {
       // Edge case: requesting a single ID - use a db.get
       const isAFilterForSingleDocument =
+        !hasIndexFilter &&
         builtinFilters.length === 1 &&
         "field" in builtinFilters[0] &&
         builtinFilters[0].field === "_id" &&
@@ -115,27 +160,8 @@ export default queryGeneric({
         };
       }
 
-      // Let's find out if we can use an index from the schema.
-      const schemaData = await getSchemaByState(
-        (db as any).privateSystem,
-        "active",
-      );
-      const indexes: Index[] = schemaData?.schema
-        ? parseAndFilterToSingleTable(table, schemaData.schema)?.tables[0]
-            ?.indexes || []
-        : [];
-
-      const [selectedIndex, indexFilters, builtInFiltersAfterIndex] =
-        partitionFiltersByIndexes(builtinFilters, indexes);
-
-      if (selectedIndex && indexFilters.length > 0) {
-        query = queryInitializer
-          .withIndex(selectedIndex, (q) => applyIndexFilters(q, indexFilters))
-          .order("desc");
-      }
-
-      query = (query || queryInitializer.order("desc")).filter((q) =>
-        applyBuiltinFilters(q, builtInFiltersAfterIndex),
+      query = (query || queryInitializer.order(order)).filter((q) =>
+        applyBuiltinFilters(q, builtinFilters),
       );
     }
 
@@ -147,7 +173,7 @@ export default queryGeneric({
     };
 
     const { page, ...rest } = await (
-      query || queryInitializer.order("desc")
+      query || queryInitializer.order(order)
     ).paginate(internalPaginateOpts);
 
     const filteredPage = typeFilters
@@ -158,24 +184,14 @@ export default queryGeneric({
   },
 });
 
-function applyIndexFilters(
-  // TODO(CX-5718): Figure out the generic typing here
-  q: any,
-  indexFilters: ValidFilterByBuiltInOrOr[],
-): any {
-  if (indexFilters.length === 0) {
-    return q;
-  }
-  const filter = indexFilters[0];
-  const value = jsonToConvex(filter.value);
-  if (filter.op !== "eq") {
-    throw new Error("applyIndexFilters called with non-equals operator");
-  }
-  return applyIndexFilters(q.eq(filter.field, value), indexFilters.slice(1));
-}
-
-// Applies built in filters to the query.
-function applyBuiltinFilters(
+/**
+ * Applies built-in filters to a query builder.
+ *
+ * @param q The query builder to apply filters to
+ * @param filters Array of built-in filters to apply
+ * @returns An expression or value representing the filter condition
+ */
+export function applyBuiltinFilters(
   q: FilterBuilder<GenericTableInfo>,
   filters: (FilterByBuiltin | FilterByOr)[],
 ): ExpressionOrValue<boolean> {
@@ -197,11 +213,21 @@ function applyBuiltinFilters(
         }
         if (f.op === "anyOf") {
           return q.or(
-            ...f.value.map((v) => q.eq(q.field(f.field), jsonToConvex(v))),
+            ...f.value.map((v) =>
+              q.eq(
+                q.field(f.field),
+                v === UNDEFINED_PLACEHOLDER ? undefined : v,
+              ),
+            ),
           );
         } else {
           return q.and(
-            ...f.value.map((v) => q.neq(q.field(f.field), jsonToConvex(v))),
+            ...f.value.map((v) =>
+              q.neq(
+                q.field(f.field),
+                v === UNDEFINED_PLACEHOLDER ? undefined : v,
+              ),
+            ),
           );
         }
       }
@@ -209,9 +235,12 @@ function applyBuiltinFilters(
       // q.eq and q.neq support undefined, while q.lt, q.gt, etc. do not, so we have to cast.
       const comparison = q[f.op] as (
         f: Expression<Value>,
-        v: ExpressionOrValue<Value>,
+        v: ExpressionOrValue<Value | undefined>,
       ) => Expression<boolean>;
-      return comparison(q.field(f.field), value);
+      return comparison(
+        q.field(f.field),
+        value === UNDEFINED_PLACEHOLDER ? undefined : value,
+      );
     }),
   );
 }

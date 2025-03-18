@@ -8,17 +8,36 @@ import type {
 import * as IdEncoding from "id-encoding";
 
 import { ZodLiteral, z } from "zod";
-import isEqual from "lodash/isEqual";
+import { UNDEFINED_PLACEHOLDER } from "./values";
 
 export interface FilterExpression {
   // In the future, this can be extended to support nested clauses.
   clauses: Filter[];
+  order?: "asc" | "desc";
+  index?: {
+    name: string;
+    clauses: FilterByIndex[] | [...FilterByIndex[], FilterByIndexRange];
+  };
 }
-
 export type FilterCommon = {
   id?: string;
   field?: string;
   enabled?: boolean;
+};
+
+export type FilterByIndex = {
+  type: "indexEq";
+  enabled: boolean;
+  value?: Value;
+};
+
+export type FilterByIndexRange = {
+  type: "indexRange";
+  enabled: boolean;
+  lowerOp?: "gte" | "gt";
+  lowerValue?: Value;
+  upperOp?: "lte" | "lt";
+  upperValue?: Value;
 };
 
 export type FilterByBuiltin = {
@@ -127,6 +146,9 @@ export const FilterExpressionSchema: z.ZodType<FilterExpression> = z.lazy(() =>
   z.object({
     op: z.literal("and").optional(),
     clauses: FilterSchema,
+    order: z.union([z.literal("asc"), z.literal("desc")]).optional(),
+    // This gets validated by code instead of Zod.
+    index: z.optional(z.any()),
   }),
 );
 
@@ -136,7 +158,7 @@ export type ValidFilter =
   | ValidFilterByType;
 
 export const isValidFilter = (f: Filter): f is ValidFilter =>
-  f.field !== undefined && f.value !== undefined;
+  f.field !== undefined;
 
 const isType = (value: Value, type: TypeFilterValue): boolean => {
   switch (type) {
@@ -248,68 +270,119 @@ export function partitionFiltersByOperator(
   return [builtinFilters, typeFilters];
 }
 
-// Finds the best index to use for a set of filters and splits the list of filters
-// into index filters and non-index filters
-export function partitionFiltersByIndexes(
-  filters: ValidFilterByBuiltInOrOr[],
-  indexes: Index[],
-): [
-  string | undefined,
-  ValidFilterByBuiltInOrOr[],
-  ValidFilterByBuiltInOrOr[],
-] {
-  let selectedIndex: Index | undefined;
-  let indexFilters: ValidFilterByBuiltInOrOr[] = [];
-  let unindexableFilters: ValidFilterByBuiltInOrOr[] = [];
-
-  const indexableFilters = filters;
-
-  // Start by finding all the filters that are eq operations at the start of the list of filters
-  // There's probably a better way to do this, but this code should be temporary until we support
-  // more complex indexable filters
-  const indexableFiltersWithEqOp: ValidFilterByBuiltInOrOr[] = [];
-  for (const indexableFilter of indexableFilters) {
-    if (indexableFilter.op === "eq") {
-      indexableFiltersWithEqOp.push(indexableFilter);
-    } else {
-      break;
-    }
+/**
+ * Applies index filters to a query builder.
+ *
+ * @param q The query builder to apply filters to
+ * @param indexFilters Array of index filters to apply
+ * @param selectedIndex The selected index to use
+ * @returns The modified query builder
+ * @throws Error if the index is undefined or if a range filter is not the last filter
+ */
+export function applyIndexFilters(
+  q: any,
+  indexFilters: FilterByIndex[] | [...FilterByIndex[], FilterByIndexRange],
+  selectedIndex: Index,
+): any {
+  if (!selectedIndex) {
+    throw new Error("Index is undefined");
   }
 
-  // Worst-case time complexity: O(indexableFiltersWithEqOp.length * indexes.length)
-  // This outer loop is to find the longest subset of indexable filters that match an index
-  for (
-    let indexedFieldsCount = indexableFiltersWithEqOp.length;
-    indexedFieldsCount > 0;
-    indexedFieldsCount--
-  ) {
-    const filteredFields = indexableFiltersWithEqOp
-      .slice(0, indexedFieldsCount)
-      .map((f) => f.field);
-    // This inner loop is to find the first index subset that matches the subset of indexable filters
-    for (const index of indexes) {
-      const doesIndexSubsetMatchIndexableFields = isEqual(
-        index.fields.slice(0, indexedFieldsCount),
-        filteredFields,
+  let builder = q;
+  if (indexFilters.length === 0) {
+    return builder;
+  }
+
+  const enabledClauses = indexFilters.filter((f) => f.enabled);
+
+  for (let i = 0; i < enabledClauses.length; i++) {
+    const filter = indexFilters[i];
+    if (filter.type === "indexEq") {
+      builder = builder.eq(
+        selectedIndex.fields[i],
+        filter.value === UNDEFINED_PLACEHOLDER ? undefined : filter.value,
       );
-      if (doesIndexSubsetMatchIndexableFields) {
-        // We found the best index to use and which fields to use it with!
-        selectedIndex = index;
-        indexFilters = indexableFiltersWithEqOp.slice(0, indexedFieldsCount);
-        unindexableFilters = filters.slice(indexFilters.length);
-        break;
+    } else {
+      if (i !== enabledClauses.length - 1) {
+        throw new Error("Index range not supported");
+      }
+      if (filter.lowerOp) {
+        builder = builder[filter.lowerOp](
+          selectedIndex.fields[i],
+          filter.lowerValue === UNDEFINED_PLACEHOLDER
+            ? undefined
+            : filter.lowerValue,
+        );
+      }
+      if (filter.upperOp) {
+        builder = builder[filter.upperOp](
+          selectedIndex.fields[i],
+          filter.upperValue === UNDEFINED_PLACEHOLDER
+            ? undefined
+            : filter.upperValue,
+        );
       }
     }
-    if (selectedIndex !== undefined) {
-      break;
+  }
+
+  return builder;
+}
+
+/**
+ * Validates index filter clauses to ensure they are properly structured.
+ *
+ * @param indexName The name of the index being used
+ * @param indexClauses The filter clauses to validate
+ * @param selectedIndex The selected index to use, or undefined if not found
+ * @returns An error object if validation fails, undefined if validation passes
+ */
+export function validateIndexFilter(
+  indexName: string,
+  indexClauses: (FilterByIndex | FilterByIndexRange)[],
+  selectedIndex: Index | undefined,
+): { filter: number; error: string } | undefined {
+  // Check if the index exists
+  if (!selectedIndex) {
+    return {
+      filter: -1,
+      error: `Index ${indexName} does not exist.`,
+    };
+  }
+
+  if (indexClauses.length > selectedIndex.fields.length) {
+    return {
+      filter: -1,
+      error: `Index ${indexName} has ${selectedIndex.fields.length} fields, but the query has ${indexClauses.length} clauses.`,
+    };
+  }
+
+  let finishedEnabledClausesIdx = -1;
+  for (let i = 0; i < indexClauses.length; i++) {
+    const clause = indexClauses[i];
+    if (clause.enabled) {
+      // If we have already seen a disabled clause, then this is an invalid filter.
+      if (finishedEnabledClausesIdx !== -1) {
+        return {
+          filter: -1,
+          error: `Invalid index filter selection - found an enabled clause after an disabled clause.`,
+        };
+      }
+    } else if (finishedEnabledClausesIdx === -1) {
+      finishedEnabledClausesIdx = i;
+    }
+  }
+  // Make sure that only the last clause can be a range filter.
+  for (let i = 0; i < finishedEnabledClausesIdx; i++) {
+    const clause = indexClauses[i];
+    if (clause.type === "indexRange" && i !== finishedEnabledClausesIdx - 1) {
+      return {
+        filter: -1,
+        error: `Invalid index filter selection - found a range filter after a non-range filter.`,
+      };
     }
   }
 
-  if (!selectedIndex) {
-    unindexableFilters = filters;
-  }
-
-  return [selectedIndex?.indexDescriptor, indexFilters, unindexableFilters];
+  return undefined;
 }
 
 export function parseAndFilterToSingleTable(
@@ -337,3 +410,48 @@ export type SchemaJson = {
   tables: TableDefinition[];
   schemaValidation: boolean;
 };
+
+/**
+ * Gets the default index for a table.
+ *
+ * @returns The default index for creation time
+ */
+export function getDefaultIndex(): Index {
+  return {
+    indexDescriptor: "by_creation_time",
+    fields: ["_creationTime"],
+  };
+}
+
+/**
+ * Gets all available indexes for a table, including the default creation time index.
+ *
+ * @param table The table name
+ * @param schemaData The schema data
+ * @returns Array of available indexes
+ */
+export function getAvailableIndexes(table: string, schemaData: any): Index[] {
+  if (!schemaData?.schema) {
+    return [getDefaultIndex()];
+  }
+
+  return [
+    ...(parseAndFilterToSingleTable(table, schemaData.schema)?.tables[0]
+      ?.indexes || []),
+    getDefaultIndex(),
+  ];
+}
+
+/**
+ * Finds an index by name from the available indexes.
+ *
+ * @param indexName The name of the index to find
+ * @param indexes Array of available indexes
+ * @returns The found index or undefined if not found
+ */
+export function findIndexByName(
+  indexName: string,
+  indexes: Index[],
+): Index | undefined {
+  return indexes.find((i) => i.indexDescriptor === indexName);
+}

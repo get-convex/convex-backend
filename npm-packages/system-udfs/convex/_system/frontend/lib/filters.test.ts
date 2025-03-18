@@ -1,18 +1,23 @@
-import { GenericDocument, Index } from "convex/server";
+import { GenericDocument } from "convex/server";
 import {
   Filter,
+  FilterByIndex,
+  FilterByIndexRange,
   FilterExpressionSchema,
   SchemaJson,
-  ValidFilterByBuiltInOrOr,
   ValidFilterByType,
+  applyIndexFilters,
   applyTypeFilters,
   findErrorsInFilters,
+  findIndexByName,
+  getAvailableIndexes,
+  getDefaultIndex,
   isFilterValidationError,
   isValidFilter,
   parseAndFilterToSingleTable,
   partitionFiltersByOperator,
+  validateIndexFilter,
 } from "./filters";
-import { partitionFiltersByIndexes } from "./filters";
 
 const samplePage: GenericDocument[] = [
   { variableType: "stringValue" },
@@ -294,6 +299,23 @@ describe("filters", () => {
         validFilterExpression,
       );
     });
+
+    it("should validate a valid filter expression with order", () => {
+      const validFilterExpressionWithOrder = {
+        op: "and",
+        clauses: [
+          {
+            field: "name",
+            op: "eq",
+            value: "foo",
+          },
+        ],
+        order: "asc",
+      };
+      expect(
+        FilterExpressionSchema.parse(validFilterExpressionWithOrder),
+      ).toEqual(validFilterExpressionWithOrder);
+    });
   });
 
   describe("isValidFilter", () => {
@@ -301,11 +323,11 @@ describe("filters", () => {
       expect(
         isValidFilter({ field: "name", op: "eq", value: "foo" }),
       ).toBeTruthy();
+      expect(isValidFilter({ op: "eq", field: "abc" })).toBeTruthy();
     });
 
     it("should return false for invalid filter", () => {
       expect(isValidFilter({ op: "eq" })).toBeFalsy();
-      expect(isValidFilter({ op: "eq", field: "abc" })).toBeFalsy();
       expect(isValidFilter({ op: "eq", value: "abc" })).toBeFalsy();
     });
   });
@@ -327,192 +349,296 @@ describe("filters", () => {
     });
   });
 
-  describe("partitionFiltersByIndexes", () => {
-    type TestCase = {
-      name: string;
-      filters: ValidFilterByBuiltInOrOr[];
-      indexes: Index[];
-      expected: {
-        selectedIndex?: string;
-        indexFilter: ValidFilterByBuiltInOrOr[];
-        nonIndexFilter: ValidFilterByBuiltInOrOr[];
+  describe("applyIndexFilters", () => {
+    // Mock query builder to test the function
+    class MockQueryBuilder {
+      operations: { op: string; field: string; value: any }[] = [];
+
+      eq(field: string, value: any) {
+        this.operations.push({ op: "eq", field, value });
+        return this;
+      }
+
+      lt(field: string, value: any) {
+        this.operations.push({ op: "lt", field, value });
+        return this;
+      }
+
+      lte(field: string, value: any) {
+        this.operations.push({ op: "lte", field, value });
+        return this;
+      }
+
+      gt(field: string, value: any) {
+        this.operations.push({ op: "gt", field, value });
+        return this;
+      }
+
+      gte(field: string, value: any) {
+        this.operations.push({ op: "gte", field, value });
+        return this;
+      }
+    }
+
+    it("should apply equality filters correctly", () => {
+      const mockQuery = new MockQueryBuilder();
+      const indexFilters: FilterByIndex[] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        { type: "indexEq", enabled: true, value: 42 },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
       };
-    };
-    const testCases: TestCase[] = [
-      {
-        name: "should partition filters correctly",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-          { op: "eq", field: "field3", id: "", value: "" },
-        ],
-        indexes: [
-          { fields: ["field1", "field2"], indexDescriptor: "index1" },
-          { fields: ["field3"], indexDescriptor: "index2" },
-        ],
-        expected: {
-          selectedIndex: "index1",
-          indexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-          nonIndexFilter: [{ op: "eq", field: "field3", id: "", value: "" }],
-        },
-      },
-      {
-        name: "should handle empty filters array",
-        filters: [],
-        indexes: [{ fields: ["field1", "field2"], indexDescriptor: "index1" }],
-        expected: {
-          selectedIndex: undefined,
-          indexFilter: [],
-          nonIndexFilter: [],
-        },
-      },
-      {
-        name: "should handle empty indexes array",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [],
-        expected: {
-          selectedIndex: undefined,
-          indexFilter: [],
-          nonIndexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-        },
-      },
-      {
-        name: "should handle multiple matching indexes, selecting the match with more fields",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [
-          { fields: ["field1"], indexDescriptor: "index1" },
-          { fields: ["field1", "field2"], indexDescriptor: "index2" },
-        ],
-        expected: {
-          selectedIndex: "index2",
-          indexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-          nonIndexFilter: [],
-        },
-      },
-      {
-        name: "should handle no matching fields in indexes",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [{ fields: ["field3", "field4"], indexDescriptor: "index1" }],
-        expected: {
-          selectedIndex: undefined,
-          indexFilter: [],
-          nonIndexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-        },
-      },
-      {
-        name: "should handle partial match with an index",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [{ fields: ["field1", "field3"], indexDescriptor: "index1" }],
-        expected: {
-          selectedIndex: "index1",
-          indexFilter: [{ op: "eq", field: "field1", id: "", value: "" }],
-          nonIndexFilter: [{ op: "eq", field: "field2", id: "", value: "" }],
-        },
-      },
-      {
-        name: "should handle filters with duplicate fields",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field1", id: "", value: "" },
-        ],
-        indexes: [{ fields: ["field1"], indexDescriptor: "index1" }],
-        expected: {
-          selectedIndex: "index1",
-          indexFilter: [{ op: "eq", field: "field1", id: "", value: "" }],
-          nonIndexFilter: [{ op: "eq", field: "field1", id: "", value: "" }],
-        },
-      },
-      {
-        name: "should return all filters as nonIndexFilter when no index matches",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [{ fields: ["field3", "field4"], indexDescriptor: "index1" }],
-        expected: {
-          selectedIndex: undefined,
-          indexFilter: [],
-          nonIndexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-        },
-      },
-      {
-        name: "should return the correct filter if the index is a subset of the filters",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [
-          { fields: ["field1", "field2", "field3"], indexDescriptor: "index2" },
-          { fields: ["field1", "field3"], indexDescriptor: "index1" },
-        ],
-        expected: {
-          selectedIndex: "index2",
-          indexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-          nonIndexFilter: [],
-        },
-      },
-      {
-        name: "should return the correct filter if the index is a subset of the filters and the wrong index is second",
-        filters: [
-          { op: "eq", field: "field1", id: "", value: "" },
-          { op: "eq", field: "field2", id: "", value: "" },
-        ],
-        indexes: [
-          { fields: ["field1", "field3"], indexDescriptor: "index1" },
-          { fields: ["field1", "field2", "field3"], indexDescriptor: "index2" },
-        ],
-        expected: {
-          selectedIndex: "index2",
-          indexFilter: [
-            { op: "eq", field: "field1", id: "", value: "" },
-            { op: "eq", field: "field2", id: "", value: "" },
-          ],
-          nonIndexFilter: [],
-        },
-      },
-    ];
 
-    test.each<TestCase>(testCases)(
-      "$name",
-      ({ filters, indexes, expected }) => {
-        const [selectedIndex, indexFilter, nonIndexFilter] =
-          partitionFiltersByIndexes(filters, indexes);
+      const result = applyIndexFilters(mockQuery, indexFilters, selectedIndex);
 
-        expect(selectedIndex).toEqual(expected.selectedIndex);
-        expect(indexFilter).toEqual(expected.indexFilter);
-        expect(nonIndexFilter).toEqual(expected.nonIndexFilter);
-      },
-    );
+      expect(result.operations).toEqual([
+        { op: "eq", field: "field1", value: "value1" },
+        { op: "eq", field: "field2", value: 42 },
+      ]);
+    });
+
+    it("should handle empty filters array", () => {
+      const mockQuery = new MockQueryBuilder();
+      const indexFilters: FilterByIndex[] = [];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = applyIndexFilters(mockQuery, indexFilters, selectedIndex);
+
+      expect(result.operations).toEqual([]);
+    });
+
+    it("should apply range filter correctly", () => {
+      const mockQuery = new MockQueryBuilder();
+      const indexFilters: [...FilterByIndex[], FilterByIndexRange] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        {
+          type: "indexRange",
+          enabled: true,
+          lowerOp: "gt",
+          lowerValue: 10,
+          upperOp: "lt",
+          upperValue: 50,
+        },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = applyIndexFilters(mockQuery, indexFilters, selectedIndex);
+
+      expect(result.operations).toEqual([
+        { op: "eq", field: "field1", value: "value1" },
+        { op: "gt", field: "field2", value: 10 },
+        { op: "lt", field: "field2", value: 50 },
+      ]);
+    });
+
+    it("should throw error if range filter is not the last filter", () => {
+      const mockQuery = new MockQueryBuilder();
+      // This is intentionally wrong to test the error case
+      const indexFilters = [
+        {
+          enabled: true,
+          lowerOp: "gt",
+          lowerValue: 10,
+          upperOp: "lt",
+          upperValue: 50,
+        } as FilterByIndexRange,
+        { enabled: true, value: "value1" } as FilterByIndex,
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      expect(() => {
+        // @ts-expect-error - We're intentionally passing an invalid structure to test error handling
+        applyIndexFilters(mockQuery, indexFilters, selectedIndex);
+      }).toThrow("Index range not supported");
+    });
+
+    it("should handle partial range filter with only lowerOp", () => {
+      const mockQuery = new MockQueryBuilder();
+      const indexFilters: [...FilterByIndex[], FilterByIndexRange] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        {
+          type: "indexRange",
+          enabled: true,
+          lowerOp: "gt",
+          lowerValue: 10,
+        },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = applyIndexFilters(mockQuery, indexFilters, selectedIndex);
+
+      expect(result.operations).toEqual([
+        { op: "eq", field: "field1", value: "value1" },
+        { op: "gt", field: "field2", value: 10 },
+      ]);
+    });
+
+    it("should handle partial range filter with only upperOp", () => {
+      const mockQuery = new MockQueryBuilder();
+      const indexFilters: [...FilterByIndex[], FilterByIndexRange] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        {
+          type: "indexRange",
+          enabled: true,
+          upperOp: "lt",
+          upperValue: 50,
+        },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = applyIndexFilters(mockQuery, indexFilters, selectedIndex);
+
+      expect(result.operations).toEqual([
+        { op: "eq", field: "field1", value: "value1" },
+        { op: "lt", field: "field2", value: 50 },
+      ]);
+    });
+
+    it("should throw error if selectedIndex is undefined", () => {
+      const mockQuery = new MockQueryBuilder();
+      const indexFilters: FilterByIndex[] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+      ];
+      const selectedIndex = undefined;
+
+      expect(() => {
+        // @ts-expect-error - We're intentionally passing undefined to test error handling
+        applyIndexFilters(mockQuery, indexFilters, selectedIndex);
+      }).toThrow("Index is undefined");
+    });
+  });
+
+  describe("validateIndexFilter", () => {
+    it("should return undefined for valid index filter", () => {
+      const indexName = "testIndex";
+      const indexClauses: FilterByIndex[] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        { type: "indexEq", enabled: true, value: 42 },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = validateIndexFilter(
+        indexName,
+        indexClauses,
+        selectedIndex,
+      );
+      expect(result).toBeUndefined();
+    });
+
+    it("should return error when index does not exist", () => {
+      const indexName = "testIndex";
+      const indexClauses: FilterByIndex[] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+      ];
+      const selectedIndex = undefined;
+
+      const result = validateIndexFilter(
+        indexName,
+        indexClauses,
+        selectedIndex,
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error: "Index testIndex does not exist.",
+      });
+    });
+
+    it("should return error when clauses exceed index fields", () => {
+      const indexName = "testIndex";
+      const indexClauses: FilterByIndex[] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        { type: "indexEq", enabled: true, value: 42 },
+        { type: "indexEq", enabled: true, value: true },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = validateIndexFilter(
+        indexName,
+        indexClauses,
+        selectedIndex,
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error: "Index testIndex has 2 fields, but the query has 3 clauses.",
+      });
+    });
+
+    it("should return error when enabled clauses are not contiguous", () => {
+      const indexName = "testIndex";
+      const indexClauses: FilterByIndex[] = [
+        { type: "indexEq", enabled: true, value: "value1" },
+        { type: "indexEq", enabled: false, value: 42 },
+        { type: "indexEq", enabled: true, value: true },
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2", "field3"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = validateIndexFilter(
+        indexName,
+        indexClauses,
+        selectedIndex,
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error:
+          "Invalid index filter selection - found an enabled clause after an disabled clause.",
+      });
+    });
+
+    it("should return error when range filter is not the last clause", () => {
+      const indexName = "testIndex";
+      const indexClauses = [
+        { type: "indexEq", enabled: true, value: "value1" } as FilterByIndex,
+        {
+          type: "indexRange",
+          enabled: true,
+          lowerOp: "gt",
+          lowerValue: 10,
+        } as FilterByIndexRange,
+        { type: "indexEq", enabled: true, value: true } as FilterByIndex,
+        { type: "indexEq", enabled: false, value: "disabled" } as FilterByIndex,
+      ];
+      const selectedIndex = {
+        fields: ["field1", "field2", "field3", "field4"],
+        indexDescriptor: "testIndex",
+      };
+
+      const result = validateIndexFilter(
+        indexName,
+        indexClauses,
+        selectedIndex,
+      );
+      expect(result).toEqual({
+        filter: -1,
+        error:
+          "Invalid index filter selection - found a range filter after a non-range filter.",
+      });
+    });
   });
 
   describe("parseAndFilterToSingleTable", () => {
@@ -596,5 +722,138 @@ describe("filters", () => {
         expect(result).toEqual(expected);
       },
     );
+  });
+
+  describe("getDefaultIndex", () => {
+    it("should return the default creation time index", () => {
+      const defaultIndex = getDefaultIndex();
+
+      expect(defaultIndex).toEqual({
+        indexDescriptor: "by_creation_time",
+        fields: ["_creationTime"],
+      });
+    });
+  });
+
+  describe("getAvailableIndexes", () => {
+    it("should return only default index when schema is null", () => {
+      const indexes = getAvailableIndexes("testTable", null);
+
+      expect(indexes).toEqual([
+        {
+          indexDescriptor: "by_creation_time",
+          fields: ["_creationTime"],
+        },
+      ]);
+    });
+
+    it("should return table indexes plus default index", () => {
+      const schemaData = {
+        schema: JSON.stringify({
+          tables: [
+            {
+              tableName: "testTable",
+              indexes: [
+                {
+                  indexDescriptor: "by_name",
+                  fields: ["name"],
+                },
+              ],
+              searchIndexes: [],
+              documentType: { type: "any" },
+            },
+          ],
+          schemaValidation: true,
+        }),
+      };
+
+      const indexes = getAvailableIndexes("testTable", schemaData);
+
+      expect(indexes).toEqual([
+        {
+          indexDescriptor: "by_name",
+          fields: ["name"],
+        },
+        {
+          indexDescriptor: "by_creation_time",
+          fields: ["_creationTime"],
+        },
+      ]);
+    });
+
+    it("should return only default index when table not found", () => {
+      const schemaData = {
+        schema: JSON.stringify({
+          tables: [
+            {
+              tableName: "otherTable",
+              indexes: [
+                {
+                  indexDescriptor: "by_name",
+                  fields: ["name"],
+                },
+              ],
+              searchIndexes: [],
+              documentType: { type: "any" },
+            },
+          ],
+          schemaValidation: true,
+        }),
+      };
+
+      const indexes = getAvailableIndexes("testTable", schemaData);
+
+      expect(indexes).toEqual([
+        {
+          indexDescriptor: "by_creation_time",
+          fields: ["_creationTime"],
+        },
+      ]);
+    });
+  });
+
+  describe("findIndexByName", () => {
+    it("should find index by name", () => {
+      const indexes = [
+        {
+          indexDescriptor: "by_name",
+          fields: ["name"],
+        },
+        {
+          indexDescriptor: "by_creation_time",
+          fields: ["_creationTime"],
+        },
+      ];
+
+      const result = findIndexByName("by_name", indexes);
+
+      expect(result).toEqual({
+        indexDescriptor: "by_name",
+        fields: ["name"],
+      });
+    });
+
+    it("should return undefined when index not found", () => {
+      const indexes = [
+        {
+          indexDescriptor: "by_name",
+          fields: ["name"],
+        },
+        {
+          indexDescriptor: "by_creation_time",
+          fields: ["_creationTime"],
+        },
+      ];
+
+      const result = findIndexByName("by_age", indexes);
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should return undefined for empty indexes array", () => {
+      const result = findIndexByName("by_name", []);
+
+      expect(result).toBeUndefined();
+    });
   });
 });

@@ -38,6 +38,7 @@ import type * as _system_frontend_getTableMapping from "../_system/frontend/getT
 import type * as _system_frontend_getVersion from "../_system/frontend/getVersion.js";
 import type * as _system_frontend_latestExport from "../_system/frontend/latestExport.js";
 import type * as _system_frontend_lib_filters from "../_system/frontend/lib/filters.js";
+import type * as _system_frontend_lib_values from "../_system/frontend/lib/values.js";
 import type * as _system_frontend_listAuthProviders from "../_system/frontend/listAuthProviders.js";
 import type * as _system_frontend_listById from "../_system/frontend/listById.js";
 import type * as _system_frontend_listConfiguredSinks from "../_system/frontend/listConfiguredSinks.js";
@@ -96,6 +97,7 @@ declare const fullApi: ApiFromModules<{
   "_system/frontend/getVersion": typeof _system_frontend_getVersion;
   "_system/frontend/latestExport": typeof _system_frontend_latestExport;
   "_system/frontend/lib/filters": typeof _system_frontend_lib_filters;
+  "_system/frontend/lib/values": typeof _system_frontend_lib_values;
   "_system/frontend/listAuthProviders": typeof _system_frontend_listAuthProviders;
   "_system/frontend/listById": typeof _system_frontend_listById;
   "_system/frontend/listConfiguredSinks": typeof _system_frontend_listConfiguredSinks;
