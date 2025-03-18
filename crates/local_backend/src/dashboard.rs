@@ -37,6 +37,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use serde_json::json;
 use value::{
     TableName,
     TableNamespace,
@@ -202,6 +203,17 @@ pub async fn get_source_code(
         .get_source_code(identity, path, component)
         .await?;
     Ok(Json(source_code))
+}
+
+/// This endpoint checks if the admin key included in the header is valid
+/// for this instance.
+#[debug_handler]
+pub async fn check_admin_key(
+    State(_st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+) -> Result<impl IntoResponse, HttpResponseError> {
+    must_be_admin_member_with_write_access(&identity)?;
+    Ok(Json(json!({ "success": true })))
 }
 
 #[derive(Deserialize)]

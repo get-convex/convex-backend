@@ -68,6 +68,7 @@ use crate::{
     },
     canonical_urls::update_canonical_url,
     dashboard::{
+        check_admin_key,
         delete_component,
         delete_tables,
         get_indexes,
@@ -176,7 +177,8 @@ pub fn router(st: LocalAppState) -> Router {
         .route("/update_environment_variables", post(update_environment_variables))
         // Canonical URL routes
         .route("/update_canonical_url", post(update_canonical_url))
-        // Administrative routes for the dashboard
+        // Local-only route to check if the admin key is valid
+        .route("/check_admin_key", get(check_admin_key))
         .layer(ServiceBuilder::new());
 
     let cli_routes = Router::new()
