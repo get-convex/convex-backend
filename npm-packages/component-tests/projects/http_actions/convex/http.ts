@@ -27,36 +27,6 @@ http.route({
 });
 
 http.route({
-  path: "/pausableHelloBody",
-  method: "GET",
-  handler: httpAction(async (_ctx, request) => {
-    const waitForAbort = new Promise((resolve) => {
-      request.signal.addEventListener("abort", () => {
-        console.log("Abort event received");
-        resolve(null);
-      });
-    });
-    const encoder = new TextEncoder();
-    const body = new ReadableStream({
-      async start(controller) {
-        controller.enqueue(encoder.encode("Hello, "));
-        // Test pauses here and disconnects the client.
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        await waitForAbort;
-        controller.enqueue(encoder.encode("World"));
-        controller.close();
-      },
-    });
-    return new Response(body, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/plain",
-      },
-    });
-  }),
-});
-
-http.route({
   path: "/echo",
   method: "POST",
   handler: httpAction(async (_ctx, request) => {

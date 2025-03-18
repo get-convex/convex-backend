@@ -41,7 +41,6 @@ use database::{
     Database,
     TextIndexManagerSnapshot,
 };
-use errors::ErrorMetadata;
 use isolate::ActionCallbacks;
 use keybroker::{
     Identity,
@@ -65,14 +64,10 @@ use sync_types::{
     CanonicalizedModulePath,
     Timestamp,
 };
-use tokio::{
-    select,
-    sync::mpsc,
-};
+use tokio::sync::mpsc;
 use udf::{
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
-    HttpActionResponseStreamer,
 };
 use usage_tracking::FunctionUsageStats;
 use value::identifier::Identifier;
@@ -130,52 +125,6 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
             action_callbacks: Arc::new(RwLock::new(None)),
             fetch_client,
         })
-    }
-
-    async fn run_http_action(
-        &self,
-        request_metadata: RunRequestArgs,
-        mut http_action_metadata: HttpActionMetadata,
-    ) -> anyhow::Result<(
-        Option<FunctionFinalTransaction>,
-        FunctionOutcome,
-        FunctionUsageStats,
-    )> {
-        // Mimic `FunrunClient::process_message_stream` behavior of forwarding
-        // the response_streamer, and detecting cancellation.
-        let (inner_response_sender, mut inner_response_receiver) = mpsc::unbounded_channel();
-        let inner_response_streamer = HttpActionResponseStreamer::new(inner_response_sender);
-        let mut outer_response_streamer = std::mem::replace(
-            &mut http_action_metadata.http_response_streamer,
-            inner_response_streamer,
-        );
-        let mut run_function_fut = Box::pin(self.server.run_function_no_retention_check(
-            request_metadata,
-            None,
-            Some(http_action_metadata),
-        ));
-        loop {
-            select! {
-                result = &mut run_function_fut => {
-                    return result;
-                },
-                _ = outer_response_streamer.sender.closed() => {
-                    drop(run_function_fut);
-                    anyhow::bail!(ErrorMetadata::bad_request("ClientDisconnected", "Client disconnected"));
-                },
-                part = inner_response_receiver.recv() => {
-                    match part {
-                        Some(part) => {
-                            let _ = outer_response_streamer.send_part(part)?;
-                        },
-                        None => {
-                            drop(outer_response_streamer);
-                            return run_function_fut.await;
-                        },
-                    }
-                },
-            }
-        }
     }
 }
 
@@ -248,11 +197,9 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                     .await
             },
             UdfType::HttpAction => {
-                self.run_http_action(
-                    request_metadata,
-                    http_action_metadata.context("Http action metadata not set")?,
-                )
-                .await
+                self.server
+                    .run_function_no_retention_check(request_metadata, None, http_action_metadata)
+                    .await
             },
         };
         validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;
