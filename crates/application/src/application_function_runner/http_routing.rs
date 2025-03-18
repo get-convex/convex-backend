@@ -147,18 +147,19 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         // NOTE: this will run in parallel with `stream_result_fut`, which is
         // running on a spawned coroutine.
+        let send_log_line = |log_line| {
+            self.function_log.log_http_action_progress(
+                route.clone(),
+                unix_timestamp,
+                context_.clone(),
+                vec![log_line].into(),
+                // http actions are always run in Isolate
+                ModuleEnvironment::Isolate,
+            )
+        };
         let (outcome_result, mut log_lines) =
-            run_function_and_collect_log_lines(outcome_future, log_line_receiver, |log_line| {
-                self.function_log.log_http_action_progress(
-                    route.clone(),
-                    unix_timestamp,
-                    context_.clone(),
-                    vec![log_line].into(),
-                    // http actions are always run in Isolate
-                    ModuleEnvironment::Isolate,
-                )
-            })
-            .await;
+            run_function_and_collect_log_lines(outcome_future, log_line_receiver, &send_log_line)
+                .await;
 
         let (result_for_logging, response_sha256) = stream_result_fut.await??;
 
@@ -198,14 +199,16 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             None,
                             None,
                         );
-                        log_lines.push(LogLine::new_system_log_line(
+                        let new_log_line = LogLine::new_system_log_line(
                             LogLevel::Warn,
                             vec![js_err.to_string()],
                             outcome.unix_timestamp,
                             SystemLogMetadata {
                                 code: "error:httpAction".to_string(),
                             },
-                        ));
+                        );
+                        send_log_line(new_log_line.clone());
+                        log_lines.push(new_log_line);
                         self.function_log.log_http_action(
                             outcome.clone(),
                             Ok(r),

@@ -33,6 +33,7 @@ runtime = { path = "../runtime" }
 storage = { path = "../storage" }
 sync_types = { package = "convex_sync_types", path = "../convex/sync_types" }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 udf = { path = "../udf" }
 usage_tracking = { path = "../usage_tracking" }
 value = { path = "../value" }

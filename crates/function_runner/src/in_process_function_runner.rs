@@ -41,6 +41,12 @@ use database::{
     Database,
     TextIndexManagerSnapshot,
 };
+use errors::ErrorMetadata;
+use futures::{
+    select_biased,
+    FutureExt,
+    StreamExt,
+};
 use isolate::ActionCallbacks;
 use keybroker::{
     Identity,
@@ -65,9 +71,11 @@ use sync_types::{
     Timestamp,
 };
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use udf::{
     EvaluateAppDefinitionsResult,
     FunctionOutcome,
+    HttpActionResponseStreamer,
 };
 use usage_tracking::FunctionUsageStats;
 use value::identifier::Identifier;
@@ -125,6 +133,71 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
             action_callbacks: Arc::new(RwLock::new(None)),
             fetch_client,
         })
+    }
+
+    async fn run_http_action(
+        &self,
+        request_metadata: RunRequestArgs,
+        mut http_action_metadata: HttpActionMetadata,
+    ) -> anyhow::Result<(
+        Option<FunctionFinalTransaction>,
+        FunctionOutcome,
+        FunctionUsageStats,
+    )> {
+        // Mimic `FunrunClient::process_message_stream` behavior of forwarding
+        // the response_streamer, and detecting cancellation.
+        let (inner_response_sender, inner_response_receiver) = mpsc::unbounded_channel();
+        let inner_response_streamer = HttpActionResponseStreamer::new(inner_response_sender);
+        let mut outer_response_streamer = std::mem::replace(
+            &mut http_action_metadata.http_response_streamer,
+            inner_response_streamer,
+        );
+        let mut inner_response_stream =
+            UnboundedReceiverStream::new(inner_response_receiver).fuse();
+        let mut run_function_fut = Box::pin(self.server.run_function_no_retention_check(
+            request_metadata,
+            None,
+            Some(http_action_metadata),
+        ))
+        .fuse();
+        loop {
+            select_biased! {
+                result = &mut run_function_fut => {
+                    // Flush inner_response_stream into outer_response_streamer.
+                    while let Some(part) = inner_response_stream.next().await {
+                        if outer_response_streamer.send_part(part)?.is_err() {
+                            anyhow::bail!(ErrorMetadata::bad_request(
+                                "ClientDisconnected",
+                                "Client disconnected",
+                            ));
+                        }
+                    }
+                    return result;
+                },
+                _ = outer_response_streamer.sender.closed().fuse() => {
+                    // The streamer above us has disconnected, so stop running
+                    // the function and throw an error.
+                    drop(run_function_fut);
+                    anyhow::bail!(ErrorMetadata::bad_request("ClientDisconnected", "Client disconnected"));
+                },
+                // select_next_some waits until there's a new part to send.
+                // If inner_response_stream is closed, this branch doesn't run
+                // and we continue waiting on the other branches.
+                // This behavior (of continuing to allow the function to be
+                // cancelled even after its inner_response_stream is closed)
+                // isn't very important, since the function has finished running
+                // user code. But it's defensive against the isolate changing
+                // its behavior in the future, and it matches FunrunClient
+                // behavior.
+                part = inner_response_stream.select_next_some() => {
+                    // Forward a response part.
+                    // If outer_response_streamer is disconnected,
+                    // continue and the next loop iteration will detect
+                    // it is closed.
+                    let _ = outer_response_streamer.send_part(part)?;
+                },
+            }
+        }
     }
 }
 
@@ -197,9 +270,11 @@ impl<RT: Runtime> FunctionRunner<RT> for InProcessFunctionRunner<RT> {
                     .await
             },
             UdfType::HttpAction => {
-                self.server
-                    .run_function_no_retention_check(request_metadata, None, http_action_metadata)
-                    .await
+                self.run_http_action(
+                    request_metadata,
+                    http_action_metadata.context("Http action metadata not set")?,
+                )
+                .await
             },
         };
         validate_run_function_result(udf_type, *ts, self.database.retention_validator()).await?;

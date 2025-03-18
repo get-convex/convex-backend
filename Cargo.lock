@@ -3308,6 +3308,7 @@ dependencies = [
  "runtime",
  "storage",
  "tokio",
+ "tokio-stream",
  "udf",
  "usage_tracking",
  "value",
