@@ -564,7 +564,11 @@ async fn wait_for_import_worker<RT: Runtime>(
         match &snapshot_import.state {
             ImportState::Uploaded | ImportState::InProgress { .. } => {
                 let token = tx.into_token()?;
-                application.subscribe(token).await?;
+                application
+                    .subscribe(token)
+                    .await?
+                    .wait_for_invalidation()
+                    .await;
             },
             ImportState::WaitingForConfirmation { .. }
             | ImportState::Completed { .. }

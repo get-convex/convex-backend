@@ -213,7 +213,9 @@ fn create_subscriptions(
     let mut subscription_manager = SubscriptionManager::new_for_testing();
     let tokens = create_tokens(tablet_id, terms_by_frequency, prefix, max_distance, count);
     for token in tokens {
-        subscription_manager.subscribe_for_testing(token).unwrap();
+        // this drops the Subscription but in these tests we don't run the
+        // worker that removes dropped subscriptions
+        _ = subscription_manager.subscribe_for_testing(token).unwrap();
     }
     subscription_manager
 }

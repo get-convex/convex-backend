@@ -394,6 +394,7 @@ enum SubscriptionState {
 }
 
 /// A subscription on a set of read keys from a prior read-only transaction.
+#[must_use]
 pub struct Subscription {
     valid_ts: Arc<AtomicI64>, // -1 means invalid
     valid: watch::Receiver<SubscriptionState>,
@@ -870,7 +871,7 @@ mod tests {
             let test = async move {
                 let mut id_generator = TestIdGenerator::new();
                 let mut subscription_manager = SubscriptionManager::new_for_testing();
-                subscription_manager.subscribe_for_testing(token.clone()).unwrap();
+                _ = subscription_manager.subscribe_for_testing(token.clone()).unwrap();
                 let notifications =
                     notify_subscribed_tokens(
                         &mut id_generator, &mut subscription_manager, vec![mismatch]
