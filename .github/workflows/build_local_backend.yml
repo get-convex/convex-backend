@@ -22,7 +22,7 @@ jobs:
       # Label used to access service container
       postgres:
         # Docker Hub image
-        image: mirror.gcr.io/bitnami/postgresql:13
+        image: public.ecr.aws/bitnami/postgresql:13
         # Provide the password for postgres
         env:
           POSTGRESQL_PASSWORD: postgres
