@@ -34,10 +34,20 @@ The Convex CLI comes with a
 built in. The Convex MCP server gives your AI coding agent access to the your
 Convex deployment to query and optimize your project.
 
-To get started with Cursor, open "Cursor Settings > MCP", click on "Add new MCP
-server", and add a "convex" command server with the following CLI command:
+To get started with Cursor, open "Cursor Settings > MCP", click on "Add new
+global MCP server", and add a "convex" section to "mcpServers" in the `mcp.json`
+file that's opened.
 
-`npx -y convex@latest mcp start`
+```json
+{
+  "mcpServers": {
+    "convex": {
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
 
 After adding the server, ensure the "convex" server is enabled and lit up green
 (you may need to click "Disabled" to enable it). Here's an example of Cursor
@@ -45,7 +55,7 @@ configured successfully:
 
 ![Chat UI](/img/cursor-with-convex/convex_mcp_setup.webp)
 
-If you're running into issues, confirm you're using Cursor version **0.46.8** or
+If you're running into issues, confirm you're using Cursor version **0.47** or
 later (check under "Cursor > About Cursor" on macOS).
 
 Now start asking it questions like:
