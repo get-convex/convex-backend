@@ -1,4 +1,4 @@
-import { RequestContext } from "../requestContext.js";
+import { encodeDeploymentSelector, RequestContext } from "../requestContext.js";
 import {
   DeploymentSelectionWithinProject,
   deploymentSelectionWithinProjectFromOptions,
@@ -7,7 +7,6 @@ import {
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { deploymentDashboardUrlPage } from "../../../dashboard.js";
-import { encodeDeploymentSelector } from "../deploymentSelector.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 const projectDirDescription = `
@@ -69,7 +68,7 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
       deploymentSelection,
       selectionWithinProject,
     );
-    const availableDeployments = [
+    let availableDeployments = [
       {
         kind: selectionWithinProject.kind,
         deploymentSelector: encodeDeploymentSelector(
@@ -109,6 +108,11 @@ export const StatusTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
           ),
         });
       }
+    }
+    if (ctx.productionDeploymentsDisabled) {
+      availableDeployments = availableDeployments.filter(
+        (d) => d.kind !== "prod",
+      );
     }
     return { availableDeployments };
   },

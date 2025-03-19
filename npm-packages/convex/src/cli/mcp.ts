@@ -14,9 +14,11 @@ import {
   RequestContext,
   RequestCrash,
 } from "./lib/mcp/requestContext.js";
-import { mcpTool, convexTools } from "./lib/mcp/tools/index.js";
+import { mcpTool, convexTools, ConvexTool } from "./lib/mcp/tools/index.js";
 import { Mutex } from "./lib/utils/mutex.js";
 import { initializeBigBrainAuth } from "./lib/deploymentSelection.js";
+
+const allToolNames = convexTools.map((t) => t.name).sort();
 
 export const mcp = new Command("mcp")
   .summary("Manage the Model Context Protocol server for Convex [BETA]")
@@ -35,6 +37,14 @@ mcp
   .option(
     "--project-dir <project-dir>",
     "Run the MCP server for a single project. By default, the MCP server can run for multiple projects, and each tool call specifies its project directory.",
+  )
+  .option(
+    "--disable-tools <tool-names>",
+    `Comma separated list of tool names to disable (options: ${allToolNames.join(", ")})`,
+  )
+  .option(
+    "--disable-production-deployments",
+    "Disable the MCP server from accessing production deployments.",
   )
   .addDeploymentSelectionOptions(actionDescription("Run the MCP server on"))
   .action(async (options) => {
@@ -56,9 +66,25 @@ mcp
   });
 
 function makeServer(options: McpOptions) {
-  const convexToolsByName = Object.fromEntries(
-    convexTools.map((tool) => [tool.name, tool]),
-  );
+  const disabledToolNames = new Set<string>();
+  for (const toolName of options.disableTools?.split(",") ?? []) {
+    const name = toolName.trim();
+    if (!allToolNames.includes(name)) {
+      // eslint-disable-next-line no-restricted-syntax
+      throw new Error(
+        `Disabled tool ${name} not found (valid tools: ${allToolNames.join(", ")})`,
+      );
+    }
+    disabledToolNames.add(name);
+  }
+
+  const enabledToolsByName: Record<string, ConvexTool<any, any>> = {};
+  for (const tool of convexTools) {
+    if (!disabledToolNames.has(tool.name)) {
+      enabledToolsByName[tool.name] = tool;
+    }
+  }
+
   const mutex = new Mutex();
   const server = new Server(
     {
@@ -93,7 +119,7 @@ function makeServer(options: McpOptions) {
             printedMessage: "No arguments provided",
           });
         }
-        const convexTool = convexToolsByName[request.params.name];
+        const convexTool = enabledToolsByName[request.params.name];
         if (!convexTool) {
           await ctx.crash({
             exitCode: 1,
@@ -138,7 +164,7 @@ function makeServer(options: McpOptions) {
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
-      tools: convexTools.map(mcpTool),
+      tools: Object.values(enabledToolsByName).map(mcpTool),
     };
   });
   return server;

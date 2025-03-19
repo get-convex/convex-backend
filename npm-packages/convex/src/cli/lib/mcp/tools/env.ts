@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
-import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import {
   envSetInDeployment,
   envRemoveInDeployment,
@@ -37,7 +36,7 @@ export const EnvListTool: ConvexTool<
   inputSchema: envListInputSchema,
   outputSchema: envListOutputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);
@@ -84,7 +83,7 @@ export const EnvGetTool: ConvexTool<
   inputSchema: envGetInputSchema,
   outputSchema: envGetOutputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);
@@ -129,7 +128,7 @@ export const EnvSetTool: ConvexTool<
   inputSchema: envSetInputSchema,
   outputSchema: envSetOutputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);
@@ -172,7 +171,7 @@ export const EnvRemoveTool: ConvexTool<
   inputSchema: envRemoveInputSchema,
   outputSchema: envRemoveOutputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);

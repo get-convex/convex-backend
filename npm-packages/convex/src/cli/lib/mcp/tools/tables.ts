@@ -3,7 +3,6 @@ import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { runSystemQuery } from "../../run.js";
 import { deploymentFetch } from "../../utils/utils.js";
-import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 const inputSchema = z.object({
@@ -31,7 +30,7 @@ export const TablesTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);

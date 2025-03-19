@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
-import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import { parseArgs, parseFunctionName } from "../../run.js";
 import { readProjectConfig } from "../../config.js";
 import { ConvexHttpClient } from "../../../../browser/index.js";
@@ -45,7 +44,7 @@ export const RunTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);

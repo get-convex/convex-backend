@@ -1,10 +1,17 @@
 import { BigBrainAuth, Context, ErrorType } from "../../../bundler/context.js";
 import { Filesystem, nodeFs } from "../../../bundler/fs.js";
 import { Ora } from "ora";
-import { DeploymentSelectionOptions } from "../api.js";
+import {
+  DeploymentSelectionWithinProject,
+  deploymentSelectionWithinProjectSchema,
+  DeploymentSelectionOptions,
+} from "../api.js";
+import { z } from "zod";
 
 export interface McpOptions extends DeploymentSelectionOptions {
   projectDir?: string;
+  disableTools?: string;
+  disableProductionDeployments?: boolean;
 }
 
 export class RequestContext implements Context {
@@ -58,6 +65,26 @@ export class RequestContext implements Context {
   _updateBigBrainAuth(auth: BigBrainAuth | null): void {
     this._bigBrainAuth = auth;
   }
+
+  async decodeDeploymentSelector(encoded: string) {
+    const { projectDir, deployment } = decodeDeploymentSelector(encoded);
+    if (
+      deployment.kind === "prod" &&
+      this.options.disableProductionDeployments
+    ) {
+      return await this.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage:
+          "Production deployments are disabled due to the --disable-production-deployments flag.",
+      });
+    }
+    return { projectDir, deployment };
+  }
+
+  get productionDeploymentsDisabled() {
+    return !!this.options.disableProductionDeployments;
+  }
 }
 
 export class RequestCrash {
@@ -69,4 +96,29 @@ export class RequestCrash {
   ) {
     this.printedMessage = printedMessage ?? "Unknown error";
   }
+}
+
+// Unfortunately, MCP clients don't seem to handle nested JSON objects very
+// well (even though this is within spec). To work around this, encode the
+// deployment selectors as an obfuscated string that the MCP client can
+// opaquely pass around.
+export function encodeDeploymentSelector(
+  projectDir: string,
+  deployment: DeploymentSelectionWithinProject,
+) {
+  const payload = {
+    projectDir,
+    deployment,
+  };
+  return `${deployment.kind}:${btoa(JSON.stringify(payload))}`;
+}
+
+const payloadSchema = z.object({
+  projectDir: z.string(),
+  deployment: deploymentSelectionWithinProjectSchema,
+});
+
+function decodeDeploymentSelector(encoded: string) {
+  const [_, serializedPayload] = encoded.split(":");
+  return payloadSchema.parse(JSON.parse(atob(serializedPayload)));
 }

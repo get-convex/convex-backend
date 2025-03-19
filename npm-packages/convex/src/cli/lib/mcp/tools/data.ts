@@ -2,7 +2,6 @@ import { z } from "zod";
 import { runSystemQuery } from "../../run.js";
 import { ConvexTool } from "./index.js";
 import { PaginationResult } from "../../../../server/pagination.js";
-import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 
@@ -41,7 +40,7 @@ export const DataTool: ConvexTool<typeof inputSchema, typeof outputSchema> = {
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);

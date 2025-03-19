@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
 import { loadSelectedDeploymentCredentials } from "../../api.js";
-import { decodeDeploymentSelector } from "../deploymentSelector.js";
 import { getDeploymentSelection } from "../../deploymentSelection.js";
 
 const inputSchema = z.object({
@@ -59,7 +58,7 @@ export const RunOneoffQueryTool: ConvexTool<
   inputSchema,
   outputSchema,
   handler: async (ctx, args) => {
-    const { projectDir, deployment } = decodeDeploymentSelector(
+    const { projectDir, deployment } = await ctx.decodeDeploymentSelector(
       args.deploymentSelector,
     );
     process.chdir(projectDir);
