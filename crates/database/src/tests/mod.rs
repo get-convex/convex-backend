@@ -2280,7 +2280,7 @@ async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(token
         .reads()
         .overlaps(
-            &PackedDocument::pack(out_of_range_doc),
+            &PackedDocument::pack(&out_of_range_doc),
             PersistenceVersion::default()
         )
         .is_none());
@@ -2289,7 +2289,7 @@ async fn test_query_filter_readset(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(token
         .reads()
         .overlaps(
-            &PackedDocument::pack(in_range_doc),
+            &PackedDocument::pack(&in_range_doc),
             PersistenceVersion::default()
         )
         .is_some());
@@ -2355,7 +2355,7 @@ async fn test_query_readset_empty_query(rt: TestRuntime) -> anyhow::Result<()> {
     assert!(token
         .reads()
         .overlaps(
-            &PackedDocument::pack(in_range_doc),
+            &PackedDocument::pack(&in_range_doc),
             PersistenceVersion::default()
         )
         .is_some());

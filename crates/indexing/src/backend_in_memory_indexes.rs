@@ -122,7 +122,7 @@ impl BackendInMemoryIndexes {
         let mut meta_index_map = DatabaseIndexMap::new_at(ts);
         for (ts, index_doc) in index_documents.into_values() {
             let index_key = IndexKey::new(vec![], index_doc.developer_id());
-            meta_index_map.insert(index_key.into_bytes(), ts, index_doc);
+            meta_index_map.insert(index_key.into_bytes(), ts, &index_doc);
         }
 
         let mut in_memory_indexes = OrdMap::new();
@@ -215,7 +215,7 @@ impl BackendInMemoryIndexes {
         for (key, rev) in entries.into_iter() {
             num_keys += 1;
             total_size += rev.value.value().size();
-            index_map.insert(key, rev.ts, rev.value);
+            index_map.insert(key, rev.ts, &rev.value);
         }
 
         self.in_memory_indexes.insert(index.id(), index_map);
@@ -254,7 +254,7 @@ impl BackendInMemoryIndexes {
                         match insertion {
                             Some(ref doc) => {
                                 assert_eq!(*doc_id, doc.id());
-                                key_set.insert(update.key.clone().into_bytes(), ts, doc.clone());
+                                key_set.insert(update.key.clone().into_bytes(), ts, doc);
                             },
                             None => panic!("Unexpected index update: {:?}", update.value),
                         }
@@ -320,7 +320,7 @@ impl DatabaseIndexMap {
             .map(|(k, (ts, v))| (IndexKeyBytes(k.clone()), *ts, v.unpack()))
     }
 
-    fn insert(&mut self, k: IndexKeyBytes, ts: Timestamp, v: ResolvedDocument) {
+    fn insert(&mut self, k: IndexKeyBytes, ts: Timestamp, v: &ResolvedDocument) {
         self.inner.insert(k.0, (ts, PackedDocument::pack(v)));
         self.last_modified = cmp::max(self.last_modified, ts);
     }

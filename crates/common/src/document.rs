@@ -775,10 +775,10 @@ impl DeveloperDocument {
 pub struct PackedDocument(PackedValue<ByteBuffer>, ResolvedDocumentId);
 
 impl PackedDocument {
-    pub fn pack(document: ResolvedDocument) -> Self {
+    pub fn pack(document: &ResolvedDocument) -> Self {
         let document_id = document.id();
-        let value = document.document.into_value().0.into();
-        Self(PackedValue::pack(&value), document_id)
+        let value = document.document.value();
+        Self(PackedValue::pack_object(value), document_id)
     }
 
     pub fn unpack(&self) -> ResolvedDocument {
@@ -1133,7 +1133,7 @@ mod tests {
             let index_key_bytes = doc.index_key(&field_paths, ver).into_bytes();
             assert_eq!(
                 index_key_bytes,
-                *PackedDocument::pack(doc).index_key(
+                *PackedDocument::pack(&doc).index_key(
                     &field_paths, ver, &mut IndexKeyBuffer::new()
                 ),
             );

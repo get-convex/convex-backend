@@ -710,7 +710,7 @@ mod tests {
                 );
                 assert_eq!(*index_name.table(), id.tablet_id);
 
-                let document = pack(create_document(
+                let document = pack(&create_document(
                     query.field_path.clone(),
                     match &query.term {
                         TextQueryTerm::Exact(term) => term.clone(),
@@ -725,7 +725,7 @@ mod tests {
         result
     }
 
-    fn pack(doc: ResolvedDocument) -> PackedDocument {
+    fn pack(doc: &ResolvedDocument) -> PackedDocument {
         PackedDocument::pack(doc)
     }
 

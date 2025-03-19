@@ -484,7 +484,7 @@ mod tests {
             user_table1.tablet_id,
         )?;
 
-        let user_table1_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
+        let user_table1_table_metadata_change = PackedDocument::pack(&ResolvedDocument::new(
             bootstrap_tables.table_resolved_doc_id(user_table1.tablet_id),
             CreationTime::ONE,
             TableMetadata::new(
@@ -502,7 +502,7 @@ mod tests {
             )
             .is_some());
 
-        let user_table1_index_change = PackedDocument::pack(ResolvedDocument::new(
+        let user_table1_index_change = PackedDocument::pack(&ResolvedDocument::new(
             id_generator.system_generate(&INDEX_TABLE),
             CreationTime::ONE,
             IndexMetadata::new_backfilling(
@@ -519,7 +519,7 @@ mod tests {
 
         // Writes to a table should *not* OCC with modification of the table metadata
         // or an index of unrelated same table.
-        let user_table2_table_metadata_change = PackedDocument::pack(ResolvedDocument::new(
+        let user_table2_table_metadata_change = PackedDocument::pack(&ResolvedDocument::new(
             bootstrap_tables.table_resolved_doc_id(user_table2.tablet_id),
             CreationTime::ONE,
             TableMetadata::new(
@@ -537,7 +537,7 @@ mod tests {
             )
             .is_none());
 
-        let user_table2_index_change = PackedDocument::pack(ResolvedDocument::new(
+        let user_table2_index_change = PackedDocument::pack(&ResolvedDocument::new(
             id_generator.system_generate(&INDEX_TABLE),
             CreationTime::ONE,
             IndexMetadata::new_backfilling(

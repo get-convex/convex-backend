@@ -513,7 +513,7 @@ impl TransactionIndex {
                     match new_document {
                         Some(ref doc) => {
                             assert_eq!(doc.id(), *doc_id);
-                            Some(doc.clone())
+                            Some(doc)
                         },
                         None => panic!("Unexpected index update: {:?}", update.value),
                     }
@@ -647,7 +647,7 @@ impl TransactionIndexMap {
             .map(|(k, v)| (IndexKeyBytes(k.clone()), v.as_ref().map(|v| v.unpack())))
     }
 
-    pub fn insert(&mut self, k: IndexKey, v: Option<ResolvedDocument>) {
+    pub fn insert(&mut self, k: IndexKey, v: Option<&ResolvedDocument>) {
         self.inner
             .insert(k.into_bytes().0, v.map(PackedDocument::pack));
     }

@@ -887,7 +887,7 @@ mod tests {
         let doc_without_word = create_document_with_one_field(id, field_name, val!(document_text))?;
         Ok(read_set
             .overlaps(
-                &PackedDocument::pack(doc_without_word),
+                &PackedDocument::pack(&doc_without_word),
                 PersistenceVersion::default(),
             )
             .is_some())
@@ -924,7 +924,7 @@ mod tests {
         assert_eq!(
             read_set
                 .overlaps(
-                    &PackedDocument::pack(doc_with_word),
+                    &PackedDocument::pack(&doc_with_word),
                     PersistenceVersion::default()
                 )
                 .unwrap()
@@ -940,7 +940,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set.overlaps(
-                &PackedDocument::pack(doc_without_word),
+                &PackedDocument::pack(&doc_without_word),
                 PersistenceVersion::default()
             ),
             None
@@ -980,7 +980,7 @@ mod tests {
         assert_eq!(
             read_set
                 .overlaps(
-                    &PackedDocument::pack(doc_with_explicit_null),
+                    &PackedDocument::pack(&doc_with_explicit_null),
                     PersistenceVersion::default()
                 )
                 .unwrap()
@@ -996,7 +996,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set.overlaps(
-                &PackedDocument::pack(doc_with_missing_field),
+                &PackedDocument::pack(&doc_with_missing_field),
                 PersistenceVersion::default()
             ),
             None
@@ -1010,7 +1010,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set.overlaps(
-                &PackedDocument::pack(doc_with_implicit_null),
+                &PackedDocument::pack(&doc_with_implicit_null),
                 PersistenceVersion::default()
             ),
             None
@@ -1057,7 +1057,7 @@ mod tests {
         assert_eq!(
             read_set
                 .overlaps(
-                    &PackedDocument::pack(doc_with_explicit_null),
+                    &PackedDocument::pack(&doc_with_explicit_null),
                     PersistenceVersion::default()
                 )
                 .unwrap()
@@ -1073,7 +1073,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set.overlaps(
-                &PackedDocument::pack(doc_with_missing_field),
+                &PackedDocument::pack(&doc_with_missing_field),
                 PersistenceVersion::default()
             ),
             None
@@ -1087,7 +1087,7 @@ mod tests {
         )?;
         assert_eq!(
             read_set.overlaps(
-                &PackedDocument::pack(doc_with_implicit_null),
+                &PackedDocument::pack(&doc_with_implicit_null),
                 PersistenceVersion::default()
             ),
             None

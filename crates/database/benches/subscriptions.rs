@@ -136,7 +136,7 @@ fn load_datasets(
             let value = assert_obj!("body" => d.text);
             let creation_time = CreationTime::try_from(1.)?;
             let document = ResolvedDocument::new(id, creation_time, value)?;
-            documents.push(PackedDocument::pack(document));
+            documents.push(PackedDocument::pack(&document));
         }
 
         let terms_by_frequency: Vec<String> = frequency_map

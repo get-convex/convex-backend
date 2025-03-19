@@ -21,6 +21,7 @@ use flexbuffers::{
 };
 use value::{
     heap_size::HeapSize,
+    ConvexObject,
     ConvexValue,
     FieldPath,
 };
@@ -122,6 +123,14 @@ impl PackedValue<ByteBuffer> {
         }
     }
 
+    pub fn pack_object(value: &ConvexObject) -> Self {
+        let mut builder = Builder::default();
+        Self::_pack_object(value, &mut builder);
+        Self {
+            buf: builder.take_buffer().into(),
+        }
+    }
+
     fn _pack(value: &ConvexValue, builder: &mut impl FlexBuilder) {
         match value {
             ConvexValue::Null => {
@@ -169,14 +178,18 @@ impl PackedValue<ByteBuffer> {
                 map.end_map();
             },
             ConvexValue::Object(ref fields) => {
-                let mut map = builder.start_map();
-                for (field, value) in fields.iter() {
-                    let mut builder = (&field[..], &mut map);
-                    Self::_pack(value, &mut builder);
-                }
-                map.end_map();
+                Self::_pack_object(fields, builder);
             },
         }
+    }
+
+    fn _pack_object(object: &ConvexObject, builder: &mut impl FlexBuilder) {
+        let mut map = builder.start_map();
+        for (field, value) in object.iter() {
+            let mut builder = (&field[..], &mut map);
+            Self::_pack(value, &mut builder);
+        }
+        map.end_map();
     }
 }
 

@@ -11,6 +11,7 @@ use std::{
 use common::{
     document::{
         DocumentUpdate,
+        DocumentUpdateRef,
         PackedDocument,
     },
     knobs::{
@@ -61,11 +62,11 @@ impl HeapSize for PackedDocumentUpdate {
 type OrderedWrites = WithHeapSize<Vec<(ResolvedDocumentId, PackedDocumentUpdate)>>;
 
 impl PackedDocumentUpdate {
-    pub fn pack(update: DocumentUpdate) -> Self {
+    pub fn pack(update: &impl DocumentUpdateRef) -> Self {
         Self {
-            id: update.id,
-            old_document: update.old_document.map(PackedDocument::pack),
-            new_document: update.new_document.map(PackedDocument::pack),
+            id: update.id(),
+            old_document: update.old_document().map(PackedDocument::pack),
+            new_document: update.new_document().map(PackedDocument::pack),
         }
     }
 
@@ -635,7 +636,7 @@ mod tests {
             Timestamp::must(1003),
             vec![(
                 id,
-                PackedDocumentUpdate::pack(DocumentUpdate {
+                PackedDocumentUpdate::pack(&DocumentUpdate {
                     id,
                     old_document: None,
                     new_document: Some(doc.clone()),
@@ -749,7 +750,7 @@ mod tests {
             Timestamp::must(1003),
             vec![(
                 id,
-                PackedDocumentUpdate::pack(DocumentUpdate {
+                PackedDocumentUpdate::pack(&DocumentUpdate {
                     id,
                     old_document: Some(doc),
                     new_document: None,

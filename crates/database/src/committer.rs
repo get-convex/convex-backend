@@ -637,7 +637,7 @@ impl<RT: Runtime> Committer<RT> {
         }
         timer.finish();
 
-        let updates: Vec<_> = transaction.writes.into_coalesced_writes().collect();
+        let updates: Vec<_> = transaction.writes.coalesced_writes().collect();
         // The updates are ordered using table_dependency_sort_key,
         // which is the same order they should be applied to database metadata
         // and index data structures
@@ -645,7 +645,7 @@ impl<RT: Runtime> Committer<RT> {
         ordered_updates.sort_by_key(|(id, update)| {
             table_dependency_sort_key(
                 BootstrapTableIds::new(&transaction.table_mapping),
-                InternalDocumentId::from(*id),
+                InternalDocumentId::from(**id),
                 update.new_document.as_ref(),
             )
         });
@@ -663,7 +663,7 @@ impl<RT: Runtime> Committer<RT> {
             commit_ts,
             ordered_updates
                 .into_iter()
-                .map(|(id, update)| (id, PackedDocumentUpdate::pack(update.into())))
+                .map(|(&id, update)| (id, PackedDocumentUpdate::pack(update)))
                 .collect(),
             write_source,
         );
@@ -679,7 +679,7 @@ impl<RT: Runtime> Committer<RT> {
     fn compute_writes(
         &self,
         commit_ts: Timestamp,
-        ordered_updates: &Vec<(ResolvedDocumentId, DocumentUpdateWithPrevTs)>,
+        ordered_updates: &Vec<(&ResolvedDocumentId, &DocumentUpdateWithPrevTs)>,
     ) -> anyhow::Result<(
         Vec<ValidatedDocumentWrite>,
         BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
@@ -691,7 +691,7 @@ impl<RT: Runtime> Committer<RT> {
         // same tables and indexes as the base snapshot and the final publishing
         // snapshot. Therefore index writes can be computed from the current snapshot.
         let mut current_snapshot = self.snapshot_manager.read().latest_snapshot();
-        for (id, document_update) in ordered_updates.iter() {
+        for &(id, document_update) in ordered_updates.iter() {
             let (updates, doc_in_vector_index) =
                 current_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
