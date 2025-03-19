@@ -186,7 +186,8 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 );
                 Ok(result)
             },
-            Err(e) if e.is_deterministic_user_error() => {
+            Err(e) if e.is_deterministic_user_error() || e.is_client_disconnect() => {
+                let is_client_disconnect = e.is_client_disconnect();
                 let js_err = JsError::from_error(e);
                 match result_for_logging {
                     Some(r) => {
@@ -200,11 +201,22 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                             None,
                         );
                         let new_log_line = LogLine::new_system_log_line(
-                            LogLevel::Warn,
+                            if is_client_disconnect {
+                                // Not developer's fault, but we should let them know
+                                // since it indicates there will be no more logs or
+                                // response parts.
+                                LogLevel::Info
+                            } else {
+                                LogLevel::Warn
+                            },
                             vec![js_err.to_string()],
                             outcome.unix_timestamp,
                             SystemLogMetadata {
-                                code: "error:httpAction".to_string(),
+                                code: if is_client_disconnect {
+                                    "info:httpActionClientDisconnect".to_string()
+                                } else {
+                                    "error:httpAction".to_string()
+                                },
                             },
                         );
                         send_log_line(new_log_line.clone());

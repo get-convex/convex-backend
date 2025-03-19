@@ -330,7 +330,7 @@ async fn test_http_action_disconnect_while_streaming(
     assert_eq!(log_lines.len(), 1);
     assert_eq!(
         log_lines[0].clone().to_pretty_string_test_only(),
-        "[WARN] Client disconnected\n"
+        "[INFO] Client disconnected\n"
     );
 
     Ok(())

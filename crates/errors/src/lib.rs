@@ -430,6 +430,10 @@ impl ErrorMetadata {
         self.code == ErrorCode::MisdirectedRequest
     }
 
+    pub fn is_client_disconnect(&self) -> bool {
+        self.code == ErrorCode::ClientDisconnect
+    }
+
     /// Return true if this error is deterministically caused by user. If so,
     /// we can propagate it into JS out of a syscall, and cache it if it is the
     /// full UDF result.
@@ -647,6 +651,7 @@ pub trait ErrorMetadataAnyhowExt {
     fn should_report_to_sentry(&self) -> Option<(sentry::Level, Option<f64>)>;
     fn is_deterministic_user_error(&self) -> bool;
     fn is_misdirected_request(&self) -> bool;
+    fn is_client_disconnect(&self) -> bool;
     fn user_facing_message(&self) -> String;
     fn short_msg(&self) -> &str;
     fn msg(&self) -> &str;
@@ -772,6 +777,13 @@ impl ErrorMetadataAnyhowExt for anyhow::Error {
     fn is_misdirected_request(&self) -> bool {
         if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
             return e.is_misdirected_request();
+        }
+        false
+    }
+
+    fn is_client_disconnect(&self) -> bool {
+        if let Some(e) = self.downcast_ref::<ErrorMetadata>() {
+            return e.is_client_disconnect();
         }
         false
     }
@@ -908,7 +920,7 @@ pub const OCC_ERROR_MSG: &str = "Data read or written in \
                                  the amount of data read by using indexed queries with selective \
                                  index range expressions (https://docs.convex.dev/database/indexes/).";
 pub const OCC_ERROR: &str = "OptimisticConcurrencyControlFailure";
-const CLIENT_DISCONNECTED_MSG: &str = "Your request couldn't be completed. Try again later.";
+const CLIENT_DISCONNECTED_MSG: &str = "Client disconnected";
 const CLIENT_DISCONNECTED: &str = "ClientDisconnected";
 
 #[cfg(any(test, feature = "testing"))]

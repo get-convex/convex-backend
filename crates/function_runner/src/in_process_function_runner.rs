@@ -166,10 +166,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
                     // Flush inner_response_stream into outer_response_streamer.
                     while let Some(part) = inner_response_stream.next().await {
                         if outer_response_streamer.send_part(part)?.is_err() {
-                            anyhow::bail!(ErrorMetadata::bad_request(
-                                "ClientDisconnected",
-                                "Client disconnected",
-                            ));
+                            anyhow::bail!(ErrorMetadata::client_disconnect());
                         }
                     }
                     return result;
@@ -178,7 +175,7 @@ impl<RT: Runtime> InProcessFunctionRunner<RT> {
                     // The streamer above us has disconnected, so stop running
                     // the function and throw an error.
                     drop(run_function_fut);
-                    anyhow::bail!(ErrorMetadata::bad_request("ClientDisconnected", "Client disconnected"));
+                    anyhow::bail!(ErrorMetadata::client_disconnect());
                 },
                 // select_next_some waits until there's a new part to send.
                 // If inner_response_stream is closed, this branch doesn't run
