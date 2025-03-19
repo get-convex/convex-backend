@@ -85,6 +85,9 @@ pub async fn connect_persistence(
             tracing::info!("Connected to TestPersistence");
             persistence
         },
+        #[allow(unreachable_patterns)]
+        #[cfg(not(any(test, feature = "testing")))]
+        _ => unreachable!(),
     };
     Ok(persistence)
 }
