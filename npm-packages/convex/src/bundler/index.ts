@@ -4,7 +4,7 @@ import esbuild, { BuildFailure } from "esbuild";
 import { parse as parseAST } from "@babel/parser";
 import { Identifier, ImportSpecifier } from "@babel/types";
 import * as Sentry from "@sentry/node";
-import { Filesystem } from "./fs.js";
+import { Filesystem, consistentPathSort } from "./fs.js";
 import { Context, logVerbose, logWarning } from "./context.js";
 import { wasmPlugin } from "./wasm.js";
 import {
@@ -13,7 +13,6 @@ import {
   createExternalPlugin,
   findExactVersionAndDependencies,
 } from "./external.js";
-import { Dirent } from "fs";
 export { nodeFs, RecordingFs } from "./fs.js";
 export type { Filesystem } from "./fs.js";
 
@@ -37,16 +36,6 @@ export function* walkDir(
       yield { isDir: false, path: childPath, depth };
     }
   }
-}
-
-// Sort consistent with unix directory listings.
-function consistentPathSort(a: Dirent, b: Dirent) {
-  for (let i = 0; i < Math.min(a.name.length, b.name.length); i++) {
-    if (a.name.charCodeAt(i) !== b.name.charCodeAt(i)) {
-      return a.name.charCodeAt(i) - b.name.charCodeAt(i);
-    }
-  }
-  return a.name.length - b.name.length;
 }
 
 // Convex specific module environment.

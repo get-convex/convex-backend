@@ -591,3 +591,13 @@ export function stMatches(
   }
   return { matches: false, reason: "deleted mismatch" };
 }
+
+// Sort consistent with unix directory listings.
+export function consistentPathSort(a: Dirent, b: Dirent) {
+  for (let i = 0; i < Math.min(a.name.length, b.name.length); i++) {
+    if (a.name.charCodeAt(i) !== b.name.charCodeAt(i)) {
+      return a.name.charCodeAt(i) - b.name.charCodeAt(i);
+    }
+  }
+  return a.name.length - b.name.length;
+}
