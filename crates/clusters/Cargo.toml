@@ -11,5 +11,11 @@ clap = { workspace = true }
 common = { path = "../../crates/common" }
 url = { workspace = true }
 
+[features]
+testing = ["common/testing"]
+
 [lints]
 workspace = true
+
+[dev-dependencies]
+common = { path = "../../crates/common", features = ["testing"] }

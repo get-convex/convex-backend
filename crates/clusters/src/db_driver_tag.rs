@@ -9,6 +9,8 @@ pub enum DbDriverTag {
     PostgresAwsIam(PersistenceVersion),
     MySql(PersistenceVersion),
     MySqlAwsIam(PersistenceVersion),
+    #[cfg(any(test, feature = "testing"))]
+    TestPersistence,
 }
 
 impl clap::ValueEnum for DbDriverTag {
@@ -19,6 +21,8 @@ impl clap::ValueEnum for DbDriverTag {
             DbDriverTag::MySqlAwsIam(PersistenceVersion::V5),
             DbDriverTag::Postgres(PersistenceVersion::V5),
             DbDriverTag::PostgresAwsIam(PersistenceVersion::V5),
+            #[cfg(any(test, feature = "testing"))]
+            DbDriverTag::TestPersistence,
         ]
     }
 
@@ -34,7 +38,13 @@ impl DbDriverTag {
             | Self::PostgresAwsIam(version)
             | Self::MySql(version)
             | Self::MySqlAwsIam(version) => Ok(*version),
-            Self::Sqlite => anyhow::bail!("sqlite has no persistence version"),
+            Self::Sqlite => {
+                anyhow::bail!("sqlite has no persistence version")
+            },
+            #[cfg(any(test, feature = "testing"))]
+            Self::TestPersistence => {
+                anyhow::bail!("test persistence has no persistence version")
+            },
         }
     }
 
@@ -45,6 +55,8 @@ impl DbDriverTag {
             DbDriverTag::PostgresAwsIam(PersistenceVersion::V5) => "postgres-v5-aws-iam",
             DbDriverTag::MySql(PersistenceVersion::V5) => "mysql-v5",
             DbDriverTag::MySqlAwsIam(PersistenceVersion::V5) => "mysql-v5-aws-iam",
+            #[cfg(any(test, feature = "testing"))]
+            DbDriverTag::TestPersistence => "test-persistence",
         }
     }
 }
@@ -59,6 +71,8 @@ impl FromStr for DbDriverTag {
             "postgres-v5-aws-iam" => Ok(DbDriverTag::PostgresAwsIam(PersistenceVersion::V5)),
             "mysql-v5" => Ok(DbDriverTag::MySql(PersistenceVersion::V5)),
             "mysql-v5-aws-iam" => Ok(DbDriverTag::MySqlAwsIam(PersistenceVersion::V5)),
+            #[cfg(any(test, feature = "testing"))]
+            "test-persistence" => Ok(DbDriverTag::TestPersistence),
             _ => anyhow::bail!("unrecognized db_driver {s}"),
         }
     }

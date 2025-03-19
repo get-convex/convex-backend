@@ -73,6 +73,10 @@ pub fn persistence_args_from_cluster_url(
                 .append_pair("verify_ca", "false");
         },
         DbDriverTag::Sqlite => anyhow::bail!("no url for sqlite"),
+        #[cfg(any(test, feature = "testing"))]
+        DbDriverTag::TestPersistence => {
+            anyhow::bail!("no url for test persistence")
+        },
     };
     Ok(PersistenceArgs {
         url: cluster_url,

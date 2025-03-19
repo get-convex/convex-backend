@@ -79,6 +79,12 @@ pub async fn connect_persistence(
             tracing::info!("Connected to MySQL database: {} ", args.db_name);
             persistence
         },
+        #[cfg(any(test, feature = "testing"))]
+        DbDriverTag::TestPersistence => {
+            let persistence = Arc::new(common::testing::TestPersistence::new());
+            tracing::info!("Connected to TestPersistence");
+            persistence
+        },
     };
     Ok(persistence)
 }

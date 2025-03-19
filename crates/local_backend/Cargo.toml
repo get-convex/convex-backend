@@ -73,6 +73,7 @@ vector = { path = "../vector" }
 [dev-dependencies]
 application = { path = "../application", features = ["testing"] }
 authentication = { path = "../authentication", features = ["testing"] }
+clusters = { path = "../clusters", features = ["testing"] }
 common = { path = "../common", features = ["testing"] }
 convex_macro = { path = "../convex_macro" }
 database = { path = "../database", features = ["testing"] }
@@ -100,6 +101,33 @@ vector = { path = "../vector", features = ["testing"] }
 [build-dependencies]
 anyhow = { workspace = true }
 vergen = { workspace = true, features = ["git", "gitcl"] }
+
+[features]
+testing = [
+    "common/testing",
+    "clusters/testing",
+    "database/testing",
+    "errors/testing",
+    "function_runner/testing",
+    "isolate/testing",
+    "keybroker/testing",
+    "metrics/testing",
+    "model/testing",
+    "mysql/testing",
+    "postgres/testing",
+    "runtime/testing",
+    "search/testing",
+    "storage/testing",
+    "udf/testing",
+    "usage_tracking/testing",
+    "value/testing",
+    "vector/testing",
+    "application/testing",
+    "authentication/testing",
+    "events/testing",
+    "node_executor/testing",
+    "sync/testing",
+]
 
 [lints]
 workspace = true
