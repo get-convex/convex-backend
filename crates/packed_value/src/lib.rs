@@ -29,6 +29,7 @@ mod buffer;
 mod debug;
 mod flexbuilder;
 mod json;
+mod walk;
 
 #[cfg(test)]
 mod tests;
@@ -474,9 +475,7 @@ where
         Ok(Some(OpenedValue::new(reader)?))
     }
 
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = anyhow::Result<(B::BufferString, OpenedValue<B>)>> + '_ {
+    pub fn iter(&self) -> impl Iterator<Item = anyhow::Result<(B::BufferString, OpenedValue<B>)>> {
         self.reader
             .iter_keys()
             .zip(self.reader.iter_values())

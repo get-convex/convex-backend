@@ -29,6 +29,12 @@ impl From<ConvexBytes> for Vec<u8> {
     }
 }
 
+impl AsRef<[u8]> for ConvexBytes {
+    fn as_ref(&self) -> &[u8] {
+        &self.0[..]
+    }
+}
+
 impl Deref for ConvexBytes {
     type Target = [u8];
 

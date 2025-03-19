@@ -1,4 +1,5 @@
 #![feature(try_blocks)]
+#![feature(never_type)]
 #![feature(type_alias_impl_trait)]
 #![feature(iter_from_coroutine)]
 #![feature(iterator_try_collect)]
@@ -28,6 +29,7 @@ pub mod sorting;
 mod string;
 mod table_mapping;
 mod table_name;
+pub mod walk;
 
 // Helper modules we'll eventually factor out.
 pub mod heap_size;
