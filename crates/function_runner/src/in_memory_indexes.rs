@@ -205,7 +205,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         persistence_snapshot: PersistenceSnapshot,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<Option<CacheValue>> {
+    ) -> anyhow::Result<Option<Arc<CacheValue>>> {
         let Some(key) = last_modified.get(&index_id).map(|ts| CacheKey {
             instance_name: instance_name.clone(),
             index_id,
@@ -228,13 +228,13 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 .boxed(),
             )
             .await
-            .map(|cache_value| Some(Arc::unwrap_or_clone(cache_value)));
+            .map(Some);
         log_funrun_index_cache_get(&table_name, &instance_name);
         cache_value_result
     }
 
     #[fastrace::trace(properties = { "table_name": "{table_name:?}" })]
-    pub async fn must_get_or_load_unpacked(
+    async fn must_get_or_load_unpacked<'a>(
         &self,
         instance_name: String,
         index_id: IndexId,
@@ -242,7 +242,9 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         persistence_snapshot: PersistenceSnapshot,
         tablet_id: TabletId,
         table_name: TableName,
-    ) -> anyhow::Result<impl Iterator<Item = ResolvedDocument>> {
+        // needed to hoist the `Arc` otherwise the iterator lifetimes don't work
+        temp: &'a mut Option<Arc<CacheValue>>,
+    ) -> anyhow::Result<impl Iterator<Item = ResolvedDocument> + 'a> {
         let index_map = self
             .get_or_load(
                 instance_name.clone(),
@@ -254,7 +256,11 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             )
             .await?
             .with_context(|| format!("Index on {table_name} for {instance_name} not found"))?;
-        Ok(index_map.0.into_iter().map(|(_k, (_ts, v))| v.unpack()))
+        Ok(temp
+            .insert(index_map)
+            .0
+            .iter()
+            .map(|(_k, (_ts, v))| v.unpack()))
     }
 
     #[fastrace::trace]
@@ -276,6 +282,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         IndexRegistry,
         DatabaseIndexSnapshot,
     )> {
+        let (mut index_tmp, mut table_tmp) = (None, None);
         let index_documents_fut = self.must_get_or_load_unpacked(
             instance_name.clone(),
             index_by_id,
@@ -283,6 +290,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot.clone(),
             index_tablet_id,
             INDEX_TABLE.clone(),
+            &mut index_tmp,
         );
         let table_documents_fut = self.must_get_or_load_unpacked(
             instance_name.clone(),
@@ -291,6 +299,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             persistence_snapshot.clone(),
             tables_tablet_id,
             TABLES_TABLE.clone(),
+            &mut table_tmp,
         );
         let (index_documents, table_documents) =
             futures::future::try_join(index_documents_fut, table_documents_fut).await?;
@@ -322,6 +331,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 persistence_snapshot.clone(),
                 component_tablet,
                 COMPONENTS_TABLE.clone(),
+                &mut None,
             )
             .await?
             .map(TryFrom::try_from)
@@ -342,6 +352,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             let schema_tablet =
                 table_mapping.namespace(namespace).name_to_tablet()(SCHEMAS_TABLE.clone())?;
             let index_id = index_registry.must_get_by_id(schema_tablet)?.id;
+            let mut tmp = None;
             let schema_doc_iter = self
                 .must_get_or_load_unpacked(
                     instance_name.clone(),
@@ -350,6 +361,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                     persistence_snapshot.clone(),
                     schema_tablet,
                     SCHEMAS_TABLE.clone(),
+                    &mut tmp,
                 )
                 .await?;
             schema_docs.insert(
