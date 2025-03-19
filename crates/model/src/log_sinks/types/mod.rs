@@ -213,22 +213,10 @@ pub enum SerializedSinkConfig {
     Local {
         path: String,
     },
-    Datadog {
-        #[serde(flatten)]
-        config: datadog::SerializedDatadogConfig,
-    },
-    Webhook {
-        #[serde(flatten)]
-        config: webhook::SerializedWebhookConfig,
-    },
-    Axiom {
-        #[serde(flatten)]
-        config: axiom::SerializedAxiomConfig,
-    },
-    Sentry {
-        #[serde(flatten)]
-        config: sentry::SerializedSentryConfig,
-    },
+    Datadog(datadog::SerializedDatadogConfig),
+    Webhook(webhook::SerializedWebhookConfig),
+    Axiom(axiom::SerializedAxiomConfig),
+    Sentry(sentry::SerializedSentryConfig),
     #[cfg(any(test, feature = "testing"))]
     Mock,
     #[cfg(any(test, feature = "testing"))]
@@ -241,16 +229,16 @@ impl TryFrom<SerializedSinkConfig> for SinkConfig {
     fn try_from(value: SerializedSinkConfig) -> Result<Self, Self::Error> {
         match value {
             SerializedSinkConfig::Local { path } => Ok(SinkConfig::Local(path)),
-            SerializedSinkConfig::Datadog { config } => Ok(SinkConfig::Datadog(
+            SerializedSinkConfig::Datadog(config) => Ok(SinkConfig::Datadog(
                 datadog::DatadogConfig::try_from(config)?,
             )),
-            SerializedSinkConfig::Webhook { config } => Ok(SinkConfig::Webhook(
+            SerializedSinkConfig::Webhook(config) => Ok(SinkConfig::Webhook(
                 webhook::WebhookConfig::try_from(config)?,
             )),
-            SerializedSinkConfig::Axiom { config } => {
+            SerializedSinkConfig::Axiom(config) => {
                 Ok(SinkConfig::Axiom(axiom::AxiomConfig::try_from(config)?))
             },
-            SerializedSinkConfig::Sentry { config } => {
+            SerializedSinkConfig::Sentry(config) => {
                 Ok(SinkConfig::Sentry(sentry::SentryConfig::try_from(config)?))
             },
             #[cfg(any(test, feature = "testing"))]
@@ -267,18 +255,18 @@ impl TryFrom<SinkConfig> for SerializedSinkConfig {
     fn try_from(value: SinkConfig) -> Result<Self, Self::Error> {
         match value {
             SinkConfig::Local(path) => Ok(SerializedSinkConfig::Local { path }),
-            SinkConfig::Datadog(config) => Ok(SerializedSinkConfig::Datadog {
-                config: datadog::SerializedDatadogConfig::from(config),
-            }),
-            SinkConfig::Webhook(config) => Ok(SerializedSinkConfig::Webhook {
-                config: webhook::SerializedWebhookConfig::from(config),
-            }),
-            SinkConfig::Axiom(config) => Ok(SerializedSinkConfig::Axiom {
-                config: axiom::SerializedAxiomConfig::from(config),
-            }),
-            SinkConfig::Sentry(config) => Ok(SerializedSinkConfig::Sentry {
-                config: sentry::SerializedSentryConfig::try_from(config)?,
-            }),
+            SinkConfig::Datadog(config) => Ok(SerializedSinkConfig::Datadog(
+                datadog::SerializedDatadogConfig::from(config),
+            )),
+            SinkConfig::Webhook(config) => Ok(SerializedSinkConfig::Webhook(
+                webhook::SerializedWebhookConfig::from(config),
+            )),
+            SinkConfig::Axiom(config) => Ok(SerializedSinkConfig::Axiom(
+                axiom::SerializedAxiomConfig::from(config),
+            )),
+            SinkConfig::Sentry(config) => Ok(SerializedSinkConfig::Sentry(
+                sentry::SerializedSentryConfig::try_from(config)?,
+            )),
             #[cfg(any(test, feature = "testing"))]
             SinkConfig::Mock => Ok(SerializedSinkConfig::Mock),
             #[cfg(any(test, feature = "testing"))]

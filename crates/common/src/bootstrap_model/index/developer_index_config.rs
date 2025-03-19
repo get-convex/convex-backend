@@ -64,18 +64,9 @@ pub struct SerializedNamedDeveloperIndexConfig {
 #[serde(tag = "type", rename_all = "camelCase")]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub enum SerializedDeveloperIndexConfig {
-    Database {
-        #[serde(flatten)]
-        config: SerializedDeveloperDatabaseIndexConfig,
-    },
-    Search {
-        #[serde(flatten)]
-        config: SerializedDeveloperTextIndexConfig,
-    },
-    Vector {
-        #[serde(flatten)]
-        config: SerializedDeveloperVectorIndexConfig,
-    },
+    Database(SerializedDeveloperDatabaseIndexConfig),
+    Search(SerializedDeveloperTextIndexConfig),
+    Vector(SerializedDeveloperVectorIndexConfig),
 }
 
 impl TryFrom<DeveloperIndexConfig> for SerializedDeveloperIndexConfig {
@@ -83,15 +74,9 @@ impl TryFrom<DeveloperIndexConfig> for SerializedDeveloperIndexConfig {
 
     fn try_from(index_config: DeveloperIndexConfig) -> anyhow::Result<Self> {
         Ok(match index_config {
-            DeveloperIndexConfig::Database(config) => Self::Database {
-                config: config.try_into()?,
-            },
-            DeveloperIndexConfig::Search(config) => Self::Search {
-                config: config.try_into()?,
-            },
-            DeveloperIndexConfig::Vector(config) => Self::Vector {
-                config: config.try_into()?,
-            },
+            DeveloperIndexConfig::Database(config) => Self::Database(config.try_into()?),
+            DeveloperIndexConfig::Search(config) => Self::Search(config.try_into()?),
+            DeveloperIndexConfig::Vector(config) => Self::Vector(config.try_into()?),
         })
     }
 }
@@ -101,11 +86,9 @@ impl TryFrom<SerializedDeveloperIndexConfig> for DeveloperIndexConfig {
 
     fn try_from(index_config: SerializedDeveloperIndexConfig) -> anyhow::Result<Self> {
         Ok(match index_config {
-            SerializedDeveloperIndexConfig::Database { config } => {
-                Self::Database(config.try_into()?)
-            },
-            SerializedDeveloperIndexConfig::Search { config } => Self::Search(config.try_into()?),
-            SerializedDeveloperIndexConfig::Vector { config } => Self::Vector(config.try_into()?),
+            SerializedDeveloperIndexConfig::Database(config) => Self::Database(config.try_into()?),
+            SerializedDeveloperIndexConfig::Search(config) => Self::Search(config.try_into()?),
+            SerializedDeveloperIndexConfig::Vector(config) => Self::Vector(config.try_into()?),
         })
     }
 }

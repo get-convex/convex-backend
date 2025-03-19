@@ -31,18 +31,9 @@ pub enum TextIndexState {
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum SerializedTextIndexState {
     Backfilling,
-    Backfilling2 {
-        #[serde(flatten)]
-        backfill_state: SerializedTextIndexBackfillState,
-    },
-    Backfilled {
-        #[serde(flatten)]
-        snapshot: SerializedTextIndexSnapshot,
-    },
-    Snapshotted {
-        #[serde(flatten)]
-        snapshot: SerializedTextIndexSnapshot,
-    },
+    Backfilling2(SerializedTextIndexBackfillState),
+    Backfilled(SerializedTextIndexSnapshot),
+    Snapshotted(SerializedTextIndexSnapshot),
 }
 
 impl TryFrom<TextIndexState> for SerializedTextIndexState {
@@ -59,16 +50,14 @@ impl TryFrom<TextIndexState> for SerializedTextIndexState {
                 if state.segments.is_empty() && state.cursor.is_none() {
                     SerializedTextIndexState::Backfilling
                 } else {
-                    SerializedTextIndexState::Backfilling2 {
-                        backfill_state: state.try_into()?,
-                    }
+                    SerializedTextIndexState::Backfilling2(state.try_into()?)
                 }
             },
-            TextIndexState::Backfilled(snapshot) => SerializedTextIndexState::Backfilled {
-                snapshot: snapshot.try_into()?,
+            TextIndexState::Backfilled(snapshot) => {
+                SerializedTextIndexState::Backfilled(snapshot.try_into()?)
             },
-            TextIndexState::SnapshottedAt(snapshot) => SerializedTextIndexState::Snapshotted {
-                snapshot: snapshot.try_into()?,
+            TextIndexState::SnapshottedAt(snapshot) => {
+                SerializedTextIndexState::Snapshotted(snapshot.try_into()?)
             },
         })
     }
@@ -82,13 +71,13 @@ impl TryFrom<SerializedTextIndexState> for TextIndexState {
             SerializedTextIndexState::Backfilling => {
                 TextIndexState::Backfilling(TextIndexBackfillState::new())
             },
-            SerializedTextIndexState::Backfilling2 { backfill_state } => {
+            SerializedTextIndexState::Backfilling2(backfill_state) => {
                 TextIndexState::Backfilling(backfill_state.try_into()?)
             },
-            SerializedTextIndexState::Backfilled { snapshot } => {
+            SerializedTextIndexState::Backfilled(snapshot) => {
                 TextIndexState::Backfilled(snapshot.try_into()?)
             },
-            SerializedTextIndexState::Snapshotted { snapshot } => {
+            SerializedTextIndexState::Snapshotted(snapshot) => {
                 TextIndexState::SnapshottedAt(snapshot.try_into()?)
             },
         })

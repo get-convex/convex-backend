@@ -42,18 +42,9 @@ impl VectorIndexState {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
 pub enum SerializedVectorIndexState {
-    Backfilling {
-        #[serde(flatten)]
-        backfill_state: SerializedVectorIndexBackfillState,
-    },
-    Backfilled {
-        #[serde(flatten)]
-        snapshot: SerializedVectorIndexSnapshot,
-    },
-    Snapshotted {
-        #[serde(flatten)]
-        snapshot: SerializedVectorIndexSnapshot,
-    },
+    Backfilling(SerializedVectorIndexBackfillState),
+    Backfilled(SerializedVectorIndexSnapshot),
+    Snapshotted(SerializedVectorIndexSnapshot),
 }
 
 impl TryFrom<VectorIndexState> for SerializedVectorIndexState {
@@ -62,15 +53,13 @@ impl TryFrom<VectorIndexState> for SerializedVectorIndexState {
     fn try_from(state: VectorIndexState) -> Result<Self, Self::Error> {
         Ok(match state {
             VectorIndexState::Backfilling(backfill_state) => {
-                SerializedVectorIndexState::Backfilling {
-                    backfill_state: backfill_state.try_into()?,
-                }
+                SerializedVectorIndexState::Backfilling(backfill_state.try_into()?)
             },
-            VectorIndexState::Backfilled(snapshot) => SerializedVectorIndexState::Backfilled {
-                snapshot: snapshot.try_into()?,
+            VectorIndexState::Backfilled(snapshot) => {
+                SerializedVectorIndexState::Backfilled(snapshot.try_into()?)
             },
-            VectorIndexState::SnapshottedAt(snapshot) => SerializedVectorIndexState::Snapshotted {
-                snapshot: snapshot.try_into()?,
+            VectorIndexState::SnapshottedAt(snapshot) => {
+                SerializedVectorIndexState::Snapshotted(snapshot.try_into()?)
             },
         })
     }
@@ -81,13 +70,13 @@ impl TryFrom<SerializedVectorIndexState> for VectorIndexState {
 
     fn try_from(serialized: SerializedVectorIndexState) -> Result<Self, Self::Error> {
         Ok(match serialized {
-            SerializedVectorIndexState::Backfilling { backfill_state } => {
+            SerializedVectorIndexState::Backfilling(backfill_state) => {
                 VectorIndexState::Backfilling(backfill_state.try_into()?)
             },
-            SerializedVectorIndexState::Backfilled { snapshot } => {
+            SerializedVectorIndexState::Backfilled(snapshot) => {
                 VectorIndexState::Backfilled(snapshot.try_into()?)
             },
-            SerializedVectorIndexState::Snapshotted { snapshot } => {
+            SerializedVectorIndexState::Snapshotted(snapshot) => {
                 VectorIndexState::SnapshottedAt(snapshot.try_into()?)
             },
         })
