@@ -5,7 +5,6 @@ use common::{
         ParsedDocument,
         ResolvedDocument,
     },
-    errors::JsError,
     query::{
         Order,
         Query,
@@ -33,18 +32,6 @@ pub mod types;
 use types::BackendState;
 
 use self::types::PersistedBackendState;
-
-pub const PAUSED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is paused. \
-                                        Resume the deployment in the dashboard settings to allow \
-                                        functions to run.";
-
-pub const DISABLED_ERROR_MESSAGE: &str = "You have exceeded the free plan limits, so your \
-                                          deployments have been disabled. Please upgrade to a Pro \
-                                          plan or reach out to us at support@convex.dev for help.";
-
-pub const SUSPENDED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is \
-                                           suspended. Please contact Convex if you believe this \
-                                           is a mistake.";
 
 pub static BACKEND_STATE_TABLE: LazyLock<TableName> = LazyLock::new(|| {
     "_backend_state"
@@ -107,31 +94,6 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             "Backend must have a single state."
         );
         Ok(backend_state)
-    }
-
-    /// Fails with an error if the backend is not running. We have to return a
-    /// result of a result of () and a JSError because we use them to
-    /// differentiate between system and user errors.
-    pub async fn fail_while_not_running(&mut self) -> anyhow::Result<Result<(), JsError>> {
-        let backend_state = self.get_backend_state().await?;
-        match backend_state {
-            BackendState::Running => {},
-            BackendState::Paused => {
-                return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
-            },
-            BackendState::Disabled => {
-                return Ok(Err(JsError::from_message(
-                    DISABLED_ERROR_MESSAGE.to_string(),
-                )));
-            },
-            BackendState::Suspended => {
-                return Ok(Err(JsError::from_message(
-                    SUSPENDED_ERROR_MESSAGE.to_string(),
-                )));
-            },
-        }
-
-        Ok(Ok(()))
     }
 
     pub async fn toggle_backend_state(&mut self, new_state: BackendState) -> anyhow::Result<()> {

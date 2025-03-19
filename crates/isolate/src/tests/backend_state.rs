@@ -7,13 +7,15 @@ use keybroker::Identity;
 use model::backend_state::{
     types::BackendState,
     BackendStateModel,
-    DISABLED_ERROR_MESSAGE,
-    PAUSED_ERROR_MESSAGE,
-    SUSPENDED_ERROR_MESSAGE,
 };
 use runtime::testing::TestRuntime;
 use tokio::sync::mpsc;
 use udf::{
+    validation::{
+        DISABLED_ERROR_MESSAGE_FREE_PLAN,
+        PAUSED_ERROR_MESSAGE,
+        SUSPENDED_ERROR_MESSAGE,
+    },
     HttpActionResponseStreamer,
     HttpActionResult,
 };
@@ -49,22 +51,22 @@ async fn test_http_action_while_paused(rt: TestRuntime) -> anyhow::Result<()> {
 
 #[convex_macro::test_runtime]
 async fn test_query_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
-    test_query_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE).await
+    test_query_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE_FREE_PLAN).await
 }
 
 #[convex_macro::test_runtime]
 async fn test_mutation_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
-    test_mutation_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE).await
+    test_mutation_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE_FREE_PLAN).await
 }
 
 #[convex_macro::test_runtime]
 async fn test_action_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
-    test_action_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE).await
+    test_action_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE_FREE_PLAN).await
 }
 
 #[convex_macro::test_runtime]
 async fn test_http_action_while_disabled(rt: TestRuntime) -> anyhow::Result<()> {
-    test_http_action_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE).await
+    test_http_action_helper(rt, BackendState::Disabled, DISABLED_ERROR_MESSAGE_FREE_PLAN).await
 }
 
 #[convex_macro::test_runtime]

@@ -17,6 +17,7 @@ use common::{
     },
     types::{
         AllowedVisibility,
+        BackendState,
         UdfType,
     },
     version::{
@@ -32,6 +33,7 @@ use database::{
 use errors::ErrorMetadata;
 use keybroker::Identity;
 use model::{
+    backend_info::BackendInfoModel,
     backend_state::BackendStateModel,
     components::ComponentsModel,
     modules::{
@@ -70,6 +72,60 @@ use crate::{
     SyscallTrace,
     UdfOutcome,
 };
+
+pub const DISABLED_ERROR_MESSAGE_FREE_PLAN: &str =
+    "You have exceeded the free plan limits, so your deployments have been disabled. Please \
+     upgrade to a Pro plan or reach out to us at support@convex.dev for help.";
+pub const DISABLED_ERROR_MESSAGE_PAID_PLAN: &str =
+    "You have exceeded your spending limits, so your deployments have been disabled. Please \
+     increase your spending limit on the Convex dashboard or wait until limits reset.";
+pub const PAUSED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is paused. \
+                                        Resume the deployment in the dashboard settings to allow \
+                                        functions to run.";
+pub const SUSPENDED_ERROR_MESSAGE: &str = "Cannot run functions while this deployment is \
+                                           suspended. Please contact Convex if you believe this \
+                                           is a mistake.";
+
+/// Fails with an error if the backend is not running. We have to return a
+/// result of a result of () and a JSError because we use them to
+/// differentiate between system and user errors.
+pub async fn fail_while_not_running<RT: Runtime>(
+    tx: &mut Transaction<RT>,
+) -> anyhow::Result<Result<(), JsError>> {
+    // Use backend info entitlements as a proxy for whether the backend belongs to a
+    // free or paid team.
+    let backend_info = BackendInfoModel::new(tx).get().await?;
+    let is_paid = backend_info
+        .map(|info| info.streaming_export_enabled)
+        .unwrap_or(false);
+
+    let backend_state = BackendStateModel::new(tx).get_backend_state().await?;
+    match backend_state {
+        BackendState::Running => {},
+        BackendState::Paused => {
+            return Ok(Err(JsError::from_message(PAUSED_ERROR_MESSAGE.to_string())));
+        },
+        BackendState::Disabled => {
+            if is_paid {
+                return Ok(Err(JsError::from_message(
+                    DISABLED_ERROR_MESSAGE_PAID_PLAN.to_string(),
+                )));
+            } else {
+                return Ok(Err(JsError::from_message(
+                    DISABLED_ERROR_MESSAGE_FREE_PLAN.to_string(),
+                )));
+            }
+        },
+        BackendState::Suspended => {
+            return Ok(Err(JsError::from_message(
+                SUSPENDED_ERROR_MESSAGE.to_string(),
+            )));
+        },
+    }
+
+    Ok(Ok(()))
+}
+
 pub async fn validate_schedule_args<RT: Runtime>(
     path: CanonicalizedComponentFunctionPath,
     udf_args: Vec<JsonValue>,
@@ -307,7 +363,7 @@ impl ValidatedPathAndArgs {
             return Ok(result);
         }
 
-        match BackendStateModel::new(tx).fail_while_not_running().await {
+        match fail_while_not_running(tx).await {
             Ok(Ok(())) => {},
             Ok(Err(e)) => {
                 return Ok(Err(e));
@@ -586,7 +642,7 @@ impl ValidatedHttpPath {
         npm_version: Option<Version>,
     ) -> anyhow::Result<Result<Self, JsError>> {
         if !udf_path.is_system() {
-            match BackendStateModel::new(tx).fail_while_not_running().await {
+            match fail_while_not_running(tx).await {
                 Ok(Ok(())) => {},
                 Ok(Err(e)) => {
                     return Ok(Err(e));
@@ -615,7 +671,7 @@ impl ValidatedHttpPath {
             path.udf_path,
         );
         if !path.udf_path.is_system() {
-            match BackendStateModel::new(tx).fail_while_not_running().await {
+            match fail_while_not_running(tx).await {
                 Ok(Ok(())) => {},
                 Ok(Err(e)) => {
                     return Ok(Err(e));
