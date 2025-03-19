@@ -203,7 +203,7 @@ export function ObjectEditor(props: ObjectEditorProps) {
       className={cn(
         // Setting a min-h makes sure the editor is able to properly resize when the
         // parent is resized.
-        "border rounded min-h-4 w-full h-full max-w-full",
+        "border rounded min-h-4 w-full h-full max-w-full relative",
         className,
         disabled && "bg-background-tertiary cursor-not-allowed",
         numLines > 2 && multilineClasses,
@@ -216,130 +216,126 @@ export function ObjectEditor(props: ObjectEditorProps) {
       onScroll={(e) => e.stopPropagation()}
     >
       {disabled && (
-        <div
-          className={cn(
-            "rounded bg-background-tertiary font-mono text-content-secondary",
-            size === "sm" ? "text-xs" : "text-sm",
-          )}
-        >
-          {defaultValueString}
-        </div>
+        <div className="absolute z-10 h-full w-full cursor-not-allowed bg-background-tertiary/20" />
       )}
-      {!disabled && (
-        <Editor
-          height="100%"
-          width="100%"
-          className={cn(
-            padding && "pt-2",
-            editorClassname,
-            size === "sm" && "mt-[1px]",
-          )}
-          defaultLanguage="javascript"
-          defaultValue={defaultValueString}
-          options={{
-            ...editorOptions,
-            ...(showLineNumbers
-              ? {
-                  lineNumbers: "on",
-                  lineNumbersMinChars: 5,
-                  lineDecorationsWidth: 10,
-                }
-              : {}),
-            ...(size === "sm" && {
-              fontSize: 12,
-              lineHeight: 13,
-            }),
-            folding: !disableFolding,
-            theme: prefersDark ? "vs-dark" : "vs",
-            fixedOverflowWidgets,
-          }}
-          // Never make the path look like a URI scheme.
-          path={path.replace(":", "_")}
-          onChange={handleChange}
-          beforeMount={(m) => {
-            m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
-              // Disable all syntax validation and use the results from AST parsing instead.
-              noSemanticValidation: true,
-              noSyntaxValidation: true,
-              noSuggestionDiagnostics: true,
-              // The "unused block" diagnostic code.
-              diagnosticCodesToIgnore: [7028],
-            });
-            setMonaco(m);
-          }}
-          onMount={(editor, m) => {
-            registerIdCommands(m, deploymentsURI);
-
-            editor.onKeyDown((e) => {
-              if (e.keyCode === m.KeyCode.Tab) {
-                e.preventDefault();
-                moveFocus(!e.shiftKey);
+      <Editor
+        height="100%"
+        width="100%"
+        className={cn(
+          padding && "pt-2",
+          editorClassname,
+          size === "sm" && "mt-[1px]",
+          disabled &&
+            "disabled bg-background-tertiary text-content-secondary cursor-not-allowed",
+        )}
+        defaultLanguage="javascript"
+        defaultValue={defaultValueString}
+        options={{
+          ...editorOptions,
+          ...(showLineNumbers
+            ? {
+                lineNumbers: "on",
+                lineNumbersMinChars: 5,
+                lineDecorationsWidth: 10,
               }
+            : {}),
+          ...(size === "sm" && {
+            fontSize: 12,
+            lineHeight: 13,
+          }),
+          readOnly: disabled,
+          domReadOnly: disabled,
+          tabIndex: disabled ? -1 : undefined,
+          folding: !disableFolding,
+          theme: prefersDark ? "vs-dark" : "vs",
+          fixedOverflowWidgets,
+        }}
+        // Never make the path look like a URI scheme.
+        path={path.replace(":", "_")}
+        onChange={handleChange}
+        beforeMount={(m) => {
+          m.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+            // Disable all syntax validation and use the results from AST parsing instead.
+            noSemanticValidation: true,
+            noSyntaxValidation: true,
+            noSuggestionDiagnostics: true,
+            // The "unused block" diagnostic code.
+            diagnosticCodesToIgnore: [7028],
+          });
+          setMonaco(m);
+        }}
+        onMount={(editor, m) => {
+          registerIdCommands(m, deploymentsURI);
+
+          editor.onKeyDown((e) => {
+            if (e.keyCode === m.KeyCode.Tab) {
+              e.preventDefault();
+              moveFocus(!e.shiftKey);
+            }
+          });
+
+          if (disableFind) {
+            editor.addAction({
+              id: "find",
+              label: "find",
+              keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyF],
+              run: () => {},
             });
+          }
 
-            if (disableFind) {
-              editor.addAction({
-                id: "find",
-                label: "find",
-                keybindings: [m.KeyMod.CtrlCmd | m.KeyCode.KeyF],
-                run: () => {},
-              });
+          if (saveAction) {
+            const keybindings = [m.KeyMod.CtrlCmd | m.KeyCode.Enter];
+            if (enterSaves) {
+              keybindings.push(m.KeyCode.Enter);
             }
-
-            if (saveAction) {
-              const keybindings = [m.KeyMod.CtrlCmd | m.KeyCode.Enter];
-              if (enterSaves) {
-                keybindings.push(m.KeyCode.Enter);
-              }
-              editor.addAction({
-                id: "saveAction",
-                label: "Save value",
-                keybindings,
-                run() {
-                  saveActionRef.current?.();
-                },
-              });
-            }
-
-            if (!autoFocus) {
-              return;
-            }
-            editor.focus();
-
-            const code = editor.getValue();
-            if (!code) {
-              return;
-            }
-            const codeLines = code.trimEnd().split("\n");
-            let lastLine = codeLines.pop();
-
-            let isMultiLineObject = false;
-            if (lastLine === "}") {
-              lastLine = codeLines.pop();
-              isMultiLineObject = true;
-            }
-            if (lastLine === undefined) {
-              return;
-            }
-
-            // Pick the location to place the cursor based on the type of the value.
-            const column =
-              isPlainObject(defaultValue) ||
-              isArray(defaultValue) ||
-              (typeof defaultValue === "string" && !isMultiLineObject)
-                ? // Arrays and objects have end braces and strings have end quotes, so we want to place the cursor before those.
-                  lastLine.length
-                : // All other types are not wrapped with anything, so we want to place the cursor after the value.
-                  lastLine.length + 1;
-            editor.setPosition({
-              // Objects rendered on multiple lines should have the last line be set to the line before the closing brace.
-              lineNumber: code.split("\n").length - (isMultiLineObject ? 1 : 0),
-              column,
+            editor.addAction({
+              id: "saveAction",
+              label: "Save value",
+              keybindings,
+              run() {
+                saveActionRef.current?.();
+              },
             });
-          }}
-          loading={null}
-        />
-      )}
+          }
+
+          if (!autoFocus || disabled) {
+            return;
+          }
+          editor.focus();
+
+          const code = editor.getValue();
+          if (!code) {
+            return;
+          }
+          const codeLines = code.trimEnd().split("\n");
+          let lastLine = codeLines.pop();
+
+          let isMultiLineObject = false;
+          if (lastLine === "}") {
+            lastLine = codeLines.pop();
+            isMultiLineObject = true;
+          }
+          if (lastLine === undefined) {
+            return;
+          }
+
+          // Pick the location to place the cursor based on the type of the value.
+          const column =
+            isPlainObject(defaultValue) ||
+            isArray(defaultValue) ||
+            (typeof defaultValue === "string" && !isMultiLineObject)
+              ? // Arrays and objects have end braces and strings have end quotes, so we want to place the cursor before those.
+                lastLine.length
+              : // All other types are not wrapped with anything, so we want to place the cursor after the value.
+                lastLine.length + 1;
+          editor.setPosition({
+            // Objects rendered on multiple lines should have the last line be set to the line before the closing brace.
+            lineNumber: code.split("\n").length - (isMultiLineObject ? 1 : 0),
+            column,
+          });
+        }}
+        loading={null}
+      />
     </div>
   );
 }

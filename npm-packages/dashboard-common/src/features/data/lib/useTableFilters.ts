@@ -79,7 +79,7 @@ const useInitializeFilters = (
     }
 
     // No clauses in the filters, lets clear out the query param.
-    if (f.clauses.length === 0) {
+    if (f.clauses.length === 0 && (!f.index || f.index.clauses.length === 0)) {
       deleteQueryFilters();
       return;
     }
@@ -117,7 +117,9 @@ export const useTableFilters = (
         const newFilterMap = { ...filterMap, [tableName]: newFilters };
         if (
           !newFilterMap[tableName] ||
-          newFilterMap[tableName]?.clauses.length === 0
+          (newFilterMap[tableName]?.clauses.length === 0 &&
+            !newFilterMap[tableName]?.index &&
+            newFilterMap[tableName]?.order === undefined)
         ) {
           delete query.filters;
         } else {
@@ -134,12 +136,17 @@ export const useTableFilters = (
         );
       }
     },
-    hasFilters: hasValidFilters(filterMap[tableName]),
+    hasFilters: hasValidEnabledFilters(filterMap[tableName]),
   };
 };
 
-function hasValidFilters(filters?: FilterExpression) {
-  return !!filters && filters.clauses.filter(isValidFilter).length > 0;
+function hasValidEnabledFilters(filters?: FilterExpression) {
+  return (
+    !!filters &&
+    (filters.clauses.filter(isValidFilter).filter((f) => f.enabled).length >
+      0 ||
+      (filters.index?.clauses.filter((f) => f.enabled).length ?? 0) > 0)
+  );
 }
 
 export function areAllFiltersValid(filters?: FilterExpression) {

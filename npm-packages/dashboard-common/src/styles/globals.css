@@ -193,6 +193,15 @@ html.dark {
   @apply bg-background-secondary !important;
 }
 
+.disabled .monaco-editor .monaco-editor-background,
+.disabled .margin {
+  @apply bg-background-tertiary !important;
+}
+
+.monaco-editor .hover-row.status-bar {
+  display: none;
+}
+
 .monaco-editor,
 .margin,
 .monaco-scrollable-element {

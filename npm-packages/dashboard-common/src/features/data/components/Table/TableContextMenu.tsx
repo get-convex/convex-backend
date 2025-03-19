@@ -453,7 +453,10 @@ function FilterWithSubmenu({
                   id: Math.random().toString(),
                   field: state.selectedCell?.column,
                   op: "eq",
-                  value: convexToJson(selectedValue),
+                  value:
+                    selectedValue === undefined
+                      ? undefined
+                      : convexToJson(selectedValue),
                 });
               }}
             />

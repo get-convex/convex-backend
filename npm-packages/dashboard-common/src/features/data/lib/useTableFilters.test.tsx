@@ -66,10 +66,12 @@ describe("useTableFilters", () => {
       useTableFilters("test", null),
     );
     const validFilters: FilterExpression = {
-      clauses: [{ op: "eq", field: "field1", id: "", value: "" }],
+      clauses: [
+        { op: "eq", field: "field1", id: "", value: "", enabled: true },
+      ],
     };
     const invalidFilters: FilterExpression = {
-      clauses: [{ op: "eq", field: undefined, id: "" }],
+      clauses: [{ op: "eq", field: undefined, id: "", enabled: true }],
     };
     const noFilters: FilterExpression = {
       clauses: [],

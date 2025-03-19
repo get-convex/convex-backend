@@ -63,7 +63,7 @@ function DataRowImpl(props: DataRowProps) {
   const { densityValues } = useTableDensity();
   return index >= data.rows.length ? (
     <div
-      className="ml-[1px] border-b"
+      className="ml-[1px]"
       style={{ ...style, height: densityValues.height }}
     >
       <Loading>

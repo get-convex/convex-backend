@@ -14,7 +14,8 @@ import udfs from "@common/udfs";
 import classNames from "classnames";
 import {
   Filter,
-  FilterExpression,
+  FilterByIndex,
+  FilterByIndexRange,
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Shape } from "shapes";
@@ -49,6 +50,7 @@ import {
   PanelGroup,
 } from "react-resizable-panels";
 import { cn } from "@common/lib/cn";
+import { useTableIndexes } from "@common/features/data/lib/api";
 
 export function DataContent({
   tableName,
@@ -65,6 +67,7 @@ export function DataContent({
     tableName,
     componentId,
   );
+
   const [draftFilters, setDraftFilters] = useState(filters);
   const [showFilters, setShowFilters] = useState(false);
   useEffect(() => {
@@ -77,11 +80,14 @@ export function DataContent({
     tableName,
     componentId,
   });
+
+  const hasFiltersAndAtLeastOneDocument =
+    hasFilters && numRowsInTable !== undefined && numRowsInTable > 0;
+
   const {
     status,
     loadNextPage,
     staleAsOf,
-    isUsingFilters,
     isLoading,
     data,
     errors,
@@ -149,7 +155,8 @@ export function DataContent({
       tableName,
     });
 
-  const allRowsSelected = allSelected === true && !hasFilters;
+  const allRowsSelected =
+    allSelected === true && !hasFiltersAndAtLeastOneDocument;
 
   const popupState = useToolPopup({
     addDocuments: (table, docs) => addDocuments(table, docs),
@@ -170,9 +177,13 @@ export function DataContent({
   const selectedDocumentId = rowsThatAreSelected.values().next().value;
   const selectedDocument = data.find((row) => row._id === selectedDocumentId);
   const defaultDocument = useDefaultDocument(tableName);
-  const changeFilterAndMaybeCloseThem = (newFilters: FilterExpression) => {
-    void changeFilters(newFilters);
-  };
+  const { indexes } = useTableIndexes(tableName);
+  const sortField =
+    (
+      indexes?.find((index) => index.name === filters?.index?.name)?.fields as
+        | string[]
+        | undefined
+    )?.[0] || "_creationTime";
 
   return (
     <PanelGroup
@@ -207,23 +218,25 @@ export function DataContent({
         />
 
         <div className="flex h-full flex-col rounded">
-          <DataFilters
-            tableName={tableName}
-            componentId={componentId}
-            tableFields={tableFields}
-            defaultDocument={defaultDocument}
-            filters={filters}
-            onChangeFilters={changeFilterAndMaybeCloseThem}
-            dataFetchErrors={errors}
-            draftFilters={draftFilters}
-            setDraftFilters={setDraftFilters}
-            activeSchema={activeSchema}
-            numRows={numRowsInTable}
-            numRowsLoaded={data.length}
-            hasFilters={hasFilters}
-            showFilters={showFilters}
-            setShowFilters={setShowFilters}
-          />
+          {numRowsInTable !== undefined && numRowsInTable > 0 && (
+            <DataFilters
+              tableName={tableName}
+              componentId={componentId}
+              tableFields={tableFields}
+              defaultDocument={defaultDocument}
+              filters={filters}
+              onChangeFilters={changeFilters}
+              dataFetchErrors={errors}
+              draftFilters={draftFilters}
+              setDraftFilters={setDraftFilters}
+              activeSchema={activeSchema}
+              numRows={numRowsInTable}
+              numRowsLoaded={data.length}
+              hasFilters={hasFiltersAndAtLeastOneDocument}
+              showFilters={showFilters}
+              setShowFilters={setShowFilters}
+            />
+          )}
 
           <LoadingTransition
             loadingState={
@@ -250,6 +263,10 @@ export function DataContent({
                     activeSchema={activeSchema}
                     listRef={listRef}
                     loadMore={loadNextPage}
+                    sort={{
+                      order: filters?.order || "desc",
+                      field: sortField,
+                    }}
                     totalRowCount={
                       router.query.filters
                         ? status === "Exhausted"
@@ -259,7 +276,7 @@ export function DataContent({
                             data.length + 1
                         : numRowsInTable
                     }
-                    hasFilters={hasFilters}
+                    hasFilters={hasFiltersAndAtLeastOneDocument}
                     patchDocument={patchDocumentField}
                     selectedRows={selectedRows}
                     areEditsAuthorized={areEditsAuthorized}
@@ -284,7 +301,7 @@ export function DataContent({
                     }}
                   />
                 </Sheet>
-              ) : isUsingFilters ? (
+              ) : hasFiltersAndAtLeastOneDocument ? (
                 isLoading ? (
                   <Sheet
                     className="flex w-full grow animate-fadeIn items-center justify-center rounded-t-none"
@@ -304,6 +321,22 @@ export function DataContent({
                       onClick={() =>
                         changeFilters({
                           clauses: [],
+                          index: {
+                            name: filters?.index?.name || "_creationTime",
+                            clauses: (filters?.index?.clauses.map((clause) => ({
+                              ...clause,
+                              enabled: false,
+                            })) as
+                              | FilterByIndex[]
+                              | [...FilterByIndex[], FilterByIndexRange]) || [
+                              {
+                                enabled: false,
+                                lowerOp: "lte",
+                                lowerValue: new Date().getTime(),
+                              },
+                            ],
+                          },
+                          order: filters?.order,
                         })
                       }
                       size="xs"

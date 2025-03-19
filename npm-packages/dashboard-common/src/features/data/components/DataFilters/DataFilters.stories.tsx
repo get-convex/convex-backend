@@ -1,15 +1,22 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { ConvexProvider } from "convex/react";
-import { ComponentProps } from "react";
+import { ComponentProps, useMemo } from "react";
 import udfs from "@common/udfs";
 import { DataFilters } from "@common/features/data/components/DataFilters/DataFilters";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
-import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import {
+  ConnectedDeploymentContext,
+  DeploymentInfoContext,
+} from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+
+// @ts-expect-error
+const deployment: ConnectedDeployment = {};
 
 const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.listById.default, ({ ids }) => ids.map(() => null))
-  .registerQueryFake(udfs.getVersion.default, () => "0.19.0");
+  .registerQueryFake(udfs.getVersion.default, () => "0.19.0")
+  .registerQueryFake(udfs.components.list, () => []);
 
 export default {
   component: DataFilters,
@@ -17,17 +24,23 @@ export default {
 } as Meta<typeof DataFilters>;
 
 function Example(args: ComponentProps<typeof DataFilters>) {
+  const connectedDeployment = useMemo(
+    () => ({ deployment, isDisconnected: false }),
+    [],
+  );
   return (
-    <ConvexProvider client={mockClient}>
-      <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-        <DataFilters
-          {...args}
-          filters={{ clauses: [] }}
-          // eslint-disable-next-line no-alert
-          onChangeFilters={() => alert("Filters applied!")}
-        />
-      </DeploymentInfoContext.Provider>
-    </ConvexProvider>
+    <ConnectedDeploymentContext.Provider value={connectedDeployment}>
+      <ConvexProvider client={mockClient}>
+        <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
+          <DataFilters
+            {...args}
+            filters={{ clauses: [] }}
+            // eslint-disable-next-line no-alert
+            onChangeFilters={() => alert("Filters applied!")}
+          />
+        </DeploymentInfoContext.Provider>
+      </ConvexProvider>
+    </ConnectedDeploymentContext.Provider>
   );
 }
 

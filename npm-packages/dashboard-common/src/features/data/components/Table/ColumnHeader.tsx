@@ -1,9 +1,9 @@
-import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
+import { CaretUpIcon, QuestionMarkCircledIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
 import { GenericDocument } from "convex/server";
 import { HeaderGroup } from "react-table";
 import { useDrop, useDrag } from "react-dnd";
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
@@ -13,6 +13,8 @@ import { emptyColumnName } from "@common/features/data/components/Table/utils/us
 import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
 import { columnWidthToString } from "@common/features/data/components/Table/DataRow";
 import { Tooltip } from "@common/elements/Tooltip";
+import { cn } from "@common/lib/cn";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 type ColumnHeaderProps = {
   column: HeaderGroup<GenericDocument>;
@@ -25,6 +27,7 @@ type ColumnHeaderProps = {
   isResizingColumn?: string;
   isLastColumn: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
+  sort?: "asc" | "desc";
 };
 
 export function ColumnHeader({
@@ -38,6 +41,7 @@ export function ColumnHeader({
   isResizingColumn,
   isLastColumn,
   openContextMenu,
+  sort,
 }: ColumnHeaderProps) {
   const canDragOrDrop = columnIndex !== 0 && !isResizingColumn;
 
@@ -57,6 +61,8 @@ export function ColumnHeader({
       }),
     () => {},
   );
+
+  const { enableIndexFilters } = useContext(DeploymentInfoContext);
 
   const { densityValues } = useTableDensity();
   const width = columnWidthToString(column.getHeaderProps().style?.width);
@@ -132,6 +138,16 @@ export function ColumnHeader({
               <QuestionMarkCircledIcon />
             </Tooltip>
           )}
+        {sort && enableIndexFilters && (
+          <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
+            <CaretUpIcon
+              className={cn(
+                "transition-all",
+                sort === "asc" ? "" : "rotate-180",
+              )}
+            />
+          </Tooltip>
+        )}
       </div>
     </div>
   );

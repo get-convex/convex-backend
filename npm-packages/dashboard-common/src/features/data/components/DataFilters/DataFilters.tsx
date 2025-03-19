@@ -3,6 +3,7 @@ import {
   ArrowRightIcon,
   CheckIcon,
   ExclamationTriangleIcon,
+  InfoCircledIcon,
   PlusIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
@@ -24,7 +25,7 @@ import {
   filterMenuId,
 } from "@common/features/data/components/DataFilters/FilterButton";
 import { ValidatorJSON, convexToJson } from "convex/values";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useMap } from "react-use";
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
@@ -34,6 +35,14 @@ import {
 } from "@common/features/data/components/Table/utils/validators";
 import { useFilterHistory } from "@common/features/data/lib/useTableFilters";
 import { cn } from "@common/lib/cn";
+import { useTableIndexes } from "@common/features/data/lib/api";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { IndexFilterState } from "./IndexFilterEditor";
+import {
+  IndexFilters,
+  DEFAULT_INDEX_NAME,
+  getDefaultIndexClause,
+} from "./IndexFilters";
 
 export function DataFilters({
   defaultDocument,
@@ -68,6 +77,7 @@ export function DataFilters({
   showFilters: boolean;
   setShowFilters: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+  const { indexes } = useTableIndexes(tableName);
   const {
     isDirty,
     hasInvalidFilters,
@@ -79,8 +89,10 @@ export function DataFilters({
     filterHistory,
     currentIdx,
     setCurrentIdx,
-    documentValidator,
     invalidFilters,
+    onChangeOrder,
+    getValidatorForField,
+    onChangeIndexFilter,
   } = useDataFilters({
     tableName,
     componentId,
@@ -93,6 +105,8 @@ export function DataFilters({
 
   const numRowsWeKnowOf = hasFilters ? numRowsLoaded : numRows;
 
+  const { enableIndexFilters } = useContext(DeploymentInfoContext);
+
   return (
     <form
       className="flex w-full flex-col gap-2 rounded-t border border-b-0 bg-background-secondary/50 p-2"
@@ -103,7 +117,12 @@ export function DataFilters({
         if (hasInvalidFilters) {
           return;
         }
-        onChangeFilters(draftFilters || { clauses: [] });
+        onChangeFilters(
+          draftFilters || {
+            clauses: [],
+            index: undefined,
+          },
+        );
       }}
       key={currentIdx}
     >
@@ -116,7 +135,7 @@ export function DataFilters({
                   size="xs"
                   variant="neutral"
                   className={cn(
-                    "rounded-r-none border border-r-0",
+                    "rounded-r-none border border-r-0 border-border-transparent dark:border-border-transparent",
                     showFilters && "rounded-b-none border-b-0",
                   )}
                   icon={<ArrowLeftIcon className="my-[1px]" />}
@@ -133,7 +152,7 @@ export function DataFilters({
                   size="xs"
                   variant="neutral"
                   className={cn(
-                    "rounded-none border border-x-0",
+                    "rounded-none border border-x-0 border-border-transparent dark:border-border-transparent",
                     showFilters && "border-b-0",
                   )}
                   icon={<ArrowRightIcon className="my-[1px]" />}
@@ -150,9 +169,6 @@ export function DataFilters({
               <FilterButton
                 filters={filters}
                 onClick={() => {
-                  if (!showFilters && shownFilters.clauses.length === 0) {
-                    onAddFilter(0);
-                  }
                   setShowFilters(!showFilters);
                 }}
                 open={showFilters}
@@ -186,36 +202,74 @@ export function DataFilters({
             )}
           </div>
         </div>
-        {showFilters && (
+        {indexes && showFilters && (
           <div className="w-full animate-fadeInFromLoading">
-            <div className="flex w-full flex-col gap-1 overflow-x-auto rounded rounded-tl-none border bg-background-secondary p-2 pb-2.5 scrollbar">
-              {shownFilters.clauses.map((clause, idx) => (
-                <FilterItem
-                  key={clause.id}
-                  idx={idx}
-                  autoFocusValueEditor={idx === shownFilters.clauses.length - 1}
-                  fields={tableFields}
-                  clause={clause}
+            <div className="flex w-full flex-col gap-2 overflow-x-auto rounded rounded-tl-none border bg-background-secondary p-2 pb-2.5 scrollbar">
+              {enableIndexFilters && (
+                <IndexFilters
+                  shownFilters={shownFilters}
                   defaultDocument={defaultDocument}
-                  onChangeFilter={onChangeFilter}
-                  onDeleteFilter={onDeleteFilter}
-                  onApplyFilters={() => {
-                    if (hasInvalidFilters) {
-                      return;
-                    }
-                    onChangeFilters(draftFilters || { clauses: [] });
-                  }}
-                  onError={onError}
-                  error={
-                    invalidFilters[idx]
-                      ? "Invalid syntax for filter value."
-                      : dataFetchErrors?.find((e) => e.filter === idx)?.error
-                  }
-                  documentValidator={documentValidator(clause.field)}
-                  shouldSurfaceValidatorErrors={activeSchema?.schemaValidation}
+                  indexes={indexes}
+                  tableName={tableName}
+                  activeSchema={activeSchema}
+                  getValidatorForField={getValidatorForField}
+                  onChangeFilters={onChangeFilters}
+                  setDraftFilters={setDraftFilters}
+                  onChangeOrder={onChangeOrder}
+                  onChangeIndexFilter={onChangeIndexFilter}
+                  onError={(...args) => onError("index", ...args)}
+                  hasInvalidFilters={hasInvalidFilters}
                 />
-              ))}
-              <div className="mt-1 flex items-center gap-1">
+              )}
+              {shownFilters.clauses.length > 0 && (
+                <div className="mt-2 flex flex-col gap-2">
+                  {enableIndexFilters && (
+                    <div className="flex items-center gap-1">
+                      <hr className="w-2" />{" "}
+                      <p className="flex items-center gap-1 text-xs text-content-secondary">
+                        Other Filters
+                        <Tooltip
+                          tip="Other filters are not indexed and are applied after the indexed filters. These filters are less efficient."
+                          side="right"
+                        >
+                          <InfoCircledIcon />
+                        </Tooltip>
+                      </p>{" "}
+                      <hr className="grow" />
+                    </div>
+                  )}
+                  {shownFilters.clauses.map((clause, idx) => (
+                    <FilterItem
+                      key={clause.id || idx}
+                      idx={idx}
+                      fields={tableFields}
+                      defaultDocument={defaultDocument}
+                      clause={clause}
+                      onChangeFilter={onChangeFilter}
+                      onDeleteFilter={onDeleteFilter}
+                      onApplyFilters={() => {
+                        if (hasInvalidFilters) {
+                          return;
+                        }
+                        onChangeFilters(shownFilters);
+                      }}
+                      onError={(...args) => onError("filter", ...args)}
+                      error={
+                        dataFetchErrors?.find((e) => e.filter === idx)?.error ||
+                        invalidFilters[`filter:${idx}`]
+                      }
+                      autoFocusValueEditor={
+                        idx === shownFilters.clauses.length - 1
+                      }
+                      documentValidator={getValidatorForField(clause.field)}
+                      shouldSurfaceValidatorErrors={
+                        activeSchema?.schemaValidation
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+              <div className="mt-2 flex items-center gap-1">
                 <Button
                   variant="neutral"
                   size="xs"
@@ -225,7 +279,7 @@ export function DataFilters({
                 >
                   Add filter
                 </Button>
-                {isDirty ? (
+                {isDirty || (dataFetchErrors && dataFetchErrors.length > 0) ? (
                   <Button
                     type="submit"
                     tip={
@@ -241,18 +295,19 @@ export function DataFilters({
                     Apply Filters
                   </Button>
                 ) : (
-                  <p className="ml-1 flex gap-0.5 text-xs font-medium text-content-secondary">
-                    <CheckIcon />
-                    Filters applied
-                  </p>
+                  hasFilters && (
+                    <p className="ml-1 flex gap-0.5 text-xs font-medium text-content-secondary">
+                      <CheckIcon />
+                      Filters applied
+                    </p>
+                  )
                 )}
                 {dataFetchErrors && dataFetchErrors.length > 0 && (
                   <p
                     className="h-4 break-words text-xs text-content-errorSecondary"
                     role="alert"
                   >
-                    These filters are invalid, fix or remove invalid filters to
-                    continue.
+                    {dataFetchErrors[0].error}
                   </p>
                 )}
               </div>
@@ -367,13 +422,29 @@ function useDataFilters({
 
   const isDirty = !isEqual(filters, draftFilters);
   const hasInvalidFilters =
-    Object.values(invalidFilters).filter((v) => v !== undefined).length > 0;
+    Object.entries(invalidFilters).filter(([k, v]) => {
+      if (v === undefined) {
+        return false;
+      }
+
+      const [namespace, idx] = k.split("/");
+      const clauses =
+        namespace === "filter"
+          ? draftFilters?.clauses
+          : draftFilters?.index?.clauses;
+      return clauses?.[Number(idx)]?.enabled;
+    }).length > 0;
 
   const shownFilters = useMemo(
     () =>
-      (draftFilters?.clauses.length ?? 0) === 0
-        ? { clauses: [] }
-        : draftFilters!,
+      draftFilters ??
+      ({
+        clauses: [],
+        index: {
+          name: DEFAULT_INDEX_NAME,
+          clauses: [getDefaultIndexClause()],
+        },
+      } as FilterExpression),
     [draftFilters],
   );
 
@@ -408,22 +479,34 @@ function useDataFilters({
     [shownFilters, setDraftFilters],
   );
 
+  const onChangeIndexFilter = useCallback(
+    (filter: IndexFilterState, idx: number) => {
+      const newFilters = cloneDeep(shownFilters);
+      if (!newFilters.index) {
+        throw new Error("Index not found");
+      }
+      newFilters.index.clauses[idx] = filter;
+      setDraftFilters(newFilters);
+    },
+    [shownFilters, setDraftFilters],
+  );
   const onDeleteFilter = useCallback(
     (idx: number) => {
+      setInvalidFilters(idx, undefined);
       const newFilters = {
         ...shownFilters,
         clauses: [
           ...shownFilters.clauses.slice(0, idx),
           ...shownFilters.clauses.slice(idx + 1),
         ],
-      };
-      if (newFilters.clauses.length === 0) {
-        onChangeFilters({ clauses: [] });
-      } else {
-        setDraftFilters(newFilters);
-      }
+        index: shownFilters.index || {
+          name: DEFAULT_INDEX_NAME,
+          clauses: [getDefaultIndexClause()],
+        },
+      } as FilterExpression;
+      setDraftFilters(newFilters);
     },
-    [shownFilters, setDraftFilters, onChangeFilters],
+    [shownFilters, setDraftFilters, setInvalidFilters],
   );
 
   const onAddFilter = useCallback(
@@ -435,15 +518,22 @@ function useDataFilters({
           generateNewFilter(),
           ...shownFilters.clauses.slice(idx),
         ],
-      };
+        index: shownFilters.index || {
+          name: DEFAULT_INDEX_NAME,
+          clauses: [getDefaultIndexClause()],
+        },
+      } as FilterExpression;
       setDraftFilters(newFilters);
     },
     [shownFilters, setDraftFilters],
   );
 
   const onError = useCallback(
-    (idx: number, errors: string[]) => {
-      setInvalidFilters(idx, errors.length || undefined);
+    (namespace: "filter" | "index", idx: number, errors: string[]) => {
+      setInvalidFilters(
+        `${namespace}/${idx}`,
+        errors.length ? errors[0] : undefined,
+      );
     },
     [setInvalidFilters],
   );
@@ -466,6 +556,22 @@ function useDataFilters({
     [documentValidator, tableName],
   );
 
+  const onChangeOrder = useCallback(
+    (newOrder: "asc" | "desc") => {
+      const newFilters = {
+        ...shownFilters,
+        clauses: shownFilters.clauses.map((filter, idx) => ({
+          ...filter,
+          enabled: invalidFilters[`filter:${idx}`] ? false : filter.enabled,
+        })),
+        order: newOrder,
+      };
+      setDraftFilters(newFilters);
+      onChangeFilters(newFilters);
+    },
+    [shownFilters, setDraftFilters, onChangeFilters, invalidFilters],
+  );
+
   return {
     isDirty,
     hasInvalidFilters,
@@ -478,6 +584,8 @@ function useDataFilters({
     filterHistory,
     currentIdx,
     setCurrentIdx,
-    documentValidator: getValidatorForField,
+    onChangeOrder,
+    getValidatorForField,
+    onChangeIndexFilter,
   };
 }

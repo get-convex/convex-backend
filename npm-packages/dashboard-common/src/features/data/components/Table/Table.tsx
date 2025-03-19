@@ -78,6 +78,7 @@ export function Table({
   deleteRows,
   onAddDraftFilter,
   defaultDocument,
+  sort,
 }: {
   activeSchema: SchemaJson | null;
   areEditsAuthorized: boolean;
@@ -99,6 +100,10 @@ export function Table({
   deleteRows: (rowIds: Set<string>) => Promise<void>;
   onAddDraftFilter: (newFilter: Filter) => void;
   defaultDocument: GenericDocument;
+  sort: {
+    order: "asc" | "desc";
+    field: string;
+  };
 }) {
   const { useCurrentDeployment, useHasProjectAdminPermissions } = useContext(
     DeploymentInfoContext,
@@ -246,6 +251,7 @@ export function Table({
                 toggleAll={toggleAll}
                 topBorderAnimation={topBorderAnimation}
                 openContextMenu={openContextMenu}
+                sort={sort}
               />
               {/* Body */}
               <div

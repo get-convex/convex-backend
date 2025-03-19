@@ -13,6 +13,8 @@ type DateTimePickerProps = {
   onChange: (date: Date) => void;
   minDate?: Date;
   maxDate?: Date;
+  disabled?: boolean;
+  className?: string;
 };
 
 export function DateTimePicker({
@@ -20,6 +22,8 @@ export function DateTimePicker({
   onChange,
   minDate,
   maxDate,
+  disabled = false,
+  className,
 }: DateTimePickerProps) {
   const [open, setOpen] = useState(false);
   const [dateTime, setDateTime] = useState(date);
@@ -125,6 +129,12 @@ export function DateTimePicker({
     };
   }, [open]);
 
+  const handleFocus = () => {
+    if (!disabled) {
+      setOpen(true);
+    }
+  };
+
   return (
     <div ref={wrapperRef}>
       <TextInput
@@ -134,19 +144,20 @@ export function DateTimePicker({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onBlur={handleTextInputBlur}
-        onFocus={() => setOpen(true)}
+        onFocus={handleFocus}
         labelHidden
         aria-label="Date and time"
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="rounded-none"
+        className={cn("rounded-none", className, open && "z-20")}
         size="sm"
+        disabled={disabled}
       />
       <div
         ref={popoverRef}
         className={cn(
           "z-50 bg-background-secondary shadow-md border rounded-lg p-2 flex flex-col",
-          open ? "block" : "hidden",
+          open && !disabled ? "block" : "hidden",
         )}
         {...attributes.popper}
         style={styles.popper}

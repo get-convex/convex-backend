@@ -56,7 +56,7 @@ export function CellEditor({
       {/* Monaco editor cannot show a placeholder, so render our own. */}
       {!innerText && editedValue === UNDEFINED_PLACEHOLDER && !error && (
         <div
-          className="absolute z-50 font-mono text-xs italic text-content-secondary"
+          className="pointer-events-none absolute z-50 font-mono text-xs italic text-content-secondary"
           data-testid="undefined-placeholder"
           style={{
             top: densityValues.paddingY + 2,

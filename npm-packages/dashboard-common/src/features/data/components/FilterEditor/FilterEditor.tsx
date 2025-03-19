@@ -2,7 +2,7 @@ import { BackspaceIcon } from "@heroicons/react/24/outline";
 import { GenericDocument } from "convex/server";
 import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
-import React, { useCallback, useReducer } from "react";
+import React, { useCallback, useReducer, useState } from "react";
 import {
   Filter,
   FilterByBuiltin,
@@ -18,6 +18,8 @@ import { Button } from "@common/elements/Button";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
 import { Checkbox } from "@common/elements/Checkbox";
 import { Tooltip } from "@common/elements/Tooltip";
+import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
+import { cn } from "@common/lib/cn";
 
 export const operatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]
@@ -124,6 +126,7 @@ export function FilterEditor({
       </Tooltip>
       <Combobox
         label="Select filter field"
+        disabled={state.enabled === false}
         size="sm"
         optionsWidth="fixed"
         buttonClasses="min-w-fit w-fit max-w-[7rem] truncate"
@@ -145,6 +148,7 @@ export function FilterEditor({
       <Combobox
         label="Select filter operator"
         searchPlaceholder="Search operators..."
+        disabled={state.enabled === false}
         size="sm"
         optionsWidth="fixed"
         buttonClasses="w-fit"
@@ -210,12 +214,15 @@ function ValueEditor({
   const isDatepicker =
     state.field === "_creationTime" && typeof state.value === "number";
 
+  const [innerText, setInnerText] = useState("");
+
   return (
     <div className="ml-[-1px] min-w-0 grow focus-within:z-20">
       {isTypeFilterOp(state.op) ? (
         <Combobox
           searchPlaceholder="Search types..."
           label="Select type value"
+          disabled={state.enabled === false}
           buttonClasses="w-full rounded-l-none rounded-r-none"
           innerButtonClasses="w-full rounded-r-none rounded-l-none"
           size="sm"
@@ -232,30 +239,53 @@ function ValueEditor({
             // Convert to date from Unix timestamp, defaulting to now.
             typeof state.value === "number" ? new Date(state.value) : new Date()
           }
+          disabled={state.enabled === false}
           onChange={(date) => {
             // Change back to Unix timestamp.
             dispatch({ value: date?.getTime() });
           }}
         />
       ) : (
-        <ObjectEditor
-          key={objectEditorKey}
-          className="min-w-4 rounded-none border focus-within:border focus-within:border-border-selected"
-          editorClassname="px-2 py-1 mt-0 rounded bg-background-secondary rounded-l-none rounded-r-none"
-          size="sm"
-          disableFolding
-          defaultValue={state.value}
-          onChange={onChangeValue}
-          onError={onError}
-          path={`filter${id}`}
-          autoFocus={autoFocus}
-          disableFind
-          saveAction={onApplyFilters}
-          enterSaves
-          mode="editField"
-          validator={validator}
-          shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
-        />
+        <>
+          {innerText === "" && state.value === UNDEFINED_PLACEHOLDER && (
+            <div
+              className="pointer-events-none absolute z-50 font-mono text-xs italic text-content-secondary"
+              data-testid="undefined-placeholder"
+              style={{
+                marginTop: "5px",
+                marginLeft: "11px",
+              }}
+            >
+              unset
+            </div>
+          )}
+          <ObjectEditor
+            key={objectEditorKey}
+            className={cn(
+              "min-w-4 rounded-none border focus-within:border focus-within:border-border-selected",
+              state.enabled !== false && "border-x-transparent",
+            )}
+            editorClassname="px-2 py-1 mt-0 rounded bg-background-secondary rounded-l-none rounded-r-none"
+            allowTopLevelUndefined
+            disabled={state.enabled === false}
+            onChangeInnerText={setInnerText}
+            size="sm"
+            disableFolding
+            defaultValue={
+              state.value === UNDEFINED_PLACEHOLDER ? undefined : state.value
+            }
+            onChange={onChangeValue}
+            onError={onError}
+            path={`filter${id}`}
+            autoFocus={autoFocus}
+            disableFind
+            saveAction={onApplyFilters}
+            enterSaves
+            mode="editField"
+            validator={validator}
+            shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
+          />
+        </>
       )}
     </div>
   );
@@ -284,16 +314,17 @@ const selectField =
       // Switching to creation time should always set the value to the current time.
       clearErrors();
       dispatch({ field: option, op: "lte", value: Date.now() });
+      clearErrors();
     } else {
       // Switching to any other field should set the value to the default value for that field.
-      let newValue = state.value !== undefined ? state.value : null;
+      let newValue = state.value !== undefined ? state.value : undefined;
       if (isTypeFilterOp(state.op)) {
         newValue =
           option in defaultDocument ? typeOf(defaultDocument[option]) : "unset";
       } else {
         // If we're switching to a builtin filter, try to use the default value from the document.
         const defaultFilterValue =
-          option in defaultDocument ? defaultDocument[option] : null;
+          option in defaultDocument ? defaultDocument[option] : undefined;
 
         // The value might already be of the correct type.
         if (typeOf(defaultFilterValue) !== typeOf(newValue)) {

@@ -15,6 +15,7 @@ export function TableHeader({
   topBorderAnimation,
   reorder,
   openContextMenu,
+  sort,
 }: {
   reorder(item: { index: number }, newIndex: number): void;
   headerGroups: HeaderGroup<GenericDocument>[];
@@ -25,6 +26,10 @@ export function TableHeader({
   toggleAll: () => void;
   topBorderAnimation: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
+  sort: {
+    order: "asc" | "desc";
+    field: string;
+  };
 }) {
   return (
     <div className="group">
@@ -50,6 +55,7 @@ export function TableHeader({
               isSelectionExhaustive={isSelectionExhaustive}
               toggleAll={toggleAll}
               openContextMenu={openContextMenu}
+              sort={sort.field === column.Header ? sort.order : undefined}
             />
           ))}
         </div>
