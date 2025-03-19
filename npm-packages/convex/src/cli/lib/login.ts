@@ -472,9 +472,23 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
   return true;
 }
 
-export async function ensureLoggedIn(ctx: Context) {
+export async function ensureLoggedIn(
+  ctx: Context,
+  options?: {
+    overrideAuthUrl?: string;
+    overrideAuthClient?: string;
+    overrideAuthUsername?: string;
+    overrideAuthPassword?: string;
+  },
+) {
   const isLoggedIn = await checkAuthorization(ctx, false);
   if (!isLoggedIn) {
-    await performLogin(ctx, { acceptOptIns: false });
+    await performLogin(ctx, {
+      acceptOptIns: false,
+      overrideAuthUrl: options?.overrideAuthUrl,
+      overrideAuthClient: options?.overrideAuthClient,
+      overrideAuthUsername: options?.overrideAuthUsername,
+      overrideAuthPassword: options?.overrideAuthPassword,
+    });
   }
 }

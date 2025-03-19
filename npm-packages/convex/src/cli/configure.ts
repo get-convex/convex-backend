@@ -84,6 +84,10 @@ type ConfigureCmdOptions = {
   url?: string | undefined;
   adminKey?: string | undefined;
   envFile?: string | undefined;
+  overrideAuthUrl?: string | undefined;
+  overrideAuthClient?: string | undefined;
+  overrideAuthUsername?: string | undefined;
+  overrideAuthPassword?: string | undefined;
 };
 
 /**
@@ -141,7 +145,12 @@ export async function deploymentCredentialsOrConfigure(
           deploymentSelection.deploymentToActOn.deploymentFields,
       };
     case "chooseProject": {
-      await ensureLoggedIn(ctx);
+      await ensureLoggedIn(ctx, {
+        overrideAuthUrl: cmdOptions.overrideAuthUrl,
+        overrideAuthClient: cmdOptions.overrideAuthClient,
+        overrideAuthUsername: cmdOptions.overrideAuthUsername,
+        overrideAuthPassword: cmdOptions.overrideAuthPassword,
+      });
       return await handleChooseProject(
         ctx,
         chosenConfiguration,
@@ -159,7 +168,12 @@ export async function deploymentCredentialsOrConfigure(
         printedMessage: "Use `npx convex deploy` to use preview deployments.",
       });
     case "deploymentWithinProject": {
-      await ensureLoggedIn(ctx);
+      await ensureLoggedIn(ctx, {
+        overrideAuthUrl: cmdOptions.overrideAuthUrl,
+        overrideAuthClient: cmdOptions.overrideAuthClient,
+        overrideAuthUsername: cmdOptions.overrideAuthUsername,
+        overrideAuthPassword: cmdOptions.overrideAuthPassword,
+      });
       const projectSlugs = await checkAccessToSelectedProject(
         ctx,
         deploymentSelection.targetProject,
@@ -252,7 +266,12 @@ async function handleChooseProject(
     };
   }
 > {
-  await ensureLoggedIn(ctx);
+  await ensureLoggedIn(ctx, {
+    overrideAuthUrl: cmdOptions.overrideAuthUrl,
+    overrideAuthClient: cmdOptions.overrideAuthClient,
+    overrideAuthUsername: cmdOptions.overrideAuthUsername,
+    overrideAuthPassword: cmdOptions.overrideAuthPassword,
+  });
   const project = await selectProject(ctx, chosenConfiguration, {
     team: cmdOptions.team,
     project: cmdOptions.project,
