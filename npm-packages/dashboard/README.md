@@ -23,7 +23,7 @@ $ npx vercel link
 Vercel CLI 30.2.3
 > > No existing credentials found. Please log in:
 ? Log in to Vercel github
-> Success! GitHub authentication complete for nicolas.ettlin@me.com
+> Success! GitHub authentication complete for nicolas@convex.dev
 ? Set up “~/Documents/convex-alt/npm-packages/dashboard”? [Y/n] y
 ? Which scope should contain your project? Convex
 ? Found project “convex-dev/dashboard”. Link to it? [Y/n] y
