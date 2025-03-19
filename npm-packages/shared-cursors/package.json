@@ -13,7 +13,7 @@
     "react-dom": "^18.0.0",
     "convex": "workspace:*",
     "uplot": "^1.6.20",
-    "prettier": "3.4.2"
+    "prettier": "3.5.1"
   },
   "devDependencies": {
     "@types/node": "^18.17.0",

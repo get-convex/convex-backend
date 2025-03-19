@@ -69,7 +69,7 @@
     "@convex-dev/eslint-plugin": "workspace:*",
     "@eslint/js": "~9.19.0",
     "@types/node": "^18.17.0",
-    "prettier": "3.4.2",
+    "prettier": "3.5.1",
     "typescript": "~5.0.3",
     "typescript-eslint": "~8.17.0"
   },

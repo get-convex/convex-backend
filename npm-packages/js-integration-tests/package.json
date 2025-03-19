@@ -11,7 +11,7 @@
     "js-sha256": "~0.11.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "prettier": "3.4.2"
+    "prettier": "3.5.1"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.14.7",

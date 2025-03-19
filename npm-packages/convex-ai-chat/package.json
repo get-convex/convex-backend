@@ -42,7 +42,7 @@
     "langchain": "^0.3.0",
     "openai": "^4.6.0",
     "modern-async": "^1.1.4",
-    "prettier": "3.4.2"
+    "prettier": "3.5.1"
   },
   "peerDependencies": {
     "convex": "workspace:*",
