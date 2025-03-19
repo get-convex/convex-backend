@@ -3000,8 +3000,8 @@ importers:
         specifier: ^10.14.0
         version: 10.17.0
       twilio:
-        specifier: ^4.22.0
-        version: 4.23.0
+        specifier: ^5.0.0
+        version: 5.5.0
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -18838,6 +18838,11 @@ packages:
     resolution: {integrity: sha512-BR7VvDCVHO+q2xBEWskxS6DJE1qRnb7DxzUrogb71CWoSficBxYsiAGd+Kl0mmq/MprG9yArRkyrQxTO6XjMzA==}
     hasBin: true
 
+  semver@7.3.5:
+    resolution: {integrity: sha512-PoeGJYh8HK4BTO/a9Tf6ZG3veo/A7ZVsYrSA6J8ny9nb3B1VrpkuN+z9OE5wfE5p6H4LchYZsegiQgbJD94ZFQ==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   semver@7.6.3:
     resolution: {integrity: sha512-oVekP1cKtI+CTDvHWYFUcMtsK/00wmAEfyqKfNdARm8u1wNVhSgaX7A8d4UuIlUI5e84iEwOhs7ZPYRmzU9U6A==}
     engines: {node: '>=10'}
@@ -19968,8 +19973,8 @@ packages:
   tweetnacl@0.14.5:
     resolution: {integrity: sha512-KXXFFdAbFXY4geFIwoyNK+f5Z1b7swfXABfL7HXCmoIWMKU3dmS26672A4EeQtDzLKy7SXmfBu51JolvEKwtGA==}
 
-  twilio@4.23.0:
-    resolution: {integrity: sha512-LdNBQfOe0dY2oJH2sAsrxazpgfFQo5yXGxe96QA8UWB5uu+433PrUbkv8gQ5RmrRCqUTPQ0aOrIyAdBr1aB03Q==}
+  twilio@5.5.0:
+    resolution: {integrity: sha512-iyI9kP3ZSrffUb9XApRNd35MMsV4Yp3OZM3Ewg7JNt5FvscsZZel/vCaxTlJ9D5kss0FKdeeu2c+GnaUK6Z1VA==}
     engines: {node: '>=14.0'}
 
   typanion@3.14.0:
@@ -42273,6 +42278,10 @@ snapshots:
 
   semver@6.3.1: {}
 
+  semver@7.3.5:
+    dependencies:
+      lru-cache: 6.0.0
+
   semver@7.6.3: {}
 
   send@0.19.0:
@@ -43861,15 +43870,14 @@ snapshots:
 
   tweetnacl@0.14.5: {}
 
-  twilio@4.23.0:
+  twilio@5.5.0:
     dependencies:
       axios: 1.8.3
       dayjs: 1.11.13
       https-proxy-agent: 5.0.1(supports-color@10.0.0)
       jsonwebtoken: 9.0.2
-      qs: 6.13.1
+      qs: 6.14.0
       scmp: 2.1.0
-      url-parse: 1.5.10
       xmlbuilder: 13.0.2
     transitivePeerDependencies:
       - debug

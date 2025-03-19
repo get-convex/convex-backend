@@ -37,7 +37,7 @@
     "esbuild": "0.25.1",
     "googleapis": "^144.0.0",
     "stripe": "^10.14.0",
-    "twilio": "^4.22.0",
+    "twilio": "^5.0.0",
     "typescript": "~5.0.3",
     "undici": "7.3.0",
     "vitest": "^1.6.1",
