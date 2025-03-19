@@ -255,7 +255,34 @@ impl IntoResponse for HttpActionResponse {
     fn into_response(self) -> Response {
         let status = self.status;
         let headers = self.headers;
-        let body = Body::from_stream(self.body);
+        let length: Option<u64> = headers
+            .get("content-length")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.parse().ok());
+        let body = Body::from_stream(stream_with_content_length(self.body, length));
         (status, headers, body).into_response()
+    }
+}
+
+#[try_stream(ok=Bytes, error=anyhow::Error)]
+pub async fn stream_with_content_length(
+    stream: BoxStream<'static, Result<Bytes, anyhow::Error>>,
+    length: Option<u64>,
+) {
+    let mut stream = Box::pin(stream.peekable());
+    let mut length_returned = 0;
+    while let Some(chunk) = stream.try_next().await? {
+        length_returned += chunk.len() as u64;
+        if let Some(length) = length
+            && length_returned >= length
+        {
+            // Once `hyper` receives enough bytes to match 'Content-Length'
+            // bytes, it will stop polling this stream, so we need to peek at
+            // the underlying stream to ensure that it can do any cleanup it
+            // needs to do.
+            // Note: this peek will probably return `None`.
+            stream.as_mut().peek().await;
+        }
+        yield chunk;
     }
 }
