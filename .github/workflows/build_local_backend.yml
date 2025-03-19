@@ -22,7 +22,7 @@ jobs:
       # Label used to access service container
       postgres:
         # Docker Hub image
-        image: bitnami/postgresql:13
+        image: mirror.gcr.io/bitnami/postgresql:13
         # Provide the password for postgres
         env:
           POSTGRESQL_PASSWORD: postgres
@@ -38,7 +38,7 @@ jobs:
 
       mysql:
         # Docker Hub image
-        image: mysql:8.4.1-oracle@sha256:a7dc4a4e07a9c5d53c0cf36b5b4e8a1b3bb677cb0d544256a0581114a93ddf0f
+        image: public.ecr.aws/docker/library/mysql:8.4.1-oracle@sha256:a7dc4a4e07a9c5d53c0cf36b5b4e8a1b3bb677cb0d544256a0581114a93ddf0f
         # Provide the password for mysql
         env:
           MYSQL_ALLOW_EMPTY_PASSWORD: 1
