@@ -84,18 +84,19 @@ const config = {
             position: "left",
           },
           {
+            href: "https://dashboard.convex.dev",
+            label: "Dashboard",
+            position: "right",
+            className: "convex-dashboard-button",
+          },
+          {
             href: "https://stack.convex.dev/",
             label: "Blog",
             position: "right",
           },
           {
-            href: "https://convex.dev/releases",
-            label: "Releases",
-            position: "right",
-          },
-          {
             href: "https://github.com/get-convex",
-            label: "Examples",
+            label: "GitHub",
             position: "right",
             className: "convex-github-logo convex-icon-link",
           },
@@ -109,6 +110,10 @@ const config = {
       },
       footer: {
         links: [
+          {
+            href: "https://convex.dev/releases",
+            label: "Releases",
+          },
           {
             label: "GitHub",
             href: "https://github.com/get-convex",

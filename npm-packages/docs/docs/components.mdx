@@ -23,16 +23,48 @@ backend. You'll eventually be able to author your own components to use within
 your project and to share with the community, but we haven't stabilized and
 documented the authoring APIs yet.
 
-We've listed components built by the Convex team below. Each component is
-installed as its own independent library from NPM. Check out the component's
-README for installation and usage instructions. You can see the full directory
-on the [Convex website](https://convex.dev/components).
+Each component is installed as its own independent library from NPM. Check out
+the component's README for installation and usage instructions. You can see the
+full directory on the [Convex website](https://convex.dev/components).
 
-<Admonition type="caution" title="The component authoring APIs are in Beta">
-  The underlying authoring APIs for components are still in flux. The Convex
-  team authored components listed below will be kept up to date as the APIs
-  change.
-</Admonition>
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "https://convex.dev/components",
+    label: "Full Components Directory",
+  }}
+/>
+
+## Durable Functions
+
+<ComponentCardList
+  items={[
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/workpool",
+      label: "Workpool",
+      description: "Async work queues",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/crons",
+      label: "Crons",
+      description: "Schedule crons at runtime",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/workflow",
+      label: "Workflow (Beta)",
+      description: "Manage long-running code flows",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/retrier",
+      label: "Action Retrier",
+      description: "Retry failed external calls automatically",
+    },
+  ]}
+/>
 
 ## Database
 
@@ -42,69 +74,25 @@ on the [Convex website](https://convex.dev/components).
       type: "link",
       href: "https://www.convex.dev/components/sharded-counter",
       label: "Sharded Counter",
-      description: "High throughput counter",
+      description: "High-throughput counter operations",
     },
     {
       type: "link",
       href: "https://www.convex.dev/components/migrations",
       label: "Migrations",
-      description: "Manage live site migrations",
+      description: "Manage live data migrations",
     },
     {
       type: "link",
       href: "https://www.convex.dev/components/aggregate",
       label: "Aggregate",
-      description: "Efficient sums, counts, randomization and more",
+      description: "Efficient sums and counts",
     },
     {
       type: "link",
       href: "https://www.convex.dev/components/geospatial",
       label: "Geospatial (Beta)",
-      description: "Efficiently store and query points on the Earth's surface",
-    },
-  ]}
-/>
-
-## Durable Functions
-
-<ComponentCardList
-  items={[
-    {
-      type: "link",
-      href: "https://www.convex.dev/components/crons",
-      label: "Runtime Crons",
-      description: "Register crons programmatically",
-    },
-    {
-      type: "link",
-      href: "https://www.convex.dev/components/workflow",
-      label: "Workflow (Beta)",
-      description: "Simplify long running code flows",
-    },
-    {
-      type: "link",
-      href: "https://www.convex.dev/components/retrier",
-      label: "Action Retrier",
-      description: "Retry idempotent external calls",
-    },
-  ]}
-/>
-
-## Backend
-
-<ComponentCardList
-  items={[
-    {
-      type: "link",
-      href: "https://www.convex.dev/components/rate-limiter",
-      label: "Rate Limiter",
-      description: "Limit how often a resource is used",
-    },
-    {
-      type: "link",
-      href: "https://www.convex.dev/components/action-cache",
-      label: "Action Cache",
-      description: "Cache repeated external calls",
+      description: "Query points on a map",
     },
   ]}
 />
@@ -115,24 +103,67 @@ on the [Convex website](https://convex.dev/components).
   items={[
     {
       type: "link",
-      href: "https://www.convex.dev/components/twilio",
-      label: "Twilio SMS",
-      description: "Send SMS and query status",
+      href: "https://www.convex.dev/components/cloudflare-r2",
+      label: "Cloudflare R2",
+      description: "Store and serve files",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/prosemirror-sync",
+      label: "Collaborative Text Editor Sync",
+      description: "Real-time collaborative text editing",
     },
     {
       type: "link",
       href: "https://www.convex.dev/components/push-notifications",
       label: "Expo Push Notifications",
-      description: "Manage mobile push notifications",
+      description: "Send mobile push notifications",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/twilio",
+      label: "Twilio SMS",
+      description: "Send and receive SMS messages",
     },
     {
       type: "link",
       href: "https://www.convex.dev/components/launchdarkly",
-      label: "LaunchDarkly feature flags",
-      description: "Sync flags from LaunchDarkly",
+      label: "LaunchDarkly Feature Flags",
+      description: "Sync feature flags with backend",
     },
   ]}
 />
+
+## Backend
+
+<ComponentCardList
+  items={[
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/persistent-text-streaming",
+      label: "Persistent Text Streaming",
+      description: "Stream and store text data",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/rate-limiter",
+      label: "Rate Limiter",
+      description: "Control resource usage rates",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/action-cache",
+      label: "Action Cache",
+      description: "Cache expensive external calls",
+    },
+  ]}
+/>
+
+<Admonition type="caution" title="The component authoring APIs are in Beta">
+  The underlying authoring APIs for components are still in flux. The Convex
+  team authored components listed below will be kept up to date as the APIs
+  change.
+</Admonition>
 
 ## Understanding Components
 
@@ -151,7 +182,7 @@ webhooks. Components can store data in a few ways:
 - Database tables with their own schema validation definitions. Since Convex is
   realtime by default, data reads are automatically reactive, and writes commit
   transactionally.
-- File storage, independent of the main app’s file storage.
+- File storage, independent of the main app's file storage.
 - Durable functions via the built-in function scheduler. Components can reliably
   schedule functions to run in the future and pass along state.
 
@@ -165,20 +196,20 @@ Similar to regular npm libraries, Convex Components include functions, type
 safety, and are called from your code. However, they also provide extra
 guarantees.
 
-- Similar to a third-party API, components can’t read data for which you don’t
+- Similar to a third-party API, components can't read data for which you don't
   provide access. This includes database tables, file storage, environment
   variables, scheduled functions, etc.
 - Similar to service-oriented architecture, functions in components are run in
-  an isolated environment, so they can’t read or write global variables or patch
+  an isolated environment, so they can't read or write global variables or patch
   system behavior.
 - Similar to a monolith architecture, data changes commit transactionally across
   calls to components, without having to reason about complicated distributed
-  commit protocols or data inconsistencies. You’ll never have a component commit
+  commit protocols or data inconsistencies. You'll never have a component commit
   data but have the calling code roll back.
 - In addition, each mutation call to a component is a sub-mutation isolated from
   other calls, allowing you to safely catch errors thrown by components. It also
   allows component authors to easily reason about state changes without races,
-  and trust that a thrown exception will always roll back the Component’s
+  and trust that a thrown exception will always roll back the Component's
   sub-mutation. [Read more](/docs/components/using.mdx#transactions).
 
 ### Encapsulation

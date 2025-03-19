@@ -202,6 +202,21 @@ for when the whole page is scrolled down */
     display: none;
   }
 
+  .navbar__items .convex-dashboard-button {
+    border-radius: 6px;
+    padding: 0.35rem 0.5rem 0.25rem 0.5rem;
+    background-color: var(--ifm-navbar-link-color);
+    color: var(--ifm-toc-border-color);
+  }
+
+  .navbar__items .convex-dashboard-button:hover {
+    background-color: var(--ifm-navbar-link-hover-color);
+  }
+
+  .convex-dashboard-button svg {
+    display: none;
+  }
+
   .navbar__items .convex-github-logo {
     mask: url("../../static/img/github-logo.svg") no-repeat center;
   }
