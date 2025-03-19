@@ -40,5 +40,10 @@ pub mod usage {
     include!(concat!(env!("OUT_DIR"), "/usage.rs"));
 }
 
-pub const FILE_DESCRIPTOR_BYTES: &[u8] =
-    include_bytes!(concat!(env!("OUT_DIR"), "/descriptors.bin"));
+use std::sync::LazyLock;
+
+use prost_reflect::DescriptorPool;
+
+const FILE_DESCRIPTOR_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptors.bin"));
+pub static DESCRIPTOR_POOL: LazyLock<DescriptorPool> =
+    LazyLock::new(|| DescriptorPool::decode(FILE_DESCRIPTOR_BYTES).unwrap());

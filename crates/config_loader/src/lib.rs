@@ -146,9 +146,11 @@ mod tests {
         FutureExt,
         StreamExt,
     };
-    use pb::common::RedactedLogLines;
+    use pb::{
+        common::RedactedLogLines,
+        DESCRIPTOR_POOL,
+    };
     use prost_reflect::{
-        DescriptorPool,
         DynamicMessage,
         MessageDescriptor,
     };
@@ -160,8 +162,6 @@ mod tests {
         ConfigLoader,
     };
 
-    static DESCRIPTOR_POOL: LazyLock<DescriptorPool> =
-        LazyLock::new(|| DescriptorPool::decode(pb::FILE_DESCRIPTOR_BYTES).unwrap());
     static CONFIG_DESCRIPTOR: LazyLock<MessageDescriptor> = LazyLock::new(|| {
         DESCRIPTOR_POOL
             .get_message_by_name("common.RedactedLogLines")

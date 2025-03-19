@@ -116,10 +116,17 @@ pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static st
         ));
     }
 
-    lib_file_contents.push_str(&format!(
-        "\npub const FILE_DESCRIPTOR_BYTES: &[u8] =\n    \
-         include_bytes!(concat!(env!(\"OUT_DIR\"), \"/descriptors.bin\"));\n"
-    ));
+    lib_file_contents.push_str(
+        r#"
+use std::sync::LazyLock;
+
+use prost_reflect::DescriptorPool;
+
+const FILE_DESCRIPTOR_BYTES: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/descriptors.bin"));
+pub static DESCRIPTOR_POOL: LazyLock<DescriptorPool> =
+    LazyLock::new(|| DescriptorPool::decode(FILE_DESCRIPTOR_BYTES).unwrap());
+"#,
+    );
 
     let out_file = Path::new("src/lib.rs");
     if fs::read_to_string(out_file)? != lib_file_contents {
