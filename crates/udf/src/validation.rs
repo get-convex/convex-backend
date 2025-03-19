@@ -587,8 +587,7 @@ impl TryFrom<ValidatedPathAndArgs> for pb::common::ValidatedPathAndArgs {
             npm_version,
         }: ValidatedPathAndArgs,
     ) -> anyhow::Result<Self> {
-        let args_json = JsonValue::from(args);
-        let args = serde_json::to_vec(&args_json)?;
+        let args = args.json_serialize()?.into_bytes();
         let component_path = path
             .component_path
             .map(|component_path| component_path.into());

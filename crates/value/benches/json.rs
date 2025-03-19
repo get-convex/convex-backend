@@ -30,13 +30,9 @@ fn nested_value() -> serde_json::Value {
 
 pub fn benchmark_serialize(c: &mut Criterion) {
     let value = ConvexValue::try_from(simple_value()).unwrap();
-    c.bench_function("to_json::simple", |b| {
-        b.iter(|| serde_json::to_string(&serde_json::Value::from(value.clone())))
-    });
+    c.bench_function("to_json::simple", |b| b.iter(|| value.json_serialize()));
     let value = ConvexValue::try_from(nested_value()).unwrap();
-    c.bench_function("to_json::nested", |b| {
-        b.iter(|| serde_json::to_string(&serde_json::Value::from(value.clone())))
-    });
+    c.bench_function("to_json::nested", |b| b.iter(|| value.json_serialize()));
 }
 
 pub fn benchmark_deserialize(c: &mut Criterion) {

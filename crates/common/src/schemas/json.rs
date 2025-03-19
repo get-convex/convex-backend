@@ -114,7 +114,7 @@ impl TryFrom<ConvexValue> for DatabaseSchema {
     type Error = anyhow::Error;
 
     fn try_from(v: ConvexValue) -> anyhow::Result<Self> {
-        JsonValue::from(v).try_into()
+        v.to_internal_json().try_into()
     }
 }
 

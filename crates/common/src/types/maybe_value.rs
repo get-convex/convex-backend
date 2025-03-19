@@ -63,6 +63,13 @@ impl MaybeValue {
             )),
         }
     }
+
+    pub fn to_internal_json(&self) -> JsonValue {
+        match &self.0 {
+            Some(value) => value.to_internal_json(),
+            None => json!({ "$undefined": null }),
+        }
+    }
 }
 
 impl From<ConvexValue> for MaybeValue {
@@ -85,10 +92,7 @@ impl TryFrom<JsonValue> for MaybeValue {
 
 impl From<MaybeValue> for JsonValue {
     fn from(value: MaybeValue) -> Self {
-        match value.0 {
-            Some(value) => value.into(),
-            None => json!({ "$undefined": null }),
-        }
+        value.to_internal_json()
     }
 }
 

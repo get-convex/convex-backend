@@ -1192,7 +1192,7 @@ fn document_params(
     prev_ts: Option<Timestamp>,
 ) -> [Param; NUM_DOCUMENT_PARAMS] {
     let (json_value, deleted) = match maybe_document {
-        Some(doc) => (JsonValue::from(doc.value().clone().into_value()), false),
+        Some(doc) => (doc.to_internal_json(), false),
         None => (JsonValue::Null, true),
     };
 

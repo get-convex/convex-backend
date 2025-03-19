@@ -17,7 +17,6 @@ use model::modules::user_error::{
     FunctionNotFoundError,
     ModuleNotFoundError,
 };
-use serde_json::Value as JsonValue;
 use sync_types::CanonicalizedUdfPath;
 use value::ConvexArray;
 
@@ -330,7 +329,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
             .try_into()?;
         let invoke_str = self.classify_function(udf_type, udf_path, &function)?;
 
-        let args_str = serde_json::to_string(&JsonValue::from(arguments))?;
+        let args_str = arguments.json_serialize()?;
         let args_v8_str = v8::String::new(self.scope, &args_str)
             .ok_or_else(|| anyhow!("Failed to create argument string"))?;
 

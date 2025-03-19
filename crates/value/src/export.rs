@@ -64,7 +64,7 @@ impl ConvexObject {
 impl ConvexValue {
     pub fn export(self, value_format: ValueFormat) -> JsonValue {
         match value_format {
-            ValueFormat::ConvexEncodedJSON => self.into(),
+            ValueFormat::ConvexEncodedJSON => self.to_internal_json(),
             ValueFormat::ConvexCleanJSON => self.export_clean(),
         }
     }
@@ -117,7 +117,7 @@ impl ConvexValue {
                 JsonValue::Array(values.into_iter().map(|x| x.export_clean()).collect())
             },
             // Use the internal representation for deprecated types
-            ConvexValue::Set(_) | ConvexValue::Map(_) => self.into(),
+            ConvexValue::Set(_) | ConvexValue::Map(_) => self.to_internal_json(),
             ConvexValue::Object(map) => JsonValue::Object(
                 map.into_iter()
                     .map(|(key, value)| (key.to_string(), value.export_clean()))
@@ -146,7 +146,7 @@ mod tests {
                 (Default::default(), ExcludeSetsAndMaps(true))
             )
         ) {
-            let json_value: JsonValue = server_value.clone().into();
+            let json_value: JsonValue = server_value.to_internal_json();
             let client_value: convex::Value = json_value.try_into().unwrap();
             prop_assert_eq!(server_value.export_clean(), client_value.export());
         }

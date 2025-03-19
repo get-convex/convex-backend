@@ -333,7 +333,7 @@ fn roundtrip_converted_value(
             let (ConvexValue::Object(_) | ConvexValue::Array(_)) = val else {
                 bail!("Unexpected JSON value")
             };
-            FivetranValue::Json(JsonValue::from(val).to_string())
+            FivetranValue::Json(val.json_serialize()?)
         },
         (val, _) => {
             bail!("Unexpected value {val:?} for the given Fivetran type {original_type:?}",)

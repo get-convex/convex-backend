@@ -41,14 +41,15 @@ mod json_serialize_roundtrip {
     };
 
     fn test(left: ConvexValue) -> anyhow::Result<()> {
-        let json_value = JsonValue::from(left.clone());
+        let json_value = left.to_internal_json();
         let string = serde_json::to_string(&json_value)?;
         let json_value_from_string: JsonValue = serde_json::from_str(&string)?;
         let right = ConvexValue::try_from(json_value_from_string).unwrap();
         assert_eq!(left, right);
 
-        let reserialized = serde_json::to_string(&JsonValue::from(right))?;
+        let reserialized = right.json_serialize()?;
         assert_eq!(string, reserialized);
+        assert_eq!(reserialized, right.to_internal_json().to_string());
 
         Ok(())
     }

@@ -254,7 +254,7 @@ impl<'a> JsThreadState<'a> {
             } => {
                 let args = AddQueryArgs {
                     udf_path: String::from(udf_path),
-                    udf_args_json: serde_json::to_string(&serde_json::Value::from(args))?,
+                    udf_args_json: args.json_serialize()?,
                 };
                 let token: String = self.call(scope, self.add_query, args)?;
                 let _ = sender.send(token);

@@ -1277,7 +1277,7 @@ fn document_params(
     prev_ts: Option<Timestamp>,
 ) -> Vec<mysql_async::Value> {
     let (json_value, deleted) = match maybe_doc {
-        Some(document) => (document.value().0.clone().into(), false),
+        Some(document) => (document.to_internal_json(), false),
         None => (serde_json::Value::Null, true),
     };
 

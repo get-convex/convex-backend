@@ -8,7 +8,6 @@ use chrono::{
     Utc,
 };
 use common::value::{
-    convex_object_json_serializer,
     ConvexObject,
     FieldPath,
     IdentifierFieldName,
@@ -125,7 +124,7 @@ pub enum BatchWriteOperation {
 pub struct BatchWriteRow {
     pub table: String,
     pub operation: BatchWriteOperation,
-    #[serde(with = "convex_object_json_serializer")]
+    #[serde(with = "common::value::json_object")]
     pub row: ConvexObject,
 }
 

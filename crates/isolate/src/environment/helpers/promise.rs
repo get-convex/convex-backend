@@ -5,7 +5,6 @@ use common::errors::{
 };
 use deno_core::v8;
 use errors::ErrorMetadataAnyhowExt;
-use serde_json::Value as JsonValue;
 
 use super::json_to_v8;
 use crate::strings;
@@ -66,7 +65,7 @@ fn resolve_promise_inner(
                 let exception_object = exception
                     .to_object(scope)
                     .ok_or_else(|| anyhow!("Failed to convert error to object"))?;
-                let custom_data_v8 = json_to_v8(scope, JsonValue::from(custom_data))?;
+                let custom_data_v8 = json_to_v8(scope, custom_data.to_internal_json())?;
                 exception_object.set(scope, field_name.into(), custom_data_v8);
             }
             resolver.reject(scope, exception);

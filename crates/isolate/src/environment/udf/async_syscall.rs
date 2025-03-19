@@ -732,7 +732,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let result = u32::try_from(result)?;
         // Return as f64, which converts to number type in Javascript.
         let result = f64::from(result);
-        Ok(ConvexValue::from(result).into())
+        Ok(ConvexValue::from(result).to_internal_json())
     }
 
     #[convex_macro::instrument_future]
@@ -885,7 +885,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
                             "InvalidResource",
                             format!(
                                 "Only functions can be scheduled. {} is not a function",
-                                JsonValue::from(v)
+                                v.to_internal_json()
                             ),
                         ));
                     },
@@ -995,7 +995,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .patch(id, value)
             .await?;
-        Ok(document.into_value().0.into())
+        Ok(document.to_internal_json())
     }
 
     #[fastrace::trace]
@@ -1027,7 +1027,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .replace(id, value)
             .await?;
-        Ok(document.into_value().0.into())
+        Ok(document.to_internal_json())
     }
 
     #[fastrace::trace]
@@ -1227,7 +1227,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         let document = UserFacingModel::new(tx, component.into())
             .delete(id)
             .await?;
-        Ok(document.into_value().0.into())
+        Ok(document.to_internal_json())
     }
 
     #[convex_macro::instrument_future]
@@ -1518,10 +1518,7 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsShared<RT, P> {
                 table_filter,
             )?;
             let (page, metadata) = Self::read_page_from_query(query, tx, page_size).await?;
-            let page = page
-                .into_iter()
-                .map(|doc| ConvexValue::from(doc.into_value().0).into())
-                .collect();
+            let page = page.into_iter().map(|doc| doc.to_internal_json()).collect();
             (page, metadata)
         };
 

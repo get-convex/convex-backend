@@ -47,8 +47,8 @@ impl TryFrom<FunctionResult> for FunctionResultProto {
     fn try_from(result: FunctionResult) -> anyhow::Result<Self> {
         let result = match result.result {
             Ok(value) => {
-                let json = JsonValue::from(value);
-                FunctionResultTypeProto::JsonPackedValue(serde_json::to_string(&json)?)
+                let json = value.json_serialize()?;
+                FunctionResultTypeProto::JsonPackedValue(json)
             },
             Err(js_error) => FunctionResultTypeProto::JsError(js_error.try_into()?),
         };

@@ -28,7 +28,6 @@ use value::{
     codegen_convex_serialization,
     heap_size::HeapSize,
     json_deserialize,
-    json_serialize,
     obj,
     ConvexArray,
     ConvexObject,
@@ -195,8 +194,7 @@ impl TryFrom<CronSpec> for SerializedCronSpec {
     fn try_from(spec: CronSpec) -> anyhow::Result<Self, Self::Error> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_json = JsonValue::from(spec.udf_args);
-        let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
+        let udf_args_bytes = spec.udf_args.json_serialize()?.into_bytes();
         Ok(Self {
             udf_path: String::from(spec.udf_path),
             udf_args: Some(udf_args_bytes),
@@ -744,8 +742,7 @@ impl TryFrom<CronJobLog> for ConvexObject {
     fn try_from(log: CronJobLog) -> anyhow::Result<Self, Self::Error> {
         // Serialize the udf arguments as binary since we restrict what
         // field names can be used in a `Document`'s top-level object.
-        let udf_args_json = JsonValue::from(log.udf_args);
-        let udf_args_bytes = serde_json::to_vec(&udf_args_json)?;
+        let udf_args_bytes = log.udf_args.json_serialize()?.into_bytes();
 
         obj!(
             "name" => log.name.to_string(),
@@ -923,7 +920,7 @@ impl TryFrom<CronJobResult> for ConvexObject {
             CronJobResult::Default(v) => {
                 obj!(
                     "type" => "default",
-                    "value" => json_serialize(v)?,
+                    "value" => v.json_serialize()?,
                 )
             },
             CronJobResult::Truncated(s) => {

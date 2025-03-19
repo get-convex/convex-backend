@@ -277,8 +277,7 @@ impl Persistence for SqlitePersistence {
         for update in documents {
             let (json_value, deleted) = if let Some(document) = update.value {
                 assert_eq!(update.id, document.id_with_table_id());
-                let json_value: serde_json::Value = document.value().0.clone().into();
-                let json_value = serde_json::to_string(&json_value)?;
+                let json_value = document.value().json_serialize()?;
                 (Some(json_value), 0)
             } else {
                 (None, 1)

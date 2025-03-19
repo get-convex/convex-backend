@@ -230,8 +230,7 @@ pub async fn get_config(
     let (config, modules, udf_config) = ConfigModel::new(&mut tx, component)
         .get_with_module_source(st.application.modules_cache())
         .await?;
-    let config = ConvexObject::try_from(config)?;
-    let config: JsonValue = config.into();
+    let config = ConvexObject::try_from(config)?.to_internal_json();
 
     let modules = modules.into_iter().map(|m| m.into()).collect();
     let udf_server_version = udf_config.map(|config| format!("{}", config.server_version));
@@ -270,7 +269,7 @@ pub async fn get_config_hashes(
         })
         .collect();
     let config = ConvexObject::try_from(config)?;
-    let config: JsonValue = config.into();
+    let config: JsonValue = config.to_internal_json();
 
     let udf_server_version = udf_config.map(|config| format!("{}", config.server_version));
     Ok(Json(GetConfigHashesResponse {

@@ -16,8 +16,9 @@ pub struct JsonPackedValue(Arc<str>);
 
 impl JsonPackedValue {
     pub fn pack(value: ConvexValue) -> Self {
-        let serialized =
-            serde_json::to_string(&JsonValue::from(value)).expect("Failed to serialize to string");
+        let serialized = value
+            .json_serialize()
+            .expect("Failed to serialize to string");
         Self(serialized.into())
     }
 

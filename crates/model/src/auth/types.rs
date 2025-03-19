@@ -9,7 +9,6 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::Value as JsonValue;
 use value::{
     obj,
     ConvexObject,
@@ -69,8 +68,8 @@ impl AuthDiff {
             .into_iter()
             .map(|auth_info| {
                 let auth_info_obj = ConvexObject::try_from(AuthInfoPersisted(auth_info))?;
-                let auth_info_json: JsonValue = auth_info_obj.into();
-                anyhow::Ok(auth_info_json.to_string())
+                let auth_info_json = auth_info_obj.json_serialize()?;
+                anyhow::Ok(auth_info_json)
             })
             .try_collect::<Vec<String>>()?;
 
@@ -78,8 +77,8 @@ impl AuthDiff {
             .into_iter()
             .map(|auth_info| {
                 let auth_info_obj = ConvexObject::try_from(AuthInfoPersisted(auth_info))?;
-                let auth_info_json: JsonValue = auth_info_obj.into();
-                anyhow::Ok(auth_info_json.to_string())
+                let auth_info_json = auth_info_obj.json_serialize()?;
+                anyhow::Ok(auth_info_json)
             })
             .try_collect::<Vec<String>>()?;
 

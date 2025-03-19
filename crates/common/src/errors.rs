@@ -448,10 +448,7 @@ impl TryFrom<JsError> for JsErrorProto {
         Ok(Self {
             message: Some(message),
             custom_data: custom_data
-                .map(|v| {
-                    let json = JsonValue::from(v);
-                    anyhow::Ok::<Vec<u8>>(serde_json::to_vec(&json)?)
-                })
+                .map(|v| anyhow::Ok(v.json_serialize()?.into_bytes()))
                 .transpose()?,
             frames: frames.map(JsFramesProto::from),
         })

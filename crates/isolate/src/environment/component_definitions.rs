@@ -408,8 +408,7 @@ impl ComponentInitializerEvaluator {
                 args_obj.insert(FieldName::from_str(&arg_name)?, value);
             }
             let args_obj = ConvexObject::try_from(args_obj)?;
-            let args_json = JsonValue::from(args_obj);
-            let args_str = serde_json::to_string(&args_json)?;
+            let args_str = args_obj.json_serialize()?;
             let args_v8_str = v8::String::new(&mut scope, &args_str)
                 .context("Failed to create string for args")?;
 

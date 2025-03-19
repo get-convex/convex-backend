@@ -51,8 +51,7 @@ pub struct ScheduledJob {
 }
 
 fn args_to_bytes(args: ConvexArray) -> anyhow::Result<ByteBuf> {
-    let args_json = JsonValue::from(args);
-    let args_bytes = serde_json::to_vec(&args_json)?;
+    let args_bytes = args.json_serialize()?.into_bytes();
     Ok(ByteBuf::from(args_bytes))
 }
 

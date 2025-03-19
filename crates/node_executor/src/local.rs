@@ -500,7 +500,7 @@ mod tests {
         .await?;
 
         assert_eq!(
-            serde_json::Value::from(response.result?),
+            response.result?.to_internal_json(),
             serde_json::Value::try_from(identity.attributes)?,
         );
 

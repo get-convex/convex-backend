@@ -326,11 +326,14 @@ impl TryFrom<VectorSearchExpression> for VectorSearchExpressionJson {
         let result = match value {
             VectorSearchExpression::Eq(path, value) => VectorSearchExpressionJson::Eq {
                 path: path.into(),
-                value: MaybeValue(value).into(),
+                value: MaybeValue(value).to_internal_json(),
             },
             VectorSearchExpression::In(path, values) => VectorSearchExpressionJson::In {
                 path: path.into(),
-                values: values.into_iter().map(|v| MaybeValue(v).into()).collect(),
+                values: values
+                    .into_iter()
+                    .map(|v| MaybeValue(v).to_internal_json())
+                    .collect(),
             },
         };
         Ok(result)

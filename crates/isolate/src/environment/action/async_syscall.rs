@@ -133,7 +133,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             )
             .await?
             .result?;
-        Ok(JsonValue::from(value))
+        Ok(value.to_internal_json())
     }
 
     #[convex_macro::instrument_future]
@@ -182,7 +182,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             )
             .await?
             .result?;
-        Ok(JsonValue::from(value))
+        Ok(value.to_internal_json())
     }
 
     #[convex_macro::instrument_future]
@@ -228,7 +228,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             )
             .await?
             .result?;
-        Ok(JsonValue::from(value))
+        Ok(value.to_internal_json())
     }
 
     #[convex_macro::instrument_future]

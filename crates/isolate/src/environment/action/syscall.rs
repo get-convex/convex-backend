@@ -50,7 +50,7 @@ fn syscall_component_argument<RT: Runtime>(
         Err(_) => None,
     };
     let result = match value {
-        Some(value) => json!({ "value":  JsonValue::from(value) }),
+        Some(value) => json!({ "value": value.to_internal_json() }),
         None => json!({}),
     };
     Ok(result)

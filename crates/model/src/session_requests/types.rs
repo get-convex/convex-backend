@@ -14,7 +14,6 @@ use common::{
     },
     value::{
         json_deserialize,
-        json_serialize,
         ConvexValue,
     },
 };
@@ -115,7 +114,7 @@ impl TryFrom<SessionRequestOutcome> for ConvexObject {
                     .map(ConvexValue::try_from)
                     .try_collect()?;
 
-                let result_s = json_serialize(result)?;
+                let result_s = result.json_serialize()?;
                 obj!(
                     "type" => "mutation",
                     "result" => result_s,

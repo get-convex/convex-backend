@@ -245,6 +245,10 @@ impl DeveloperDocument {
     pub fn size(&self) -> usize {
         self.id.size() + self.value.size()
     }
+
+    pub fn to_internal_json(&self) -> JsonValue {
+        self.value.0.to_internal_json()
+    }
 }
 
 impl HeapSize for DeveloperDocument {
@@ -262,12 +266,6 @@ impl Debug for DeveloperDocument {
 impl Display for DeveloperDocument {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Document(value: {})", self.value.0)
-    }
-}
-
-impl From<DeveloperDocument> for JsonValue {
-    fn from(doc: DeveloperDocument) -> JsonValue {
-        doc.into_value().0.into()
     }
 }
 
@@ -317,7 +315,7 @@ impl TryFrom<ResolvedDocument> for ResolvedDocumentProto {
                 },
         }: ResolvedDocument,
     ) -> anyhow::Result<Self> {
-        let value = serde_json::to_vec(&JsonValue::from(value.0))?;
+        let value = value.0.json_serialize()?.into_bytes();
         let id = ResolvedDocumentId {
             tablet_id,
             developer_id: id,

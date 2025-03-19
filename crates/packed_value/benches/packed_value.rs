@@ -213,7 +213,7 @@ pub fn benchmark_pack(c: &mut Criterion) {
             b.iter(|| v.sort_key())
         });
         group.bench_with_input(BenchmarkId::new("json", name), &value, |b, v| {
-            b.iter(|| serde_json::to_vec(&JsonValue::from(black_box(v.clone()))))
+            b.iter(|| black_box(&v).json_serialize())
         });
     }
     group.finish();
@@ -316,7 +316,7 @@ pub fn benchmark_unpack(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("flexbuffer", name), &packed, |b, v| {
             b.iter(|| PackedValue::open(black_box(v.clone())).unwrap())
         });
-        let serialized = serde_json::to_vec(&JsonValue::from(value)).unwrap();
+        let serialized = value.json_serialize().unwrap().into_bytes();
         group.bench_with_input(BenchmarkId::new("json", name), &serialized, |b, v| {
             b.iter(|| {
                 let v: JsonValue = serde_json::from_slice(black_box(v)).unwrap();
@@ -386,7 +386,7 @@ pub fn benchmark_json(c: &mut Criterion) {
 
     for (name, value) in values {
         group.bench_with_input(BenchmarkId::new("json", name), &value, |b, v| {
-            b.iter(|| serde_json::to_vec(&JsonValue::from(black_box(v.clone()))))
+            b.iter(|| black_box(v).json_serialize())
         });
     }
 }
