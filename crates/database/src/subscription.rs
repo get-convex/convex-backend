@@ -19,7 +19,10 @@ use std::{
 use ::metrics::Timer;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
-    document::PackedDocument,
+    document::{
+        IndexKeyBuffer,
+        PackedDocument,
+    },
     errors::report_error,
     runtime::{
         block_in_place,
@@ -295,17 +298,28 @@ impl SubscriptionManager {
             let from_ts = self.processed_ts.succ()?;
 
             let mut to_notify = BTreeSet::new();
+            let mut buffer = IndexKeyBuffer::new();
             self.log.for_each(from_ts, next_ts, |_, writes| {
                 for (_, document_change) in writes {
                     // We're applying a mutation to the document so if it already exists
                     // we need to remove it before writing the new version.
                     if let Some(ref old_document) = document_change.old_document {
-                        self.overlapping(old_document, &mut to_notify, self.persistence_version);
+                        self.overlapping(
+                            old_document,
+                            &mut to_notify,
+                            self.persistence_version,
+                            &mut buffer,
+                        );
                     }
                     // If we're doing anything other than deleting the document then
                     // we'll also need to insert a new value.
                     if let Some(ref new_document) = document_change.new_document {
-                        self.overlapping(new_document, &mut to_notify, self.persistence_version);
+                        self.overlapping(
+                            new_document,
+                            &mut to_notify,
+                            self.persistence_version,
+                            &mut buffer,
+                        );
                     }
                 }
             })?;
@@ -342,7 +356,14 @@ impl SubscriptionManager {
         to_notify: &mut BTreeSet<SubscriberId>,
         persistence_version: PersistenceVersion,
     ) {
-        self.overlapping(document, to_notify, persistence_version);
+        use common::document::IndexKeyBuffer;
+
+        self.overlapping(
+            document,
+            to_notify,
+            persistence_version,
+            &mut IndexKeyBuffer::new(),
+        );
     }
 
     fn overlapping(
@@ -350,11 +371,12 @@ impl SubscriptionManager {
         document: &PackedDocument,
         to_notify: &mut BTreeSet<SubscriberId>,
         persistence_version: PersistenceVersion,
+        buffer: &mut IndexKeyBuffer,
     ) {
         for (index, (fields, range_map)) in &self.subscriptions.indexed {
             if *index.table() == document.id().tablet_id {
-                let index_key = document.index_key(fields, persistence_version);
-                for subscriber_id in range_map.query(index_key.into_bytes()) {
+                let index_key = document.index_key(fields, persistence_version, buffer);
+                for subscriber_id in range_map.query(index_key) {
                     to_notify.insert(subscriber_id);
                 }
             }
@@ -949,7 +971,11 @@ mod tests {
         for token in tokens {
             let documents = create_matching_documents(token.reads(), id_generator);
             for doc in &documents {
-                subscription_manager.overlapping(doc, &mut to_notify, PersistenceVersion::V5);
+                subscription_manager.overlapping_for_testing(
+                    doc,
+                    &mut to_notify,
+                    PersistenceVersion::V5,
+                );
             }
         }
         to_notify

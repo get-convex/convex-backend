@@ -117,6 +117,7 @@ pub enum FieldType {
     Either,
     User,
     System,
+    UserIdentifier,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -133,6 +134,7 @@ impl proptest::arbitrary::Arbitrary for FieldName {
             },
             FieldType::User => FieldName::user_strategy().boxed(),
             FieldType::System => FieldName::system_strategy().boxed(),
+            FieldType::UserIdentifier => FieldName::user_identifier_strategy().boxed(),
         }
     }
 }

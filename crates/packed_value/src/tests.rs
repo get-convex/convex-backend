@@ -1,6 +1,9 @@
 use cmd_util::env::env_config;
 use proptest::prelude::*;
-use value::ConvexValue;
+use value::{
+    sorting::write_sort_key,
+    ConvexValue,
+};
 
 use super::{
     ByteBuffer,
@@ -61,5 +64,13 @@ proptest! {
     fn proptest_clone(v in any::<ConvexValue>()) {
         let p = PackedValue::pack(&v).open().unwrap();
         clone_test(p).unwrap();
+    }
+
+    #[test]
+    fn test_sort_key_roundtrips(v in any::<ConvexValue>()) {
+        let packed_value = PackedValue::pack(&v);
+        let mut sort_key = vec![];
+        write_sort_key(packed_value.as_ref().open().unwrap(), &mut sort_key).unwrap();
+        assert_eq!(ConvexValue::read_sort_key(&mut &sort_key[..], ).unwrap(), v);
     }
 }

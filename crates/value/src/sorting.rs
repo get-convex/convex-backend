@@ -23,7 +23,19 @@ use std::cmp::Ordering;
 
 use bytes::BufMut;
 
-use crate::ConvexValue;
+use crate::{
+    walk::{
+        ConvexArrayWalker,
+        ConvexBytesWalker,
+        ConvexMapWalker,
+        ConvexObjectWalker,
+        ConvexSetWalker,
+        ConvexStringWalker,
+        ConvexValueType,
+        ConvexValueWalker,
+    },
+    ConvexValue,
+};
 
 const UNDEFINED_TAG: u8 = 0x1;
 
@@ -106,10 +118,7 @@ fn write_tagged_int(n: i64, writer: &mut impl BufMut) {
 pub fn values_to_bytes(values: &[Option<ConvexValue>]) -> Vec<u8> {
     let mut out = vec![];
     for value in values {
-        match value {
-            None => out.put_u8(UNDEFINED_TAG),
-            Some(value) => value.write_sort_key(&mut out),
-        }
+        let Ok(()) = write_sort_key_or_undefined(value.as_ref(), &mut out);
     }
     out
 }
@@ -338,76 +347,101 @@ impl ConvexValue {
         out
     }
 
-    /// Write a `Value`'s sort key out to a writer.
     pub fn write_sort_key(&self, writer: &mut impl BufMut) {
-        match self {
-            ConvexValue::Null => {
-                writer.put_u8(NULL_TAG);
-            },
-            ConvexValue::Int64(0) => {
-                writer.put_u8(ZERO_INT64_TAG);
-            },
-            ConvexValue::Int64(i) => {
-                write_tagged_int(*i, writer);
-            },
-            ConvexValue::Float64(f) => {
-                let mut f = f.to_bits();
-                // Flip all of the bits if the sign bit is set.
-                if f & (1 << 63) != 0 {
-                    f = !f;
-                }
-                // Otherwise, just flip the sign bit.
-                else {
-                    f |= 1 << 63;
-                }
-                writer.put_u8(FLOAT64_TAG);
-                writer.put_u64(f); // N.B.: always big-endian
-            },
-            ConvexValue::Boolean(false) => {
-                writer.put_u8(FALSE_BOOLEAN_TAG);
-            },
-            ConvexValue::Boolean(true) => {
-                writer.put_u8(TRUE_BOOLEAN_TAG);
-            },
-            ConvexValue::String(s) => {
-                writer.put_u8(STRING_TAG);
-                write_escaped_string(s, writer);
-            },
-            ConvexValue::Bytes(b) => {
-                writer.put_u8(BYTES_TAG);
-                write_escaped_bytes(b, writer);
-            },
-            ConvexValue::Array(ref array) => {
-                writer.put_u8(ARRAY_TAG);
-                for element in array {
-                    element.write_sort_key(writer);
-                }
-                writer.put_u8(TERMINATOR_BYTE);
-            },
-            ConvexValue::Set(ref set) => {
-                writer.put_u8(SET_TAG);
-                for element in set {
-                    element.write_sort_key(writer);
-                }
-                writer.put_u8(TERMINATOR_BYTE);
-            },
-            ConvexValue::Map(ref map) => {
-                writer.put_u8(MAP_TAG);
-                for (key, value) in map {
-                    key.write_sort_key(writer);
-                    value.write_sort_key(writer);
-                }
-                writer.put_u8(TERMINATOR_BYTE);
-            },
-            ConvexValue::Object(ref object) => {
-                writer.put_u8(OBJECT_TAG);
-                for (field, value) in object.iter() {
-                    write_escaped_string(field, writer);
-                    value.write_sort_key(writer);
-                }
-                writer.put_u8(TERMINATOR_BYTE);
-            },
-        }
+        let Ok(()) = write_sort_key(self, writer);
+    }
+}
+
+/// Write a `Value`'s sort key out to a writer.
+pub fn write_sort_key<V: ConvexValueWalker>(
+    value: V,
+    writer: &mut impl BufMut,
+) -> Result<(), V::Error> {
+    match value.walk()? {
+        ConvexValueType::Null => {
+            writer.put_u8(NULL_TAG);
+        },
+        ConvexValueType::Int64(0) => {
+            writer.put_u8(ZERO_INT64_TAG);
+        },
+        ConvexValueType::Int64(i) => {
+            write_tagged_int(i, writer);
+        },
+        ConvexValueType::Float64(f) => {
+            let mut f = f.to_bits();
+            // Flip all of the bits if the sign bit is set.
+            if f & (1 << 63) != 0 {
+                f = !f;
+            }
+            // Otherwise, just flip the sign bit.
+            else {
+                f |= 1 << 63;
+            }
+            writer.put_u8(FLOAT64_TAG);
+            writer.put_u64(f); // N.B.: always big-endian
+        },
+        ConvexValueType::Boolean(false) => {
+            writer.put_u8(FALSE_BOOLEAN_TAG);
+        },
+        ConvexValueType::Boolean(true) => {
+            writer.put_u8(TRUE_BOOLEAN_TAG);
+        },
+        ConvexValueType::String(s) => {
+            writer.put_u8(STRING_TAG);
+            write_escaped_string(s.as_str(), writer);
+        },
+        ConvexValueType::Bytes(b) => {
+            writer.put_u8(BYTES_TAG);
+            write_escaped_bytes(b.as_bytes(), writer);
+        },
+        ConvexValueType::Array(array) => {
+            writer.put_u8(ARRAY_TAG);
+            for element in array.walk() {
+                write_sort_key(element?, writer)?;
+            }
+            writer.put_u8(TERMINATOR_BYTE);
+        },
+        ConvexValueType::Set(set) => {
+            writer.put_u8(SET_TAG);
+            for element in set.walk() {
+                write_sort_key(element?, writer)?;
+            }
+            writer.put_u8(TERMINATOR_BYTE);
+        },
+        ConvexValueType::Map(map) => {
+            writer.put_u8(MAP_TAG);
+            for pair in map.walk() {
+                let (key, value) = pair?;
+                write_sort_key(key, writer)?;
+                write_sort_key(value, writer)?;
+            }
+            writer.put_u8(TERMINATOR_BYTE);
+        },
+        ConvexValueType::Object(object) => {
+            writer.put_u8(OBJECT_TAG);
+            for pair in object.walk() {
+                let (field, value) = pair?;
+                write_escaped_string(field.as_str(), writer);
+                write_sort_key(value, writer)?;
+            }
+            writer.put_u8(TERMINATOR_BYTE);
+        },
+    }
+    Ok(())
+}
+
+/// Writes `value`'s sort key, interpreting `None` as `undefined` (which is,
+/// notably, a different value than `null`)
+pub fn write_sort_key_or_undefined<V: ConvexValueWalker>(
+    value: Option<V>,
+    writer: &mut impl BufMut,
+) -> Result<(), V::Error> {
+    match value {
+        Some(value) => write_sort_key(value, writer),
+        None => {
+            writer.put_u8(UNDEFINED_TAG);
+            Ok(())
+        },
     }
 }
 

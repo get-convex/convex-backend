@@ -39,7 +39,7 @@ impl<ID: Clone + Ord> IntervalMap<ID> {
 
     /// Returns all IDs for which the corresponding [`IntervalSet`] contains
     /// `point`.
-    pub fn query(&self, point: IndexKeyBytes) -> impl Iterator<Item = ID> + '_ {
+    pub fn query<'a>(&'a self, point: &'a IndexKeyBytes) -> impl Iterator<Item = ID> + 'a {
         self.sets.iter().filter_map(move |(id, set)| {
             if set.contains(&point.0) {
                 Some(id.clone())

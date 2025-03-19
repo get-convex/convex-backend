@@ -8,7 +8,10 @@ use cmd_util::env::env_config;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
     components::ComponentPath,
-    document::PackedDocument,
+    document::{
+        IndexKeyBuffer,
+        PackedDocument,
+    },
     interval::{
         Interval,
         IntervalSet,
@@ -130,6 +133,16 @@ impl ReadSet {
         document: &PackedDocument,
         persistence_version: PersistenceVersion,
     ) -> Option<ConflictingRead> {
+        self.overlaps_with_buffer(document, persistence_version, &mut IndexKeyBuffer::new())
+    }
+
+    /// `overlaps` but with a reusable `IndexKeyBuffer` to avoid allocations
+    pub fn overlaps_with_buffer(
+        &self,
+        document: &PackedDocument,
+        persistence_version: PersistenceVersion,
+        buffer: &mut IndexKeyBuffer,
+    ) -> Option<ConflictingRead> {
         for (
             index,
             IndexReads {
@@ -140,12 +153,12 @@ impl ReadSet {
         ) in self.indexed.iter()
         {
             if *index.table() == document.id().tablet_id {
-                let index_key = document.index_key(fields, persistence_version).into_bytes();
-                if intervals.contains(&index_key) {
+                let index_key = document.index_key(fields, persistence_version, buffer);
+                if intervals.contains(index_key) {
                     let stack_traces = stack_traces.as_ref().map(|st| {
                         st.iter()
                             .filter_map(|(interval, trace)| {
-                                if interval.contains(&index_key) {
+                                if interval.contains(index_key) {
                                     Some(trace.clone())
                                 } else {
                                     None
@@ -191,10 +204,13 @@ impl ReadSet {
         >,
         persistence_version: PersistenceVersion,
     ) -> Option<ConflictingReadWithWriteSource> {
+        let mut buffer = IndexKeyBuffer::new();
         for (_ts, updates, write_source) in updates {
             for (_, update) in updates {
                 if let Some(ref document) = update.new_document {
-                    if let Some(conflicting_read) = self.overlaps(document, persistence_version) {
+                    if let Some(conflicting_read) =
+                        self.overlaps_with_buffer(document, persistence_version, &mut buffer)
+                    {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
                             write_source: write_source.clone(),
@@ -202,7 +218,9 @@ impl ReadSet {
                     }
                 }
                 if let Some(ref prev_value) = update.old_document {
-                    if let Some(conflicting_read) = self.overlaps(prev_value, persistence_version) {
+                    if let Some(conflicting_read) =
+                        self.overlaps_with_buffer(prev_value, persistence_version, &mut buffer)
+                    {
                         return Some(ConflictingReadWithWriteSource {
                             read: conflicting_read,
                             write_source: write_source.clone(),

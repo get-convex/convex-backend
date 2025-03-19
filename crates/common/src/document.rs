@@ -43,6 +43,10 @@ use value::{
     export::ValueFormat,
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    sorting::{
+        write_sort_key,
+        write_sort_key_or_undefined,
+    },
     ConvexObject,
     ConvexValue,
     FieldName,
@@ -60,7 +64,10 @@ use value::{
 use crate::value::FieldType;
 use crate::{
     floating_point::MAX_EXACT_F64_INT,
-    index::IndexKey,
+    index::{
+        IndexKey,
+        IndexKeyBytes,
+    },
     pii::PII,
     types::{
         PersistenceVersion,
@@ -791,22 +798,32 @@ impl PackedDocument {
         &self.0
     }
 
-    /// Same behavior as ResolvedDocument::index_key but you don't have to fully
-    /// unpack.
-    pub fn index_key(
+    /// Like ResolvedDocument::index_key().into_bytes(), but you don't have to
+    /// fully unpack.
+    ///
+    /// `buffer` is an existing allocation that will be cleared and reused.
+    pub fn index_key<'a>(
         &self,
         fields: &[FieldPath],
         _persistence_version: PersistenceVersion,
-    ) -> IndexKey {
-        let mut values = vec![];
-        for field in fields.iter() {
-            if let Some(v) = self.0.get_path(field) {
-                values.push(Some(v));
-            } else {
-                values.push(None);
-            }
+        buffer: &'a mut IndexKeyBuffer,
+    ) -> &'a IndexKeyBytes {
+        let out = &mut buffer.0 .0;
+        out.clear();
+        for field_path in fields {
+            let value = self.0.as_ref().open_path(field_path);
+            write_sort_key_or_undefined(value, out).expect("failed to unpack opened value");
         }
-        IndexKey::new_allow_missing(values, self.id().into())
+        let Ok(()) = write_sort_key(ConvexValue::from(self.id()), out);
+        &buffer.0
+    }
+}
+
+/// A reusable allocation for use by `PackedDocument::index_key`
+pub struct IndexKeyBuffer(IndexKeyBytes);
+impl IndexKeyBuffer {
+    pub fn new() -> Self {
+        Self(IndexKeyBytes(Vec::new()))
     }
 }
 
@@ -973,14 +990,22 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocument {
 
 #[cfg(test)]
 mod tests {
-    use std::assert_eq;
+    use std::{
+        assert_eq,
+        collections::BTreeMap,
+        str::FromStr as _,
+    };
 
     use cmd_util::env::env_config;
     use proptest::prelude::*;
     use sync_types::testing::assert_roundtrips;
     use value::{
         id_v6::DeveloperDocumentId,
+        ConvexObject,
         ConvexValue,
+        ExcludeSetsAndMaps,
+        FieldType,
+        IdentifierFieldName,
         InternalId,
         ResolvedDocumentId,
         TableMapping,
@@ -991,17 +1016,21 @@ mod tests {
     };
 
     use super::{
+        CreationTime,
+        DocumentUpdate,
         DocumentUpdateProto,
+        DocumentUpdateWithPrevTs,
         DocumentUpdateWithPrevTsProto,
+        IndexKeyBuffer,
+        PackedDocument,
+        ResolvedDocument,
         ResolvedDocumentProto,
     };
     use crate::{
         assert_obj,
         document::{
-            CreationTime,
-            DocumentUpdate,
-            DocumentUpdateWithPrevTs,
-            ResolvedDocument,
+            CREATION_TIME_FIELD,
+            ID_FIELD,
         },
         paths::FieldPath,
         types::PersistenceVersion,
@@ -1054,6 +1083,60 @@ mod tests {
         #[test]
         fn test_index_document_update_proto_roundtrips(left in any::<DocumentUpdate>()) {
             assert_roundtrips::<DocumentUpdate, DocumentUpdateProto>(left);
+        }
+
+        #[test]
+        fn test_packed_document_index_key_matches(
+            id in any::<ResolvedDocumentId>(),
+            creation_time in any::<CreationTime>(),
+            value in any_with::<ConvexObject>((
+                prop::collection::SizeRange::default(),
+                FieldType::UserIdentifier,
+                ExcludeSetsAndMaps(false),
+            )),
+            field_paths in prop::collection::vec(
+                prop::collection::vec(
+                    any::<Option<prop::sample::Index>>(),
+                    1..3
+                ),
+                0..4
+            )
+        ) {
+            let mut object = BTreeMap::from(value);
+            object.insert(ID_FIELD.clone().into(), id.into());
+            object.insert(
+                CREATION_TIME_FIELD.clone().into(),
+                ConvexValue::from(f64::from(creation_time)),
+            );
+            let value = ConvexObject::try_from(object).unwrap();
+            let doc = ResolvedDocument::new(id, creation_time, value).unwrap();
+            // Generate field paths that have a chance of resolving to something for `doc`
+            let mut current_doc = Some(&**doc.value());
+            let field_paths: Vec<_> = field_paths.into_iter().filter_map(|indexes| {
+                let ids = indexes.into_iter().map(|index| {
+                    if let (Some(index), Some(c)) = (index, current_doc) && !c.is_empty() {
+                        let k = c.keys().nth(index.index(c.len())).unwrap().clone();
+                        current_doc = c.get(&k).and_then(|x| {
+                            if let ConvexValue::Object(o) = x { Some(o) } else { None }
+                        });
+                        k
+                    } else {
+                        current_doc = None;
+                        "unknown".parse().unwrap()
+                    }
+                })
+                    .filter_map(|field_name| IdentifierFieldName::from_str(&field_name).ok())
+                    .collect();
+                FieldPath::new(ids).ok()
+            }).collect();
+            let ver = PersistenceVersion::V5;
+            let index_key_bytes = doc.index_key(&field_paths, ver).into_bytes();
+            assert_eq!(
+                index_key_bytes,
+                *PackedDocument::pack(doc).index_key(
+                    &field_paths, ver, &mut IndexKeyBuffer::new()
+                ),
+            );
         }
     }
 
