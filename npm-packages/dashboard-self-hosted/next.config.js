@@ -31,11 +31,13 @@ const securityHeaders = [
   },
 ];
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  swcMinify: true,
-  transpilePackages: [],
-  reactStrictMode: true,
+const optionsForExport = {
+  output: "export",
+  images: {
+    unoptimized: true,
+  },
+};
+const optionsForBuild = {
   output: "standalone",
   async headers() {
     return [
@@ -46,6 +48,14 @@ const nextConfig = {
       },
     ];
   },
+};
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  swcMinify: true,
+  transpilePackages: [],
+  reactStrictMode: true,
+  ...(process.env.BUILD_TYPE === "export" ? optionsForExport : optionsForBuild),
   experimental: {
     webpackBuildWorker: true,
   },
