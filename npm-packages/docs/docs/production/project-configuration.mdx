@@ -36,6 +36,16 @@ same project as your configured development `CONVEX_DEPLOYMENT`.
 Additional project configuration can be specified in the `convex.json` file in
 the root of your project (in the same directory as your `package.json`).
 
+You can use the JSON schema for editor validation by adding a `$schema`
+property:
+
+```json title="convex.json"
+{
+  "$schema": "https://raw.githubusercontent.com/get-convex/convex-backend/refs/heads/main/npm-packages/convex/schemas/convex.schema.json",
+  "functions": "src/convex/"
+}
+```
+
 The file supports the following configuration options:
 
 ### Changing the `convex/` folder name or location
