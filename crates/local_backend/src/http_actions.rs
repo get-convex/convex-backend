@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    pin::Pin,
+    sync::Arc,
+};
 
 use anyhow::Context;
 use application::api::ApplicationApi;
@@ -38,6 +41,7 @@ use futures::{
     stream::{
         BoxStream,
         FusedStream,
+        Peekable,
     },
     FutureExt,
     StreamExt,
@@ -173,18 +177,31 @@ pub async fn http_any_method(
     let Some(HttpActionResponsePart::Head(response_head)) = head else {
         return Err(anyhow::anyhow!("Did not receive HTTP response head first").into());
     };
-    let body = http_response_stream.map(|p| match p {
+    let body: BoxStream<'static, _> = Box::pin(http_response_stream.map(|p| match p {
         Ok(HttpActionResponsePart::BodyChunk(bytes)) => Ok(bytes),
         Err(e) => Err(e),
         _ => Err(anyhow::anyhow!(
             "Unexpected element in HTTP response stream"
         )),
-    });
+    }));
+
+    let mut peek_body = Box::pin(body.peekable());
+    let content_length = response_head
+        .headers
+        .get("content-length")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.parse().ok());
+    if content_length == Some(0) {
+        // In case hyper/axum doesn't poll the body at all, make sure we poll it
+        // at least once to do any cleanup.
+        peek_body.as_mut().peek().await;
+    }
 
     Ok(HttpActionResponse {
         status: response_head.status,
         headers: response_head.headers,
-        body: Box::pin(body),
+        content_length,
+        body: peek_body,
     })
 }
 
@@ -246,30 +263,26 @@ pub fn http_action_handler() -> MethodRouter<RouterState> {
 }
 
 pub struct HttpActionResponse {
-    pub body: BoxStream<'static, Result<Bytes, anyhow::Error>>,
+    pub body: Pin<Box<Peekable<BoxStream<'static, Result<Bytes, anyhow::Error>>>>>,
     pub status: StatusCode,
     pub headers: HeaderMap,
+    pub content_length: Option<u64>,
 }
 
 impl IntoResponse for HttpActionResponse {
     fn into_response(self) -> Response {
         let status = self.status;
         let headers = self.headers;
-        let length: Option<u64> = headers
-            .get("content-length")
-            .and_then(|h| h.to_str().ok())
-            .and_then(|s| s.parse().ok());
-        let body = Body::from_stream(stream_with_content_length(self.body, length));
+        let body = Body::from_stream(stream_with_content_length(self.body, self.content_length));
         (status, headers, body).into_response()
     }
 }
 
 #[try_stream(ok=Bytes, error=anyhow::Error)]
 pub async fn stream_with_content_length(
-    stream: BoxStream<'static, Result<Bytes, anyhow::Error>>,
+    mut stream: Pin<Box<Peekable<BoxStream<'static, Result<Bytes, anyhow::Error>>>>>,
     length: Option<u64>,
 ) {
-    let mut stream = Box::pin(stream.peekable());
     let mut length_returned = 0;
     while let Some(chunk) = stream.try_next().await? {
         length_returned += chunk.len() as u64;
