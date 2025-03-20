@@ -83,10 +83,7 @@ use futures::{
     TryStreamExt,
 };
 use indexing::index_registry::IndexRegistry;
-use parking_lot::{
-    Mutex,
-    RwLockUpgradableReadGuard,
-};
+use parking_lot::Mutex;
 use prometheus::VMHistogram;
 use tokio::sync::{
     mpsc::{
@@ -134,6 +131,7 @@ use crate::{
     },
     writes::DocumentWrite,
     ComponentRegistry,
+    Snapshot,
     Transaction,
     TransactionReadSet,
 };
@@ -144,7 +142,6 @@ enum PersistenceWrite {
         commit_timer: StatusTimer,
         result: oneshot::Sender<anyhow::Result<Timestamp>>,
         parent_trace: EncodedSpan,
-        begin_timestamp: RepeatableTimestamp,
         commit_id: usize,
     },
     MaxRepeatableTimestamp {
@@ -163,6 +160,8 @@ impl PersistenceWrite {
         }
     }
 }
+
+pub const AFTER_PENDING_WRITE_SNAPSHOT: &str = "after_pending_write_snapshot";
 
 pub struct Committer<RT: Runtime> {
     // Internal staged commits for conflict checking.
@@ -275,14 +274,13 @@ impl<RT: Runtime> Committer<RT> {
                             commit_timer,
                             result,
                             parent_trace,
-                            begin_timestamp,
                             ..
                         } => {
                             let _span = root_span.as_ref().map(|root| Span::enter_with_parent("publish_commit", root));
                             let root = initialize_root_from_parent("Committer::publish_commit", parent_trace);
                             let _guard = root.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
-                            self.publish_commit(pending_write, begin_timestamp);
+                            self.publish_commit(pending_write);
                             let _ = result.send(Ok(commit_ts));
 
                             // When we next get free cycles and there is no ongoing bump,
@@ -330,6 +328,7 @@ impl<RT: Runtime> Committer<RT> {
                             write_source,
                             parent_trace,
                         }) => {
+
                             let root_span_ref = root_span.get_or_insert_with(|| {
                                 span_commit_id = Some(commit_id);
                                 Span::root("commit", SpanContext::random())
@@ -479,7 +478,9 @@ impl<RT: Runtime> Committer<RT> {
         snapshot_manager.overwrite_last_snapshot_text_and_vector_indexes(
             bootstrapped_indexes.text_index_manager,
             bootstrapped_indexes.vector_index_manager,
+            &mut self.pending_writes,
         );
+
         tracing::info!("Committed backfilled vector indexes");
         let _ = result.send(Ok(()));
     }
@@ -518,7 +519,10 @@ impl<RT: Runtime> Committer<RT> {
         if latest_ts != snapshot_manager.latest_ts() {
             panic!("Snapshots were changed concurrently during commit?");
         }
-        snapshot_manager.overwrite_last_snapshot_table_summary(table_summary_snapshot);
+        snapshot_manager.overwrite_last_snapshot_table_summary(
+            table_summary_snapshot,
+            &mut self.pending_writes,
+        );
         tracing::info!("Bootstrapped table summaries at ts {}", latest_ts);
         let _ = result.send(Ok(()));
     }
@@ -562,7 +566,9 @@ impl<RT: Runtime> Committer<RT> {
         if latest_ts != snapshot_manager.latest_ts() {
             panic!("Snapshots were changed concurrently during commit?");
         }
-        snapshot_manager.overwrite_last_snapshot_in_memory_indexes(in_memory_indexes);
+        snapshot_manager
+            .overwrite_last_snapshot_in_memory_indexes(in_memory_indexes, &mut self.pending_writes);
+
         tracing::info!("Loaded indexes into memory");
         Ok(())
     }
@@ -650,7 +656,8 @@ impl<RT: Runtime> Committer<RT> {
             )
         });
 
-        let (document_writes, index_writes) = self.compute_writes(commit_ts, &ordered_updates)?;
+        let (document_writes, index_writes, snapshot) =
+            self.compute_writes(commit_ts, &ordered_updates)?;
 
         // Append the updates to pending_writes, so future conflicting commits
         // will fail the `commit_has_conflict` check above, even before
@@ -666,6 +673,7 @@ impl<RT: Runtime> Committer<RT> {
                 .map(|(&id, update)| (id, PackedDocumentUpdate::pack(update)))
                 .collect(),
             write_source,
+            snapshot,
         );
         drop(timer);
 
@@ -683,17 +691,24 @@ impl<RT: Runtime> Committer<RT> {
     ) -> anyhow::Result<(
         Vec<ValidatedDocumentWrite>,
         BTreeSet<(Timestamp, DatabaseIndexUpdate)>,
+        Snapshot,
     )> {
         let timer = metrics::commit_prepare_writes_timer();
         let mut document_writes = Vec::new();
         let mut index_writes = Vec::new();
-        // We have already checked for conflicts, so the current snapshot must have the
-        // same tables and indexes as the base snapshot and the final publishing
-        // snapshot. Therefore index writes can be computed from the current snapshot.
-        let mut current_snapshot = self.snapshot_manager.read().latest_snapshot();
+        // We have to compute the new snapshot from the latest pending snapshot in case
+        // there are pending writes that need to be included. We have already
+        // checked for conflicts, so the latest pending snapshot must
+        // have the same tables and indexes as the base snapshot and the final
+        // publishing snapshot. Therefore index writes can be computed from the
+        // latest pending snapshot.
+        let mut latest_pending_snapshot = self
+            .pending_writes
+            .latest_snapshot()
+            .unwrap_or_else(|| self.snapshot_manager.read().latest_snapshot());
         for &(id, document_update) in ordered_updates.iter() {
             let (updates, doc_in_vector_index) =
-                current_snapshot.update(document_update, commit_ts)?;
+                latest_pending_snapshot.update(document_update, commit_ts)?;
             index_writes.extend(updates);
             document_writes.push(ValidatedDocumentWrite {
                 commit_ts,
@@ -711,7 +726,7 @@ impl<RT: Runtime> Committer<RT> {
             .collect();
 
         timer.finish();
-        Ok((document_writes, index_writes))
+        Ok((document_writes, index_writes, latest_pending_snapshot))
     }
 
     fn commit_has_conflict(
@@ -759,52 +774,23 @@ impl<RT: Runtime> Committer<RT> {
 
     /// After writing the new rows to persistence, mark the commit as complete
     /// and allow the updated rows to be read by other transactions.
-    fn publish_commit(
-        &mut self,
-        pending_write: PendingWriteHandle,
-        begin_timestamp: RepeatableTimestamp,
-    ) {
+    fn publish_commit(&mut self, pending_write: PendingWriteHandle) {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
 
-        let (ordered_updates, write_source) = match self.pending_writes.pop_first(pending_write) {
-            None => panic!("commit at {commit_ts} not pending"),
-            Some((ts, document_updates, write_source)) => {
-                if ts != commit_ts {
-                    panic!("commits out of order {ts} != {commit_ts}");
-                }
-                (document_updates, write_source)
-            },
-        };
-
-        let snapshot_manager = self.snapshot_manager.upgradable_read();
-
-        let new_snapshot = {
-            let timer = metrics::commit_validate_index_write_timer();
-            let (snapshot_ts, mut new_snapshot) = snapshot_manager.latest();
-
-            for (document_id, document_update) in ordered_updates.iter() {
-                new_snapshot
-                    .update(&document_update.unpack(), commit_ts)
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Snapshot update was invalid. This update should have already been \
-                             computed before commit successfully. begin_ts = {begin_timestamp}. \
-                             snapshot_ts = {snapshot_ts}. commit_ts = {commit_ts}. document_id = \
-                             {document_id}."
-                        )
-                    });
-            }
-
-            timer.finish();
-            new_snapshot
-        };
+        let (ordered_updates, write_source, new_snapshot) =
+            match self.pending_writes.pop_first(pending_write) {
+                None => panic!("commit at {commit_ts} not pending"),
+                Some((ts, document_updates, write_source, snapshot)) => {
+                    if ts != commit_ts {
+                        panic!("commits out of order {ts} != {commit_ts}");
+                    }
+                    (document_updates, write_source, snapshot)
+                },
+            };
 
         // Write transaction state at the commit ts to the document store.
         metrics::commit_rows(ordered_updates.len() as u64);
-        // Acquire a write lock on the SnapshotManager now before appending to
-        // the WriteLog, so that the two can't be observed to diverge.
-        let mut snapshot_manager = RwLockUpgradableReadGuard::upgrade(snapshot_manager);
         let timer = metrics::write_log_append_timer();
         self.log.append(commit_ts, ordered_updates, write_source);
         drop(timer);
@@ -815,6 +801,7 @@ impl<RT: Runtime> Committer<RT> {
         }
 
         // Publish the new version of our database metadata and the index.
+        let mut snapshot_manager = self.snapshot_manager.write();
         snapshot_manager.push(commit_ts, new_snapshot);
 
         apply_timer.finish();
@@ -852,7 +839,6 @@ impl<RT: Runtime> Committer<RT> {
         let table_mapping = transaction.table_mapping.clone();
         let component_registry = transaction.component_registry.clone();
         let usage_tracking = transaction.usage_tracker.clone();
-        let begin_timestamp = transaction.begin_timestamp;
         let ValidatedCommit {
             index_writes,
             document_writes,
@@ -873,6 +859,7 @@ impl<RT: Runtime> Committer<RT> {
             parent_trace.clone(),
         );
         let outer_span = Span::enter_with_parents("outer_write_commit", [root_span, &request_span]);
+        let pause_client = self.runtime.pause_client();
         Some(
             async move {
                 Self::track_commit(
@@ -882,17 +869,18 @@ impl<RT: Runtime> Committer<RT> {
                     &table_mapping,
                     &component_registry,
                 );
+
                 try_join(
                     "Committer::write_to_persistence",
                     Self::write_to_persistence(persistence, index_writes, document_writes),
                 )
                 .await?;
+                pause_client.wait(AFTER_PENDING_WRITE_SNAPSHOT).await;
                 Ok(PersistenceWrite::Commit {
                     pending_write,
                     commit_timer,
                     result,
                     parent_trace: parent_trace_copy,
-                    begin_timestamp,
                     commit_id,
                 })
             }

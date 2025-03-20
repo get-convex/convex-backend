@@ -43,6 +43,7 @@ use crate::{
     database::ConflictingReadWithWriteSource,
     metrics,
     reads::ReadSet,
+    Snapshot,
     Token,
 };
 
@@ -419,14 +420,14 @@ impl LogWriter {
 /// These pending writes do not conflict with each other so any subset of them
 /// may be written to persistence, in any order.
 pub struct PendingWrites {
-    by_ts: WithHeapSize<BTreeMap<Timestamp, (OrderedWrites, WriteSource)>>,
+    by_ts: BTreeMap<Timestamp, (OrderedWrites, WriteSource, Snapshot)>,
     persistence_version: PersistenceVersion,
 }
 
 impl PendingWrites {
     pub fn new(persistence_version: PersistenceVersion) -> Self {
         Self {
-            by_ts: WithHeapSize::default(),
+            by_ts: BTreeMap::new(),
             persistence_version,
         }
     }
@@ -436,13 +437,34 @@ impl PendingWrites {
         ts: Timestamp,
         writes: OrderedWrites,
         write_source: WriteSource,
+        snapshot: Snapshot,
     ) -> PendingWriteHandle {
         if let Some((last_ts, _)) = self.by_ts.iter().next_back() {
             assert!(*last_ts < ts, "{:?} >= {}", *last_ts, ts);
         }
 
-        self.by_ts.insert(ts, (writes, write_source));
+        self.by_ts.insert(ts, (writes, write_source, snapshot));
         PendingWriteHandle(Some(ts))
+    }
+
+    pub fn latest_snapshot(&self) -> Option<Snapshot> {
+        self.by_ts
+            .iter()
+            .next_back()
+            .map(|(_, (_, _, snapshot))| snapshot.clone())
+    }
+
+    /// Recomputes the snapshot associated with each pending write, rebasing the
+    /// pending writes on the new base snapshot provided.
+    pub fn recompute_pending_snapshots(&mut self, mut base_snapshot: Snapshot) {
+        for (ts, (ordered_writes, _, snapshot)) in self.by_ts.iter_mut() {
+            for (_id, document_update) in ordered_writes.iter() {
+                base_snapshot
+                    .update(&document_update.unpack(), *ts)
+                    .expect("Failed to update snapshot");
+            }
+            *snapshot = base_snapshot.clone();
+        }
     }
 
     pub fn iter(
@@ -458,7 +480,7 @@ impl PendingWrites {
     > {
         self.by_ts
             .range(from..=to)
-            .map(|(ts, (w, source))| (ts, w.iter(), source))
+            .map(|(ts, (w, source, _snapshot))| (ts, w.iter(), source))
     }
 
     pub fn is_stale(
@@ -473,15 +495,15 @@ impl PendingWrites {
     pub fn pop_first(
         &mut self,
         mut handle: PendingWriteHandle,
-    ) -> Option<(Timestamp, OrderedWrites, WriteSource)> {
+    ) -> Option<(Timestamp, OrderedWrites, WriteSource, Snapshot)> {
         let first = self.by_ts.pop_first();
-        if let Some((ts, (writes, write_source))) = first {
+        if let Some((ts, (writes, write_source, snapshot))) = first {
             if let Some(expected_ts) = handle.0 {
                 if ts == expected_ts {
                     handle.0.take();
                 }
             }
-            Some((ts, writes, write_source))
+            Some((ts, writes, write_source, snapshot))
         } else {
             None
         }

@@ -55,6 +55,7 @@ use crate::{
         TableSummarySnapshot,
     },
     transaction::TableCountSnapshot,
+    write_log::PendingWrites,
     ComponentRegistry,
     TableRegistry,
     TableSummary,
@@ -516,17 +517,24 @@ impl SnapshotManager {
         &mut self,
         text_indexes: TextIndexManager,
         vector_indexes: VectorIndexManager,
+        pending_writes: &mut PendingWrites,
     ) {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         snapshot.text_indexes = text_indexes;
         snapshot.vector_indexes = vector_indexes;
+        pending_writes.recompute_pending_snapshots(snapshot.clone());
     }
 
-    pub fn overwrite_last_snapshot_table_summary(&mut self, table_summary: TableSummarySnapshot) {
+    pub fn overwrite_last_snapshot_table_summary(
+        &mut self,
+        table_summary: TableSummarySnapshot,
+        pending_writes: &mut PendingWrites,
+    ) {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         let table_mapping = snapshot.table_mapping();
         let table_summaries = TableSummaries::new(table_summary, table_mapping);
         snapshot.table_summaries = Some(table_summaries);
+        pending_writes.recompute_pending_snapshots(snapshot.clone());
     }
 
     /// Overwrites the in-memory indexes for the latest snapshot.
@@ -542,9 +550,11 @@ impl SnapshotManager {
     pub fn overwrite_last_snapshot_in_memory_indexes(
         &mut self,
         in_memory_indexes: BackendInMemoryIndexes,
+        pending_writes: &mut PendingWrites,
     ) {
         let (_ts, ref mut snapshot) = self.versions.back_mut().expect("snapshot versions empty");
         snapshot.in_memory_indexes = in_memory_indexes;
+        pending_writes.recompute_pending_snapshots(snapshot.clone());
     }
 
     pub fn push(&mut self, ts: Timestamp, snapshot: Snapshot) {

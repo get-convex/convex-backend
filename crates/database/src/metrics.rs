@@ -241,15 +241,6 @@ pub fn commit_is_stale_timer() -> StatusTimer {
 }
 
 register_convex_histogram!(
-    DATABASE_COMMIT_VALIDATE_INDEX_WRITE_SECONDS,
-    "Time to validate an index write",
-    &STATUS_LABEL
-);
-pub fn commit_validate_index_write_timer() -> StatusTimer {
-    StatusTimer::new(&DATABASE_COMMIT_VALIDATE_INDEX_WRITE_SECONDS)
-}
-
-register_convex_histogram!(
     DATABASE_COMMIT_PREPARE_WRITES_SECONDS,
     "Time to prepare writes",
     &STATUS_LABEL

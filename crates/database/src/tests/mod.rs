@@ -132,6 +132,7 @@ use crate::{
     UserFacingModel,
 };
 
+mod committer_race_tests;
 mod randomized_search_tests;
 mod streaming_export_tests;
 mod usage_tracking;

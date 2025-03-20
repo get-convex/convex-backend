@@ -93,6 +93,7 @@ use vector::{
 };
 
 use crate::{
+    committer::AFTER_PENDING_WRITE_SNAPSHOT,
     index_workers::{
         search_compactor::CompactionConfig,
         writer::SearchIndexMetadataWriter,
@@ -1028,6 +1029,52 @@ async fn search_works_after_bootstrapping(
         ._query_with_scores("rakeeb", None, None, SearchVersion::V2)
         .await?;
 
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_bootstrap_search_index_recompute_pending_writes(
+    rt: TestRuntime,
+    pause: PauseController,
+) -> anyhow::Result<()> {
+    let mut scenario = Scenario::new(rt.clone()).await?;
+    scenario.set_bootstrapping().await?;
+
+    let db = scenario.database.clone();
+    // Start a new transaction that doesn't have the text indexes in the snapshot
+    // when it is first added to pending_writes.
+    let mut tx_without_indexes = db.begin_system().await?;
+    TestFacingModel::new(&mut tx_without_indexes)
+        .insert(
+            &scenario.table_name,
+            assert_obj!("searchField" => "geoffry", "filterField" => "test"),
+        )
+        .await?;
+    let db_clone = db.clone();
+    let commit_fut = async move {
+        db_clone.commit(tx_without_indexes).await?;
+        anyhow::Ok(())
+    };
+
+    let hold_guard = pause.hold(AFTER_PENDING_WRITE_SNAPSHOT);
+    let db_clone = db.clone();
+    let finish_bootstrap_fut = async move {
+        let pause_guard = hold_guard.wait_for_blocked().await;
+        let mut handle = db_clone.start_search_and_vector_bootstrap();
+        handle.join().await?;
+        if let Some(pause_guard) = pause_guard {
+            pause_guard.unpause();
+        }
+        anyhow::Ok(())
+    };
+    futures::try_join!(commit_fut, finish_bootstrap_fut)?;
+
+    // Start another transaction to verify text indexes were included after
+    // recomputing pending_writes.
+    let result = scenario
+        ._query_with_scores("geoffry", None, None, SearchVersion::V2)
+        .await?;
+    assert_eq!(result.len(), 1);
     Ok(())
 }
 
