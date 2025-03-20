@@ -446,22 +446,24 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let rate_limit_pages_per_second = job.build_reason.read_max_pages_per_second();
         let developer_config = job.index_config.developer_config.clone();
         let params = self.params.clone();
-        let mut handle = self.runtime.spawn_thread(move || async move {
-            let result = Self::build_multipart_segment_on_thread(
-                params,
-                rate_limit_pages_per_second,
-                index_name,
-                by_id,
-                build_type,
-                snapshot_ts,
-                developer_config,
-                index_path,
-                previous_segments,
-                build_index_args,
-            )
-            .await;
-            let _ = tx.send(result);
-        });
+        let mut handle = self
+            .runtime
+            .spawn_thread("build_multipart_segment", move || async move {
+                let result = Self::build_multipart_segment_on_thread(
+                    params,
+                    rate_limit_pages_per_second,
+                    index_name,
+                    by_id,
+                    build_type,
+                    snapshot_ts,
+                    developer_config,
+                    index_path,
+                    previous_segments,
+                    build_index_args,
+                )
+                .await;
+                let _ = tx.send(result);
+            });
         handle.join().await?;
         rx.await?
     }
@@ -603,10 +605,12 @@ impl<RT: Runtime, T: SearchIndex + 'static> SearchFlusher<RT, T> {
         let (tx, rx) = oneshot::channel();
         let rt = self.runtime.clone();
         let storage = self.storage.clone();
-        let mut handle = self.runtime.spawn_thread(move || async move {
-            let result = T::upload_new_segment(&rt, storage, new_segment).await;
-            let _ = tx.send(result);
-        });
+        let mut handle = self
+            .runtime
+            .spawn_thread("upload_new_segment", move || async move {
+                let result = T::upload_new_segment(&rt, storage, new_segment).await;
+                let _ = tx.send(result);
+            });
         handle.join().await?;
         rx.await?
     }

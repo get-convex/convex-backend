@@ -669,7 +669,7 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
     let mut handles = vec![];
     for (timestamp, expected_results) in timestamps_and_results {
         let scenario = scenario.clone();
-        handles.push(rt.spawn_thread(move || async move {
+        handles.push(rt.spawn_thread("vector", move || async move {
             let (actual_results, _usage_stats) = scenario
                 .database
                 .vector_search_at_ts(

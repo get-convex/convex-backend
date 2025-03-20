@@ -762,7 +762,7 @@ mod tests {
         let (sender, receiver) = mpsc::channel::<Bytes>(10);
         let target_upload_parts = 3;
 
-        let mut handle = rt.spawn_thread(move || async move {
+        let mut handle = rt.spawn_thread("test", move || async move {
             let buffers = large_upload_buffers(target_upload_parts);
             for buffer in buffers {
                 sender.send(buffer.clone()).await.unwrap();

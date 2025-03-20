@@ -1526,8 +1526,9 @@ pub async fn test_isolate_recreated_with_client_change<RT: Runtime, W: IsolateWo
     let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let heap_stats = SharedIsolateHeapStats::new();
     let (work_sender, work_receiver) = mpsc::channel(1);
-    let _handle = rt
-        .spawn_thread(move || worker.service_requests::<Option<usize>>(work_receiver, heap_stats));
+    let _handle = rt.spawn_thread("isolate", move || {
+        worker.service_requests::<Option<usize>>(work_receiver, heap_stats)
+    });
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();
@@ -1577,8 +1578,9 @@ pub async fn test_isolate_not_recreated_with_same_client<RT: Runtime, W: Isolate
     let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
     let heap_stats = SharedIsolateHeapStats::new();
     let (work_sender, work_receiver) = mpsc::channel(1);
-    let _handle = rt
-        .spawn_thread(move || worker.service_requests::<Option<usize>>(work_receiver, heap_stats));
+    let _handle = rt.spawn_thread("isolate", move || {
+        worker.service_requests::<Option<usize>>(work_receiver, heap_stats)
+    });
     let DbFixtures { db, .. } = DbFixtures::new(&rt).await?;
     let (done_sender, done_receiver) = oneshot::channel();
     let (sender, _rx) = oneshot::channel();

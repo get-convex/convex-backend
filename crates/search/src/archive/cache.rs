@@ -419,7 +419,8 @@ struct CacheCleaner {
 impl CacheCleaner {
     fn new<RT: Runtime>(rt: RT) -> Self {
         let (cleanup_tx, cleanup_rx) = mpsc::unbounded_channel();
-        let cleanup_handle = Arc::new(rt.spawn_thread(|| cleanup_thread(cleanup_rx)));
+        let cleanup_handle =
+            Arc::new(rt.spawn_thread("search_cache_cleaner", || cleanup_thread(cleanup_rx)));
         Self {
             cleanup_tx,
             _cleanup_handle: cleanup_handle,

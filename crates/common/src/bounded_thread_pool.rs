@@ -138,9 +138,9 @@ impl<RT: Runtime> Scheduler<RT> {
         let (work_sender, work_receiver) = mpsc::channel(1);
         self.worker_senders.push(work_sender);
 
-        let handle = self
-            .rt
-            .spawn_thread(move || Self::service_requests(work_receiver));
+        let handle = self.rt.spawn_thread("bounded_thread_pool", move || {
+            Self::service_requests(work_receiver)
+        });
         self.handles.lock().push(handle);
         worker_index
     }

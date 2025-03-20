@@ -109,7 +109,7 @@ impl JsClientThread {
     pub fn new(rt: TestRuntime, server: ServerThread) -> (Self, Box<dyn SpawnHandle>) {
         let (tx, rx) = mpsc::unbounded_channel();
         let rt_ = rt.clone();
-        let handle = rt.spawn_thread(move || async move {
+        let handle = rt.spawn_thread("js_thread", move || async move {
             Self::go(rt_, server, rx).await.expect("JsThread failed");
         });
         (Self { rt, tx }, handle)

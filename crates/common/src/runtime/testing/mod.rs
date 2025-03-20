@@ -168,6 +168,7 @@ impl Runtime for TestRuntime {
 
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
+        _name: &str,
         f: F,
     ) -> Box<dyn SpawnHandle> {
         let handle = self
@@ -248,7 +249,7 @@ mod tests {
         let rt = td.rt();
         td.run_until(async {
             let (tx, rx) = tokio::sync::oneshot::channel();
-            let mut r = rt.spawn_thread(|| async move {
+            let mut r = rt.spawn_thread("test", || async move {
                 println!("hi!");
                 let _ = tx.send(());
             });

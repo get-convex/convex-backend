@@ -1082,7 +1082,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // The protocol is synchronous, so there should never be more than
     // one pending request at a time.
     let (sender, receiver) = mpsc::channel(1);
-    let mut v8_handle = rt.spawn_thread(|| async {
+    let mut v8_handle = rt.spawn_thread("isolate2", || async {
         if let Err(e) = v8_thread(receiver, Box::new(environment)).await {
             println!("Error in isolate thread: {:?}", e);
         }

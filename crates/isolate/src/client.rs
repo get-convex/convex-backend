@@ -1261,9 +1261,9 @@ impl<RT: Runtime, W: IsolateWorker<RT>> SharedIsolateScheduler<RT, W> {
             let heap_stats = SharedIsolateHeapStats::new();
             let heap_stats_ = heap_stats.clone();
             let (work_sender, work_receiver) = mpsc::channel(1);
-            let handle = self
-                .rt
-                .spawn_thread(move || new_worker.service_requests(work_receiver, heap_stats_));
+            let handle = self.rt.spawn_thread("isolate", move || {
+                new_worker.service_requests(work_receiver, heap_stats_)
+            });
             self.worker_senders.push(work_sender);
             self.handles
                 .lock()

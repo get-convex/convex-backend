@@ -112,7 +112,7 @@ impl SpawnHandle for ThreadHandle {
 }
 
 impl ThreadHandle {
-    fn spawn<Fut, F>(tokio_handle: TokioRuntimeHandle, f: F) -> Self
+    fn spawn<Fut, F>(name: String, tokio_handle: TokioRuntimeHandle, f: F) -> Self
     where
         Fut: Future<Output = ()>,
         F: FnOnce() -> Fut + Send + 'static,
@@ -121,6 +121,7 @@ impl ThreadHandle {
         let (done_tx, done_rx) = oneshot::channel();
         let thread_handle = thread::Builder::new()
             .stack_size(*RUNTIME_STACK_SIZE)
+            .name(name)
             .spawn(move || {
                 let _guard = tokio_handle.enter();
                 let thread_body = async move {
@@ -228,9 +229,11 @@ impl Runtime for ProdRuntime {
 
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
+        name: &str,
         f: F,
     ) -> Box<dyn SpawnHandle> {
         Box::new(ThreadHandle::spawn(
+            name.to_owned(),
             self.rt.clone(),
             propagate_tracing_blocking(move || propagate_tracing(f())),
         ))

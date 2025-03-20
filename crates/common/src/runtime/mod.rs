@@ -196,6 +196,7 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     #[must_use = "Threads are canceled when their `SpawnHandle` is dropped."]
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
+        name: &str,
         f: F,
     ) -> Box<dyn SpawnHandle>;
 
