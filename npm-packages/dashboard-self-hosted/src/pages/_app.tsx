@@ -5,23 +5,15 @@ import Head from "next/head";
 import { useQuery } from "convex/react";
 import udfs from "dashboard-common/udfs";
 import { useSessionStorage } from "react-use";
-import {
-  EnterIcon,
-  ExitIcon,
-  EyeNoneIcon,
-  EyeOpenIcon,
-  GearIcon,
-} from "@radix-ui/react-icons";
+import { ExitIcon, GearIcon } from "@radix-ui/react-icons";
 import { ConvexLogo } from "dashboard-common/elements/ConvexLogo";
 import { ToastContainer } from "dashboard-common/elements/ToastContainer";
 import { ThemeConsumer } from "dashboard-common/elements/ThemeConsumer";
 import { Favicon } from "dashboard-common/elements/Favicon";
 import { ToggleTheme } from "dashboard-common/elements/ToggleTheme";
 import { Menu, MenuItem } from "dashboard-common/elements/Menu";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { Button } from "dashboard-common/elements/Button";
 import { ThemeProvider } from "next-themes";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "components/ErrorBoundary";
 import { DeploymentDashboardLayout } from "dashboard-common/layouts/DeploymentDashboardLayout";
 import {
@@ -31,11 +23,20 @@ import {
   DeploymentInfoContext,
 } from "dashboard-common/lib/deploymentContext";
 import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { DeploymentCredentialsForm } from "components/DeploymentCredentialsForm";
+import { DeploymentList } from "components/DeploymentList";
+import { checkDeploymentInfo } from "lib/checkDeploymentInfo";
 
 function App({
   Component,
-  pageProps: { deploymentUrl, ...pageProps },
-}: AppProps & { pageProps: { deploymentUrl: string } }) {
+  pageProps: { deploymentUrl, adminKey, listDeploymentsApiUrl, ...pageProps },
+}: AppProps & {
+  pageProps: {
+    deploymentUrl: string | null;
+    adminKey: string | null;
+    listDeploymentsApiUrl: string | null;
+  };
+}) {
   return (
     <>
       <Head>
@@ -47,7 +48,11 @@ function App({
         <ThemeConsumer />
         <ToastContainer />
         <div className="flex h-screen flex-col">
-          <DeploymentInfoProvider deploymentUrl={deploymentUrl}>
+          <DeploymentInfoProvider
+            deploymentUrl={deploymentUrl}
+            adminKey={adminKey}
+            listDeploymentsApiUrl={listDeploymentsApiUrl}
+          >
             <DeploymentApiProvider deploymentOverride="local">
               <WaitForDeploymentApi>
                 <DeploymentDashboardLayout>
@@ -62,35 +67,61 @@ function App({
   );
 }
 
+const LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM = "a";
+
+function normalizeUrl(url: string) {
+  try {
+    const parsedUrl = new URL(url);
+    // remove trailing slash
+    return parsedUrl.href.replace(/\/$/, "");
+  } catch (e) {
+    return null;
+  }
+}
+
 App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
   // On server-side, get from process.env
   if (ctx.req) {
-    // Tolerate a trailing slash on the url e.g. https://example.com/ should be valid and stripped to https://example.com
-    const deploymentUrl = process.env.NEXT_PUBLIC_DEPLOYMENT_URL?.replace(
-      /\/$/,
-      "",
-    );
-    if (!deploymentUrl) {
-      throw new Error(
-        "NEXT_PUBLIC_DEPLOYMENT_URL environment variable is not set",
-      );
+    // This is a relative URL, so add localhost as the origin so it can be parsed
+    const url = new URL(ctx.req.url, "http://127.0.0.1");
+
+    let deploymentUrl: string | null = null;
+    if (process.env.NEXT_PUBLIC_DEPLOYMENT_URL) {
+      deploymentUrl = normalizeUrl(process.env.NEXT_PUBLIC_DEPLOYMENT_URL);
     }
+
+    const listDeploymentsApiPort =
+      url.searchParams.get(LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM) ??
+      process.env.NEXT_PUBLIC_DEFAULT_LIST_DEPLOYMENTS_API_PORT;
+    let listDeploymentsApiUrl: string | null = null;
+    if (listDeploymentsApiPort) {
+      const port = parseInt(listDeploymentsApiPort);
+      if (!Number.isNaN(port)) {
+        listDeploymentsApiUrl = normalizeUrl(`http://127.0.0.1:${port}`);
+      }
+    }
+
     return {
       pageProps: {
         deploymentUrl,
+        adminKey: null,
+        listDeploymentsApiUrl,
       },
     };
   }
 
   // On client-side navigation, get from window.__NEXT_DATA__
-  const deploymentUrl = window.__NEXT_DATA__?.props?.pageProps?.deploymentUrl;
-  if (!deploymentUrl) {
-    throw new Error("deploymentUrl not found in __NEXT_DATA__");
-  }
-
+  const clientSideDeploymentUrl =
+    window.__NEXT_DATA__?.props?.pageProps?.deploymentUrl ?? null;
+  const clientSideAdminKey =
+    window.__NEXT_DATA__?.props?.pageProps?.adminKey ?? null;
+  const clientSideListDeploymentsApiUrl =
+    window.__NEXT_DATA__?.props?.pageProps?.listDeploymentsApiUrl ?? null;
   return {
     pageProps: {
-      deploymentUrl,
+      deploymentUrl: clientSideDeploymentUrl ?? null,
+      adminKey: clientSideAdminKey ?? null,
+      listDeploymentsApiUrl: clientSideListDeploymentsApiUrl ?? null,
     },
   };
 };
@@ -105,10 +136,10 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   reportHttpError: (
     method: string,
     url: string,
-    error: { code: string; message: string },
+    error: { code: string; message: string }
   ) => {
     console.error(
-      `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+      `failed to request ${method} ${url}: ${error.code} - ${error.message} `
     );
   },
   useCurrentTeam: () => ({
@@ -167,72 +198,102 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
 function DeploymentInfoProvider({
   children,
   deploymentUrl,
+  adminKey,
+  listDeploymentsApiUrl,
 }: {
   children: React.ReactNode;
-  deploymentUrl: string;
+  deploymentUrl: string | null;
+  adminKey: string | null;
+  listDeploymentsApiUrl: string | null;
 }) {
-  const [adminKey, setAdminKey] = useSessionStorage("adminKey", "");
-  const [draftAdminKey, setDraftAdminKey] = useState<string>("");
-
-  const [showKey, setShowKey] = useState(false);
+  const [shouldListDeployments, setShouldListDeployments] = useState(
+    listDeploymentsApiUrl !== null
+  );
+  const [isValidDeploymentInfo, setIsValidDeploymentInfo] = useState<
+    boolean | null
+  >(null);
+  const [storedAdminKey, setStoredAdminKey] = useSessionStorage("adminKey", "");
+  const [storedDeploymentUrl, setStoredDeploymentUrl] = useSessionStorage(
+    "deploymentUrl",
+    ""
+  );
+  const onSubmit = useCallback(
+    async (submittedAdminKey: string, submittedDeploymentUrl: string) => {
+      const isValid = await checkDeploymentInfo(
+        submittedAdminKey,
+        submittedDeploymentUrl
+      );
+      if (isValid === false) {
+        setIsValidDeploymentInfo(false);
+        return;
+      }
+      // For deployments that don't have the `/check_admin_key` endpoint,
+      // we set isValidDeploymentInfo to true so we can move on. The dashboard
+      // will just hit a less graceful error later if the credentials are invalid.
+      setIsValidDeploymentInfo(true);
+      setStoredAdminKey(submittedAdminKey);
+      setStoredDeploymentUrl(submittedDeploymentUrl);
+    },
+    [setStoredAdminKey, setStoredDeploymentUrl]
+  );
 
   const finalValue: DeploymentInfo = useMemo(
     () =>
       ({
         ...deploymentInfo,
         ok: true,
-        adminKey,
-        deploymentUrl,
+        adminKey: storedAdminKey,
+        deploymentUrl: storedDeploymentUrl,
       }) as DeploymentInfo,
-    [adminKey, deploymentUrl],
+    [storedAdminKey, storedDeploymentUrl]
   );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete(LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM);
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
   if (!mounted) return null;
 
-  if (!adminKey) {
+  if (!isValidDeploymentInfo) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center gap-8">
         <ConvexLogo />
-        <form
-          className="flex w-[30rem] flex-col gap-2"
-          onSubmit={() => {
-            setDraftAdminKey("");
-            setAdminKey(draftAdminKey);
-          }}
-        >
-          <TextInput
-            id="adminKey"
-            label="Admin Key"
-            type={showKey ? "text" : "password"}
-            Icon={showKey ? EyeNoneIcon : EyeOpenIcon}
-            outerClassname="w-[30rem]"
-            placeholder="Enter the admin key for this deployment"
-            value={draftAdminKey}
-            action={() => {
-              setShowKey(!showKey);
+        {shouldListDeployments && listDeploymentsApiUrl !== null ? (
+          <DeploymentList
+            listDeploymentsApiUrl={listDeploymentsApiUrl}
+            onError={() => {
+              setShouldListDeployments(false);
             }}
-            description="The admin key is required every time you open the dashboard."
-            onChange={(e) => {
-              setDraftAdminKey(e.target.value);
-            }}
+            onSelect={onSubmit}
           />
-          <Button
-            type="submit"
-            icon={<EnterIcon />}
-            disabled={!draftAdminKey}
-            size="xs"
-            className="ml-auto w-fit"
-          >
-            Log In
-          </Button>
-        </form>
+        ) : (
+          <DeploymentCredentialsForm
+            onSubmit={onSubmit}
+            initialAdminKey={adminKey}
+            initialDeploymentUrl={deploymentUrl}
+          />
+        )}
+        {isValidDeploymentInfo === false && (
+          <div className="text-sm text-content-secondary">
+            The deployment URL or admin key is invalid. Please check that you
+            have entered the correct values.
+          </div>
+        )}
       </div>
     );
   }
   return (
     <>
-      <Header onLogout={() => setAdminKey("")} />
+      <Header
+        onLogout={() => {
+          setStoredAdminKey("");
+          setStoredDeploymentUrl("");
+        }}
+      />
       <DeploymentInfoContext.Provider value={finalValue}>
         <ErrorBoundary>{children}</ErrorBoundary>
       </DeploymentInfoContext.Provider>

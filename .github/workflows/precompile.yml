@@ -6,7 +6,62 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  release_dashboard:
+    name: Build Convex Dashboard
+    runs-on: [self-hosted, aws, x64, xlarge]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: NPM install globals
+        run: npm ci --prefix scripts
+
+      - name: Rush install
+        run: |
+          just rush install
+
+      - name: Build dashboard dependencies
+        run: |
+          just rush build -T dashboard-self-hosted
+
+      - name: Build dashboard
+        run: |
+          cd npm-packages/dashboard-self-hosted && npm run build:export
+
+      - name: Zip output
+        run: |
+          cd npm-packages/dashboard-self-hosted/out && zip -r ../../../dashboard.zip .
+
+      - name: Precompute release name
+        id: release_name
+        shell: bash
+        run: |
+          echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Create Upload Precompiled Artifacts
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dashboard.zip
+          tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
+          name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release_backend:
     strategy:
       fail-fast: false
       matrix:
