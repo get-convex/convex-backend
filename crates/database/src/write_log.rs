@@ -371,6 +371,11 @@ pub struct LogReader {
 impl LogReader {
     #[fastrace::trace]
     pub fn refresh_token(&self, token: Token, ts: Timestamp) -> anyhow::Result<Option<Token>> {
+        if token.ts() == ts {
+            // Nothing to do. We can return Some even if `token.ts()` has fallen
+            // out of the write log retention window.
+            return Ok(Some(token));
+        }
         let snapshot = { self.inner.lock().log.clone() };
         block_in_place(|| {
             let max_ts = snapshot.max_ts();
