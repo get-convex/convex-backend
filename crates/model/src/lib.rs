@@ -47,10 +47,6 @@ use backend_info::{
     BackendInfoTable,
     BACKEND_INFO_TABLE,
 };
-use backend_serving_record::{
-    BackendServingRecordTable,
-    BACKEND_SERVING_RECORD_TABLE,
-};
 use backend_state::{
     BackendStateTable,
     BACKEND_STATE_TABLE,
@@ -198,7 +194,6 @@ pub mod airbyte_import;
 pub mod auth;
 pub mod aws_lambda_versions;
 pub mod backend_info;
-pub mod backend_serving_record;
 pub mod backend_state;
 pub mod canonical_urls;
 pub mod components;
@@ -246,7 +241,6 @@ enum DefaultTableNumber {
     CronJobs = 19,
     Schemas = 20,
     CronJobLogs = 21,
-    BackendServingRecord = 22,
     LogSinks = 23,
     BackendState = 24,
     ExternalPackages = 25,
@@ -290,7 +284,6 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::CronJobs => &CronJobsTable,
             DefaultTableNumber::Schemas => &SchemasTable,
             DefaultTableNumber::CronJobLogs => &CronJobLogsTable,
-            DefaultTableNumber::BackendServingRecord => &BackendServingRecordTable,
             DefaultTableNumber::LogSinks => &LogSinksTable,
             DefaultTableNumber::BackendState => &BackendStateTable,
             DefaultTableNumber::ExternalPackages => &ExternalPackagesTable,
@@ -510,7 +503,6 @@ pub fn app_system_tables() -> Vec<&'static dyn SystemTable> {
         &LogSinksTable,
         &AwsLambdaVersionsTable,
         &BackendInfoTable,
-        &BackendServingRecordTable,
     ];
     system_tables.extend(component_system_tables());
     system_tables.extend(bootstrap_system_tables());
@@ -582,7 +574,6 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         ENVIRONMENT_VARIABLES_TABLE.clone() => 44,
         AWS_LAMBDA_VERSIONS_TABLE.clone() => 44,
         BACKEND_INFO_TABLE.clone() => 44,
-        BACKEND_SERVING_RECORD_TABLE.clone() => 55,
         EXPORTS_TABLE.clone() => 44,
         LOG_SINKS_TABLE.clone() => 68,
         TABLES_TABLE.clone() => 44,
