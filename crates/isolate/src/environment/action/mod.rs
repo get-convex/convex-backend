@@ -314,7 +314,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         http_module_path: ValidatedHttpPath,
         routed_path: RoutedHttpPath,
         request: HttpActionRequest,
-        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<HttpActionOutcome> {
         let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
@@ -346,7 +345,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             udf_path,
             routed_path,
             request,
-            cancellation,
         )
         .await;
         // Override the returned result if we hit a termination error.
@@ -402,7 +400,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         http_module_path: &CanonicalizedUdfPath,
         routed_path: RoutedHttpPath,
         http_request: HttpActionRequest,
-        cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<(HttpActionRoute, HttpActionResult)> {
         let handle = isolate.handle();
         let mut v8_scope = isolate.scope();
@@ -518,7 +515,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             UdfType::HttpAction,
             v8_function,
             &v8_args,
-            cancellation,
+            Box::pin(futures::future::pending()),
             Self::stream_http_result,
             Self::handle_http_streamed_part,
         )

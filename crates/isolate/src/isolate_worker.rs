@@ -172,7 +172,7 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
             RequestType::HttpAction {
                 request,
                 environment_data,
-                mut response,
+                response,
                 queue_timer,
                 action_callbacks,
                 fetch_client,
@@ -205,7 +205,6 @@ impl<RT: Runtime> FunctionRunnerIsolateWorker<RT> {
                         request.http_module_path,
                         request.routed_path,
                         request.http_request,
-                        response.closed().boxed(),
                     )
                     .await;
                 let status = match &r {

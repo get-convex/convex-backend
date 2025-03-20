@@ -1,4 +1,12 @@
 use common::{
+    components::{
+        CanonicalizedComponentFunctionPath,
+        ComponentPath,
+    },
+    http::{
+        RequestDestination,
+        ResolvedHostname,
+    },
     pause::PauseController,
     runtime::tokio_spawn,
     types::FunctionCaller,
@@ -12,6 +20,7 @@ use http::{
 use keybroker::Identity;
 use must_let::must_let;
 use runtime::testing::TestRuntime;
+use serde_json::json;
 use tokio::{
     select,
     sync::mpsc,
@@ -23,8 +32,13 @@ use udf::{
     HttpActionResponseStreamer,
 };
 use url::Url;
+use value::val;
 
 use crate::{
+    api::{
+        ApplicationApi,
+        ExecuteQueryTimestamp,
+    },
     function_log::{
         FunctionExecution,
         FunctionExecutionPart,
@@ -332,6 +346,80 @@ async fn test_http_action_disconnect_while_streaming(
         log_lines[0].clone().to_pretty_string_test_only(),
         "[INFO] Client disconnected\n"
     );
+
+    Ok(())
+}
+
+#[convex_macro::test_runtime]
+async fn test_http_action_continues_after_client_disconnects(
+    rt: TestRuntime,
+    pause_controller: PauseController,
+) -> anyhow::Result<()> {
+    let application = Application::new_for_tests(&rt).await?;
+    application
+        .load_component_tests_modules("http_actions")
+        .await?;
+
+    let http_request = HttpActionRequest {
+        head: HttpActionRequestHead {
+            headers: HeaderMap::new(),
+            url: Url::parse("http://127.0.0.1:8001/writeAfterDisconnect")?,
+            method: Method::GET,
+        },
+        body: None,
+    };
+
+    let hold = pause_controller.hold("begin_run_sleep");
+    let hold_end = pause_controller.hold("end_run_http_action");
+
+    let (response_sender, response_receiver) = mpsc::unbounded_channel();
+    let response_streamer = HttpActionResponseStreamer::new(response_sender);
+
+    let application_ = application.clone();
+    let http_action_fut = tokio_spawn("test_http_action", async move {
+        application_
+            .http_action_udf(
+                common::RequestId::new(),
+                http_request,
+                Identity::system(),
+                FunctionCaller::HttpEndpoint,
+                response_streamer,
+            )
+            .await
+    });
+    let paused = hold.wait_for_blocked().await;
+    let paused = paused.expect("HTTP action should pause, actually died (maybe deadlock)");
+    // The HTTP action hit the sleep
+    // Simulate disconnecting the client by dropping the receiver and the future.
+    drop(response_receiver);
+    drop(http_action_fut);
+    paused.unpause();
+    let paused = hold_end.wait_for_blocked().await;
+    paused.expect("HTTP action should pause").unpause();
+
+    let host = ResolvedHostname {
+        instance_name: "carnitas".to_string(),
+        destination: RequestDestination::ConvexCloud,
+    };
+
+    // The HTTP action should have continued to run after the client disconnected.
+    // It ran a mutation, so we run a query to check it.
+    let query_result = application
+        .execute_admin_query(
+            &host,
+            common::RequestId::new(),
+            Identity::system(),
+            CanonicalizedComponentFunctionPath {
+                component: ComponentPath::root(),
+                udf_path: "functions:didWrite".parse()?,
+            },
+            vec![json!({})],
+            FunctionCaller::HttpEndpoint,
+            ExecuteQueryTimestamp::Latest,
+            None,
+        )
+        .await?;
+    assert_eq!(query_result.result, Ok(val!(true)));
 
     Ok(())
 }

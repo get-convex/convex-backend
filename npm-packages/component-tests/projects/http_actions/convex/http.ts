@@ -1,5 +1,6 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
+import { api } from "./_generated/api";
 
 const http = httpRouter();
 
@@ -75,6 +76,21 @@ http.route({
   method: "GET",
   handler: httpAction(async (_ctx, _request) => {
     throw new Error("Custom error");
+  }),
+});
+
+http.route({
+  path: "/writeAfterDisconnect",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return new Promise((resolve) => {
+      request.signal.addEventListener("abort", async () => {
+        await ctx.runMutation(api.functions.write, {});
+        console.log("Abort event received");
+        resolve(new Response("Hello, world!"));
+      });
+    });
   }),
 });
 
