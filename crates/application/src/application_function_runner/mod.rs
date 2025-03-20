@@ -468,6 +468,7 @@ impl Limiter {
         limiter
     }
 
+    #[fastrace::trace]
     async fn acquire_permit_with_timeout<'a, RT: Runtime>(
         &'a self,
         rt: &'a RT,
