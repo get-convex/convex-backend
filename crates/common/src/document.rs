@@ -24,6 +24,7 @@ use float_next_after::NextAfter;
 use itertools::Itertools;
 use packed_value::{
     ByteBuffer,
+    OpenedValue,
     PackedValue,
 };
 use pb::common::{
@@ -43,10 +44,12 @@ use value::{
     export::ValueFormat,
     heap_size::HeapSize,
     id_v6::DeveloperDocumentId,
+    serde::ConvexSerializable,
     sorting::{
         write_sort_key,
         write_sort_key_or_undefined,
     },
+    walk::ConvexValueType,
     ConvexObject,
     ConvexValue,
     FieldName,
@@ -878,6 +881,8 @@ pub trait ParseDocument<D> {
     fn parse(self) -> anyhow::Result<ParsedDocument<D>>;
 }
 
+// this impl can't use ConvexSerializable because it's used with some types that
+// directly impl `From<ConvexObject>`
 impl<D> ParseDocument<D> for ResolvedDocument
 where
     D: TryFrom<ConvexObject, Error = anyhow::Error>,
@@ -896,6 +901,57 @@ where
             creation_time,
             value,
         })
+    }
+}
+
+impl<D: ConvexSerializable> ParseDocument<D> for &ResolvedDocument
+where
+    anyhow::Error: From<<D::Serialized as TryInto<D>>::Error>,
+{
+    fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
+        let id = self.id();
+        let creation_time = self.creation_time;
+        let value: D = value::serde::from_value::<_, D::Serialized>(
+            ConvexValueType::<&ConvexValue>::Object(&self.document.value().0),
+        )?
+        .try_into()
+        .map_err(anyhow::Error::from)
+        .with_context(|| format!("Failed to parse document id: {id}"))?;
+        Ok(ParsedDocument {
+            id,
+            creation_time,
+            value,
+        })
+    }
+}
+
+impl<D: ConvexSerializable> ParseDocument<D> for &PackedDocument
+where
+    anyhow::Error: From<<D::Serialized as TryInto<D>>::Error>,
+{
+    fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
+        let creation_time = match self.value().as_ref().open()? {
+            OpenedValue::Object(o) => match o.get(&CREATION_TIME_FIELD)? {
+                Some(OpenedValue::Float64(ts)) => CreationTime::try_from(ts)?,
+                None => anyhow::bail!("PackedDocument missing _creationTime field"),
+                _ => anyhow::bail!("PackedDocument has non-float64 _creationTime field"),
+            },
+            v => anyhow::bail!("PackedDocument is {v:?}, not object"),
+        };
+        Ok(ParsedDocument {
+            id: self.1,
+            creation_time,
+            value: self.0.as_ref().parse()?,
+        })
+    }
+}
+
+impl<D: ConvexSerializable> ParseDocument<D> for PackedDocument
+where
+    anyhow::Error: From<<D::Serialized as TryInto<D>>::Error>,
+{
+    fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
+        (&self).parse()
     }
 }
 

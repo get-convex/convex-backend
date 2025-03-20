@@ -22,7 +22,7 @@ pub struct DatabaseGlobals {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedDatabaseGlobals {
+pub struct SerializedDatabaseGlobals {
     version: DatabaseVersion,
     aws_prefix_secret: String,
     storage_type: Option<SerializedStorageType>,
@@ -60,7 +60,7 @@ pub enum StorageType {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "tag")]
 #[serde(rename_all = "camelCase")]
-enum SerializedStorageType {
+pub enum SerializedStorageType {
     #[serde(rename_all = "camelCase")]
     S3 { s3_prefix: String },
     #[serde(rename_all = "camelCase")]

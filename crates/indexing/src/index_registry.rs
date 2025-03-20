@@ -24,6 +24,7 @@ use common::{
         AsComparator,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -106,9 +107,9 @@ impl IndexRegistry {
     /// all of them as completed since we'll be streaming in all non
     /// `_index` documents later.
     #[fastrace::trace]
-    pub fn bootstrap<'a>(
+    pub fn bootstrap<'a, Doc: ParseDocument<TabletIndexMetadata>>(
         table_mapping: &TableMapping,
-        index_documents: impl Iterator<Item = ResolvedDocument>,
+        index_documents: impl Iterator<Item = Doc>,
         persistence_version: PersistenceVersion,
     ) -> anyhow::Result<Self> {
         let index_table = table_mapping
@@ -129,8 +130,8 @@ impl IndexRegistry {
         let mut regular_indexes = vec![];
 
         for document in index_documents {
-            anyhow::ensure!(document.id().tablet_id == index_table);
-            let metadata = TabletIndexMetadata::from_document(document)?;
+            let metadata = document.parse()?;
+            anyhow::ensure!(metadata.id().tablet_id == index_table);
             if metadata.name == meta_index_name {
                 anyhow::ensure!(meta_index.is_none());
                 meta_index = Some(metadata);

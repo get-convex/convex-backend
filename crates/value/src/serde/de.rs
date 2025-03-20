@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     fmt::{
         self,
         Display,
@@ -17,10 +16,16 @@ use serde::de::{
 };
 
 use crate::{
-    ConvexArray,
+    walk::{
+        ConvexArrayWalker,
+        ConvexBytesWalker,
+        ConvexObjectWalker,
+        ConvexStringWalker,
+        ConvexValueType,
+        ConvexValueWalker,
+    },
     ConvexObject,
     ConvexValue,
-    FieldName,
 };
 
 #[derive(thiserror::Error)]
@@ -31,7 +36,7 @@ pub enum Error {
         received: &'static str,
     },
 
-    #[error("ConvexValue::Int64 was out of range: {0:?}.")]
+    #[error("ConvexValueType::Int64 was out of range: {0:?}.")]
     IntegerOutofRange(#[from] TryFromIntError),
 
     #[error("f32s aren't supported, use an f64 instead.")]
@@ -65,6 +70,12 @@ pub enum Error {
     Custom(String),
 }
 
+impl Error {
+    fn anyhow(e: impl Into<anyhow::Error>) -> Self {
+        Self::Anyhow(e.into())
+    }
+}
+
 impl fmt::Debug for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{self}")
@@ -77,7 +88,9 @@ impl SerdeError for Error {
     }
 }
 
-impl<'de> serde::Deserializer<'de> for ConvexValue {
+struct Deserialize<W>(W);
+
+impl<'de, W: ConvexValueWalker> serde::Deserializer<'de> for Deserialize<W> {
     type Error = Error;
 
     #[inline]
@@ -85,16 +98,17 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Null => visitor.visit_unit(),
-            ConvexValue::Int64(n) => visitor.visit_i64(n),
-            ConvexValue::Float64(n) => visitor.visit_f64(n),
-            ConvexValue::Boolean(b) => visitor.visit_bool(b),
-            ConvexValue::String(s) => visitor.visit_string(s.into()),
-            ConvexValue::Bytes(b) => visitor.visit_byte_buf(b.into()),
-            ConvexValue::Array(v) => visit_array(v, visitor),
-            ConvexValue::Object(v) => visit_object(v, visitor),
-            v => Err(anyhow::anyhow!("Unsupported value: {v}").into()),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Null => visitor.visit_unit(),
+            ConvexValueType::Int64(n) => visitor.visit_i64(n),
+            ConvexValueType::Float64(n) => visitor.visit_f64(n),
+            ConvexValueType::Boolean(b) => visitor.visit_bool(b),
+            ConvexValueType::String(s) => visitor.visit_str(s.as_str()),
+            ConvexValueType::Bytes(b) => visitor.visit_bytes(b.as_bytes()),
+            ConvexValueType::Array(v) => visit_array(v, visitor),
+            ConvexValueType::Object(v) => visit_object(v, visitor),
+            ConvexValueType::Set(_) => Err(anyhow::anyhow!("Unsupported Set").into()),
+            ConvexValueType::Map(_) => Err(anyhow::anyhow!("Unsupported Map").into()),
         }
     }
 
@@ -102,8 +116,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_i8(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_i8(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -115,8 +129,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_i16(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_i16(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -128,8 +142,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_i32(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_i32(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -141,8 +155,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_i64(n),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_i64(n),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -154,8 +168,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_u8(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_u8(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -167,8 +181,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_u16(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_u16(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -180,8 +194,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_u32(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_u32(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -193,8 +207,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Int64(n) => visitor.visit_u64(n.try_into()?),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Int64(n) => visitor.visit_u64(n.try_into()?),
             v => Err(Error::InvalidType {
                 expected: "Int64",
                 received: v.type_name(),
@@ -213,8 +227,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Float64(n) => visitor.visit_f64(n),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Float64(n) => visitor.visit_f64(n),
             v => Err(Error::InvalidType {
                 expected: "Float",
                 received: v.type_name(),
@@ -227,9 +241,9 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Null => visitor.visit_none(),
-            _ => visitor.visit_some(self),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Null => visitor.visit_none(),
+            v => visitor.visit_some(Deserialize(v)),
         }
     }
 
@@ -262,8 +276,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Boolean(b) => visitor.visit_bool(b),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Boolean(b) => visitor.visit_bool(b),
             v => Err(Error::InvalidType {
                 expected: "Boolean",
                 received: v.type_name(),
@@ -282,15 +296,21 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_string(visitor)
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::String(s) => visitor.visit_str(s.as_str()),
+            v => Err(Error::InvalidType {
+                expected: "String",
+                received: v.type_name(),
+            }),
+        }
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::String(s) => visitor.visit_string(s.into()),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::String(s) => visitor.visit_string(s.into_string()),
             v => Err(Error::InvalidType {
                 expected: "String",
                 received: v.type_name(),
@@ -302,15 +322,21 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_byte_buf(visitor)
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Bytes(b) => visitor.visit_bytes(b.as_bytes()),
+            v => Err(Error::InvalidType {
+                expected: "Bytes",
+                received: v.type_name(),
+            }),
+        }
     }
 
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Bytes(b) => visitor.visit_byte_buf(b.into()),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Bytes(b) => visitor.visit_byte_buf(b.into_vec()),
             v => Err(Error::InvalidType {
                 expected: "Bytes",
                 received: v.type_name(),
@@ -322,8 +348,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Null => visitor.visit_unit(),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Null => visitor.visit_unit(),
             v => Err(Error::InvalidType {
                 expected: "Null",
                 received: v.type_name(),
@@ -342,8 +368,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Array(v) => visit_array(v, visitor),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Array(v) => visit_array(v, visitor),
             v => Err(Error::InvalidType {
                 expected: "Array",
                 received: v.type_name(),
@@ -374,8 +400,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Object(v) => visit_object(v, visitor),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Object(v) => visit_object(v, visitor),
             v => Err(Error::InvalidType {
                 expected: "Object",
                 received: v.type_name(),
@@ -392,8 +418,8 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     where
         V: Visitor<'de>,
     {
-        match self {
-            ConvexValue::Object(v) => visit_object(v, visitor),
+        match self.0.walk().map_err(Error::anyhow)? {
+            ConvexValueType::Object(v) => visit_object(v, visitor),
             v => Err(Error::InvalidType {
                 expected: "Object",
                 received: v.type_name(),
@@ -416,27 +442,27 @@ impl<'de> serde::Deserializer<'de> for ConvexValue {
     }
 }
 
-fn visit_array<'de, V>(array: ConvexArray, visitor: V) -> Result<V::Value, Error>
+fn visit_array<'de, V>(array: impl ConvexArrayWalker, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
-    let _len = array.len();
-    let mut deserializer = SeqDeserializer {
-        iter: Vec::from(array).into_iter(),
-    };
+    let mut deserializer = SeqDeserializer { iter: array.walk() };
     let seq = visitor.visit_seq(&mut deserializer)?;
-    let remaining = deserializer.iter.len();
-    if remaining != 0 {
+    if deserializer.iter.next().is_some() {
         return Err(anyhow::anyhow!("Items remaining after deserialization").into());
     }
     Ok(seq)
 }
 
-struct SeqDeserializer {
-    iter: std::vec::IntoIter<ConvexValue>,
+struct SeqDeserializer<I> {
+    iter: I,
 }
 
-impl<'de> SeqAccess<'de> for SeqDeserializer {
+impl<'de, I, W> SeqAccess<'de> for SeqDeserializer<I>
+where
+    I: Iterator<Item = Result<W, W::Error>>,
+    W: ConvexValueWalker,
+{
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
@@ -444,7 +470,9 @@ impl<'de> SeqAccess<'de> for SeqDeserializer {
         T: DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some(value) => seed.deserialize(value).map(Some),
+            Some(value) => seed
+                .deserialize(Deserialize(value.map_err(Error::anyhow)?))
+                .map(Some),
             None => Ok(None),
         }
     }
@@ -457,29 +485,31 @@ impl<'de> SeqAccess<'de> for SeqDeserializer {
     }
 }
 
-fn visit_object<'de, V>(object: ConvexObject, visitor: V) -> Result<V::Value, Error>
+fn visit_object<'de, V>(object: impl ConvexObjectWalker, visitor: V) -> Result<V::Value, Error>
 where
     V: Visitor<'de>,
 {
-    let _len = object.len();
     let mut deserializer = MapDeserializer {
-        iter: BTreeMap::from(object).into_iter(),
+        iter: object.walk(),
         value: None,
     };
     let map = visitor.visit_map(&mut deserializer)?;
-    let remaining = deserializer.iter.len();
-    if remaining != 0 {
+    if deserializer.iter.next().is_some() {
         return Err(anyhow::anyhow!("Items remaining after deserialization").into());
     }
     Ok(map)
 }
 
-struct MapDeserializer {
-    iter: <BTreeMap<FieldName, ConvexValue> as IntoIterator>::IntoIter,
-    value: Option<ConvexValue>,
+struct MapDeserializer<I, W> {
+    iter: I,
+    value: Option<W>,
 }
 
-impl<'de> MapAccess<'de> for MapDeserializer {
+impl<'de, I, W> MapAccess<'de> for MapDeserializer<I, W>
+where
+    I: Iterator<Item = Result<(W::FieldName, W), W::Error>>,
+    W: ConvexValueWalker,
+{
     type Error = Error;
 
     fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
@@ -487,7 +517,8 @@ impl<'de> MapAccess<'de> for MapDeserializer {
         T: DeserializeSeed<'de>,
     {
         match self.iter.next() {
-            Some((key, value)) => {
+            Some(r) => {
+                let (key, value) = r.map_err(Error::anyhow)?;
                 self.value = Some(value);
                 let key_de = MapKeyDeserializer { key };
                 Ok(Some(seed.deserialize(key_de)?))
@@ -501,7 +532,7 @@ impl<'de> MapAccess<'de> for MapDeserializer {
         T: DeserializeSeed<'de>,
     {
         match self.value.take() {
-            Some(value) => seed.deserialize(value),
+            Some(value) => seed.deserialize(Deserialize(value)),
             None => Err(anyhow::anyhow!("value is missing").into()),
         }
     }
@@ -514,11 +545,14 @@ impl<'de> MapAccess<'de> for MapDeserializer {
     }
 }
 
-struct MapKeyDeserializer {
-    key: FieldName,
+struct MapKeyDeserializer<S> {
+    key: S,
 }
 
-impl<'de> serde::Deserializer<'de> for MapKeyDeserializer {
+impl<'de, S> serde::Deserializer<'de> for MapKeyDeserializer<S>
+where
+    S: ConvexStringWalker,
+{
     type Error = Error;
 
     #[inline]
@@ -654,14 +688,14 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer {
     where
         V: Visitor<'de>,
     {
-        self.deserialize_string(visitor)
+        visitor.visit_str(self.key.as_str())
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_string(self.key.into())
+        visitor.visit_string(self.key.into_string())
     }
 
     fn deserialize_bytes<V>(self, _visitor: V) -> Result<V::Value, Error>
@@ -767,16 +801,12 @@ impl<'de> serde::Deserializer<'de> for MapKeyDeserializer {
     }
 }
 
-pub fn from_value<T: DeserializeOwned>(value: ConvexValue) -> anyhow::Result<T> {
-    match T::deserialize(value) {
-        Err(Error::Anyhow(e)) => Err(e),
-        Err(e) => Err(e.into()),
-        Ok(value) => Ok(value),
-    }
+pub fn from_object<T: DeserializeOwned>(object: ConvexObject) -> anyhow::Result<T> {
+    from_value(ConvexValueType::<ConvexValue>::Object(object))
 }
 
-pub fn from_object<T: DeserializeOwned>(value: ConvexObject) -> anyhow::Result<T> {
-    match T::deserialize(ConvexValue::Object(value)) {
+pub fn from_value<V: ConvexValueWalker, T: DeserializeOwned>(value: V) -> anyhow::Result<T> {
+    match T::deserialize(Deserialize(value)) {
         Err(Error::Anyhow(e)) => Err(e),
         Err(e) => Err(e.into()),
         Ok(value) => Ok(value),

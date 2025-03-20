@@ -235,7 +235,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
     }
 
     #[fastrace::trace(properties = { "table_name": "{table_name:?}" })]
-    async fn must_get_or_load_unpacked<'a>(
+    pub async fn must_get_or_load<'a>(
         &self,
         instance_name: String,
         index_id: IndexId,
@@ -245,7 +245,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         table_name: TableName,
         // needed to hoist the `Arc` otherwise the iterator lifetimes don't work
         temp: &'a mut Option<Arc<CacheValue>>,
-    ) -> anyhow::Result<impl Iterator<Item = ResolvedDocument> + 'a> {
+    ) -> anyhow::Result<impl Iterator<Item = &'a PackedDocument> + 'a> {
         let index_map = self
             .get_or_load(
                 instance_name.clone(),
@@ -257,11 +257,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             )
             .await?
             .with_context(|| format!("Index on {table_name} for {instance_name} not found"))?;
-        Ok(temp
-            .insert(index_map)
-            .0
-            .iter()
-            .map(|(_k, (_ts, v))| v.unpack()))
+        Ok(temp.insert(index_map).0.iter().map(|(_k, (_ts, v))| v))
     }
 
     #[fastrace::trace]
@@ -284,7 +280,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         DatabaseIndexSnapshot,
     )> {
         let (mut index_tmp, mut table_tmp) = (None, None);
-        let index_documents_fut = self.must_get_or_load_unpacked(
+        let index_documents_fut = self.must_get_or_load(
             instance_name.clone(),
             index_by_id,
             &in_memory_index_last_modified,
@@ -293,7 +289,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             INDEX_TABLE.clone(),
             &mut index_tmp,
         );
-        let table_documents_fut = self.must_get_or_load_unpacked(
+        let table_documents_fut = self.must_get_or_load(
             instance_name.clone(),
             tables_by_id,
             &in_memory_index_last_modified,
@@ -325,7 +321,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             .tablet_id;
         let components_by_id = index_registry.must_get_by_id(component_tablet)?.id;
         let component_docs = self
-            .must_get_or_load_unpacked(
+            .must_get_or_load(
                 instance_name.clone(),
                 components_by_id,
                 &in_memory_index_last_modified,
@@ -355,7 +351,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
             let index_id = index_registry.must_get_by_id(schema_tablet)?.id;
             let mut tmp = None;
             let schema_doc_iter = self
-                .must_get_or_load_unpacked(
+                .must_get_or_load(
                     instance_name.clone(),
                     index_id,
                     &in_memory_index_last_modified,

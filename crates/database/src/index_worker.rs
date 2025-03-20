@@ -314,8 +314,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             let mut to_backfill_by_tablet = BTreeMap::new();
             let mut num_to_backfill = 0;
             for (id, doc) in &index_documents {
-                let index_metadata: ParsedDocument<IndexMetadata<TabletId>> =
-                    doc.clone().parse()?;
+                let index_metadata: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
                 if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
                     if matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)) {
                         to_backfill_by_tablet

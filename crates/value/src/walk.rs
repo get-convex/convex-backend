@@ -44,6 +44,23 @@ pub enum ConvexValueType<V: ConvexValueWalker + ?Sized> {
     Object(V::Object),
 }
 
+impl<V: ConvexValueWalker + ?Sized> ConvexValueType<V> {
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            ConvexValueType::Null => "Null",
+            ConvexValueType::Int64(_) => "Int64",
+            ConvexValueType::Float64(_) => "Float64",
+            ConvexValueType::Boolean(_) => "Boolean",
+            ConvexValueType::String(_) => "String",
+            ConvexValueType::Bytes(_) => "Bytes",
+            ConvexValueType::Array(_) => "Array",
+            ConvexValueType::Set(_) => "Set",
+            ConvexValueType::Map(_) => "Map",
+            ConvexValueType::Object(_) => "Object",
+        }
+    }
+}
+
 pub trait ConvexStringWalker {
     fn as_str(&self) -> &str;
     fn into_string(self) -> String

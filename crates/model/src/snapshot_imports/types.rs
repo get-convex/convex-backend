@@ -32,7 +32,7 @@ pub struct SnapshotImport {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-struct SerializedSnapshotImport {
+pub struct SerializedSnapshotImport {
     state: SerializedImportState,
     format: SerializedImportFormat,
     mode: String,
@@ -214,7 +214,7 @@ pub enum ImportState {
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "state")]
-enum SerializedImportState {
+pub enum SerializedImportState {
     Uploaded,
     WaitingForConfirmation {
         message_to_confirm: Option<String>,
@@ -411,7 +411,7 @@ impl ImportRequestor {
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
 #[serde(tag = "type", rename_all = "camelCase")]
-enum SerializedImportRequestor {
+pub enum SerializedImportRequestor {
     #[serde(rename_all = "camelCase")]
     SnapshotImport,
     #[serde(rename_all = "camelCase")]

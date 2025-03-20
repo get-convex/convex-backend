@@ -319,7 +319,7 @@ impl HeapSize for AnalyzedFunction {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedAnalyzedFunction {
+pub struct SerializedAnalyzedFunction {
     name: String,
     pos: Option<SerializedAnalyzedSourcePosition>,
     udf_type: String,

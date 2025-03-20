@@ -287,10 +287,8 @@ impl VectorIndexManager {
                 }
             },
             (Some(prev_version), Some(next_version)) => {
-                let prev_metadata: ParsedDocument<IndexMetadata<_>> =
-                    prev_version.clone().parse()?;
-                let next_metadata: ParsedDocument<IndexMetadata<_>> =
-                    next_version.clone().parse()?;
+                let prev_metadata: ParsedDocument<IndexMetadata<_>> = prev_version.parse()?;
+                let next_metadata: ParsedDocument<IndexMetadata<_>> = next_version.parse()?;
                 let (old_snapshot, new_snapshot) =
                     match (&prev_metadata.config, &next_metadata.config) {
                         (
@@ -386,7 +384,7 @@ impl VectorIndexManager {
                 }
             },
             (Some(deletion), None) => {
-                let metadata: ParsedDocument<IndexMetadata<_>> = deletion.clone().parse()?;
+                let metadata: ParsedDocument<IndexMetadata<_>> = deletion.parse()?;
                 if metadata.is_vector_index() {
                     self.indexes.delete(&deletion.id().internal_id());
                     metrics::log_index_deleted();

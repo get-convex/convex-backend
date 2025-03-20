@@ -21,6 +21,7 @@ use flexbuffers::{
 };
 use value::{
     heap_size::HeapSize,
+    serde::ConvexSerializable,
     ConvexObject,
     ConvexValue,
     FieldPath,
@@ -69,6 +70,15 @@ where
 
     pub fn open(self) -> anyhow::Result<OpenedValue<B>> {
         OpenedValue::new(Reader::get_root(self.buf)?)
+    }
+
+    pub fn parse<T: ConvexSerializable>(self) -> anyhow::Result<T>
+    where
+        anyhow::Error: From<<T::Serialized as TryInto<T>>::Error>,
+    {
+        value::serde::from_value::<_, T::Serialized>(self.as_ref().open()?)?
+            .try_into()
+            .map_err(anyhow::Error::from)
     }
 
     pub fn size(&self) -> usize {

@@ -59,7 +59,7 @@ impl VirtualSystemDocMapper for ScheduledJobsDocMapper {
             anyhow::bail!("System document cannot be converted to a virtual document")
         }
 
-        let job: ParsedDocument<ScheduledJob> = doc.clone().parse()?;
+        let job: ParsedDocument<ScheduledJob> = (&doc).parse()?;
         let job: ScheduledJob = job.into_value();
         let udf_args = job.udf_args()?;
         let public_job = PublicScheduledJob {

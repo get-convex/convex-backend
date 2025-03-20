@@ -1221,7 +1221,7 @@ pub fn table_dependency_sort_key(
         match update {
             Some(insertion) => {
                 let table_metadata: ParsedDocument<TableMetadata> =
-                    insertion.clone().parse().unwrap_or_else(|e| {
+                    insertion.parse().unwrap_or_else(|e| {
                         panic!("Writing invalid TableMetadata {}: {e}", insertion.value().0)
                     });
                 match table_metadata.state {

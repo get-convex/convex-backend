@@ -65,7 +65,7 @@ impl ComponentType {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedComponentMetadata {
+pub struct SerializedComponentMetadata {
     pub definition_id: String,
     pub parent: Option<String>,
     pub name: Option<String>,

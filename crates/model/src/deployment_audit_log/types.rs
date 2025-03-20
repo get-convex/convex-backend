@@ -620,7 +620,7 @@ struct ComponentPathAndDiff {
     component_diff: SerializedComponentDiff,
 }
 #[derive(Serialize, Deserialize)]
-struct SerializedPushComponentDiffs {
+pub struct SerializedPushComponentDiffs {
     auth_diff: Option<AuthDiff>,
     component_diffs: Vec<ComponentPathAndDiff>,
 }

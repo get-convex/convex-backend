@@ -5,6 +5,7 @@ mod value;
 pub use de::{
     from_object,
     from_value,
+    Error as DeError,
 };
 pub use ser::{
     to_object,
@@ -16,6 +17,10 @@ use serde::{
 };
 
 use crate::ConvexObject;
+
+pub trait ConvexSerializable: Sized {
+    type Serialized: Serialize + for<'de> Deserialize<'de> + TryFrom<Self> + TryInto<Self>;
+}
 
 #[macro_export]
 macro_rules! codegen_convex_serialization {
@@ -54,6 +59,10 @@ macro_rules! codegen_convex_serialization {
             fn try_from(s: value::ConvexValue) -> anyhow::Result<$struct> {
                 value::ConvexObject::try_from(s)?.try_into()
             }
+        }
+
+        impl $crate::serde::ConvexSerializable for $struct {
+            type Serialized = $serialized_struct;
         }
 
         $crate::paste! {

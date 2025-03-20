@@ -85,7 +85,7 @@ impl ScheduledJob {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedScheduledJob {
+pub struct SerializedScheduledJob {
     component: Option<String>,
     udf_path: String,
     // Serialize the udf arguments as binary since we restrict what
@@ -197,7 +197,7 @@ pub enum ScheduledJobState {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-enum SerializedScheduledJobState {
+pub enum SerializedScheduledJobState {
     Pending,
     InProgress,
     Success,

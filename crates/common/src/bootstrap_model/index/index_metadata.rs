@@ -175,7 +175,7 @@ pub fn index_metadata_serialize_tablet_id(tablet_id: &TabletId) -> anyhow::Resul
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializedTabletIndexMetadata {
+pub struct SerializedTabletIndexMetadata {
     table_id: String,
     descriptor: String,
     config: SerializedIndexConfig,

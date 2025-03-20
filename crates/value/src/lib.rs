@@ -61,6 +61,7 @@ use anyhow::{
 use heap_size::HeapSize;
 pub use paste::paste;
 pub use sync_types::identifier;
+use walk::ConvexValueWalker;
 
 pub use crate::{
     array::ConvexArray,
@@ -178,18 +179,8 @@ pub enum ConvexValue {
 impl ConvexValue {
     /// Returns a string description of the type of this Value.
     pub fn type_name(&self) -> &'static str {
-        match self {
-            ConvexValue::Null => "Null",
-            ConvexValue::Int64(_) => "Int64",
-            ConvexValue::Float64(_) => "Float64",
-            ConvexValue::Boolean(_) => "Boolean",
-            ConvexValue::String(_) => "String",
-            ConvexValue::Bytes(_) => "Bytes",
-            ConvexValue::Array(_) => "Array",
-            ConvexValue::Set(_) => "Set",
-            ConvexValue::Map(_) => "Map",
-            ConvexValue::Object(_) => "Object",
-        }
+        let Ok(ty) = self.walk();
+        ty.type_name()
     }
 }
 

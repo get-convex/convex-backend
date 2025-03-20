@@ -85,7 +85,7 @@ pub enum Export {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "state")]
 #[serde(rename_all = "snake_case")]
-enum SerializedExport {
+pub enum SerializedExport {
     Requested {
         format: SerializedExportFormat,
         component: Option<String>,
@@ -328,7 +328,7 @@ pub enum ExportFormat {
 #[serde(deny_unknown_fields)]
 #[serde(tag = "format")]
 #[serde(rename_all = "snake_case")]
-enum SerializedExportFormat {
+pub enum SerializedExportFormat {
     Zip { include_storage: bool },
 }
 

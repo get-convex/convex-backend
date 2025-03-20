@@ -100,12 +100,12 @@ impl ComponentRegistry {
         {
             let old_component = match old_doc {
                 None => None,
-                Some(old_doc) => Some(old_doc.clone().parse()?),
+                Some(old_doc) => Some(old_doc.parse()?),
             };
             anyhow::ensure!(self.components.get(&id.developer_id) == old_component.as_ref());
             let new_component = match new_doc {
                 None => None,
-                Some(new_doc) => Some(new_doc.clone().parse()?),
+                Some(new_doc) => Some(new_doc.parse()?),
             };
             component_update = Some(ComponentUpdate {
                 old_component,

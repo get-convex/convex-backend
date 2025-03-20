@@ -35,7 +35,7 @@ pub struct NodeDependency {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializedNodeDependency {
+pub struct SerializedNodeDependency {
     package: String,
     version: String,
 }

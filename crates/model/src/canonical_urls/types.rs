@@ -14,7 +14,7 @@ pub struct CanonicalUrl {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedCanonicalUrl {
+pub struct SerializedCanonicalUrl {
     request_destination: String,
     url: String,
 }

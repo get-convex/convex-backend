@@ -89,7 +89,7 @@ impl TableMetadata {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SerializedTableMetadata {
+pub struct SerializedTableMetadata {
     name: String,
     number: i64,
     state: String,

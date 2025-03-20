@@ -61,7 +61,7 @@ pub struct CronJob {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SerializedCronJob {
+pub struct SerializedCronJob {
     name: String,
     cron_spec: SerializedCronSpec,
     state: CronJobState,
@@ -496,7 +496,7 @@ impl HeapSize for CronSchedule {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "type")]
-enum SerializedCronSchedule {
+pub enum SerializedCronSchedule {
     Interval {
         seconds: i64,
     },

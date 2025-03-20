@@ -187,11 +187,11 @@ impl SchemaRegistry {
         {
             let old_schema = match old_doc {
                 None => None,
-                Some(old_doc) => Some(old_doc.clone().parse()?),
+                Some(old_doc) => Some(old_doc.parse()?),
             };
             let new_schema = match new_doc {
                 None => None,
-                Some(new_doc) => Some(new_doc.clone().parse()?),
+                Some(new_doc) => Some(new_doc.parse()?),
             };
             schema_update = Some(SchemaUpdate {
                 namespace,
