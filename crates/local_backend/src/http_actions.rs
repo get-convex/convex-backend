@@ -185,7 +185,7 @@ pub async fn http_any_method(
         )),
     }));
 
-    let mut peek_body = Box::pin(body.peekable());
+    let mut peek_body = body.peekable();
     let content_length = response_head
         .headers
         .get("content-length")
@@ -194,7 +194,7 @@ pub async fn http_any_method(
     if content_length == Some(0) {
         // In case hyper/axum doesn't poll the body at all, make sure we poll it
         // at least once to do any cleanup.
-        peek_body.as_mut().peek().await;
+        Pin::new(&mut peek_body).peek().await;
     }
 
     Ok(HttpActionResponse {
@@ -263,7 +263,7 @@ pub fn http_action_handler() -> MethodRouter<RouterState> {
 }
 
 pub struct HttpActionResponse {
-    pub body: Pin<Box<Peekable<BoxStream<'static, Result<Bytes, anyhow::Error>>>>>,
+    pub body: Peekable<BoxStream<'static, Result<Bytes, anyhow::Error>>>,
     pub status: StatusCode,
     pub headers: HeaderMap,
     pub content_length: Option<u64>,
@@ -280,7 +280,7 @@ impl IntoResponse for HttpActionResponse {
 
 #[try_stream(ok=Bytes, error=anyhow::Error)]
 pub async fn stream_with_content_length(
-    mut stream: Pin<Box<Peekable<BoxStream<'static, Result<Bytes, anyhow::Error>>>>>,
+    mut stream: Peekable<BoxStream<'static, Result<Bytes, anyhow::Error>>>,
     length: Option<u64>,
 ) {
     let mut length_returned = 0;
@@ -294,7 +294,7 @@ pub async fn stream_with_content_length(
             // the underlying stream to ensure that it can do any cleanup it
             // needs to do.
             // Note: this peek will probably return `None`.
-            stream.as_mut().peek().await;
+            Pin::new(&mut stream).peek().await;
         }
         yield chunk;
     }
