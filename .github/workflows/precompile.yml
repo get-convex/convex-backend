@@ -56,7 +56,7 @@ jobs:
             dashboard.zip
           tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
           name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
-          draft: true
+          draft: false
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -152,7 +152,7 @@ jobs:
             LICENSE.md
           tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
           name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
-          draft: true
+          draft: false
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
