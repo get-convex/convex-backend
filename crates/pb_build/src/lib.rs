@@ -1,5 +1,6 @@
 use std::{
     ffi::OsStr,
+    fmt::Write as _,
     fs,
     io::Result,
     path::{
@@ -7,6 +8,9 @@ use std::{
         PathBuf,
     },
 };
+
+use prost::Message;
+use tonic_build::FileDescriptorSet;
 
 cfg_if::cfg_if! {
     if #[cfg(target_os = "macos")] {
@@ -76,8 +80,8 @@ pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static st
     let mut includes = vec!["protos/"];
     includes.append(&mut extra_includes);
 
-    let mut builder =
-        tonic_build::configure().file_descriptor_set_path(out_dir.join("descriptors.bin"));
+    let descriptor_set_path = out_dir.join("descriptors.bin");
+    let mut builder = tonic_build::configure().file_descriptor_set_path(&descriptor_set_path);
     for (proto_path, rust_path) in external_paths {
         builder = builder.extern_path(proto_path, rust_path);
     }
@@ -99,6 +103,47 @@ pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static st
     }
     mods.sort();
 
+    // Read back the file descriptor set to codegen `ReflectionService` impls.
+    let file_descriptor_set = FileDescriptorSet::decode(&std::fs::read(&descriptor_set_path)?[..])?;
+    let mut extras = String::new();
+    for file in file_descriptor_set.file {
+        let Some(package_name) = file.package else {
+            continue;
+        };
+        if !packages.contains(&package_name) {
+            continue;
+        }
+        for service in file.service {
+            let Some(service_name) = service.name else {
+                continue;
+            };
+            let lower_name = naive_snake_case(&service_name);
+            let server_mod = format!("crate::{package_name}::{lower_name}_server");
+            write!(
+                &mut extras,
+                r#"impl<T> pb_extras::ReflectionService for {server_mod}::{service_name}Server<T> {{
+    const METHODS: &[&str] = &[
+"#
+            )
+            .unwrap();
+            for method in service.method {
+                let Some(method_name) = method.name else {
+                    continue;
+                };
+                writeln!(&mut extras, "        {method_name:?},").unwrap();
+            }
+            write!(
+                &mut extras,
+                r#"    ];
+}}
+"#
+            )
+            .unwrap();
+        }
+    }
+
+    std::fs::write(out_dir.join("_extras.rs"), extras)?;
+
     // Now let's build the lib.rs file.
     let mut lib_file_contents = String::new();
     lib_file_contents.push_str("// @generated - do not modify. Modify build.rs instead.\n");
@@ -118,6 +163,7 @@ pub fn pb_build(features: Vec<&'static str>, mut extra_includes: Vec<&'static st
 
     lib_file_contents.push_str(
         r#"
+include!(concat!(env!("OUT_DIR"), "/_extras.rs"));
 use std::sync::LazyLock;
 
 use prost_reflect::DescriptorPool;
@@ -134,4 +180,21 @@ pub static DESCRIPTOR_POOL: LazyLock<DescriptorPool> =
     }
 
     Ok(())
+}
+
+// copied from `tonic-build`
+fn naive_snake_case(name: &str) -> String {
+    let mut s = String::new();
+    let mut it = name.chars().peekable();
+
+    while let Some(x) = it.next() {
+        s.push(x.to_ascii_lowercase());
+        if let Some(y) = it.peek() {
+            if y.is_uppercase() {
+                s.push('_');
+            }
+        }
+    }
+
+    s
 }

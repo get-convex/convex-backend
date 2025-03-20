@@ -52,6 +52,7 @@ openidconnect = { workspace = true }
 packed_value = { path = "../packed_value" }
 parking_lot = { workspace = true }
 pb = { path = "../pb" }
+pb_extras = { path = "../pb_extras" }
 pin-project = { workspace = true }
 prometheus = { workspace = true }
 prometheus-hyper = { workspace = true }

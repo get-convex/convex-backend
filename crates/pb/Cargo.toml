@@ -12,6 +12,7 @@ anyhow = { workspace = true }
 convex_sync_types = { path = "../convex/sync_types" }
 errors = { path = "../errors" }
 http = { workspace = true }
+pb_extras = { path = "../pb_extras" }
 prost = { workspace = true }
 prost-reflect = { workspace = true }
 prost-types = { workspace = true }

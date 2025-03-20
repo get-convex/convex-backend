@@ -40,6 +40,7 @@ pub mod usage {
     include!(concat!(env!("OUT_DIR"), "/usage.rs"));
 }
 
+include!(concat!(env!("OUT_DIR"), "/_extras.rs"));
 use std::sync::LazyLock;
 
 use prost_reflect::DescriptorPool;

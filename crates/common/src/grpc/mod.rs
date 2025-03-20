@@ -1,14 +1,18 @@
 use std::{
     convert::Infallible,
     net::SocketAddr,
+    sync::Arc,
     task::{
         Context,
         Poll,
     },
 };
 
+use fnv::FnvHashMap;
 use futures::Future;
+use http::Request;
 use pb::error_metadata::ErrorMetadataStatusExt;
+use pb_extras::ReflectionService;
 use sentry::integrations::tower as sentry_tower;
 use tokio::net::TcpSocket;
 use tokio_metrics::Instrumented;
@@ -35,8 +39,11 @@ use crate::{
     runtime::TaskManager,
 };
 
+// maps the full route `/service.Service/Method` to just `Method`
+type KnownMethods = FnvHashMap<String, &'static str>;
 pub struct ConvexGrpcService {
     routes: Routes,
+    known_methods: KnownMethods,
     health_reporter: HealthReporter,
     service_names: Vec<&'static str>,
 }
@@ -47,6 +54,7 @@ impl ConvexGrpcService {
         let routes = Routes::new(health_service);
         Self {
             routes,
+            known_methods: FnvHashMap::default(),
             health_reporter,
             service_names: Vec::new(),
         }
@@ -58,7 +66,7 @@ impl ConvexGrpcService {
                 http::Request<tonic::body::BoxBody>,
                 Response = http::Response<tonic::body::BoxBody>,
                 Error = Infallible,
-            > + NamedService
+            > + ReflectionService
             + Clone
             + Send
             + 'static,
@@ -69,6 +77,10 @@ impl ConvexGrpcService {
         // line with all names when we start serving.
         let service_name = <S as NamedService>::NAME;
         self.service_names.push(service_name);
+        for method_name in S::METHODS {
+            self.known_methods
+                .insert(format!("/{service_name}/{method_name}"), method_name);
+        }
         self
     }
 
@@ -76,8 +88,9 @@ impl ConvexGrpcService {
     where
         F: Future<Output = ()>,
     {
+        let known_methods = Arc::new(self.known_methods);
         let convex_layers = ServiceBuilder::new()
-            .layer_fn(TokioInstrumentationService::new)
+            .layer_fn(move |s| TokioInstrumentationService::new(known_methods.clone(), s))
             .layer(sentry_tower::NewSentryLayer::new_from_top())
             .layer(sentry_tower::SentryHttpLayer::with_transaction());
 
@@ -118,18 +131,22 @@ pub fn handle_response<T>(response: Result<Response<T>, Status>) -> anyhow::Resu
 
 #[derive(Clone)]
 struct TokioInstrumentationService<S> {
+    known_methods: Arc<KnownMethods>,
     inner: S,
 }
 
 impl<S> TokioInstrumentationService<S> {
-    fn new(inner: S) -> Self {
-        Self { inner }
+    fn new(known_methods: Arc<KnownMethods>, inner: S) -> Self {
+        Self {
+            known_methods,
+            inner,
+        }
     }
 }
 
-impl<S, Request> Service<Request> for TokioInstrumentationService<S>
+impl<S, T> Service<Request<T>> for TokioInstrumentationService<S>
 where
-    S: Service<Request>,
+    S: Service<Request<T>>,
 {
     type Error = S::Error;
     type Future = Instrumented<S::Future>;
@@ -139,7 +156,12 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: Request) -> Self::Future {
-        TaskManager::instrument("grpc_handler", self.inner.call(req))
+    fn call(&mut self, req: Request<T>) -> Self::Future {
+        let name = self
+            .known_methods
+            .get(req.uri().path())
+            .copied()
+            .unwrap_or("grpc_handler");
+        TaskManager::instrument(name, self.inner.call(req))
     }
 }

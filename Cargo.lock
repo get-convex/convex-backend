@@ -1766,6 +1766,7 @@ dependencies = [
  "packed_value",
  "parking_lot",
  "pb",
+ "pb_extras",
  "pin-project",
  "prometheus",
  "prometheus-hyper",
@@ -6066,6 +6067,7 @@ dependencies = [
  "errors",
  "http 1.3.1",
  "pb_build",
+ "pb_extras",
  "proptest",
  "prost",
  "prost-reflect",
@@ -6079,7 +6081,15 @@ name = "pb_build"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
+ "prost",
  "tonic-build",
+]
+
+[[package]]
+name = "pb_extras"
+version = "0.1.0"
+dependencies = [
+ "tonic",
 ]
 
 [[package]]
