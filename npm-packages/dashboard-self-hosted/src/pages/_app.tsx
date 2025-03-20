@@ -136,10 +136,10 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   reportHttpError: (
     method: string,
     url: string,
-    error: { code: string; message: string },
+    error: { code: string; message: string }
   ) => {
     console.error(
-      `failed to request ${method} ${url}: ${error.code} - ${error.message} `,
+      `failed to request ${method} ${url}: ${error.code} - ${error.message} `
     );
   },
   useCurrentTeam: () => ({
@@ -192,6 +192,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   projectsURI: "",
   deploymentsURI: "",
   isSelfHosted: true,
+  enableIndexFilters: false,
 };
 
 function DeploymentInfoProvider({
@@ -206,7 +207,7 @@ function DeploymentInfoProvider({
   listDeploymentsApiUrl: string | null;
 }) {
   const [shouldListDeployments, setShouldListDeployments] = useState(
-    listDeploymentsApiUrl !== null,
+    listDeploymentsApiUrl !== null
   );
   const [isValidDeploymentInfo, setIsValidDeploymentInfo] = useState<
     boolean | null
@@ -214,13 +215,13 @@ function DeploymentInfoProvider({
   const [storedAdminKey, setStoredAdminKey] = useSessionStorage("adminKey", "");
   const [storedDeploymentUrl, setStoredDeploymentUrl] = useSessionStorage(
     "deploymentUrl",
-    "",
+    ""
   );
   const onSubmit = useCallback(
     async (submittedAdminKey: string, submittedDeploymentUrl: string) => {
       const isValid = await checkDeploymentInfo(
         submittedAdminKey,
-        submittedDeploymentUrl,
+        submittedDeploymentUrl
       );
       if (isValid === false) {
         setIsValidDeploymentInfo(false);
@@ -233,7 +234,7 @@ function DeploymentInfoProvider({
       setStoredAdminKey(submittedAdminKey);
       setStoredDeploymentUrl(submittedDeploymentUrl);
     },
-    [setStoredAdminKey, setStoredDeploymentUrl],
+    [setStoredAdminKey, setStoredDeploymentUrl]
   );
 
   const finalValue: DeploymentInfo = useMemo(
@@ -244,7 +245,7 @@ function DeploymentInfoProvider({
         adminKey: storedAdminKey,
         deploymentUrl: storedDeploymentUrl,
       }) as DeploymentInfo,
-    [storedAdminKey, storedDeploymentUrl],
+    [storedAdminKey, storedDeploymentUrl]
   );
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
