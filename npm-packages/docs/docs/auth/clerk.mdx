@@ -296,7 +296,7 @@ follow the [Convex Next.js Quickstart](/docs/quickstart/nextjs.mdx) first. Then:
 
     Typically, you'd replace `<ConvexProvider>` with `<ConvexProviderWithClerk>`, but with Next.js App Router, things are a bit more complex.
 
-    `<ConvexProviderWithClerk>` must be a Client Component. Your `app/layout.tsx` where you would import `<ConvexProviderWithClerk>` is a Server Component, and a Server Component cannot contain a Client Component. To solve this, you must first create a _wrapper_ Client Component around `<ConvexProviderWithClerk>`.
+    `<ConvexProviderWithClerk>` calls `ConvexReactClient()` to get Convex's client, so it must be used in a Client Component. Your `app/layout.tsx`, where you would use `<ConvexProviderWithClerk>`, is a Server Component, and a Server Component cannot contain Client Component code. To solve this, you must first create a _wrapper_ Client Component around `<ConvexProviderWithClerk>`.
 
     ```tsx {{ filename: 'components/ConvexClientProvider.tsx' }}
     'use client'
