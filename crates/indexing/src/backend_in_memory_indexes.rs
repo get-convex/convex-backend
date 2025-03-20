@@ -570,7 +570,6 @@ impl DatabaseIndexSnapshot {
         results
     }
 
-    #[fastrace::trace]
     async fn fetch_cache_misses(
         persistence: PersistenceSnapshot,
         index_id: IndexId,
