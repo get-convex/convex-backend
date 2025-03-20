@@ -3,6 +3,7 @@ use std::str::FromStr;
 use common::types::PersistenceVersion;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(not(any(test, feature = "testing")), non_exhaustive)]
 pub enum DbDriverTag {
     Sqlite,
     Postgres(PersistenceVersion),
