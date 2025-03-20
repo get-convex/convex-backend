@@ -18,6 +18,11 @@ jobs:
         with:
           node-version-file: ".nvmrc"
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: NPM install globals
         run: npm ci --prefix scripts
 
@@ -56,98 +61,98 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release_backend:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: "['self-hosted', 'aws', 'x64', 'xlarge']"
-          - target: x86_64-apple-darwin
-            # large are on intel
-            os: "'macos-latest-large'"
-          - target: aarch64-apple-darwin
-            # xlarge are on arm
-            os: "'macos-latest-xlarge'"
-          - target: x86_64-pc-windows-msvc
-            os: "'windows-latest'"
-          - target: aarch64-unknown-linux-gnu
-            os: "['self-hosted', 'aws', 'arm64', 'xlarge']"
-    name: Build Convex Backend
-    runs-on: ${{ fromJSON(matrix.os) }}
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+  # release_backend:
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       include:
+  #         - target: x86_64-unknown-linux-gnu
+  #           os: "['self-hosted', 'aws', 'x64', 'xlarge']"
+  #         - target: x86_64-apple-darwin
+  #           # large are on intel
+  #           os: "'macos-latest-large'"
+  #         - target: aarch64-apple-darwin
+  #           # xlarge are on arm
+  #           os: "'macos-latest-xlarge'"
+  #         - target: x86_64-pc-windows-msvc
+  #           os: "'windows-latest'"
+  #         - target: aarch64-unknown-linux-gnu
+  #           os: "['self-hosted', 'aws', 'arm64', 'xlarge']"
+  #   name: Build Convex Backend
+  #   runs-on: ${{ fromJSON(matrix.os) }}
+  #   steps:
+  #     - name: Check out code
+  #       uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: ./.github/actions/setup-rust
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          r2-access-key: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  #     - name: Setup Rust
+  #       uses: ./.github/actions/setup-rust
+  #       with:
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
+  #         r2-access-key: ${{ secrets.R2_ACCESS_KEY_ID }}
+  #         r2-secret-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
 
-      - name: Cache pnpm artifacts
-        uses: runs-on/cache@v4
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION }}
-          RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
-        with:
-          path: |
-            npm-packages/common/temp/build-cache
-            npm-packages/common/temp/pnpm-store
-          key: pnpm-cache-${{
-            hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
-          restore-keys: pnpm-cache-
+  #     - name: Cache pnpm artifacts
+  #       uses: runs-on/cache@v4
+  #       env:
+  #         AWS_REGION: ${{ vars.AWS_REGION }}
+  #         RUNS_ON_S3_BUCKET_CACHE: ${{ vars.RUNS_ON_S3_BUCKET_CACHE }}
+  #       with:
+  #         path: |
+  #           npm-packages/common/temp/build-cache
+  #           npm-packages/common/temp/pnpm-store
+  #         key: pnpm-cache-${{
+  #           hashFiles('npm-packages/common/config/rush/pnpm-lock.yaml') }}-2
+  #         restore-keys: pnpm-cache-
 
-      - name: Node setup
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: ".nvmrc"
+  #     - name: Node setup
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version-file: ".nvmrc"
 
-      - name: NPM install globals
-        run: npm ci --prefix scripts
+  #     - name: NPM install globals
+  #       run: npm ci --prefix scripts
 
-      - name: Install JS
-        run: |
-          just rush install
+  #     - name: Install JS
+  #       run: |
+  #         just rush install
 
-      - name: Precompute release name
-        id: release_name
-        shell: bash
-        run: |
-          echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          ZIP_NAME=convex-local-backend-${{ matrix.target }}.zip
-          BINARY_NAME=convex-local-backend${{ runner.os == 'Windows' && '.exe' || '' }}
-          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_OUTPUT
-          echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_OUTPUT
+  #     - name: Precompute release name
+  #       id: release_name
+  #       shell: bash
+  #       run: |
+  #         echo "RELEASE_NAME=$(date +'%Y-%m-%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+  #         ZIP_NAME=convex-local-backend-${{ matrix.target }}.zip
+  #         BINARY_NAME=convex-local-backend${{ runner.os == 'Windows' && '.exe' || '' }}
+  #         echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_OUTPUT
+  #         echo "BINARY_NAME=$BINARY_NAME" >> $GITHUB_OUTPUT
 
-      - name: Build backend
-        shell: bash
-        run: |
-          set -ex
-          unset ROCKSDB_LIB_DIR
-          unset SODIUM_USE_PKG_CONFIG
-          unset SNAPPY_LIB_DIR
-          cargo build --release -p local_backend --bin convex-local-backend
-          mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
+  #     - name: Build backend
+  #       shell: bash
+  #       run: |
+  #         set -ex
+  #         unset ROCKSDB_LIB_DIR
+  #         unset SODIUM_USE_PKG_CONFIG
+  #         unset SNAPPY_LIB_DIR
+  #         cargo build --release -p local_backend --bin convex-local-backend
+  #         mv target/release/${{ steps.release_name.outputs.BINARY_NAME }} .
 
-      - name: Zip backend into arch
-        uses: thedoctor0/zip-release@0.7.5
-        with:
-          type: zip
-          filename: ${{ steps.release_name.outputs.ZIP_NAME }}
-          path: ${{ steps.release_name.outputs.BINARY_NAME }}
+  #     - name: Zip backend into arch
+  #       uses: thedoctor0/zip-release@0.7.5
+  #       with:
+  #         type: zip
+  #         filename: ${{ steps.release_name.outputs.ZIP_NAME }}
+  #         path: ${{ steps.release_name.outputs.BINARY_NAME }}
 
-      - name: Create Upload Precompiled Artifacts
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            ${{ steps.release_name.outputs.ZIP_NAME }}
-            LICENSE.md
-          tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
-          name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
-          draft: true
-          prerelease: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Create Upload Precompiled Artifacts
+  #       id: create_release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         files: |
+  #           ${{ steps.release_name.outputs.ZIP_NAME }}
+  #           LICENSE.md
+  #         tag_name: precompiled-${{ steps.release_name.outputs.RELEASE_NAME }}
+  #         name: Precompiled ${{ steps.release_name.outputs.RELEASE_NAME }}
+  #         draft: true
+  #         prerelease: true
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
