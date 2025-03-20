@@ -10,6 +10,7 @@ use std::{
 use anyhow::Context;
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -82,7 +83,7 @@ impl SystemTable for EnvironmentVariablesTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<PersistedEnvironmentVariable>::try_from(document).map(|_| ())
+        ParseDocument::<PersistedEnvironmentVariable>::parse(document).map(|_| ())
     }
 }
 
@@ -104,7 +105,7 @@ impl PreloadedEnvironmentVariables {
         let Some(doc) = self.range.get(tx, &key)? else {
             return Ok(None);
         };
-        let doc: ParsedDocument<PersistedEnvironmentVariable> = doc.clone().try_into()?;
+        let doc: ParsedDocument<PersistedEnvironmentVariable> = doc.clone().parse()?;
         let var = doc.into_value().0;
         anyhow::ensure!(var.name() == name, "Invalid environment variable");
         Ok(Some(var.into_value()))
@@ -138,7 +139,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
             .expect_at_most_one(self.tx)
             .await?
             .map(|doc| {
-                let doc: ParsedDocument<PersistedEnvironmentVariable> = doc.try_into()?;
+                let doc: ParsedDocument<PersistedEnvironmentVariable> = doc.parse()?;
                 doc.map(|doc| Ok(doc.0))
             })
             .transpose()
@@ -151,7 +152,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         let Some(doc) = self.tx.get(id).await? else {
             return Ok(None);
         };
-        let persisted: ParsedDocument<PersistedEnvironmentVariable> = doc.try_into()?;
+        let persisted: ParsedDocument<PersistedEnvironmentVariable> = doc.parse()?;
         Ok(Some(persisted.into_value().0))
     }
 
@@ -161,7 +162,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut environment_variables = BTreeMap::new();
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let env_var: ParsedDocument<PersistedEnvironmentVariable> = doc.try_into()?;
+            let env_var: ParsedDocument<PersistedEnvironmentVariable> = doc.parse()?;
             let old_value = environment_variables
                 .insert(env_var.0.name().to_owned(), env_var.0.value().to_owned());
             anyhow::ensure!(old_value.is_none(), "Duplicate environment variable");
@@ -195,7 +196,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
         let document = SystemMetadataModel::new_global(self.tx)
             .delete(doc.id())
             .await?;
-        let env_var: ParsedDocument<PersistedEnvironmentVariable> = document.try_into()?;
+        let env_var: ParsedDocument<PersistedEnvironmentVariable> = document.parse()?;
         Ok(Some(env_var.into_value().0))
     }
 
@@ -243,7 +244,7 @@ impl<'a, RT: Runtime> EnvironmentVariablesModel<'a, RT> {
                 .await?;
 
             let previous_env_var: ParsedDocument<PersistedEnvironmentVariable> =
-                document.try_into()?;
+                document.parse()?;
             previous_env_vars.insert(id, previous_env_var.into_value().0);
         }
 

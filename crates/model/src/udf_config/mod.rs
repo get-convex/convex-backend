@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -48,7 +49,7 @@ impl SystemTable for UdfConfigTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<UdfConfig>::try_from(document).map(|_| ())
+        ParseDocument::<UdfConfig>::parse(document).map(|_| ())
     }
 }
 
@@ -68,7 +69,7 @@ impl<'a, RT: Runtime> UdfConfigModel<'a, RT> {
         let config = query_stream
             .expect_at_most_one(self.tx)
             .await?
-            .map(|document| document.try_into())
+            .map(|document| document.parse())
             .transpose()?;
         Ok(config)
     }

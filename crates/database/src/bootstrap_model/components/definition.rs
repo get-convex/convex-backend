@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 use common::{
     bootstrap_model::components::definition::ComponentDefinitionMetadata,
     document::{
-        ParsedDocument,
+        ParseDocument,
         ResolvedDocument,
     },
 };
@@ -32,7 +32,7 @@ impl SystemTable for ComponentDefinitionsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<ComponentDefinitionMetadata>::try_from(document)?;
+        ParseDocument::<ComponentDefinitionMetadata>::parse(document)?;
         Ok(())
     }
 }

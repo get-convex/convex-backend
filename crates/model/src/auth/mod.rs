@@ -6,6 +6,7 @@ use std::{
 use common::{
     auth::AuthInfo,
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -49,7 +50,7 @@ impl SystemTable for AuthTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<AuthInfoPersisted>::try_from(document).map(|_| ())
+        ParseDocument::<AuthInfoPersisted>::parse(document).map(|_| ())
     }
 }
 
@@ -108,7 +109,7 @@ impl<'a, RT: Runtime> AuthInfoModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, auth_query)?;
         let mut auth_infos = vec![];
         while let Some(auth_value) = query_stream.next(self.tx, None).await? {
-            let parsed: ParsedDocument<AuthInfoPersisted> = auth_value.try_into()?;
+            let parsed: ParsedDocument<AuthInfoPersisted> = auth_value.parse()?;
             auth_infos.push(parsed.map(|ai| Ok(ai.0))?);
         }
         Ok(auth_infos)

@@ -28,6 +28,7 @@ use common::{
         IndexMetadata,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -1413,7 +1414,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
             return Ok(());
         }
         let index_id = doc.id().internal_id();
-        let index: ParsedDocument<IndexMetadata<TabletId>> = doc.try_into()?;
+        let index: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
         let index = index.into_value();
         let IndexConfig::Database {
             developer_config,

@@ -7,6 +7,7 @@ use anyhow::Context;
 use common::{
     components::ComponentId,
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
         CREATION_TIME_FIELD_PATH,
@@ -103,7 +104,7 @@ impl SystemTable for ExportsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<Export>::try_from(document).map(|_| ())
+        ParseDocument::<Export>::parse(document).map(|_| ())
     }
 }
 
@@ -147,7 +148,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
         let mut result = vec![];
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<Export> = doc.try_into()?;
+            let row: ParsedDocument<Export> = doc.parse()?;
             result.push(row);
         }
         Ok(result)
@@ -177,7 +178,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut result = vec![];
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<Export> = doc.try_into()?;
+            let row: ParsedDocument<Export> = doc.parse()?;
             result.push(row);
         }
         Ok(result)
@@ -208,7 +209,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         query_stream
             .expect_at_most_one(self.tx)
             .await?
-            .map(|doc| doc.try_into())
+            .map(|doc| doc.parse())
             .transpose()
     }
 
@@ -232,7 +233,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         query_stream
             .expect_at_most_one(self.tx)
             .await?
-            .map(|doc| doc.try_into())
+            .map(|doc| doc.parse())
             .transpose()
     }
 
@@ -245,7 +246,7 @@ impl<'a, RT: Runtime> ExportsModel<'a, RT> {
         query_stream
             .expect_at_most_one(self.tx)
             .await?
-            .map(|doc| doc.try_into())
+            .map(|doc| doc.parse())
             .transpose()
     }
 

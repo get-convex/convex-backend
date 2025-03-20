@@ -13,6 +13,7 @@ use common::{
         ComponentId,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -83,7 +84,7 @@ impl SystemTable for FunctionHandlesTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<FunctionHandleMetadata>::try_from(document)?;
+        ParseDocument::<FunctionHandleMetadata>::parse(document)?;
         Ok(())
     }
 }
@@ -115,7 +116,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         let Some(document) = self.tx.get(resolved_id).await? else {
             anyhow::bail!(function_handle_not_found());
         };
-        let metadata = ParsedDocument::<FunctionHandleMetadata>::try_from(document)?.into_value();
+        let metadata = ParseDocument::<FunctionHandleMetadata>::parse(document)?.into_value();
         if metadata.deleted_ts.is_some() {
             anyhow::bail!(function_handle_not_found());
         }
@@ -134,7 +135,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         let index_query = Query::full_table_scan(FUNCTION_HANDLES_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let handle: ParsedDocument<FunctionHandleMetadata> = doc.try_into()?;
+            let handle: ParsedDocument<FunctionHandleMetadata> = doc.parse()?;
             if handle.deleted_ts.is_none() {
                 let path = CanonicalizedComponentFunctionPath {
                     component: BootstrapComponentsModel::new(self.tx)
@@ -187,7 +188,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         let Some(document) = query_stream.expect_at_most_one(self.tx).await? else {
             anyhow::bail!(function_handle_not_found())
         };
-        let document: ParsedDocument<FunctionHandleMetadata> = document.try_into()?;
+        let document: ParsedDocument<FunctionHandleMetadata> = document.parse()?;
         if document.deleted_ts.is_some() {
             anyhow::bail!(function_handle_not_found())
         }
@@ -217,7 +218,7 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
 
         let mut existing_handles = BTreeMap::new();
         while let Some(document) = query_stream.next(self.tx, None).await? {
-            let document: ParsedDocument<FunctionHandleMetadata> = document.try_into()?;
+            let document: ParsedDocument<FunctionHandleMetadata> = document.parse()?;
             anyhow::ensure!(document.component == component);
             anyhow::ensure!(existing_handles
                 .insert(document.path.clone(), document)

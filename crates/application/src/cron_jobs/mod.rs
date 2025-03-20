@@ -15,7 +15,10 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    document::ParsedDocument,
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     errors::{
         report_error,
         JsError,
@@ -279,7 +282,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         for namespace in namespaces {
             let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
             if let Some(doc) = query.next(tx, None).await? {
-                let job: ParsedDocument<CronJob> = doc.try_into()?;
+                let job: ParsedDocument<CronJob> = doc.parse()?;
                 let next_ts = job.next_ts;
                 queries.insert((next_ts, namespace), (job, query));
             }
@@ -287,7 +290,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
             yield min_job;
             if let Some(doc) = query.next(tx, None).await? {
-                let job: ParsedDocument<CronJob> = doc.try_into()?;
+                let job: ParsedDocument<CronJob> = doc.parse()?;
                 let next_ts = job.next_ts;
                 queries.insert((next_ts, namespace), (job, query));
             }
@@ -702,7 +705,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         let new_job = tx
             .get(job_id)
             .await?
-            .map(ParsedDocument::<CronJob>::try_from)
+            .map(ParseDocument::<CronJob>::parse)
             .transpose()?
             .map(|j| j.into_value());
         Ok((new_job.as_ref() == Some(expected_state)).then_some(tx))

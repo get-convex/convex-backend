@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -79,7 +80,7 @@ impl SystemTable for SessionRequestsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<SessionRequestRecord>::try_from(document).map(|_| ())
+        ParseDocument::<SessionRequestRecord>::parse(document).map(|_| ())
     }
 }
 
@@ -142,7 +143,7 @@ impl<'a, RT: Runtime> SessionRequestModel<'a, RT> {
                      supported."
                 );
             };
-            (doc.try_into()?, ts)
+            (doc.parse()?, ts)
         };
 
         let outcome = doc.into_value().outcome;

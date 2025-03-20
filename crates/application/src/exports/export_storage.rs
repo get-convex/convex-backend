@@ -4,7 +4,7 @@ use anyhow::Context;
 use bytes::Bytes;
 use common::{
     components::ComponentPath,
-    document::ParsedDocument,
+    document::ParseDocument,
     knobs::{
         EXPORT_MAX_INFLIGHT_PREFETCH_BYTES,
         EXPORT_STORAGE_GET_CONCURRENCY,
@@ -86,7 +86,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
         let stream = table_iterator.stream_documents_in_table(*tablet_id, *by_id, None);
         pin_mut!(stream);
         while let Some(LatestDocument { value: doc, .. }) = stream.try_next().await? {
-            let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
+            let file_storage_entry = ParseDocument::<FileStorageEntry>::parse(doc)?;
             let virtual_storage_id = file_storage_entry.id().developer_id;
             let creation_time = f64::from(file_storage_entry.creation_time());
             table_upload
@@ -108,7 +108,7 @@ pub async fn write_storage_table<'a, 'b: 'a, RT: Runtime>(
     let files_stream = table_iterator
         .stream_documents_in_table(*tablet_id, *by_id, None)
         .map_ok(|LatestDocument { value: doc, .. }| async {
-            let file_storage_entry = ParsedDocument::<FileStorageEntry>::try_from(doc)?;
+            let file_storage_entry = ParseDocument::<FileStorageEntry>::parse(doc)?;
             let virtual_storage_id = file_storage_entry.id().developer_id;
             // Add an extension, which isn't necessary for anything and might be incorrect,
             // but allows the file to be viewed at a glance in most cases.

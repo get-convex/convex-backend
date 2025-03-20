@@ -4,6 +4,7 @@ use anyhow::Context;
 use common::{
     components::ComponentPath,
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -65,7 +66,7 @@ impl SystemTable for SnapshotImportsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<SnapshotImport>::try_from(document).map(|_| ())
+        ParseDocument::<SnapshotImport>::parse(document).map(|_| ())
     }
 }
 
@@ -89,7 +90,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
             .tablet_matches_name(id.tablet_id, SnapshotImportsTable.table_name()));
         match self.tx.get(id).await? {
             None => Ok(None),
-            Some(doc) => Ok(Some(doc.try_into()?)),
+            Some(doc) => Ok(Some(doc.parse()?)),
         }
     }
 
@@ -98,7 +99,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
         let mut result = vec![];
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<SnapshotImport> = doc.try_into()?;
+            let row: ParsedDocument<SnapshotImport> = doc.parse()?;
             result.push(row);
         }
         Ok(result)
@@ -409,7 +410,7 @@ impl<'a, RT: Runtime> SnapshotImportModel<'a, RT> {
         query_stream
             .next(self.tx, Some(1))
             .await?
-            .map(|doc| doc.try_into())
+            .map(|doc| doc.parse())
             .transpose()
     }
 }

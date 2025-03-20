@@ -26,6 +26,7 @@ use common::{
         Resource,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -87,7 +88,7 @@ impl SystemTable for ComponentsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<ComponentMetadata>::try_from(document)?;
+        ParseDocument::<ComponentMetadata>::parse(document)?;
         Ok(())
     }
 }
@@ -149,7 +150,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         )?;
         let mut components = Vec::new();
         while let Some(doc) = query.next(self.tx, None).await? {
-            components.push(doc.try_into()?);
+            components.push(doc.parse()?);
         }
         Ok(components)
     }
@@ -209,7 +210,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                     .get(component_doc_id)
                     .await?
                     .context("component missing")?
-                    .try_into()?;
+                    .parse()?;
                 ComponentDefinitionId::Child(component_doc.definition_id)
             },
         };
@@ -227,7 +228,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
                 self.tx
                     .get(component_doc_id)
                     .await?
-                    .map(TryInto::try_into)
+                    .map(ParseDocument::parse)
                     .transpose()?
             },
         };
@@ -296,7 +297,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         let Some(doc) = self.tx.get(component_definition_doc_id).await? else {
             return Ok(None);
         };
-        let mut doc: ParsedDocument<ComponentDefinitionMetadata> = doc.try_into()?;
+        let mut doc: ParsedDocument<ComponentDefinitionMetadata> = doc.parse()?;
         if !doc.exports.is_empty() {
             metrics::log_nonempty_component_exports();
             doc.exports = BTreeMap::new();
@@ -344,7 +345,7 @@ impl<'a, RT: Runtime> BootstrapComponentsModel<'a, RT> {
         )?;
         let mut definitions = BTreeMap::new();
         while let Some(doc) = query.next(self.tx, None).await? {
-            let mut definition: ParsedDocument<ComponentDefinitionMetadata> = doc.try_into()?;
+            let mut definition: ParsedDocument<ComponentDefinitionMetadata> = doc.parse()?;
             if !definition.exports.is_empty() {
                 metrics::log_nonempty_component_exports();
                 definition.exports = BTreeMap::new();

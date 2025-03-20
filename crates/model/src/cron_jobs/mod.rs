@@ -6,6 +6,7 @@ use std::{
 use common::{
     components::ComponentId,
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -105,7 +106,7 @@ impl SystemTable for CronJobsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<CronJob>::try_from(document).map(|_| ())
+        ParseDocument::<CronJob>::parse(document).map(|_| ())
     }
 }
 
@@ -128,7 +129,7 @@ impl SystemTable for CronJobLogsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<CronJobLog>::try_from(document).map(|_| ())
+        ParseDocument::<CronJobLog>::parse(document).map(|_| ())
     }
 }
 
@@ -281,7 +282,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), cron_query)?;
         let mut cron_jobs = BTreeMap::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
-            let cron: ParsedDocument<CronJob> = job.try_into()?;
+            let cron: ParsedDocument<CronJob> = job.parse()?;
             cron_jobs.insert(cron.name.clone(), cron);
         }
         Ok(cron_jobs)

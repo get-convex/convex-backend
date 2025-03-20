@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use anyhow::Context;
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -51,7 +52,7 @@ impl SystemTable for AwsLambdaVersionsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<AwsLambdaVersion>::try_from(document).map(|_| ())
+        ParseDocument::<AwsLambdaVersion>::parse(document).map(|_| ())
     }
 }
 
@@ -112,7 +113,7 @@ impl<'a, RT: Runtime> AwsLambdaVersionsModel<'a, RT> {
         )?;
         let document = query.expect_at_most_one(self.tx).await?;
         document
-            .map(ParsedDocument::<AwsLambdaVersion>::try_from)
+            .map(ParseDocument::<AwsLambdaVersion>::parse)
             .transpose()
     }
 

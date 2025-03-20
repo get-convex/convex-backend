@@ -874,22 +874,24 @@ impl<D> ParsedDocument<D> {
     }
 }
 
-impl<D> TryFrom<ResolvedDocument> for ParsedDocument<D>
+pub trait ParseDocument<D> {
+    fn parse(self) -> anyhow::Result<ParsedDocument<D>>;
+}
+
+impl<D> ParseDocument<D> for ResolvedDocument
 where
     D: TryFrom<ConvexObject, Error = anyhow::Error>,
 {
-    type Error = anyhow::Error;
-
-    fn try_from(document: ResolvedDocument) -> anyhow::Result<Self> {
-        let id = document.id();
-        let creation_time = document.creation_time;
-        let value: D = document
+    fn parse(self) -> anyhow::Result<ParsedDocument<D>> {
+        let id = self.id();
+        let creation_time = self.creation_time;
+        let value: D = self
             .document
             .into_value()
             .0
             .try_into()
             .with_context(|| format!("Failed to parse document id: {id}"))?;
-        Ok(Self {
+        Ok(ParsedDocument {
             id,
             creation_time,
             value,

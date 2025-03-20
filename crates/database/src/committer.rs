@@ -21,6 +21,7 @@ use common::{
     },
     document::{
         DocumentUpdateWithPrevTs,
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -1220,7 +1221,7 @@ pub fn table_dependency_sort_key(
         match update {
             Some(insertion) => {
                 let table_metadata: ParsedDocument<TableMetadata> =
-                    insertion.clone().try_into().unwrap_or_else(|e| {
+                    insertion.clone().parse().unwrap_or_else(|e| {
                         panic!("Writing invalid TableMetadata {}: {e}", insertion.value().0)
                     });
                 match table_metadata.state {

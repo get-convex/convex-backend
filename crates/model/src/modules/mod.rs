@@ -15,6 +15,7 @@ use common::{
         ResolvedComponentFunctionPath,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -127,7 +128,7 @@ impl SystemTable for ModulesTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<ModuleMetadata>::try_from(document).map(|_| ())
+        ParseDocument::<ModuleMetadata>::parse(document).map(|_| ())
     }
 }
 
@@ -212,7 +213,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
 
         let mut modules = Vec::new();
         while let Some(metadata_document) = query_stream.next(self.tx, None).await? {
-            let metadata: ParsedDocument<ModuleMetadata> = metadata_document.try_into()?;
+            let metadata: ParsedDocument<ModuleMetadata> = metadata_document.parse()?;
             modules.push(metadata);
         }
         Ok(modules)
@@ -408,7 +409,7 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, namespace, module_query)?;
         let module_document: ParsedDocument<ModuleMetadata> =
             match query_stream.expect_at_most_one(self.tx).await? {
-                Some(v) => v.try_into()?,
+                Some(v) => v.parse()?,
                 None => return Ok(None),
             };
         Ok(Some(module_document))

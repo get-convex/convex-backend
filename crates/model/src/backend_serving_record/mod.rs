@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use anyhow::Context;
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -48,7 +49,7 @@ impl SystemTable for BackendServingRecordTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<BackendServingRecord>::try_from(document).map(|_| ())
+        ParseDocument::<BackendServingRecord>::parse(document).map(|_| ())
     }
 }
 
@@ -73,7 +74,7 @@ impl<'a, RT: Runtime> ServingBackendModel<'a, RT> {
             .get(id)
             .await?
             .context("Newly inserted document missing")?;
-        x.try_into()
+        x.parse()
     }
 
     pub async fn remove(&mut self, id: ResolvedDocumentId) -> anyhow::Result<()> {
@@ -92,7 +93,7 @@ impl<'a, RT: Runtime> ServingBackendModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut backends = Vec::new();
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            backends.push(doc.try_into()?);
+            backends.push(doc.parse()?);
         }
         Ok(backends)
     }

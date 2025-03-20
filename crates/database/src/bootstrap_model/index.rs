@@ -29,6 +29,7 @@ use common::{
         INDEX_TABLE,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -95,7 +96,7 @@ impl SystemTable for IndexTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<TabletIndexMetadata>::try_from(document).map(|_| ())
+        ParseDocument::<TabletIndexMetadata>::parse(document).map(|_| ())
     }
 }
 

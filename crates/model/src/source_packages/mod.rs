@@ -4,6 +4,7 @@ use anyhow::Context;
 use common::{
     components::ComponentId,
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -49,7 +50,7 @@ impl SystemTable for SourcePackagesTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<SourcePackage>::try_from(document).map(|_| ())
+        ParseDocument::<SourcePackage>::parse(document).map(|_| ())
     }
 }
 
@@ -87,7 +88,7 @@ impl<'a, RT: Runtime> SourcePackageModel<'a, RT> {
             .get(document_id)
             .await?
             .context("Couldn't find source package")?
-            .try_into()
+            .parse()
     }
 
     pub async fn get_latest(&mut self) -> anyhow::Result<Option<ParsedDocument<SourcePackage>>> {

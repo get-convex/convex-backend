@@ -36,6 +36,7 @@ use crate::{
         TextIndexState,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -165,7 +166,7 @@ impl<T: IndexTableIdentifier> IndexMetadata<T> {
 
 impl TabletIndexMetadata {
     pub fn from_document(document: ResolvedDocument) -> anyhow::Result<ParsedDocument<Self>> {
-        document.try_into()
+        document.parse()
     }
 }
 

@@ -50,6 +50,7 @@ use common::{
         CreationTime,
         DocumentUpdate,
         InternalId,
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -379,7 +380,7 @@ impl<RT: Runtime> DatabaseSnapshot<RT> {
         Self::load_raw_table_documents(persistence_snapshot, index_id, tablet_id)
             .await?
             .into_values()
-            .map(|(_, doc)| doc.try_into())
+            .map(|(_, doc)| doc.parse())
             .try_collect()
     }
 
@@ -995,7 +996,7 @@ impl<RT: Runtime> Database<RT> {
         pin_mut!(stream);
         let mut table_mapping = TableMapping::new();
         while let Some(table_doc) = stream.try_next().await? {
-            let table_doc: ParsedDocument<TableMetadata> = table_doc.value.try_into()?;
+            let table_doc: ParsedDocument<TableMetadata> = table_doc.value.parse()?;
             if table_doc.is_active() {
                 table_mapping.insert(
                     TabletId(table_doc.id().internal_id()),
@@ -1075,8 +1076,7 @@ impl<RT: Runtime> Database<RT> {
         pin_mut!(stream);
         let mut component_docs = Vec::new();
         while let Some(component_doc) = stream.try_next().await? {
-            let component_doc: ParsedDocument<ComponentMetadata> =
-                component_doc.value.try_into()?;
+            let component_doc: ParsedDocument<ComponentMetadata> = component_doc.value.parse()?;
             component_docs.push(component_doc);
         }
         let component_registry =

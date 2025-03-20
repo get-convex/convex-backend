@@ -9,6 +9,7 @@ use std::{
 use common::{
     components::CanonicalizedComponentFunctionPath,
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -158,7 +159,7 @@ impl SystemTable for ScheduledJobsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<ScheduledJob>::try_from(document).map(|_| ())
+        ParseDocument::<ScheduledJob>::parse(document).map(|_| ())
     }
 }
 
@@ -317,7 +318,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         let Some(job) = self.tx.get(id).await? else {
             anyhow::bail!("scheduled job not found")
         };
-        let job: ParsedDocument<ScheduledJob> = job.try_into()?;
+        let job: ParsedDocument<ScheduledJob> = job.parse()?;
         match job.state {
             ScheduledJobState::Pending | ScheduledJobState::InProgress => {},
             ScheduledJobState::Canceled => {
@@ -440,7 +441,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, scheduled_query)?;
         let mut scheduled_jobs = Vec::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
-            let job: ParsedDocument<ScheduledJob> = job.try_into()?;
+            let job: ParsedDocument<ScheduledJob> = job.parse()?;
             scheduled_jobs.push(job);
         }
         Ok(scheduled_jobs)
@@ -456,7 +457,7 @@ impl<'a, RT: Runtime> SchedulerModel<'a, RT> {
             .tx
             .get(job_id)
             .await?
-            .map(ParsedDocument::<ScheduledJob>::try_from)
+            .map(ParseDocument::<ScheduledJob>::parse)
             .transpose()?
             .map(|job| job.state.clone());
         Ok(state)

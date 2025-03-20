@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -56,7 +57,7 @@ impl SystemTable for LogSinksTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<LogSinksRow>::try_from(document).map(|_| ())
+        ParseDocument::<LogSinksRow>::parse(document).map(|_| ())
     }
 }
 
@@ -106,7 +107,7 @@ impl<'a, RT: Runtime> LogSinksModel<'a, RT> {
         let value_query = Query::full_table_scan(LOG_SINKS_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<LogSinksRow> = doc.try_into()?;
+            let row: ParsedDocument<LogSinksRow> = doc.parse()?;
             result.push(row);
         }
 

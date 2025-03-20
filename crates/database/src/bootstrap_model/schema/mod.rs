@@ -15,6 +15,7 @@ use common::{
         SchemaState,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -77,7 +78,7 @@ impl SystemTable for SchemasTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<SchemaMetadata>::try_from(document).map(|_| ())
+        ParseDocument::<SchemaMetadata>::parse(document).map(|_| ())
     }
 }
 
@@ -449,7 +450,7 @@ impl<'a, RT: Runtime> SchemaModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, self.namespace, query)?;
         let mut num_deleted = 0;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let schema_doc: ParsedDocument<SchemaMetadata> = doc.try_into()?;
+            let schema_doc: ParsedDocument<SchemaMetadata> = doc.parse()?;
             // Only delete failed and overwritten schemas
             match schema_doc.state {
                 SchemaState::Failed { .. } | SchemaState::Overwritten => {},

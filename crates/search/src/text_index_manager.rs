@@ -13,6 +13,7 @@ use common::{
         IndexMetadata,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -351,9 +352,9 @@ impl TextIndexManager {
                 },
                 (Some(prev_version), Some(next_version)) => {
                     let prev_metadata: ParsedDocument<IndexMetadata<_>> =
-                        prev_version.clone().try_into()?;
+                        prev_version.clone().parse()?;
                     let next_metadata: ParsedDocument<IndexMetadata<_>> =
-                        next_version.clone().try_into()?;
+                        next_version.clone().parse()?;
                     let (old_snapshot, new_snapshot) =
                         match (&prev_metadata.config, &next_metadata.config) {
                             (
@@ -479,7 +480,7 @@ impl TextIndexManager {
                     }
                 },
                 (Some(deletion), None) => {
-                    let metadata: ParsedDocument<IndexMetadata<_>> = deletion.clone().try_into()?;
+                    let metadata: ParsedDocument<IndexMetadata<_>> = deletion.clone().parse()?;
                     if metadata.is_text_index() {
                         indexes.remove(&deletion.id().internal_id());
                         metrics::log_index_deleted();

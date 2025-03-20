@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 use cmd_util::env::env_config;
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -48,7 +49,7 @@ impl SystemTable for BackendInfoTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<BackendInfoPersisted>::try_from(document).map(|_| ())
+        ParseDocument::<BackendInfoPersisted>::parse(document).map(|_| ())
     }
 }
 
@@ -66,7 +67,7 @@ impl<'a, RT: Runtime> BackendInfoModel<'a, RT> {
         let mut query_stream =
             ResolvedQuery::new(self.tx, TableNamespace::Global, backend_info_query)?;
         let backend_info_doc = query_stream.expect_at_most_one(self.tx).await?;
-        backend_info_doc.map(|doc| doc.try_into()).transpose()
+        backend_info_doc.map(|doc| doc.parse()).transpose()
     }
 
     pub async fn set(&mut self, backend_info: BackendInfoPersisted) -> anyhow::Result<()> {

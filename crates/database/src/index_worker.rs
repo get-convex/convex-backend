@@ -26,6 +26,7 @@ use common::{
         INDEX_TABLE,
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -314,7 +315,7 @@ impl<RT: Runtime> IndexWorker<RT> {
             let mut num_to_backfill = 0;
             for (id, doc) in &index_documents {
                 let index_metadata: ParsedDocument<IndexMetadata<TabletId>> =
-                    doc.clone().try_into()?;
+                    doc.clone().parse()?;
                 if let IndexConfig::Database { on_disk_state, .. } = &index_metadata.config {
                     if matches!(*on_disk_state, DatabaseIndexState::Backfilling(_)) {
                         to_backfill_by_tablet

@@ -9,6 +9,7 @@ use common::{
         },
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -186,11 +187,11 @@ impl SchemaRegistry {
         {
             let old_schema = match old_doc {
                 None => None,
-                Some(old_doc) => Some(ParsedDocument::try_from(old_doc.clone())?),
+                Some(old_doc) => Some(old_doc.clone().parse()?),
             };
             let new_schema = match new_doc {
                 None => None,
-                Some(new_doc) => Some(ParsedDocument::try_from(new_doc.clone())?),
+                Some(new_doc) => Some(new_doc.clone().parse()?),
             };
             schema_update = Some(SchemaUpdate {
                 namespace,

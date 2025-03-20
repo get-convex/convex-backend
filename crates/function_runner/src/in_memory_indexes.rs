@@ -18,6 +18,7 @@ use common::{
     document::{
         CreationTime,
         PackedDocument,
+        ParseDocument,
         ResolvedDocument,
     },
     index::IndexKeyBytes,
@@ -304,7 +305,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
         let (index_documents, table_documents) =
             futures::future::try_join(index_documents_fut, table_documents_fut).await?;
         let (table_mapping, table_states) = DatabaseSnapshot::<RT>::table_mapping_and_states(
-            table_documents.map(|doc| doc.try_into()).try_collect()?,
+            table_documents.map(|doc| doc.parse()).try_collect()?,
         );
         let index_registry = IndexRegistry::bootstrap(
             &table_mapping,
@@ -334,7 +335,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                 &mut None,
             )
             .await?
-            .map(TryFrom::try_from)
+            .map(|d| d.parse())
             .try_collect()?;
         let component_registry = ComponentRegistry::bootstrap(&table_mapping, component_docs)?;
         // Each component's namespace has a _schemas table.
@@ -364,10 +365,7 @@ impl<RT: Runtime> InMemoryIndexCache<RT> {
                     &mut tmp,
                 )
                 .await?;
-            schema_docs.insert(
-                namespace,
-                schema_doc_iter.map(TryFrom::try_from).try_collect()?,
-            );
+            schema_docs.insert(namespace, schema_doc_iter.map(|d| d.parse()).try_collect()?);
         }
         let schema_registry = SchemaRegistry::bootstrap(schema_docs);
         let in_memory_indexes = FunctionRunnerInMemoryIndexes {

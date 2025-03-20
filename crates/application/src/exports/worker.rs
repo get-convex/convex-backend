@@ -8,7 +8,10 @@ use common::{
     self,
     backoff::Backoff,
     components::ComponentPath,
-    document::ParsedDocument,
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     errors::report_error,
     execution_context::ExecutionId,
     runtime::Runtime,
@@ -143,7 +146,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         in_progress_export.clone().try_into()?,
                     )
                     .await?
-                    .try_into()?;
+                    .parse()?;
                 self.database
                     .commit_with_write_source(tx, "export_worker_export_requested")
                     .await?;
@@ -216,7 +219,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                                 let msg = msg.clone();
                                 async move {
                                     let export: ParsedDocument<Export> =
-                                        tx.get(id).await?.context(ExportCanceled)?.try_into()?;
+                                        tx.get(id).await?.context(ExportCanceled)?.parse()?;
                                     let export = export.into_value();
                                     if let Export::Canceled { .. } = export {
                                         anyhow::bail!(ExportCanceled);
@@ -245,7 +248,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                         tracing::warn!("Export {id} disappeared");
                         return Err(ExportCanceled.into());
                     };
-                    let export: ParsedDocument<Export> = export.try_into()?;
+                    let export: ParsedDocument<Export> = export.parse()?;
                     match *export {
                         Export::InProgress { .. } => (),
                         Export::Canceled { .. } => return Err(ExportCanceled.into()),
@@ -282,7 +285,7 @@ impl<RT: Runtime> ExportWorker<RT> {
                             tracing::warn!("Export {id} disappeared");
                             return Err(ExportCanceled.into());
                         };
-                        let export: ParsedDocument<Export> = export.try_into()?;
+                        let export: ParsedDocument<Export> = export.parse()?;
                         if let Export::Canceled { .. } = *export {
                             return Err(ExportCanceled.into());
                         }

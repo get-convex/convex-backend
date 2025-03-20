@@ -6,6 +6,7 @@ use std::{
 use common::{
     document::{
         DeveloperDocument,
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
         CREATION_TIME_FIELD,
@@ -56,7 +57,7 @@ impl VirtualSystemDocMapper for FileStorageDocMapper {
         {
             anyhow::bail!("System document cannot be converted to a virtual document")
         }
-        let metadata: ParsedDocument<FileStorageEntry> = doc.clone().try_into()?;
+        let metadata: ParsedDocument<FileStorageEntry> = doc.clone().parse()?;
         let metadata: FileStorageEntry = metadata.into_value();
         let sha256 = if version >= *MIN_NPM_VERSION_FILE_STORAGE_V2 {
             metadata.sha256.as_base64()

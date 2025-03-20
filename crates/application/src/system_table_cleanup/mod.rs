@@ -12,6 +12,7 @@ use common::{
     components::ComponentId,
     document::{
         CreationTime,
+        ParseDocument,
         ParsedDocument,
         CREATION_TIME_FIELD_PATH,
     },
@@ -169,7 +170,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                         database::query::TableFilter::IncludePrivateSystemTables,
                     )?;
                 }
-                let table: ParsedDocument<TableMetadata> = document.try_into()?;
+                let table: ParsedDocument<TableMetadata> = document.parse()?;
                 match table.state {
                     TableState::Active | TableState::Deleting => {},
                     TableState::Hidden => {

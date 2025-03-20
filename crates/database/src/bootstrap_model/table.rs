@@ -22,6 +22,7 @@ use common::{
         },
     },
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -96,7 +97,7 @@ impl SystemTable for TablesTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<TableMetadata>::try_from(document).map(|_| ())
+        ParseDocument::<TableMetadata>::parse(document).map(|_| ())
     }
 }
 
@@ -265,7 +266,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             .get(table_doc_id)
             .await?
             .context(format!("Couldn't find table metadata for {tablet_id}"))?
-            .try_into()
+            .parse()
     }
 
     #[cfg(any(test, feature = "testing"))]
@@ -304,7 +305,7 @@ impl<'a, RT: Runtime> TableModel<'a, RT> {
             let mut query_stream =
                 ResolvedQuery::new(self.tx, TableNamespace::Global, tables_query)?;
             while let Some(table_metadata) = query_stream.next(self.tx, None).await? {
-                let parsed_metadata: ParsedDocument<TableMetadata> = table_metadata.try_into()?;
+                let parsed_metadata: ParsedDocument<TableMetadata> = table_metadata.parse()?;
                 if parsed_metadata.namespace == namespace {
                     occupied_table_numbers.insert(parsed_metadata.number);
                 }
@@ -584,7 +585,7 @@ mod tests {
             SchemaState,
         },
         db_schema,
-        document::ParsedDocument,
+        document::ParseDocument,
         object_validator,
         schemas::{
             validator::{
@@ -767,7 +768,7 @@ mod tests {
             .get_by_state(SchemaState::Validated)
             .await?
             .is_none());
-        let schema = ParsedDocument::<SchemaMetadata>::try_from(tx.get(schema_id).await?.unwrap())?;
+        let schema = ParseDocument::<SchemaMetadata>::parse(tx.get(schema_id).await?.unwrap())?;
         must_let!(let SchemaState::Failed { error, table_name } = &schema.state);
         assert_eq!(table_name, &Some("my_table".to_string()));
         assert!(

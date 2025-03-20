@@ -6,6 +6,7 @@ use std::{
 use anyhow::Context;
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -61,7 +62,7 @@ impl SystemTable for ExternalPackagesTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<ExternalDepsPackage>::try_from(document).map(|_| ())
+        ParseDocument::<ExternalDepsPackage>::parse(document).map(|_| ())
     }
 }
 
@@ -90,7 +91,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
             .get(document_id)
             .await?
             .context("Couldn't find external package")?
-            .try_into()
+            .parse()
     }
 
     pub async fn put(
@@ -125,7 +126,7 @@ impl<'a, RT: Runtime> ExternalPackagesModel<'a, RT> {
         while let Some(doc) = query_stream.next(self.tx, None).await?
             && cache_entries_checked < NUM_EXTERNAL_DEPS_CACHE_ENTRIES
         {
-            let row: ParsedDocument<ExternalDepsPackage> = doc.try_into()?;
+            let row: ParsedDocument<ExternalDepsPackage> = doc.parse()?;
             let (id, pkg) = row.into_id_and_value();
 
             let pkg_deps_map: BTreeMap<String, String> = pkg

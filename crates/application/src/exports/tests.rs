@@ -16,7 +16,10 @@ use common::{
         ComponentId,
         ComponentPath,
     },
-    document::ParsedDocument,
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     types::{
         ConvexOrigin,
         TableName,
@@ -419,7 +422,7 @@ async fn test_export_storage(rt: TestRuntime) -> anyhow::Result<()> {
         ))
         .await?
         .unwrap()
-        .try_into()?;
+        .parse()?;
 
     expected_export_entries.insert(format!("_storage/{file1_id}.jpeg"), format!("abc"));
     expected_export_entries.insert(

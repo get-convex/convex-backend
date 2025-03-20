@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -50,7 +51,7 @@ impl SystemTable for BackendStateTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<PersistedBackendState>::try_from(document).map(|_| ())
+        ParseDocument::<PersistedBackendState>::parse(document).map(|_| ())
     }
 }
 
@@ -88,7 +89,7 @@ impl<'a, RT: Runtime> BackendStateModel<'a, RT> {
             .next(self.tx, None)
             .await?
             .ok_or_else(|| anyhow::anyhow!("Backend must have a state."))?;
-        let backend_state: ParsedDocument<PersistedBackendState> = doc.try_into()?;
+        let backend_state: ParsedDocument<PersistedBackendState> = doc.parse()?;
         anyhow::ensure!(
             query_stream.next(self.tx, None).await?.is_none(),
             "Backend must have a single state."

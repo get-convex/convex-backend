@@ -5,6 +5,7 @@ use std::{
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -46,7 +47,7 @@ impl SystemTable for CanonicalUrlsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<CanonicalUrl>::try_from(document).map(|_| ())
+        ParseDocument::<CanonicalUrl>::parse(document).map(|_| ())
     }
 }
 
@@ -66,7 +67,7 @@ impl<'a, RT: Runtime> CanonicalUrlsModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, query)?;
         let mut canonical_urls = BTreeMap::new();
         while let Some(document) = query_stream.next(self.tx, None).await? {
-            let canonical_url = ParsedDocument::<CanonicalUrl>::try_from(document)?;
+            let canonical_url = ParseDocument::<CanonicalUrl>::parse(document)?;
             canonical_urls.insert(canonical_url.request_destination, canonical_url);
         }
         Ok(canonical_urls)

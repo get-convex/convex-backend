@@ -12,7 +12,10 @@ use common::{
         IndexConfig,
         TabletIndexMetadata,
     },
-    document::ParsedDocument,
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     interval::{
         BinaryKey,
         Interval,
@@ -287,7 +290,7 @@ pub async fn load_metadata_fast_forward_ts(
         .map(|(_, rev)| rev.value)
         .collect();
     let fast_forward_ts = if !results.is_empty() {
-        let mut doc = ParsedDocument::<IndexWorkerMetadataRecord>::try_from(results.remove(0))?;
+        let mut doc = ParseDocument::<IndexWorkerMetadataRecord>::parse(results.remove(0))?;
         // This defaults to Timestamp(0) if a document isn't present, which is fine for
         // our purpose
         Some(*doc.index_metadata.mut_fast_forward_ts())

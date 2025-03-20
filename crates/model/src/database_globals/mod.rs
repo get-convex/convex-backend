@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -48,7 +49,7 @@ impl SystemTable for DatabaseGlobalsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<DatabaseGlobals>::try_from(document).map(|_| ())
+        ParseDocument::<DatabaseGlobals>::parse(document).map(|_| ())
     }
 }
 
@@ -66,7 +67,7 @@ impl<'a, RT: Runtime> DatabaseGlobalsModel<'a, RT> {
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, metadata_query)?;
         let globals: ParsedDocument<DatabaseGlobals> =
             match query_stream.expect_at_most_one(self.tx).await? {
-                Some(globals) => globals.try_into()?,
+                Some(globals) => globals.parse()?,
                 None => anyhow::bail!("Database globals were not found??"),
             };
         Ok(globals)

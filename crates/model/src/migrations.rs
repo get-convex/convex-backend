@@ -8,7 +8,10 @@ use std::{
 use anyhow::Context;
 use common::{
     backoff::Backoff,
-    document::ParsedDocument,
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     errors::report_error,
     persistence::Persistence,
     runtime::Runtime,
@@ -362,7 +365,7 @@ impl<RT: Runtime> MigrationWorker<RT> {
                             .get(*id)
                             .await?
                             .context("Id missing?")?
-                            .try_into()?;
+                            .parse()?;
                         system_model
                             .replace(entry.id(), entry.clone().into_value().try_into()?)
                             .await?;

@@ -18,7 +18,10 @@ use common::{
         ComponentId,
         PublicFunctionPath,
     },
-    document::ParsedDocument,
+    document::{
+        ParseDocument,
+        ParsedDocument,
+    },
     errors::{
         report_error,
         JsError,
@@ -369,7 +372,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         for namespace in namespaces {
             let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
             if let Some(doc) = query.next(tx, None).await? {
-                let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+                let job: ParsedDocument<ScheduledJob> = doc.parse()?;
                 let next_ts = job.next_ts.ok_or_else(|| {
                     anyhow::anyhow!("Could not get next_ts to run scheduled job {}", job.id())
                 })?;
@@ -379,7 +382,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
             yield min_job;
             if let Some(doc) = query.next(tx, None).await? {
-                let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+                let job: ParsedDocument<ScheduledJob> = doc.parse()?;
                 let next_ts = job.next_ts.ok_or_else(|| {
                     anyhow::anyhow!("Could not get next_ts to run scheduled job {}", job.id())
                 })?;
@@ -818,7 +821,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         let new_job = tx
             .get(job_id)
             .await?
-            .map(ParsedDocument::<ScheduledJob>::try_from)
+            .map(ParseDocument::<ScheduledJob>::parse)
             .transpose()?
             .map(|j| j.into_value());
         Ok((new_job.as_ref() == Some(expected_state), tx))
@@ -901,7 +904,7 @@ impl<RT: Runtime> ScheduledJobGarbageCollector<RT> {
 
                 let mut jobs_to_delete = vec![];
                 while let Some(doc) = query_stream.next(&mut tx, None).await? {
-                    let job: ParsedDocument<ScheduledJob> = doc.try_into()?;
+                    let job: ParsedDocument<ScheduledJob> = doc.parse()?;
                     match job.state {
                         ScheduledJobState::Success => (),
                         ScheduledJobState::Failed(_) => (),

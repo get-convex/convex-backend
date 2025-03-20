@@ -10,6 +10,7 @@ use std::{
 use anyhow::Context;
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -128,7 +129,7 @@ impl SystemTable for FileStorageTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<FileStorageEntry>::try_from(document).map(|_| ())
+        ParseDocument::<FileStorageEntry>::parse(document).map(|_| ())
     }
 }
 
@@ -249,7 +250,7 @@ impl<'a, RT: Runtime> FileStorageModel<'a, RT> {
             let parsed_result = match fetch_result {
                 Err(e) => Err(e),
                 Ok(None) => Ok(None),
-                Ok(Some((doc, _))) => ParsedDocument::try_from(doc).map(Some),
+                Ok(Some((doc, _))) => ParseDocument::parse(doc).map(Some),
             };
             results.insert(batch_key, parsed_result);
         }
@@ -366,8 +367,7 @@ pub async fn get_total_file_storage_size<RT: Runtime>(db: &Database<RT>) -> anyh
         let mut table_stream =
             Box::pin(table_iterator.stream_documents_in_table(tablet_id, by_id_index, None));
         while let Some(storage_document) = table_stream.try_next().await? {
-            let storage_entry: ParsedDocument<FileStorageEntry> =
-                storage_document.value.try_into()?;
+            let storage_entry: ParsedDocument<FileStorageEntry> = storage_document.value.parse()?;
             total_size += storage_entry.size as u64;
         }
     }

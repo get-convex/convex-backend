@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use common::{
     document::{
+        ParseDocument,
         ParsedDocument,
         ResolvedDocument,
     },
@@ -57,7 +58,7 @@ impl SystemTable for DeploymentAuditLogsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParsedDocument::<DeploymentAuditLogEvent>::try_from(document).map(|_| ())
+        ParseDocument::<DeploymentAuditLogEvent>::parse(document).map(|_| ())
     }
 }
 
@@ -124,7 +125,7 @@ impl<'a, RT: Runtime> DeploymentAuditLogModel<'a, RT> {
         let value_query = Query::full_table_scan(DEPLOYMENT_AUDIT_LOG_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, value_query)?;
         while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let row: ParsedDocument<DeploymentAuditLogEvent> = doc.try_into()?;
+            let row: ParsedDocument<DeploymentAuditLogEvent> = doc.parse()?;
             yield row;
         }
     }
