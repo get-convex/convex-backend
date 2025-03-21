@@ -60,7 +60,7 @@ async function selectEnvDeployment(
   );
   const deploymentNotice =
     deploymentFields !== null
-      ? ` (on ${chalk.bold(deploymentFields.deploymentType)} deployment${chalk.bold(deploymentFields.deploymentName)}`
+      ? ` (on ${chalk.bold(deploymentFields.deploymentType)} deployment ${chalk.bold(deploymentFields.deploymentName)})`
       : "";
   return {
     ctx,
