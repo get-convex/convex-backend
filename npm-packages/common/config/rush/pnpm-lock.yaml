@@ -4468,14 +4468,14 @@ importers:
   ../../udf-tests:
     dependencies:
       '@types/chai-as-promised':
-        specifier: ~7.1.5
-        version: 7.1.8
+        specifier: ~8.0.0
+        version: 8.0.2
       chai:
         specifier: ~4.5.0
         version: 4.5.0
       chai-as-promised:
-        specifier: ~7.1.1
-        version: 7.1.2(chai@4.5.0)
+        specifier: ~8.0.0
+        version: 8.0.1(chai@4.5.0)
       convex:
         specifier: workspace:*
         version: link:../convex
@@ -9792,8 +9792,8 @@ packages:
   '@types/caseless@0.12.5':
     resolution: {integrity: sha512-hWtVTC2q7hc7xZ/RLbxapMvDMgUnDvKvMOpKal4DrMyfGBUfB1oKaZlIRr6mJL+If3bAP6sV/QneGzF6tJjZDg==}
 
-  '@types/chai-as-promised@7.1.8':
-    resolution: {integrity: sha512-ThlRVIJhr69FLlh6IctTXFkmhtP3NpMZ2QGq69StYLyKZFp/HOp1VdKZj7RvfNWYYcJ1xlbLGLLWj1UvP5u/Gw==}
+  '@types/chai-as-promised@8.0.2':
+    resolution: {integrity: sha512-meQ1wDr1K5KRCSvG2lX7n7/5wf70BeptTKst0axGvnN6zqaVpRqegoIbugiAPSqOW9K9aL8gDVrm7a2LXOtn2Q==}
 
   '@types/chai@4.3.20':
     resolution: {integrity: sha512-/pC9HAB5I/xMlc5FP77qjCnI16ChlJfW0tGa0IUcFn38VJrTV6DeZ60NU5KZBtaOZqjdpwTWohz5HU1RrhiYxQ==}
@@ -11633,8 +11633,8 @@ packages:
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
 
-  chai-as-promised@7.1.2:
-    resolution: {integrity: sha512-aBDHZxRzYnUYuIAIPBH2s511DjlKPzXNlXSGFC8CwmroWQLfrW0LtE1nK3MAwwNhJPa9raEjNCmRoFpG0Hurdw==}
+  chai-as-promised@8.0.1:
+    resolution: {integrity: sha512-OIEJtOL8xxJSH8JJWbIoRjybbzR52iFuDHuF8eb+nTPD6tgXLjRqsgnUGqQfFODxYvq5QdirT0pN9dZ0+Gz6rA==}
     peerDependencies:
       chai: '>= 2.1.2 < 6'
 
@@ -11698,6 +11698,10 @@ packages:
 
   check-error@1.0.3:
     resolution: {integrity: sha512-iKEoDYaRmd1mxM90a2OEfWhjsjPpYPuQ+lMYsoxB126+t8fw7ySEO48nmDg5COTjxDI65/Y2OWpeEHk3ZOe8zg==}
+
+  check-error@2.1.1:
+    resolution: {integrity: sha512-OAlb+T7V4Op9OwdkjmguYRqncdlx5JiofwOAUkmTF+jNdHwzTaTs4sRAGpzLF3oOz5xAyDGrPgeIDFQmDOTiJw==}
+    engines: {node: '>= 16'}
 
   cheerio-select@2.1.0:
     resolution: {integrity: sha512-9v9kG0LvzrlcungtnJtpGNxY+fzECQKhK4EGJX2vByejiMX84MFNQw4UxPJl3bFbTMw+Dfs37XaIkCwTZfLh4g==}
@@ -29882,7 +29886,7 @@ snapshots:
 
   '@types/caseless@0.12.5': {}
 
-  '@types/chai-as-promised@7.1.8':
+  '@types/chai-as-promised@8.0.2':
     dependencies:
       '@types/chai': 4.3.20
 
@@ -32693,10 +32697,10 @@ snapshots:
 
   ccount@2.0.1: {}
 
-  chai-as-promised@7.1.2(chai@4.5.0):
+  chai-as-promised@8.0.1(chai@4.5.0):
     dependencies:
       chai: 4.5.0
-      check-error: 1.0.3
+      check-error: 2.1.1
 
   chai@4.5.0:
     dependencies:
@@ -32753,6 +32757,8 @@ snapshots:
   check-error@1.0.3:
     dependencies:
       get-func-name: 2.0.2
+
+  check-error@2.1.1: {}
 
   cheerio-select@2.1.0:
     dependencies:

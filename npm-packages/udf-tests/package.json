@@ -6,8 +6,8 @@
     "shapes": "workspace:*",
     "id-encoding": "workspace:*",
     "chai": "~4.5.0",
-    "chai-as-promised": "~7.1.1",
-    "@types/chai-as-promised": "~7.1.5",
+    "chai-as-promised": "~8.0.0",
+    "@types/chai-as-promised": "~8.0.0",
     "prettier": "3.5.1",
     "udf-syscall-ffi": "workspace:*"
   },
