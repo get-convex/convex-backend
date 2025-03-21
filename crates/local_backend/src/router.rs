@@ -19,10 +19,7 @@ use axum::{
     Router,
 };
 use common::{
-    http::{
-        cli_cors,
-        CONVEX_CLIENT_HEADER,
-    },
+    http::cli_cors,
     knobs::{
         AIRBYTE_STREAMING_IMPORT_REQUEST_SIZE_LIMIT,
         MAX_BACKEND_PUBLIC_API_REQUEST_SIZE,
@@ -32,16 +29,6 @@ use common::{
     },
 };
 use http::{
-    header::{
-        ACCEPT,
-        ACCEPT_LANGUAGE,
-        AUTHORIZATION,
-        CONTENT_TYPE,
-        REFERER,
-        USER_AGENT,
-    },
-    request,
-    HeaderValue,
     Method,
     StatusCode,
 };
@@ -49,6 +36,7 @@ use metrics::SERVER_VERSION_STR;
 use tower::ServiceBuilder;
 use tower_http::{
     cors::{
+        AllowHeaders,
         AllowOrigin,
         CorsLayer,
     },
@@ -412,17 +400,7 @@ where
 
 pub fn cors() -> CorsLayer {
     CorsLayer::new()
-        .allow_headers(vec![
-           "baggage".parse().unwrap(),
-           "sentry-trace".parse().unwrap(),
-           ACCEPT,
-           ACCEPT_LANGUAGE,
-           AUTHORIZATION,
-           CONTENT_TYPE,
-           CONVEX_CLIENT_HEADER,
-           REFERER,
-           USER_AGENT,
-        ])
+        .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true)
         .allow_methods(vec![
             Method::GET,
@@ -432,19 +410,6 @@ pub fn cors() -> CorsLayer {
             Method::DELETE,
             Method::PUT,
         ])
-        // Don't use tower_http::cors::any(), it causes the server to respond with
-        // Access-Control-Allow-Origin: *. Browsers restrict sending credentials to other domains
-        // that reply to a CORS with allow-origin *.
-        //
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS/Errors/CORSNotSupportingCredentials
-        //
-        // Instead respond with Access-Control-Allow-Origin set to the submitted Origin header.
-        //
-        // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin#directives
-        .allow_origin(
-            AllowOrigin::predicate(|_origin: &HeaderValue, _request_head: &request::Parts| {
-                true
-            }),
-        )
+        .allow_origin(AllowOrigin::mirror_request())
         .max_age(Duration::from_secs(86400))
 }

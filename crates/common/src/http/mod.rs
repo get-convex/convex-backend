@@ -66,14 +66,7 @@ use http::{
     header::{
         HeaderName,
         HeaderValue,
-        ACCEPT,
-        ACCEPT_LANGUAGE,
-        AUTHORIZATION,
-        CONTENT_TYPE,
-        REFERER,
-        USER_AGENT,
     },
-    request::Parts,
     HeaderMap,
     Method,
     StatusCode,
@@ -100,6 +93,7 @@ use tower::{
     ServiceBuilder,
 };
 use tower_http::cors::{
+    AllowHeaders,
     AllowOrigin,
     CorsLayer,
 };
@@ -1217,17 +1211,7 @@ impl<T: fmt::Display> fmt::Display for LogOptFmt<T> {
 // different headers.
 pub fn cli_cors() -> CorsLayer {
     CorsLayer::new()
-        .allow_headers(vec![
-            "baggage".parse().unwrap(),
-            "sentry-trace".parse().unwrap(),
-            ACCEPT,
-            ACCEPT_LANGUAGE,
-            AUTHORIZATION,
-            CONTENT_TYPE,
-            CONVEX_CLIENT_HEADER,
-            REFERER,
-            USER_AGENT,
-        ])
+        .allow_headers(AllowHeaders::mirror_request())
         .allow_credentials(true)
         .allow_methods(vec![
             Method::GET,
@@ -1236,13 +1220,7 @@ pub fn cli_cors() -> CorsLayer {
             Method::OPTIONS,
             Method::DELETE,
         ])
-        // `predicate` of `true` allows all origins without allow-origin *,
-        // since that wouldn't allow use of credentials.
-        .allow_origin(
-            AllowOrigin::predicate(|_origin: &HeaderValue, _request_head: &Parts| {
-                true
-            }),
-        )
+        .allow_origin(AllowOrigin::mirror_request())
         .max_age(Duration::from_secs(86400))
 }
 
