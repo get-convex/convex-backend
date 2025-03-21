@@ -108,8 +108,8 @@ export async function deploymentCredentialsOrConfigure(
     deploymentFields: {
       deploymentName: DeploymentName;
       deploymentType: string;
-      projectSlug: string;
-      teamSlug: string;
+      projectSlug: string | null;
+      teamSlug: string | null;
     } | null;
   }
 > {
@@ -174,11 +174,11 @@ export async function deploymentCredentialsOrConfigure(
         overrideAuthUsername: cmdOptions.overrideAuthUsername,
         overrideAuthPassword: cmdOptions.overrideAuthPassword,
       });
-      const projectSlugs = await checkAccessToSelectedProject(
+      const accessResult = await checkAccessToSelectedProject(
         ctx,
         deploymentSelection.targetProject,
       );
-      if (projectSlugs === null) {
+      if (accessResult.kind === "noAccess") {
         logMessage(ctx, "You don't have access to the selected project.");
         const result = await handleChooseProject(
           ctx,
@@ -614,8 +614,8 @@ async function updateEnvAndConfigForDeploymentSelection(
   options: {
     url: string;
     deploymentName: string;
-    teamSlug: string;
-    projectSlug: string;
+    teamSlug: string | null;
+    projectSlug: string | null;
     deploymentType: DeploymentType;
   },
   existingValue: string | null,

@@ -35,23 +35,35 @@ export async function writeConvexUrlToEnvFile(
   }
 
   const { envFile, envVar, existingFileContent } = writeConfig;
-  const modified = changedEnvVarFile(existingFileContent, envVar, value)!;
+  const modified = changedEnvVarFile({
+    existingFileContent,
+    envVarName: envVar,
+    envVarValue: value,
+    commentAfterValue: null,
+    commentOnPreviousLine: null,
+  })!;
   ctx.fs.writeUtf8File(envFile, modified);
   return writeConfig;
 }
 
-export function changedEnvVarFile(
-  existingFileContent: string | null,
-  envVarName: string,
-  envVarValue: string,
-  commentAfterValue?: string,
-  commentOnPreviousLine?: string,
-): string | null {
+export function changedEnvVarFile({
+  existingFileContent,
+  envVarName,
+  envVarValue,
+  commentAfterValue,
+  commentOnPreviousLine,
+}: {
+  existingFileContent: string | null;
+  envVarName: string;
+  envVarValue: string;
+  commentAfterValue: string | null;
+  commentOnPreviousLine: string | null;
+}): string | null {
   const varAssignment = `${envVarName}=${envVarValue}${
-    commentAfterValue === undefined ? "" : ` # ${commentAfterValue}`
+    commentAfterValue === null ? "" : ` # ${commentAfterValue}`
   }`;
   const commentOnPreviousLineWithLineBreak =
-    commentOnPreviousLine === undefined ? "" : `${commentOnPreviousLine}\n`;
+    commentOnPreviousLine === null ? "" : `${commentOnPreviousLine}\n`;
   if (existingFileContent === null) {
     return `${commentOnPreviousLineWithLineBreak}${varAssignment}\n`;
   }

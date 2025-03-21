@@ -31,7 +31,11 @@ export function getDeploymentTypeFromConfiguredDeployment(raw: string) {
 export async function writeDeploymentEnvVar(
   ctx: Context,
   deploymentType: DeploymentType,
-  deployment: { team: string; project: string; deploymentName: string },
+  deployment: {
+    team: string | null;
+    project: string | null;
+    deploymentName: string;
+  },
   existingValue: string | null,
 ): Promise<{ wroteToGitIgnore: boolean; changedDeploymentEnvVar: boolean }> {
   const existingFile = ctx.fs.exists(ENV_VAR_FILE_PATH)
@@ -101,18 +105,21 @@ export function changesToEnvVarFile(
     team,
     project,
     deploymentName,
-  }: { team: string; project: string; deploymentName: string },
+  }: { team: string | null; project: string | null; deploymentName: string },
 ): string | null {
   const deploymentValue = deploymentType + ":" + deploymentName;
   const commentOnPreviousLine = "# Deployment used by `npx convex dev`";
-  const commentAfterValue = `team: ${team}, project: ${project}`;
-  return changedEnvVarFile(
-    existingFile,
-    CONVEX_DEPLOYMENT_ENV_VAR_NAME,
-    deploymentValue,
+  const commentAfterValue =
+    team !== null && project !== null
+      ? `team: ${team}, project: ${project}`
+      : null;
+  return changedEnvVarFile({
+    existingFileContent: existingFile,
+    envVarName: CONVEX_DEPLOYMENT_ENV_VAR_NAME,
+    envVarValue: deploymentValue,
     commentAfterValue,
     commentOnPreviousLine,
-  );
+  });
 }
 
 // exported for tests

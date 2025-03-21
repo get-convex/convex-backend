@@ -208,13 +208,24 @@ async function hasAccessToProject(
 export async function checkAccessToSelectedProject(
   ctx: Context,
   projectSelection: ProjectSelection,
-): Promise<{ teamSlug: string; projectSlug: string } | null> {
+): Promise<
+  | { kind: "hasAccess"; teamSlug: string; projectSlug: string }
+  | { kind: "noAccess" }
+  | { kind: "unknown" }
+> {
   switch (projectSelection.kind) {
     case "deploymentName": {
       const result = await getTeamAndProjectSlugForDeployment(ctx, {
         deploymentName: projectSelection.deploymentName,
       });
-      return result;
+      if (result === null) {
+        return { kind: "noAccess" };
+      }
+      return {
+        kind: "hasAccess",
+        teamSlug: result.teamSlug,
+        projectSlug: result.projectSlug,
+      };
     }
     case "teamAndProjectSlugs": {
       const hasAccess = await hasAccessToProject(ctx, {
@@ -222,9 +233,10 @@ export async function checkAccessToSelectedProject(
         projectSlug: projectSelection.projectSlug,
       });
       if (!hasAccess) {
-        return null;
+        return { kind: "noAccess" };
       }
       return {
+        kind: "hasAccess",
         teamSlug: projectSelection.teamSlug,
         projectSlug: projectSelection.projectSlug,
       };
@@ -232,7 +244,7 @@ export async function checkAccessToSelectedProject(
     case "projectDeployKey":
       // Ideally we would be able to do an explicit check here, but if the key is invalid,
       // it will instead fail as soon as we try to use the key.
-      return null;
+      return { kind: "unknown" };
     default: {
       const _exhaustivenessCheck: never = projectSelection;
       return await ctx.crash({
@@ -603,12 +615,12 @@ async function _loadExistingDeploymentCredentialsForProject(
   deploymentFields: {
     deploymentName: string;
     deploymentType: string;
-    projectSlug: string;
-    teamSlug: string;
+    projectSlug: string | null;
+    teamSlug: string | null;
   } | null;
 }> {
-  const projectSlugs = await checkAccessToSelectedProject(ctx, targetProject);
-  if (projectSlugs === null) {
+  const accessResult = await checkAccessToSelectedProject(ctx, targetProject);
+  if (accessResult.kind === "noAccess") {
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
@@ -636,8 +648,11 @@ async function _loadExistingDeploymentCredentialsForProject(
     deploymentFields: {
       deploymentName: result.deploymentName,
       deploymentType: result.deploymentType,
-      projectSlug: projectSlugs.projectSlug,
-      teamSlug: projectSlugs.teamSlug,
+
+      projectSlug:
+        accessResult.kind === "hasAccess" ? accessResult.projectSlug : null,
+      teamSlug:
+        accessResult.kind === "hasAccess" ? accessResult.teamSlug : null,
     },
   };
 }
@@ -655,8 +670,8 @@ export async function loadSelectedDeploymentCredentials(
   deploymentFields: {
     deploymentName: string;
     deploymentType: string;
-    projectSlug: string;
-    teamSlug: string;
+    projectSlug: string | null;
+    teamSlug: string | null;
   } | null;
 }> {
   switch (deploymentSelection.kind) {

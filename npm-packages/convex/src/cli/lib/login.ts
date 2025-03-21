@@ -446,6 +446,28 @@ type AcceptOptInsArgs = {
 
 // Returns whether we can proceed or not.
 async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
+  const bbAuth = ctx.bigBrainAuth();
+  if (bbAuth === null) {
+    // This should never happen, but if we're not even logged in, we can't proceed.
+    return false;
+  }
+  switch (bbAuth.kind) {
+    case "accessToken":
+      break;
+    case "projectKey":
+    case "previewDeployKey":
+      // If we have a key configured as auth, we do not need to check opt ins.
+      return true;
+    default: {
+      const _exhaustivenessCheck: never = bbAuth;
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        errForSentry: `Unexpected auth kind ${(bbAuth as any).kind}`,
+        printedMessage: "Hit an unexpected error while logging in.",
+      });
+    }
+  }
   const data = await bigBrainAPI({
     ctx,
     method: "POST",
