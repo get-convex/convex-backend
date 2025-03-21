@@ -378,7 +378,7 @@ async function fetchExistingDevDeploymentCredentialsOrCrash(
       undefined,
     );
   return {
-    deploymentName,
+    deploymentName: credentials.deploymentName,
     adminKey: credentials.adminKey,
     url: credentials.deploymentUrl,
     deploymentType: "dev",
@@ -413,16 +413,10 @@ async function handleOwnDev(
           deploymentType: "local",
         };
       }
-      // Note -- this returns the deployment with that name iff it's a dev deployment,
-      // but it does not actually check that the deployment belongs to the current member.
-      const credentials = await fetchExistingDevDeploymentCredentialsOrCrash(
+      return await fetchExistingDevDeploymentCredentialsOrCrash(
         ctx,
         projectSelection.deploymentName,
       );
-      return {
-        ...credentials,
-        deploymentName: projectSelection.deploymentName,
-      };
     }
     case "teamAndProjectSlugs":
     case "projectDeployKey": {

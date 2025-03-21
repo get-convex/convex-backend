@@ -113,6 +113,56 @@ export async function deploymentCredentialsOrConfigure(
     } | null;
   }
 > {
+  const selectedDeployment = await _deploymentCredentialsOrConfigure(
+    ctx,
+    deploymentSelection,
+    chosenConfiguration,
+    cmdOptions,
+    partitionId,
+  );
+
+  if (selectedDeployment.deploymentFields !== null) {
+    await updateEnvAndConfigForDeploymentSelection(
+      ctx,
+      {
+        url: selectedDeployment.url,
+        deploymentName: selectedDeployment.deploymentFields.deploymentName,
+        teamSlug: selectedDeployment.deploymentFields.teamSlug,
+        projectSlug: selectedDeployment.deploymentFields.projectSlug,
+        deploymentType: selectedDeployment.deploymentFields
+          .deploymentType as DeploymentType,
+      },
+      deploymentNameFromSelection(deploymentSelection),
+    );
+  } else {
+    await handleManuallySetUrlAndAdminKey(ctx, {
+      url: selectedDeployment.url,
+      adminKey: selectedDeployment.adminKey,
+    });
+  }
+  return {
+    url: selectedDeployment.url,
+    adminKey: selectedDeployment.adminKey,
+    deploymentFields: selectedDeployment.deploymentFields,
+  };
+}
+
+export async function _deploymentCredentialsOrConfigure(
+  ctx: Context,
+  deploymentSelection: DeploymentSelection,
+  chosenConfiguration: ChosenConfiguration,
+  cmdOptions: ConfigureCmdOptions,
+  partitionId?: number | undefined,
+): Promise<
+  DeploymentCredentials & {
+    deploymentFields: {
+      deploymentName: DeploymentName;
+      deploymentType: string;
+      projectSlug: string | null;
+      teamSlug: string | null;
+    } | null;
+  }
+> {
   const config = readGlobalConfig(ctx);
   const globallyForceCloud = !!config?.optOutOfLocalDevDeploymentsUntilBetaOver;
   if (globallyForceCloud && cmdOptions.local) {
@@ -174,12 +224,7 @@ export async function deploymentCredentialsOrConfigure(
         overrideAuthUsername: cmdOptions.overrideAuthUsername,
         overrideAuthPassword: cmdOptions.overrideAuthPassword,
       });
-      const accessResult = await checkAccessToSelectedProject(
-        ctx,
-        deploymentSelection.targetProject,
-      );
-      if (accessResult.kind === "noAccess") {
-        logMessage(ctx, "You don't have access to the selected project.");
+      if (chosenConfiguration !== null) {
         const result = await handleChooseProject(
           ctx,
           chosenConfiguration,
@@ -191,7 +236,13 @@ export async function deploymentCredentialsOrConfigure(
         );
         return result;
       }
-      if (chosenConfiguration === "new") {
+
+      const accessResult = await checkAccessToSelectedProject(
+        ctx,
+        deploymentSelection.targetProject,
+      );
+      if (accessResult.kind === "noAccess") {
+        logMessage(ctx, "You don't have access to the selected project.");
         const result = await handleChooseProject(
           ctx,
           chosenConfiguration,
@@ -211,33 +262,17 @@ export async function deploymentCredentialsOrConfigure(
         // We'll start running it below
         { ensureLocalRunning: false },
       );
-
-      if (selectedDeployment.deploymentFields !== null) {
-        await updateEnvAndConfigForDeploymentSelection(
-          ctx,
-          {
-            url: selectedDeployment.url,
-            deploymentName: selectedDeployment.deploymentFields.deploymentName,
-            teamSlug: selectedDeployment.deploymentFields.teamSlug,
-            projectSlug: selectedDeployment.deploymentFields.projectSlug,
-            deploymentType: selectedDeployment.deploymentFields
-              .deploymentType as DeploymentType,
-          },
-          deploymentNameFromSelection(deploymentSelection),
-        );
-        if (
-          selectedDeployment.deploymentFields !== null &&
-          selectedDeployment.deploymentFields.deploymentType === "local"
-        ) {
-          await handleLocalDeployment(ctx, {
-            teamSlug: selectedDeployment.deploymentFields.teamSlug!,
-            projectSlug: selectedDeployment.deploymentFields.projectSlug!,
-            forceUpgrade: cmdOptions.localOptions.forceUpgrade,
-            ports: cmdOptions.localOptions.ports,
-            backendVersion: cmdOptions.localOptions.backendVersion,
-          });
-        }
-        return selectedDeployment;
+      if (
+        selectedDeployment.deploymentFields !== null &&
+        selectedDeployment.deploymentFields.deploymentType === "local"
+      ) {
+        await handleLocalDeployment(ctx, {
+          teamSlug: selectedDeployment.deploymentFields.teamSlug!,
+          projectSlug: selectedDeployment.deploymentFields.projectSlug!,
+          forceUpgrade: cmdOptions.localOptions.forceUpgrade,
+          ports: cmdOptions.localOptions.ports,
+          backendVersion: cmdOptions.localOptions.backendVersion,
+        });
       }
       return {
         url: selectedDeployment.url,
@@ -299,17 +334,6 @@ async function handleChooseProject(
     deploymentOptions,
     partitionId: args.partitionId,
   });
-  await updateEnvAndConfigForDeploymentSelection(
-    ctx,
-    {
-      url,
-      deploymentName,
-      teamSlug: project.teamSlug,
-      projectSlug: project.projectSlug,
-      deploymentType: deploymentOptions.kind,
-    },
-    null,
-  );
   return {
     url,
     adminKey,
