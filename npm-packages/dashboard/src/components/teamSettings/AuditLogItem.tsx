@@ -502,6 +502,9 @@ function EntryAction({
         </span>
       );
     }
+    case "applyReferralCode": {
+      return <span>applied a referral code</span>;
+    }
     case "disableTeamExceedingSpendingLimits": {
       return (
         <span>

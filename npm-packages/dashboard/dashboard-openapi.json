@@ -1233,6 +1233,34 @@
         }
       }
     },
+    "/teams/{team_id}/apply_referral_code": {
+      "post": {
+        "operationId": "apply_referral_code",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyReferralCodeArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/teams/{team_id}/cancel_orb_subscription": {
       "post": {
         "operationId": "cancel_orb_subscription",
@@ -2325,6 +2353,17 @@
       "AppName": {
         "type": "string"
       },
+      "ApplyReferralCodeArgs": {
+        "type": "object",
+        "required": [
+          "referralCode"
+        ],
+        "properties": {
+          "referralCode": {
+            "$ref": "#/components/schemas/ReferralCode"
+          }
+        }
+      },
       "AuditLogAction": {
         "type": "string",
         "enum": [
@@ -2365,7 +2404,8 @@
           "disablePeriodicBackup",
           "deleteCloudBackup",
           "disableTeamExceedingSpendingLimits",
-          "setSpendingLimit"
+          "setSpendingLimit",
+          "applyReferralCode"
         ]
       },
       "AuditLogActor": {
