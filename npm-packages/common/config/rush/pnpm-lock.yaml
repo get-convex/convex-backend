@@ -484,8 +484,8 @@ importers:
         specifier: ^0.3.0
         version: 0.3.15(@langchain/core@0.2.36(openai@4.77.3(encoding@0.1.13)(zod@3.24.1)))(axios@1.8.3)(cheerio@1.0.0)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.77.3(encoding@0.1.13)(zod@3.24.1))
       modern-async:
-        specifier: ^1.1.4
-        version: 1.1.5
+        specifier: ^2.0.0
+        version: 2.0.4
       openai:
         specifier: ^4.6.0
         version: 4.77.3(encoding@0.1.13)(zod@3.24.1)
@@ -16538,8 +16538,8 @@ packages:
   mlly@1.7.3:
     resolution: {integrity: sha512-xUsx5n/mN0uQf4V548PKQ+YShA4/IW0KI1dZhrNrPCLG+xizETbHTkOa1f8/xut9JRPp8kQuMnz0oqwkTiLo/A==}
 
-  modern-async@1.1.5:
-    resolution: {integrity: sha512-Yioj6tw1jvZef+bYjcZN9gMPBpVkkqGOMbQg/1U9dIqdij44mpftvNJxTf/u2Gc6oobuNGUFWNJwJwq8qEs9bw==}
+  modern-async@2.0.4:
+    resolution: {integrity: sha512-89Ig+D/NQAFi39/oRUphkwdLb4qo/3Vl21TCMPZY3oCWGQQ+HqNJ1kyWknyAJ2rsiewL9OGBmpKA5bQ0PikkMg==}
 
   moment-timezone@0.5.46:
     resolution: {integrity: sha512-ZXm9b36esbe7OmdABqIWJuBBiLLwAjrN7CE+7sYdCCx82Nabt1wHDj8TVseS59QIlfFPbOoiBPm6ca9BioG4hw==}
@@ -39466,7 +39466,7 @@ snapshots:
       pkg-types: 1.3.0
       ufo: 1.5.4
 
-  modern-async@1.1.5:
+  modern-async@2.0.4:
     dependencies:
       core-js-pure: 3.40.0
       nanoassert: 2.0.0
