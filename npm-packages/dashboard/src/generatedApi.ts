@@ -1674,6 +1674,7 @@ export interface components {
         ProvisionDeploymentDashboardResponse: {
             deploymentName: string;
         };
+        ReferralCode: string;
         RemoveMemberArgs: {
             memberId: components["schemas"]["MemberId"];
         };
@@ -1723,6 +1724,9 @@ export interface components {
             creator: components["schemas"]["MemberId"];
             id: components["schemas"]["TeamId"];
             name: components["schemas"]["TeamName"];
+            referralCode: components["schemas"]["ReferralCode"];
+            referralVerified: boolean;
+            referredBy?: null | components["schemas"]["TeamId"];
             slug: components["schemas"]["TeamSlug"];
             suspended: boolean;
         };
@@ -1928,6 +1932,7 @@ export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
 export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
+export type ReferralCode = components['schemas']['ReferralCode'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs'];
 export type RequestDestination = components['schemas']['RequestDestination'];

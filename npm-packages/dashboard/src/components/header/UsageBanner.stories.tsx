@@ -11,6 +11,9 @@ const meta: Meta<typeof UsageBanner> = {
       slug: "my-team",
       creator: 1,
       suspended: false,
+      referralCode: "MYTEAM123",
+      referralVerified: false,
+      referredBy: null,
     },
   },
 };

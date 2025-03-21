@@ -36,6 +36,9 @@ const team: Team = {
   slug: "team",
   name: "Team",
   suspended: false,
+  referralCode: "TEAM123",
+  referralVerified: false,
+  referredBy: null,
 };
 
 export const Primary: StoryObj<typeof TeamMemberList> = {

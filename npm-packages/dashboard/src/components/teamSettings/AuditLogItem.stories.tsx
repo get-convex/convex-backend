@@ -13,6 +13,9 @@ const team: Team = {
   name: "Team Name",
   creator: 1,
   suspended: false,
+  referralCode: "TEAM123",
+  referralVerified: false,
+  referredBy: null,
 };
 
 const member: MemberResponse = {

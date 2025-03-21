@@ -20,7 +20,16 @@ const members: TeamMemberResponse[] = [
 ];
 export const Primary: StoryObj<typeof InviteMemberForm> = {
   args: {
-    team: { creator: 1, id: 1, name: "team", slug: "team", suspended: false },
+    team: {
+      creator: 1,
+      id: 1,
+      name: "team",
+      slug: "team",
+      suspended: false,
+      referralCode: "TEAM123",
+      referralVerified: false,
+      referredBy: null,
+    },
     members,
   },
 };

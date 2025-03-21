@@ -46,6 +46,8 @@ describe("AuditLog", () => {
           slug: "team-1",
           creator: 1,
           suspended: false,
+          referralCode: "CODE123",
+          referralVerified: false,
         }}
       />,
     );
@@ -79,6 +81,8 @@ describe("AuditLog", () => {
           slug: "team-1",
           creator: 1,
           suspended: false,
+          referralCode: "CODE123",
+          referralVerified: false,
         }}
       />,
     );
@@ -106,6 +110,8 @@ describe("AuditLog", () => {
           slug: "team-1",
           creator: 1,
           suspended: false,
+          referralCode: "CODE123",
+          referralVerified: false,
         }}
       />,
     );
@@ -127,6 +133,8 @@ describe("AuditLog", () => {
           slug: "team-1",
           creator: 1,
           suspended: false,
+          referralCode: "CODE123",
+          referralVerified: false,
         }}
       />,
     );

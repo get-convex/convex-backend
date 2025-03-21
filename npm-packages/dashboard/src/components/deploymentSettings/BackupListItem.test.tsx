@@ -63,6 +63,8 @@ const team: Team = {
   slug: "team",
   name: "Team",
   suspended: false,
+  referralCode: "CODE123",
+  referralVerified: false,
 };
 
 jest.mock("api/deployments", () => {
@@ -107,6 +109,8 @@ jest.mock("api/teams", () => {
     slug: "team",
     name: "Team",
     suspended: false,
+    referralCode: "CODE123",
+    referralVerified: false,
   };
   const profile: TeamMemberResponse = {
     id: 1,

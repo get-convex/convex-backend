@@ -22,6 +22,9 @@ const team = {
   creator: 1,
   slug: "my-amazing-team",
   suspended: false,
+  referralCode: "MYAMAZ1341",
+  referredBy: null,
+  referralVerified: false,
 };
 
 const project: ProjectDetails = {

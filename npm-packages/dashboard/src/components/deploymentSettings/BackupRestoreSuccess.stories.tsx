@@ -16,6 +16,9 @@ const team: Team = {
   slug: "team",
   name: "Team",
   suspended: false,
+  referralCode: "TEAM123",
+  referralVerified: false,
+  referredBy: null,
 };
 
 const backup: BackupResponse = {

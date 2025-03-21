@@ -3806,6 +3806,9 @@
           }
         }
       },
+      "ReferralCode": {
+        "type": "string"
+      },
       "RemoveMemberArgs": {
         "type": "object",
         "required": [
@@ -3912,7 +3915,9 @@
           "name",
           "slug",
           "creator",
-          "suspended"
+          "suspended",
+          "referralCode",
+          "referralVerified"
         ],
         "properties": {
           "creator": {
@@ -3923,6 +3928,22 @@
           },
           "name": {
             "$ref": "#/components/schemas/TeamName"
+          },
+          "referralCode": {
+            "$ref": "#/components/schemas/ReferralCode"
+          },
+          "referralVerified": {
+            "type": "boolean"
+          },
+          "referredBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamId"
+              }
+            ]
           },
           "slug": {
             "$ref": "#/components/schemas/TeamSlug"

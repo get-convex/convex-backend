@@ -11,6 +11,8 @@ const team: Team = {
   slug: "team",
   name: "Team",
   suspended: false,
+  referralCode: "CODE123",
+  referralVerified: false,
 };
 
 const email = "nicolas@convex.dev";
