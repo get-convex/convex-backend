@@ -291,7 +291,7 @@
     "adm-zip": "^0.5.10",
     "bufferutil": "^4.0.7",
     "chalk": "5",
-    "chokidar": "3.5.3",
+    "chokidar": "3.6.0",
     "commander": "^11.1.0",
     "deep-equal": "2.2.3",
     "depcheck": "~1.4.7",
