@@ -13,7 +13,7 @@
     "convex": "latest",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-native": "0.74.0",
+    "react-native": "0.78.0",
     "react-native-dotenv": "^3.4.7",
     "react-native-get-random-values": "^1.8.0"
   },
