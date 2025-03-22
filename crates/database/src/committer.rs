@@ -226,7 +226,10 @@ impl<RT: Runtime> Committer<RT> {
         // commit out of order and regress the repeatable timestamp.
         let mut next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_COMMIT_DELAY);
 
-        let mut root_span = None;
+        // This span starts with receiving a commit message and ends with that same
+        // commit getting published. It captures all of the committer activity
+        // in between.
+        let mut committer_span = None;
         // Keep a monotonically increasing id to keep track of honeycomb traces
         // Each commit_id tracks a single write to persistence, from the time the commit
         // message is received until the time the commit has been published. We skip
@@ -245,16 +248,17 @@ impl<RT: Runtime> Committer<RT> {
             };
             select_biased! {
                 _ = bump_fut.fuse() => {
-                    let root_span = root_span.get_or_insert_with(|| {
+                    let committer_span = committer_span.get_or_insert_with(|| {
                         span_commit_id = Some(commit_id);
                         Span::root("bump_max_repeatable", SpanContext::random())
                     });
-                    let _span =  Span::enter_with_parent("queue_bump_max_repeatable", root_span);
+                    let local_span =  Span::enter_with_parent("queue_bump_max_repeatable", committer_span);
+                    local_span.set_local_parent();
                     // Advance the repeatable read timestamp so non-leaders can
                     // establish a recent repeatable snapshot.
                     next_bump_wait = None;
                     let (tx, _rx) = oneshot::channel();
-                    self.bump_max_repeatable_ts(tx, commit_id, root_span);
+                    self.bump_max_repeatable_ts(tx, commit_id, committer_span);
                     commit_id += 1;
                     last_bumped_repeatable_ts = self.runtime.monotonic_now();
                 }
@@ -277,9 +281,9 @@ impl<RT: Runtime> Committer<RT> {
                             parent_trace,
                             ..
                         } => {
-                            let _span = root_span.as_ref().map(|root| Span::enter_with_parent("publish_commit", root));
-                            let root = initialize_root_from_parent("Committer::publish_commit", parent_trace);
-                            let _guard = root.set_local_parent();
+                            let parent_span = initialize_root_from_parent("Committer::publish_commit", parent_trace);
+                            let publish_commit_span = committer_span.as_ref().map(|root| Span::enter_with_parents("publish_commit", [root, &parent_span])).unwrap_or_else(|| parent_span);
+                            let _guard = publish_commit_span.set_local_parent();
                             let commit_ts = pending_write.must_commit_ts();
                             self.publish_commit(pending_write);
                             let _ = result.send(Ok(commit_ts));
@@ -297,7 +301,8 @@ impl<RT: Runtime> Committer<RT> {
                             result,
                             ..
                         } => {
-                            let _span = root_span.as_ref().map(|root| Span::enter_with_parent("publish_max_repeatable_ts", root));
+                            let span = committer_span.as_ref().map(|root| Span::enter_with_parent("publish_max_repeatable_ts", root)).unwrap_or_else(Span::noop);
+                            span.set_local_parent();
                             self.publish_max_repeatable_ts(new_max_repeatable);
                             next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY);
                             let _ = result.send(new_max_repeatable);
@@ -306,7 +311,7 @@ impl<RT: Runtime> Committer<RT> {
                     }
                     // Report the trace if it is longer than the threshold
                     if let Some(id) = span_commit_id && id == pending_commit_id {
-                        if let Some(mut span) = root_span.take() {
+                        if let Some(mut span) = committer_span.take() {
                             if span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
                                 tracing::debug!("Not sending span to honeycomb because it is below the threshold");
                                 span.cancel();
@@ -330,30 +335,30 @@ impl<RT: Runtime> Committer<RT> {
                             parent_trace,
                         }) => {
 
-                            let root_span_ref = root_span.get_or_insert_with(|| {
+                            let parent_span = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
+                                .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
+                            let committer_span_ref = committer_span.get_or_insert_with(|| {
                                 span_commit_id = Some(commit_id);
                                 Span::root("commit", SpanContext::random())
                             });
-                            let _span =
-                                Span::enter_with_parent("start_commit", root_span_ref);
-                            let root = initialize_root_from_parent("handle_commit_message", parent_trace.clone())
-                                .with_property(|| ("time_in_queue_ms", format!("{}", queue_timer.elapsed().as_secs_f64() * 1000.0)));
-                            let _guard = root.set_local_parent();
+                            let start_commit_span =
+                                Span::enter_with_parents("start_commit", [committer_span_ref, &parent_span]);
+                            let _guard = start_commit_span.set_local_parent();
                             drop(queue_timer);
                             if let Some(persistence_write_future) = self.start_commit(transaction,
                                 result,
                                 write_source,
                                 parent_trace,
                                 commit_id,
-                                root_span_ref) {
+                                committer_span_ref) {
                                     self.persistence_writes.push_back(persistence_write_future);
                                     commit_id += 1;
                             } else if span_commit_id == Some(commit_id) {
                                 // If the span_commit_id is the same as the commit_id, that means we created a root span in this block
                                 // and it didn't get incremented, so it's not a write to persistence and we should not trace it.
-                                // We also need to reset the span_commit_id and root_span.
-                                root_span_ref.cancel();
-                                root_span = None;
+                                // We also need to reset the span_commit_id and committer_span.
+                                committer_span_ref.cancel();
+                                committer_span = None;
                                 span_commit_id = None;
                             }
                         },
@@ -685,6 +690,7 @@ impl<RT: Runtime> Committer<RT> {
         })
     }
 
+    #[fastrace::trace]
     fn compute_writes(
         &self,
         commit_ts: Timestamp,
@@ -730,6 +736,7 @@ impl<RT: Runtime> Committer<RT> {
         Ok((document_writes, index_writes, latest_pending_snapshot))
     }
 
+    #[fastrace::trace]
     fn commit_has_conflict(
         &self,
         reads: &ReadSet,
@@ -775,6 +782,7 @@ impl<RT: Runtime> Committer<RT> {
 
     /// After writing the new rows to persistence, mark the commit as complete
     /// and allow the updated rows to be read by other transactions.
+    #[fastrace::trace]
     fn publish_commit(&mut self, pending_write: PendingWriteHandle) {
         let apply_timer = metrics::commit_apply_timer();
         let commit_ts = pending_write.must_commit_ts();
@@ -886,6 +894,7 @@ impl<RT: Runtime> Committer<RT> {
                 })
             }
             .in_span(outer_span)
+            .in_span(request_span)
             .boxed(),
         )
     }
