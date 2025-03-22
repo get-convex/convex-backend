@@ -194,7 +194,7 @@ mod tests {
             .run_query("_system/frontend/convexCloudUrl".parse()?)
             .await?;
         assert_eq!(
-            query_convex_cloud.result,
+            query_convex_cloud.result.map(|v| v.unpack()),
             Ok(val!("https://new-cloud.example.com"))
         );
 
@@ -202,7 +202,7 @@ mod tests {
             .run_query("_system/frontend/convexSiteUrl".parse()?)
             .await?;
         assert_eq!(
-            query_convex_site.result,
+            query_convex_site.result.map(|v| v.unpack()),
             Ok(val!("https://new-site.example.com"))
         );
 

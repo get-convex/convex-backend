@@ -345,7 +345,7 @@ use usage_tracking::{
 use value::{
     id_v6::DeveloperDocumentId,
     sha256::Sha256Digest,
-    ConvexValue,
+    JsonPackedValue,
     Namespace,
     ResolvedDocumentId,
     TableNamespace,
@@ -425,7 +425,7 @@ pub struct ApplyConfigArgs {
 
 #[derive(Debug)]
 pub struct QueryReturn {
-    pub result: Result<ConvexValue, JsError>,
+    pub result: Result<JsonPackedValue, JsError>,
     pub log_lines: LogLines,
     pub token: Token,
     pub journal: QueryJournal,
@@ -433,7 +433,7 @@ pub struct QueryReturn {
 
 #[derive(Debug)]
 pub struct RedactedQueryReturn {
-    pub result: Result<ConvexValue, RedactedJsError>,
+    pub result: Result<JsonPackedValue, RedactedJsError>,
     pub log_lines: RedactedLogLines,
     pub token: Token,
     pub journal: SerializedQueryJournal,
@@ -441,14 +441,14 @@ pub struct RedactedQueryReturn {
 
 #[derive(Debug)]
 pub struct MutationReturn {
-    pub value: ConvexValue,
+    pub value: JsonPackedValue,
     pub log_lines: LogLines,
     pub ts: Timestamp,
 }
 
 #[derive(Debug)]
 pub struct RedactedMutationReturn {
-    pub value: ConvexValue,
+    pub value: JsonPackedValue,
     pub log_lines: RedactedLogLines,
     pub ts: Timestamp,
 }
@@ -469,13 +469,13 @@ pub struct RedactedMutationError {
 
 #[derive(Debug)]
 pub struct ActionReturn {
-    pub value: ConvexValue,
+    pub value: JsonPackedValue,
     pub log_lines: LogLines,
 }
 
 #[derive(Debug)]
 pub struct RedactedActionReturn {
-    pub value: ConvexValue,
+    pub value: JsonPackedValue,
     pub log_lines: RedactedLogLines,
 }
 
@@ -495,7 +495,7 @@ pub struct RedactedActionError {
 
 #[derive(Debug)]
 pub struct FunctionReturn {
-    pub value: ConvexValue,
+    pub value: JsonPackedValue,
     pub log_lines: RedactedLogLines,
 }
 
@@ -2446,10 +2446,7 @@ impl<RT: Runtime> Application<RT> {
         }?;
         let log_lines = RedactedLogLines::from_log_lines(log_lines, block_logging);
         Ok(match result {
-            Ok(value) => Ok(FunctionReturn {
-                value: value.unpack(),
-                log_lines,
-            }),
+            Ok(value) => Ok(FunctionReturn { value, log_lines }),
             Err(error) => Err(FunctionError {
                 error: RedactedJsError::from_js_error(error, block_logging, request_id),
                 log_lines,

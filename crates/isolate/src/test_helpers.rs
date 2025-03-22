@@ -1289,11 +1289,9 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
             .raw_query(&str_name, arguments.into(), identity, None)
             .await?;
 
-        let r = match outcome.result {
-            Ok(packed_value) => Ok(packed_value.unpack()),
-            Err(e) => Err(e),
-        };
-        Ok(FunctionResult { result: r })
+        Ok(FunctionResult {
+            result: outcome.result,
+        })
     }
 
     async fn execute_mutation(
@@ -1309,11 +1307,9 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
             .raw_mutation(&str_name, arguments.into(), identity)
             .await?;
 
-        let r = match outcome.result {
-            Ok(packed_value) => Ok(packed_value.unpack()),
-            Err(e) => Err(e),
-        };
-        Ok(FunctionResult { result: r })
+        Ok(FunctionResult {
+            result: outcome.result,
+        })
     }
 
     async fn execute_action(
@@ -1329,11 +1325,9 @@ impl<RT: Runtime, P: Persistence> ActionCallbacks for UdfTest<RT, P> {
             .raw_action(&str_name, arguments.into(), identity)
             .await?;
 
-        let r = match outcome.result {
-            Ok(packed_value) => Ok(packed_value.unpack()),
-            Err(e) => Err(e),
-        };
-        Ok(FunctionResult { result: r })
+        Ok(FunctionResult {
+            result: outcome.result,
+        })
     }
 
     async fn storage_get_url(

@@ -134,10 +134,10 @@ async fn test_env_vars_not_accessible_in_components(rt: TestRuntime) -> anyhow::
     application.commit_test(tx).await?;
     let result =
         run_function(&application, "componentEntry:envVarQuery".parse()?, vec![]).await??;
-    assert_eq!(ConvexValue::Null, result.value);
+    assert_eq!(ConvexValue::Null, result.value.unpack());
     let result =
         run_function(&application, "componentEntry:envVarAction".parse()?, vec![]).await??;
-    assert_eq!(ConvexValue::Null, result.value);
+    assert_eq!(ConvexValue::Null, result.value.unpack());
     Ok(())
 }
 
@@ -151,14 +151,14 @@ async fn test_system_env_vars_not_accessible_in_components(rt: TestRuntime) -> a
         vec![],
     )
     .await??;
-    assert_eq!(ConvexValue::Null, result.value);
+    assert_eq!(ConvexValue::Null, result.value.unpack());
     let result = run_function(
         &application,
         "componentEntry:systemEnvVarAction".parse()?,
         vec![],
     )
     .await??;
-    assert_eq!(ConvexValue::Null, result.value);
+    assert_eq!(ConvexValue::Null, result.value.unpack());
     Ok(())
 }
 
@@ -252,7 +252,7 @@ async fn test_date_now_within_component(rt: TestRuntime) -> anyhow::Result<()> {
     let result = run_function(&application, "componentEntry:dateNow".parse()?, vec![])
         .await??
         .value;
-    must_let!(let ConvexValue::Array(dates) = result);
+    must_let!(let ConvexValue::Array(dates) = result.unpack());
     assert_eq!(dates.len(), 2);
     must_let!(let ConvexValue::Float64(parent_date) = dates[0].clone());
     must_let!(let ConvexValue::Float64(child_date) = dates[1].clone());
@@ -272,7 +272,7 @@ async fn test_math_random_within_component(rt: TestRuntime) -> anyhow::Result<()
     let result = run_function(&application, "componentEntry:mathRandom".parse()?, vec![])
         .await??
         .value;
-    must_let!(let ConvexValue::Array(randoms) = result);
+    must_let!(let ConvexValue::Array(randoms) = result.unpack());
     assert_eq!(randoms.len(), 2);
     must_let!(let ConvexValue::Float64(parent_random) = randoms[0].clone());
     must_let!(let ConvexValue::Float64(child_random) = randoms[1].clone());

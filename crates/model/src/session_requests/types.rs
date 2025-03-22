@@ -12,12 +12,12 @@ use common::{
         SessionId,
         SessionRequestSeqNumber,
     },
-    value::{
-        json_deserialize,
-        ConvexValue,
-    },
+    value::ConvexValue,
 };
-use value::ConvexObject;
+use value::{
+    ConvexObject,
+    JsonPackedValue,
+};
 
 /// Identifier for a single request in a session
 #[derive(Clone, Debug)]
@@ -34,8 +34,11 @@ pub struct SessionRequestIdentifier {
 ///
 /// This is used to determine whether a session request has already been
 /// processed.
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(PartialEq, proptest_derive::Arbitrary)
+)]
 pub struct SessionRequestRecord {
     pub session_id: SessionId,
     pub request_id: SessionRequestSeqNumber,
@@ -92,13 +95,16 @@ impl TryFrom<ConvexObject> for SessionRequestRecord {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    any(test, feature = "testing"),
+    derive(PartialEq, proptest_derive::Arbitrary)
+)]
 pub enum SessionRequestOutcome {
     // In case of mutation, the session request is recorded atomically with
     // performing the mutation. There are no record for incomplete mutations.
     Mutation {
-        result: ConvexValue,
+        result: JsonPackedValue,
         log_lines: LogLines,
     },
 }
@@ -114,7 +120,7 @@ impl TryFrom<SessionRequestOutcome> for ConvexObject {
                     .map(ConvexValue::try_from)
                     .try_collect()?;
 
-                let result_s = result.json_serialize()?;
+                let result_s = result.as_str();
                 obj!(
                     "type" => "mutation",
                     "result" => result_s,
@@ -141,8 +147,8 @@ impl TryFrom<ConvexObject> for SessionRequestOutcome {
 
         let outcome = match udf_type.to_string().as_str() {
             "mutation" => {
-                let result: ConvexValue = match fields.remove("result") {
-                    Some(ConvexValue::String(s)) => json_deserialize(&s)?,
+                let result = match fields.remove("result") {
+                    Some(ConvexValue::String(s)) => JsonPackedValue::from_network(s.into())?,
                     v => anyhow::bail!("Invalid result field for SessionRequestOutcome: {:?}", v),
                 };
                 let log_lines: LogLines = match fields.remove("logLines") {

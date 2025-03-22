@@ -31,7 +31,10 @@ use serde_json::{
     json,
     Value as JsonValue,
 };
-use value::id_v6::DeveloperDocumentId;
+use value::{
+    id_v6::DeveloperDocumentId,
+    JsonPackedValue,
+};
 use vector::{
     VectorSearchJson,
     VectorSearchRequest,
@@ -58,20 +61,27 @@ impl<RT: Runtime> TaskExecutor<RT> {
         let timer = async_syscall_timer(&name);
         let result: anyhow::Result<_> = try {
             match &name[..] {
-                "1.0/actions/query" => self.async_syscall_actions_runQuery(args).await?,
-                "1.0/actions/mutation" => self.async_syscall_actions_runMutation(args).await?,
-                "1.0/actions/action" => self.async_syscall_actions_runAction(args).await?,
-                "1.0/actions/schedule" => self.async_syscall_schedule(args).await?,
-                "1.0/actions/cancel_job" => self.async_syscall_cancel_job(args).await?,
-                "1.0/actions/vectorSearch" => self.async_syscall_vectorSearch(args).await?,
-                "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await?,
-                "1.0/storageDelete" => self.async_syscall_storageDelete(args).await?,
-                "1.0/storageGetMetadata" => self.async_syscall_storageGetMetadata(args).await?,
-                "1.0/storageGenerateUploadUrl" => {
-                    self.async_syscall_storageGenerateUploadUrl(args).await?
+                "1.0/actions/query" => self.async_syscall_actions_runQuery(args).await?.into(),
+                "1.0/actions/mutation" => {
+                    self.async_syscall_actions_runMutation(args).await?.into()
                 },
-                "1.0/storageGetUrl" => self.async_syscall_storageGetUrl(args).await?,
-                "1.0/createFunctionHandle" => self.async_syscall_createFunctionHandle(args).await?,
+                "1.0/actions/action" => self.async_syscall_actions_runAction(args).await?.into(),
+                "1.0/actions/schedule" => self.async_syscall_schedule(args).await?.into(),
+                "1.0/actions/cancel_job" => self.async_syscall_cancel_job(args).await?.into(),
+                "1.0/actions/vectorSearch" => self.async_syscall_vectorSearch(args).await?.into(),
+                "1.0/getUserIdentity" => self.async_syscall_getUserIdentity(args).await?.into(),
+                "1.0/storageDelete" => self.async_syscall_storageDelete(args).await?.into(),
+                "1.0/storageGetMetadata" => {
+                    self.async_syscall_storageGetMetadata(args).await?.into()
+                },
+                "1.0/storageGenerateUploadUrl" => self
+                    .async_syscall_storageGenerateUploadUrl(args)
+                    .await?
+                    .into(),
+                "1.0/storageGetUrl" => self.async_syscall_storageGetUrl(args).await?.into(),
+                "1.0/createFunctionHandle" => {
+                    self.async_syscall_createFunctionHandle(args).await?.into()
+                },
                 _ => {
                     anyhow::bail!(ErrorMetadata::bad_request(
                         "UnknownAsyncOperation",
@@ -87,11 +97,25 @@ impl<RT: Runtime> TaskExecutor<RT> {
             Ok(_) => timer.finish(),
             Err(e) => timer.finish_with(e.metric_status_label_value()),
         };
-        result.and_then(|v| anyhow::Ok(serde_json::to_string(&v)?))
+        struct JsonString(String);
+        impl From<JsonPackedValue> for JsonString {
+            fn from(v: JsonPackedValue) -> Self {
+                Self(v.as_str().to_owned())
+            }
+        }
+        impl From<JsonValue> for JsonString {
+            fn from(v: JsonValue) -> Self {
+                Self(v.to_string())
+            }
+        }
+        result.map(|JsonString(s)| s)
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_actions_runQuery(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn async_syscall_actions_runQuery(
+        &self,
+        args: JsonValue,
+    ) -> anyhow::Result<JsonPackedValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunQueryArgs {
@@ -133,14 +157,14 @@ impl<RT: Runtime> TaskExecutor<RT> {
             )
             .await?
             .result?;
-        Ok(value.to_internal_json())
+        Ok(value)
     }
 
     #[convex_macro::instrument_future]
     async fn async_syscall_actions_runMutation(
         &self,
         args: JsonValue,
-    ) -> anyhow::Result<JsonValue> {
+    ) -> anyhow::Result<JsonPackedValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunMutationArgs {
@@ -182,11 +206,14 @@ impl<RT: Runtime> TaskExecutor<RT> {
             )
             .await?
             .result?;
-        Ok(value.to_internal_json())
+        Ok(value)
     }
 
     #[convex_macro::instrument_future]
-    async fn async_syscall_actions_runAction(&self, args: JsonValue) -> anyhow::Result<JsonValue> {
+    async fn async_syscall_actions_runAction(
+        &self,
+        args: JsonValue,
+    ) -> anyhow::Result<JsonPackedValue> {
         #[derive(Deserialize)]
         #[serde(rename_all = "camelCase")]
         struct RunActionArgs {
@@ -228,7 +255,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
             )
             .await?
             .result?;
-        Ok(value.to_internal_json())
+        Ok(value)
     }
 
     #[convex_macro::instrument_future]

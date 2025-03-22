@@ -79,6 +79,7 @@ impl ElleSimulationTest {
             .mutation("elle:initializeRegister".parse()?, assert_obj!())
             .await??
             .value
+            .unpack()
             .try_into()?;
         Ok(register_id)
     }
@@ -157,7 +158,7 @@ impl ElleSimulationTest {
             let result = server
                 .mutation("elle:appendRegister".parse()?, args)
                 .await??;
-            let write_ids: Vec<f64> = value::serde::from_value(result.value)?;
+            let write_ids: Vec<f64> = value::serde::from_value(result.value.unpack())?;
             let write_ids: Vec<WriteId> = write_ids.iter().map(|w| *w as WriteId).collect();
             Ok(ElleModelEvent::FinishWrite {
                 tx_id,

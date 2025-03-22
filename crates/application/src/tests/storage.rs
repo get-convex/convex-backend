@@ -110,7 +110,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
             None,
         )
         .await?;
-    must_let!(let ConvexValue::String(url) = query_result.result?);
+    must_let!(let ConvexValue::String(url) = query_result.result?.unpack());
     assert!(url.starts_with("http://127.0.0.1:8000/api/storage/"));
     // Call it from an action.
     let action_result = app
@@ -126,7 +126,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
             caller.clone(),
         )
         .await??;
-    must_let!(let ConvexValue::String(url) = action_result.value);
+    must_let!(let ConvexValue::String(url) = action_result.value.unpack());
     assert!(url.starts_with("http://127.0.0.1:8000/api/storage/"));
 
     // Now set a canonical url and call the functions again.
@@ -156,7 +156,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
             None,
         )
         .await?;
-    must_let!(let ConvexValue::String(url) = query_result.result?);
+    must_let!(let ConvexValue::String(url) = query_result.result?.unpack());
     assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/"));
     // Call it from an action.
     let action_result = app
@@ -172,7 +172,7 @@ async fn test_storage_get_url(rt: TestRuntime) -> anyhow::Result<()> {
             caller.clone(),
         )
         .await??;
-    must_let!(let ConvexValue::String(url) = action_result.value);
+    must_let!(let ConvexValue::String(url) = action_result.value.unpack());
     assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/"));
 
     Ok(())
@@ -208,7 +208,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
             None,
         )
         .await??;
-    must_let!(let ConvexValue::String(url) = mutation_result.value);
+    must_let!(let ConvexValue::String(url) = mutation_result.value.unpack());
     assert!(url.starts_with("http://127.0.0.1:8000/api/storage/upload?token="));
 
     // Call it from an action.
@@ -225,7 +225,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
             caller.clone(),
         )
         .await??;
-    must_let!(let ConvexValue::String(url) = action_result.value);
+    must_let!(let ConvexValue::String(url) = action_result.value.unpack());
     assert!(url.starts_with("http://127.0.0.1:8000/api/storage/upload?token="));
 
     // Now set a canonical url and call the functions again.
@@ -254,7 +254,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
             None,
         )
         .await??;
-    must_let!(let ConvexValue::String(url) = mutation_result.value);
+    must_let!(let ConvexValue::String(url) = mutation_result.value.unpack());
     assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/upload?token="));
 
     // Call it from an action.
@@ -271,7 +271,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
             caller.clone(),
         )
         .await??;
-    must_let!(let ConvexValue::String(url) = action_result.value);
+    must_let!(let ConvexValue::String(url) = action_result.value.unpack());
     assert!(url.starts_with("https://carnitas.convex.cloud/api/storage/upload?token="));
 
     Ok(())

@@ -18,7 +18,7 @@ use common::{
         Sha256Digest,
     },
     types::SessionId,
-    value::ConvexValue,
+    value::JsonPackedValue,
 };
 use errors::ErrorMetadata;
 use futures::{
@@ -377,11 +377,11 @@ impl SyncState {
     pub fn complete_fetch(
         &mut self,
         query_id: QueryId,
-        result: Result<ConvexValue, RedactedJsError>,
+        result: Result<JsonPackedValue, RedactedJsError>,
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
         subscription: Box<dyn SubscriptionTrait>,
-    ) -> anyhow::Result<Option<StateModification<ConvexValue>>> {
+    ) -> anyhow::Result<Option<StateModification<JsonPackedValue>>> {
         if let Some(query) = self.in_progress_queries.remove(&query_id) {
             let sq = SyncedQuery {
                 query,
@@ -438,7 +438,7 @@ impl SyncState {
                         error_message: error.to_string(),
                         log_lines: log_lines.into(),
                         journal,
-                        error_data: error.custom_data_if_any(),
+                        error_data: error.custom_data_if_any().map(JsonPackedValue::pack),
                     }
                 },
             };
@@ -473,7 +473,7 @@ impl SyncState {
 }
 
 fn hash_result(
-    r: &Result<ConvexValue, RedactedJsError>,
+    r: &Result<JsonPackedValue, RedactedJsError>,
     log_lines: &RedactedLogLines,
 ) -> Result<ValueDigest, ErrorDigest> {
     r.as_ref()
@@ -486,9 +486,14 @@ fn hash_result(
         })
 }
 
-fn udf_result_sha256(return_value: &ConvexValue, log_lines: &RedactedLogLines) -> ValueDigest {
+fn udf_result_sha256(return_value: &JsonPackedValue, log_lines: &RedactedLogLines) -> ValueDigest {
     let mut hasher = Sha256::new();
-    return_value.hash(&mut hasher);
+    // N.B.: we hash the JSON bytes. This is theoretically overly conservative
+    // since the same ConvexValue may have multiple valid JSON encodings (e.g.
+    // whitespace, field ordering). However, in practice JsonPackedValues use a
+    // canonical encoding with no whitespace and with all fields in sorted
+    // order.
+    return_value.as_str().hash(&mut hasher);
     hash_log_lines(&mut hasher, log_lines);
 
     hasher.finalize()
@@ -515,7 +520,10 @@ mod tests {
             LogLines,
         },
         runtime::UnixTimestamp,
-        value::ConvexValue,
+        value::{
+            ConvexValue,
+            JsonPackedValue,
+        },
     };
     use proptest::prelude::*;
 
@@ -529,6 +537,7 @@ mod tests {
         #[test]
         fn test_sha256_deterministic(v in any::<ConvexValue>(), logs in any::<LogLines>()) {
             let logs = RedactedLogLines::from_log_lines(logs, false);
+            let v = JsonPackedValue::pack(v);
             let digest = udf_result_sha256(&v, &logs);
             assert_eq!(udf_result_sha256(&v, &logs), digest);
         }
@@ -543,6 +552,8 @@ mod tests {
             if v1 != v2 {
                 let v1_logs = RedactedLogLines::from_log_lines(v1_logs, false);
                 let v2_logs = RedactedLogLines::from_log_lines(v2_logs, false);
+                let v1 = JsonPackedValue::pack(v1);
+                let v2 = JsonPackedValue::pack(v2);
                 assert_ne!(udf_result_sha256(&v1, &v1_logs), udf_result_sha256(&v2, &v2_logs));
             }
         }
@@ -569,6 +580,7 @@ mod tests {
             .into(),
             false,
         );
+        let v = JsonPackedValue::pack(v);
         assert_ne!(
             udf_result_sha256(&v, &v_logs),
             udf_result_sha256(&v, &v2_logs)

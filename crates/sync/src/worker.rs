@@ -44,7 +44,7 @@ use common::{
         FunctionCaller,
         UdfType,
     },
-    value::ConvexValue,
+    value::JsonPackedValue,
     version::ClientVersion,
     RequestId,
 };
@@ -242,7 +242,7 @@ pub struct SyncWorker<RT: Runtime> {
 
 enum QueryResult {
     Rerun {
-        result: Result<ConvexValue, RedactedJsError>,
+        result: Result<JsonPackedValue, RedactedJsError>,
         log_lines: RedactedLogLines,
         journal: SerializedQueryJournal,
     },
@@ -251,7 +251,7 @@ enum QueryResult {
 
 struct TransitionState {
     udf_results: Vec<(QueryId, QueryResult, Box<dyn SubscriptionTrait>)>,
-    state_modifications: BTreeMap<QueryId, StateModification<ConvexValue>>,
+    state_modifications: BTreeMap<QueryId, StateModification<JsonPackedValue>>,
     current_version: StateVersion,
     new_version: StateVersion,
     timer: StatusTimer,

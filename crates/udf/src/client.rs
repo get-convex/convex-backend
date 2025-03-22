@@ -9,8 +9,7 @@ use pb::common::{
     function_result::Result as FunctionResultTypeProto,
     FunctionResult as FunctionResultProto,
 };
-use serde_json::Value as JsonValue;
-use value::ConvexValue;
+use value::JsonPackedValue;
 
 pub type EvaluateAppDefinitionsResult =
     BTreeMap<ComponentDefinitionPath, ComponentDefinitionMetadata>;
@@ -21,7 +20,7 @@ pub type EvaluateAppDefinitionsResult =
     derive(proptest_derive::Arbitrary, PartialEq)
 )]
 pub struct FunctionResult {
-    pub result: Result<ConvexValue, JsError>,
+    pub result: Result<JsonPackedValue, JsError>,
 }
 
 impl TryFrom<FunctionResultProto> for FunctionResult {
@@ -30,9 +29,7 @@ impl TryFrom<FunctionResultProto> for FunctionResult {
     fn try_from(result: FunctionResultProto) -> anyhow::Result<Self> {
         let result = match result.result {
             Some(FunctionResultTypeProto::JsonPackedValue(value)) => {
-                let json: JsonValue = serde_json::from_str(&value)?;
-                let value = ConvexValue::try_from(json)?;
-                Ok(value)
+                Ok(JsonPackedValue::from_network(value)?)
             },
             Some(FunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
             None => anyhow::bail!("Missing result"),
@@ -46,10 +43,7 @@ impl TryFrom<FunctionResult> for FunctionResultProto {
 
     fn try_from(result: FunctionResult) -> anyhow::Result<Self> {
         let result = match result.result {
-            Ok(value) => {
-                let json = value.json_serialize()?;
-                FunctionResultTypeProto::JsonPackedValue(json)
-            },
+            Ok(value) => FunctionResultTypeProto::JsonPackedValue(value.as_str().to_owned()),
             Err(js_error) => FunctionResultTypeProto::JsError(js_error.try_into()?),
         };
         Ok(FunctionResultProto {

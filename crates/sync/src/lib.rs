@@ -15,4 +15,4 @@ pub use worker::{
 #[cfg(test)]
 mod tests;
 
-pub type ServerMessage = sync_types::ServerMessage<common::value::ConvexValue>;
+pub type ServerMessage = sync_types::ServerMessage<common::value::JsonPackedValue>;

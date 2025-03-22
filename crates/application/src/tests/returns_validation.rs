@@ -140,7 +140,7 @@ async fn test_mutation_output(rt: TestRuntime) -> anyhow::Result<()> {
         "returns_validation:stringOutputReturnsStringMutation",
     )
     .await?;
-    assert!(format!("{}", result.unwrap().value).contains("hello"));
+    assert!(result.unwrap().value.as_str().contains("hello"));
     Ok(())
 }
 
@@ -153,7 +153,7 @@ async fn test_query_output(rt: TestRuntime) -> anyhow::Result<()> {
         "returns_validation:stringOutputReturnsStringQuery",
     )
     .await?;
-    assert!(format!("{}", result.result.unwrap()).contains("hello"));
+    assert!(result.result.unwrap().as_str().contains("hello"));
     Ok(())
 }
 
@@ -166,6 +166,6 @@ async fn test_action_output(rt: TestRuntime) -> anyhow::Result<()> {
         "returns_validation:stringOutputReturnsStringAction",
     )
     .await?;
-    assert!(format!("{}", result.unwrap().value).contains("hello"));
+    assert!(result.unwrap().value.as_str().contains("hello"));
     Ok(())
 }

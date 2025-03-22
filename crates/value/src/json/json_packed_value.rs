@@ -4,10 +4,10 @@ use std::sync::Arc;
 use proptest::prelude::*;
 use serde_json::Value as JsonValue;
 
+use super::json_deserialize;
 use crate::{
     heap_size::HeapSize,
     ConvexValue,
-    Size,
 };
 
 #[derive(Clone, Debug)]
@@ -33,6 +33,12 @@ impl JsonPackedValue {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    pub fn from_network(json: String) -> anyhow::Result<Self> {
+        // TODO: just check JSON validity & size/depth constraints, then pass
+        // the string data through
+        json_deserialize(&json).map(Self::pack)
+    }
 }
 
 impl HeapSize for JsonPackedValue {
@@ -41,13 +47,12 @@ impl HeapSize for JsonPackedValue {
     }
 }
 
-impl Size for JsonPackedValue {
-    fn size(&self) -> usize {
-        self.0.len()
-    }
-
-    fn nesting(&self) -> usize {
-        0
+// TODO: This impl is only needed to serialize sync protocol messages. Ideally
+// that should transfer the JSON data as-is without parsing it into an
+// intermediate data structure.
+impl From<JsonPackedValue> for JsonValue {
+    fn from(value: JsonPackedValue) -> Self {
+        value.json_value()
     }
 }
 

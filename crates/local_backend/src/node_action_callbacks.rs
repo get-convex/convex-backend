@@ -135,7 +135,7 @@ pub async fn internal_query_post(
     let value_format = Some(ValueFormat::ConvexEncodedJSON);
     let response = match udf_return.result {
         Ok(value) => UdfResponse::Success {
-            value: export_value(value, value_format, client_version)?,
+            value: export_value(value.unpack(), value_format, client_version)?,
             log_lines: udf_return.log_lines,
         },
         Err(error) => {
@@ -190,7 +190,7 @@ pub async fn internal_mutation_post(
     let value_format = Some(ValueFormat::ConvexEncodedJSON);
     let response = match udf_result {
         Ok(write_return) => UdfResponse::Success {
-            value: export_value(write_return.value, value_format, client_version)?,
+            value: export_value(write_return.value.unpack(), value_format, client_version)?,
             log_lines: write_return.log_lines,
         },
         Err(write_error) => UdfResponse::nested_error(
@@ -247,7 +247,7 @@ pub async fn internal_action_post(
     let value_format = Some(ValueFormat::ConvexEncodedJSON);
     let response = match udf_result {
         Ok(action_return) => UdfResponse::Success {
-            value: export_value(action_return.value, value_format, client_version)?,
+            value: export_value(action_return.value.unpack(), value_format, client_version)?,
             log_lines: action_return.log_lines,
         },
         Err(action_error) => UdfResponse::nested_error(

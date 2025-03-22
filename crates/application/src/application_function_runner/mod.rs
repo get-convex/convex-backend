@@ -848,8 +848,6 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 },
             };
 
-            let value = value.unpack();
-
             // Attempt to commit the transaction and log an error if commit failed,
             // even if it was an OCC error. We may decide later to suppress OCC
             // errors from the log.
@@ -1098,7 +1096,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         self.function_log.log_action(completion, usage_tracking);
 
         let value = match result {
-            Ok(ref value) => value.unpack(),
+            Ok(value) => value,
             // If it's an error inside the UDF, log the failed execution and return the
             // developer error.
             Err(error) => return Ok(Err(ActionError { error, log_lines })),
@@ -1822,7 +1820,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 session_id: identifier.session_id,
                 request_id: identifier.request_id,
                 outcome: SessionRequestOutcome::Mutation {
-                    result: value.unpack(),
+                    result: value.clone(),
                     log_lines: outcome.log_lines.clone(),
                 },
                 identity: outcome.identity.clone(),

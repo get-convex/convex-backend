@@ -463,12 +463,7 @@ impl<RT: Runtime> CacheManager<RT> {
             );
 
             let result = QueryReturn {
-                result: cache_result
-                    .outcome
-                    .result
-                    .as_ref()
-                    .map(|r| r.unpack())
-                    .map_err(|e| e.clone()),
+                result: cache_result.outcome.result.clone(),
                 log_lines: cache_result.outcome.log_lines.clone(),
                 token: cache_result.token,
                 journal: cache_result.outcome.journal.clone(),

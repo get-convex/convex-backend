@@ -52,7 +52,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             },
         )
         .await??;
-    Ok(JsonValue::from(result.value))
+    Ok(result.value.json_value())
 }
 
 async fn insert_and_count(application: &Application<TestRuntime>) -> anyhow::Result<usize> {
@@ -72,7 +72,9 @@ async fn insert_and_count(application: &Application<TestRuntime>) -> anyhow::Res
             },
         )
         .await??;
-    Ok(JsonValue::from(result.value)
+    Ok(result
+        .value
+        .json_value()
         .as_f64()
         .context("Expected f64 result")? as usize)
 }
