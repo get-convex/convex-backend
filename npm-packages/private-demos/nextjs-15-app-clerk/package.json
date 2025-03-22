@@ -12,7 +12,7 @@
     "@clerk/clerk-react": "^5.20.0",
     "@clerk/nextjs": "^6.9.2",
     "convex": "workspace:*",
-    "next": "15.1.0",
+    "next": "15.2.3",
     "react": "^19",
     "react-dom": "^19",
     "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
