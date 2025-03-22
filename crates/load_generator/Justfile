@@ -1,0 +1,47 @@
+set fallback := true
+set shell := ["bash", "-uc"]
+set positional-arguments
+
+# "-dev" commands run against the local process runner, bypassing Big Brain entirely.
+# "-dev-bb" commands run against local Big Brain. These runs will ask for authentication against our development Auth0 tenant.
+# "-prod" commands run against production Big Brain, and require CONVEX_OVERRIDE_ACCESS_TOKEN to be set to the secret value from 1Password.
+
+dev workload:  reset_env_vars
+  cd ../.. && UDF_USE_FUNRUN=false RUST_LOG=${RUST_LOG:-0} cargo run --release -p load_generator \
+  --bin load-generator  -- crates/load_generator/workloads/{{workload}}.json --duration 60 \
+  --provisioner open-source-release --stats-report --once
+
+dev-conductor workload:  reset_env_vars
+  cd ../.. && UDF_USE_FUNRUN=false RUST_LOG=${RUST_LOG:-0} cargo run --release -p load_generator \
+  --bin load-generator  -- crates/load_generator/workloads/{{workload}}.json --duration 60 \
+  --provisioner conductor-release --stats-report --once
+
+dev-quick workload:  reset_env_vars
+  cd ../.. && UDF_USE_FUNRUN=false RUST_LOG=${RUST_LOG:-0} cargo run --release -p load_generator \
+  --bin load-generator  -- crates/load_generator/workloads/{{workload}}.json --duration 10 \
+  --provisioner open-source-release --stats-report --once
+
+dev-bb workload: reset_env_vars dev_bb_login
+  cd ../.. && UDF_USE_FUNRUN=false RUST_LOG=${RUST_LOG:-0} cargo run --release -p load_generator \
+  --bin load-generator  -- crates/load_generator/workloads/{{workload}}.json --duration 60 \
+  --provisioner local-big-brain --stats-report --once
+
+prod workload: check_vars reset_env_vars
+  cd ../.. && RUST_LOG=${RUST_LOG:-0} cargo run --release -p load_generator --bin load-generator -- --duration 60 \
+  crates/load_generator/workloads/{{workload}}.json --provisioner production --stats-report --once
+
+# check-dev for integration tests (runs the load-generator binary directly)
+check-dev-integration-test: reset_env_vars
+  cd ../.. && UDF_USE_FUNRUN=false ./target/debug/load-generator --duration 10 \
+   --provisioner conductor-debug  --stats-report --once "crates/load_generator/workloads/light.json"
+
+
+dev_bb_login:
+  curl http://0.0.0.0:8050 || (echo "Run just run-big-brain in separate terminal" && exit 1)
+  cd ../../npm-packages/scenario-runner && CONVEX_PROVISION_HOST=http://0.0.0.0:8050 npx convex login --override-auth-url "https://convexdev-test.us.auth0.com/" --override-auth-client "YyByEO5qldCzUIcBYCmZai13XvJh9ZjY"
+
+check_vars:
+    @ [ ! -z ${CONVEX_OVERRIDE_ACCESS_TOKEN+x} ] || (echo "Set CONVEX_OVERRIDE_ACCESS_TOKEN to run LoadGenerator against production" && exit 1)
+
+reset_env_vars:
+    rm -f ../../npm-packages/scenario-runner/.env.local

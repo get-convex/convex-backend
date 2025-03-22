@@ -1,0 +1,17 @@
+[package]
+name = "big_brain_client"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+big_brain_private_api_types = { path = "../../crates/big_brain_private_api_types" }
+common = { path = "../../crates/common" }
+reqwest = { workspace = true }
+
+[lints]
+workspace = true

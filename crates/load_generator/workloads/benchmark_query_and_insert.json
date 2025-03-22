@@ -1,0 +1,17 @@
+{
+  "name": "benchmark_query_and_insert",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "query_index:queryMessagesWithSearch",
+      "fn_type": "query",
+      "benchmark": 80
+    },
+    {
+      "name": "RunFunction",
+      "path": "insert:insertMessageWithSearch",
+      "fn_type": "mutation",
+      "benchmark": 80
+    }
+  ]
+}

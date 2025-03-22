@@ -1,0 +1,91 @@
+{
+  "name": "prod_with_node_actions",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "query_index:queryMessagesWithSearch",
+      "fn_type": "query",
+      "rate": 10
+    },
+    {
+      "name": "RunFunction",
+      "path": "update",
+      "fn_type": "mutation",
+      "rate": 2
+    },
+    {
+      "name": "ObserveInsert",
+      "search_indexes": true,
+      "rate": 5
+    },
+    {
+      "name": "Search",
+      "rate": 6
+    },
+    {
+      "name": "RunFunction",
+      "path": "actions/insert",
+      "fn_type": "action",
+      "rate": 1
+    },
+    {
+      "name": "RunFunction",
+      "path": "components:componentAction",
+      "fn_type": "action",
+      "rate": 1
+    },
+    {
+      "name": "RunFunction",
+      "path": "actions/componentsNode:callComponentFromNodeAction",
+      "fn_type": "action",
+      "rate": 1
+    },
+    {
+      "name": "RunFunction",
+      "path": "insert:insertMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 6.5
+    },
+    {
+      "name": "RunFunction",
+      "path": "search:deleteMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 1
+    },
+    {
+      "name": "RunFunction",
+      "path": "search:replaceMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 2
+    },
+    {
+      "name": "VectorSearch",
+      "rate": 5
+    },
+    {
+      "name": "RunFunction",
+      "path": "openclaurd:insertOpenclaurdLowCardinality",
+      "fn_type": "mutation",
+      "rate": 6.5
+    },
+    {
+      "name": "RunFunction",
+      "path": "openclaurd:deleteOpenclaurd",
+      "fn_type": "mutation",
+      "rate": 1
+    },
+    {
+      "name": "RunHttpAction",
+      "path": "basic",
+      "method": "POST",
+      "rate": 2
+    },
+    {
+      "name": "RunHttpAction",
+      "path": "streaming",
+      "method": "POST",
+      "rate": 2
+    }
+  ],
+  "num_vector_rows": 200
+}

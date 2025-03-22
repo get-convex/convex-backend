@@ -1,0 +1,43 @@
+{
+  "name": "light",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "query_index:queryMessagesWithSearch",
+      "fn_type": "query",
+      "rate": 10
+    },
+    {
+      "name": "RunFunction",
+      "path": "update",
+      "fn_type": "mutation",
+      "rate": 1
+    },
+    {
+      "name": "RunFunction",
+      "path": "insert:insertMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 1
+    },
+    {
+      "name": "RunFunction",
+      "path": "actions/insert",
+      "fn_type": "action",
+      "rate": 1
+    },
+    {
+      "name": "Search",
+      "rate": 5
+    },
+    {
+      "name": "RunFunction",
+      "path": "log",
+      "fn_type": "action",
+      "rate": 1
+    },
+    {
+      "name": "CloudBackup",
+      "rate": 0.00005
+    }
+  ]
+}

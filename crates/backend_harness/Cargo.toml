@@ -1,0 +1,33 @@
+[package]
+name = "backend_harness"
+version = "0.1.0"
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow = { workspace = true }
+backoff = { workspace = true }
+big_brain_client = { path = "../../crates/big_brain_client" }
+big_brain_private_api_types = { path = "../../crates/big_brain_private_api_types" }
+clap = { workspace = true }
+cmd_util = { path = "../../crates/cmd_util" }
+crossbeam-channel = { workspace = true }
+ctrlc = { workspace = true }
+dotenvy = { workspace = true }
+futures = { workspace = true }
+health_check = { path = "../../crates/health_check" }
+home = { workspace = true }
+keybroker = { path = "../../crates/keybroker" }
+log_interleaver = { path = "../../crates/log_interleaver" }
+metrics = { path = "../../crates/metrics" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[lints]
+workspace = true

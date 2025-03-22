@@ -1,0 +1,25 @@
+[package]
+name = "performance_stats"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+common = { path = "../../crates/common" }
+errors = { path = "../../crates/errors" }
+humansize = { workspace = true }
+parking_lot = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+textplots = { workspace = true }
+tikv-jemalloc-sys = { workspace = true }
+tikv-jemallocator = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+jemalloc_pprof = { workspace = true }
+
+[lints]
+workspace = true

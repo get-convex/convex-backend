@@ -1,0 +1,15 @@
+{
+  "name": "benchmark_search",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "insert:insertMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 10
+    },
+    {
+      "name": "Search",
+      "benchmark": 50
+    }
+  ]
+}

@@ -2,9 +2,8 @@ Run client-side scenarios driven by load-generator.
 
 # Usage
 
-Run [LoadGenerator](../../crates_private/load_generator/README.md).
-LoadGenerator will provision a backend and start ScenarioRunner with the given
-parameters.
+Run [LoadGenerator](../../crates/load_generator/README.md). LoadGenerator will
+provision a backend and start ScenarioRunner with the given parameters.
 
 ## Adding new scenarios
 

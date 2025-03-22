@@ -1,0 +1,11 @@
+{
+  "name": "large",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "insert:insertLargeMessage",
+      "fn_type": "mutation",
+      "rate": 1
+    }
+  ]
+}

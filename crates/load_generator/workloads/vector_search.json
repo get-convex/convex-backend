@@ -1,0 +1,34 @@
+{
+  "name": "vector_search",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "update",
+      "fn_type": "mutation",
+      "rate": 5
+    },
+    {
+      "name": "RunFunction",
+      "path": "insert:insertMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 5
+    },
+    {
+      "name": "VectorSearch",
+      "rate": 10
+    },
+    {
+      "name": "RunFunction",
+      "path": "openclaurd:insertOpenclaurdHighCardinality",
+      "fn_type": "mutation",
+      "rate": 6
+    },
+    {
+      "name": "RunFunction",
+      "path": "openclaurd:deleteOpenclaurd",
+      "fn_type": "mutation",
+      "rate": 1
+    }
+  ],
+  "num_vector_rows": 500
+}

@@ -1,0 +1,23 @@
+{
+  "name": "search_debug",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "insert:insertMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 5
+    },
+    {
+      "name": "RunFunction",
+      "path": "search:deleteMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 2
+    },
+    {
+      "name": "RunFunction",
+      "path": "search:replaceMessageWithSearch",
+      "fn_type": "mutation",
+      "rate": 2
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+[package]
+name = "load_generator"
+version = "0.1.0"
+authors = ["Convex, Inc. <no-reply@convex.dev>"]
+edition = "2021"
+license = "LicenseRef-FSL-1.1-Apache-2.0"
+
+[[bin]]
+name = "load-generator"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true }
+backend_harness = { path = "../../crates/backend_harness" }
+clap = { workspace = true }
+cmd_util = { path = "../../crates/cmd_util" }
+common = { path = "../../crates/common" }
+convex = { path = "../../crates/convex" }
+convex_sync_types = { path = "../../crates/convex/sync_types" }
+errors = { path = "../../crates/errors" }
+futures = { workspace = true }
+health_check = { path = "../../crates/health_check" }
+log_interleaver = { path = "../../crates/log_interleaver" }
+maplit = { workspace = true }
+metrics = { path = "../../crates/metrics" }
+performance_stats = { path = "../../crates/performance_stats" }
+prometheus = { workspace = true }
+rand = { workspace = true }
+runtime = { path = "../../crates/runtime" }
+sentry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+strum = { workspace = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true, features = ["native-tls"] }
+tracing = { workspace = true }
+tungstenite = { workspace = true }
+
+[lints]
+workspace = true

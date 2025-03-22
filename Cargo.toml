@@ -22,6 +22,7 @@ aws-smithy-http = "0.60.8"
 aws-types = "1.1"
 axum = { version = "0.8", features = [ "ws", "original-uri", "macros", "multipart" ] }
 axum-extra = { version = "0.10", features = [ "typed-header", "cookie" ] }
+backoff = { version = "0.4", features = [ "tokio" ] }
 base32 = "0.5.0"
 base-62 = { rev = "6f91a3da4b83f20379469835f64195bd52d7b9dd", git = "https://github.com/kryptco/base62.rs" }
 base64 = "0.13"
@@ -39,6 +40,7 @@ criterion = "0.5"
 crossbeam-channel = "0.5"
 csf = "0.1.11"
 cstr = "0.2.11"
+ctrlc = "3.4"
 deadpool-postgres = "^0.14.0"
 deno_core = "0.284.0"
 deno_core_icudata = "0.73.0"
@@ -76,6 +78,9 @@ hyper-util = { version = "0.1.5", features = [ "server-graceful", "tokio" ] }
 proc-macro2 = { version = "1.0" }
 imbl = "5.0.0"
 itertools = "0.14"
+tikv-jemallocator = { version = "0.6", features = [ "profiling", "unprefixed_malloc_on_supported_platforms" ] }
+tikv-jemalloc-sys = { version = "0.6", features = [ "profiling", "unprefixed_malloc_on_supported_platforms" ] }
+jemalloc_pprof = "0.6"
 jsonschema = "0.28"
 levenshtein_automata = "0.2.1"
 libc = "0.2"
@@ -143,6 +148,7 @@ syn = { version = "2.0", features = [ "full" ] }
 tantivy = { git = "https://github.com/get-convex/tantivy", rev = "c745b0977df94bc22fe4fc75db0200a8023f9a2c" }
 tantivy-common = { git = "https://github.com/get-convex/tantivy", rev = "c745b0977df94bc22fe4fc75db0200a8023f9a2c" }
 tempfile = "3"
+textplots = "0.8"
 thiserror = "2"
 thousands = "0.2.0"
 tld = "2.36.0"

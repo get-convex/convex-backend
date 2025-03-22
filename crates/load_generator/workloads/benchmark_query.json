@@ -1,0 +1,11 @@
+{
+  "name": "benchmark_query",
+  "scenarios": [
+    {
+      "name": "RunFunction",
+      "path": "query_index:queryMessagesWithSearch",
+      "fn_type": "query",
+      "benchmark": 80
+    }
+  ]
+}
