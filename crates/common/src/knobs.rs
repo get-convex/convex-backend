@@ -1,6 +1,6 @@
-//! Tunable limits and parameters for backends.
+//! Tunable limits and parameters for conductors.
 //! These knobs can all be overridden in production by setting a key in Consul
-//! at `convex-backend/<instance-name>/knobs/<knob-name>` and the desired value.
+//! at `conductor/<partition-id>/knobs/<knob-name>` and the desired value.
 //!
 //! See go/knobs-playbook for instructions.
 //!
