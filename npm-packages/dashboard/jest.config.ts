@@ -12,7 +12,10 @@ const customJestConfig = {
     "react-dnd": "<rootDir>/__mocks__/fileMock.js",
     "react-dnd-scrolling": "<rootDir>/__mocks__/fileMock.js",
     "^dashboard-common/(.*)$": "<rootDir>/../dashboard-common/src/$1",
+    "^@common/(.*)$": "<rootDir>/../dashboard-common/src/$1",
   },
+  // Add roots for both packages to run all tests
+  roots: ["<rootDir>", "<rootDir>/../dashboard-common"],
 };
 
 const config = createJestConfig(customJestConfig);
