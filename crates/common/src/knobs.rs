@@ -225,12 +225,12 @@ pub static MAX_TRANSACTION_WINDOW: LazyLock<Duration> =
 
 /// Maximum size in bytes of arguments to a function.
 pub static FUNCTION_MAX_ARGS_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env_config("FUNCTION_MAX_ARGS_SIZE", 1 << 23) // 8 MiB
+    env_config("FUNCTION_MAX_ARGS_SIZE", 1 << 24) // 16 MiB
 });
 
 /// Maximum size in bytes of the result of a function.
 pub static FUNCTION_MAX_RESULT_SIZE: LazyLock<usize> = LazyLock::new(|| {
-    env_config("FUNCTION_MAX_RESULT_SIZE", 1 << 23) // 8 MiB
+    env_config("FUNCTION_MAX_RESULT_SIZE", 1 << 24) // 16 MiB
 });
 
 /// When a function exceeds FUNCTION_LIMIT_WARNING_RATIO * a corresponding
@@ -266,8 +266,8 @@ pub static TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES: LazyLock<usize> 
     LazyLock::new(|| {
         env_config(
             "TRANSACTION_MAX_SCHEDULED_TOTAL_ARGUMENT_SIZE_BYTES",
-            1 << 23,
-        ) // 8 MiB
+            1 << 24,
+        ) // 16 MiB
     });
 
 /// Number of scheduled jobs that can execute in parallel.

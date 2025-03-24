@@ -504,13 +504,13 @@ async fn test_writes_many(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_query_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 9_000_000])?);
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 17_000_000])?);
     let e = t
         .query_js_error("basic:readTime", assert_obj!("data" => data))
         .await?;
     assert_contains(
         &e,
-        "Arguments for basic.js:readTime are too large (actual: 8.58 MiB, limit: 8 MiB)",
+        "Arguments for basic.js:readTime are too large (actual: 16.21 MiB, limit: 16 MiB)",
     );
     Ok(())
 }
@@ -518,13 +518,13 @@ async fn test_query_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_mutation_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 9_000_000])?);
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 17_000_000])?);
     let e = t
         .mutation_js_error("basic:simpleMutation", assert_obj!("data" => data))
         .await?;
     assert_contains(
         &e,
-        "Arguments for basic.js:simpleMutation are too large (actual: 8.58 MiB, limit: 8 MiB)",
+        "Arguments for basic.js:simpleMutation are too large (actual: 16.21 MiB, limit: 16 MiB)",
     );
     Ok(())
 }
@@ -532,13 +532,13 @@ async fn test_mutation_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_action_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 9_000_000])?);
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 17_000_000])?);
     let e = t
         .action_js_error("basic:simpleAction", assert_obj!("data" => data))
         .await?;
     assert_contains(
         &e,
-        "Arguments for basic.js:simpleAction are too large (actual: 8.58 MiB, limit: 8 MiB)",
+        "Arguments for basic.js:simpleAction are too large (actual: 16.21 MiB, limit: 16 MiB)",
     );
     Ok(())
 }
@@ -546,14 +546,14 @@ async fn test_action_args_too_big(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_query_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 8_000_000])?);
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 16_000_000])?);
     let mut log_lines = t
         .query_log_lines("basic:readTime", assert_obj!("data" => data))
         .await?;
     let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
-        "[WARN] Large size of the function arguments (actual: 8000011 bytes, limit: 8388608 \
+        "[WARN] Large size of the function arguments (actual: 16000011 bytes, limit: 16777216 \
          bytes).",
     );
     Ok(())
@@ -562,14 +562,14 @@ async fn test_query_args_big(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_mutation_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 8_000_000])?);
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 16_000_000])?);
     let mut log_lines = t
         .mutation_log_lines("basic:simpleMutation", assert_obj!("data" => data))
         .await?;
     let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
-        "[WARN] Large size of the function arguments (actual: 8000011 bytes, limit: 8388608 \
+        "[WARN] Large size of the function arguments (actual: 16000011 bytes, limit: 16777216 \
          bytes).",
     );
     Ok(())
@@ -578,14 +578,15 @@ async fn test_mutation_args_big(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_action_args_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 8_000_000])?);
+    let data: ConvexValue = ConvexValue::Bytes(ConvexBytes::try_from(vec![0; 16_000_000])?);
     let mut log_lines = t
         .action_log_lines("basic:simpleAction", assert_obj!("data" => data))
         .await?;
     let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
-        "[WARN] Large size of the action arguments (actual: 8000011 bytes, limit: 8388608 bytes).",
+        "[WARN] Large size of the action arguments (actual: 16000011 bytes, limit: 16777216 \
+         bytes).",
     );
     Ok(())
 }
@@ -596,13 +597,13 @@ async fn test_query_result_too_big(rt: TestRuntime) -> anyhow::Result<()> {
     let e = t
         .query_js_error(
             "adversarial:queryResultSized",
-            assert_obj!("size" => 9_000_000.0),
+            assert_obj!("size" => 17_000_000.0),
         )
         .await?;
     assert_contains(
         &e,
-        "Function adversarial.js:queryResultSized return value is too large (actual: 8.58 MiB, \
-         limit: 8 MiB)",
+        "Function adversarial.js:queryResultSized return value is too large (actual: 16.21 MiB, \
+         limit: 16 MiB)",
     );
     Ok(())
 }
@@ -613,13 +614,13 @@ async fn test_mutation_result_too_big(rt: TestRuntime) -> anyhow::Result<()> {
     let e = t
         .mutation_js_error(
             "adversarial:mutationResultSized",
-            assert_obj!("size" => 9_000_000.0),
+            assert_obj!("size" => 17_000_000.0),
         )
         .await?;
     assert_contains(
         &e,
-        "Function adversarial.js:mutationResultSized return value is too large (actual: 8.58 MiB, \
-         limit: 8 MiB)",
+        "Function adversarial.js:mutationResultSized return value is too large (actual: 16.21 \
+         MiB, limit: 16 MiB)",
     );
     Ok(())
 }
@@ -630,13 +631,13 @@ async fn test_action_result_too_big(rt: TestRuntime) -> anyhow::Result<()> {
     let e = t
         .action_js_error(
             "adversarial:actionResultSized",
-            assert_obj!("size" => 9_000_000.0),
+            assert_obj!("size" => 17_000_000.0),
         )
         .await?;
     assert_contains(
         &e,
-        "Function adversarial.js:actionResultSized return value is too large (actual: 8.58 MiB, \
-         limit: 8 MiB)",
+        "Function adversarial.js:actionResultSized return value is too large (actual: 16.21 MiB, \
+         limit: 16 MiB)",
     );
     Ok(())
 }
@@ -647,13 +648,13 @@ async fn test_query_result_big(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .query_log_lines(
             "adversarial:queryResultSized",
-            assert_obj!("size" => 8_000_000.0),
+            assert_obj!("size" => 16_000_000.0),
         )
         .await?;
     let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
-        "[WARN] Large size of the function return value (actual: 8000002 bytes, limit: 8388608 \
+        "[WARN] Large size of the function return value (actual: 16000002 bytes, limit: 16777216 \
          bytes).",
     );
     Ok(())
@@ -665,13 +666,13 @@ async fn test_mutation_result_big(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .mutation_log_lines(
             "adversarial:mutationResultSized",
-            assert_obj!("size" => 8_000_000.0),
+            assert_obj!("size" => 16_000_000.0),
         )
         .await?;
     let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
-        "[WARN] Large size of the function return value (actual: 8000002 bytes, limit: 8388608 \
+        "[WARN] Large size of the function return value (actual: 16000002 bytes, limit: 16777216 \
          bytes).",
     );
     Ok(())
@@ -683,13 +684,13 @@ async fn test_action_result_big(rt: TestRuntime) -> anyhow::Result<()> {
     let mut log_lines = t
         .action_log_lines(
             "adversarial:actionResultSized",
-            assert_obj!("size" => 8_000_000.0),
+            assert_obj!("size" => 16_000_000.0),
         )
         .await?;
     let last_line = log_lines.pop().unwrap().to_pretty_string_test_only();
     assert_contains(
         &last_line,
-        "[WARN] Large size of the action return value (actual: 8000002 bytes, limit: 8388608 \
+        "[WARN] Large size of the action return value (actual: 16000002 bytes, limit: 16777216 \
          bytes).",
     );
     Ok(())
