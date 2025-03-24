@@ -207,7 +207,10 @@ impl UdfArgsJson {
 pub fn source_map_from_slice(slice: &[u8]) -> Option<sourcemap::SourceMap> {
     // If the source map doesn't parse, report the parsing error but don't fail
     // the entire request, just treat it like a missing source map.
-    match sourcemap::SourceMap::from_slice(slice).context("could not parse source map") {
+    match sourcemap::SourceMap::from_slice(slice).context(ErrorMetadata::bad_request(
+        "BadSourceMap",
+        "could not parse source map",
+    )) {
         Ok(source_map) => Some(source_map),
         Err(mut e) => {
             report_error_sync(&mut e);
