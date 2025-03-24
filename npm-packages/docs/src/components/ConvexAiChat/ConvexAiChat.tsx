@@ -1,7 +1,6 @@
 import React from "react";
 import { AIButton } from "../AIButton/AIButton";
 import Sparkle from "../AIButton/sparkle.svg";
-import "./kapa.css";
 
 export function ConvexAiChat() {
   return (
