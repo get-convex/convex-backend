@@ -156,13 +156,23 @@ async function runScenario(
     };
     try {
       if (rate === null) {
-        // Intentionally reuse the same client for benchmark.
-        // This simulates waterfall requests, and isolates request performance
-        // from initial connection latency.
-        for (;;) {
-          await scenario.run(client).catch((err) => handleError(err));
-          scenario.cleanUp();
-        }
+        // Benchmark mode
+        const numThreads = scenarioMessage.threads || 1; // Default to 1 thread if not specified
+
+        // Create the specified number of threads
+        const threads = Array.from({ length: numThreads }, () => {
+          const client = new ConvexClient(config.deploymentUrl);
+          return (async () => {
+            // Each thread runs scenarios in a loop
+            for (;;) {
+              await scenario!.run(client).catch((err) => handleError(err));
+              scenario!.cleanUp();
+            }
+          })();
+        });
+
+        // Wait for all threads (they'll run until the process is terminated)
+        await Promise.all(threads);
       } else {
         if (rate === 0) {
           return;

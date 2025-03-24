@@ -689,21 +689,23 @@ impl LoadGenerator {
 struct ScenarioMessage {
     scenario: Scenario,
     rate: Option<f64>,
+    threads: Option<u32>,
 }
 
 impl From<ScenarioConfig> for ScenarioMessage {
     fn from(ScenarioConfig { scenario, mode }: ScenarioConfig) -> Self {
-        let rate = match mode {
-            Mode::Benchmark(_) => None,
+        let (rate, threads) = match mode {
+            Mode::Benchmark(threads) => (None, Some(threads)),
             Mode::Rate(rate) => {
                 metrics::log_target_qps(&scenario.to_string(), rate, scenario.path());
-                Some(rate)
+                (Some(rate), None)
             },
         };
 
         Self {
             scenario: scenario.clone(),
             rate,
+            threads,
         }
     }
 }

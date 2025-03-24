@@ -55,7 +55,8 @@ export type FnType = "query" | "mutation" | "action";
 
 export type ScenarioMessage = {
   scenario: ScenarioSpec;
-  rate: number;
+  rate: number | null;
+  threads?: number;
 };
 export type ScenarioSpec =
   | {
