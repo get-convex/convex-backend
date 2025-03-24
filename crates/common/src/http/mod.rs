@@ -827,6 +827,9 @@ pub async fn stats_middleware<RM: RouteMapper>(
         .map(|r| r.as_str().to_owned())
         .unwrap_or("unknown".to_owned());
 
+    // Capture URI before req is moved
+    let uri = req.uri().to_string();
+
     // Sampling isn't done here, and should be done upstream
     let root = match traceparent {
         Some(span_ctx) if *PROPAGATE_UPSTREAM_TRACES => Span::root(route.to_owned(), span_ctx),
@@ -847,6 +850,10 @@ pub async fn stats_middleware<RM: RouteMapper>(
     let matched_path = resp.extensions().get::<Option<MatchedPath>>();
     if let Some(Some(matched_path)) = matched_path {
         route = matched_path.as_str().to_owned();
+    }
+
+    if route == "unknown" {
+        tracing::info!("stats_middleware: matched_path is None, uri: {}", uri);
     }
 
     let route = route_metric_mapper.map_route(route);
