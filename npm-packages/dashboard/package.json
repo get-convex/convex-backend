@@ -119,7 +119,7 @@
     "vercel": "~33.5.2",
     "webpack": "5.97.1",
     "@testing-library/dom": "~10.4.0",
-    "openapi-typescript": "~7.4.2",
+    "openapi-typescript": "~7.6.0",
     "openapi-typescript-helpers": "~0.0.15",
     "@types/react-sparklines": "~1.7.5",
     "eslint-plugin-boundaries": "~5.0.1",

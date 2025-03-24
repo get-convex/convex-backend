@@ -686,7 +686,7 @@ importers:
         version: 2.3.0(react@18.3.1)
       swr-openapi:
         specifier: ~5.0.0
-        version: 5.0.0(openapi-fetch@0.13.4)(openapi-typescript@7.4.4(encoding@0.1.13)(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1))
+        version: 5.0.0(openapi-fetch@0.13.4)(openapi-typescript@7.6.1(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1))
       system-udfs:
         specifier: workspace:*
         version: link:../system-udfs
@@ -860,8 +860,8 @@ importers:
         specifier: ~0.4.0
         version: 0.4.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       openapi-typescript:
-        specifier: ~7.4.2
-        version: 7.4.4(encoding@0.1.13)(typescript@5.0.4)
+        specifier: ~7.6.0
+        version: 7.6.1(typescript@5.0.4)
       openapi-typescript-helpers:
         specifier: ~0.0.15
         version: 0.0.15
@@ -8495,12 +8495,12 @@ packages:
   '@redocly/ajv@8.11.2':
     resolution: {integrity: sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==}
 
-  '@redocly/config@0.17.1':
-    resolution: {integrity: sha512-CEmvaJuG7pm2ylQg53emPmtgm4nW2nxBgwXzbVEHpGas/lGnMyN8Zlkgiz6rPw0unASg6VW3wlz27SOL5XFHYQ==}
+  '@redocly/config@0.21.0':
+    resolution: {integrity: sha512-JBtrrjBIURTnzb7KUIWOF46vSgpfC3rO6Mm8LjtRjtTNCLTyB+mOuU7HrTkVcvUCEBuSuzkivlTHMWT4JETz9A==}
 
-  '@redocly/openapi-core@1.27.1':
-    resolution: {integrity: sha512-zQ47/A+Drk2Y75/af69MD3Oad4H9LxkUDzcm7XBkyLNDKIWQrDKDnS5476oDq77+zciymNxgMVtxxVXlnGS8kw==}
-    engines: {node: '>=14.19.0', npm: '>=7.0.0'}
+  '@redocly/openapi-core@1.31.3':
+    resolution: {integrity: sha512-SyE/1TwM33tgldc3k367sg2i1kqnILOJZo6J96Y/Tt1PHhJp+na637CzCuTgdyY86GTPvNw42834Ks0Lkfk3Hg==}
+    engines: {node: '>=18.17.0', npm: '>=9.5.0'}
 
   '@remix-run/router@1.21.0':
     resolution: {integrity: sha512-xfSkCAchbdG5PnbrKqFWwia4Bi61nH+wm8wLEqfHDyp7Y3dZzgqS2itV8i4gAq9pC2HsTpwyBC6Ds8VHZ96JlA==}
@@ -16996,8 +16996,8 @@ packages:
   openapi-typescript-helpers@0.0.15:
     resolution: {integrity: sha512-opyTPaunsklCBpTK8JGef6mfPhLSnyy5a0IN9vKtx3+4aExf+KxEqYwIy3hqkedXIB97u357uLMJsOnm3GVjsw==}
 
-  openapi-typescript@7.4.4:
-    resolution: {integrity: sha512-7j3nktnRzlQdlHnHsrcr6Gqz8f80/RhfA2I8s1clPI+jkY0hLNmnYVKBfuUEli5EEgK1B6M+ibdS5REasPlsUw==}
+  openapi-typescript@7.6.1:
+    resolution: {integrity: sha512-F7RXEeo/heF3O9lOXo2bNjCOtfp7u+D6W3a3VNEH2xE6v+fxLtn5nq0uvUcA1F5aT+CMhNeC5Uqtg5tlXFX/ag==}
     hasBin: true
     peerDependencies:
       typescript: ^5.x
@@ -27278,22 +27278,20 @@ snapshots:
       require-from-string: 2.0.2
       uri-js-replace: 1.0.1
 
-  '@redocly/config@0.17.1': {}
+  '@redocly/config@0.21.0': {}
 
-  '@redocly/openapi-core@1.27.1(encoding@0.1.13)(supports-color@9.4.0)':
+  '@redocly/openapi-core@1.31.3(supports-color@9.4.0)':
     dependencies:
       '@redocly/ajv': 8.11.2
-      '@redocly/config': 0.17.1
+      '@redocly/config': 0.21.0
       colorette: 1.4.0
       https-proxy-agent: 7.0.6(supports-color@9.4.0)
       js-levenshtein: 1.1.6
       js-yaml: 4.1.0
       minimatch: 5.1.6
-      node-fetch: 2.7.0(encoding@0.1.13)
       pluralize: 8.0.0
       yaml-ast-parser: 0.0.43
     transitivePeerDependencies:
-      - encoding
       - supports-color
 
   '@remix-run/router@1.21.0': {}
@@ -39665,7 +39663,7 @@ snapshots:
       node-fetch-native: 1.6.4
       ofetch: 1.4.1
       ohash: 1.1.4
-      openapi-typescript: 7.4.4(encoding@0.1.13)(typescript@5.0.4)
+      openapi-typescript: 7.6.1(typescript@5.0.4)
       pathe: 1.1.2
       perfect-debounce: 1.0.0
       pkg-types: 1.3.0
@@ -39762,7 +39760,7 @@ snapshots:
       node-fetch-native: 1.6.4
       ofetch: 1.4.1
       ohash: 1.1.4
-      openapi-typescript: 7.4.4(encoding@0.1.13)(typescript@5.7.2)
+      openapi-typescript: 7.6.1(typescript@5.7.2)
       pathe: 1.1.2
       perfect-debounce: 1.0.0
       pkg-types: 1.3.0
@@ -40166,29 +40164,25 @@ snapshots:
 
   openapi-typescript-helpers@0.0.15: {}
 
-  openapi-typescript@7.4.4(encoding@0.1.13)(typescript@5.0.4):
+  openapi-typescript@7.6.1(typescript@5.0.4):
     dependencies:
-      '@redocly/openapi-core': 1.27.1(encoding@0.1.13)(supports-color@9.4.0)
+      '@redocly/openapi-core': 1.31.3(supports-color@9.4.0)
       ansi-colors: 4.1.3
       change-case: 5.4.4
       parse-json: 8.1.0
       supports-color: 9.4.0
       typescript: 5.0.4
       yargs-parser: 21.1.1
-    transitivePeerDependencies:
-      - encoding
 
-  openapi-typescript@7.4.4(encoding@0.1.13)(typescript@5.7.2):
+  openapi-typescript@7.6.1(typescript@5.7.2):
     dependencies:
-      '@redocly/openapi-core': 1.27.1(encoding@0.1.13)(supports-color@9.4.0)
+      '@redocly/openapi-core': 1.31.3(supports-color@9.4.0)
       ansi-colors: 4.1.3
       change-case: 5.4.4
       parse-json: 8.1.0
       supports-color: 9.4.0
       typescript: 5.7.2
       yargs-parser: 21.1.1
-    transitivePeerDependencies:
-      - encoding
 
   opener@1.5.2: {}
 
@@ -43167,7 +43161,7 @@ snapshots:
       '@swc/counter': 0.1.3
       webpack: 5.97.1(@swc/core@1.10.4(@swc/helpers@0.5.15))
 
-  swr-openapi@5.0.0(openapi-fetch@0.13.4)(openapi-typescript@7.4.4(encoding@0.1.13)(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1)):
+  swr-openapi@5.0.0(openapi-fetch@0.13.4)(openapi-typescript@7.6.1(typescript@5.0.4))(react@18.3.1)(swr@2.3.0(react@18.3.1)):
     dependencies:
       openapi-fetch: 0.13.4
       openapi-typescript-helpers: 0.0.13
@@ -43175,7 +43169,7 @@ snapshots:
       swr: 2.3.0(react@18.3.1)
       type-fest: 4.26.1
     optionalDependencies:
-      openapi-typescript: 7.4.4(encoding@0.1.13)(typescript@5.0.4)
+      openapi-typescript: 7.6.1(typescript@5.0.4)
 
   swr@2.3.0(react@18.3.1):
     dependencies:
