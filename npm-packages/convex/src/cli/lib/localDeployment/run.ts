@@ -8,8 +8,8 @@ import {
 } from "../../../bundler/context.js";
 import {
   binariesDir,
-  binaryZip,
   deploymentStateDir,
+  executableName,
   executablePath,
   versionedBinaryDir,
 } from "./filePaths.js";
@@ -17,7 +17,7 @@ import path from "path";
 import child_process from "child_process";
 import { promisify } from "util";
 import { Readable } from "stream";
-import { nodeFs } from "../../../bundler/fs.js";
+import { TempPath, withTmpDir } from "../../../bundler/fs.js";
 import detect from "detect-port";
 import { SENTRY_DSN } from "../utils/sentry.js";
 import { createHash } from "crypto";
@@ -252,30 +252,36 @@ async function downloadBinary(ctx: Context, version: string): Promise<string> {
   if (!ctx.fs.exists(binariesDir())) {
     ctx.fs.mkdir(binariesDir(), { recursive: true });
   }
-  const zipLocation = binaryZip();
-  if (ctx.fs.exists(zipLocation)) {
-    ctx.fs.unlink(zipLocation);
-  }
-  const readable = Readable.fromWeb(response.body! as any);
-  await nodeFs.writeFileStream(zipLocation, readable, (chunk: any) => {
-    if (progressBar !== null) {
-      progressBar.tick(chunk.length);
+  await withTmpDir(async (tmpDir) => {
+    logVerbose(ctx, `Created tmp dir ${tmpDir.path}`);
+    // Create a file in the tmp dir
+    const zipLocation = tmpDir.registerTempPath(null);
+    const readable = Readable.fromWeb(response.body! as any);
+    await tmpDir.writeFileStream(zipLocation, readable, (chunk: any) => {
+      if (progressBar !== null) {
+        progressBar.tick(chunk.length);
+      }
+    });
+    if (progressBar) {
+      progressBar.terminate();
+      logFinishedStep(ctx, "Downloaded Convex backend binary");
     }
-  });
-  if (progressBar) {
-    progressBar.terminate();
-    logFinishedStep(ctx, "Downloaded Convex backend binary");
-  }
-  logVerbose(ctx, "Downloaded zip file");
+    logVerbose(ctx, "Downloaded zip file");
 
-  const zip = new AdmZip(zipLocation);
-  const versionDir = versionedBinaryDir(version);
-  zip.extractAllTo(versionDir, true);
-  logVerbose(ctx, "Extracted from zip file");
-  const p = executablePath(version);
-  await makeExecutable(p);
-  logVerbose(ctx, "Marked as executable");
-  return p;
+    const zip = new AdmZip(zipLocation);
+    await withTmpDir(async (versionDir) => {
+      logVerbose(ctx, `Created tmp dir ${versionDir.path}`);
+      zip.extractAllTo(versionDir.path, true);
+      logVerbose(ctx, "Extracted from zip file");
+      const name = executableName();
+      const tempExecPath = path.join(versionDir.path, name);
+      await makeExecutable(tempExecPath);
+      logVerbose(ctx, "Marked as executable");
+      ctx.fs.mkdir(versionedBinaryDir(version), { recursive: true });
+      ctx.fs.swapTmpFile(tempExecPath as TempPath, executablePath(version));
+    });
+  });
+  return executablePath(version);
 }
 
 async function makeExecutable(p: string) {

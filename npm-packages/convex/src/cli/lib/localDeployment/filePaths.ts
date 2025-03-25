@@ -1,11 +1,13 @@
 /*
-~/.convex
+~/.cache/convex
   binaries
-    convex-backend.zip
     0.0.1
       convex-local-backend[.exe] // convex-local-backend.exe on windows
     0.0.2
       convex-local-backend[.exe]
+
+
+~/.convex
   convex-backend-state
     local-my_team-chess
       config.json // contains `LocalDeploymentConfig`
@@ -18,7 +20,7 @@
 */
 
 import path from "path";
-import { rootDirectory } from "../utils/utils.js";
+import { cacheDir, rootDirectory } from "../utils/utils.js";
 import { Context } from "../../../bundler/context.js";
 
 export function rootDeploymentStateDir() {
@@ -68,11 +70,7 @@ export function saveDeploymentConfig(
 }
 
 export function binariesDir() {
-  return path.join(rootDirectory(), "binaries");
-}
-
-export function binaryZip() {
-  return path.join(binariesDir(), "convex-backend.zip");
+  return path.join(cacheDir(), "binaries");
 }
 
 export function versionedBinaryDir(version: string) {
@@ -80,6 +78,10 @@ export function versionedBinaryDir(version: string) {
 }
 
 export function executablePath(version: string) {
+  return path.join(versionedBinaryDir(version), executableName());
+}
+
+export function executableName() {
   const ext = process.platform === "win32" ? ".exe" : "";
-  return path.join(versionedBinaryDir(version), `convex-local-backend${ext}`);
+  return `convex-local-backend${ext}`;
 }

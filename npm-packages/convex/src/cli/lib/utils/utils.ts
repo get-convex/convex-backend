@@ -540,20 +540,38 @@ export function functionsDir(
   return path.join(path.dirname(configPath), projectConfig.functions);
 }
 
-export function rootDirectory(): string {
-  let dirName;
+function convexName() {
   // Use a different directory for config files generated for tests
   if (process.env.CONVEX_PROVISION_HOST) {
     const port = process.env.CONVEX_PROVISION_HOST.split(":")[2];
     if (port === undefined || port === "8050") {
-      dirName = `.convex-test`;
+      return `convex-test`;
     } else {
-      dirName = `.convex-test-${port}`;
+      return `convex-test-${port}`;
     }
-  } else {
-    dirName = ".convex";
   }
-  return path.join(os.homedir(), dirName);
+  return "convex";
+}
+
+export function rootDirectory(): string {
+  return path.join(os.homedir(), `.${convexName()}`);
+}
+
+export function cacheDir() {
+  const name = convexName();
+  const platform = process.platform;
+  if (platform === "win32") {
+    // On Windows, `LOCALAPPDATA` is usually set, but fall back to
+    // `USERPROFILE` if not, and fall back to homedir if all else fails.
+    if (process.env.LOCALAPPDATA) {
+      return path.join(process.env.LOCALAPPDATA, name);
+    }
+    if (process.env.USERPROFILE) {
+      return path.join(process.env.USERPROFILE, "AppData", "Local", name);
+    }
+    return path.join(os.homedir(), "AppData", "Local", name);
+  }
+  return path.join(os.homedir(), ".cache", name);
 }
 
 export async function bigBrainFetch(ctx: Context): Promise<typeof fetch> {

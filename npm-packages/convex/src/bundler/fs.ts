@@ -91,6 +91,13 @@ export type TempPath = string & { __tempPath: "tempPath" };
 
 export interface TempDir {
   writeUtf8File(contents: string): TempPath;
+  writeFileStream(
+    path: TempPath,
+    stream: Readable,
+    onData?: (chunk: any) => void,
+  ): Promise<void>;
+  registerTempPath(st: Stats | null): TempPath;
+  path: TempPath;
 }
 
 export async function withTmpDir(
@@ -104,6 +111,19 @@ export async function withTmpDir(
       nodeFs.writeUtf8File(filePath, contents);
       return filePath as TempPath;
     },
+    registerTempPath(st: Stats | null): TempPath {
+      const filePath = path.join(tmpPath, crypto.randomUUID());
+      nodeFs.registerPath(filePath, st);
+      return filePath as TempPath;
+    },
+    writeFileStream(
+      path: TempPath,
+      stream: Readable,
+      onData?: (chunk: any) => void,
+    ): Promise<void> {
+      return nodeFs.writeFileStream(path, stream, onData);
+    },
+    path: tmpPath as TempPath,
   };
   try {
     await callback(tmpDir);
@@ -115,7 +135,7 @@ export async function withTmpDir(
 // Use `nodeFs` when you just want to read and write to the local filesystem
 // and don't care about collecting the paths touched. One-off commands
 // should use the singleton `nodeFs`.
-class NodeFs implements Filesystem {
+export class NodeFs implements Filesystem {
   listDir(dirPath: string) {
     return stdFs.readdirSync(dirPath, { withFileTypes: true });
   }
