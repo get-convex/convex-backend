@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::Context;
+use async_once_cell::OnceCell;
 use async_trait::async_trait;
 use common::log_lines::LogLine;
 use errors::ErrorMetadata;
@@ -43,15 +44,24 @@ const HEALTH_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 const MAX_HEALTH_CHECK_ATTEMPTS: u32 = 50;
 
 pub struct LocalNodeExecutor {
-    _source_dir: TempDir,
-    node_process_timeout: Duration,
-    port: u16,
-    _server_handle: tokio::process::Child,
-    client: reqwest::Client,
+    inner: OnceCell<InnerLocalNodeExecutor>,
+    config: LocalNodeExecutorConfig,
 }
 
-impl LocalNodeExecutor {
-    pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
+struct LocalNodeExecutorConfig {
+    node_process_timeout: Duration,
+}
+
+struct InnerLocalNodeExecutor {
+    _source_dir: TempDir,
+    port: u16,
+    client: reqwest::Client,
+    _server_handle: Child,
+}
+
+impl InnerLocalNodeExecutor {
+    async fn new() -> anyhow::Result<Self> {
+        tracing::info!("Initializing inner local node executor");
         // Create a single temp directory for both source files and Node.js temp files
         let source_dir = TempDir::new()?;
         let (source, source_map) =
@@ -65,34 +75,17 @@ impl LocalNodeExecutor {
             "Using local node executor. Source: {}",
             source_path.to_str().expect("Path is not UTF-8 string?"),
         );
-        let node_version = NODE_VERSION.trim();
 
-        // Look for node in a few places.
-        let possible_path = home::home_dir()
-            .unwrap()
-            .join(".nvm")
-            .join(format!("versions/node/v{node_version}/bin/node"));
-        let node_path = if possible_path.exists() {
-            possible_path.to_string_lossy().to_string()
-        } else {
-            "node".to_string()
-        };
-        Self::check_node_version(&node_path).await?;
         let client = Client::new();
         let port = portpicker::pick_unused_port().context("No ports free")?;
         let server_handle =
-            Self::start_node_executor_server(&client, port, &node_path, &source_path, &source_dir)
-                .await?;
-
-        let executor = Self {
+            Self::try_start_node_executor_server(&client, port, &source_path, &source_dir).await?;
+        Ok(Self {
             _source_dir: source_dir,
-            node_process_timeout,
             port,
-            _server_handle: server_handle,
             client,
-        };
-
-        Ok(executor)
+            _server_handle: server_handle,
+        })
     }
 
     async fn check_node_version(node_path: &str) -> anyhow::Result<()> {
@@ -126,13 +119,26 @@ impl LocalNodeExecutor {
         }
     }
 
-    async fn start_node_executor_server(
+    async fn try_start_node_executor_server(
         client: &Client,
         port: u16,
-        node_path: &str,
         source_path: &PathBuf,
         temp_dir: &TempDir,
     ) -> anyhow::Result<Child> {
+        let node_version = NODE_VERSION.trim();
+
+        // Look for node in a few places.
+        let possible_path = home::home_dir()
+            .unwrap()
+            .join(".nvm")
+            .join(format!("versions/node/v{node_version}/bin/node"));
+        let node_path = if possible_path.exists() {
+            possible_path.to_string_lossy().to_string()
+        } else {
+            "node".to_string()
+        };
+        Self::check_node_version(&node_path).await?;
+
         let mut cmd = TokioCommand::new(node_path);
         cmd.arg(source_path)
             .arg("--port")
@@ -152,10 +158,23 @@ impl LocalNodeExecutor {
         }
         anyhow::bail!("Node executor server failed to start and become healthy")
     }
+}
+
+impl LocalNodeExecutor {
+    pub async fn new(node_process_timeout: Duration) -> anyhow::Result<Self> {
+        let executor = Self {
+            inner: OnceCell::new(),
+            config: LocalNodeExecutorConfig {
+                node_process_timeout,
+            },
+        };
+
+        Ok(executor)
+    }
 
     #[try_stream(ok = NodeExecutorStreamPart, error = anyhow::Error)]
-    async fn response_stream(&self, mut response: reqwest::Response) {
-        let mut timeout_future = Box::pin(tokio::time::sleep(self.node_process_timeout));
+    async fn response_stream(config: &LocalNodeExecutorConfig, mut response: reqwest::Response) {
+        let mut timeout_future = Box::pin(tokio::time::sleep(config.node_process_timeout));
         let timeout_future = &mut timeout_future;
         loop {
             let process_chunk = async {
@@ -203,12 +222,18 @@ impl NodeExecutor for LocalNodeExecutor {
         request: ExecutorRequest,
         log_line_sender: mpsc::UnboundedSender<LogLine>,
     ) -> anyhow::Result<InvokeResponse> {
+        let inner = self
+            .inner
+            .get_or_try_init(InnerLocalNodeExecutor::new())
+            .await
+            .context("Failed to initialize inner local node executor")?;
         let request_json = JsonValue::try_from(request)?;
-        let response_result = self
+
+        let response_result = inner
             .client
-            .post(format!("http://127.0.0.1:{}/invoke", self.port))
+            .post(format!("http://127.0.0.1:{}/invoke", inner.port))
             .json(&request_json)
-            .timeout(self.node_process_timeout)
+            .timeout(self.config.node_process_timeout)
             .send()
             .await;
         let response = match response_result {
@@ -230,7 +255,7 @@ impl NodeExecutor for LocalNodeExecutor {
             let error = response.text().await?;
             anyhow::bail!("Node executor server returned error: {}", error);
         }
-        let stream = self.response_stream(response);
+        let stream = Self::response_stream(&self.config, response);
         let stream = Box::pin(stream);
         let result = handle_node_executor_stream(log_line_sender, stream).await?;
         match result {

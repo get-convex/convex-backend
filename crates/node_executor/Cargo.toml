@@ -12,6 +12,7 @@ anyhow = "1"
 
 [dependencies]
 anyhow = { workspace = true }
+async-once-cell = { workspace = true }
 async-trait = { workspace = true }
 cmd_util = { path = "../cmd_util" }
 common = { path = "../common" }
