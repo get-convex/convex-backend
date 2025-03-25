@@ -39,28 +39,6 @@ declare module "@commander-js/extra-typings" {
     >;
 
     /**
-     * Adds options for the `dev` command that are not involved in picking a
-     * deployment.
-     */
-    addDevOptions(): Command<
-      Args,
-      Opts & {
-        tailLogs?: LogMode;
-        verbose?: boolean;
-        run?: string;
-        runComponent?: string;
-        once: boolean;
-        untilSuccess: boolean;
-        traceEvents: boolean;
-        typecheck: "enable" | "try" | "disable";
-        typecheckComponents: boolean;
-        debugBundlePath?: string;
-        codegen: "enable" | "disable";
-        liveComponentSources?: boolean;
-      }
-    >;
-
-    /**
      * Adds options for the `deploy` command.
      */
     addDeployOptions(): Command<
@@ -217,59 +195,6 @@ export function actionDescription(action: string): ActionDescription {
   return action as any;
 }
 
-Command.prototype.addDevOptions = function () {
-  return this.option("-v, --verbose", "Show full listing of changes")
-    .addOption(
-      new Option(
-        "--typecheck <mode>",
-        `Check TypeScript files with \`tsc --noEmit\`.`,
-      )
-        .choices(["enable", "try", "disable"] as const)
-        .default("try" as const),
-    )
-    .option(
-      "--typecheck-components",
-      "Check TypeScript files within component implementations with `tsc --noEmit`.",
-      false,
-    )
-    .addOption(
-      new Option("--codegen <mode>", "Regenerate code in `convex/_generated/`")
-        .choices(["enable", "disable"] as const)
-        .default("enable" as const),
-    )
-    .option(
-      "--once",
-      "Execute only the first 3 steps, stop on any failure",
-      false,
-    )
-    .option(
-      "--until-success",
-      "Execute only the first 3 steps, on failure watch for local and remote changes and retry steps 2 and 3",
-      false,
-    )
-    .option(
-      "--run <functionName>",
-      "The identifier of the function to run in step 3, " +
-        "like `init` or `dir/file:myFunction`",
-    )
-    .option(
-      "--run-component <functionName>",
-      "If --run is used and the function is in a component, the path the component tree defined in convex.config.ts. " +
-        "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
-    )
-    .addOption(
-      new Option(
-        "--tail-logs [mode]",
-        "Choose whether to tail Convex function logs in this terminal",
-      )
-        .choices(["always", "pause-on-deploy", "disable"] as const)
-        .default("pause-on-deploy"),
-    )
-    .addOption(new Option("--trace-events").default(false).hideHelp())
-    .addOption(new Option("--debug-bundle-path <path>").hideHelp())
-    .addOption(new Option("--live-component-sources").hideHelp());
-};
-
 export async function normalizeDevOptions(
   ctx: OneoffCtx,
   cmdOptions: {
@@ -280,13 +205,28 @@ export async function normalizeDevOptions(
     once?: boolean;
     untilSuccess: boolean;
     run?: string;
+    runSh?: string;
     runComponent?: string;
-    tailLogs?: LogMode;
+    tailLogs?: string | true;
     traceEvents: boolean;
     debugBundlePath?: string;
     liveComponentSources?: boolean;
   },
-) {
+): Promise<{
+  verbose: boolean;
+  typecheck: "enable" | "try" | "disable";
+  typecheckComponents: boolean;
+  codegen: boolean;
+  once: boolean;
+  untilSuccess: boolean;
+  run?:
+    | { kind: "function"; name: string; component?: string }
+    | { kind: "shell"; command: string };
+  tailLogs: LogMode;
+  traceEvents: boolean;
+  debugBundlePath?: string;
+  liveComponentSources: boolean;
+}> {
   if (cmdOptions.runComponent && !cmdOptions.run) {
     return await ctx.crash({
       exitCode: 1,
@@ -310,9 +250,23 @@ export async function normalizeDevOptions(
     codegen: cmdOptions.codegen === "enable",
     once: !!cmdOptions.once,
     untilSuccess: cmdOptions.untilSuccess,
-    run: cmdOptions.run,
-    runComponent: cmdOptions.runComponent,
-    tailLogs: cmdOptions.tailLogs ?? "pause-on-deploy",
+    run:
+      cmdOptions.run !== undefined
+        ? {
+            kind: "function",
+            name: cmdOptions.run,
+            component: cmdOptions.runComponent,
+          }
+        : cmdOptions.runSh !== undefined
+          ? {
+              kind: "shell",
+              command: cmdOptions.runSh,
+            }
+          : undefined,
+    tailLogs:
+      typeof cmdOptions.tailLogs === "string"
+        ? (cmdOptions.tailLogs as LogMode)
+        : "pause-on-deploy",
     traceEvents: cmdOptions.traceEvents,
     debugBundlePath: cmdOptions.debugBundlePath,
     liveComponentSources: !!cmdOptions.liveComponentSources,

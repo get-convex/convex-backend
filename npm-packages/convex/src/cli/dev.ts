@@ -17,11 +17,69 @@ export const dev = new Command("dev")
     "Develop against a dev deployment, watching for changes\n\n" +
       "  1. Configures a new or existing project (if needed)\n" +
       "  2. Updates generated types and pushes code to the configured dev deployment\n" +
-      "  3. Runs the provided function (if `--run` is used)\n" +
+      "  3. Runs the provided command (if `--run` or `--run-sh` is used)\n" +
       "  4. Watches for file changes, and repeats step 2\n",
   )
   .allowExcessArguments(false)
-  .addDevOptions()
+  .option("-v, --verbose", "Show full listing of changes")
+  .addOption(
+    new Option(
+      "--typecheck <mode>",
+      `Check TypeScript files with \`tsc --noEmit\`.`,
+    )
+      .choices(["enable", "try", "disable"] as const)
+      .default("try" as const),
+  )
+  .option(
+    "--typecheck-components",
+    "Check TypeScript files within component implementations with `tsc --noEmit`.",
+    false,
+  )
+  .addOption(
+    new Option("--codegen <mode>", "Regenerate code in `convex/_generated/`")
+      .choices(["enable", "disable"] as const)
+      .default("enable" as const),
+  )
+  .option(
+    "--once",
+    "Execute only the first 3 steps, stop on any failure",
+    false,
+  )
+  .option(
+    "--until-success",
+    "Execute only the first 3 steps, on failure watch for local and remote changes and retry steps 2 and 3",
+    false,
+  )
+  .addOption(
+    new Option(
+      "--run <functionName>",
+      "The identifier of the function to run in step 3, " +
+        "like `api.init.createData` or `myDir/myFile:myFunction`",
+    ).conflicts(["--run-sh"]),
+  )
+  .option(
+    "--run-component <functionName>",
+    "If --run is used and the function is in a component, the path the component tree defined in convex.config.ts. " +
+      "Components are a beta feature. This flag is unstable and may change in subsequent releases.",
+  )
+  .addOption(
+    new Option(
+      "--run-sh <command>",
+      "A shell command to run in step 3, like `node myScript.js`. " +
+        "If you just want to run a Convex function, use `--run` instead.",
+    ).conflicts(["--run"]),
+  )
+  .addOption(
+    new Option(
+      "--tail-logs [mode]",
+      "Choose whether to tail Convex function logs in this terminal",
+    )
+      .choices(["always", "pause-on-deploy", "disable"] as const)
+      .default("pause-on-deploy"),
+  )
+  .addOption(new Option("--trace-events").default(false).hideHelp())
+  .addOption(new Option("--debug-bundle-path <path>").hideHelp())
+  .addOption(new Option("--live-component-sources").hideHelp())
   .addOption(
     new Option(
       "--configure [choice]",

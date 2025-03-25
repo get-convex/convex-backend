@@ -114,6 +114,9 @@ class OneoffContextImpl {
   };
   flushAndExit = async (exitCode: number, err?: any) => {
     logVerbose(this, "Flushing and exiting, error:", err);
+    if (err) {
+      logVerbose(this, err.stack);
+    }
     const cleanupFns = this._cleanupFns;
     // Clear the cleanup functions so that there's no risk of running them twice
     // if this somehow gets triggered twice.

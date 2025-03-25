@@ -17,6 +17,7 @@ import { PushOptions } from "./push.js";
 import {
   formatDuration,
   getCurrentTimeString,
+  spawnAsync,
   waitForever,
   waitUntilCalled,
 } from "./utils/utils.js";
@@ -38,8 +39,9 @@ export async function devAgainstDeployment(
     codegen: boolean;
     once: boolean;
     untilSuccess: boolean;
-    run?: string;
-    runComponent?: string;
+    run?:
+      | { kind: "function"; name: string; component?: string }
+      | { kind: "shell"; command: string };
     tailLogs: LogMode;
     traceEvents: boolean;
     debugBundlePath?: string;
@@ -84,8 +86,9 @@ export async function watchAndPush(
   outerCtx: OneoffCtx,
   options: PushOptions,
   cmdOptions: {
-    run?: string;
-    runComponent?: string;
+    run?:
+      | { kind: "function"; name: string; component?: string }
+      | { kind: "shell"; command: string };
     once: boolean;
     untilSuccess: boolean;
     traceEvents: boolean;
@@ -124,12 +127,52 @@ export async function watchAndPush(
         )})`,
       );
       if (cmdOptions.run !== undefined && !ran) {
-        await runFunctionInDev(
-          ctx,
-          options,
-          cmdOptions.run,
-          cmdOptions.runComponent,
-        );
+        switch (cmdOptions.run.kind) {
+          case "function":
+            await runFunctionInDev(
+              ctx,
+              options,
+              cmdOptions.run.name,
+              cmdOptions.run.component,
+            );
+            break;
+          case "shell":
+            try {
+              await spawnAsync(ctx, cmdOptions.run.command, [], {
+                stdio: "inherit",
+                shell: true,
+              });
+            } catch (e) {
+              // `spawnAsync` throws an error like `{ status: 1, error: Error }`
+              // when the command fails.
+              const errorMessage =
+                e === null || e === undefined
+                  ? null
+                  : (e as any).error instanceof Error
+                    ? ((e as any).error.message ?? null)
+                    : null;
+              const printedMessage = `Failed to run command \`${cmdOptions.run.command}\`: ${errorMessage ?? "Unknown error"}`;
+              // Don't return this since it'll bypass the `catch` below.
+              await ctx.crash({
+                exitCode: 1,
+                errorType: "fatal",
+                printedMessage,
+              });
+            }
+            break;
+          default: {
+            const _exhaustiveCheck: never = cmdOptions.run;
+            // Don't return this since it'll bypass the `catch` below.
+            await ctx.crash({
+              exitCode: 1,
+              errorType: "fatal",
+              printedMessage: `Unexpected arguments for --run`,
+              errForSentry: `Unexpected arguments for --run: ${JSON.stringify(
+                cmdOptions.run,
+              )}`,
+            });
+          }
+        }
         ran = true;
       }
       pushed = true;

@@ -823,16 +823,16 @@ export function spawnAsync(
   ctx: Context,
   command: string,
   args: ReadonlyArray<string>,
-  options: { stdio: "inherit" },
+  options: { stdio: "inherit"; shell?: boolean },
 ): Promise<void>;
 export function spawnAsync(
   ctx: Context,
   command: string,
   args: ReadonlyArray<string>,
-  options?: { stdio: "inherit" },
+  options?: { stdio: "inherit"; shell?: boolean },
 ) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args);
+    const child = spawn(command, args, { shell: options?.shell });
     let stdout = "";
     let stderr = "";
 
