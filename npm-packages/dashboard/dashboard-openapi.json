@@ -1858,6 +1858,31 @@
         }
       }
     },
+    "/teams/{team_id}/referral_state": {
+      "get": {
+        "operationId": "get_referral_state_for_team",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferralState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/remove_member": {
       "post": {
         "operationId": "remove_member_from_team",
@@ -3848,6 +3873,37 @@
       },
       "ReferralCode": {
         "type": "string"
+      },
+      "ReferralState": {
+        "type": "object",
+        "required": [
+          "verifiedReferrals",
+          "pendingReferrals"
+        ],
+        "properties": {
+          "pendingReferrals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamName"
+            }
+          },
+          "referredBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/TeamName"
+              }
+            ]
+          },
+          "verifiedReferrals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamName"
+            }
+          }
+        }
       },
       "RemoveMemberArgs": {
         "type": "object",

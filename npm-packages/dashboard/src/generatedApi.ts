@@ -1095,6 +1095,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_id}/referral_state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_referral_state_for_team"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/teams/{team_id}/remove_member": {
         parameters: {
             query?: never;
@@ -1694,6 +1710,11 @@ export interface components {
             deploymentName: string;
         };
         ReferralCode: string;
+        ReferralState: {
+            pendingReferrals: components["schemas"]["TeamName"][];
+            referredBy?: null | components["schemas"]["TeamName"];
+            verifiedReferrals: components["schemas"]["TeamName"][];
+        };
         RemoveMemberArgs: {
             memberId: components["schemas"]["MemberId"];
         };
@@ -1953,6 +1974,7 @@ export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
 export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
 export type ReferralCode = components['schemas']['ReferralCode'];
+export type ReferralState = components['schemas']['ReferralState'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
 export type RenameAccessTokenArgs = components['schemas']['RenameAccessTokenArgs'];
 export type RequestDestination = components['schemas']['RequestDestination'];
@@ -3517,6 +3539,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectDetails"][];
+                };
+            };
+        };
+    };
+    get_referral_state_for_team: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferralState"];
                 };
             };
         };
