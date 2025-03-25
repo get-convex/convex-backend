@@ -114,11 +114,24 @@ impl<'a, RT: Runtime> DatabaseGlobalsModel<'a, RT> {
                 StorageTagInitializer::Local { dir },
                 Some(storage_type @ StorageType::Local { dir: db_dir }),
             ) => {
-                anyhow::ensure!(
-                    dir.to_string_lossy() == db_dir.as_str(),
-                    "Cannot change local storage dir paths from {db_dir} to {dir:?}"
-                );
-                storage_type.clone()
+                // Allow switching from different local directories. This isn't common
+                // but could happen if the directory is moved and then the backend gets
+                // restarted with the new location.
+                if dir.to_string_lossy() != db_dir.as_str() {
+                    let new_storage_type = StorageType::Local {
+                        dir: dir.to_string_lossy().into(),
+                    };
+                    tracing::info!(
+                        "Switching storage tag from local dir {} to {}",
+                        db_dir,
+                        dir.to_string_lossy()
+                    );
+                    database_globals.storage_type = Some(new_storage_type.clone());
+                    self.replace_database_globals(database_globals).await?;
+                    new_storage_type
+                } else {
+                    storage_type.clone()
+                }
             },
             (StorageTagInitializer::S3, Some(storage_type @ StorageType::S3 { s3_prefix })) => {
                 anyhow::ensure!(
@@ -161,14 +174,17 @@ mod tests {
 
     use crate::{
         database_globals::{
-            types::StorageTagInitializer,
+            types::{
+                StorageTagInitializer,
+                StorageType,
+            },
             DatabaseGlobalsModel,
         },
         test_helpers::DbFixturesWithModel,
     };
 
     #[convex_macro::test_runtime]
-    async fn test_dont_allow_local_storage(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_allow_local_storage_switch(rt: TestRuntime) -> anyhow::Result<()> {
         let db = DbFixtures::new_with_model(&rt).await?.db;
         let dir = TempDir::new()?;
         let storage_tag = StorageTagInitializer::Local {
@@ -184,15 +200,22 @@ mod tests {
             .initialize_storage_tag(storage_tag, DEV_INSTANCE_NAME.into())
             .await?;
         // Can't change storage paths
+        let dir2 = TempDir::new()?;
         let new_storage_tag = StorageTagInitializer::Local {
-            dir: TempDir::new()?.path().to_owned(),
+            dir: dir2.path().to_owned(),
         };
-        db_model
+        let storage_type = db_model
             .initialize_storage_tag(new_storage_tag, DEV_INSTANCE_NAME.into())
-            .await
-            .unwrap_err()
-            .to_string()
-            .contains("Cannot change local storage dir paths");
+            .await?;
+        match storage_type {
+            StorageType::Local { dir: new_dir } => {
+                anyhow::ensure!(
+                    new_dir != dir.path().to_string_lossy(),
+                    "Storage dir should be different"
+                );
+            },
+            _ => anyhow::bail!("Storage type should be local"),
+        };
 
         // Can't switch to s3 storage
         let storage_tag = StorageTagInitializer::S3;
