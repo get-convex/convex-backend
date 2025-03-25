@@ -12,10 +12,12 @@ const flagDefaults: {
   >;
   spendingLimits: boolean;
   enableIndexFilters: boolean;
+  referralsPage: boolean;
 } = {
   oauthProviderConfiguration: {},
   spendingLimits: false,
   enableIndexFilters: false,
+  referralsPage: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

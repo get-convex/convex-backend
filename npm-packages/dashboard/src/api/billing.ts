@@ -10,7 +10,10 @@ export function useTeamOrbSubscription(teamId?: number) {
     pathParams: {
       team_id: teamId?.toString() || "",
     },
-    swrOptions: { refreshInterval: 0 },
+    swrOptions: {
+      refreshInterval: 0,
+      keepPreviousData: false,
+    },
   });
   if (error) {
     return { isLoading, subscription: null };

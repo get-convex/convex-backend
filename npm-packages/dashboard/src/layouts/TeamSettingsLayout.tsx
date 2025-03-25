@@ -7,6 +7,7 @@ import Head from "next/head";
 import React from "react";
 import { Team } from "generatedApi";
 import { SidebarLink } from "dashboard-common/elements/Sidebar";
+import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export function TeamSettingsLayout({
   page: selectedPage,
@@ -19,17 +20,25 @@ export function TeamSettingsLayout({
     | "billing"
     | "usage"
     | "audit-log"
-    | "access-tokens";
+    | "access-tokens"
+    | "referrals";
   Component: React.FunctionComponent<{ team: Team }>;
   title: string;
 }) {
   const selectedTeam = useCurrentTeam();
+  const { referralsPage } = useLaunchDarkly();
 
   const auditLogsEnabled = useTeamEntitlements(
     selectedTeam?.id,
   )?.auditLogsEnabled;
 
-  const pages = ["general", "members", "billing", "usage"];
+  const pages = [
+    "general",
+    "members",
+    "billing",
+    "usage",
+    ...(referralsPage ? ["referrals"] : []),
+  ];
 
   return (
     <>

@@ -16,6 +16,7 @@ type InputProps = {
   rightAddon?: React.ReactNode;
   /** An interactive element appearing to the right of the input. */
   Icon?: React.FC<{ className: string | undefined }>;
+  iconTooltip?: string;
   /** The action on `Icon`. */
   action?: () => void;
   error?: string;
@@ -35,6 +36,7 @@ export const TextInput = forwardRef<
       label,
       labelHidden = false,
       Icon,
+      iconTooltip,
       SearchIcon,
       leftAddon,
       rightAddon,
@@ -107,6 +109,7 @@ export const TextInput = forwardRef<
             variant={error ? "danger" : "neutral"}
             inline
             icon={<Icon className="h-3.5 w-3.5" />}
+            tip={iconTooltip}
           />
         )}
       </div>
