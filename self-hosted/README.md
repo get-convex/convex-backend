@@ -459,6 +459,12 @@ Executing Migration 114/115. MigrationComplete(115)
 Self-hosted Convex supports all the free-tier features of the cloud-hosted
 product. The cloud-hosted product is optimized for scale.
 
+# Benchmarking
+
+Check out our open-source benchmarking tool,
+[LoadGenerator](../crates/load_generator/README.md), for more information on how
+to benchmark and load test your Convex instance.
+
 # Questions and contributions
 
 - Join our [Discord community](https://discord.gg/convex) for help and

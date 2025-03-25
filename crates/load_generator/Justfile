@@ -6,6 +6,11 @@ set positional-arguments
 # "-dev-bb" commands run against local Big Brain. These runs will ask for authentication against our development Auth0 tenant.
 # "-prod" commands run against production Big Brain, and require CONVEX_OVERRIDE_ACCESS_TOKEN to be set to the secret value from 1Password.
 
+self-hosted *ARGS:
+    cd ../.. && cargo run --release -p load_generator \
+    --bin load-generator -- --stats-report --once \
+    --duration 60  "$@"
+
 dev workload:  reset_env_vars
   cd ../.. && UDF_USE_FUNRUN=false RUST_LOG=${RUST_LOG:-0} cargo run --release -p load_generator \
   --bin load-generator  -- crates/load_generator/workloads/{{workload}}.json --duration 60 \
