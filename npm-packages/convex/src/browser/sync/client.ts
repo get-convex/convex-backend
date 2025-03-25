@@ -125,6 +125,14 @@ export type ConnectionState = {
    * The number of times this client has tried (and failed) to connect to the Convex backend.
    */
   connectionRetries: number;
+  /**
+   * The number of mutations currently in flight.
+   */
+  inflightMutations: number;
+  /**
+   * The number of actions currently in flight.
+   */
+  inflightActions: number;
 };
 
 /**
@@ -698,6 +706,8 @@ export class BaseConvexClient {
       connectionRetries: wsConnectionState.connectionRetries,
       timeOfOldestInflightRequest:
         this.requestManager.timeOfOldestInflightRequest(),
+      inflightMutations: this.requestManager.inflightMutations(),
+      inflightActions: this.requestManager.inflightActions(),
     };
   }
 

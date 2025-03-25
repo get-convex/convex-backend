@@ -33,6 +33,8 @@ export class RequestManager {
     }
   >;
   private requestsOlderThanRestart: Set<RequestId>;
+  private inflightMutationsCount: number = 0;
+  private inflightActionsCount: number = 0;
   constructor(private readonly logger: Logger) {
     this.inflightRequests = new Map();
     this.requestsOlderThanRestart = new Set();
@@ -48,6 +50,12 @@ export class RequestManager {
         message,
         status: { status, requestedAt: new Date(), onResult: resolve },
       });
+
+      if (message.type === "Mutation") {
+        this.inflightMutationsCount++;
+      } else if (message.type === "Action") {
+        this.inflightActionsCount++;
+      }
     });
 
     return result;
@@ -130,6 +138,13 @@ export class RequestManager {
       onResolve();
       this.inflightRequests.delete(response.requestId);
       this.requestsOlderThanRestart.delete(response.requestId);
+
+      if (requestInfo.message.type === "Action") {
+        this.inflightActionsCount--;
+      } else if (requestInfo.message.type === "Mutation") {
+        this.inflightMutationsCount--;
+      }
+
       return { requestId: response.requestId, result };
     }
 
@@ -153,6 +168,13 @@ export class RequestManager {
       if (status.status === "Completed" && status.ts.lessThanOrEqual(ts)) {
         status.onResolve();
         completeRequests.set(requestId, status.result);
+
+        if (requestInfo.message.type === "Mutation") {
+          this.inflightMutationsCount--;
+        } else if (requestInfo.message.type === "Action") {
+          this.inflightActionsCount--;
+        }
+
         this.inflightRequests.delete(requestId);
         this.requestsOlderThanRestart.delete(requestId);
       }
@@ -178,12 +200,13 @@ export class RequestManager {
         // want to tell the backend to transition the client past the completed
         // timestamp. This is safe since mutations are idempotent.
         allMessages.push(value.message);
-      } else {
+      } else if (value.message.type === "Action") {
         // Unlike mutations, actions are not idempotent. When we reconnect to the
         // backend, we don't know if it is safe to resend in-flight actions, so we
         // cancel them and consider them failed.
         this.inflightRequests.delete(requestId);
         this.requestsOlderThanRestart.delete(requestId);
+        this.inflightActionsCount--;
         if (value.status.status === "Completed") {
           throw new Error("Action should never be in 'Completed' state");
         }
@@ -251,5 +274,19 @@ export class RequestManager {
       }
     }
     return new Date(oldestInflightRequest);
+  }
+
+  /**
+   * @returns The number of mutations currently in flight.
+   */
+  inflightMutations(): number {
+    return this.inflightMutationsCount;
+  }
+
+  /**
+   * @returns The number of actions currently in flight.
+   */
+  inflightActions(): number {
+    return this.inflightActionsCount;
   }
 }
