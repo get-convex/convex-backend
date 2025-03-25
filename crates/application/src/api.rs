@@ -139,6 +139,8 @@ pub trait ApplicationApi: Send + Sync {
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
+        // The length of the mutation queue at the time the mutation was executed.
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>>;
 
     /// Execute an admin mutation for a particular component for the dashboard.
@@ -151,6 +153,8 @@ pub trait ApplicationApi: Send + Sync {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         mutation_identifier: Option<SessionRequestIdentifier>,
+        // The length of the mutation queue at the time the mutation was executed.
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>>;
 
     /// Execute a public action on the root app.
@@ -342,6 +346,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         caller: FunctionCaller,
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         anyhow::ensure!(
             caller.allowed_visibility() == AllowedVisibility::PublicOnly,
@@ -354,6 +359,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             identity,
             mutation_identifier,
             caller,
+            mutation_queue_length,
         )
         .await
     }
@@ -367,6 +373,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
         args: Vec<JsonValue>,
         caller: FunctionCaller,
         mutation_identifier: Option<SessionRequestIdentifier>,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         anyhow::ensure!(
             path.component.is_root() || identity.is_admin() || identity.is_system(),
@@ -379,6 +386,7 @@ impl<RT: Runtime> ApplicationApi for Application<RT> {
             identity,
             mutation_identifier,
             caller,
+            mutation_queue_length,
         )
         .await
     }

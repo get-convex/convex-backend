@@ -556,6 +556,7 @@ pub async fn public_mutation_post(
             req.args.into_arg_vec(),
             FunctionCaller::HttpApi(client_version.clone()),
             None,
+            None,
         )
         .await?;
     let value_format = req.format.as_ref().map(|f| f.parse()).transpose()?;

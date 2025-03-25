@@ -799,6 +799,7 @@ pub struct ValidatedUdfOutcome {
     pub syscall_trace: SyscallTrace,
 
     pub udf_server_version: Option<semver::Version>,
+    pub mutation_queue_length: Option<usize>,
 }
 
 impl HeapSize for ValidatedUdfOutcome {
@@ -837,6 +838,7 @@ impl ValidatedUdfOutcome {
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
+            mutation_queue_length: None,
         })
     }
 
@@ -844,6 +846,7 @@ impl ValidatedUdfOutcome {
         outcome: UdfOutcome,
         returns_validator: ReturnsValidator,
         table_mapping: &NamespacedTableMapping,
+        mutation_queue_length: Option<usize>,
     ) -> Self {
         let mut validated = ValidatedUdfOutcome {
             path: outcome.path,
@@ -858,6 +861,7 @@ impl ValidatedUdfOutcome {
             result: outcome.result,
             syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
+            mutation_queue_length,
         };
 
         // TODO(CX-6318) Don't pack json value until it's been validated.
@@ -888,6 +892,7 @@ pub struct ValidatedActionOutcome {
     pub syscall_trace: SyscallTrace,
 
     pub udf_server_version: Option<semver::Version>,
+    pub mutation_queue_length: Option<usize>,
 }
 
 impl ValidatedActionOutcome {
@@ -904,6 +909,7 @@ impl ValidatedActionOutcome {
             result: outcome.result,
             syscall_trace: outcome.syscall_trace,
             udf_server_version: outcome.udf_server_version,
+            mutation_queue_length: None,
         };
 
         if let Ok(ref json_packed_value) = &validated.result {
@@ -936,6 +942,7 @@ impl ValidatedActionOutcome {
             result: Err(js_error),
             syscall_trace: SyscallTrace::new(),
             udf_server_version,
+            mutation_queue_length: None,
         }
     }
 
@@ -954,6 +961,7 @@ impl ValidatedActionOutcome {
             result: Err(JsError::from_error_ref(e)),
             syscall_trace: SyscallTrace::new(),
             udf_server_version: None,
+            mutation_queue_length: None,
         }
     }
 }

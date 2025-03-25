@@ -524,6 +524,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                     args,
                                     caller,
                                     mutation_identifier,
+                                    Some(mutation_queue_size),
                                 )
                                 .in_span(root)
                                 .await?
@@ -539,6 +540,7 @@ impl<RT: Runtime> SyncWorker<RT> {
                                     args,
                                     caller,
                                     mutation_identifier,
+                                    Some(mutation_queue_size),
                                 )
                                 .in_span(root)
                                 .await?

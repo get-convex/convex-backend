@@ -143,6 +143,10 @@ Schema:
 - `status`: string, one of `["success", "failure"]`
 - `error_message`: string, present for functions with status `failure`,
   containing the error and any stack trace.
+- `mutation_queue_length`: optional number (for mutations only), the length of
+  the per-session mutation queue at the time the mutation was executed. This is
+  useful for monitoring and debugging mutation queue backlogs in individual
+  sessions.
 - `usage`:
   - `database_read_bytes`: number
   - `database_write_bytes`: number, this and `database_read_bytes` make up the

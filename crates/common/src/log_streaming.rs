@@ -161,6 +161,7 @@ impl LogEvent {
             udf_type: UdfType::Action,
             module_environment: ModuleEnvironment::Isolate,
             cached: None,
+            mutation_queue_length: None,
         };
         Ok(Self {
             timestamp: runtime.unix_timestamp(),
@@ -448,6 +449,9 @@ pub struct FunctionEventSource {
     // information to transmit to the client to distinguish from logs users explicitly created
     // and logs that we created for by redoing a query when its readset changes.
     pub cached: Option<bool>,
+    // For mutations, this is the length of the mutation queue at the time the mutation was
+    // executed. This is useful for monitoring and debugging mutation queue backlogs.
+    pub mutation_queue_length: Option<usize>,
 }
 
 impl FunctionEventSource {
@@ -460,6 +464,7 @@ impl FunctionEventSource {
             udf_type: UdfType::Mutation,
             module_environment: ModuleEnvironment::Isolate,
             cached: None,
+            mutation_queue_length: None,
         }
     }
 
@@ -475,6 +480,7 @@ impl FunctionEventSource {
             "type": udf_type,
             "cached": self.cached,
             "request_id": self.context.request_id.to_string(),
+            "mutation_queue_length": self.mutation_queue_length,
         }) else {
             unreachable!()
         };
@@ -494,6 +500,7 @@ impl HeapSize for FunctionEventSource {
             + self.udf_path.heap_size()
             + self.udf_type.heap_size()
             + self.cached.heap_size()
+            + self.mutation_queue_length.heap_size()
     }
 }
 
@@ -539,6 +546,7 @@ mod tests {
                     udf_type: UdfType::Query,
                     module_environment: ModuleEnvironment::Isolate,
                     cached: Some(true),
+                    mutation_queue_length: None,
                 },
                 log_line: LogLineStructured::new_developer_log_line(
                     LogLevel::Log,
@@ -561,7 +569,8 @@ mod tests {
                     "path": "test:test",
                     "type": "query",
                     "cached": true,
-                    "request_id": request_id.to_string()
+                    "request_id": request_id.to_string(),
+                    "mutation_queue_length": null
                 }),
                 "log_level": "LOG",
                 "message": "my test log",

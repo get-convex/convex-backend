@@ -72,6 +72,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },
+            None,
         )
         .await??;
     Ok(result.value.unpack())

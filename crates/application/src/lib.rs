@@ -1119,6 +1119,7 @@ impl<RT: Runtime> Application<RT> {
         // Identifier used to make this mutation idempotent.
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<RedactedMutationReturn, RedactedMutationError>> {
         identity.ensure_can_run_function(UdfType::Mutation)?;
         let block_logging = self
@@ -1138,6 +1139,7 @@ impl<RT: Runtime> Application<RT> {
                 identity,
                 mutation_identifier,
                 caller,
+                mutation_queue_length,
             )
             .await
         {
@@ -1384,6 +1386,7 @@ impl<RT: Runtime> Application<RT> {
                     identity,
                     None,
                     caller,
+                    None,
                 )
                 .await
                 .map(|res| {

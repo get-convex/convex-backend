@@ -154,6 +154,10 @@ pub struct FunctionExecution {
     pub identity: InertIdentity,
 
     pub context: ExecutionContext,
+
+    /// The length of the mutation queue at the time the mutation was executed.
+    /// Only applicable for mutations.
+    pub mutation_queue_length: Option<usize>,
 }
 
 impl HeapSize for FunctionExecution {
@@ -203,6 +207,7 @@ impl FunctionExecution {
             module_environment: self.environment,
             cached,
             context: self.context.clone(),
+            mutation_queue_length: self.mutation_queue_length,
         }
     }
 
@@ -623,6 +628,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
+            mutation_queue_length: None,
             udf_type: UdfType::Query,
             log_lines: outcome.log_lines.clone(),
             tables_touched: tables_touched.into(),
@@ -648,6 +654,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         usage: FunctionUsageTracker,
         context: ExecutionContext,
+        mutation_queue_length: Option<usize>,
     ) {
         self._log_mutation(
             outcome,
@@ -657,6 +664,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage),
             context,
             None,
+            mutation_queue_length,
         )
     }
 
@@ -669,6 +677,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         start: tokio::time::Instant,
         caller: FunctionCaller,
         context: ExecutionContext,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<()> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
@@ -689,6 +698,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::SystemError,
             context,
             None,
+            mutation_queue_length,
         );
         Ok(())
     }
@@ -702,6 +712,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: FunctionUsageTracker,
         context: ExecutionContext,
         occ_info: OccInfo,
+        mutation_queue_length: Option<usize>,
     ) {
         self._log_mutation(
             outcome,
@@ -711,6 +722,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             TrackUsage::Track(usage),
             context,
             Some(occ_info),
+            mutation_queue_length,
         );
     }
 
@@ -723,6 +735,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: TrackUsage,
         context: ExecutionContext,
         occ_info: Option<OccInfo>,
+        mutation_queue_length: Option<usize>,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -752,6 +765,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
+            mutation_queue_length,
             execution_timestamp: outcome.unix_timestamp,
             udf_type: UdfType::Mutation,
             log_lines: outcome.log_lines,
@@ -842,6 +856,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
                 identifier: outcome.path,
             },
             unix_timestamp: self.rt.unix_timestamp(),
+            mutation_queue_length: None,
             execution_timestamp: outcome.unix_timestamp,
             udf_type: UdfType::Action,
             log_lines,
@@ -878,6 +893,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             module_environment,
             cached: Some(false),
             context,
+            mutation_queue_length: None,
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
@@ -977,6 +993,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             },
             unix_timestamp: self.rt.unix_timestamp(),
             execution_timestamp: outcome.unix_timestamp,
+            mutation_queue_length: None,
             udf_type: UdfType::HttpAction,
             log_lines,
             tables_touched: WithHeapSize::default(),
@@ -1010,6 +1027,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             module_environment,
             cached: Some(false),
             context,
+            mutation_queue_length: None,
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)

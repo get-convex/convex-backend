@@ -533,6 +533,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     self.rt.monotonic_now(),
                     caller,
                     context,
+                    None,
                 )?;
                 return Ok(());
             },
@@ -638,13 +639,14 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                 udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
+                None,
             )
             .await;
         let (mut tx, mut outcome) = match result {
             Ok(r) => r,
             Err(e) => {
                 self.function_log.log_mutation_system_error(
-                    &e, path, udf_args, identity, start, caller, context,
+                    &e, path, udf_args, identity, start, caller, context, None,
                 )?;
                 return Err(e);
             },
@@ -703,6 +705,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             caller,
             usage_tracker,
             context,
+            None,
         );
 
         Ok(())

@@ -325,6 +325,7 @@ async fn test_cancel_recursively_scheduled_job(rt: TestRuntime) -> anyhow::Resul
             FunctionCaller::Action {
                 parent_scheduled_job,
             },
+            None,
         )
         .await??;
 

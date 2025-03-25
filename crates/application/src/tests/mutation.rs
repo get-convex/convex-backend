@@ -50,6 +50,7 @@ async fn insert_object(application: &Application<TestRuntime>) -> anyhow::Result
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },
+            None,
         )
         .await??;
     Ok(result.value.json_value())
@@ -70,6 +71,7 @@ async fn insert_and_count(application: &Application<TestRuntime>) -> anyhow::Res
             FunctionCaller::Action {
                 parent_scheduled_job: None,
             },
+            None,
         )
         .await??;
     Ok(result

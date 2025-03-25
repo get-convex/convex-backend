@@ -182,6 +182,7 @@ pub async fn internal_mutation_post(
             FunctionCaller::Action {
                 parent_scheduled_job: context.parent_scheduled_job,
             },
+            None,
         )
         .await?;
     if req.format.is_some() {

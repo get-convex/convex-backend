@@ -455,6 +455,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 job.cron_spec.udf_args.clone(),
                 caller.allowed_visibility(),
                 context.clone(),
+                None,
             )
             .await;
         let (mut tx, mut outcome) = match mutation_result {
@@ -468,6 +469,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                     start,
                     caller,
                     context,
+                    None,
                 )?;
                 return Err(e);
             },
@@ -549,6 +551,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             caller,
             usage_tracker,
             context,
+            None,
         );
 
         Ok(())
@@ -801,6 +804,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                         self.rt.monotonic_now(),
                         FunctionCaller::Cron,
                         context,
+                        None,
                     )?;
                 },
                 UdfType::Action => {

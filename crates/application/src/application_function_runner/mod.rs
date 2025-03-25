@@ -721,6 +721,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         let timer = mutation_timer();
         let result = self
@@ -731,6 +732,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 identity,
                 mutation_identifier,
                 caller,
+                mutation_queue_length,
             )
             .await;
         match &result {
@@ -750,6 +752,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         identity: Identity,
         mutation_identifier: Option<SessionRequestIdentifier>,
         caller: FunctionCaller,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<Result<MutationReturn, MutationError>> {
         if path.is_system() && !(identity.is_admin() || identity.is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -801,6 +804,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                     arguments.clone(),
                     caller.allowed_visibility(),
                     context.clone(),
+                    mutation_queue_length,
                 )
                 .await;
             let (mut tx, mut outcome) = match result {
@@ -814,6 +818,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         start,
                         caller,
                         context.clone(),
+                        mutation_queue_length,
                     )?;
                     return Err(e);
                 },
@@ -840,6 +845,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         caller,
                         usage_tracker,
                         context.clone(),
+                        mutation_queue_length,
                     );
                     return Ok(Err(MutationError {
                         error: error.to_owned(),
@@ -894,6 +900,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     write_source,
                                     retry_count: (backoff.failures() - 1) as u64,
                                 },
+                                mutation_queue_length,
                             );
                             continue;
                         }
@@ -915,6 +922,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     write_source,
                                     retry_count: backoff.failures().into(),
                                 },
+                                mutation_queue_length,
                             );
                         } else {
                             self.function_log.log_mutation_system_error(
@@ -925,6 +933,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                 start,
                                 caller,
                                 context,
+                                mutation_queue_length,
                             )?;
                         }
                         log_occ_retries(backoff.failures() as usize);
@@ -940,6 +949,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 caller,
                 usage_tracker,
                 context.clone(),
+                mutation_queue_length,
             );
             log_occ_retries(backoff.failures() as usize);
             return Ok(result);
@@ -956,9 +966,17 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
         let result = self
-            .run_mutation_inner(tx, path, arguments, allowed_visibility, context)
+            .run_mutation_inner(
+                tx,
+                path,
+                arguments,
+                allowed_visibility,
+                context,
+                mutation_queue_length,
+            )
             .await;
         match result.as_ref() {
             Ok((_, udf_outcome)) => {
@@ -988,6 +1006,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         arguments: ConvexArray,
         allowed_visibility: AllowedVisibility,
         context: ExecutionContext,
+        mutation_queue_length: Option<usize>,
     ) -> anyhow::Result<(Transaction<RT>, ValidatedUdfOutcome)> {
         if path.is_system() && !(tx.identity().is_admin() || tx.identity().is_system()) {
             anyhow::bail!(unauthorized_error("mutation"));
@@ -1036,7 +1055,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
 
         let table_mapping = tx.table_mapping().namespace(component.into());
 
-        let outcome = ValidatedUdfOutcome::new(mutation_outcome, returns_validator, &table_mapping);
+        let outcome = ValidatedUdfOutcome::new(
+            mutation_outcome,
+            returns_validator,
+            &table_mapping,
+            mutation_queue_length,
+        );
 
         Ok((tx, outcome))
     }
@@ -1890,6 +1914,7 @@ impl<RT: Runtime> ActionCallbacks for ApplicationFunctionRunner<RT> {
                 FunctionCaller::Action {
                     parent_scheduled_job: context.parent_scheduled_job,
                 },
+                None,
             )
             .await
             .map(|r| match r {

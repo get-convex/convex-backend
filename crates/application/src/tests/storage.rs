@@ -206,6 +206,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
             args.clone(),
             caller.clone(),
             None,
+            None,
         )
         .await??;
     must_let!(let ConvexValue::String(url) = mutation_result.value.unpack());
@@ -251,6 +252,7 @@ async fn test_storage_generate_upload_url(rt: TestRuntime) -> anyhow::Result<()>
             },
             args.clone(),
             caller.clone(),
+            None,
             None,
         )
         .await??;
