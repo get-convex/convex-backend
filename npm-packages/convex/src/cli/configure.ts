@@ -31,6 +31,7 @@ import {
 } from "./lib/deployment.js";
 import { finalizeConfiguration } from "./lib/init.js";
 import {
+  CONVEX_DEPLOYMENT_ENV_VAR_NAME,
   functionsDir,
   hasProjects,
   logAndHandleFetchError,
@@ -43,13 +44,19 @@ import path from "path";
 import { projectDashboardUrl } from "./dashboard.js";
 import { doCodegen, doInitCodegen } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
-import { promptOptions, promptString } from "./lib/utils/prompts.js";
+import {
+  promptOptions,
+  promptString,
+  promptYesNo,
+} from "./lib/utils/prompts.js";
 import { readGlobalConfig } from "./lib/utils/globalConfig.js";
 import {
   DeploymentSelection,
+  ProjectSelection,
   deploymentNameFromSelection,
 } from "./lib/deploymentSelection.js";
 import { ensureLoggedIn } from "./lib/login.js";
+import { handleTryItOutDeployment } from "./lib/localDeployment/tryitout.js";
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
@@ -74,6 +81,7 @@ type ConfigureCmdOptions = {
       site: number;
     };
     backendVersion?: string | undefined;
+    dashboardVersion?: string | undefined;
     forceUpgrade: boolean;
   };
   team?: string | undefined;
@@ -122,6 +130,7 @@ export async function deploymentCredentialsOrConfigure(
   );
 
   if (selectedDeployment.deploymentFields !== null) {
+    // Set the `CONVEX_DEPLOYMENT` env var + the `CONVEX_URL` env var
     await updateEnvAndConfigForDeploymentSelection(
       ctx,
       {
@@ -129,12 +138,12 @@ export async function deploymentCredentialsOrConfigure(
         deploymentName: selectedDeployment.deploymentFields.deploymentName,
         teamSlug: selectedDeployment.deploymentFields.teamSlug,
         projectSlug: selectedDeployment.deploymentFields.projectSlug,
-        deploymentType: selectedDeployment.deploymentFields
-          .deploymentType as DeploymentType,
+        deploymentType: selectedDeployment.deploymentFields.deploymentType,
       },
       deploymentNameFromSelection(deploymentSelection),
     );
   } else {
+    // Clear the `CONVEX_DEPLOYMENT` env var + set the `CONVEX_URL` env var
     await handleManuallySetUrlAndAdminKey(ctx, {
       url: selectedDeployment.url,
       adminKey: selectedDeployment.adminKey,
@@ -157,7 +166,7 @@ export async function _deploymentCredentialsOrConfigure(
   DeploymentCredentials & {
     deploymentFields: {
       deploymentName: DeploymentName;
-      deploymentType: string;
+      deploymentType: DeploymentType;
       projectSlug: string | null;
       teamSlug: string | null;
     } | null;
@@ -218,14 +227,30 @@ export async function _deploymentCredentialsOrConfigure(
         printedMessage: "Use `npx convex deploy` to use preview deployments.",
       });
     case "deploymentWithinProject": {
-      await ensureLoggedIn(ctx, {
-        overrideAuthUrl: cmdOptions.overrideAuthUrl,
-        overrideAuthClient: cmdOptions.overrideAuthClient,
-        overrideAuthUsername: cmdOptions.overrideAuthUsername,
-        overrideAuthPassword: cmdOptions.overrideAuthPassword,
+      return await handleDeploymentWithinProject(ctx, {
+        chosenConfiguration,
+        targetProject: deploymentSelection.targetProject,
+        cmdOptions,
+        globallyForceCloud,
+        partitionId,
       });
-      if (chosenConfiguration !== null) {
-        const result = await handleChooseProject(
+    }
+    case "tryItOut": {
+      const hasAuth = ctx.bigBrainAuth() !== null;
+      if (hasAuth && deploymentSelection.deploymentName !== null) {
+        const shouldConfigure =
+          chosenConfiguration !== null ||
+          (await promptYesNo(ctx, {
+            message: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is configured with deployment ${deploymentSelection.deploymentName}, which is not linked with your account. Would you like to choose a different project instead?`,
+          }));
+        if (!shouldConfigure) {
+          return await ctx.crash({
+            exitCode: 0,
+            errorType: "fatal",
+            printedMessage: `Run \`npx convex login\` first to link this deployment to your account, and then run \`npx convex dev\` again.`,
+          });
+        }
+        return await handleChooseProject(
           ctx,
           chosenConfiguration,
           {
@@ -234,53 +259,109 @@ export async function _deploymentCredentialsOrConfigure(
           },
           cmdOptions,
         );
-        return result;
       }
-
-      const accessResult = await checkAccessToSelectedProject(
-        ctx,
-        deploymentSelection.targetProject,
-      );
-      if (accessResult.kind === "noAccess") {
-        logMessage(ctx, "You don't have access to the selected project.");
-        const result = await handleChooseProject(
-          ctx,
-          chosenConfiguration,
-          {
-            globallyForceCloud,
-            partitionId,
-          },
-          cmdOptions,
-        );
-        return result;
-      }
-
-      const selectedDeployment = await loadSelectedDeploymentCredentials(
-        ctx,
-        deploymentSelection,
-        cmdOptions.selectionWithinProject,
-        // We'll start running it below
-        { ensureLocalRunning: false },
-      );
-      if (
-        selectedDeployment.deploymentFields !== null &&
-        selectedDeployment.deploymentFields.deploymentType === "local"
-      ) {
-        await handleLocalDeployment(ctx, {
-          teamSlug: selectedDeployment.deploymentFields.teamSlug!,
-          projectSlug: selectedDeployment.deploymentFields.projectSlug!,
-          forceUpgrade: cmdOptions.localOptions.forceUpgrade,
-          ports: cmdOptions.localOptions.ports,
-          backendVersion: cmdOptions.localOptions.backendVersion,
-        });
-      }
+      const result = await handleTryItOutDeployment(ctx, {
+        chosenConfiguration,
+        deploymentName: deploymentSelection.deploymentName,
+        ...cmdOptions.localOptions,
+      });
       return {
-        url: selectedDeployment.url,
-        adminKey: selectedDeployment.adminKey,
-        deploymentFields: selectedDeployment.deploymentFields,
+        adminKey: result.adminKey,
+        url: result.deploymentUrl,
+        deploymentFields: {
+          deploymentName: result.deploymentName,
+          deploymentType: "tryitout",
+          projectSlug: null,
+          teamSlug: null,
+        },
       };
     }
   }
+}
+
+async function handleDeploymentWithinProject(
+  ctx: Context,
+  {
+    chosenConfiguration,
+    targetProject,
+    cmdOptions,
+    globallyForceCloud,
+    partitionId,
+  }: {
+    chosenConfiguration: ChosenConfiguration;
+    targetProject: ProjectSelection;
+    cmdOptions: ConfigureCmdOptions;
+    globallyForceCloud: boolean;
+    partitionId?: number | undefined;
+  },
+) {
+  const hasAuth = ctx.bigBrainAuth() !== null;
+  const loginMessage = hasAuth
+    ? undefined
+    : `Tip: You can try out Convex without creating an account by clearing the ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable.`;
+  await ensureLoggedIn(ctx, {
+    message: loginMessage,
+    overrideAuthUrl: cmdOptions.overrideAuthUrl,
+    overrideAuthClient: cmdOptions.overrideAuthClient,
+    overrideAuthUsername: cmdOptions.overrideAuthUsername,
+    overrideAuthPassword: cmdOptions.overrideAuthPassword,
+  });
+  if (chosenConfiguration !== null) {
+    const result = await handleChooseProject(
+      ctx,
+      chosenConfiguration,
+      {
+        globallyForceCloud,
+        partitionId,
+      },
+      cmdOptions,
+    );
+    return result;
+  }
+
+  const accessResult = await checkAccessToSelectedProject(ctx, targetProject);
+  if (accessResult.kind === "noAccess") {
+    logMessage(ctx, "You don't have access to the selected project.");
+    const result = await handleChooseProject(
+      ctx,
+      chosenConfiguration,
+      {
+        globallyForceCloud,
+        partitionId,
+      },
+      cmdOptions,
+    );
+    return result;
+  }
+
+  const selectedDeployment = await loadSelectedDeploymentCredentials(
+    ctx,
+    {
+      kind: "deploymentWithinProject",
+      targetProject,
+    },
+    cmdOptions.selectionWithinProject,
+    // We'll start running it below
+    { ensureLocalRunning: false },
+  );
+  if (
+    selectedDeployment.deploymentFields !== null &&
+    selectedDeployment.deploymentFields.deploymentType === "local"
+  ) {
+    // Start running the local backend
+    await handleLocalDeployment(ctx, {
+      teamSlug: selectedDeployment.deploymentFields.teamSlug!,
+      projectSlug: selectedDeployment.deploymentFields.projectSlug!,
+      forceUpgrade: cmdOptions.localOptions.forceUpgrade,
+      ports: cmdOptions.localOptions.ports,
+      backendVersion: cmdOptions.localOptions.backendVersion,
+    });
+  }
+  return {
+    url: selectedDeployment.url,
+    adminKey: selectedDeployment.adminKey,
+    deploymentFields: selectedDeployment.deploymentFields,
+  };
 }
 
 async function handleChooseProject(

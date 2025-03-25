@@ -59,6 +59,20 @@ export async function bigBrainEnableFeatureMetadata(
   });
 }
 
+export async function bigBrainGenerateTryItOutAdminKey(
+  ctx: Context,
+  data: {
+    instanceName: string;
+    instanceSecret: string;
+  },
+) {
+  return bigBrainAPI({
+    ctx,
+    method: "POST",
+    url: "/api/local_deployment/generate_admin_key",
+    data,
+  });
+}
 /** Whether a project already has a cloud dev deployment for this user. */
 export async function projectHasExistingCloudDev(
   ctx: Context,

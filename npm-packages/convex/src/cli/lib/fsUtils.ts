@@ -1,5 +1,6 @@
 import { Context, logOutput } from "../../bundler/context.js";
 import path from "path";
+import { NodeFs } from "../../bundler/fs.js";
 
 export function recursivelyDelete(
   ctx: Context,
@@ -46,5 +47,28 @@ export function recursivelyDelete(
         throw err;
       }
     }
+  }
+}
+
+export async function recusivelyCopy(
+  ctx: Context,
+  nodeFs: NodeFs,
+  src: string,
+  dest: string,
+) {
+  const st = nodeFs.stat(src);
+  if (st.isDirectory()) {
+    nodeFs.mkdir(dest, { recursive: true });
+    for (const entry of nodeFs.listDir(src)) {
+      await recusivelyCopy(
+        ctx,
+        nodeFs,
+        path.join(src, entry.name),
+        path.join(dest, entry.name),
+      );
+    }
+  } else {
+    // Don't use writeUtf8File to allow copying arbitrary files
+    await nodeFs.writeFileStream(dest, nodeFs.createReadStream(src, {}));
   }
 }

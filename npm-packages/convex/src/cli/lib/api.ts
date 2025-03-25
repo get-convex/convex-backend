@@ -1,6 +1,9 @@
 import { Context, logVerbose, logWarning } from "../../bundler/context.js";
 import { getTeamAndProjectFromPreviewAdminKey } from "./deployment.js";
-import { assertLocalBackendRunning } from "./localDeployment/run.js";
+import {
+  assertLocalBackendRunning,
+  localDeploymentUrl,
+} from "./localDeployment/run.js";
 import {
   ThrowingFetchError,
   bigBrainAPI,
@@ -13,9 +16,11 @@ import {
   ProjectSelection,
 } from "./deploymentSelection.js";
 import { loadLocalDeploymentCredentials } from "./localDeployment/localDeployment.js";
-
+import { loadTryItOutDeployment } from "./localDeployment/tryitout.js";
 export type DeploymentName = string;
-export type DeploymentType = "dev" | "prod" | "local";
+export type CloudDeploymentType = "prod" | "dev" | "preview";
+export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
+export type DeploymentType = AccountRequiredDeploymentType | "tryitout";
 
 export type Project = {
   id: string;
@@ -38,7 +43,7 @@ export async function createProject(
     teamSlug: string;
     projectName: string;
     partitionId?: number;
-    deploymentTypeToProvision: DeploymentType;
+    deploymentTypeToProvision: "prod" | "dev";
   },
 ): Promise<{
   projectSlug: string;
@@ -289,7 +294,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
   projectSelection:
     | { kind: "teamAndProjectSlugs"; teamSlug: string; projectSlug: string }
     | { kind: "projectDeployKey"; projectDeployKey: string },
-  deploymentType: DeploymentType,
+  deploymentType: "prod" | "dev",
   partitionId: number | undefined,
 ): Promise<{
   deploymentName: string;
@@ -328,7 +333,7 @@ export async function fetchDeploymentCredentialsProvisioningDevOrProdMaybeThrows
           projectSelection.kind === "teamAndProjectSlugs"
             ? projectSelection.projectSlug
             : null,
-        deploymentType,
+        deploymentType: deploymentType === "prod" ? "prod" : "dev",
         partitionId,
       },
     });
@@ -397,7 +402,7 @@ async function handleOwnDev(
   deploymentName: string;
   adminKey: string;
   url: string;
-  deploymentType: string;
+  deploymentType: DeploymentType;
 }> {
   switch (projectSelection.kind) {
     case "deploymentName": {
@@ -446,7 +451,7 @@ async function handleProd(
   deploymentName: string;
   adminKey: string;
   url: string;
-  deploymentType: string;
+  deploymentType: "prod";
 }> {
   switch (projectSelection.kind) {
     case "deploymentName": {
@@ -488,7 +493,7 @@ async function handlePreview(
   deploymentName: string;
   adminKey: string;
   url: string;
-  deploymentType: string;
+  deploymentType: "preview";
 }> {
   switch (projectSelection.kind) {
     case "deploymentName":
@@ -522,7 +527,7 @@ async function handleDeploymentName(
   deploymentName: string;
   adminKey: string;
   url: string;
-  deploymentType: string;
+  deploymentType: DeploymentType;
 }> {
   switch (projectSelection.kind) {
     case "deploymentName":
@@ -555,7 +560,7 @@ async function fetchDeploymentCredentialsWithinCurrentProject(
   deploymentName: string;
   adminKey: string;
   url: string;
-  deploymentType: string;
+  deploymentType: DeploymentType;
 }> {
   switch (deploymentSelection.kind) {
     case "ownDev": {
@@ -608,7 +613,7 @@ async function _loadExistingDeploymentCredentialsForProject(
   url: string;
   deploymentFields: {
     deploymentName: string;
-    deploymentType: string;
+    deploymentType: DeploymentType;
     projectSlug: string | null;
     teamSlug: string | null;
   } | null;
@@ -663,7 +668,7 @@ export async function loadSelectedDeploymentCredentials(
   url: string;
   deploymentFields: {
     deploymentName: string;
-    deploymentType: string;
+    deploymentType: DeploymentType;
     projectSlug: string | null;
     teamSlug: string | null;
   } | null;
@@ -717,7 +722,37 @@ export async function loadSelectedDeploymentCredentials(
         { ensureLocalRunning },
       );
     }
-
+    case "tryItOut": {
+      if (deploymentSelection.deploymentName === null) {
+        return await ctx.crash({
+          exitCode: 1,
+          errorType: "fatal",
+          printedMessage:
+            "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
+        });
+      }
+      const config = await loadTryItOutDeployment(
+        ctx,
+        deploymentSelection.deploymentName,
+      );
+      const url = localDeploymentUrl(config.ports.cloud);
+      if (ensureLocalRunning) {
+        await assertLocalBackendRunning(ctx, {
+          url,
+          deploymentName: deploymentSelection.deploymentName,
+        });
+      }
+      return {
+        adminKey: config.adminKey,
+        url,
+        deploymentFields: {
+          deploymentName: deploymentSelection.deploymentName,
+          deploymentType: "tryitout",
+          projectSlug: null,
+          teamSlug: null,
+        },
+      };
+    }
     default: {
       const _exhaustivenessCheck: never = deploymentSelection;
       return await ctx.crash({

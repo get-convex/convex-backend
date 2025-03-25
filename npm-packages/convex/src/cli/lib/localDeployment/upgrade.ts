@@ -6,9 +6,12 @@ import {
   logVerbose,
 } from "../../../bundler/context.js";
 import { runSystemQuery } from "../run.js";
-import { deploymentStateDir, saveDeploymentConfig } from "./filePaths.js";
 import {
-  ensureBackendBinaryDownloaded,
+  LocalDeploymentKind,
+  deploymentStateDir,
+  saveDeploymentConfig,
+} from "./filePaths.js";
+import {
   ensureBackendStopped,
   localDeploymentUrl,
   runLocalBackend,
@@ -26,10 +29,11 @@ import {
 import { promptOptions, promptYesNo } from "../utils/prompts.js";
 import { recursivelyDelete } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
-
+import { ensureBackendBinaryDownloaded } from "./download.js";
 export async function handlePotentialUpgrade(
   ctx: Context,
   args: {
+    deploymentKind: LocalDeploymentKind;
     deploymentName: string;
     oldVersion: string | null;
     newBinaryPath: string;
@@ -39,6 +43,7 @@ export async function handlePotentialUpgrade(
       site: number;
     };
     adminKey: string;
+    instanceSecret: string;
     forceUpgrade: boolean;
   },
 ): Promise<{ cleanupHandle: string }> {
@@ -46,14 +51,22 @@ export async function handlePotentialUpgrade(
     ports: args.ports,
     backendVersion: args.newVersion,
     adminKey: args.adminKey,
+    instanceSecret: args.instanceSecret,
   };
   if (args.oldVersion === null || args.oldVersion === args.newVersion) {
     // No upgrade needed. Save the current config and start running the backend.
-    saveDeploymentConfig(ctx, args.deploymentName, newConfig);
+    saveDeploymentConfig(
+      ctx,
+      args.deploymentKind,
+      args.deploymentName,
+      newConfig,
+    );
     return runLocalBackend(ctx, {
       binaryPath: args.newBinaryPath,
+      deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
       ports: args.ports,
+      instanceSecret: args.instanceSecret,
     });
   }
   logVerbose(
@@ -75,14 +88,16 @@ export async function handlePotentialUpgrade(
       },
     );
     // Skipping upgrade, save the config with the old version and run.
-    saveDeploymentConfig(ctx, args.deploymentName, {
+    saveDeploymentConfig(ctx, args.deploymentKind, args.deploymentName, {
       ...newConfig,
       backendVersion: args.oldVersion,
     });
     return runLocalBackend(ctx, {
       binaryPath: oldBinaryPath,
       ports: args.ports,
+      deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
+      instanceSecret: args.instanceSecret,
     });
   }
   const choice = args.forceUpgrade
@@ -95,23 +110,35 @@ export async function handlePotentialUpgrade(
           { name: "start fresh", value: "reset" },
         ],
       });
-  const deploymentStatePath = deploymentStateDir(args.deploymentName);
+  const deploymentStatePath = deploymentStateDir(
+    args.deploymentKind,
+    args.deploymentName,
+  );
   if (choice === "reset") {
     recursivelyDelete(ctx, deploymentStatePath, { force: true });
-    saveDeploymentConfig(ctx, args.deploymentName, newConfig);
+    saveDeploymentConfig(
+      ctx,
+      args.deploymentKind,
+      args.deploymentName,
+      newConfig,
+    );
     return runLocalBackend(ctx, {
       binaryPath: args.newBinaryPath,
+      deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
       ports: args.ports,
+      instanceSecret: args.instanceSecret,
     });
   }
   return handleUpgrade(ctx, {
+    deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
     oldVersion: args.oldVersion!,
     newBinaryPath: args.newBinaryPath,
     newVersion: args.newVersion,
     ports: args.ports,
     adminKey: args.adminKey,
+    instanceSecret: args.instanceSecret,
   });
 }
 
@@ -119,6 +146,7 @@ async function handleUpgrade(
   ctx: Context,
   args: {
     deploymentName: string;
+    deploymentKind: LocalDeploymentKind;
     oldVersion: string;
     newBinaryPath: string;
     newVersion: string;
@@ -127,6 +155,7 @@ async function handleUpgrade(
       site: number;
     };
     adminKey: string;
+    instanceSecret: string;
   },
 ): Promise<{ cleanupHandle: string }> {
   const { binaryPath: oldBinaryPath } = await ensureBackendBinaryDownloaded(
@@ -141,7 +170,9 @@ async function handleUpgrade(
   const { cleanupHandle: oldCleanupHandle } = await runLocalBackend(ctx, {
     binaryPath: oldBinaryPath,
     ports: args.ports,
+    deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
+    instanceSecret: args.instanceSecret,
   });
 
   logVerbose(ctx, "Downloading env vars");
@@ -159,7 +190,7 @@ async function handleUpgrade(
 
   logVerbose(ctx, "Doing a snapshot export");
   const exportPath = path.join(
-    deploymentStateDir(args.deploymentName),
+    deploymentStateDir(args.deploymentKind, args.deploymentName),
     "export.zip",
   );
   if (ctx.fs.exists(exportPath)) {
@@ -202,7 +233,9 @@ async function handleUpgrade(
   const { cleanupHandle } = await runLocalBackend(ctx, {
     binaryPath: args.newBinaryPath,
     ports: args.ports,
+    deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
+    instanceSecret: args.instanceSecret,
   });
 
   logVerbose(ctx, "Importing the env vars");
@@ -282,10 +315,11 @@ async function handleUpgrade(
   }
 
   logFinishedStep(ctx, "Successfully upgraded to a new backend version");
-  saveDeploymentConfig(ctx, args.deploymentName, {
+  saveDeploymentConfig(ctx, args.deploymentKind, args.deploymentName, {
     ports: args.ports,
     backendVersion: args.newVersion,
     adminKey: args.adminKey,
+    instanceSecret: args.instanceSecret,
   });
 
   return { cleanupHandle };

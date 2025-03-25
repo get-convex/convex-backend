@@ -211,6 +211,7 @@ export async function normalizeDevOptions(
     traceEvents: boolean;
     debugBundlePath?: string;
     liveComponentSources?: boolean;
+    while?: string;
   },
 ): Promise<{
   verbose: boolean;

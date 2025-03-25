@@ -497,6 +497,7 @@ async function optins(ctx: Context, acceptOptIns: boolean): Promise<boolean> {
 export async function ensureLoggedIn(
   ctx: Context,
   options?: {
+    message?: string;
     overrideAuthUrl?: string;
     overrideAuthClient?: string;
     overrideAuthUsername?: string;
@@ -505,6 +506,9 @@ export async function ensureLoggedIn(
 ) {
   const isLoggedIn = await checkAuthorization(ctx, false);
   if (!isLoggedIn) {
+    if (options?.message) {
+      logMessage(ctx, options.message);
+    }
     await performLogin(ctx, {
       acceptOptIns: false,
       overrideAuthUrl: options?.overrideAuthUrl,

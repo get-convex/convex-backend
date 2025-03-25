@@ -28,6 +28,10 @@ export function getDeploymentTypeFromConfiguredDeployment(raw: string) {
   return type;
 }
 
+export function isTryItOutDeployment(deploymentName: string) {
+  return deploymentName.startsWith("tryitout-");
+}
+
 export async function writeDeploymentEnvVar(
   ctx: Context,
   deploymentType: DeploymentType,
@@ -210,7 +214,7 @@ export function deploymentTypeFromAdminKey(adminKey: string) {
   if (parts.length === 1) {
     return "prod";
   }
-  return parts.at(0)!;
+  return parts.at(0)! as DeploymentType;
 }
 
 export async function getTeamAndProjectFromPreviewAdminKey(

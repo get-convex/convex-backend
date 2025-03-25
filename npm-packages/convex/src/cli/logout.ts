@@ -13,7 +13,9 @@ export const logout = new Command("logout")
       envFile: undefined,
     });
 
-    recursivelyDelete(ctx, globalConfigPath());
+    if (ctx.fs.exists(globalConfigPath())) {
+      recursivelyDelete(ctx, globalConfigPath());
+    }
 
     logFinishedStep(
       ctx,

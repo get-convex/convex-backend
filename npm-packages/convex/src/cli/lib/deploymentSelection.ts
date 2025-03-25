@@ -1,5 +1,9 @@
 import { BigBrainAuth, Context, logVerbose } from "../../bundler/context.js";
-import { fetchTeamAndProjectForKey } from "./api.js";
+import {
+  AccountRequiredDeploymentType,
+  DeploymentType,
+  fetchTeamAndProjectForKey,
+} from "./api.js";
 import { readProjectConfig } from "./config.js";
 import {
   deploymentNameFromAdminKeyOrCrash,
@@ -7,6 +11,7 @@ import {
   getDeploymentTypeFromConfiguredDeployment,
   isPreviewDeployKey,
   isProjectKey,
+  isTryItOutDeployment,
   stripDeploymentTypePrefix,
 } from "./deployment.js";
 import { buildEnvironment } from "./envvars.js";
@@ -195,7 +200,7 @@ export type DeploymentSelection =
         adminKey: string;
         deploymentFields: {
           deploymentName: string;
-          deploymentType: string;
+          deploymentType: DeploymentType;
           projectSlug: string;
           teamSlug: string;
         } | null;
@@ -212,6 +217,10 @@ export type DeploymentSelection =
     }
   | {
       kind: "chooseProject";
+    }
+  | {
+      kind: "tryItOut";
+      deploymentName: string | null;
     };
 
 export type ProjectSelection =
@@ -223,7 +232,7 @@ export type ProjectSelection =
   | {
       kind: "deploymentName";
       deploymentName: string;
-      deploymentType: string | null;
+      deploymentType: AccountRequiredDeploymentType | null;
     }
   | {
       kind: "projectDeployKey";
@@ -265,6 +274,10 @@ function logDeploymentSelection(ctx: Context, selection: DeploymentSelection) {
     }
     case "chooseProject": {
       logVerbose(ctx, `Choose project`);
+      break;
+    }
+    case "tryItOut": {
+      logVerbose(ctx, `Try it out`);
       break;
     }
     default: {
@@ -354,30 +367,37 @@ async function _getDeploymentSelection(
     }
     return value;
   });
-  if (result.kind === "unknown") {
-    // none of these?
+  if (result.kind !== "unknown") {
+    return result.metadata;
+  }
+  // none of these?
 
-    // Check the `convex.json` for a configured team and project
-    const { projectConfig } = await readProjectConfig(ctx);
-    if (
-      projectConfig.team !== undefined &&
-      projectConfig.project !== undefined
-    ) {
-      return {
-        kind: "deploymentWithinProject",
-        targetProject: {
-          kind: "teamAndProjectSlugs",
-          teamSlug: projectConfig.team,
-          projectSlug: projectConfig.project,
-        },
-      };
-    }
-    // Choose a project interactively later
+  // Check the `convex.json` for a configured team and project
+  const { projectConfig } = await readProjectConfig(ctx);
+  if (projectConfig.team !== undefined && projectConfig.project !== undefined) {
     return {
-      kind: "chooseProject",
+      kind: "deploymentWithinProject",
+      targetProject: {
+        kind: "teamAndProjectSlugs",
+        teamSlug: projectConfig.team,
+        projectSlug: projectConfig.project,
+      },
     };
   }
-  return result.metadata;
+
+  // Check if they're logged in
+  const isLoggedIn = ctx.bigBrainAuth() !== null;
+  if (!isLoggedIn && shouldAllowTryItOut()) {
+    return {
+      kind: "tryItOut",
+      deploymentName: null,
+    };
+  }
+
+  // Choose a project interactively later
+  return {
+    kind: "chooseProject",
+  };
 }
 
 async function getDeploymentSelectionFromEnv(
@@ -473,32 +493,15 @@ async function getDeploymentSelectionFromEnv(
   const convexDeployment = getEnv(CONVEX_DEPLOYMENT_ENV_VAR_NAME);
   const selfHostedUrl = getEnv(CONVEX_SELF_HOSTED_URL_VAR_NAME);
   const selfHostedAdminKey = getEnv(CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME);
-  if (convexDeployment !== null) {
-    if (selfHostedUrl !== null || selfHostedAdminKey !== null) {
+
+  if (selfHostedUrl !== null && selfHostedAdminKey !== null) {
+    if (convexDeployment !== null) {
       return await ctx.crash({
         exitCode: 1,
         errorType: "invalid filesystem or env vars",
-        printedMessage: `${CONVEX_SELF_HOSTED_URL_VAR_NAME} and ${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME} must not be set when ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is set`,
+        printedMessage: `${CONVEX_DEPLOYMENT_ENV_VAR_NAME} must not be set when ${CONVEX_SELF_HOSTED_URL_VAR_NAME} and ${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME} are set`,
       });
     }
-    const targetDeploymentType =
-      getDeploymentTypeFromConfiguredDeployment(convexDeployment);
-    const targetDeploymentName = stripDeploymentTypePrefix(convexDeployment);
-
-    // Commands can select a deployment within the project that this deployment belongs to.
-    return {
-      kind: "success",
-      metadata: {
-        kind: "deploymentWithinProject",
-        targetProject: {
-          kind: "deploymentName",
-          deploymentName: targetDeploymentName,
-          deploymentType: targetDeploymentType,
-        },
-      },
-    };
-  }
-  if (selfHostedUrl !== null && selfHostedAdminKey !== null) {
     return {
       kind: "success",
       metadata: {
@@ -512,6 +515,47 @@ async function getDeploymentSelectionFromEnv(
       },
     };
   }
+
+  if (convexDeployment !== null) {
+    if (selfHostedUrl !== null || selfHostedAdminKey !== null) {
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "invalid filesystem or env vars",
+        printedMessage: `${CONVEX_SELF_HOSTED_URL_VAR_NAME} and ${CONVEX_SELF_HOSTED_ADMIN_KEY_VAR_NAME} must not be set when ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} is set`,
+      });
+    }
+    const targetDeploymentType =
+      getDeploymentTypeFromConfiguredDeployment(convexDeployment);
+    const targetDeploymentName = stripDeploymentTypePrefix(convexDeployment);
+    const isTryItOut = isTryItOutDeployment(targetDeploymentName);
+    if (isTryItOut) {
+      if (!shouldAllowTryItOut()) {
+        return {
+          kind: "unknown",
+        };
+      }
+      return {
+        kind: "success",
+        metadata: {
+          kind: "tryItOut",
+          deploymentName: targetDeploymentName,
+        },
+      };
+    }
+    // Commands can select a deployment within the project that this deployment belongs to.
+    return {
+      kind: "success",
+      metadata: {
+        kind: "deploymentWithinProject",
+        targetProject: {
+          kind: "deploymentName",
+          deploymentName: targetDeploymentName,
+          deploymentType: targetDeploymentType,
+        },
+      },
+    };
+  }
+
   return { kind: "unknown" };
 }
 
@@ -564,7 +608,15 @@ export const deploymentNameAndTypeFromSelection = (
     case "chooseProject": {
       return null;
     }
+    case "tryItOut": {
+      return null;
+    }
   }
   const _exhaustivenessCheck: never = selection;
   return null;
+};
+
+const shouldAllowTryItOut = (): boolean => {
+  // Temporary flag while we build out this flow
+  return process.env.CONVEX_TRY_IT_OUT !== undefined;
 };

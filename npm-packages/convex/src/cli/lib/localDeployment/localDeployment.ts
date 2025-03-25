@@ -1,5 +1,4 @@
-import { Context, logMessage, logVerbose } from "../../../bundler/context.js";
-import detect from "detect-port";
+import { Context, logVerbose } from "../../../bundler/context.js";
 import {
   bigBrainPause,
   bigBrainRecordActivity,
@@ -12,7 +11,6 @@ import {
   saveDeploymentConfig,
 } from "./filePaths.js";
 import {
-  ensureBackendBinaryDownloaded,
   ensureBackendRunning,
   ensureBackendStopped,
   localDeploymentUrl,
@@ -22,7 +20,13 @@ import { handlePotentialUpgrade } from "./upgrade.js";
 import { OnDeploymentActivityFunc } from "../deployment.js";
 import { promptSearch } from "../utils/prompts.js";
 import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
-import chalk from "chalk";
+import {
+  choosePorts,
+  printLocalDeploymentWelcomeMessage,
+  isOffline,
+  LOCAL_BACKEND_INSTANCE_SECRET,
+} from "./utils.js";
+import { ensureBackendBinaryDownloaded } from "./download.js";
 export type DeploymentDetails = {
   deploymentName: string;
   deploymentUrl: string;
@@ -85,16 +89,20 @@ export async function handleLocalDeployment(
         }
       : { kind: "version", version: options.backendVersion },
   );
-  const ports = await choosePorts(ctx, options.ports);
+  const [cloudPort, sitePort] = await choosePorts(ctx, {
+    count: 2,
+    startPort: 3210,
+    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
+  });
   const { deploymentName, adminKey } = await bigBrainStart(ctx, {
-    port: ports.cloud,
+    port: cloudPort,
     projectSlug: options.projectSlug,
     teamSlug: options.teamSlug,
     instanceName: existingDeploymentForProject?.deploymentName ?? null,
   });
   const onActivity = async (isOffline: boolean, _wasOffline: boolean) => {
     await ensureBackendRunning(ctx, {
-      cloudPort: ports.cloud,
+      cloudPort,
       deploymentName,
       maxTimeSecs: 5,
     });
@@ -107,12 +115,14 @@ export async function handleLocalDeployment(
   };
 
   const { cleanupHandle } = await handlePotentialUpgrade(ctx, {
+    deploymentKind: "local",
     deploymentName,
     oldVersion: existingDeploymentForProject?.config.backendVersion ?? null,
     newBinaryPath: binaryPath,
     newVersion: version,
-    ports,
+    ports: { cloud: cloudPort, site: sitePort },
     adminKey,
+    instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
     forceUpgrade: options.forceUpgrade,
   });
 
@@ -130,7 +140,7 @@ export async function handleLocalDeployment(
   return {
     adminKey,
     deploymentName,
-    deploymentUrl: localDeploymentUrl(ports.cloud),
+    deploymentUrl: localDeploymentUrl(cloudPort),
     onActivity,
   };
 }
@@ -143,7 +153,7 @@ export async function loadLocalDeploymentCredentials(
   deploymentUrl: string;
   adminKey: string;
 }> {
-  const config = loadDeploymentConfig(ctx, deploymentName);
+  const config = loadDeploymentConfig(ctx, "local", deploymentName);
   if (config === null) {
     return ctx.crash({
       exitCode: 1,
@@ -172,20 +182,26 @@ async function handleOffline(
     kind: "version",
     version: config.backendVersion,
   });
-  const ports = await choosePorts(ctx, options.ports);
-  saveDeploymentConfig(ctx, deploymentName, config);
+  const [cloudPort, sitePort] = await choosePorts(ctx, {
+    count: 2,
+    startPort: 3210,
+    requestedPorts: [options.ports?.cloud ?? null, options.ports?.site ?? null],
+  });
+  saveDeploymentConfig(ctx, "local", deploymentName, config);
   await runLocalBackend(ctx, {
     binaryPath,
-    ports,
+    ports: { cloud: cloudPort, site: sitePort },
     deploymentName,
+    deploymentKind: "local",
+    instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
   });
   return {
     adminKey: config.adminKey,
     deploymentName,
-    deploymentUrl: localDeploymentUrl(ports.cloud),
+    deploymentUrl: localDeploymentUrl(cloudPort),
     onActivity: async (isOffline: boolean, wasOffline: boolean) => {
       await ensureBackendRunning(ctx, {
-        cloudPort: ports.cloud,
+        cloudPort,
         deploymentName,
         maxTimeSecs: 5,
       });
@@ -194,7 +210,7 @@ async function handleOffline(
       }
       if (wasOffline) {
         await bigBrainStart(ctx, {
-          port: ports.cloud,
+          port: cloudPort,
           projectSlug: options.projectSlug,
           teamSlug: options.teamSlug,
           instanceName: deploymentName,
@@ -235,13 +251,13 @@ async function getLocalDeployments(ctx: Context): Promise<
     config: LocalDeploymentConfig;
   }>
 > {
-  const dir = rootDeploymentStateDir();
+  const dir = rootDeploymentStateDir("local");
   if (!ctx.fs.exists(dir)) {
     return [];
   }
   const deploymentNames = ctx.fs.listDir(dir).map((d) => d.name);
   return deploymentNames.flatMap((deploymentName) => {
-    const config = loadDeploymentConfig(ctx, deploymentName);
+    const config = loadDeploymentConfig(ctx, "local", deploymentName);
     if (config !== null) {
       return [{ deploymentName, config }];
     }
@@ -261,55 +277,4 @@ async function chooseFromExistingLocalDeployments(ctx: Context): Promise<{
       value: d,
     })),
   });
-}
-
-async function choosePorts(
-  ctx: Context,
-  requestedPorts?: {
-    cloud: number;
-    site: number;
-  },
-): Promise<{ cloud: number; site: number }> {
-  if (requestedPorts !== undefined) {
-    const availableCloudPort = await detect(requestedPorts.cloud);
-    const availableSitePort = await detect(requestedPorts.site);
-    if (
-      availableCloudPort !== requestedPorts.cloud ||
-      availableSitePort !== requestedPorts.site
-    ) {
-      return ctx.crash({
-        exitCode: 1,
-        errorType: "fatal",
-        printedMessage: "Requested ports are not available",
-      });
-    }
-    return { cloud: availableCloudPort, site: availableSitePort };
-  }
-  const availableCloudPort = await detect(3210);
-  const availableSitePort = await detect(availableCloudPort + 1);
-  return { cloud: availableCloudPort, site: availableSitePort };
-}
-
-async function isOffline(): Promise<boolean> {
-  // TODO(ENG-7080) -- implement this for real
-  return false;
-}
-
-function printLocalDeploymentWelcomeMessage(ctx: Context) {
-  logMessage(
-    ctx,
-    chalk.cyan("You're trying out the beta local deployment feature!"),
-  );
-  logMessage(
-    ctx,
-    chalk.cyan(
-      "To learn more, read the docs: https://docs.convex.dev/cli/local-deployments",
-    ),
-  );
-  logMessage(
-    ctx,
-    chalk.cyan(
-      "To opt out at any time, run `npx convex disable-local-deployments`",
-    ),
-  );
 }
