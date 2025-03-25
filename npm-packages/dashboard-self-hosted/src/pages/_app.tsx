@@ -302,6 +302,10 @@ function DeploymentInfoProvider({
 }
 
 function Header({ onLogout }: { onLogout: () => void }) {
+  if (process.env.NEXT_PUBLIC_HIDE_HEADER) {
+    return null;
+  }
+
   return (
     <header className="-ml-1 flex min-h-[56px] items-center justify-between gap-1 overflow-x-auto border-b bg-background-secondary pr-4 scrollbar-none sm:gap-6">
       <ConvexLogo height={64} width={192} />
