@@ -197,8 +197,7 @@ impl<RT: Runtime> TaskExecutor<RT> {
                     "Http Action called getUserIdentity with unknown identity: {}",
                     error_message.short_msg,
                 );
-                // Switch this from None -> anyhow::bail!(error_message) if this metric is low
-                None
+                anyhow::bail!(error_message);
             },
             _ => None,
         };
