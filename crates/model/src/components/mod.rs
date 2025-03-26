@@ -226,7 +226,7 @@ impl<'a, RT: Runtime> ComponentsModel<'a, RT> {
                 udf_path: path.into(),
             });
         }
-        let path_components = path.components();
+        let path_components = path.components()?;
         let resource = self
             .resolve_export(ComponentId::Root, &path_components)
             .await?;

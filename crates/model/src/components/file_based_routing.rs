@@ -26,10 +26,9 @@ pub fn file_based_exports(
 ) -> anyhow::Result<BTreeMap<PathComponent, ComponentExport>> {
     let mut exports = BTreeMap::new();
     for (module_path, module) in functions {
-        let mut identifiers = vec![];
         let stripped = module_path.clone().strip();
 
-        identifiers.extend(stripped.components());
+        let identifiers = stripped.components().collect::<anyhow::Result<Vec<_>>>()?;
         for function in &module.functions {
             if function.visibility != Some(Visibility::Public) {
                 continue;

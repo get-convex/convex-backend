@@ -143,16 +143,18 @@ pub struct ExportPath {
 }
 
 impl ExportPath {
-    pub fn components(&self) -> Vec<PathComponent> {
+    pub fn components(&self) -> anyhow::Result<Vec<PathComponent>> {
         let mut components = vec![];
         let stripped = self.path.clone().strip();
-        components.extend(stripped.module().components());
+        for c in stripped.module().components() {
+            components.push(c?);
+        }
         if let Some(name) = stripped.function_name() {
             components.push(name.clone().into())
         } else {
             components.push("default".parse().unwrap());
         }
-        components
+        Ok(components)
     }
 
     pub fn is_system(&self) -> bool {

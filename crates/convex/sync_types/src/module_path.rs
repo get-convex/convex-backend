@@ -8,6 +8,8 @@ use std::{
     str::FromStr,
 };
 
+use anyhow::Context as _;
+
 use crate::path::{
     check_valid_path_component,
     PathComponent,
@@ -60,14 +62,16 @@ impl ModulePath {
         &self.path
     }
 
-    pub fn components(&self) -> impl Iterator<Item = PathComponent> + '_ {
+    // TODO: it should not be possible for this to return Err,
+    // but `"_.js".strip().components()` will do this
+    pub fn components(&self) -> impl Iterator<Item = anyhow::Result<PathComponent>> + '_ {
         self.path.components().map(|component| match component {
             Component::Normal(c) => c
                 .to_str()
-                .expect("Non-unicode data in module path?")
+                .context("Non-unicode data in module path?")?
                 .parse()
-                .expect("Invalid path component"),
-            c => panic!("Unexpected component {c:?}"),
+                .context("Invalid component in module path"),
+            c => anyhow::bail!("Unexpected component {c:?}"),
         })
     }
 
