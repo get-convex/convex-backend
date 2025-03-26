@@ -57,7 +57,7 @@ export function spendingLimitsSchema({
     (value) =>
       currentSpending === undefined ||
       value === null ||
-      currentSpending.totalCents <= value,
+      currentSpending.totalCents <= value * 100,
   );
 
   return Yup.object().shape({
