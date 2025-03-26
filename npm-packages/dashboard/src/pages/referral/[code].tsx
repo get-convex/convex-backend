@@ -8,7 +8,6 @@ import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { Team } from "generatedApi";
-import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import { useApplyReferralCode } from "api/referrals";
 import { useProfile } from "api/profile";
 
@@ -26,16 +25,31 @@ function RedeemReferralCodePage() {
 
   const applyReferralCode = useApplyReferralCode(selectedTeam?.id);
 
-  const { referralsPage } = useLaunchDarkly();
-  if (!referralsPage) {
-    void router.push("/404");
-    return null;
-  }
+  const title = "Someone thinks you’re a good fit for Convex!";
+  const description = "Get Convex resources for free with this referral code.";
+  const ogImage = "https://www.convex.dev/og_image.png";
 
   return (
     <div className="h-screen">
       <Head>
-        <title>Redeem Referral Code | Convex Dashboard</title>
+        <title>{title}</title>
+        <meta name="description" content={description} />
+
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Convex" />
+        <meta
+          property="og:url"
+          content={`https://dashboard.convex.dev/referral/${code}`}
+        />
+        <meta property="og:image" content={ogImage} />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={title} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={ogImage} />
       </Head>
       <LoginLayout>
         <RedeemReferralForm
