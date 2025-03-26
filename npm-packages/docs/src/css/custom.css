@@ -12,21 +12,25 @@
 @font-face {
   font-family: "GT America";
   font-weight: 400;
+  font-display: swap;
   src: url(https://docs.convex.dev/fonts/GT-America-Standard-Regular.woff2);
 }
 @font-face {
   font-family: "GT America";
   font-weight: 500;
+  font-display: swap;
   src: url(https://docs.convex.dev/fonts/GT-America-Standard-Medium.woff2);
 }
 @font-face {
   font-family: "GT America";
   font-weight: 700;
+  font-display: swap;
   src: url(https://docs.convex.dev/fonts/GT-America-Standard-Bold.woff2);
 }
 @font-face {
   font-family: "GT America";
   font-weight: 900;
+  font-display: swap;
   src: url(https://docs.convex.dev/fonts/GT-America-Standard-Black.woff2);
 }
 
