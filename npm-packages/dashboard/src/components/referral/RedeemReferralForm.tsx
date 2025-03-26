@@ -125,7 +125,7 @@ export function RedeemReferralForm({
                   <Spinner className="h-4 w-4" />
                 ) : (
                   <div className="flex items-center gap-2">
-                    Apply my referral code
+                    Get my free resources
                     {teamEligibility === undefined && (
                       <Spinner className="h-4 w-4" />
                     )}

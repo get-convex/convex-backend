@@ -1,12 +1,7 @@
 import React, { useId, useState } from "react";
 import { ReferralState, Team } from "generatedApi";
 import { TextInput } from "@common/elements/TextInput";
-import {
-  CheckCircledIcon,
-  CheckIcon,
-  ClockIcon,
-  CopyIcon,
-} from "@radix-ui/react-icons";
+import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { useTeamOrbSubscription } from "api/billing";
 import { Sheet } from "dashboard-common/elements/Sheet";
 import { cn } from "dashboard-common/lib/cn";
@@ -68,9 +63,8 @@ export function ReferralsInner({
       <Sheet>
         <h3>Refer friends and earn free Convex resources</h3>
         <p className="mt-1 max-w-lg text-content-secondary">
-          Each time someone you referred creates their first project on Convex,
-          both of your teams get the following benefits on top of your free plan
-          limits.
+          Each time you refer someone, both of your teams get the following
+          benefits on top of your free plan limits.
         </p>
 
         <div className="my-4 flex items-center gap-4">
@@ -119,28 +113,21 @@ export function ReferralsInner({
             <Loading fullHeight={false} className="h-48" />
           ) : (
             <div className="flex flex-col">
-              {referralState.verifiedReferrals.length === 0 &&
-              referralState.pendingReferrals.length === 0 ? (
+              {referralState.verifiedReferrals.length === 0 ? (
                 <p className="text-content-secondary">
                   No referrals yet. Share your referral link to get started!
                 </p>
               ) : (
-                <>
-                  {referralState.verifiedReferrals.map((teamName, index) => (
-                    <ReferralListItem
-                      key={index}
-                      teamName={teamName}
-                      status="verified"
-                    />
-                  ))}
-                  {referralState.pendingReferrals.map((teamName, index) => (
-                    <ReferralListItem
-                      key={index}
-                      teamName={teamName}
-                      status="pending"
-                    />
-                  ))}
-                </>
+                referralState.verifiedReferrals.map((teamName, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between border-b py-3 last:border-b-0"
+                  >
+                    <span className="text-sm text-content-primary">
+                      {teamName}
+                    </span>
+                  </div>
+                ))
               )}
             </div>
           )}
@@ -183,35 +170,5 @@ function Copied({ className }: { className?: string }) {
     <CheckIcon
       className={cn(className, "text-green-700 dark:text-green-400")}
     />
-  );
-}
-
-function ReferralListItem({
-  teamName,
-  status,
-}: {
-  teamName: string;
-  status: "pending" | "verified";
-}) {
-  return (
-    <div className="flex items-center justify-between border-b py-2 last:border-b-0">
-      <span className="text-sm text-content-primary">{teamName}</span>
-      <span
-        className={cn(
-          "flex items-center gap-1 rounded-full px-2 py-1 text-sm",
-          status === "verified"
-            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
-            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100",
-        )}
-      >
-        {status === "pending" ? (
-          <ClockIcon className="size-4" />
-        ) : (
-          <CheckCircledIcon className="size-4" />
-        )}
-
-        {status === "pending" ? "Waiting for first project" : "Validated"}
-      </span>
-    </div>
   );
 }
