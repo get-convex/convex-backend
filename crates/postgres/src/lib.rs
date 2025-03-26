@@ -20,6 +20,9 @@ use std::{
     ops::Bound,
     pin::Pin,
     str::FromStr,
+    env,
+    fs,
+    path::Path,
     sync::{
         atomic::{
             AtomicBool,
@@ -110,7 +113,7 @@ use itertools::{
     iproduct,
     Itertools,
 };
-use native_tls::TlsConnector;
+use native_tls::{Certificate,TlsConnector};
 use postgres_native_tls::MakeTlsConnector;
 use serde::Deserialize as _;
 use serde_json::Value as JsonValue;
@@ -197,7 +200,17 @@ impl PostgresPersistence {
 
     fn create_pool(url: &str) -> anyhow::Result<ConvexPgPool> {
         let pg_config = tokio_postgres::Config::from_str(url)?;
-        let connector = TlsConnector::builder().build()?;
+        let mut builder = TlsConnector::builder();
+        if let Ok(ca_file_path) = env::var("PG_CA_FILE") {
+            if Path::new(&ca_file_path).exists() {
+                if let Ok(ca_file_content) = fs::read(Path::new(&ca_file_path)) {
+                    if let Ok(ca_cert) = Certificate::from_pem(&ca_file_content) {
+                        builder.add_root_certificate(ca_cert);
+                    }
+                }
+            }
+        }
+        let connector = builder.build()?;
         let connector = MakeTlsConnector::new(connector);
 
         let manager = Manager::new(pg_config, connector);
