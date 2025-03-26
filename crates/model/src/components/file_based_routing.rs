@@ -28,7 +28,15 @@ pub fn file_based_exports(
     for (module_path, module) in functions {
         let stripped = module_path.clone().strip();
 
-        let identifiers = stripped.components().collect::<anyhow::Result<Vec<_>>>()?;
+        let identifiers = stripped
+            .components()
+            .collect::<anyhow::Result<Vec<_>>>()
+            .or_else(|e| {
+                anyhow::bail!(ErrorMetadata::bad_request(
+                    "InvalidModulePath",
+                    e.to_string()
+                ))
+            })?;
         for function in &module.functions {
             if function.visibility != Some(Visibility::Public) {
                 continue;

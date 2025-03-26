@@ -68,10 +68,15 @@ impl ModulePath {
         self.path.components().map(|component| match component {
             Component::Normal(c) => c
                 .to_str()
-                .context("Non-unicode data in module path?")?
+                .with_context(|| format!("Non-unicode data in module path {}", self.as_str()))?
                 .parse()
-                .context("Invalid component in module path"),
-            c => anyhow::bail!("Unexpected component {c:?}"),
+                .with_context(|| {
+                    format!("Invalid component {c:?} in module path {}", self.as_str())
+                }),
+            c => anyhow::bail!(
+                "Unexpected component {c:?} in module path {}",
+                self.as_str()
+            ),
         })
     }
 
