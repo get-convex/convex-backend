@@ -414,7 +414,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     async fn advance_timestamp(
-        bounds_writer: &Writer<SnapshotBounds>,
+        bounds_writer: &mut Writer<SnapshotBounds>,
         persistence: &dyn Persistence,
         snapshot_reader: &Reader<SnapshotManager>,
         checkpoint_reader: &Reader<Checkpoint>,
@@ -497,7 +497,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     }
 
     async fn go_advance_min_snapshot(
-        bounds_writer: Writer<SnapshotBounds>,
+        mut bounds_writer: Writer<SnapshotBounds>,
         checkpoint_reader: Reader<Checkpoint>,
         rt: RT,
         persistence: Arc<dyn Persistence>,
@@ -511,7 +511,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 let _timer = retention_advance_timestamp_timer();
 
                 let index_ts = Self::advance_timestamp(
-                    &bounds_writer,
+                    &mut bounds_writer,
                     persistence.as_ref(),
                     &snapshot_reader,
                     &checkpoint_reader,
@@ -522,7 +522,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 Self::emit_timestamp(&min_snapshot_sender, index_ts).await;
 
                 let document_ts = Self::advance_timestamp(
-                    &bounds_writer,
+                    &mut bounds_writer,
                     persistence.as_ref(),
                     &snapshot_reader,
                     &checkpoint_reader,
@@ -1103,7 +1103,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         mut index_cursor: RepeatableTimestamp,
         retention_validator: Arc<dyn RetentionValidator>,
         mut min_snapshot_rx: Receiver<RepeatableTimestamp>,
-        checkpoint_writer: Writer<Checkpoint>,
+        mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
     ) {
         let reader = persistence.reader();
@@ -1178,7 +1178,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     Self::checkpoint(
                         persistence.as_ref(),
                         new_cursor,
-                        &checkpoint_writer,
+                        &mut checkpoint_writer,
                         RetentionType::Index,
                         bounds_reader.clone(),
                         snapshot_reader.clone(),
@@ -1218,7 +1218,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         persistence: Arc<dyn Persistence>,
         retention_validator: Arc<dyn RetentionValidator>,
         mut min_document_snapshot_rx: Receiver<RepeatableTimestamp>,
-        checkpoint_writer: Writer<Checkpoint>,
+        mut checkpoint_writer: Writer<Checkpoint>,
         snapshot_reader: Reader<SnapshotManager>,
     ) {
         // Wait with jitter on startup to avoid thundering herd
@@ -1284,7 +1284,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 Self::checkpoint(
                     persistence.as_ref(),
                     new_cursor,
-                    &checkpoint_writer,
+                    &mut checkpoint_writer,
                     RetentionType::Document,
                     bounds_reader.clone(),
                     snapshot_reader.clone(),
@@ -1314,7 +1314,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     async fn checkpoint(
         persistence: &dyn Persistence,
         cursor: RepeatableTimestamp,
-        checkpoint_writer: &Writer<Checkpoint>,
+        checkpoint_writer: &mut Writer<Checkpoint>,
         retention_type: RetentionType,
         bounds_reader: Reader<SnapshotBounds>,
         snapshot_reader: Reader<SnapshotManager>,
