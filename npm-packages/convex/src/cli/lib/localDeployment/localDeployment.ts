@@ -255,7 +255,10 @@ async function getLocalDeployments(ctx: Context): Promise<
   if (!ctx.fs.exists(dir)) {
     return [];
   }
-  const deploymentNames = ctx.fs.listDir(dir).map((d) => d.name);
+  const deploymentNames = ctx.fs
+    .listDir(dir)
+    .map((d) => d.name)
+    .filter((d) => d.startsWith("local-"));
   return deploymentNames.flatMap((deploymentName) => {
     const config = loadDeploymentConfig(ctx, "local", deploymentName);
     if (config !== null) {

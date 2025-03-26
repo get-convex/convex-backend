@@ -27,6 +27,7 @@ import {
 import { handleDashboard } from "./dashboard.js";
 import crypto from "crypto";
 import { ensureBackendBinaryDownloaded } from "./download.js";
+import { isTryItOutDeployment } from "../deployment.js";
 
 export async function handleTryItOutDeployment(
   ctx: Context,
@@ -190,7 +191,10 @@ export async function listExistingTryItOutDeployments(ctx: Context): Promise<
   if (!ctx.fs.exists(dir)) {
     return [];
   }
-  const deploymentNames = ctx.fs.listDir(dir).map((d) => d.name);
+  const deploymentNames = ctx.fs
+    .listDir(dir)
+    .map((d) => d.name)
+    .filter((d) => isTryItOutDeployment(d));
   return deploymentNames.flatMap((deploymentName) => {
     const config = loadDeploymentConfig(ctx, "tryItOut", deploymentName);
     if (config !== null) {

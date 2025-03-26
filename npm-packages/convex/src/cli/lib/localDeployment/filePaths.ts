@@ -72,6 +72,7 @@ export function loadDeploymentConfig(
   const dir = deploymentStateDir(deploymentKind, deploymentName);
   const configFile = path.join(dir, "config.json");
   if (!ctx.fs.stat(dir).isDirectory()) {
+    logVerbose(ctx, `Deployment ${deploymentName} not found`);
     return null;
   }
   if (ctx.fs.exists(configFile)) {
