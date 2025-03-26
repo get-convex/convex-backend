@@ -37,6 +37,7 @@ const optionsForExport = {
     unoptimized: true,
   },
 };
+
 const optionsForBuild = {
   output: "standalone",
   async headers() {
@@ -44,7 +45,19 @@ const optionsForBuild = {
       {
         // Apply these headers to all routes in your application.
         source: "/:path*",
-        headers: securityHeaders,
+        headers: process.env.EMBEDDED_CORS_HEADERS
+          ? [
+              ...securityHeaders,
+              {
+                key: "Cross-Origin-Resource-Policy",
+                value: "cross-origin",
+              },
+              {
+                key: "Cross-Origin-Embedder-Policy",
+                value: "require-corp",
+              },
+            ]
+          : securityHeaders,
       },
     ];
   },
