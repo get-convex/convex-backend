@@ -102,6 +102,14 @@ Same format as .env.local or .env files, and overrides them.`,
       });
     }
 
+    if (deploymentSelection.kind === "tryItOut") {
+      logMessage(
+        ctx,
+        "You are currently configured to run a try-it-out deployment locally. To deploy your Convex app to the cloud, log in by running `npx convex login`.\nSee https://docs.convex.dev/production for more information on how Convex cloud works and instructions on how to set up hosting.",
+      );
+      return;
+    }
+
     if (deploymentSelection.kind === "preview") {
       // TODO -- add usage state warnings here too once we can do it without a deployment name
       // await usageStateWarning(ctx);
