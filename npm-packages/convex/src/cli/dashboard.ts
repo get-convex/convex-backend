@@ -16,7 +16,10 @@ import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { isTryItOutDeployment } from "./lib/deployment.js";
 import { loadDashboardConfig } from "./lib/localDeployment/filePaths.js";
-import { DEFAULT_LOCAL_DASHBOARD_API_PORT } from "./lib/localDeployment/dashboard.js";
+import {
+  DEFAULT_LOCAL_DASHBOARD_API_PORT,
+  checkIfDashboardIsRunning,
+} from "./lib/localDeployment/dashboard.js";
 const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   ? "http://localhost:6789"
   : "https://dashboard.convex.dev";
@@ -55,17 +58,18 @@ export const dashboard = new Command("dashboard")
         logWarning(ctx, warningMessage);
         return;
       }
+      const isLocalDashboardRunning =
+        await checkIfDashboardIsRunning(dashboardConfig);
+      if (!isLocalDashboardRunning) {
+        logWarning(ctx, warningMessage);
+        return;
+      }
 
       const queryString =
         dashboardConfig.apiPort !== DEFAULT_LOCAL_DASHBOARD_API_PORT
           ? `?apiPort=${dashboardConfig.apiPort}`
           : "";
       const dashboardUrl = `http://127.0.0.1:${dashboardConfig.port}${queryString}`;
-      const response = await fetch(dashboardUrl);
-      if (!response.ok) {
-        logWarning(ctx, warningMessage);
-        return;
-      }
       await logOrOpenUrl(ctx, dashboardUrl, options.open);
       return;
     }

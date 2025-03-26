@@ -79,7 +79,7 @@ async function startServingListDeploymentsApi(ctx: Context, port: number) {
   );
 }
 
-async function checkIfDashboardIsRunning(config: DashboardConfig) {
+export async function checkIfDashboardIsRunning(config: DashboardConfig) {
   // We're checking if the mini API server is running and has a response that
   // looks like a list of deployments, since it's easier than checking the
   // dashboard UI.
