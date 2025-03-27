@@ -9,6 +9,7 @@ import { Callout } from "dashboard-common/elements/Callout";
 import { useReferralState } from "api/referrals";
 import { Loading } from "dashboard-common/elements/Loading";
 import { useCopy } from "dashboard-common/lib/useCopy";
+import { logEvent } from "convex-analytics";
 import { ReferralsBenefits } from "./ReferralsBenefits";
 
 // Keep in sync with MAX_REFERRALS_BONUS in big_brain_lib/src/model/referrals.rs
@@ -155,6 +156,7 @@ function ReferralLink({ referralCode }: { referralCode: string }) {
         iconTooltip={copied ? "Copied" : "Copy to clipboard"}
         action={async () => {
           copy(`https://www.convex.dev/referral/${referralCode}`);
+          logEvent("copied referral link");
 
           setCopied(true);
           setTimeout(() => {

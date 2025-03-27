@@ -1,4 +1,5 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
+import { logEvent } from "convex-analytics";
 import { Sheet } from "dashboard-common/elements/Sheet";
 import { Spinner } from "dashboard-common/elements/Spinner";
 import { cn } from "dashboard-common/lib/cn";
@@ -65,7 +66,10 @@ function LogInButton({ code }: { code: string }) {
         clicked && "opacity-80 cursor-progress",
       )}
       href={`/api/auth/login?returnTo=${encodeURIComponent(`/referral/${code}/apply`)}`}
-      onClick={() => setClicked(true)}
+      onClick={() => {
+        logEvent("clicked “Sign up with GitHub” through referral landing");
+        setClicked(true);
+      }}
       aria-disabled={clicked}
     >
       <span

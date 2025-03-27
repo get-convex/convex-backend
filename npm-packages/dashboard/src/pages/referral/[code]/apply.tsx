@@ -10,6 +10,7 @@ import { useState } from "react";
 import { Team } from "generatedApi";
 import { useApplyReferralCode, useReferralCode } from "api/referrals";
 import { useProfile } from "api/profile";
+import { logEvent } from "convex-analytics";
 
 export { getServerSideProps } from "lib/ssr";
 
@@ -48,6 +49,8 @@ function RedeemReferralCodePage() {
             await applyReferralCode({
               referralCode: code,
             });
+
+            logEvent("redeemed referral code");
 
             void router.push(`/t/${selectedTeam.slug}`);
           }}
