@@ -81,7 +81,7 @@ impl fmt::Display for MigrationCompletionCriterion {
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 116; // lee
+pub const DATABASE_VERSION: DatabaseVersion = 117; // nipunn
 
 pub struct MigrationWorker<RT: Runtime> {
     rt: RT,
@@ -379,6 +379,19 @@ impl<RT: Runtime> MigrationWorker<RT> {
             116 => MigrationCompletionCriterion::LogLine(
                 format!("Created system table: {}", *CANONICAL_URLS_TABLE).into(),
             ),
+            117 => {
+                let backend_serving_record_table: TableName = "_backend_serving_record"
+                    .parse()
+                    .expect("Invalid built-in backend_serving_record table");
+                let mut tx = self.db.begin_system().await?;
+                TableModel::new(&mut tx)
+                    .delete_active_table(TableNamespace::Global, backend_serving_record_table)
+                    .await?;
+                self.db
+                    .commit_with_write_source(tx, "migration_117")
+                    .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),
         };
