@@ -7,6 +7,7 @@ import {
   oneoffContext,
 } from "../bundler/context.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
+import { loadUuidForAnonymousUser } from "./lib/localDeployment/filePaths.js";
 import {
   handleLinkToProject,
   listExistingTryItOutDeployments,
@@ -99,7 +100,11 @@ export const login = new Command("login")
       );
     }
 
-    await performLogin(ctx, options);
+    const uuid = loadUuidForAnonymousUser(ctx);
+    await performLogin(ctx, {
+      ...options,
+      anonymousId: uuid,
+    });
 
     await handleLinkingDeployments(ctx, {
       interactive: !!options.linkDeployments,

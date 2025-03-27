@@ -194,6 +194,7 @@ async function handleOffline(
     deploymentName,
     deploymentKind: "local",
     instanceSecret: LOCAL_BACKEND_INSTANCE_SECRET,
+    isLatestVersion: false,
   });
   return {
     adminKey: config.adminKey,

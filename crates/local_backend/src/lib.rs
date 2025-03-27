@@ -237,8 +237,12 @@ pub async fn make_app(
     let instance_name = config.name().clone();
 
     if !config.disable_beacon {
-        let beacon_future =
-            beacon::start_beacon(runtime.clone(), database.clone(), config.beacon_tag.clone());
+        let beacon_future = beacon::start_beacon(
+            runtime.clone(),
+            database.clone(),
+            config.beacon_tag.clone(),
+            config.beacon_fields.clone(),
+        );
         runtime.spawn("beacon_worker", beacon_future);
     }
 

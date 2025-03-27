@@ -24,6 +24,7 @@
       convex_local_storage
       convex_local_backend.sqlite3
     tryitout-convex-backend-state
+      config.json // contains { uuid: <uuid> }, used to identify the anonymous user
       tryitout-chess
         config.json
         convex_local_storage
@@ -34,6 +35,7 @@ import path from "path";
 import { cacheDir, rootDirectory } from "../utils/utils.js";
 import { Context, logVerbose } from "../../../bundler/context.js";
 import { recursivelyDelete } from "../fsUtils.js";
+import crypto from "crypto";
 
 // Naming is hard, but "local" refers to deployments linked to a Convex project
 // and "tryItOut" refers to deployments that are not linked to a Convex project
@@ -163,4 +165,39 @@ export function saveDashboardConfig(ctx: Context, config: DashboardConfig) {
     ctx.fs.mkdir(dashboardDir(), { recursive: true });
   }
   ctx.fs.writeUtf8File(configFile, JSON.stringify(config));
+}
+
+export function loadUuidForAnonymousUser(ctx: Context) {
+  const configFile = path.join(
+    rootDeploymentStateDir("tryItOut"),
+    "config.json",
+  );
+  if (!ctx.fs.exists(configFile)) {
+    return null;
+  }
+  const content = ctx.fs.readUtf8File(configFile);
+  try {
+    const config = JSON.parse(content);
+    return config.uuid ?? null;
+  } catch (e) {
+    logVerbose(ctx, `Failed to parse uuid for anonymous user: ${e as any}`);
+    return null;
+  }
+}
+
+export function ensureUuidForAnonymousUser(ctx: Context) {
+  const uuid = loadUuidForAnonymousUser(ctx);
+  if (uuid) {
+    return uuid;
+  }
+  const newUuid = crypto.randomUUID();
+  const tryItOutDir = rootDeploymentStateDir("tryItOut");
+  if (!ctx.fs.exists(tryItOutDir)) {
+    ctx.fs.mkdir(tryItOutDir, { recursive: true });
+  }
+  ctx.fs.writeUtf8File(
+    path.join(tryItOutDir, "config.json"),
+    JSON.stringify({ uuid: newUuid }),
+  );
+  return newUuid;
 }

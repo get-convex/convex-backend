@@ -1,5 +1,9 @@
 import { Context, logVerbose, logMessage } from "../../../bundler/context.js";
-import { LocalDeploymentKind, deploymentStateDir } from "./filePaths.js";
+import {
+  LocalDeploymentKind,
+  deploymentStateDir,
+  loadUuidForAnonymousUser,
+} from "./filePaths.js";
 import path from "path";
 import child_process from "child_process";
 import detect from "detect-port";
@@ -18,6 +22,7 @@ export async function runLocalBackend(
     deploymentName: string;
     binaryPath: string;
     instanceSecret: string;
+    isLatestVersion: boolean;
   },
 ): Promise<{
   cleanupHandle: string;
@@ -45,9 +50,24 @@ export async function runLocalBackend(
     "--local-storage",
     path.join(deploymentDir, "convex_local_storage"),
     "--beacon-tag",
-    args.deploymentKind === "local" ? "cli-local-dev" : "cli-tryitout",
+    selfHostedEventTag(args.deploymentKind),
     path.join(deploymentDir, "convex_local_backend.sqlite3"),
   ];
+  if (args.isLatestVersion) {
+    // CLI args that were added in later versions of backend go here instead of above
+    // since the CLI may run older versions of backend (e.g. when upgrading).
+    if (args.deploymentKind === "tryItOut") {
+      const uuid = loadUuidForAnonymousUser(ctx);
+      if (uuid !== null) {
+        commandArgs.push(
+          "--beacon-fields",
+          JSON.stringify({
+            override_uuid: uuid,
+          }),
+        );
+      }
+    }
+  }
 
   // Check that binary works by running with --help
   try {
@@ -268,4 +288,10 @@ export async function ensureBackendStopped(
 
 export function localDeploymentUrl(cloudPort: number): string {
   return `http://127.0.0.1:${cloudPort}`;
+}
+
+export function selfHostedEventTag(
+  deploymentKind: LocalDeploymentKind,
+): string {
+  return deploymentKind === "local" ? "cli-local-dev" : "cli-tryitout";
 }

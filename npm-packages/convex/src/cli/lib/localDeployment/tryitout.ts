@@ -19,6 +19,7 @@ import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
 import {
   LocalDeploymentKind,
   deploymentStateDir,
+  ensureUuidForAnonymousUser,
   loadDeploymentConfig,
   saveDeploymentConfig,
 } from "./filePaths.js";
@@ -82,6 +83,7 @@ export async function handleTryItOutDeployment(
       ctx,
       "Use `npx convex docs` to read the docs and `npx convex help` to see other commands.",
     );
+    ensureUuidForAnonymousUser(ctx);
     if (process.stdin.isTTY) {
       const result = await promptYesNo(ctx, {
         message: "Got it? Let's get started!",

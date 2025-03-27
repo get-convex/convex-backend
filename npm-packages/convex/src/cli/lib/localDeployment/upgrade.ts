@@ -67,6 +67,7 @@ export async function handlePotentialUpgrade(
       deploymentName: args.deploymentName,
       ports: args.ports,
       instanceSecret: args.instanceSecret,
+      isLatestVersion: true,
     });
   }
   logVerbose(
@@ -98,6 +99,7 @@ export async function handlePotentialUpgrade(
       deploymentKind: args.deploymentKind,
       deploymentName: args.deploymentName,
       instanceSecret: args.instanceSecret,
+      isLatestVersion: false,
     });
   }
   const choice = args.forceUpgrade
@@ -128,6 +130,7 @@ export async function handlePotentialUpgrade(
       deploymentName: args.deploymentName,
       ports: args.ports,
       instanceSecret: args.instanceSecret,
+      isLatestVersion: true,
     });
   }
   return handleUpgrade(ctx, {
@@ -173,6 +176,7 @@ async function handleUpgrade(
     deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
     instanceSecret: args.instanceSecret,
+    isLatestVersion: false,
   });
 
   logVerbose(ctx, "Downloading env vars");
@@ -236,6 +240,7 @@ async function handleUpgrade(
     deploymentKind: args.deploymentKind,
     deploymentName: args.deploymentName,
     instanceSecret: args.instanceSecret,
+    isLatestVersion: true,
   });
 
   logVerbose(ctx, "Importing the env vars");

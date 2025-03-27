@@ -3,20 +3,29 @@ import {
   DashboardConfig,
   dashboardOutDir,
   loadDashboardConfig,
+  loadUuidForAnonymousUser,
   saveDashboardConfig,
 } from "./filePaths.js";
 import { choosePorts } from "./utils.js";
 import { startServer } from "./serve.js";
 import { listExistingTryItOutDeployments } from "./tryitout.js";
-import { localDeploymentUrl } from "./run.js";
+import { localDeploymentUrl, selfHostedEventTag } from "./run.js";
 import serveHandler from "serve-handler";
 import { ensureDashboardDownloaded } from "./download.js";
+import { bigBrainAPIMaybeThrows } from "../utils/utils.js";
 
 export const DEFAULT_LOCAL_DASHBOARD_PORT = 6790;
 export const DEFAULT_LOCAL_DASHBOARD_API_PORT = 6791;
 
+/**
+ * This runs the `dashboard-self-hosted` app locally.
+ * It's currently just used for the `tryitout` flow, while everything else
+ * uses `dashboard.convex.dev`, and some of the code below is written
+ * assuming this is only used for `tryitout`.
+ */
 export async function handleDashboard(ctx: Context, version: string) {
   const config = loadDashboardConfig(ctx);
+  const anonymousId = loadUuidForAnonymousUser(ctx) ?? undefined;
   if (config !== null) {
     const isRunning = await checkIfDashboardIsRunning(config);
     if (isRunning) {
@@ -37,10 +46,20 @@ export async function handleDashboard(ctx: Context, version: string) {
     version,
   });
 
+  let hasReportedSelfHostedEvent = false;
+
   const { cleanupHandle } = await startServer(
     ctx,
     dashboardPort,
     async (request, response) => {
+      if (!hasReportedSelfHostedEvent) {
+        hasReportedSelfHostedEvent = true;
+        void reportSelfHostedEvent(ctx, {
+          anonymousId,
+          eventName: "self_host_dashboard_connected",
+          tag: selfHostedEventTag("tryItOut"),
+        });
+      }
       await serveHandler(request, response, {
         public: dashboardOutDir(),
       });
@@ -52,6 +71,37 @@ export async function handleDashboard(ctx: Context, version: string) {
     dashboardPort,
     cleanupHandle,
   };
+}
+
+async function reportSelfHostedEvent(
+  ctx: Context,
+  {
+    anonymousId,
+    eventName,
+    eventFields,
+    tag,
+  }: {
+    anonymousId: string | undefined;
+    eventName: string;
+    eventFields?: Record<string, unknown>;
+    tag: string | undefined;
+  },
+) {
+  try {
+    await bigBrainAPIMaybeThrows({
+      ctx,
+      method: "POST",
+      url: "/api/self_hosted_event",
+      data: {
+        selfHostedUuid: anonymousId,
+        eventName,
+        eventFields,
+        tag,
+      },
+    });
+  } catch {
+    // ignore
+  }
 }
 
 /**

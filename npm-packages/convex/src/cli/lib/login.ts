@@ -45,6 +45,7 @@ custom.setHttpOptionsDefaults({
 interface AuthorizeArgs {
   authnToken: string;
   deviceName: string;
+  anonymousId?: string;
 }
 
 export async function checkAuthorization(
@@ -290,6 +291,7 @@ export async function performLogin(
     acceptOptIns,
     dumpAccessToken,
     deviceName: deviceNameOverride,
+    anonymousId,
   }: {
     overrideAuthUrl?: string;
     overrideAuthClient?: string;
@@ -303,6 +305,7 @@ export async function performLogin(
     acceptOptIns?: boolean;
     dumpAccessToken?: boolean;
     deviceName?: string;
+    anonymousId?: string;
   } = {},
 ) {
   authFlow = authFlow || "auto";
@@ -393,6 +396,7 @@ export async function performLogin(
   const authorizeArgs: AuthorizeArgs = {
     authnToken: accessToken!,
     deviceName: deviceName,
+    anonymousId: anonymousId,
   };
   const data = await bigBrainAPI({
     ctx,

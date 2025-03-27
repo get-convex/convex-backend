@@ -2622,6 +2622,12 @@
           "authnToken"
         ],
         "properties": {
+          "anonymousId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "appName": {
             "oneOf": [
               {

@@ -19,6 +19,7 @@ export function DeploymentList({
     adminKey: string,
     deploymentUrl: string,
     deploymentName: string,
+    anonymousId?: string,
   ) => Promise<void>;
 }) {
   const [lastStoredDeployment, setLastStoredDeployment] = useLocalStorage(
@@ -56,6 +57,12 @@ export function DeploymentList({
           lastDeployment.adminKey,
           lastDeployment.url,
           lastDeployment.name,
+        );
+      } else if (data.deployments.length === 1) {
+        void onSelect(
+          data.deployments[0].adminKey,
+          data.deployments[0].url,
+          data.deployments[0].name,
         );
       }
     };

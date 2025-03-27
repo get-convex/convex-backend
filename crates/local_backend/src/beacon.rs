@@ -24,16 +24,27 @@ use database::Database;
 use model::database_globals::DatabaseGlobalsModel;
 use reqwest::Client;
 use runtime::prod::ProdRuntime;
-
+use serde::Deserialize;
+use serde_json::Value as JsonValue;
 const COMPILED_REVISION: &str = env!("VERGEN_GIT_SHA");
 const COMMIT_TIMESTAMP: &str = env!("VERGEN_GIT_COMMIT_TIMESTAMP");
 const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 const MAX_BACKOFF: Duration = Duration::from_secs(900); // 15 minutes
 
+// Allow sending in overrides for the UUID when there's a better concept of
+// "unique user" than the database UUID, and also allow sending arbitrary
+// extra fields.
+#[derive(Deserialize)]
+struct BeaconFields {
+    override_uuid: Option<String>,
+    fields: Option<JsonValue>,
+}
+
 pub async fn start_beacon(
     runtime: ProdRuntime,
     database: Database<ProdRuntime>,
     beacon_tag: String,
+    beacon_fields: Option<JsonValue>,
 ) {
     tracing::info!("Starting beacon coroutine...");
     let start_time = SystemTime::now();
@@ -46,18 +57,36 @@ pub async fn start_beacon(
             let globals = db_model.database_globals().await?;
 
             let client = Client::new();
+            let migration_version = globals.version;
+            let compiled_revision = COMPILED_REVISION.to_string();
+            let commit_timestamp = COMMIT_TIMESTAMP.to_string();
             let uptime = SystemTime::now()
                 .duration_since(start_time)
                 .unwrap_or_default()
                 .as_secs();
 
+            let mut uuid = globals.id().to_string();
+            let mut extra_fields = JsonValue::Null;
+
+            if let Some(fields) = beacon_fields.clone() {
+                if let Ok(parsed_fields) = serde_json::from_value::<BeaconFields>(fields) {
+                    if let Some(override_uuid) = parsed_fields.override_uuid {
+                        uuid = override_uuid;
+                    }
+                    if let Some(f) = parsed_fields.fields {
+                        extra_fields = f;
+                    }
+                }
+            }
+
             let sent_json = serde_json::json!({
-                "database_uuid": globals.id().to_string(),
-                "migration_version": globals.version,
-                "compiled_revision": COMPILED_REVISION,
-                "commit_timestamp": COMMIT_TIMESTAMP,
+                "database_uuid": uuid,
+                "migration_version": migration_version,
+                "compiled_revision": compiled_revision,
+                "commit_timestamp": commit_timestamp,
                 "uptime": uptime,
                 "beacon_tag": beacon_tag,
+                "beacon_fields": extra_fields,
             });
             let url = "https://api.convex.dev/api/self_host_beacon";
             let response = client.post(url).json(&sent_json).send().await?;

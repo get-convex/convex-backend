@@ -14,6 +14,7 @@ use keybroker::{
 };
 use metrics::SERVER_VERSION_STR;
 use model::database_globals::types::StorageTagInitializer;
+use serde_json::Value as JsonValue;
 use url::Url;
 
 #[derive(Parser, Clone)]
@@ -108,6 +109,10 @@ pub struct LocalConfig {
     /// A tag to identify the self-hosted instance.
     #[clap(long, hide = true, default_value = "self-host")]
     pub beacon_tag: String,
+
+    /// Extra fields to send to the beacon.
+    #[clap(long, hide = true)]
+    pub beacon_fields: Option<JsonValue>,
 
     /// If set, logs will be redacted from clients. Set this on production
     /// deployments, to prevent information like stacktraces of serverside
