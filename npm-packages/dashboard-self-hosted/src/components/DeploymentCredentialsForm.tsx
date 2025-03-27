@@ -8,7 +8,11 @@ export function DeploymentCredentialsForm({
   initialAdminKey,
   initialDeploymentUrl,
 }: {
-  onSubmit: (adminKey: string, deploymentUrl: string) => Promise<void>;
+  onSubmit: (
+    adminKey: string,
+    deploymentUrl: string,
+    deploymentName: string,
+  ) => Promise<void>;
   initialAdminKey: string | null;
   initialDeploymentUrl: string | null;
 }) {
@@ -24,7 +28,7 @@ export function DeploymentCredentialsForm({
       className="flex w-[30rem] flex-col gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        void onSubmit(draftAdminKey, draftDeploymentUrl);
+        void onSubmit(draftAdminKey, draftDeploymentUrl, "");
       }}
     >
       <TextInput

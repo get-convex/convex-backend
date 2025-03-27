@@ -26,6 +26,7 @@ import { Tooltip } from "dashboard-common/elements/Tooltip";
 import { DeploymentCredentialsForm } from "components/DeploymentCredentialsForm";
 import { DeploymentList } from "components/DeploymentList";
 import { checkDeploymentInfo } from "lib/checkDeploymentInfo";
+import { ConvexCloudReminderToast } from "components/ConvexCloudReminderToast";
 
 function App({
   Component,
@@ -56,7 +57,10 @@ function App({
             <DeploymentApiProvider deploymentOverride="local">
               <WaitForDeploymentApi>
                 <DeploymentDashboardLayout>
-                  <Component {...pageProps} />
+                  <>
+                    <Component {...pageProps} />
+                    <ConvexCloudReminderToast />
+                  </>
                 </DeploymentDashboardLayout>
               </WaitForDeploymentApi>
             </DeploymentApiProvider>
@@ -158,14 +162,17 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     slug: "project",
     teamId: 0,
   }),
-  useCurrentDeployment: () => ({
-    id: 0,
-    name: "local",
-    deploymentType: "prod",
-    projectId: 0,
-    kind: "local",
-    previewIdentifier: null,
-  }),
+  useCurrentDeployment: () => {
+    const [storedDeploymentName] = useSessionStorage("deploymentName", "");
+    return {
+      id: 0,
+      name: storedDeploymentName,
+      deploymentType: "dev",
+      projectId: 0,
+      kind: "local",
+      previewIdentifier: null,
+    };
+  },
   useHasProjectAdminPermissions: () => true,
   useIsDeploymentPaused: () => {
     const deploymentState = useQuery(udfs.deploymentState.deploymentState);
@@ -217,8 +224,16 @@ function DeploymentInfoProvider({
     "deploymentUrl",
     "",
   );
+  const [_storedDeploymentName, setStoredDeploymentName] = useSessionStorage(
+    "deploymentName",
+    "",
+  );
   const onSubmit = useCallback(
-    async (submittedAdminKey: string, submittedDeploymentUrl: string) => {
+    async (
+      submittedAdminKey: string,
+      submittedDeploymentUrl: string,
+      submittedDeploymentName: string,
+    ) => {
       const isValid = await checkDeploymentInfo(
         submittedAdminKey,
         submittedDeploymentUrl,
@@ -233,8 +248,9 @@ function DeploymentInfoProvider({
       setIsValidDeploymentInfo(true);
       setStoredAdminKey(submittedAdminKey);
       setStoredDeploymentUrl(submittedDeploymentUrl);
+      setStoredDeploymentName(submittedDeploymentName);
     },
-    [setStoredAdminKey, setStoredDeploymentUrl],
+    [setStoredAdminKey, setStoredDeploymentUrl, setStoredDeploymentName],
   );
 
   const finalValue: DeploymentInfo = useMemo(
