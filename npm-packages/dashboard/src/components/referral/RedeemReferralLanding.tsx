@@ -1,5 +1,4 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
 import { Sheet } from "dashboard-common/elements/Sheet";
 import { Spinner } from "dashboard-common/elements/Spinner";
 import { cn } from "dashboard-common/lib/cn";
@@ -57,14 +56,15 @@ function LogInButton({ code }: { code: string }) {
   const [clicked, setClicked] = useState(false);
 
   return (
-    <Button
-      variant="unstyled"
+    // Using <a> instead of <Button>/<Link> to fix an issue where Auth0 would refuse to redirect
+    // to GitHub when following the link.
+    <a
       className={cn(
         "group z-10 inline-flex rounded-full bg-gradient-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-marketing shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow my-2",
         !clicked && "hover:shadow-[rgba(111,0,255,0.5)]",
         clicked && "opacity-80 cursor-progress",
       )}
-      href={`/api/auth/login?returnTo=/referral/${code}/apply`}
+      href={`/api/auth/login?returnTo=${encodeURIComponent(`/referral/${code}/apply`)}`}
       onClick={() => setClicked(true)}
       aria-disabled={clicked}
     >
@@ -76,6 +76,6 @@ function LogInButton({ code }: { code: string }) {
         Sign up with GitHub
         {clicked && <Spinner className="size-4 text-white" />}
       </span>
-    </Button>
+    </a>
   );
 }

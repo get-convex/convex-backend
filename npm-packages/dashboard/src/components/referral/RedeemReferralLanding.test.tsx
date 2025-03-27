@@ -12,7 +12,7 @@ describe("RedeemReferralLanding", () => {
     const link = screen.getByRole("link", { name: "Sign up with GitHub" });
     expect(link).toHaveAttribute(
       "href",
-      `/api/auth/login?returnTo=/referral/${code}/apply`,
+      `/api/auth/login?returnTo=%2Freferral%2F${code}%2Fapply`,
     );
     expect(link).toHaveAttribute("aria-disabled", "false");
 
