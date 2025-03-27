@@ -8,7 +8,7 @@ export default (function () {
 
   const currUrl = new URL(location);
   const params = currUrl.searchParams;
-  const cookieValue = params.get("c");
+  const cookieValue = params.get("t");
   if (cookieValue) {
     const isDev = currUrl.hostname.includes("localhost");
     const domain = isDev ? currUrl.hostname : "convex.dev";
