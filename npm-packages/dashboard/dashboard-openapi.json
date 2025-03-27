@@ -4036,8 +4036,7 @@
           "slug",
           "creator",
           "suspended",
-          "referralCode",
-          "referralVerified"
+          "referralCode"
         ],
         "properties": {
           "creator": {
@@ -4051,9 +4050,6 @@
           },
           "referralCode": {
             "$ref": "#/components/schemas/ReferralCode"
-          },
-          "referralVerified": {
-            "type": "boolean"
           },
           "referredBy": {
             "oneOf": [

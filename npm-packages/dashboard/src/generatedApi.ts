@@ -1408,6 +1408,7 @@ export interface components {
         /** @enum {string} */
         AuthorizeAppMode: "AuthorizationCode";
         AuthorizeArgs: {
+            anonymousId?: string | null;
             appName?: null | components["schemas"]["AppName"];
             /** @description Authentication token is expected to be the access token from auth0 */
             authnToken: string;
@@ -1780,7 +1781,6 @@ export interface components {
             id: components["schemas"]["TeamId"];
             name: components["schemas"]["TeamName"];
             referralCode: components["schemas"]["ReferralCode"];
-            referralVerified: boolean;
             referredBy?: null | components["schemas"]["TeamId"];
             slug: components["schemas"]["TeamSlug"];
             suspended: boolean;

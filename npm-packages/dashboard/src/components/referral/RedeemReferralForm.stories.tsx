@@ -10,7 +10,6 @@ const mockTeams: Team[] = [
     creator: 1,
     suspended: false,
     referralCode: "CONVEX123",
-    referralVerified: false,
   },
   {
     id: 2,
@@ -19,7 +18,6 @@ const mockTeams: Team[] = [
     creator: 1,
     suspended: false,
     referralCode: "CONVEX456",
-    referralVerified: false,
   },
   {
     id: 3,
@@ -28,7 +26,6 @@ const mockTeams: Team[] = [
     creator: 1,
     suspended: false,
     referralCode: "CONVEX789",
-    referralVerified: false,
   },
 ];
 

@@ -44,7 +44,7 @@ export function SafeZone({
         pointerEvents="auto"
         fill={showTriangle ? "rgba(114,140,89,0.3)" : "transparent"}
         d={`M 0, ${mouseY - submenuY} 
-            L ${svgWidth},${svgHeight}  
+            L ${svgWidth},${svgHeight}
             L ${svgWidth},0 z`}
       />
     </svg>

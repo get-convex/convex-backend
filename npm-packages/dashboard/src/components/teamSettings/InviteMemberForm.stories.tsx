@@ -27,7 +27,7 @@ export const Primary: StoryObj<typeof InviteMemberForm> = {
       slug: "team",
       suspended: false,
       referralCode: "TEAM123",
-      referralVerified: false,
+
       referredBy: null,
     },
     members,

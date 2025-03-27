@@ -51,7 +51,6 @@ describe("<InviteMemberForm />", () => {
       slug: "convex-team",
       suspended: false,
       referralCode: "CODE123",
-      referralVerified: false,
     };
   });
 

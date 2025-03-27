@@ -31,7 +31,6 @@ describe("TeamMemberListItem", () => {
     slug: "",
     suspended: false,
     referralCode: "CODE123",
-    referralVerified: false,
   };
   const projects: ProjectDetails[] = [
     {

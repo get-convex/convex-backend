@@ -45,7 +45,6 @@ describe("<TeamForm />", () => {
       slug: "convex-team",
       suspended: false,
       referralCode: "CODE123",
-      referralVerified: false,
     };
     updatedTeam = {
       id: 1,
@@ -54,7 +53,6 @@ describe("<TeamForm />", () => {
       slug: "convex-team2",
       suspended: false,
       referralCode: "CODE123",
-      referralVerified: false,
     };
   });
 

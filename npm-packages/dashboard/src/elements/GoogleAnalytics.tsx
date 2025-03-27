@@ -10,7 +10,7 @@ export function GoogleAnalytics() {
           dataLayer.push(arguments);
         }
         gtag('js', new Date());
-        
+      
         gtag('config', 'G-BE1B7P7T72');
       `}</Script>
     </>

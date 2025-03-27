@@ -27,7 +27,6 @@ describe("AuditLogContent", () => {
     creator: 1,
     suspended: false,
     referralCode: "CODE123",
-    referralVerified: false,
   };
   const projects: ProjectDetails[] = [
     {

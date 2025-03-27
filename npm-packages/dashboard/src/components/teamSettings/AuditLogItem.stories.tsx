@@ -14,7 +14,7 @@ const team: Team = {
   creator: 1,
   suspended: false,
   referralCode: "TEAM123",
-  referralVerified: false,
+
   referredBy: null,
 };
 

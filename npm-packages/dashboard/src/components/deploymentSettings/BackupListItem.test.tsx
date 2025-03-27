@@ -64,7 +64,6 @@ const team: Team = {
   name: "Team",
   suspended: false,
   referralCode: "CODE123",
-  referralVerified: false,
 };
 
 jest.mock("api/deployments", () => {
@@ -110,7 +109,6 @@ jest.mock("api/teams", () => {
     name: "Team",
     suspended: false,
     referralCode: "CODE123",
-    referralVerified: false,
   };
   const profile: TeamMemberResponse = {
     id: 1,

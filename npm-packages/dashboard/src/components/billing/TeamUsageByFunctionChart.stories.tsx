@@ -24,7 +24,6 @@ const team = {
   suspended: false,
   referralCode: "MYAMAZ1341",
   referredBy: null,
-  referralVerified: false,
 };
 
 const project: ProjectDetails = {

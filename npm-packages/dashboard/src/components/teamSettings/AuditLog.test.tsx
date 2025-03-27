@@ -47,7 +47,6 @@ describe("AuditLog", () => {
           creator: 1,
           suspended: false,
           referralCode: "CODE123",
-          referralVerified: false,
         }}
       />,
     );
@@ -82,7 +81,6 @@ describe("AuditLog", () => {
           creator: 1,
           suspended: false,
           referralCode: "CODE123",
-          referralVerified: false,
         }}
       />,
     );
@@ -111,7 +109,6 @@ describe("AuditLog", () => {
           creator: 1,
           suspended: false,
           referralCode: "CODE123",
-          referralVerified: false,
         }}
       />,
     );
@@ -134,7 +131,6 @@ describe("AuditLog", () => {
           creator: 1,
           suspended: false,
           referralCode: "CODE123",
-          referralVerified: false,
         }}
       />,
     );

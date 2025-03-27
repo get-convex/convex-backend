@@ -44,7 +44,6 @@ const team: Team = {
   slug: "",
   suspended: false,
   referralCode: "CODE123",
-  referralVerified: false,
 };
 
 describe("StarterPlan", () => {
