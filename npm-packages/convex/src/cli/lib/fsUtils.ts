@@ -50,7 +50,7 @@ export function recursivelyDelete(
   }
 }
 
-export async function recusivelyCopy(
+export async function recursivelyCopy(
   ctx: Context,
   nodeFs: NodeFs,
   src: string,
@@ -60,7 +60,7 @@ export async function recusivelyCopy(
   if (st.isDirectory()) {
     nodeFs.mkdir(dest, { recursive: true });
     for (const entry of nodeFs.listDir(src)) {
-      await recusivelyCopy(
+      await recursivelyCopy(
         ctx,
         nodeFs,
         path.join(src, entry.name),

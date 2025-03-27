@@ -247,7 +247,7 @@ export async function _deploymentCredentialsOrConfigure(
           return await ctx.crash({
             exitCode: 0,
             errorType: "fatal",
-            printedMessage: `Run \`npx convex login\` first to link this deployment to your account, and then run \`npx convex dev\` again.`,
+            printedMessage: `Run \`npx convex login --link-deployments\` first to link this deployment to your account, and then run \`npx convex dev\` again.`,
           });
         }
         return await handleChooseProject(
@@ -453,7 +453,7 @@ export async function handleManuallySetUrlAndAdminKey(
   return { url, adminKey };
 }
 
-async function selectProject(
+export async function selectProject(
   ctx: Context,
   chosenConfiguration: ChosenConfiguration,
   cmdOptions: {
@@ -463,6 +463,7 @@ async function selectProject(
     local?: boolean | undefined;
     cloud?: boolean | undefined;
     partitionId?: number;
+    defaultProjectName?: string | undefined;
   },
 ): Promise<{
   teamSlug: string;
@@ -499,6 +500,7 @@ async function selectNewProject(
     cloud?: boolean | undefined;
     local?: boolean | undefined;
     partitionId?: number | undefined;
+    defaultProjectName?: string | undefined;
   },
 ) {
   const { teamSlug: selectedTeam, chosen: didChooseBetweenTeams } =
@@ -508,7 +510,7 @@ async function selectNewProject(
   if (!config.project) {
     projectName = await promptString(ctx, {
       message: "Project name:",
-      default: cwd,
+      default: config.defaultProjectName || cwd,
     });
     choseProjectInteractively = true;
   }
@@ -714,7 +716,7 @@ async function ensureDeploymentProvisioned(
   }
 }
 
-async function updateEnvAndConfigForDeploymentSelection(
+export async function updateEnvAndConfigForDeploymentSelection(
   ctx: Context,
   options: {
     url: string;

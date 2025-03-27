@@ -20,7 +20,8 @@ import {
   DEFAULT_LOCAL_DASHBOARD_API_PORT,
   checkIfDashboardIsRunning,
 } from "./lib/localDeployment/dashboard.js";
-const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
+
+export const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   ? "http://localhost:6789"
   : "https://dashboard.convex.dev";
 

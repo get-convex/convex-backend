@@ -616,7 +616,7 @@ export const deploymentNameAndTypeFromSelection = (
   return null;
 };
 
-const shouldAllowTryItOut = (): boolean => {
+export const shouldAllowTryItOut = (): boolean => {
   // Temporary flag while we build out this flow
   return process.env.CONVEX_TRY_IT_OUT !== undefined;
 };

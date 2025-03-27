@@ -32,6 +32,13 @@ export function isTryItOutDeployment(deploymentName: string) {
   return deploymentName.startsWith("tryitout-");
 }
 
+export function removeTryItOutPrefix(deploymentName: string) {
+  if (isTryItOutDeployment(deploymentName)) {
+    return deploymentName.slice("tryitout-".length);
+  }
+  return deploymentName;
+}
+
 export async function writeDeploymentEnvVar(
   ctx: Context,
   deploymentType: DeploymentType,

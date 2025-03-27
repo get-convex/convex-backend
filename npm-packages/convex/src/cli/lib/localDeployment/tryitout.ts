@@ -4,14 +4,24 @@
 import path from "path";
 import {
   Context,
+  logFinishedStep,
   logMessage,
   logVerbose,
   logWarning,
 } from "../../../bundler/context.js";
 import { promptSearch, promptString, promptYesNo } from "../utils/prompts.js";
-import { bigBrainGenerateTryItOutAdminKey } from "./bigBrain.js";
+import {
+  bigBrainGenerateTryItOutAdminKey,
+  bigBrainPause,
+  bigBrainStart,
+} from "./bigBrain.js";
 import { LocalDeploymentError, printLocalDeploymentOnError } from "./errors.js";
-import { loadDeploymentConfig } from "./filePaths.js";
+import {
+  LocalDeploymentKind,
+  deploymentStateDir,
+  loadDeploymentConfig,
+  saveDeploymentConfig,
+} from "./filePaths.js";
 import { rootDeploymentStateDir } from "./filePaths.js";
 import { LocalDeploymentConfig } from "./filePaths.js";
 import { DeploymentDetails } from "./localDeployment.js";
@@ -26,8 +36,12 @@ import {
 } from "./utils.js";
 import { handleDashboard } from "./dashboard.js";
 import crypto from "crypto";
+import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
 import { isTryItOutDeployment } from "../deployment.js";
+import { createProject } from "../api.js";
+import { removeTryItOutPrefix } from "../deployment.js";
+import { nodeFs } from "../../../bundler/fs.js";
 
 export async function handleTryItOutDeployment(
   ctx: Context,
@@ -373,4 +387,130 @@ async function getUniqueName(
     errorType: "fatal",
     printedMessage: `Could not generate a unique name for your deployment, please choose a different name`,
   });
+}
+/**
+ * This takes a "try it out" deployment and makes it a "local" deployment
+ * that is associated with a project in the given team.
+ */
+export async function handleLinkToProject(
+  ctx: Context,
+  args: {
+    deploymentName: string;
+    teamSlug: string;
+    projectSlug: string | null;
+  },
+): Promise<{
+  deploymentName: string;
+  deploymentUrl: string;
+  projectSlug: string;
+}> {
+  logVerbose(
+    ctx,
+    `Linking ${args.deploymentName} to a project in team ${args.teamSlug}`,
+  );
+  const config = await loadDeploymentConfig(
+    ctx,
+    "tryItOut",
+    args.deploymentName,
+  );
+  if (config === null) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: "Failed to load deployment config",
+    });
+  }
+  await ensureBackendStopped(ctx, {
+    ports: {
+      cloud: config.ports.cloud,
+    },
+    deploymentName: args.deploymentName,
+    allowOtherDeployments: true,
+    maxTimeSecs: 5,
+  });
+  const projectName = removeTryItOutPrefix(args.deploymentName);
+  let projectSlug: string;
+  if (args.projectSlug !== null) {
+    projectSlug = args.projectSlug;
+  } else {
+    const { projectSlug: newProjectSlug } = await createProject(ctx, {
+      teamSlug: args.teamSlug,
+      projectName,
+      deploymentTypeToProvision: "prod",
+    });
+    projectSlug = newProjectSlug;
+  }
+  logVerbose(ctx, `Creating local deployment in project ${projectSlug}`);
+  // Register it in big brain
+  const { deploymentName: localDeploymentName, adminKey } = await bigBrainStart(
+    ctx,
+    {
+      port: config.ports.cloud,
+      projectSlug,
+      teamSlug: args.teamSlug,
+      instanceName: null,
+    },
+  );
+  const localConfig = loadDeploymentConfig(ctx, "local", localDeploymentName);
+  if (localConfig !== null) {
+    return ctx.crash({
+      exitCode: 1,
+      errorType: "fatal",
+      printedMessage: `Project ${projectSlug} already has a local deployment, so we cannot link this try-it-out deployment to it.`,
+    });
+  }
+  logVerbose(ctx, `Moving ${args.deploymentName} to ${localDeploymentName}`);
+  await moveDeployment(
+    ctx,
+    {
+      deploymentKind: "tryItOut",
+      deploymentName: args.deploymentName,
+    },
+    {
+      deploymentKind: "local",
+      deploymentName: localDeploymentName,
+    },
+  );
+  logVerbose(ctx, `Saving deployment config for ${localDeploymentName}`);
+  await saveDeploymentConfig(ctx, "local", localDeploymentName, {
+    adminKey,
+    backendVersion: config.backendVersion,
+    ports: config.ports,
+  });
+  await bigBrainPause(ctx, {
+    projectSlug,
+    teamSlug: args.teamSlug,
+  });
+  logFinishedStep(
+    ctx,
+    `Linked ${args.deploymentName} to project ${projectSlug}`,
+  );
+  return {
+    projectSlug,
+    deploymentName: localDeploymentName,
+    deploymentUrl: localDeploymentUrl(config.ports.cloud),
+  };
+}
+
+export async function moveDeployment(
+  ctx: Context,
+  oldDeployment: {
+    deploymentKind: LocalDeploymentKind;
+    deploymentName: string;
+  },
+  newDeployment: {
+    deploymentKind: LocalDeploymentKind;
+    deploymentName: string;
+  },
+) {
+  const oldPath = deploymentStateDir(
+    oldDeployment.deploymentKind,
+    oldDeployment.deploymentName,
+  );
+  const newPath = deploymentStateDir(
+    newDeployment.deploymentKind,
+    newDeployment.deploymentName,
+  );
+  await recursivelyCopy(ctx, nodeFs, oldPath, newPath);
+  recursivelyDelete(ctx, oldPath);
 }

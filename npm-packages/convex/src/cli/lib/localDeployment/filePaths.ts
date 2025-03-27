@@ -71,7 +71,7 @@ export function loadDeploymentConfig(
 ): LocalDeploymentConfig | null {
   const dir = deploymentStateDir(deploymentKind, deploymentName);
   const configFile = path.join(dir, "config.json");
-  if (!ctx.fs.stat(dir).isDirectory()) {
+  if (!ctx.fs.exists(dir) || !ctx.fs.stat(dir).isDirectory()) {
     logVerbose(ctx, `Deployment ${deploymentName} not found`);
     return null;
   }

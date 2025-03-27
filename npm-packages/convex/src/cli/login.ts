@@ -1,6 +1,29 @@
 import { Command, Option } from "@commander-js/extra-typings";
-import { logFinishedStep, oneoffContext } from "../bundler/context.js";
+import {
+  Context,
+  logFailure,
+  logFinishedStep,
+  logMessage,
+  oneoffContext,
+} from "../bundler/context.js";
 import { checkAuthorization, performLogin } from "./lib/login.js";
+import {
+  handleLinkToProject,
+  listExistingTryItOutDeployments,
+} from "./lib/localDeployment/tryitout.js";
+import { deploymentDashboardUrlPage, teamDashboardUrl } from "./dashboard.js";
+import { promptSearch, promptYesNo } from "./lib/utils/prompts.js";
+import { DASHBOARD_HOST } from "./dashboard.js";
+import { bigBrainAPI, validateOrSelectTeam } from "./lib/utils/utils.js";
+import {
+  selectProject,
+  updateEnvAndConfigForDeploymentSelection,
+} from "./configure.js";
+import {
+  getDeploymentSelection,
+  shouldAllowTryItOut,
+} from "./lib/deploymentSelection.js";
+import { removeTryItOutPrefix } from "./lib/deployment.js";
 
 export const login = new Command("login")
   .description("Login to Convex")
@@ -25,6 +48,7 @@ export const login = new Command("login")
       .choices(["paste", "auto", "poll"] as const)
       .default("auto" as const),
   )
+  .addOption(new Option("--link-deployments").hideHelp())
   // These options are hidden from the help/usage message, but allow overriding settings for testing.
   // Change the auth credentials with the auth provider
   .addOption(new Option("--override-auth-url <url>").hideHelp())
@@ -53,6 +77,9 @@ export const login = new Command("login")
         ctx,
         "This device has previously been authorized and is ready for use with Convex.",
       );
+      await handleLinkingDeployments(ctx, {
+        interactive: !!options.linkDeployments,
+      });
       return;
     }
     if (!options.force && options.checkLogin) {
@@ -73,4 +100,209 @@ export const login = new Command("login")
     }
 
     await performLogin(ctx, options);
+
+    await handleLinkingDeployments(ctx, {
+      interactive: !!options.linkDeployments,
+    });
   });
+
+async function handleLinkingDeployments(
+  ctx: Context,
+  args: {
+    interactive: boolean;
+  },
+) {
+  if (!shouldAllowTryItOut()) {
+    return;
+  }
+  const tryItOutDeployments = await listExistingTryItOutDeployments(ctx);
+  if (tryItOutDeployments.length === 0) {
+    if (args.interactive) {
+      logMessage(
+        ctx,
+        "It doesn't look like you have any tryitout deployments to link. You can run `npx convex dev` to set up a new project or select an existing one.",
+      );
+    }
+    return;
+  }
+
+  if (!args.interactive) {
+    const message = getMessage(
+      tryItOutDeployments.map((d) => d.deploymentName),
+    );
+    const createProjects = await promptYesNo(ctx, {
+      message,
+      default: true,
+    });
+    if (!createProjects) {
+      logMessage(
+        ctx,
+        "Not linking your existing deployments. If you want to link them later, run `npx convex login --link-deployments`.",
+      );
+      logMessage(
+        ctx,
+        `Visit ${DASHBOARD_HOST} or run \`npx convex dev\` to get started with your new account.`,
+      );
+      return;
+    }
+
+    const { teamSlug } = await validateOrSelectTeam(
+      ctx,
+      undefined,
+      "Choose a team for your deployments:",
+    );
+    const projectsRemaining = await getProjectsRemaining(ctx, teamSlug);
+    if (tryItOutDeployments.length > projectsRemaining) {
+      logFailure(
+        ctx,
+        `You have ${tryItOutDeployments.length} deployments to link, but only have ${projectsRemaining} projects remaining. If you'd like to choose which ones to link, run this command with the --link-deployments flag.`,
+      );
+      return;
+    }
+
+    const deploymentSelection = await getDeploymentSelection(ctx, {
+      url: undefined,
+      adminKey: undefined,
+      envFile: undefined,
+    });
+    const configuredDeployment =
+      deploymentSelection.kind === "tryItOut"
+        ? deploymentSelection.deploymentName
+        : null;
+
+    let dashboardUrl = teamDashboardUrl(teamSlug);
+
+    for (const deployment of tryItOutDeployments) {
+      const linkedDeployment = await handleLinkToProject(ctx, {
+        deploymentName: deployment.deploymentName,
+        teamSlug,
+        projectSlug: null,
+      });
+      logFinishedStep(
+        ctx,
+        `Added ${deployment.deploymentName} to project ${linkedDeployment.projectSlug}`,
+      );
+      if (deployment.deploymentName === configuredDeployment) {
+        // If the current project has a `CONVEX_DEPLOYMENT` env var configured, replace
+        // it with the new value.
+        await updateEnvAndConfigForDeploymentSelection(
+          ctx,
+          {
+            url: linkedDeployment.deploymentUrl,
+            deploymentName: linkedDeployment.deploymentName,
+            teamSlug,
+            projectSlug: linkedDeployment.projectSlug,
+            deploymentType: "local",
+          },
+          configuredDeployment,
+        );
+        dashboardUrl = deploymentDashboardUrlPage(
+          linkedDeployment.deploymentName,
+          "",
+        );
+      }
+    }
+    logFinishedStep(
+      ctx,
+      `Sucessfully linked your deployments! Visit ${dashboardUrl} to get started.`,
+    );
+  }
+
+  const deploymentSelection = await getDeploymentSelection(ctx, {
+    url: undefined,
+    adminKey: undefined,
+    envFile: undefined,
+  });
+  const configuredDeployment =
+    deploymentSelection.kind === "tryItOut"
+      ? deploymentSelection.deploymentName
+      : null;
+  while (true) {
+    logMessage(
+      ctx,
+      getDeploymentListMessage(
+        tryItOutDeployments.map((d) => d.deploymentName),
+      ),
+    );
+    const updatedTryItOutDeployments =
+      await listExistingTryItOutDeployments(ctx);
+    const deploymentToLink = await promptSearch(ctx, {
+      message: "Which deployment would you like to link to your account?",
+      choices: updatedTryItOutDeployments.map((d) => ({
+        name: d.deploymentName,
+        value: d.deploymentName,
+      })),
+    });
+    const { teamSlug } = await validateOrSelectTeam(
+      ctx,
+      undefined,
+      "Choose a team for your deployment:",
+    );
+    const { projectSlug } = await selectProject(ctx, "ask", {
+      team: teamSlug,
+      devDeployment: "local",
+      defaultProjectName: removeTryItOutPrefix(deploymentToLink),
+    });
+    const linkedDeployment = await handleLinkToProject(ctx, {
+      deploymentName: deploymentToLink,
+      teamSlug,
+      projectSlug,
+    });
+    logFinishedStep(
+      ctx,
+      `Added ${deploymentToLink} to project ${linkedDeployment.projectSlug}`,
+    );
+    if (deploymentToLink === configuredDeployment) {
+      await updateEnvAndConfigForDeploymentSelection(
+        ctx,
+        {
+          url: linkedDeployment.deploymentUrl,
+          deploymentName: linkedDeployment.deploymentName,
+          teamSlug,
+          projectSlug: linkedDeployment.projectSlug,
+          deploymentType: "local",
+        },
+        configuredDeployment,
+      );
+    }
+    const shouldContinue = await promptYesNo(ctx, {
+      message: "Would you like to link another deployment?",
+      default: true,
+    });
+    if (!shouldContinue) {
+      break;
+    }
+  }
+}
+
+async function getProjectsRemaining(ctx: Context, teamSlug: string) {
+  const response = await bigBrainAPI<{ projectsRemaining: number }>({
+    ctx,
+    method: "GET",
+    url: `/api/teams/${teamSlug}/projects_remaining`,
+  });
+
+  return response.projectsRemaining;
+}
+
+function getDeploymentListMessage(tryItOutDeploymentNames: string[]) {
+  let message = `You have ${tryItOutDeploymentNames.length} existing deployments.`;
+  message += `\n\nDeployments:`;
+  for (const deploymentName of tryItOutDeploymentNames) {
+    message += `\n- ${deploymentName}`;
+  }
+  return message;
+}
+
+function getMessage(tryItOutDeploymentNames: string[]) {
+  if (tryItOutDeploymentNames.length === 1) {
+    return `Would you like to link your existing deployment to your account? ("${tryItOutDeploymentNames[0]}")`;
+  }
+  let message = `You have ${tryItOutDeploymentNames.length} existing deployments. Would you like to link them to your account?`;
+  message += `\n\nDeployments:`;
+  for (const deploymentName of tryItOutDeploymentNames) {
+    message += `\n- ${deploymentName}`;
+  }
+  message += `\n\nYou can alternatively run \`npx convex login --link-deployments\` to interactively choose which deployments to add.`;
+  return message;
+}

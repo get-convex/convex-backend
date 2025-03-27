@@ -20,7 +20,7 @@ import { promisify } from "util";
 import { Readable } from "stream";
 import { TempPath, nodeFs, withTmpDir } from "../../../bundler/fs.js";
 import { components } from "@octokit/openapi-types";
-import { recursivelyDelete, recusivelyCopy } from "../fsUtils.js";
+import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { LocalDeploymentError } from "./errors.js";
 import ProgressBar from "progress";
 import path from "path";
@@ -360,7 +360,7 @@ async function _ensureDashboardDownloaded(ctx: Context, version: string) {
     filename: "dashboard.zip",
     nameForLogging: "Convex dashboard",
     onDownloadComplete: async (ctx, unzippedPath) => {
-      await recusivelyCopy(ctx, nodeFs, unzippedPath, outDir);
+      await recursivelyCopy(ctx, nodeFs, unzippedPath, outDir);
       logVerbose(ctx, "Copied into out dir");
     },
   });
