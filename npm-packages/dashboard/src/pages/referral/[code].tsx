@@ -1,38 +1,52 @@
+import { GetServerSideProps } from "next";
+import { auth0 } from "server/auth0";
+import { Flourish } from "layouts/LoginLayout";
 import Head from "next/head";
-import { useTeamMembers, useTeams } from "api/teams";
-import router from "next/router";
-import { LoginLayout } from "layouts/LoginLayout";
-import { useTeamOrbSubscription } from "api/billing";
-import { RedeemReferralForm } from "components/referral/RedeemReferralForm";
-import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import { useParams } from "next/navigation";
-import { useState } from "react";
-import { Team } from "generatedApi";
-import { useApplyReferralCode } from "api/referrals";
-import { useProfile } from "api/profile";
+import Background from "components/login/images/background.svg";
+import { ConvexLogo } from "dashboard-common/elements/ConvexLogo";
+import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding";
 
-export { getServerSideProps } from "lib/ssr";
+export const getServerSideProps: GetServerSideProps = async ({
+  req,
+  res,
+  query,
+}) => {
+  try {
+    // Check if user is authenticated without forcing login
+    const session = await auth0().getSession(req, res);
 
-function RedeemReferralCodePage() {
+    // If user is authenticated, redirect to the apply page
+    if (session?.user) {
+      return {
+        redirect: {
+          destination: `/referral/${query.code}/apply`,
+          permanent: false,
+        },
+      };
+    }
+
+    // If not authenticated, render the page normally
+    return { props: {} };
+  } catch (error) {
+    // Something went wrong with Auth0, so we’ll just render the logged out page
+    console.error("Auth error:", error);
+    return { props: {} };
+  }
+};
+
+const title = "Someone thinks you’re a great fit for Convex!";
+const description = "Get Convex resources for free with this referral code.";
+const ogImage = "https://www.convex.dev/og_image.png";
+
+export default function ReferralLandingPage() {
   const { code } = useParams<{ code: string }>();
 
-  const { selectedTeamSlug: defaultTeamSlug, teams } = useTeams();
-  const defaultTeam = teams?.find((t) => t.slug === defaultTeamSlug) ?? null;
-  const [selectedTeam, setSelectedTeam] = useState<Team | null>(defaultTeam);
-  const [isTeamSelectorShown, setIsTeamSelectorShown] = useState(false);
-
-  const teamEligibility = useTeamReedeemEligibility(selectedTeam);
-
-  const applyReferralCode = useApplyReferralCode(selectedTeam?.id);
-
-  const title = "Someone thinks you’re a good fit for Convex!";
-  const description = "Get Convex resources for free with this referral code.";
-  const ogImage = "https://www.convex.dev/og_image.png";
-
   return (
-    <div className="h-screen">
+    <div className="flex h-screen w-full flex-col items-center bg-background-brand">
       <Head>
         <title>{title}</title>
+
         <meta name="description" content={description} />
 
         <meta property="og:title" content={title} />
@@ -51,59 +65,18 @@ function RedeemReferralCodePage() {
         <meta name="twitter:description" content={description} />
         <meta name="twitter:image" content={ogImage} />
       </Head>
-      <LoginLayout>
-        <RedeemReferralForm
-          teams={teams}
-          selectedTeam={selectedTeam}
-          onTeamSelect={setSelectedTeam}
-          onShowTeamSelector={() => setIsTeamSelectorShown(true)}
-          isTeamSelectorShown={isTeamSelectorShown}
-          onSubmit={async () => {
-            if (!selectedTeam) {
-              throw new Error("No team selected");
-            }
 
-            await applyReferralCode({
-              referralCode: code,
-            });
+      <Flourish />
 
-            void router.push(`/t/${selectedTeam.slug}`);
-          }}
-          teamEligibility={teamEligibility}
-        />
-      </LoginLayout>
+      <div className="mt-20">
+        <ConvexLogo />
+      </div>
+
+      <div className="absolute left-1/2 top-36 hidden -translate-x-1/2 lg:block">
+        <Background className="stroke-[#D7D7D7] dark:hidden" />
+      </div>
+
+      <RedeemReferralLanding title={title} code={code} />
     </div>
   );
 }
-
-function useTeamReedeemEligibility(team: Team | null) {
-  const { subscription } = useTeamOrbSubscription(team?.id);
-  const isAdmin = useIsAdminOfTeam(team);
-
-  if (team?.referredBy) {
-    return { eligible: false, reason: "already_redeemed" } as const;
-  }
-
-  if (isAdmin === false) {
-    return { eligible: false, reason: "not_admin" } as const;
-  }
-
-  if (subscription !== undefined && subscription !== null) {
-    return { eligible: false, reason: "paid_subscription" } as const;
-  }
-
-  if (isAdmin === undefined || subscription === undefined) {
-    return undefined;
-  }
-
-  return { eligible: true } as const;
-}
-
-function useIsAdminOfTeam(team: Team | null): boolean | undefined {
-  const profile = useProfile();
-  const members = useTeamMembers(team?.id);
-  const member = members?.find((m) => m.id === profile?.id);
-  return member === undefined ? undefined : member.role === "admin";
-}
-
-export default withAuthenticatedPage(RedeemReferralCodePage);

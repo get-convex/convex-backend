@@ -11,7 +11,8 @@ import { Loading } from "dashboard-common/elements/Loading";
 import { useCopy } from "dashboard-common/lib/useCopy";
 import { ReferralsBenefits } from "./ReferralsBenefits";
 
-const MAX_REFERRALS = 5;
+// Keep in sync with MAX_REFERRALS_BONUS in big_brain_lib/src/model/referrals.rs
+export const MAX_REFERRALS = 5;
 
 export function Referrals({ team }: { team: Team }) {
   const { subscription } = useTeamOrbSubscription(team.id);
@@ -24,7 +25,7 @@ export function Referrals({ team }: { team: Team }) {
     <ReferralsInner
       isPaidPlan={isPaidPlan}
       referralCode={team.referralCode}
-      referralState={referralState.data}
+      referralState={referralState}
     />
   );
 }

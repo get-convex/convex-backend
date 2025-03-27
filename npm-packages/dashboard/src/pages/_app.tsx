@@ -40,13 +40,20 @@ if (typeof window !== "undefined") {
   (window as any).isConsole = true;
 }
 
-const UNAUTHED_ROUTES = ["/404", "/login", "/signup"];
+const UNAUTHED_ROUTES = [
+  "/404",
+  "/login",
+  "/signup",
+  /^\/referral\/[A-Z0-9]+$/,
+];
 
 export default function App({ Component, pageProps }: AppProps) {
   const router = useRouter();
   const pathWithoutQueryString = router.asPath.split("?")[0].split("#")[0];
 
-  const inUnauthedRoute = UNAUTHED_ROUTES.some((r) => r === router.pathname);
+  const inUnauthedRoute = UNAUTHED_ROUTES.some((r) =>
+    typeof r === "string" ? r === router.pathname : r.test(router.pathname),
+  );
   // To share state across page transitions we load deployment data in this
   // shared App component if the path looks like a deployment.
   const inDeployment = router.pathname.startsWith(

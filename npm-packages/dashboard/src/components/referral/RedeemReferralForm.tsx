@@ -7,6 +7,8 @@ import { Callout } from "dashboard-common/elements/Callout";
 import { Team } from "generatedApi";
 import { Loading } from "dashboard-common/elements/Loading";
 import { ReferralsBenefits } from "components/referral/ReferralsBenefits";
+import Link from "next/link";
+import { MAX_REFERRALS } from "./Referrals";
 
 type TeamEligibilityError =
   | "paid_subscription"
@@ -14,6 +16,7 @@ type TeamEligibilityError =
   | "not_admin";
 
 export function RedeemReferralForm({
+  referralCode,
   teams,
   selectedTeam,
   onTeamSelect,
@@ -22,6 +25,16 @@ export function RedeemReferralForm({
   onShowTeamSelector,
   teamEligibility,
 }: {
+  referralCode:
+    | {
+        valid: false;
+      }
+    | {
+        valid: true;
+        teamName: string;
+        exhausted: boolean;
+      }
+    | undefined;
   teams: Team[] | undefined;
   selectedTeam: Team | null;
   onTeamSelect: (team: Team) => void;
@@ -38,102 +51,130 @@ export function RedeemReferralForm({
   return (
     <div className="flex w-screen items-center justify-center">
       <Sheet className="flex w-full max-w-prose flex-col gap-2">
-        <h3>Someone thinks you’re a good fit for Convex!</h3>
-
-        <p className="text-content-primary">
-          Thanks to your referral code, you will get the following resources for
-          free on top of your free plan limits:
-        </p>
-
-        <ul className="mb-3 mt-4 grid gap-x-2 gap-y-4 sm:grid-cols-2">
-          <ReferralsBenefits />
-        </ul>
-
-        {teams === undefined ? (
-          <Loading fullHeight={false} className="h-28" />
+        {referralCode === undefined ? (
+          <>
+            <h3>Redeem your referral code</h3>
+            <Loading fullHeight={false} className="h-80" />
+          </>
+        ) : !referralCode.valid ? (
+          <CodeError
+            title="Invalid referral code"
+            description="Oh no, the code you used is invalid."
+          />
+        ) : referralCode.exhausted ? (
+          <CodeError
+            title="Referral code exhausted"
+            description={
+              <>
+                Oh no, the code from <strong>{referralCode.teamName}</strong>{" "}
+                has been redeemed more than {MAX_REFERRALS} times and is no
+                longer valid.
+              </>
+            }
+          />
         ) : (
-          <form
-            onSubmit={async (e) => {
-              e.preventDefault();
+          <>
+            <h3>Redeem your referral code</h3>
 
-              setIsSubmitting(true);
-              try {
-                await onSubmit();
-              } finally {
-                setIsSubmitting(false);
-              }
-            }}
-            className="flex flex-col gap-4"
-          >
-            {isTeamSelectorShown ||
-            selectedTeam === null ||
-            teamEligibility?.eligible === false ? (
-              <div className="flex flex-col gap-1">
-                <Combobox
-                  labelHidden={false}
-                  options={teams.map((t) => ({
-                    label: t.name,
-                    value: t.slug,
-                  }))}
-                  label="Apply the code to team"
-                  selectedOption={selectedTeam?.slug ?? null}
-                  setSelectedOption={(slug) => {
-                    if (slug !== null) {
-                      const team = teams?.find((t) => t.slug === slug);
-                      if (team) {
-                        onTeamSelect(team);
-                      }
-                    }
-                  }}
-                  disableSearch
-                />
-              </div>
+            <p className="text-content-primary">
+              Thanks to the code from <strong>{referralCode.teamName}</strong>,
+              you will get the following resources for free on top of your free
+              plan limits:
+            </p>
+
+            <ul className="mb-3 mt-4 grid gap-x-2 gap-y-4 sm:grid-cols-2">
+              <ReferralsBenefits />
+            </ul>
+
+            {teams === undefined ? (
+              <Loading fullHeight={false} className="h-28" />
             ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="grow text-content-secondary">
-                  These free resources will be added to the team{" "}
-                  <strong className="font-semibold">{selectedTeam.name}</strong>
-                  .{" "}
-                </p>
-                <Button
-                  variant="neutral"
-                  onClick={onShowTeamSelector}
-                  size="xs"
-                >
-                  Change team
-                </Button>
-              </div>
-            )}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
 
-            {teamEligibility?.eligible === false && (
-              <Callout variant="error" className="my-0">
-                {teamEligibilityErrorMessage(teamEligibility.reason)}
-              </Callout>
-            )}
-
-            <div>
-              <Button
-                type="submit"
-                disabled={
-                  !selectedTeam ||
-                  isSubmitting ||
-                  teamEligibility === undefined ||
-                  !teamEligibility.eligible
-                }
+                  setIsSubmitting(true);
+                  try {
+                    await onSubmit();
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }}
+                className="flex flex-col gap-4"
               >
-                {isSubmitting ? (
-                  <Spinner className="h-4 w-4" />
+                {isTeamSelectorShown ||
+                selectedTeam === null ||
+                teamEligibility?.eligible === false ? (
+                  <div className="flex flex-col gap-1">
+                    <Combobox
+                      labelHidden={false}
+                      options={teams.map((t) => ({
+                        label: t.name,
+                        value: t.slug,
+                      }))}
+                      label="Apply the code to team"
+                      selectedOption={selectedTeam?.slug ?? null}
+                      setSelectedOption={(slug) => {
+                        if (slug !== null) {
+                          const team = teams?.find((t) => t.slug === slug);
+                          if (team) {
+                            onTeamSelect(team);
+                          }
+                        }
+                      }}
+                      disableSearch
+                    />
+                  </div>
                 ) : (
-                  <div className="flex items-center gap-2">
-                    Get my free resources
-                    {teamEligibility === undefined && (
-                      <Spinner className="h-4 w-4" />
-                    )}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="grow text-content-secondary">
+                      These free resources will be added to the team{" "}
+                      <strong className="font-semibold">
+                        {selectedTeam.name}
+                      </strong>
+                      .{" "}
+                    </p>
+                    <Button
+                      variant="neutral"
+                      onClick={onShowTeamSelector}
+                      size="xs"
+                    >
+                      Change team
+                    </Button>
                   </div>
                 )}
-              </Button>
-            </div>
-          </form>
+
+                {teamEligibility?.eligible === false && (
+                  <Callout variant="error" className="my-0">
+                    {teamEligibilityErrorMessage(teamEligibility.reason)}
+                  </Callout>
+                )}
+
+                <div>
+                  <Button
+                    type="submit"
+                    disabled={
+                      !selectedTeam ||
+                      isSubmitting ||
+                      teamEligibility === undefined ||
+                      !teamEligibility.eligible
+                    }
+                  >
+                    {isSubmitting ? (
+                      <Spinner className="h-4 w-4" />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        Get my free resources
+                        {teamEligibility === undefined && (
+                          <Spinner className="h-4 w-4" />
+                        )}
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            )}
+          </>
         )}
       </Sheet>
     </div>
@@ -143,7 +184,7 @@ export function RedeemReferralForm({
 function teamEligibilityErrorMessage(error: TeamEligibilityError) {
   switch (error) {
     case "paid_subscription":
-      return "You cannot redeem a referral code for a team that has a paid subscription.";
+      return "You cannot redeem a referral code on a team that has a paid subscription.";
     case "already_redeemed":
       return "This team has already redeemed a referral code.";
     case "not_admin":
@@ -153,4 +194,35 @@ function teamEligibilityErrorMessage(error: TeamEligibilityError) {
       throw new Error(`Unknown team eligibility error: ${exhaustiveCheck}`);
     }
   }
+}
+
+function CodeError({
+  title,
+  description,
+}: {
+  title: string;
+  description: React.ReactNode;
+}) {
+  return (
+    <>
+      <h3>{title}</h3>
+      <p>{description}</p>
+      <p>
+        No worries, you can still use another referral link later. In the
+        meantime, you can get started using Convex with the{" "}
+        <Link
+          href="https://www.convex.dev/pricing"
+          target="_blank"
+          className="text-content-link hover:underline"
+        >
+          default limits
+        </Link>{" "}
+        and also refer others to increase your quota.
+      </p>
+
+      <div>
+        <Button href="/">Start Building</Button>
+      </div>
+    </>
+  );
 }

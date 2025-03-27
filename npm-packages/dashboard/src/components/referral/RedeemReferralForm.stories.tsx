@@ -39,6 +39,11 @@ const meta = {
   },
   tags: ["autodocs"],
   args: {
+    referralCode: {
+      teamName: "Nicolas’s Team",
+      valid: true,
+      exhausted: false,
+    },
     teams: mockTeams,
     selectedTeam: mockTeams[0],
     onTeamSelect: () => {},
@@ -53,6 +58,30 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+export const LoadingCode: Story = {
+  args: {
+    referralCode: undefined,
+  },
+};
+
+export const InvalidCode: Story = {
+  args: {
+    referralCode: {
+      valid: false,
+    },
+  },
+};
+
+export const ExhaustedCode: Story = {
+  args: {
+    referralCode: {
+      teamName: "Nicolas’s Team",
+      valid: true,
+      exhausted: true,
+    },
+  },
+};
 
 export const LoadingTeams: Story = {
   args: {
