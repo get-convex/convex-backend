@@ -243,13 +243,14 @@ npx convex dev
 
 ## Running the database on Postgres or MySQL
 
-The Convex backend is designed to work well with SQLite, Postgres, or MySQL. If
-you're running a production workload that requires guaranteed uptime it's likely
-you want to use a managed Postgres or MySQL service. We've included instructions
-below for connecting to a Postgres database hosted on [Neon](https://neon.tech)
-or a MySQL (Vitess) database hosted on [PlanetScale](https://planetscale.com).
-We've tested that the Convex backend works with Postgres v17 and MySQL v8, but
-it's possible it works with other versions.
+The Convex backend is designed to work well with SQLite, Postgres, or MySQL. By
+default, the docker image uses SQLite. If you're running a production workload
+that requires guaranteed uptime it's likely you want to use a managed Postgres
+or MySQL service. We've included instructions below for connecting to a Postgres
+database hosted on [Neon](https://neon.tech) or a MySQL (Vitess) database hosted
+on [PlanetScale](https://planetscale.com). We've tested that the Convex backend
+works with Postgres v17 and MySQL v8, but it's possible it works with other
+versions.
 
 Use `npx convex export` to export your data before moving from one database
 provider to another.
@@ -328,8 +329,9 @@ docker compose up
 
 ## Using S3 Storage
 
-To run the backend with S3 storage, set up the following buckets and environment
-variables.
+By default, the backend stores file data on the filesystem within the docker
+container. To instead run the backend with S3 storage, set up the following
+buckets and environment variables.
 
 ```sh
 export AWS_REGION="your-region"
