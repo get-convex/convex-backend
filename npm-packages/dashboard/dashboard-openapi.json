@@ -2288,6 +2288,31 @@
           }
         }
       }
+    },
+    "/validate_referral_code": {
+      "get": {
+        "operationId": "validate_referral_code",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateReferralCodeResult"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3877,11 +3902,10 @@
       "ReferralState": {
         "type": "object",
         "required": [
-          "verifiedReferrals",
-          "pendingReferrals"
+          "referrals"
         ],
         "properties": {
-          "pendingReferrals": {
+          "referrals": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TeamName"
@@ -3896,12 +3920,6 @@
                 "$ref": "#/components/schemas/TeamName"
               }
             ]
-          },
-          "verifiedReferrals": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TeamName"
-            }
           }
         }
       },
@@ -4461,6 +4479,39 @@
           "Exceeded",
           "Paused",
           "Disabled"
+        ]
+      },
+      "ValidateReferralCodeResult": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "Valid"
+            ],
+            "properties": {
+              "Valid": {
+                "type": "object",
+                "required": [
+                  "teamName",
+                  "exhausted"
+                ],
+                "properties": {
+                  "exhausted": {
+                    "type": "boolean"
+                  },
+                  "teamName": {
+                    "$ref": "#/components/schemas/TeamName"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "string",
+            "enum": [
+              "Invalid"
+            ]
+          }
         ]
       },
       "Value": {},

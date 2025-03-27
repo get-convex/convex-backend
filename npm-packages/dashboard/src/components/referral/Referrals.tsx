@@ -39,7 +39,7 @@ export function ReferralsInner({
   referralState: ReferralState | undefined;
 }) {
   const sourceReferralTeamName = referralState?.referredBy;
-  const verifiedReferralsCount = referralState?.verifiedReferrals.length;
+  const referralsCount = referralState?.referrals.length;
 
   return (
     <div className="flex grow flex-col gap-6 overflow-hidden">
@@ -105,7 +105,7 @@ export function ReferralsInner({
             {referralState !== undefined && (
               <>
                 {" "}
-                ({verifiedReferralsCount}/{MAX_REFERRALS})
+                ({referralsCount}/{MAX_REFERRALS})
               </>
             )}
           </h3>
@@ -113,12 +113,12 @@ export function ReferralsInner({
             <Loading fullHeight={false} className="h-48" />
           ) : (
             <div className="flex flex-col">
-              {referralState.verifiedReferrals.length === 0 ? (
+              {referralState.referrals.length === 0 ? (
                 <p className="text-content-secondary">
                   No referrals yet. Share your referral link to get started!
                 </p>
               ) : (
-                referralState.verifiedReferrals.map((teamName, index) => (
+                referralState.referrals.map((teamName, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between border-b py-3 last:border-b-0"

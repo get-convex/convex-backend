@@ -14,8 +14,7 @@ export default meta;
 type Story = StoryObj<typeof ReferralsInner>;
 
 const mockReferralState: ReferralState = {
-  verifiedReferrals: ["Team A", "Team B"],
-  pendingReferrals: ["Team C", "Team D"],
+  referrals: ["Team A", "Team B"],
   referredBy: null,
 };
 
