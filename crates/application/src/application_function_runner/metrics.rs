@@ -3,7 +3,6 @@ use common::types::{
     UdfType,
 };
 use metrics::{
-    log_counter,
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
@@ -41,12 +40,12 @@ pub fn log_udf_executor_result(udf_type: UdfType, result: UdfExecutorResult) {
     );
 }
 
-register_convex_counter!(
-    APPLICATION_MUTATION_ALREADY_COMMITTED_TOTAL,
-    "Count of mutations skipped because they were previously committed"
+register_convex_histogram!(
+    APPLICATION_MUTATION_ALREADY_COMMITTED_SECONDS,
+    "Age of mutations skipped because they were previously committed"
 );
-pub fn log_mutation_already_committed() {
-    log_counter(&APPLICATION_MUTATION_ALREADY_COMMITTED_TOTAL, 1);
+pub fn log_mutation_already_committed(age_seconds: f64) {
+    log_distribution(&APPLICATION_MUTATION_ALREADY_COMMITTED_SECONDS, age_seconds);
 }
 
 register_convex_histogram!(OCC_RETRIES_TOTAL, "Number of OCC retries for a commit");

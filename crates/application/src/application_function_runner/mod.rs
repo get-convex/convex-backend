@@ -1816,8 +1816,12 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
             .await?;
         let result = match mutation_status {
             Some((ts, SessionRequestOutcome::Mutation { result, log_lines })) => {
-                tracing::info!("Mutation already executed so skipping {:?}", identifier);
-                log_mutation_already_committed();
+                let age = tx.begin_timestamp().secs_since_f64(ts);
+                tracing::info!(
+                    "Mutation already executed {age:.3}s ago so skipping {:?}",
+                    identifier
+                );
+                log_mutation_already_committed(age);
                 Ok(MutationReturn {
                     value: result,
                     log_lines,
