@@ -582,9 +582,7 @@ pub static SYSTEM_TABLE_ROWS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(||
     )
 });
 
-/// Default 6 months, which is approximately how often we deprecate npm
-/// packages. If the npm package is deprecated, the client can't reconnect with
-/// an outstanding mutation. We can potentially reduce this window by changing
+/// We can potentially reduce this window by changing
 /// clients to track how long they have been open and throw an alert after
 /// too many days. See go/idempotent-mutations
 /// Zero indicates that there is no maximum.
