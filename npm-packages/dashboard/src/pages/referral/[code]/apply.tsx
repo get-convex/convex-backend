@@ -26,12 +26,10 @@ function RedeemReferralCodePage() {
   const teamEligibility = useTeamReedeemEligibility(selectedTeam);
   const applyReferralCode = useApplyReferralCode(selectedTeam?.id);
 
-  const title = "Someone thinks you’re a good fit for Convex!";
-
   return (
     <div className="h-screen">
       <Head>
-        <title>{title} | Convex Dashboard</title>
+        <title>Redeem your referral code | Convex Dashboard</title>
       </Head>
       <LoginLayout>
         <RedeemReferralForm

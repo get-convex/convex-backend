@@ -35,7 +35,7 @@ export const getServerSideProps: GetServerSideProps = async ({
   }
 };
 
-const title = "Someone thinks you’re a great fit for Convex!";
+const title = "Someone thinks you’d like Convex!";
 const description = "Get Convex resources for free with this referral code.";
 const ogImage = `https://www.convex.dev/api/og?title=${encodeURIComponent(title)}`;
 

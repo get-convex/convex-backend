@@ -4,7 +4,7 @@ import { RedeemReferralLanding } from "./RedeemReferralLanding";
 const meta = {
   component: RedeemReferralLanding,
   args: {
-    title: "Someone thinks you’re a great fit for Convex!",
+    title: "Someone thinks you’d like Convex!",
     code: "CONVEX123",
   },
 } satisfies Meta<typeof RedeemReferralLanding>;
