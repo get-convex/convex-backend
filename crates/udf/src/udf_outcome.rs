@@ -26,10 +26,8 @@ use proptest::prelude::Arbitrary;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::Strategy;
 use rand::Rng;
-use serde_json::Value as JsonValue;
 use value::{
     heap_size::HeapSize,
-    ConvexValue,
     JsonPackedValue,
 };
 
@@ -223,9 +221,7 @@ impl UdfOutcome {
         let result = result.ok_or_else(|| anyhow::anyhow!("Missing result"))?;
         let result = match result.result {
             Some(FunctionResultTypeProto::JsonPackedValue(value)) => {
-                let json: JsonValue = serde_json::from_str(&value)?;
-                let value = ConvexValue::try_from(json)?;
-                Ok(JsonPackedValue::pack(value))
+                Ok(JsonPackedValue::from_network(value)?)
             },
             Some(FunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
             None => anyhow::bail!("Missing result"),

@@ -24,11 +24,7 @@ use pb::{
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use semver::Version;
-use serde_json::Value as JsonValue;
-use value::{
-    ConvexValue,
-    JsonPackedValue,
-};
+use value::JsonPackedValue;
 
 #[cfg(any(test, feature = "testing"))]
 use crate::HttpActionRequest;
@@ -97,9 +93,7 @@ impl ActionOutcome {
         let result = result.ok_or_else(|| anyhow::anyhow!("Missing result"))?;
         let result = match result.result {
             Some(FunctionResultTypeProto::JsonPackedValue(value)) => {
-                let json: JsonValue = serde_json::from_str(&value)?;
-                let value = ConvexValue::try_from(json)?;
-                Ok(JsonPackedValue::pack(value))
+                Ok(JsonPackedValue::from_network(value)?)
             },
             Some(FunctionResultTypeProto::JsError(js_error)) => Err(js_error.try_into()?),
             None => anyhow::bail!("Missing result"),
