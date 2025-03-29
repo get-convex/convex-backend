@@ -15,12 +15,15 @@ export function DeploymentList({
 }: {
   listDeploymentsApiUrl: string;
   onError: (error: string) => void;
-  onSelect: (
-    adminKey: string,
-    deploymentUrl: string,
-    deploymentName: string,
-    anonymousId?: string,
-  ) => Promise<void>;
+  onSelect: ({
+    submittedAdminKey,
+    submittedDeploymentUrl,
+    submittedDeploymentName,
+  }: {
+    submittedAdminKey: string;
+    submittedDeploymentUrl: string;
+    submittedDeploymentName: string;
+  }) => Promise<void>;
 }) {
   const [lastStoredDeployment, setLastStoredDeployment] = useLocalStorage(
     "lastDeployment",
@@ -53,17 +56,17 @@ export function DeploymentList({
         (d: Deployment) => d.name === lastStoredDeployment,
       );
       if (lastDeployment) {
-        void onSelect(
-          lastDeployment.adminKey,
-          lastDeployment.url,
-          lastDeployment.name,
-        );
+        void onSelect({
+          submittedAdminKey: lastDeployment.adminKey,
+          submittedDeploymentUrl: lastDeployment.url,
+          submittedDeploymentName: lastDeployment.name,
+        });
       } else if (data.deployments.length === 1) {
-        void onSelect(
-          data.deployments[0].adminKey,
-          data.deployments[0].url,
-          data.deployments[0].name,
-        );
+        void onSelect({
+          submittedAdminKey: data.deployments[0].adminKey,
+          submittedDeploymentUrl: data.deployments[0].url,
+          submittedDeploymentName: data.deployments[0].name,
+        });
       }
     };
     void f();
@@ -77,7 +80,11 @@ export function DeploymentList({
           variant="neutral"
           onClick={() => {
             setLastStoredDeployment(d.name);
-            void onSelect(d.adminKey, d.url, d.name);
+            void onSelect({
+              submittedAdminKey: d.adminKey,
+              submittedDeploymentUrl: d.url,
+              submittedDeploymentName: d.name,
+            });
           }}
         >
           {d.name}

@@ -27,6 +27,7 @@ import { DeploymentCredentialsForm } from "components/DeploymentCredentialsForm"
 import { DeploymentList } from "components/DeploymentList";
 import { checkDeploymentInfo } from "lib/checkDeploymentInfo";
 import { ConvexCloudReminderToast } from "components/ConvexCloudReminderToast";
+import { z } from "zod";
 
 function App({
   Component,
@@ -229,11 +230,15 @@ function DeploymentInfoProvider({
     "",
   );
   const onSubmit = useCallback(
-    async (
-      submittedAdminKey: string,
-      submittedDeploymentUrl: string,
-      submittedDeploymentName: string,
-    ) => {
+    async ({
+      submittedAdminKey,
+      submittedDeploymentUrl,
+      submittedDeploymentName,
+    }: {
+      submittedAdminKey: string;
+      submittedDeploymentUrl: string;
+      submittedDeploymentName: string;
+    }) => {
       const isValid = await checkDeploymentInfo(
         submittedAdminKey,
         submittedDeploymentUrl,
@@ -252,6 +257,8 @@ function DeploymentInfoProvider({
     },
     [setStoredAdminKey, setStoredDeploymentUrl, setStoredDeploymentName],
   );
+
+  useEmbeddedDashboardCredentials(onSubmit);
 
   const finalValue: DeploymentInfo = useMemo(
     () =>
@@ -345,4 +352,60 @@ function Header({ onLogout }: { onLogout: () => void }) {
       </Menu>
     </header>
   );
+}
+
+/**
+ * Allow the parent window to send credentials to the dashboard.
+ * This is used when the dashboard is embedded in another application via an iframe.
+ */
+function useEmbeddedDashboardCredentials(
+  onSubmit: ({
+    submittedAdminKey,
+    submittedDeploymentUrl,
+    submittedDeploymentName,
+  }: {
+    submittedAdminKey: string;
+    submittedDeploymentUrl: string;
+    submittedDeploymentName: string;
+  }) => void,
+) {
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // Send a message to the parent iframe to request the credentials.
+      // This prevents race conditions where the parent iframe sends the message
+      // before the dashboard loads.
+      window.parent.postMessage(
+        {
+          type: "dashboard-credentials-request",
+        },
+        "*",
+      );
+
+      const credentialsSchema = z.object({
+        type: z.literal("dashboard-credentials"),
+        adminKey: z.string(),
+        deploymentUrl: z.string().url(),
+        deploymentName: z.string(),
+      });
+
+      try {
+        credentialsSchema.parse(event.data);
+      } catch (err) {
+        return;
+      }
+
+      if (event.data.type === "dashboard-credentials") {
+        onSubmit({
+          submittedAdminKey: event.data.adminKey,
+          submittedDeploymentUrl: event.data.deploymentUrl,
+          submittedDeploymentName: event.data.deploymentName,
+        });
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
+  }, [onSubmit]);
 }
