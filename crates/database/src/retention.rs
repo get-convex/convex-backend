@@ -36,6 +36,7 @@ use common::{
         report_error,
         LeaseLostError,
     },
+    fastrace_helpers::get_sampled_span,
     index::{
         IndexEntry,
         SplitKey,
@@ -102,6 +103,10 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
+use fastrace::{
+    future::FutureExt as _,
+    Span,
+};
 use futures::{
     future::try_join_all,
     pin_mut,
@@ -584,6 +589,9 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                             })
                             .collect(),
                     )
+                    .in_span(Span::enter_with_local_parent(
+                        "previous_revisions_of_documents",
+                    ))
                     .await?;
                 for DocumentLogEntry {
                     ts,
@@ -692,6 +700,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     /// entries is the number of index entries we found were expired, not
     /// necessarily the total we deleted or wanted to delete, though they're
     /// correlated.
+    #[fastrace::trace]
     async fn delete(
         min_snapshot_ts: RepeatableTimestamp,
         persistence: Arc<dyn Persistence>,
@@ -1016,6 +1025,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         parts
     }
 
+    #[fastrace::trace]
     async fn delete_chunk(
         delete_chunk: Vec<(Timestamp, IndexEntry)>,
         persistence: Arc<dyn Persistence>,
@@ -1138,7 +1148,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                 "go_delete_indexes: running, is_working: {is_working}, current_bounds: \
                  {min_snapshot_ts}",
             );
-            let r: anyhow::Result<()> = try {
+            let span = get_sampled_span("", "delete_indexes", &mut rt.rng(), BTreeMap::new());
+            let r: anyhow::Result<()> = async {
                 let _timer = retention_delete_timer();
                 let cursor = Self::get_checkpoint(
                     reader.as_ref(),
@@ -1208,7 +1219,10 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                         "go_delete: processed {expired_index_entries_processed:?} rows, more to go"
                     );
                 }
-            };
+                Ok(())
+            }
+            .in_span(span)
+            .await;
             if let Err(mut err) = r {
                 report_error(&mut err).await;
                 let delay = error_backoff.fail(&mut rt.rng());
@@ -1447,6 +1461,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         Ok(())
     }
 
+    #[fastrace::trace]
     async fn accumulate_indexes(
         persistence: &dyn Persistence,
         all_indexes: &mut BTreeMap<IndexId, (GenericIndexName<TabletId>, IndexedFields)>,
