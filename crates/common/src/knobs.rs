@@ -244,13 +244,13 @@ pub static FUNCTION_LIMIT_WARNING_RATIO: LazyLock<f64> = LazyLock::new(|| {
 /// an additional 8000 system documents. If we hit this error, this is a system
 /// error, not a developer one.
 pub static TRANSACTION_MAX_SYSTEM_NUM_WRITES: LazyLock<usize> =
-    LazyLock::new(|| env_config("TRANSACTION_MAX_SYSTEM_NUM_WRITES", 20000));
+    LazyLock::new(|| env_config("TRANSACTION_MAX_SYSTEM_NUM_WRITES", 40000));
 
 /// We write user modules in system tables and those can get quite large.
 /// Similar to the above if we hit this limit, we should count this as system
 /// error and do a use case specific validation to avoid hitting this.
 pub static TRANSACTION_MAX_SYSTEM_WRITE_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
-    env_config("TRANSACTION_MAX_SYSTEM_WRITE_SIZE_BYTES", 1 << 26) // 64 MiB
+    env_config("TRANSACTION_MAX_SYSTEM_WRITE_SIZE_BYTES", 1 << 27) // 128 MiB
 });
 
 /// Maximum number of scheduled transactions.
