@@ -565,14 +565,20 @@ impl SnapshotManager {
         self.versions.push_back((ts, snapshot));
     }
 
-    pub fn bump_persisted_max_repeatable_ts(&mut self, ts: Timestamp) -> bool {
+    pub fn bump_persisted_max_repeatable_ts(&mut self, ts: Timestamp) -> anyhow::Result<bool> {
+        anyhow::ensure!(
+            ts >= self.persisted_max_repeatable_ts,
+            "persisted_max_repeatable_ts went backward from {:?} to {:?}",
+            self.persisted_max_repeatable_ts,
+            ts
+        );
+        self.persisted_max_repeatable_ts = ts;
         let (latest_ts, snapshot) = self.latest();
         if ts > *latest_ts {
             self.push(ts, snapshot);
-            self.persisted_max_repeatable_ts = ts;
-            true
+            Ok(true)
         } else {
-            false
+            Ok(false)
         }
     }
 }

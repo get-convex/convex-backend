@@ -9,6 +9,7 @@ use ::metrics::{
     StatusTimer,
     Timer,
 };
+use anyhow::Context as _;
 use common::{
     bootstrap_model::tables::{
         TableMetadata,
@@ -176,9 +177,6 @@ pub struct Committer<RT: Runtime> {
 
     last_assigned_ts: Timestamp,
 
-    // Allows us to send signal to the app to shutdown.
-    shutdown: ShutdownSignal,
-
     persistence_writes: FuturesOrdered<BoxFuture<'static, anyhow::Result<PersistenceWrite>>>,
 
     retention_validator: Arc<dyn RetentionValidator>,
@@ -205,10 +203,17 @@ impl<RT: Runtime> Committer<RT> {
             runtime: runtime.clone(),
             last_assigned_ts: Timestamp::MIN,
             persistence_writes: FuturesOrdered::new(),
-            shutdown,
             retention_validator: retention_validator.clone(),
         };
-        let handle = runtime.spawn("committer", committer.go(rx));
+        let handle = runtime.spawn("committer", async move {
+            if let Err(err) = committer.go(rx).await {
+                // Committer hit a fatal error. This should only happen if a
+                // persistence write fails or in case of unrecoverable logic
+                // errors.
+                shutdown.signal(err);
+                tracing::error!("Shutting down committer");
+            }
+        });
         CommitterClient {
             handle: Arc::new(Mutex::new(handle)),
             sender: tx,
@@ -218,7 +223,7 @@ impl<RT: Runtime> Committer<RT> {
         }
     }
 
-    async fn go(mut self, mut rx: mpsc::Receiver<CommitterMessage>) {
+    async fn go(mut self, mut rx: mpsc::Receiver<CommitterMessage>) -> anyhow::Result<()> {
         let mut last_bumped_repeatable_ts = self.runtime.monotonic_now();
         // Assume there were commits just before the backend restarted, so first do a
         // quick bump.
@@ -263,15 +268,7 @@ impl<RT: Runtime> Committer<RT> {
                     last_bumped_repeatable_ts = self.runtime.monotonic_now();
                 }
                 result = self.persistence_writes.select_next_some() => {
-                    let pending_commit = match result {
-                        Ok(pending_commit) => pending_commit,
-                        Err(err) => {
-                            self.shutdown.signal(err.context("Write failed. Unsure if transaction committed to disk."));
-                            // Exit the go routine, while we are shutting down.
-                            tracing::error!("Shutting down committer");
-                            return;
-                        },
-                    };
+                    let pending_commit = result.context("Write failed. Unsure if transaction committed to disk.")?;
                     let pending_commit_id = pending_commit.commit_id();
                     match pending_commit {
                         PersistenceWrite::Commit {
@@ -303,7 +300,7 @@ impl<RT: Runtime> Committer<RT> {
                         } => {
                             let span = committer_span.as_ref().map(|root| Span::enter_with_parent("publish_max_repeatable_ts", root)).unwrap_or_else(Span::noop);
                             span.set_local_parent();
-                            self.publish_max_repeatable_ts(new_max_repeatable);
+                            self.publish_max_repeatable_ts(new_max_repeatable)?;
                             next_bump_wait = Some(*MAX_REPEATABLE_TIMESTAMP_IDLE_FREQUENCY);
                             let _ = result.send(new_max_repeatable);
                             drop(timer);
@@ -325,7 +322,7 @@ impl<RT: Runtime> Committer<RT> {
                     match maybe_message {
                         None => {
                             tracing::info!("All clients have gone away, shutting down committer...");
-                            return;
+                            return Ok(());
                         },
                         Some(CommitterMessage::Commit {
                             queue_timer,
@@ -616,17 +613,18 @@ impl<RT: Runtime> Committer<RT> {
         );
     }
 
-    fn publish_max_repeatable_ts(&mut self, new_max_repeatable: Timestamp) {
+    fn publish_max_repeatable_ts(&mut self, new_max_repeatable: Timestamp) -> anyhow::Result<()> {
         // Bump the latest snapshot in snapshot_manager so reads on this leader
         // can know this timestamp is repeatable.
         let mut snapshot_manager = self.snapshot_manager.write();
-        if snapshot_manager.bump_persisted_max_repeatable_ts(new_max_repeatable) {
+        if snapshot_manager.bump_persisted_max_repeatable_ts(new_max_repeatable)? {
             self.log.append(
                 new_max_repeatable,
                 WithHeapSize::default(),
                 "publish_max_repeatable_ts".into(),
             );
         }
+        Ok(())
     }
 
     /// First, check that it's valid to apply this transaction in-memory. If it
