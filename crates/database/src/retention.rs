@@ -134,6 +134,7 @@ use crate::{
         log_retention_index_entries_deleted,
         log_retention_no_cursor,
         log_retention_scanned_document,
+        log_retention_ts_advanced,
         log_snapshot_verification_age,
         retention_advance_timestamp_timer,
         retention_delete_chunk_timer,
@@ -482,12 +483,14 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
     async fn emit_timestamp(
         snapshot_sender: &Sender<RepeatableTimestamp>,
         ts: anyhow::Result<Option<RepeatableTimestamp>>,
+        retention_type: RetentionType,
     ) {
         match ts {
             Err(mut err) => {
                 report_error(&mut err).await;
             },
             Ok(Some(ts)) => {
+                log_retention_ts_advanced(retention_type);
                 if let Err(err) = snapshot_sender.send(ts) {
                     report_error(&mut err.into()).await;
                 }
@@ -519,7 +522,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     shutdown.clone(),
                 )
                 .await;
-                Self::emit_timestamp(&min_snapshot_sender, index_ts).await;
+                Self::emit_timestamp(&min_snapshot_sender, index_ts, RetentionType::Index).await;
 
                 let document_ts = Self::advance_timestamp(
                     &mut bounds_writer,
@@ -530,7 +533,12 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
                     shutdown.clone(),
                 )
                 .await;
-                Self::emit_timestamp(&min_document_snapshot_sender, document_ts).await;
+                Self::emit_timestamp(
+                    &min_document_snapshot_sender,
+                    document_ts,
+                    RetentionType::Document,
+                )
+                .await;
             }
             // We jitter every loop to avoid synchronization of polling the database
             // across different instances

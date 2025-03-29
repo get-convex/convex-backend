@@ -27,6 +27,7 @@ use prometheus::{
 
 use crate::{
     transaction::FinalTransaction,
+    RetentionType,
     Transaction,
 };
 
@@ -539,6 +540,25 @@ register_convex_counter!(
 );
 pub fn log_retention_documents_deleted(deleted_rows: usize) {
     log_counter(&RETENTION_DOCUMENTS_DELETED_TOTAL, deleted_rows as u64)
+}
+
+register_convex_counter!(
+    RETENTION_TS_ADVANCED_TOTAL,
+    "Number of times that min_snapshot timestamp was advanced",
+    &["type"]
+);
+pub fn log_retention_ts_advanced(ty: RetentionType) {
+    log_counter_with_labels(
+        &RETENTION_TS_ADVANCED_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "type",
+            match ty {
+                RetentionType::Document => "document",
+                RetentionType::Index => "index",
+            },
+        )],
+    );
 }
 
 register_convex_counter!(
