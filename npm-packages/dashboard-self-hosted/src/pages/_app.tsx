@@ -369,18 +369,20 @@ function useEmbeddedDashboardCredentials(
     submittedDeploymentName: string;
   }) => void,
 ) {
+  // Send a message to the parent iframe to request the credentials.
+  // This prevents race conditions where the parent iframe sends the message
+  // before the dashboard loads.
+  useEffect(() => {
+    window.parent.postMessage(
+      {
+        type: "dashboard-credentials-request",
+      },
+      "*",
+    );
+  }, []);
+
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      // Send a message to the parent iframe to request the credentials.
-      // This prevents race conditions where the parent iframe sends the message
-      // before the dashboard loads.
-      window.parent.postMessage(
-        {
-          type: "dashboard-credentials-request",
-        },
-        "*",
-      );
-
       const credentialsSchema = z.object({
         type: z.literal("dashboard-credentials"),
         adminKey: z.string(),
