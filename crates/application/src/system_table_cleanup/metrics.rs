@@ -1,6 +1,9 @@
+use chrono::Utc;
+use common::document::CreationTime;
 use metrics::{
     log_counter,
     log_counter_with_labels,
+    log_distribution_with_labels,
     prometheus::VMHistogram,
     register_convex_counter,
     register_convex_histogram,
@@ -36,4 +39,19 @@ register_convex_counter!(
 );
 pub fn log_exports_s3_cleanup() {
     log_counter(&EXPORT_TABLE_CLEANUP_ROWS_TOTAL, 1)
+}
+
+register_convex_histogram!(
+    SYSTEM_TABLE_CLEANUP_CURSOR_LAG_SECONDS,
+    "Lag between system table cleanup cursor and now",
+    &["table"]
+);
+pub fn log_system_table_cursor_lag(table_name: &TableName, cursor: CreationTime) {
+    let now = Utc::now().timestamp_millis();
+    let delay_ms = (now as f64) - f64::from(cursor);
+    log_distribution_with_labels(
+        &SYSTEM_TABLE_CLEANUP_CURSOR_LAG_SECONDS,
+        delay_ms / 1000.0,
+        vec![StaticMetricLabel::new("table", table_name.to_string())],
+    )
 }

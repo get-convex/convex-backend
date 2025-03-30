@@ -55,6 +55,7 @@ use keybroker::Identity;
 use metrics::{
     log_exports_s3_cleanup,
     log_system_table_cleanup_rows,
+    log_system_table_cursor_lag,
     system_table_cleanup_timer,
 };
 use model::{
@@ -334,6 +335,9 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             .await?;
         tracing::info!("deleted {deleted_count} documents from {table}");
         log_system_table_cleanup_rows(table, deleted_count);
+        if let Some(cursor) = cursor {
+            log_system_table_cursor_lag(table, *cursor);
+        }
         Ok(deleted_count)
     }
 
