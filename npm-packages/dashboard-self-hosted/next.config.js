@@ -18,16 +18,8 @@ const securityHeaders = [
     value: "1; mode=block",
   },
   {
-    key: "X-Frame-Options",
-    value: "SAMEORIGIN",
-  },
-  {
     key: "Referrer-Policy",
     value: "origin-when-cross-origin",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: ContentSecurityPolicy.replace(/\s{2,}/g, " ").trim(),
   },
 ];
 
@@ -45,19 +37,30 @@ const optionsForBuild = {
       {
         // Apply these headers to all routes in your application.
         source: "/:path*",
-        headers: process.env.EMBEDDED_CORS_HEADERS
-          ? [
-              ...securityHeaders,
-              {
-                key: "Cross-Origin-Resource-Policy",
-                value: "cross-origin",
-              },
-              {
-                key: "Cross-Origin-Embedder-Policy",
-                value: "require-corp",
-              },
-            ]
-          : securityHeaders,
+        headers: [
+          ...securityHeaders,
+          ...(process.env.EMBEDDED_CORS_HEADERS
+            ? [
+                {
+                  key: "Cross-Origin-Resource-Policy",
+                  value: "cross-origin",
+                },
+                {
+                  key: "Cross-Origin-Embedder-Policy",
+                  value: "require-corp",
+                },
+              ]
+            : [
+                {
+                  key: "X-Frame-Options",
+                  value: "SAMEORIGIN",
+                },
+                {
+                  key: "Content-Security-Policy",
+                  value: ContentSecurityPolicy.replace(/\s{2,}/g, " ").trim(),
+                },
+              ]),
+        ],
       },
     ];
   },
