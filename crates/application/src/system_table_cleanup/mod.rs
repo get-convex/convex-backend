@@ -307,7 +307,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             // The semantics of the cursor mean that all documents <= cursor have been
             // deleted, but retention might not have run yet, so we skip over their
             // tombstones.
-            range.push(IndexRangeExpression::Gt(
+            range.push(IndexRangeExpression::Gte(
                 CREATION_TIME_FIELD_PATH.clone(),
                 f64::from(*cursor).into(),
             ));
