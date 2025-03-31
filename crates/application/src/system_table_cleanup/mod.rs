@@ -361,10 +361,110 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 enum CreationTimeInterval {
     #[allow(dead_code)]
     All,
     None,
     Before(CreationTime),
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        num::NonZeroU32,
+        sync::Arc,
+        time::Duration,
+    };
+
+    use common::{
+        document::CreationTime,
+        identity::InertIdentity,
+        runtime::{
+            new_rate_limiter,
+            Runtime,
+        },
+    };
+    use database::test_helpers::DbFixtures;
+    use governor::Quota;
+    use keybroker::Identity;
+    use model::{
+        session_requests::{
+            types::{
+                SessionRequestOutcome,
+                SessionRequestRecord,
+            },
+            SessionRequestModel,
+            SESSION_REQUESTS_TABLE,
+        },
+        test_helpers::DbFixturesWithModel,
+    };
+    use runtime::testing::TestRuntime;
+    use storage::LocalDirStorage;
+    use sync_types::SessionId;
+    use value::{
+        ConvexValue,
+        JsonPackedValue,
+        TableNamespace,
+    };
+
+    use crate::system_table_cleanup::{
+        CreationTimeInterval,
+        SystemTableCleanupWorker,
+    };
+
+    #[convex_macro::test_runtime]
+    async fn test_system_table_cleanup(rt: TestRuntime) -> anyhow::Result<()> {
+        let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
+        let exports_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let worker = SystemTableCleanupWorker {
+            database: db.clone(),
+            runtime: rt.clone(),
+            exports_storage: exports_storage.clone(),
+        };
+
+        let mut creation_times = vec![];
+        for _ in 0..10 {
+            let mut tx = db.begin_system().await?;
+            SessionRequestModel::new(&mut tx)
+                .record_session_request(
+                    SessionRequestRecord {
+                        session_id: SessionId::new(rt.new_uuid_v4()),
+                        request_id: 0,
+                        outcome: SessionRequestOutcome::Mutation {
+                            result: JsonPackedValue::pack(ConvexValue::Null),
+                            log_lines: vec![].into(),
+                        },
+                        identity: InertIdentity::System,
+                    },
+                    Identity::system(),
+                )
+                .await?;
+            creation_times.push(*tx.begin_timestamp());
+            db.commit(tx).await?;
+            rt.advance_time(Duration::from_secs(1)).await;
+        }
+
+        let cutoff = CreationTime::try_from(creation_times[4])?;
+        let rate_limiter =
+            new_rate_limiter(rt.clone(), Quota::per_second(NonZeroU32::new(10).unwrap()));
+
+        let deleted = worker
+            .cleanup_system_table(
+                TableNamespace::Global,
+                &SESSION_REQUESTS_TABLE,
+                CreationTimeInterval::Before(cutoff),
+                &rate_limiter,
+            )
+            .await?;
+        assert_eq!(deleted, 3);
+
+        let count = db
+            .begin_system()
+            .await?
+            .count(TableNamespace::Global, &SESSION_REQUESTS_TABLE)
+            .await?;
+        assert_eq!(count, Some(7));
+        Ok(())
+    }
 }
