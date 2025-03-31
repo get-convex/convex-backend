@@ -578,7 +578,7 @@ pub static SYSTEM_TABLE_CLEANUP_CHUNK_SIZE: LazyLock<usize> =
 pub static SYSTEM_TABLE_ROWS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "SYSTEM_TABLE_CLEANUP_ROWS_PER_SECOND",
-        NonZeroU32::new(16).unwrap(),
+        NonZeroU32::new(64).unwrap(),
     )
 });
 
