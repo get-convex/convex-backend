@@ -15,11 +15,8 @@ import {
 import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 import { isTryItOutDeployment } from "./lib/deployment.js";
-import { loadDashboardConfig } from "./lib/localDeployment/filePaths.js";
-import {
-  DEFAULT_LOCAL_DASHBOARD_API_PORT,
-  checkIfDashboardIsRunning,
-} from "./lib/localDeployment/dashboard.js";
+import { checkIfDashboardIsRunning } from "./lib/localDeployment/dashboard.js";
+import { getDashboardUrl } from "./lib/dashboard.js";
 
 export const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   ? "http://localhost:6789"
@@ -52,35 +49,23 @@ export const dashboard = new Command("dashboard")
       logMessage(ctx, chalk.yellow(msg));
       return;
     }
+    const dashboardUrl = getDashboardUrl(ctx, deployment.deploymentFields);
     if (isTryItOutDeployment(deployment.deploymentFields.deploymentName)) {
-      const dashboardConfig = loadDashboardConfig(ctx);
       const warningMessage = `You are not currently running the dashboard locally. Make sure \`npx convex dev\` is running and try again.`;
-      if (dashboardConfig === null) {
+      if (dashboardUrl === null) {
         logWarning(ctx, warningMessage);
         return;
       }
-      const isLocalDashboardRunning =
-        await checkIfDashboardIsRunning(dashboardConfig);
+      const isLocalDashboardRunning = await checkIfDashboardIsRunning(ctx);
       if (!isLocalDashboardRunning) {
         logWarning(ctx, warningMessage);
         return;
       }
-
-      const queryString =
-        dashboardConfig.apiPort !== DEFAULT_LOCAL_DASHBOARD_API_PORT
-          ? `?apiPort=${dashboardConfig.apiPort}`
-          : "";
-      const dashboardUrl = `http://127.0.0.1:${dashboardConfig.port}${queryString}`;
       await logOrOpenUrl(ctx, dashboardUrl, options.open);
       return;
     }
 
-    const loginUrl = deploymentDashboardUrlPage(
-      deployment.deploymentFields.deploymentName,
-      "",
-    );
-
-    await logOrOpenUrl(ctx, loginUrl, options.open);
+    await logOrOpenUrl(ctx, dashboardUrl ?? DASHBOARD_HOST, options.open);
   });
 
 async function logOrOpenUrl(ctx: Context, url: string, shouldOpen: boolean) {
@@ -90,27 +75,4 @@ async function logOrOpenUrl(ctx: Context, url: string, shouldOpen: boolean) {
   } else {
     logOutput(ctx, url);
   }
-}
-
-export function deploymentDashboardUrlPage(
-  configuredDeployment: string | null,
-  page: string,
-): string {
-  return `${DASHBOARD_HOST}/d/${configuredDeployment}${page}`;
-}
-
-export function deploymentDashboardUrl(
-  team: string,
-  project: string,
-  deploymentName: string,
-) {
-  return `${projectDashboardUrl(team, project)}/${deploymentName}`;
-}
-
-export function projectDashboardUrl(team: string, project: string) {
-  return `${teamDashboardUrl(team)}/${project}`;
-}
-
-export function teamDashboardUrl(team: string) {
-  return `${DASHBOARD_HOST}/t/${team}`;
 }

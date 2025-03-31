@@ -260,10 +260,7 @@ async function chooseTryItOutDeployment(
     }
   }
   if (deployments.length === 0) {
-    logMessage(
-      ctx,
-      "Welcome to developing with Convex. Let's set up your first deployment.",
-    );
+    logMessage(ctx, "Let's set up your first deployment.");
     return await promptForNewDeployment(ctx, []);
   }
 
@@ -339,11 +336,8 @@ async function promptForNewDeployment(
     }
 > {
   const isFirstDeployment = existingNames.length === 0;
-  const message = isFirstDeployment
-    ? "Choose a name for your first deployment:"
-    : "Choose a name:";
   const deploymentName = await promptString(ctx, {
-    message,
+    message: "Choose a name:",
     default: path.basename(process.cwd()),
   });
 

@@ -12,9 +12,12 @@ import {
   handleLinkToProject,
   listExistingTryItOutDeployments,
 } from "./lib/localDeployment/tryitout.js";
-import { deploymentDashboardUrlPage, teamDashboardUrl } from "./dashboard.js";
+import {
+  DASHBOARD_HOST,
+  deploymentDashboardUrlPage,
+  teamDashboardUrl,
+} from "./lib/dashboard.js";
 import { promptSearch, promptYesNo } from "./lib/utils/prompts.js";
-import { DASHBOARD_HOST } from "./dashboard.js";
 import { bigBrainAPI, validateOrSelectTeam } from "./lib/utils/utils.js";
 import {
   selectProject,

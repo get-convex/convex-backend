@@ -41,7 +41,7 @@ import {
 } from "./lib/utils/utils.js";
 import { writeConvexUrlToEnvFile } from "./lib/envvars.js";
 import path from "path";
-import { projectDashboardUrl } from "./dashboard.js";
+import { projectDashboardUrl } from "./lib/dashboard.js";
 import { doCodegen, doInitCodegen } from "./lib/codegen.js";
 import { handleLocalDeployment } from "./lib/localDeployment/localDeployment.js";
 import {
@@ -54,6 +54,7 @@ import {
   DeploymentSelection,
   ProjectSelection,
   deploymentNameFromSelection,
+  shouldAllowTryItOut,
 } from "./lib/deploymentSelection.js";
 import { ensureLoggedIn } from "./lib/login.js";
 import { handleTryItOutDeployment } from "./lib/localDeployment/tryitout.js";
@@ -260,21 +261,47 @@ export async function _deploymentCredentialsOrConfigure(
           cmdOptions,
         );
       }
-      const result = await handleTryItOutDeployment(ctx, {
+      const shouldPromptForLogin =
+        deploymentSelection.deploymentName !== null
+          ? "no"
+          : await promptOptions(ctx, {
+              message:
+                "Welcome to Convex! Would you like to login to your account?",
+              choices: [
+                {
+                  name: "Start without an account (run Convex locally)",
+                  value: "no",
+                },
+                { name: "Login or create an account", value: "yes" },
+              ],
+              default: "no",
+            });
+      if (shouldPromptForLogin === "no") {
+        const result = await handleTryItOutDeployment(ctx, {
+          chosenConfiguration,
+          deploymentName: deploymentSelection.deploymentName,
+          ...cmdOptions.localOptions,
+        });
+        return {
+          adminKey: result.adminKey,
+          url: result.deploymentUrl,
+          deploymentFields: {
+            deploymentName: result.deploymentName,
+            deploymentType: "tryitout",
+            projectSlug: null,
+            teamSlug: null,
+          },
+        };
+      }
+      return await handleChooseProject(
+        ctx,
         chosenConfiguration,
-        deploymentName: deploymentSelection.deploymentName,
-        ...cmdOptions.localOptions,
-      });
-      return {
-        adminKey: result.adminKey,
-        url: result.deploymentUrl,
-        deploymentFields: {
-          deploymentName: result.deploymentName,
-          deploymentType: "tryitout",
-          projectSlug: null,
-          teamSlug: null,
+        {
+          globallyForceCloud,
+          partitionId,
         },
-      };
+        cmdOptions,
+      );
     }
   }
 }
@@ -296,9 +323,10 @@ async function handleDeploymentWithinProject(
   },
 ) {
   const hasAuth = ctx.bigBrainAuth() !== null;
-  const loginMessage = hasAuth
-    ? undefined
-    : `Tip: You can try out Convex without creating an account by clearing the ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable.`;
+  const loginMessage =
+    hasAuth && shouldAllowTryItOut()
+      ? undefined
+      : `Tip: You can try out Convex without creating an account by clearing the ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable.`;
   await ensureLoggedIn(ctx, {
     message: loginMessage,
     overrideAuthUrl: cmdOptions.overrideAuthUrl,
@@ -753,6 +781,7 @@ export async function updateEnvAndConfigForDeploymentSelection(
   });
   await finalizeConfiguration(ctx, {
     deploymentType: options.deploymentType,
+    deploymentName: options.deploymentName,
     url: options.url,
     wroteToGitIgnore,
     changedDeploymentEnvVar,

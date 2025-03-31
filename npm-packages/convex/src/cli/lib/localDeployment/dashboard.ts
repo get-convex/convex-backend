@@ -1,6 +1,5 @@
 import { Context } from "../../../bundler/context.js";
 import {
-  DashboardConfig,
   dashboardOutDir,
   loadDashboardConfig,
   loadUuidForAnonymousUser,
@@ -24,15 +23,12 @@ export const DEFAULT_LOCAL_DASHBOARD_API_PORT = 6791;
  * assuming this is only used for `tryitout`.
  */
 export async function handleDashboard(ctx: Context, version: string) {
-  const config = loadDashboardConfig(ctx);
   const anonymousId = loadUuidForAnonymousUser(ctx) ?? undefined;
-  if (config !== null) {
-    const isRunning = await checkIfDashboardIsRunning(config);
-    if (isRunning) {
-      // It's possible this is running with a different version, but
-      // let's not worry about that for now.
-      return;
-    }
+  const isRunning = await checkIfDashboardIsRunning(ctx);
+  if (isRunning) {
+    // It's possible this is running with a different version, but
+    // let's not worry about that for now.
+    return;
   }
   await ensureDashboardDownloaded(ctx, version);
   const [dashboardPort, apiPort] = await choosePorts(ctx, {
@@ -129,13 +125,17 @@ async function startServingListDeploymentsApi(ctx: Context, port: number) {
   );
 }
 
-export async function checkIfDashboardIsRunning(config: DashboardConfig) {
+export async function checkIfDashboardIsRunning(ctx: Context) {
+  const dashboardConfig = loadDashboardConfig(ctx);
+  if (dashboardConfig === null) {
+    return false;
+  }
   // We're checking if the mini API server is running and has a response that
   // looks like a list of deployments, since it's easier than checking the
-  // dashboard UI.
+  // dashboard UI + won't trigger the event for the developer opening the dashboard.
   let resp: Response;
   try {
-    resp = await fetch(`http://127.0.0.1:${config.apiPort}`);
+    resp = await fetch(`http://127.0.0.1:${dashboardConfig.apiPort}`);
   } catch {
     return false;
   }
@@ -149,4 +149,21 @@ export async function checkIfDashboardIsRunning(config: DashboardConfig) {
     return false;
   }
   return Array.isArray(data.deployments);
+}
+
+export function dashboardUrl(ctx: Context, deploymentName: string) {
+  const dashboardConfig = loadDashboardConfig(ctx);
+  if (dashboardConfig === null) {
+    return null;
+  }
+
+  const queryParams = new URLSearchParams();
+  if (dashboardConfig.apiPort !== DEFAULT_LOCAL_DASHBOARD_API_PORT) {
+    queryParams.set("a", dashboardConfig.apiPort.toString());
+  }
+  queryParams.set("d", deploymentName);
+  const queryString = queryParams.toString();
+  const url = new URL(`http://127.0.0.1:${dashboardConfig.port}`);
+  url.search = queryString;
+  return url.href;
 }

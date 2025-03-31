@@ -7,7 +7,7 @@ import {
 } from "./lib/api.js";
 import { Command } from "@commander-js/extra-typings";
 import { actionDescription } from "./lib/command.js";
-import { deploymentDashboardUrlPage } from "./dashboard.js";
+import { deploymentDashboardUrlPage } from "./lib/dashboard.js";
 import { importIntoDeployment } from "./lib/convexImport.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
 

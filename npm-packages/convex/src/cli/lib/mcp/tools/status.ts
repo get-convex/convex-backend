@@ -6,8 +6,8 @@ import {
 } from "../../api.js";
 import { z } from "zod";
 import { ConvexTool } from "./index.js";
-import { deploymentDashboardUrlPage } from "../../../dashboard.js";
-import { getDeploymentSelection } from "../../deploymentSelection.js";
+import { deploymentDashboardUrlPage } from "../../../lib/dashboard.js";
+import { getDeploymentSelection } from "../../../lib/deploymentSelection.js";
 
 const projectDirDescription = `
 The root directory of the Convex project. This is usually the editor's workspace directory

@@ -19,7 +19,7 @@ import {
   entryPointsByEnvironment,
 } from "../../bundler/index.js";
 import { version } from "../version.js";
-import { deploymentDashboardUrlPage } from "../dashboard.js";
+import { deploymentDashboardUrlPage } from "./dashboard.js";
 import {
   formatSize,
   functionsDir,

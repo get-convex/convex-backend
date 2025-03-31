@@ -15,7 +15,7 @@ export async function choosePorts(
     startPort: number;
   },
 ): Promise<Array<number>> {
-  const ports = [];
+  const ports: Array<number> = [];
   for (let i = 0; i < count; i++) {
     const requestedPort = requestedPorts?.[i];
     if (requestedPort !== null) {
@@ -29,7 +29,8 @@ export async function choosePorts(
       }
       ports.push(port);
     } else {
-      const port = await detect(startPort + i);
+      const lastPort = ports.length > 0 ? ports[ports.length - 1] : startPort;
+      const port = await detect(lastPort + 1);
       ports.push(port);
     }
   }

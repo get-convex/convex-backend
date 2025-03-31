@@ -31,12 +31,19 @@ import { z } from "zod";
 
 function App({
   Component,
-  pageProps: { deploymentUrl, adminKey, listDeploymentsApiUrl, ...pageProps },
+  pageProps: {
+    deploymentUrl,
+    adminKey,
+    listDeploymentsApiUrl,
+    selectedDeploymentName,
+    ...pageProps
+  },
 }: AppProps & {
   pageProps: {
     deploymentUrl: string | null;
     adminKey: string | null;
     listDeploymentsApiUrl: string | null;
+    selectedDeploymentName: string | null;
   };
 }) {
   return (
@@ -54,6 +61,7 @@ function App({
             deploymentUrl={deploymentUrl}
             adminKey={adminKey}
             listDeploymentsApiUrl={listDeploymentsApiUrl}
+            selectedDeploymentName={selectedDeploymentName}
           >
             <DeploymentApiProvider deploymentOverride="local">
               <WaitForDeploymentApi>
@@ -73,6 +81,8 @@ function App({
 }
 
 const LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM = "a";
+const SELECTED_DEPLOYMENT_NAME_QUERY_PARAM = "d";
+const SESSION_STORAGE_DEPLOYMENT_NAME_KEY = "deploymentName";
 
 function normalizeUrl(url: string) {
   try {
@@ -106,11 +116,15 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
       }
     }
 
+    const selectedDeploymentName =
+      url.searchParams.get(SELECTED_DEPLOYMENT_NAME_QUERY_PARAM) ?? null;
+
     return {
       pageProps: {
         deploymentUrl,
         adminKey: null,
         listDeploymentsApiUrl,
+        selectedDeploymentName,
       },
     };
   }
@@ -122,11 +136,14 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
     window.__NEXT_DATA__?.props?.pageProps?.adminKey ?? null;
   const clientSideListDeploymentsApiUrl =
     window.__NEXT_DATA__?.props?.pageProps?.listDeploymentsApiUrl ?? null;
+  const clientSideSelectedDeploymentName =
+    window.__NEXT_DATA__?.props?.pageProps?.selectedDeploymentName ?? null;
   return {
     pageProps: {
       deploymentUrl: clientSideDeploymentUrl ?? null,
       adminKey: clientSideAdminKey ?? null,
       listDeploymentsApiUrl: clientSideListDeploymentsApiUrl ?? null,
+      selectedDeploymentName: clientSideSelectedDeploymentName ?? null,
     },
   };
 };
@@ -164,7 +181,10 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
     teamId: 0,
   }),
   useCurrentDeployment: () => {
-    const [storedDeploymentName] = useSessionStorage("deploymentName", "");
+    const [storedDeploymentName] = useSessionStorage(
+      SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
+      "",
+    );
     return {
       id: 0,
       name: storedDeploymentName,
@@ -208,11 +228,13 @@ function DeploymentInfoProvider({
   deploymentUrl,
   adminKey,
   listDeploymentsApiUrl,
+  selectedDeploymentName,
 }: {
   children: React.ReactNode;
   deploymentUrl: string | null;
   adminKey: string | null;
   listDeploymentsApiUrl: string | null;
+  selectedDeploymentName: string | null;
 }) {
   const [shouldListDeployments, setShouldListDeployments] = useState(
     listDeploymentsApiUrl !== null,
@@ -226,7 +248,7 @@ function DeploymentInfoProvider({
     "",
   );
   const [_storedDeploymentName, setStoredDeploymentName] = useSessionStorage(
-    "deploymentName",
+    SESSION_STORAGE_DEPLOYMENT_NAME_KEY,
     "",
   );
   const onSubmit = useCallback(
@@ -276,6 +298,7 @@ function DeploymentInfoProvider({
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.delete(LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM);
+      url.searchParams.delete(SELECTED_DEPLOYMENT_NAME_QUERY_PARAM);
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
@@ -292,6 +315,7 @@ function DeploymentInfoProvider({
               setShouldListDeployments(false);
             }}
             onSelect={onSubmit}
+            selectedDeploymentName={selectedDeploymentName}
           />
         ) : (
           <DeploymentCredentialsForm
@@ -315,6 +339,7 @@ function DeploymentInfoProvider({
         onLogout={() => {
           setStoredAdminKey("");
           setStoredDeploymentUrl("");
+          setStoredDeploymentName("");
         }}
       />
       <DeploymentInfoContext.Provider value={finalValue}>

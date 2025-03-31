@@ -6,7 +6,7 @@ import {
   deploymentSelectionWithinProjectFromOptions,
   loadSelectedDeploymentCredentials,
 } from "./lib/api.js";
-import { deploymentDashboardUrlPage } from "./dashboard.js";
+import { deploymentDashboardUrlPage } from "./lib/dashboard.js";
 import { actionDescription } from "./lib/command.js";
 import { exportFromDeployment } from "./lib/convexExport.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";

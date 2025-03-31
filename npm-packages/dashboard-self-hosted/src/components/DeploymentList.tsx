@@ -12,6 +12,7 @@ export function DeploymentList({
   listDeploymentsApiUrl,
   onError,
   onSelect,
+  selectedDeploymentName,
 }: {
   listDeploymentsApiUrl: string;
   onError: (error: string) => void;
@@ -24,6 +25,7 @@ export function DeploymentList({
     submittedDeploymentUrl: string;
     submittedDeploymentName: string;
   }) => Promise<void>;
+  selectedDeploymentName: string | null;
 }) {
   const [lastStoredDeployment, setLastStoredDeployment] = useLocalStorage(
     "lastDeployment",
@@ -52,6 +54,19 @@ export function DeploymentList({
         return;
       }
       setDeployments(data.deployments);
+      if (selectedDeploymentName) {
+        const selectedDeployment = data.deployments.find(
+          (d: Deployment) => d.name === selectedDeploymentName,
+        );
+        if (selectedDeployment) {
+          void onSelect({
+            submittedAdminKey: selectedDeployment.adminKey,
+            submittedDeploymentUrl: selectedDeployment.url,
+            submittedDeploymentName: selectedDeployment.name,
+          });
+          return;
+        }
+      }
       const lastDeployment = data.deployments.find(
         (d: Deployment) => d.name === lastStoredDeployment,
       );
@@ -70,7 +85,13 @@ export function DeploymentList({
       }
     };
     void f();
-  }, [listDeploymentsApiUrl, onError, onSelect, lastStoredDeployment]);
+  }, [
+    listDeploymentsApiUrl,
+    onError,
+    onSelect,
+    lastStoredDeployment,
+    selectedDeploymentName,
+  ]);
   return (
     <div className="flex flex-col gap-2">
       <h3>Select a deployment:</h3>
