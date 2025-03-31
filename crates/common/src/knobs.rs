@@ -595,6 +595,10 @@ pub static MAX_SESSION_CLEANUP_DURATION: LazyLock<Option<Duration>> = LazyLock::
     }
 });
 
+/// Number of concurrent commits to use for deleting session requests.
+pub static SESSION_CLEANUP_DELETE_CONCURRENCY: LazyLock<usize> =
+    LazyLock::new(|| env_config("SESSION_CLEANUP_DELETE_CONCURRENCY", 1));
+
 /// Snapshots that expired more than this number of days ago are purged
 /// from storage.
 pub static MAX_EXPIRED_SNAPSHOT_AGE: LazyLock<Duration> = LazyLock::new(|| {

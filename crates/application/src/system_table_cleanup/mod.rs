@@ -15,17 +15,20 @@ use common::{
         ParseDocument,
         ParsedDocument,
         CREATION_TIME_FIELD_PATH,
+        ID_FIELD_PATH,
     },
     errors::report_error,
     knobs::{
         MAX_EXPIRED_SNAPSHOT_AGE,
         MAX_IMPORT_AGE,
         MAX_SESSION_CLEANUP_DURATION,
+        SESSION_CLEANUP_DELETE_CONCURRENCY,
         SYSTEM_TABLE_CLEANUP_CHUNK_SIZE,
         SYSTEM_TABLE_CLEANUP_FREQUENCY,
         SYSTEM_TABLE_ROWS_PER_SECOND,
     },
     query::{
+        Expression,
         IndexRange,
         IndexRangeExpression,
         Order,
@@ -49,7 +52,11 @@ use database::{
     SystemMetadataModel,
     TableModel,
 };
-use futures::Future;
+use futures::{
+    Future,
+    StreamExt,
+    TryStreamExt,
+};
 use governor::Quota;
 use keybroker::Identity;
 use metrics::{
@@ -64,7 +71,10 @@ use model::{
 };
 use rand::Rng;
 use storage::Storage;
+use tokio_stream::wrappers::ReceiverStream;
 use value::{
+    ConvexValue,
+    ResolvedDocumentId,
     TableNamespace,
     TabletId,
 };
@@ -136,6 +146,7 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                 session_requests_cutoff
                     .map_or(CreationTimeInterval::None, CreationTimeInterval::Before),
                 &rate_limiter,
+                *SESSION_CLEANUP_DELETE_CONCURRENCY,
             )
             .await?;
         }
@@ -256,19 +267,17 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
         table: &TableName,
         to_delete: CreationTimeInterval,
         rate_limiter: &RateLimiter<RT>,
+        num_deleters: usize,
     ) -> anyhow::Result<usize> {
+        let _timer = system_table_cleanup_timer();
         let mut cursor = None;
 
-        let mut deleted = 0;
-        loop {
-            let _timer = system_table_cleanup_timer();
+        let (tx, rx) = tokio::sync::mpsc::channel(1);
+        let deleter = |chunk: Vec<ResolvedDocumentId>| async {
             let deleted_chunk = self
-                .cleanup_system_table_chunk(namespace, table, to_delete, &mut cursor)
+                .cleanup_system_table_delete_chunk(namespace, table, chunk)
                 .await?;
-            deleted += deleted_chunk;
-            if deleted_chunk == 0 {
-                break Ok(deleted);
-            }
+
             for _ in 0..deleted_chunk {
                 // Don't rate limit within transactions, because that would just increase
                 // contention. Rate limit between transactions to limit
@@ -278,53 +287,104 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
                     self.runtime.wait(delay).await;
                 }
             }
-        }
+            Ok(deleted_chunk)
+        };
+        let deleters = ReceiverStream::new(rx)
+            .map(deleter)
+            .buffer_unordered(num_deleters)
+            .try_fold(0, |acc, x| async move { Ok(acc + x) });
+
+        let reader = async move {
+            loop {
+                let deleted_chunk = self
+                    .cleanup_system_table_read_chunk(namespace, table, to_delete, &mut cursor)
+                    .await?;
+                if deleted_chunk.is_empty() {
+                    return Ok::<_, anyhow::Error>(());
+                }
+                tx.send(deleted_chunk).await?;
+            }
+        };
+
+        let ((), deleted) = futures::try_join!(reader, deleters)?;
+        Ok(deleted)
     }
 
-    async fn cleanup_system_table_chunk(
+    async fn cleanup_system_table_read_chunk(
         &self,
         namespace: TableNamespace,
         table: &TableName,
         to_delete: CreationTimeInterval,
-        cursor: &mut Option<CreationTime>,
-    ) -> anyhow::Result<usize> {
+        cursor: &mut Option<(CreationTime, ResolvedDocumentId)>,
+    ) -> anyhow::Result<Vec<ResolvedDocumentId>> {
         let mut tx = self.database.begin(Identity::system()).await?;
         if !TableModel::new(&mut tx).table_exists(namespace, table) {
-            return Ok(0);
+            return Ok(vec![]);
         }
         if matches!(to_delete, CreationTimeInterval::None) {
-            return Ok(0);
+            return Ok(vec![]);
         }
         let mut range = match to_delete {
-            CreationTimeInterval::None => return Ok(0),
+            CreationTimeInterval::None => return Ok(vec![]),
             CreationTimeInterval::All => vec![],
             CreationTimeInterval::Before(cutoff) => vec![IndexRangeExpression::Lt(
                 CREATION_TIME_FIELD_PATH.clone(),
                 f64::from(cutoff).into(),
             )],
         };
-        if let Some(cursor) = cursor {
+        if let Some((creation_time, _id)) = cursor {
             // The semantics of the cursor mean that all documents <= cursor have been
             // deleted, but retention might not have run yet, so we skip over their
             // tombstones.
             range.push(IndexRangeExpression::Gte(
                 CREATION_TIME_FIELD_PATH.clone(),
-                f64::from(*cursor).into(),
+                f64::from(*creation_time).into(),
             ));
         }
-        let index_scan = Query::index_range(IndexRange {
+        let mut index_scan = Query::index_range(IndexRange {
             index_name: IndexName::by_creation_time(table.clone()),
             range,
             order: Order::Asc,
-        })
-        .limit(*SYSTEM_TABLE_CLEANUP_CHUNK_SIZE);
+        });
+        if let Some((creation_time, id)) = cursor {
+            index_scan = index_scan.filter(Expression::Or(vec![
+                Expression::Neq(
+                    Box::new(Expression::Field(CREATION_TIME_FIELD_PATH.clone())),
+                    Box::new(Expression::Literal(
+                        ConvexValue::from(f64::from(*creation_time)).into(),
+                    )),
+                ),
+                Expression::Gt(
+                    Box::new(Expression::Field(ID_FIELD_PATH.clone())),
+                    Box::new(Expression::Literal(ConvexValue::from(*id).into())),
+                ),
+            ]));
+        }
+        index_scan = index_scan.limit(*SYSTEM_TABLE_CLEANUP_CHUNK_SIZE);
         let mut query = ResolvedQuery::new(&mut tx, namespace, index_scan)?;
-        let mut deleted_count = 0;
+        let mut docs = vec![];
         while let Some(document) = query.next(&mut tx, None).await? {
+            docs.push(document.id());
+            *cursor = Some((document.creation_time(), document.id()));
+        }
+        if let Some((creation_time, _id)) = cursor {
+            log_system_table_cursor_lag(table, *creation_time);
+        }
+        Ok(docs)
+    }
+
+    async fn cleanup_system_table_delete_chunk(
+        &self,
+        namespace: TableNamespace,
+        table: &TableName,
+        docs: Vec<ResolvedDocumentId>,
+    ) -> anyhow::Result<usize> {
+        let mut tx = self.database.begin(Identity::system()).await?;
+        let mut deleted_count = 0;
+        for doc in docs {
             SystemMetadataModel::new(&mut tx, namespace)
-                .delete(document.id())
+                .delete(doc)
                 .await?;
-            *cursor = Some(document.creation_time());
             deleted_count += 1;
         }
         if deleted_count == 0 {
@@ -335,9 +395,6 @@ impl<RT: Runtime> SystemTableCleanupWorker<RT> {
             .await?;
         tracing::info!("deleted {deleted_count} documents from {table}");
         log_system_table_cleanup_rows(table, deleted_count);
-        if let Some(cursor) = cursor {
-            log_system_table_cursor_lag(table, *cursor);
-        }
         Ok(deleted_count)
     }
 
@@ -413,8 +470,10 @@ mod tests {
         SystemTableCleanupWorker,
     };
 
-    #[convex_macro::test_runtime]
-    async fn test_system_table_cleanup(rt: TestRuntime) -> anyhow::Result<()> {
+    async fn test_system_table_cleanup_helper(
+        rt: TestRuntime,
+        num_deleters: usize,
+    ) -> anyhow::Result<()> {
         let DbFixtures { db, .. } = DbFixtures::new_with_model(&rt).await?;
         let exports_storage = Arc::new(LocalDirStorage::new(rt.clone())?);
         let worker = SystemTableCleanupWorker {
@@ -455,6 +514,7 @@ mod tests {
                 &SESSION_REQUESTS_TABLE,
                 CreationTimeInterval::Before(cutoff),
                 &rate_limiter,
+                num_deleters,
             )
             .await?;
         assert_eq!(deleted, 3);
@@ -466,5 +526,20 @@ mod tests {
             .await?;
         assert_eq!(count, Some(7));
         Ok(())
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_system_table_cleanup_1(rt: TestRuntime) -> anyhow::Result<()> {
+        test_system_table_cleanup_helper(rt, 1).await
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_system_table_cleanup_2(rt: TestRuntime) -> anyhow::Result<()> {
+        test_system_table_cleanup_helper(rt, 2).await
+    }
+
+    #[convex_macro::test_runtime]
+    async fn test_system_table_cleanup_8(rt: TestRuntime) -> anyhow::Result<()> {
+        test_system_table_cleanup_helper(rt, 8).await
     }
 }
