@@ -242,7 +242,12 @@ impl TryFrom<JsonValue> for TableDefinition {
         let mut seen: HashSet<_> = HashSet::new();
         for index_name in all_index_names.into_iter() {
             // Validate the name
-            IndexName::new(table_name.clone(), index_name.clone())?;
+            if index_name.starts_with("_fivetran") {
+                // Allow fivetran system fields to be used as index names
+                IndexName::new_reserved(table_name.clone(), index_name.clone())?;
+            } else {
+                IndexName::new(table_name.clone(), index_name.clone())?;
+            }
 
             if !seen.insert(index_name.clone()) {
                 anyhow::bail!(index_validation_error::names_not_unique(

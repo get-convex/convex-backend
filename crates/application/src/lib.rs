@@ -96,7 +96,10 @@ use common::{
         SpawnHandle,
         UnixTimestamp,
     },
-    schemas::DatabaseSchema,
+    schemas::{
+        DatabaseSchema,
+        TableDefinition,
+    },
     types::{
         env_var_limit_met,
         env_var_name_not_unique,
@@ -121,9 +124,12 @@ use common::{
     },
     RequestId,
 };
-use convex_fivetran_destination::api_types::{
-    BatchWriteRow,
-    DeleteType,
+use convex_fivetran_destination::{
+    api_types::{
+        BatchWriteRow,
+        DeleteType,
+    },
+    constants::FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
 };
 use cron_jobs::CronJobExecutor;
 use database::{
@@ -183,7 +189,10 @@ use keybroker::{
     Identity,
     KeyBroker,
 };
-use maplit::btreemap;
+use maplit::{
+    btreemap,
+    btreeset,
+};
 use model::{
     airbyte_import::{
         AirbyteImportModel,
@@ -3373,13 +3382,50 @@ impl<RT: Runtime> Application<RT> {
         &self,
         namespace: TableNamespace,
         identity: &Identity,
-    ) -> anyhow::Result<JsonValue> {
+    ) -> anyhow::Result<Option<DatabaseSchema>> {
         let mut tx = self.begin(identity.clone()).await?;
         let mut model = SchemaModel::new(&mut tx, namespace);
-        Ok(match model.get_by_state(SchemaState::Active).await? {
-            None => JsonValue::Null,
-            Some((_id, schema)) => JsonValue::try_from(schema)?,
-        })
+        Ok(model
+            .get_by_state(SchemaState::Active)
+            .await?
+            .map(|(_id, schema)| schema))
+    }
+
+    pub async fn fivetran_create_table(
+        &self,
+        identity: &Identity,
+        table_definition: TableDefinition,
+    ) -> anyhow::Result<()> {
+        let table_name = table_definition.table_name;
+
+        // Add the indexes to the table.
+        let indexes: BTreeMap<IndexName, IndexedFields> = table_definition
+            .indexes
+            .into_iter()
+            .map(|(descriptor, fields)| {
+                let index_name = IndexName::new_reserved(table_name.clone(), descriptor.clone())?;
+                let index_fields = fields.fields;
+                Ok((index_name, index_fields))
+            })
+            .collect::<anyhow::Result<_>>()?;
+        self._add_system_indexes(identity, indexes).await?;
+
+        // Wait for the indexes to be ready.
+        loop {
+            let mut tx = self.begin(identity.clone()).await?;
+            if IndexModel::new(&mut tx)
+                .indexes_ready(
+                    &FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+                    &btreeset! { table_name.clone() },
+                )
+                .await?
+            {
+                return Ok(());
+            }
+            let token = tx.into_token()?;
+            let subscription = self.database.subscribe(token).await?;
+            subscription.wait_for_invalidation().await;
+        }
     }
 
     pub async fn shutdown(&self) -> anyhow::Result<()> {

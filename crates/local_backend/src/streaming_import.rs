@@ -18,6 +18,7 @@ use axum::{
     response::IntoResponse,
 };
 use common::{
+    self,
     components::ComponentPath,
     http::{
         extract::Json,
@@ -26,6 +27,7 @@ use common::{
 };
 use convex_fivetran_destination::api_types::{
     BatchWriteRow,
+    CreateTableArgs,
     DeleteType,
     TruncateTableArgs,
 };
@@ -103,7 +105,25 @@ pub async fn get_schema(
         .application
         .get_schema(TableNamespace::root_component(), &identity)
         .await?;
-    Ok(Json(schema))
+    Ok(Json(match schema {
+        None => serde_json::Value::Null,
+        Some(schema) => schema.try_into()?,
+    }))
+}
+
+#[debug_handler]
+pub async fn fivetran_create_table(
+    State(st): State<LocalAppState>,
+    ExtractIdentity(identity): ExtractIdentity,
+    Json(CreateTableArgs { table_definition }): Json<CreateTableArgs>,
+) -> Result<StatusCode, HttpResponseError> {
+    must_be_admin_with_write_access(&identity)?;
+    let table_definition = table_definition.try_into()?;
+    st.application
+        .fivetran_create_table(&identity, table_definition)
+        .await?;
+
+    Ok(StatusCode::OK)
 }
 
 #[derive(Deserialize)]

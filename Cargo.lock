@@ -2024,6 +2024,7 @@ dependencies = [
  "futures-async-stream",
  "maplit",
  "must-let",
+ "pretty_assertions",
  "proptest",
  "proptest-derive",
  "prost",

@@ -1,15 +1,18 @@
 use chrono::DateTime;
 use common::{
     bootstrap_model::index::IndexMetadata,
-    types::{
-        IndexDescriptor,
-        IndexName,
-    },
+    types::IndexName,
 };
-use convex_fivetran_destination::api_types::{
-    BatchWriteOperation,
-    BatchWriteRow,
-    DeleteType,
+use convex_fivetran_destination::{
+    api_types::{
+        BatchWriteOperation,
+        BatchWriteRow,
+        DeleteType,
+    },
+    constants::{
+        FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+        FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
+    },
 };
 use database::{
     IndexModel,
@@ -39,11 +42,14 @@ async fn test_create_new_row(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "users".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![str::parse("id")?, str::parse("_creationTime")?].try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -81,16 +87,14 @@ async fn test_update_row(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "posts".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.id")?,
-                    str::parse("_creationTime")?,
-                ]
-                .try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["fivetran.deleted".parse()?, "fivetran.id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -171,16 +175,14 @@ async fn test_soft_delete_row(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "posts".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.id")?,
-                    str::parse("_creationTime")?,
-                ]
-                .try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["fivetran.deleted".parse()?, "fivetran.id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -262,11 +264,14 @@ async fn test_update_missing_row(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "posts".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![str::parse("fivetran.id")?, str::parse("_creationTime")?].try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["fivetran.id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -301,11 +306,14 @@ async fn test_replace_row(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "posts".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![str::parse("id")?, str::parse("_creationTime")?].try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -372,11 +380,14 @@ async fn test_hard_delete_row(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "posts".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![str::parse("id")?, str::parse("_creationTime")?].try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -426,16 +437,14 @@ async fn test_ignores_soft_deleted_rows(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "posts".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![
-                    str::parse("fivetran.synced")?,
-                    str::parse("id")?,
-                    str::parse("_creationTime")?,
-                ]
-                .try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["fivetran.synced".parse()?, "id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -495,11 +504,14 @@ async fn test_batch_of_operations_taking_more_than_one_transaction(
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "items".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("by_primary_key")?)?,
-                vec![str::parse("id")?, str::parse("_creationTime")?].try_into()?,
+                IndexName::new_reserved(
+                    table.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+                )?,
+                vec!["id".parse()?].try_into()?,
             ),
         )
         .await?;
@@ -555,14 +567,14 @@ async fn test_soft_truncate_all(rt: TestRuntime) -> anyhow::Result<()> {
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "table".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("my_sync_index")?)?,
+                IndexName::new_reserved(table.clone(), FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone())?,
                 vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.synced")?,
-                    str::parse("_creationTime")?,
+                    "fivetran.deleted".parse()?,
+                    "fivetran.synced".parse()?,
+                    "_creationTime".parse()?,
                 ]
                 .try_into()?,
             ),
@@ -621,14 +633,14 @@ async fn test_hard_truncate_since_timestamp(rt: TestRuntime) -> anyhow::Result<(
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "table".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("my_sync_index")?)?,
+                IndexName::new_reserved(table.clone(), FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone())?,
                 vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.synced")?,
-                    str::parse("_creationTime")?,
+                    "fivetran.deleted".parse()?,
+                    "fivetran.synced".parse()?,
+                    "_creationTime".parse()?,
                 ]
                 .try_into()?,
             ),
@@ -680,14 +692,14 @@ async fn test_soft_truncate_since_timestamp(rt: TestRuntime) -> anyhow::Result<(
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "table".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("my_sync_index")?)?,
+                IndexName::new_reserved(table.clone(), FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone())?,
                 vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.synced")?,
-                    str::parse("_creationTime")?,
+                    "fivetran.deleted".parse()?,
+                    "fivetran.synced".parse()?,
+                    "_creationTime".parse()?,
                 ]
                 .try_into()?,
             ),
@@ -783,14 +795,14 @@ async fn test_soft_truncate_larger_than_one_transaction(rt: TestRuntime) -> anyh
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "table".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("my_sync_index")?)?,
+                IndexName::new_reserved(table.clone(), FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone())?,
                 vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.synced")?,
-                    str::parse("_creationTime")?,
+                    "fivetran.deleted".parse()?,
+                    "fivetran.synced".parse()?,
+                    "_creationTime".parse()?,
                 ]
                 .try_into()?,
             ),
@@ -846,14 +858,14 @@ async fn test_hard_truncate_larger_than_one_transaction(rt: TestRuntime) -> anyh
     let mut tx = application.begin(Identity::system()).await?;
     let table: TableName = "table".parse()?;
     IndexModel::new(&mut tx)
-        .add_application_index(
+        .add_system_index(
             TableNamespace::test_user(),
             IndexMetadata::new_enabled(
-                IndexName::new(table.clone(), IndexDescriptor::new("my_sync_index")?)?,
+                IndexName::new_reserved(table.clone(), FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone())?,
                 vec![
-                    str::parse("fivetran.deleted")?,
-                    str::parse("fivetran.synced")?,
-                    str::parse("_creationTime")?,
+                    "fivetran.deleted".parse()?,
+                    "fivetran.synced".parse()?,
+                    "_creationTime".parse()?,
                 ]
                 .try_into()?,
             ),

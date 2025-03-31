@@ -142,6 +142,11 @@ pub struct TruncateTableArgs {
     pub delete_type: DeleteType,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateTableArgs {
+    pub table_definition: serde_json::Value, // TableDefinition
+}
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;

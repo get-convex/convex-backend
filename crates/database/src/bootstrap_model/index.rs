@@ -45,6 +45,7 @@ use common::{
         MAX_INDEXES_PER_TABLE,
     },
     types::{
+        IndexDescriptor,
         IndexDiff,
         IndexId,
         IndexName,
@@ -957,7 +958,11 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 // by_id and by_creation_time already created.
                 continue;
             }
-            let index_name = TabletIndexName::new(target_table, index.name.descriptor().clone())?;
+            let index_name = if index.name.descriptor().is_reserved() {
+                TabletIndexName::new_reserved(target_table, index.name.descriptor().clone())?
+            } else {
+                TabletIndexName::new(target_table, index.name.descriptor().clone())?
+            };
             let metadata = match index.into_value().config {
                 IndexConfig::Database {
                     developer_config: DeveloperDatabaseIndexConfig { fields },
@@ -995,6 +1000,40 @@ impl<'a, RT: Runtime> IndexModel<'a, RT> {
                 .await?;
         }
         Ok(())
+    }
+
+    // Check if the system index is ready for all the given tables.
+    // Useful for streaming import - waiting for the system indexes to be ready
+    // for all the tables before proceeding with the import.
+    pub async fn indexes_ready(
+        &mut self,
+        index_descriptor: &IndexDescriptor,
+        indexes: &BTreeSet<TableName>,
+    ) -> anyhow::Result<bool> {
+        let index_metadata = indexes
+            .iter()
+            .map(|table_name| {
+                let index_name =
+                    IndexName::new_reserved(table_name.clone(), index_descriptor.clone())?;
+                // We really just want pending indexes here, but since it's convenient, we're
+                // also verifying that all requested tables have the expected
+                // index using enabled_index_metadata.
+                let mut model = IndexModel::new(self.tx);
+                let index_metadata = model
+                    .pending_index_metadata(TableNamespace::root_component(), &index_name)?
+                    .or(model
+                        .enabled_index_metadata(TableNamespace::root_component(), &index_name)?)
+                    .context(ErrorMetadata::bad_request(
+                        "MissingIndex",
+                        format!("Missing index: {index_name}"),
+                    ))?;
+                Ok(index_metadata)
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let are_all_indexes_ready = index_metadata
+            .iter()
+            .all(|metadata| !metadata.config.is_backfilling());
+        Ok(are_all_indexes_ready)
     }
 }
 

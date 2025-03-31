@@ -129,6 +129,7 @@ use crate::{
         add_primary_key_indexes,
         apply_fivetran_operations,
         clear_tables,
+        fivetran_create_table,
         fivetran_truncate_table,
         get_schema,
         import_airbyte_records,
@@ -394,6 +395,7 @@ where
         .route("/replace_tables", post(replace_tables))
         .route("/clear_tables", put(clear_tables))
         .route("/fivetran_truncate_table", post(fivetran_truncate_table))
+        .route("/fivetran_create_table", post(fivetran_create_table))
         .route("/add_primary_key_indexes", put(add_primary_key_indexes))
         .route("/primary_key_indexes_ready", get(primary_key_indexes_ready))
 }

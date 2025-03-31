@@ -73,6 +73,7 @@ pub async fn describe_table(
         .await
         .map_err(DestinationError::DeploymentError)?
     else {
+        // Schemaless
         return Ok(DescribeTableResponse::NotFound);
     };
 
@@ -92,17 +93,22 @@ pub async fn create_table(
     let convex_table_name = TableName::from_str(&table.name)
         .map_err(|err| DestinationError::UnsupportedTableName(table.name.to_string(), err))?;
 
-    let schema = destination
+    let Some(schema) = destination
         .get_schema()
         .await
         .map_err(DestinationError::DeploymentError)?
-        .ok_or_else(|| match suggested_convex_table(table.clone()) {
-            Ok(suggested_table) => DestinationError::DestinationHasNoSchema(
-                suggested_table.table_name.clone(),
-                SuggestedTable(suggested_table),
-            ),
-            Err(err) => DestinationError::DestinationHasNoSchemaWithoutSuggestion(Box::new(err)),
-        })?;
+    else {
+        // schemaless
+        let fivetran_table: FivetranTableSchema = table.try_into()?;
+        let convex_table = fivetran_table
+            .to_convex_table()
+            .map_err(|err| DestinationError::InvalidTableDefinition(fivetran_table.name, err))?;
+        destination
+            .create_table(convex_table)
+            .await
+            .map_err(DestinationError::DeploymentError)?;
+        return Ok(());
+    };
 
     let Some(convex_table) = schema.tables.get(&convex_table_name) else {
         return Err(match suggested_convex_table(table) {

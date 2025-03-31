@@ -32,9 +32,6 @@ pub static ID_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
 pub static UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME: LazyLock<IdentifierFieldName> =
     LazyLock::new(|| "columns".parse().unwrap());
 
-pub static PRIMARY_KEY_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("by_primary_key").unwrap());
-
 pub static SOFT_DELETE_FIELD_PATH: LazyLock<FieldPath> = LazyLock::new(|| {
     FieldPath::new(vec![
         METADATA_CONVEX_FIELD_NAME.clone(),
@@ -77,3 +74,9 @@ pub static FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS: LazyLock<IndexedFields> 
         ])
         .expect("Invalid IndexedFields")
     });
+
+pub static FIVETRAN_SYNCED_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
+    LazyLock::new(|| IndexDescriptor::new("_fivetran_by_synced").unwrap());
+
+pub static FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
+    LazyLock::new(|| IndexDescriptor::new("_fivetran_by_primary_key").unwrap());

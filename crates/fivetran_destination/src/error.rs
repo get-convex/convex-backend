@@ -19,7 +19,7 @@ use common::{
         TableName,
     },
 };
-use convex_fivetran_common::fivetran_sdk::DataType as FivetranDataType;
+use convex_fivetran_common::fivetran_sdk;
 use convex_fivetran_destination::api_types::{
     FivetranFieldName,
     FivetranTableName,
@@ -37,20 +37,11 @@ pub enum DestinationError {
     #[error("The name of column `{0}` in table `{1}` is invalid: {1:#}")]
     InvalidColumnName(String, FivetranTableName, anyhow::Error),
 
+    #[error("The table definition {0:?} is invalid: {1:#}")]
+    InvalidTableDefinition(FivetranTableName, anyhow::Error),
+
     #[error("The name of column `{0}` in table `{1}` isn’t supported by Convex: {2:#}")]
     UnsupportedColumnName(FivetranFieldName, FivetranTableName, anyhow::Error),
-
-    #[error(
-        "Your Convex destination is not using a schema. Please add a `schema.ts` file to add the \
-         `{0}` table. You can use the following table definition: {1}"
-    )]
-    DestinationHasNoSchema(TableName, SuggestedTable),
-
-    #[error(
-        "Your Convex destination is not using a schema. We are not able to suggest a schema \
-         because the following error happened: {0}"
-    )]
-    DestinationHasNoSchemaWithoutSuggestion(Box<DestinationError>),
 
     #[error(
         "The table `{0}` from your data source is missing in the schema of your Convex \
@@ -172,7 +163,7 @@ pub enum TableSchemaError {
         field_name: FivetranFieldName,
         actual_validator: Validator,
         expected_validator: Validator,
-        fivetran_type: FivetranDataType,
+        fivetran_type: fivetran_sdk::DataType,
     },
 
     #[error(

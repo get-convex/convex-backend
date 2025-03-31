@@ -33,10 +33,11 @@ use convex_fivetran_destination::{
         DeleteType,
     },
     constants::{
+        FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+        FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
         FIVETRAN_SYNC_INDEX_WITHOUT_SOFT_DELETE_FIELDS,
         FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS,
         METADATA_CONVEX_FIELD_NAME,
-        PRIMARY_KEY_INDEX_DESCRIPTOR,
         SOFT_DELETE_CONVEX_FIELD_NAME,
         SOFT_DELETE_FIELD_PATH,
         SYNCED_FIELD_PATH,
@@ -147,24 +148,25 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
     ) -> anyhow::Result<ResolvedQuery<RT>> {
         let mut model = IndexModel::new(self.tx);
         let indexes = model
-            .get_application_indexes(TableNamespace::TODO())
+            .get_system_indexes(TableNamespace::root_component())
             .await?;
         let index = indexes
             .into_iter()
             .map(|index| index.into_value())
             .find(|index: &DeveloperIndexMetadata| {
                 index.name.table() == table_name
-                    && *index.name.descriptor() == *PRIMARY_KEY_INDEX_DESCRIPTOR
+                    && *index.name.descriptor() == *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR
                     && index.is_database_index()
             })
             .ok_or(ErrorMetadata::bad_request(
                 "MissingFivetranPrimaryKeyIndex",
                 format!(
-                    "The `{PRIMARY_KEY_INDEX_DESCRIPTOR:?}` index on the `{table_name}` table is \
-                     missing. Please edit your `schema.ts` file and add the following index to \
-                     the `{table_name}` table: .index(\"{PRIMARY_KEY_INDEX_DESCRIPTOR:?}\", [/* \
-                     …attributes in the primary key… */]) (or .index(\"sync_index\", \
-                     [\"fivetran.deleted\", /* …attributes in the primary key… */]).",
+                    "The `{}` index on the `{table_name}` table is missing. Please edit your \
+                     `schema.ts` file and add the following index to the `{table_name}` table: \
+                     .index(\"{}\", [/* …attributes in the primary key… */]) (or \
+                     .index(\"sync_index\", [\"fivetran.deleted\", /* …attributes in the primary \
+                     key… */]).",
+                    *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR, *FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
                 ),
             ))?;
 
@@ -218,39 +220,50 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
     ) -> anyhow::Result<ResolvedQuery<RT>> {
         let mut model = IndexModel::new(self.tx);
         let indexes = model
-            .get_application_indexes(TableNamespace::TODO())
+            .get_system_indexes(TableNamespace::root_component())
             .await?;
 
-        let (index_name, fields) = indexes
+        let index = indexes
             .into_iter()
             .map(|index| index.into_value())
-            .find_map(|index: DeveloperIndexMetadata| {
-                if *index.name.table() != *table_name || !index.is_database_index() {
-                    return None;
-                }
-
-                let IndexConfig::Database {
-                    developer_config: DeveloperDatabaseIndexConfig { fields },
-                    ..
-                } = index.config
-                else {
-                    return None;
-                };
-
-                (fields == *FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS
-                    || fields == *FIVETRAN_SYNC_INDEX_WITHOUT_SOFT_DELETE_FIELDS)
-                    .then_some((index.name, fields))
+            .find(|index| {
+                *index.name.table() == *table_name
+                    && *index.name.descriptor() == *FIVETRAN_SYNCED_INDEX_DESCRIPTOR
             })
             .ok_or(ErrorMetadata::bad_request(
                 "MissingFivetranSyncedIndex",
                 format!(
                     "The Fivetran synchronization index on the `{table_name}` table is missing. \
-                     Please edit your `schema.ts` file and add the following index to the \
-                     `{table_name}` table: .index(\"sync_index\", [\"fivetran.synced\"]) (or \
-                     .index(\"sync_index\", [\"fivetran.deleted\", \"fivetran.synced\"]) if you \
-                     use soft deletes with Fivetran).",
+                     Something went wrong with the Fivetran sync.",
                 ),
             ))?;
+
+        if !index.is_database_index() {
+            anyhow::bail!("Unexpected index type");
+        }
+
+        let IndexConfig::Database {
+            developer_config: DeveloperDatabaseIndexConfig { fields },
+            ..
+        } = index.config
+        else {
+            anyhow::bail!("Unexpected index type");
+        };
+
+        if fields != *FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS
+            && fields != *FIVETRAN_SYNC_INDEX_WITHOUT_SOFT_DELETE_FIELDS
+        {
+            anyhow::bail!(ErrorMetadata::bad_request(
+                "WrongFieldsInFivetranSyncedIndex",
+                format!(
+                    "The Fivetran synchronization index on the `{table_name}` has the wrong \
+                     fields {fields:?}. Expected {} or {} Something went wrong with the Fivetran \
+                     sync.",
+                    *FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS,
+                    *FIVETRAN_SYNC_INDEX_WITHOUT_SOFT_DELETE_FIELDS,
+                ),
+            ))
+        }
 
         let mut range: Vec<IndexRangeExpression> = Vec::new();
         for field_path in fields.iter() {
@@ -277,7 +290,7 @@ impl<'a, RT: Runtime> FivetranImportModel<'a, RT> {
             self.tx,
             TableNamespace::Global,
             Query::index_range(IndexRange {
-                index_name,
+                index_name: index.name,
                 range,
                 order: Order::Asc,
             }),

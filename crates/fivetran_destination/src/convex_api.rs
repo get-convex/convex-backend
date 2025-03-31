@@ -11,12 +11,16 @@ use chrono::{
     Utc,
 };
 use common::{
-    schemas::DatabaseSchema,
+    schemas::{
+        DatabaseSchema,
+        TableDefinition,
+    },
     value::TableName,
 };
 use convex_fivetran_common::config::Config;
 use convex_fivetran_destination::api_types::{
     BatchWriteRow,
+    CreateTableArgs,
     DeleteType,
     TruncateTableArgs,
 };
@@ -46,6 +50,8 @@ pub trait Destination: Display + Send {
     async fn test_streaming_import_connection(&self) -> anyhow::Result<()>;
 
     async fn get_schema(&self) -> anyhow::Result<Option<DatabaseSchema>>;
+
+    async fn create_table(&self, table_definition: TableDefinition) -> anyhow::Result<()>;
 
     async fn truncate_table(
         &self,
@@ -156,7 +162,6 @@ impl ConvexApi {
         }
     }
 }
-
 #[async_trait]
 impl Destination for ConvexApi {
     async fn test_streaming_import_connection(&self) -> anyhow::Result<()> {
@@ -176,6 +181,17 @@ impl Destination for ConvexApi {
         let schema =
             DatabaseSchema::try_from(value).context("Can’t deserialize the retrived schema")?;
         Ok(Some(schema))
+    }
+
+    async fn create_table(&self, table_definition: TableDefinition) -> anyhow::Result<()> {
+        self.post(
+            "/api/streaming_import/fivetran_create_table",
+            CreateTableArgs {
+                table_definition: table_definition.try_into()?,
+            },
+        )
+        .await?;
+        Ok(())
     }
 
     async fn truncate_table(

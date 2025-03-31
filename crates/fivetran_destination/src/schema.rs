@@ -5,13 +5,11 @@ use std::{
     },
     ops::Deref,
     str::FromStr,
-    sync::LazyLock,
 };
 
 use anyhow::bail;
 use common::{
     bootstrap_model::index::database_index::IndexedFields,
-    document::CREATION_TIME_FIELD_PATH,
     schemas::{
         validator::{
             FieldValidator,
@@ -40,12 +38,13 @@ use convex_fivetran_destination::{
         FivetranTableName,
     },
     constants::{
+        FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+        FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
         FIVETRAN_SYNC_INDEX_WITHOUT_SOFT_DELETE_FIELDS,
         FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS,
         ID_CONVEX_FIELD_NAME,
         ID_FIVETRAN_FIELD_NAME,
         METADATA_CONVEX_FIELD_NAME,
-        PRIMARY_KEY_INDEX_DESCRIPTOR,
         SOFT_DELETE_CONVEX_FIELD_NAME,
         SOFT_DELETE_FIELD_PATH,
         SOFT_DELETE_FIVETRAN_FIELD_NAME,
@@ -66,12 +65,6 @@ use crate::{
     log,
 };
 
-/// The default name of the sync index suggested to the user in error messages.
-/// The user doesn’t have to name their sync index like this, it’s only a
-/// suggestion.
-pub static DEFAULT_FIVETRAN_SYNCED_INDEX_DESCRIPTOR: LazyLock<IndexDescriptor> =
-    LazyLock::new(|| IndexDescriptor::new("by_fivetran_synced").unwrap());
-
 #[derive(Clone, Debug)]
 pub struct FivetranTableColumn {
     pub data_type: FivetranDataType,
@@ -88,7 +81,9 @@ impl TryFrom<fivetran_sdk::Table> for FivetranTableSchema {
     type Error = DestinationError;
 
     fn try_from(table: fivetran_sdk::Table) -> Result<Self, Self::Error> {
-        let table_name: FivetranTableName = FivetranTableName::from_str(&table.name)
+        let table_name: FivetranTableName = table
+            .name
+            .parse()
             .map_err(|err| DestinationError::InvalidTableName(table.name, err))?;
 
         let columns = table
@@ -172,7 +167,7 @@ impl FivetranTableSchema {
                 !field_name.is_fivetran_system_field() && !field_name.is_underscored_field()
             })
             .map(|(field_name, column)| -> anyhow::Result<_, _> {
-                let field_name = IdentifierFieldName::from_str(field_name).map_err(|err| {
+                let field_name = field_name.parse().map_err(|err| {
                     DestinationError::UnsupportedColumnName(
                         field_name.clone(),
                         self.name.clone(),
@@ -199,7 +194,9 @@ impl FivetranTableSchema {
             field_validators,
         )]));
 
-        let table_name = TableName::from_str(&self.name)
+        let table_name: TableName = self
+            .name
+            .parse()
             .map_err(|err| DestinationError::UnsupportedTableName(self.name.to_string(), err))?;
 
         let indexes = self.suggested_indexes().map_err(|err| {
@@ -246,20 +243,18 @@ impl FivetranTableSchema {
             }
         }
 
-        primary_key_index_fields.push(CREATION_TIME_FIELD_PATH.clone());
-
         let fields = IndexedFields::try_from(primary_key_index_fields)
             .map_err(TableSchemaError::UnsupportedPrimaryKey)?;
 
         Ok(IndexSchema {
-            index_descriptor: PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
+            index_descriptor: FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
             fields,
         })
     }
 
     fn sync_index(&self) -> IndexSchema {
         IndexSchema {
-            index_descriptor: DEFAULT_FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone(),
+            index_descriptor: FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone(),
             fields: if self.is_using_soft_deletes() {
                 FIVETRAN_SYNC_INDEX_WITH_SOFT_DELETE_FIELDS.clone()
             } else {
@@ -315,7 +310,7 @@ impl FivetranTableSchema {
             .iter()
             .filter(|(name, _)| name.is_underscored_field())
             .flat_map(|(name, column)| {
-                IdentifierFieldName::from_str(&name[1..]).ok().map(|name| {
+                name[1..].parse().ok().map(|name| {
                     (
                         name,
                         FieldValidator::required_field_type(suggested_validator(
@@ -547,7 +542,8 @@ impl FivetranTableSchema {
         }
 
         // Primary key index
-        let Some(primary_key_index_fields) = indexes_targets.get(&PRIMARY_KEY_INDEX_DESCRIPTOR)
+        let Some(primary_key_index_fields) =
+            indexes_targets.get(&FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR)
         else {
             return Err(TableSchemaError::MissingPrimaryKeyIndex(SuggestedIndex(
                 self.suggested_primary_key_index()?,
@@ -594,11 +590,81 @@ impl FivetranTableSchema {
 
         let fields_to_compare: BTreeSet<FieldPath> = fields
             .iter()
-            .filter(|path| *path != &*CREATION_TIME_FIELD_PATH)
             .skip(if self.is_using_soft_deletes() { 1 } else { 0 })
             .cloned()
             .collect();
         Ok(fields_to_compare == primary_key_columns)
+    }
+
+    pub fn to_convex_table(&self) -> anyhow::Result<TableDefinition> {
+        let table_name: TableName = self.name.parse()?;
+        let mut object_schema = ObjectValidator(BTreeMap::new());
+        let mut metadata_object_schema = ObjectValidator(BTreeMap::new());
+        let mut underscored_columns_object_schema = ObjectValidator(BTreeMap::new());
+        for (field_name, column) in self.columns.iter() {
+            // Handle system columns
+            // Soft delete
+            if field_name == &*SOFT_DELETE_FIVETRAN_FIELD_NAME {
+                metadata_object_schema.0.insert(
+                    SOFT_DELETE_CONVEX_FIELD_NAME.clone(),
+                    FieldValidator::optional_field_type(Validator::Boolean),
+                );
+            }
+            // Fivetran pseudo-ID
+            else if field_name == &*ID_FIVETRAN_FIELD_NAME {
+                metadata_object_schema.0.insert(
+                    ID_CONVEX_FIELD_NAME.clone(),
+                    FieldValidator::optional_field_type(Validator::String),
+                );
+            }
+            // Synchronization timestamp
+            else if field_name == &*SYNCED_FIVETRAN_FIELD_NAME {
+                metadata_object_schema.0.insert(
+                    SYNCED_CONVEX_FIELD_NAME.clone(),
+                    FieldValidator::optional_field_type(Validator::Float64),
+                );
+            }
+            // Columns having a Fivetran name starting by _
+            else if let Some(field_name) = field_name.strip_prefix('_') {
+                let field_name = field_name.parse()?;
+                let column_type = column.data_type;
+                let field_validator =
+                    FieldValidator::optional_field_type(recognize_convex_type(&column_type)?);
+                underscored_columns_object_schema
+                    .0
+                    .insert(field_name, field_validator);
+            }
+            // User columns
+            else {
+                let field_name = field_name.parse()?;
+                let column_type = column.data_type;
+                let field_validator =
+                    FieldValidator::optional_field_type(recognize_convex_type(&column_type)?);
+                object_schema.0.insert(field_name, field_validator);
+            }
+        }
+
+        metadata_object_schema.0.insert(
+            UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone(),
+            FieldValidator::required_field_type(Validator::Object(
+                underscored_columns_object_schema,
+            )),
+        );
+        object_schema.0.insert(
+            METADATA_CONVEX_FIELD_NAME.clone(),
+            FieldValidator::required_field_type(Validator::Object(metadata_object_schema)),
+        );
+
+        let indexes = self.suggested_indexes()?;
+        let document_schema = DocumentSchema::Union(vec![object_schema]);
+
+        Ok(TableDefinition {
+            table_name,
+            indexes,
+            search_indexes: BTreeMap::new(),
+            vector_indexes: BTreeMap::new(),
+            document_type: Some(document_schema),
+        })
     }
 }
 
@@ -726,7 +792,9 @@ fn metadata_field_validator(validator: &ObjectValidator) -> Option<&ObjectValida
 }
 
 fn user_columns(table_def: &TableDefinition, validator: &ObjectValidator) -> Vec<Column> {
-    let primary_key_index = table_def.indexes.get(&PRIMARY_KEY_INDEX_DESCRIPTOR);
+    let primary_key_index = table_def
+        .indexes
+        .get(&FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR);
     if primary_key_index.is_none() {
         log(&format!(
             "The table {} in your Convex schema is missing a `by_primary_key` index, so Fivetran \
@@ -828,7 +896,9 @@ fn to_fivetran_columns(
             .get(&UNDERSCORED_COLUMNS_CONVEX_FIELD_NAME.clone())
         {
             if let Validator::Object(columns_validator) = columns_validator.validator() {
-                let primary_key_index = table_def.indexes.get(&PRIMARY_KEY_INDEX_DESCRIPTOR);
+                let primary_key_index = table_def
+                    .indexes
+                    .get(&FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR);
 
                 for (column_name, column_validator) in columns_validator.0.iter() {
                     let field_path = FieldPath::new(vec![
@@ -884,21 +954,30 @@ fn recognize_fivetran_type(validator: &Validator) -> anyhow::Result<FivetranData
     }
 }
 
+fn recognize_convex_type(data_type: &FivetranDataType) -> anyhow::Result<Validator> {
+    let validator = match data_type {
+        FivetranDataType::Double => Validator::Float64,
+        FivetranDataType::Long => Validator::Int64,
+        FivetranDataType::Boolean => Validator::Boolean,
+        FivetranDataType::String => Validator::String,
+        FivetranDataType::Binary => Validator::Bytes,
+        FivetranDataType::Json => Validator::Object(ObjectValidator(BTreeMap::new())),
+        _ => anyhow::bail!("The type of this Convex column isn’t supported by Fivetran."),
+    };
+    Ok(Validator::Union(vec![validator, Validator::Null]))
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::{
-            BTreeMap,
-            BTreeSet,
-            HashSet,
-        },
-        str::FromStr,
+    use std::collections::{
+        BTreeMap,
+        BTreeSet,
+        HashSet,
     };
 
     use cmd_util::env::env_config;
     use common::{
         bootstrap_model::index::database_index::IndexedFields,
-        document::CREATION_TIME_FIELD_PATH,
         object_validator,
         schemas::{
             validator::{
@@ -911,11 +990,7 @@ mod tests {
             TableDefinition,
         },
         types::IndexDescriptor,
-        value::{
-            FieldPath,
-            IdentifierFieldName,
-            TableName,
-        },
+        value::FieldPath,
     };
     use convex_fivetran_common::fivetran_sdk::{
         self,
@@ -923,12 +998,17 @@ mod tests {
         DataType as FivetranDataType,
         Table,
     };
+    use convex_fivetran_destination::constants::{
+        FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR,
+        FIVETRAN_SYNCED_INDEX_DESCRIPTOR,
+    };
     use maplit::{
         btreemap,
         btreeset,
         hashset,
     };
     use must_let::must_let;
+    use pretty_assertions::assert_eq;
     use proptest::prelude::*;
 
     use super::{
@@ -992,17 +1072,14 @@ mod tests {
         indexes: BTreeMap<&str, Vec<FieldPath>>,
     ) -> TableDefinition {
         TableDefinition {
-            table_name: TableName::from_str("table_name").unwrap(),
+            table_name: "table_name".parse().unwrap(),
             search_indexes: Default::default(),
             vector_indexes: Default::default(),
             document_type: Some(DocumentSchema::Union(vec![ObjectValidator(
                 fields
                     .into_iter()
                     .map(|(field_name, field_validator)| {
-                        (
-                            IdentifierFieldName::from_str(field_name).unwrap(),
-                            field_validator,
-                        )
+                        (field_name.parse().unwrap(), field_validator)
                     })
                     .collect(),
             )])),
@@ -1051,18 +1128,15 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
-                        FieldPath::new(vec![
-                            IdentifierFieldName::from_str("id")?,
-                        ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
+                        FieldPath::new(vec!["id".parse()?])?,
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1097,18 +1171,15 @@ mod tests {
                         )),
                     },
                     btreemap! {
-                        "by_primary_key" => vec![
-                            FieldPath::new(vec![
-                                IdentifierFieldName::from_str("id")?,
-                            ])?,
-                            CREATION_TIME_FIELD_PATH.clone(),
+                        FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
+                            FieldPath::new(vec!["id".parse()?])?,
                         ],
-                        "sync_index" => vec![
+                        FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                             FieldPath::new(vec![
-                                IdentifierFieldName::from_str("fivetran")?,
-                                IdentifierFieldName::from_str("synced")?,
+                                "fivetran".parse()?,
+                                "synced".parse()?,
                             ])?,
-                            CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                         ],
                     },
                 ),
@@ -1137,18 +1208,17 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("id")?,
+                            "id".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1181,27 +1251,26 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("deleted")?,
+                            "fivetran".parse()?,
+                            "deleted".parse()?,
                         ])?,
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("id")?,
+                            "fivetran".parse()?,
+                            "id".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("deleted")?,
+                            "fivetran".parse()?,
+                            "deleted".parse()?,
                         ])?,
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1239,20 +1308,19 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("columns")?,
-                            IdentifierFieldName::from_str("key")?,
+                            "fivetran".parse()?,
+                            "columns".parse()?,
+                            "key".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1281,20 +1349,19 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("columns")?,
-                            IdentifierFieldName::from_str("field")?,
+                            "fivetran".parse()?,
+                            "columns".parse()?,
+                            "field".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1326,18 +1393,17 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("name")?,
+                            "name".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1372,30 +1438,29 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         // _fivetran_deleted must be the first field in the index
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("deleted")?,
+                            "fivetran".parse()?,
+                            "deleted".parse()?,
                         ])?,
 
                         // The other fields can be in an arbitrary order
-                        FieldPath::new(vec![IdentifierFieldName::from_str("b")?])?,
-                        FieldPath::new(vec![IdentifierFieldName::from_str("a")?])?,
-                        FieldPath::new(vec![IdentifierFieldName::from_str("c")?])?,
+                        FieldPath::new(vec!["b".parse()?])?,
+                        FieldPath::new(vec!["a".parse()?])?,
+                        FieldPath::new(vec!["c".parse()?])?,
 
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
                     "sync_index_named_arbitrarily" => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("deleted")?,
+                            "fivetran".parse()?,
+                            "deleted".parse()?,
                         ])?,
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["_creationTime".parse()?])?,
                     ],
                 },
             ),
@@ -1414,16 +1479,15 @@ mod tests {
             btreeset! {"id"},
         )
         .validate_destination_indexes(&convex_indexes(btreemap! {
-            "by_primary_key" => vec![
-                FieldPath::new(vec![IdentifierFieldName::from_str("id")?])?,
-                CREATION_TIME_FIELD_PATH.clone(),
+            FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
+                FieldPath::new(vec!["id".parse()?])?,
             ],
             "my_sync_index" => vec![
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("synced")?,
+                    "fivetran".parse()?,
+                    "synced".parse()?,
                 ])?,
-                CREATION_TIME_FIELD_PATH.clone(),
+                FieldPath::new(vec!["_creationTime".parse()?])?,
             ],
         }))
         .is_ok());
@@ -1440,29 +1504,23 @@ mod tests {
             btreeset! {"id"},
         );
 
-        let primary_key_index = vec![
-            FieldPath::new(vec![IdentifierFieldName::from_str("id")?])?,
-            CREATION_TIME_FIELD_PATH.clone(),
-        ];
-        let sync_index = vec![
-            FieldPath::new(vec![
-                IdentifierFieldName::from_str("fivetran")?,
-                IdentifierFieldName::from_str("synced")?,
-            ])?,
-            CREATION_TIME_FIELD_PATH.clone(),
-        ];
+        let primary_key_index = vec![FieldPath::new(vec!["id".parse()?])?];
+        let sync_index = vec![FieldPath::new(vec![
+            "fivetran".parse()?,
+            "synced".parse()?,
+        ])?];
 
         assert!(table_schema
             .validate_destination_indexes(&convex_indexes(btreemap! {}))
             .is_err());
         assert!(table_schema
             .validate_destination_indexes(&convex_indexes(btreemap! {
-                "by_primary_key" => primary_key_index,
+                FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => primary_key_index,
             }))
             .is_err());
         assert!(table_schema
             .validate_destination_indexes(&convex_indexes(btreemap! {
-                "my_sync_index" => sync_index,
+                FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => sync_index,
             }))
             .is_err());
         Ok(())
@@ -1470,36 +1528,35 @@ mod tests {
 
     #[test]
     fn required_indexes_include_the_soft_delete_field_if_it_exists() -> anyhow::Result<()> {
-        assert!(fivetran_table_schema(
+        fivetran_table_schema(
             btreemap! {
                 "id" => FivetranDataType::Long,
                 "_fivetran_synced" => FivetranDataType::UtcDatetime,
                 "_fivetran_deleted" => FivetranDataType::Boolean,
             },
-            btreeset! {"id"}
+            btreeset! {"id"},
         )
         .validate_destination_indexes(&convex_indexes(btreemap! {
-            "by_primary_key" => vec![
+            FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("deleted")?,
+                    "fivetran".parse()?,
+                    "deleted".parse()?,
                 ])?,
-                FieldPath::new(vec![IdentifierFieldName::from_str("id")?])?,
-                CREATION_TIME_FIELD_PATH.clone(),
+                FieldPath::new(vec!["id".parse()?])?,
             ],
             "my_sync_index" => vec![
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("deleted")?,
+                    "fivetran".parse()?,
+                    "deleted".parse()?,
                 ])?,
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("synced")?,
+                    "fivetran".parse()?,
+                    "synced".parse()?,
                 ])?,
-                CREATION_TIME_FIELD_PATH.clone(),
+                FieldPath::new(vec!["_creationTime".parse()?])?,
             ],
         }))
-        .is_ok());
+        .expect("Failed to validate indexes");
 
         // The soft delete field must come before the other fields
         assert!(fivetran_table_schema(
@@ -1511,25 +1568,24 @@ mod tests {
             btreeset! {"id"}
         )
         .validate_destination_indexes(&convex_indexes(btreemap! {
-            "by_primary_key" => vec![
+            FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("deleted")?,
+                    "fivetran".parse()?,
+                    "deleted".parse()?,
                 ])?,
-                FieldPath::new(vec![IdentifierFieldName::from_str("id")?])?,
-                CREATION_TIME_FIELD_PATH.clone(),
+                FieldPath::new(vec!["id".parse()?])?,
             ],
             "my_sync_index" => vec![
                 // Wrong
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("synced")?,
+                    "fivetran".parse()?,
+                    "synced".parse()?,
                 ])?,
                 FieldPath::new(vec![
-                    IdentifierFieldName::from_str("fivetran")?,
-                    IdentifierFieldName::from_str("deleted")?,
+                    "fivetran".parse()?,
+                    "deleted".parse()?,
                 ])?,
-                CREATION_TIME_FIELD_PATH.clone(),
+                FieldPath::new(vec!["_creationTime".parse()?])?,
             ],
         }))
         .is_err());
@@ -1551,63 +1607,55 @@ mod tests {
         );
 
         let sync_index = vec![
-            FieldPath::new(vec![
-                IdentifierFieldName::from_str("fivetran")?,
-                IdentifierFieldName::from_str("deleted")?,
-            ])?,
-            FieldPath::new(vec![
-                IdentifierFieldName::from_str("fivetran")?,
-                IdentifierFieldName::from_str("synced")?,
-            ])?,
-            CREATION_TIME_FIELD_PATH.clone(),
+            FieldPath::new(vec!["fivetran".parse()?, "deleted".parse()?])?,
+            FieldPath::new(vec!["fivetran".parse()?, "synced".parse()?])?,
+            FieldPath::new(vec!["_creationTime".parse()?])?,
         ];
 
         assert!(fivetran_table_schema
             .validate_destination_indexes(&convex_indexes(btreemap! {
-                "by_primary_key" => vec![
+                FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                     FieldPath::new(vec![
-                        IdentifierFieldName::from_str("fivetran")?,
-                        IdentifierFieldName::from_str("deleted")?,
+                        "fivetran".parse()?,
+                        "deleted".parse()?,
                     ])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("b")?])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("a")?])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("c")?])?,
-                    CREATION_TIME_FIELD_PATH.clone(),
+                    FieldPath::new(vec!["b".parse()?])?,
+                    FieldPath::new(vec!["a".parse()?])?,
+                    FieldPath::new(vec!["c".parse()?])?,
                 ],
-                "my_sync_index" => sync_index.clone(),
+                FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => sync_index.clone(),
             }))
             .is_ok());
 
         assert!(fivetran_table_schema
             .validate_destination_indexes(&convex_indexes(btreemap! {
-                "by_primary_key" => vec![
+                FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                     FieldPath::new(vec![
-                        IdentifierFieldName::from_str("fivetran")?,
-                        IdentifierFieldName::from_str("deleted")?,
+                        "fivetran".parse()?,
+                        "deleted".parse()?,
                     ])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("c")?])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("b")?])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("a")?])?,
+                    FieldPath::new(vec!["c".parse()?])?,
+                    FieldPath::new(vec!["b".parse()?])?,
+                    FieldPath::new(vec!["a".parse()?])?,
                 ],
-                "my_sync_index" => sync_index.clone(),
+                FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => sync_index.clone(),
             }))
             .is_ok());
 
         // The _fivetran_deleted field must be first
         assert!(fivetran_table_schema
             .validate_destination_indexes(&convex_indexes(btreemap! {
-                "by_primary_key" => vec![
-                    FieldPath::new(vec![IdentifierFieldName::from_str("c")?])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("b")?])?,
-                    FieldPath::new(vec![IdentifierFieldName::from_str("a")?])?,
+                FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
+                    FieldPath::new(vec!["c".parse()?])?,
+                    FieldPath::new(vec!["b".parse()?])?,
+                    FieldPath::new(vec!["a".parse()?])?,
                     // Error
                     FieldPath::new(vec![
-                        IdentifierFieldName::from_str("fivetran")?,
-                        IdentifierFieldName::from_str("deleted")?,
+                        "fivetran".parse()?,
+                        "deleted".parse()?,
                     ])?,
-                    CREATION_TIME_FIELD_PATH.clone(),
                 ],
-                "my_sync_index" => sync_index.clone(),
+                FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => sync_index.clone(),
             }))
             .is_err());
 
@@ -1631,18 +1679,14 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
-                        FieldPath::new(vec![
-                            IdentifierFieldName::from_str("id")?,
-                        ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
+                        FieldPath::new(vec!["id".parse()?])?,
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
                 },
             ))?,
@@ -1690,27 +1734,22 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("deleted")?,
+                            "fivetran".parse()?,
+                            "deleted".parse()?,
                         ])?,
-                        FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("id")?,
-                        ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
+                        FieldPath::new(vec!["id".parse()?])?,
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("deleted")?,
+                            "fivetran".parse()?,
+                            "deleted".parse()?,
                         ])?,
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
                 },
             ))?,
@@ -1771,20 +1810,18 @@ mod tests {
                     )),
                 },
                 btreemap! {
-                    "by_primary_key" => vec![
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("columns")?,
-                            IdentifierFieldName::from_str("key")?,
+                            "fivetran".parse()?,
+                            "columns".parse()?,
+                            "key".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
-                    "sync_index" => vec![
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.as_str() => vec![
                         FieldPath::new(vec![
-                            IdentifierFieldName::from_str("fivetran")?,
-                            IdentifierFieldName::from_str("synced")?,
+                            "fivetran".parse()?,
+                            "synced".parse()?,
                         ])?,
-                        CREATION_TIME_FIELD_PATH.clone(),
                     ],
                 },
             ))?,
@@ -1841,22 +1878,21 @@ mod tests {
             TableDefinition {
                 table_name: "my_table".parse()?,
                 indexes: btreemap! {
-                    IndexDescriptor::new("by_fivetran_synced")? => IndexSchema {
-                        index_descriptor: IndexDescriptor::new("by_fivetran_synced")?,
+                    FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone() => IndexSchema {
+                        index_descriptor: FIVETRAN_SYNCED_INDEX_DESCRIPTOR.clone(),
                         fields: vec![
                             "fivetran.deleted".parse()?,
                             "fivetran.synced".parse()?,
                             "_creationTime".parse()?,
                         ].try_into()?
                     },
-                    IndexDescriptor::new("by_primary_key")? => IndexSchema {
-                        index_descriptor: IndexDescriptor::new("by_primary_key")?,
+                    FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone() => IndexSchema {
+                        index_descriptor: FIVETRAN_PRIMARY_KEY_INDEX_DESCRIPTOR.clone(),
                         fields: vec![
                             "fivetran.deleted".parse()?,
                             "fivetran.id".parse()?,
                             "fivetran.columns.key".parse()?,
                             "slug".parse()?,
-                            "_creationTime".parse()?,
                         ].try_into()?
                     }
                 },

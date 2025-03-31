@@ -43,6 +43,7 @@ cmd_util = { path = "../cmd_util" }
 common = { path = "../common", features = ["testing"] }
 convex_fivetran_common = { path = "../fivetran_common", features = ["testing"] }
 must-let = { workspace = true }
+pretty_assertions = { workspace = true }
 proptest = { workspace = true }
 proptest-derive = { workspace = true }
 
