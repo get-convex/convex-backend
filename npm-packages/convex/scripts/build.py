@@ -122,7 +122,8 @@ def build_standalone_cli(temp_dir) -> None:
 
 
 def main() -> None:
-    global times
+    # TODO -- fix lint error below (only shows up on flake8 v7.2.0)
+    global times  # noqa: F824
     t0 = time.time()
 
     global TEMP_DIR
