@@ -53,10 +53,9 @@ pub fn compute_next_ts(
             .parse()
             .context("Cron Schedule: Cron parsing from Saffron failed")?,
     };
-    let prev_ts = prev_ts.unwrap_or(now);
-    let prev_ts_nanos: i64 = prev_ts.into();
-    let prev_ts_utc = Utc.timestamp_nanos(prev_ts_nanos);
-    let next_ts_utc = match cron.next_after(prev_ts_utc) {
+    let now_nanos: i64 = now.into();
+    let now_utc = Utc.timestamp_nanos(now_nanos);
+    let next_ts_utc = match cron.next_after(now_utc) {
         Some(next_ts_utc) => next_ts_utc,
         None => return Err(anyhow::anyhow!("Could not compute next timestamp for cron")),
     };
@@ -118,16 +117,10 @@ mod tests {
 
         // Mar 01 2023 08:35:00 UTC
         let now = Timestamp::try_from(i64::pow(10, 9) * 1677659700).unwrap();
-        let mut prev_ts = None;
-        let mut result = compute_next_ts(&cron_spec, prev_ts, now);
+        let prev_ts = None;
+        let result = compute_next_ts(&cron_spec, prev_ts, now);
         // Mar 01 2023 09:05:00 UTC
-        let mut expected = Timestamp::try_from(i64::pow(10, 9) * 1677661500).unwrap();
-        assert_eq!(result.unwrap(), expected);
-
-        prev_ts = Some(expected);
-        result = compute_next_ts(&cron_spec, prev_ts, now);
-        // Mar 01 2023 10:05:00 UTC
-        expected = Timestamp::try_from(i64::pow(10, 9) * 1677665100).unwrap();
+        let expected = Timestamp::try_from(i64::pow(10, 9) * 1677661500).unwrap();
         assert_eq!(result.unwrap(), expected);
     }
 
@@ -145,16 +138,10 @@ mod tests {
 
         // Feb 28 2023 08:35:00 UTC
         let now = Timestamp::try_from(i64::pow(10, 9) * 1677573300).unwrap();
-        let mut prev_ts = None;
-        let mut result = compute_next_ts(&cron_spec, prev_ts, now);
+        let prev_ts = None;
+        let result = compute_next_ts(&cron_spec, prev_ts, now);
         // Mar 01 2023 8:30:00 UTC
-        let mut expected = Timestamp::try_from(i64::pow(10, 9) * 1677659400).unwrap();
-        assert_eq!(result.unwrap(), expected);
-
-        prev_ts = Some(expected);
-        result = compute_next_ts(&cron_spec, prev_ts, now);
-        // Mar 02 2023 8:30:00 UTC
-        expected = Timestamp::try_from(i64::pow(10, 9) * 1677745800).unwrap();
+        let expected = Timestamp::try_from(i64::pow(10, 9) * 1677659400).unwrap();
         assert_eq!(result.unwrap(), expected);
     }
 
@@ -173,16 +160,10 @@ mod tests {
 
         // Feb 28 2023 08:35:00 UTC
         let now = Timestamp::try_from(i64::pow(10, 9) * 1677573300).unwrap();
-        let mut prev_ts = None;
-        let mut result = compute_next_ts(&cron_spec, prev_ts, now);
+        let prev_ts = None;
+        let result = compute_next_ts(&cron_spec, prev_ts, now);
         // Feb 28 2023 12:30:00 UTC
-        let mut expected = Timestamp::try_from(i64::pow(10, 9) * 1677587400).unwrap();
-        assert_eq!(result.unwrap(), expected);
-
-        prev_ts = Some(expected);
-        result = compute_next_ts(&cron_spec, prev_ts, now);
-        // Mar 07 2023 12:30:00 UTC
-        expected = Timestamp::try_from(i64::pow(10, 9) * 1678192200).unwrap();
+        let expected = Timestamp::try_from(i64::pow(10, 9) * 1677587400).unwrap();
         assert_eq!(result.unwrap(), expected);
     }
 
@@ -201,17 +182,10 @@ mod tests {
 
         // Feb 28 2023 08:35:00 UTC
         let now = Timestamp::try_from(i64::pow(10, 9) * 1677573300).unwrap();
-        let mut prev_ts = None;
-        let mut result = compute_next_ts(&cron_spec, prev_ts, now);
+        let prev_ts = None;
+        let result = compute_next_ts(&cron_spec, prev_ts, now);
         // March 1 2023 12:30:00 UTC
-        let mut expected = Timestamp::try_from(i64::pow(10, 9) * 1677673800).unwrap();
-        assert_eq!(result.unwrap(), expected);
-
-        prev_ts = Some(expected);
-        result = compute_next_ts(&cron_spec, prev_ts, now);
-        // April 1 2023 12:30:00 UTC
-        // fun fact: this also tests that daylight savings was computed correctly
-        expected = Timestamp::try_from(i64::pow(10, 9) * 1680352200).unwrap();
+        let expected = Timestamp::try_from(i64::pow(10, 9) * 1677673800).unwrap();
         assert_eq!(result.unwrap(), expected);
     }
 
@@ -230,16 +204,10 @@ mod tests {
 
         // Feb 28 2023 08:35:00 UTC
         let now = Timestamp::try_from(i64::pow(10, 9) * 1677573300).unwrap();
-        let mut prev_ts = None;
+        let prev_ts = None;
         let mut result = compute_next_ts(&cron_spec, prev_ts, now);
         // March 3 2023 18:00:00 UTC
-        let mut expected = Timestamp::try_from(i64::pow(10, 9) * 1677844800).unwrap();
-        assert_eq!(result.unwrap(), expected);
-
-        prev_ts = Some(expected);
-        result = compute_next_ts(&cron_spec, prev_ts, now);
-        // March 6 2023 18:00:00 UTC
-        expected = Timestamp::try_from(i64::pow(10, 9) * 1678104000).unwrap();
+        let expected = Timestamp::try_from(i64::pow(10, 9) * 1677844800).unwrap();
         assert_eq!(result.unwrap(), expected);
 
         // Invalid cron, 7 is not a day of the week
