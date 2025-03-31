@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::BTreeMap,
     ffi,
     ptr,
@@ -22,7 +21,10 @@ use derive_more::{
     AddAssign,
 };
 use errors::ErrorMetadata;
-use fastrace::Event;
+use fastrace::{
+    local::LocalSpan,
+    Event,
+};
 use humansize::{
     FormatSize,
     BINARY,
@@ -351,18 +353,12 @@ extern "C" fn near_heap_limit_callback(
     current_heap_limit: usize,
     initial_heap_limit: usize,
 ) -> usize {
-    Event::add_to_local_parent("isolate_out_of_memory", || {
+    LocalSpan::add_event(Event::new("isolate_out_of_memory").with_properties(|| {
         [
-            (
-                Cow::Borrowed("current_heap_limit"),
-                Cow::Owned(current_heap_limit.to_string()),
-            ),
-            (
-                Cow::Borrowed("initial_heap_limit"),
-                Cow::Owned(initial_heap_limit.to_string()),
-            ),
+            ("current_heap_limit", current_heap_limit.to_string()),
+            ("initial_heap_limit", initial_heap_limit.to_string()),
         ]
-    });
+    }));
     let heap_ctx = unsafe { &mut *(data as *mut HeapContext) };
     heap_ctx.handle.terminate(TerminationReason::OutOfMemory);
 

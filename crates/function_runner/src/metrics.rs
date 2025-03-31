@@ -1,6 +1,7 @@
-use std::borrow::Cow;
-
-use fastrace::Event;
+use fastrace::{
+    local::LocalSpan,
+    Event,
+};
 use metrics::{
     log_counter_with_labels,
     log_distribution,
@@ -86,20 +87,15 @@ pub fn record_module_sizes(source_size: usize, source_map_size: Option<usize>) {
     if let Some(map_size) = source_map_size {
         log_distribution(&MODULE_CACHE_SOURCE_MAP_SIZE_BYTES_TOTAL, map_size as f64);
     }
-    Event::add_to_local_parent("module_cache_get_module", || {
+    LocalSpan::add_event(Event::new("module_cache_get_module").with_properties(|| {
         [
+            ("module_cache_source_size", source_size.to_string()),
             (
-                Cow::Borrowed("module_cache_source_size"),
-                Cow::Owned(source_size.to_string()),
-            ),
-            (
-                Cow::Borrowed("module_cache_source_map_size"),
-                Cow::Owned(
-                    source_map_size
-                        .map(|s| s.to_string())
-                        .unwrap_or("None".to_string()),
-                ),
+                "module_cache_source_map_size",
+                source_map_size
+                    .map(|s| s.to_string())
+                    .unwrap_or("None".to_string()),
             ),
         ]
-    });
+    }));
 }

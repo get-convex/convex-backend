@@ -308,7 +308,7 @@ impl<RT: Runtime> Committer<RT> {
                     }
                     // Report the trace if it is longer than the threshold
                     if let Some(id) = span_commit_id && id == pending_commit_id {
-                        if let Some(mut span) = committer_span.take() {
+                        if let Some(span) = committer_span.take() {
                             if span.elapsed() < Some(*COMMIT_TRACE_THRESHOLD) {
                                 tracing::debug!("Not sending span to honeycomb because it is below the threshold");
                                 span.cancel();

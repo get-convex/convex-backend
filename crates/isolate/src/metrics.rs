@@ -11,7 +11,10 @@ use common::{
 };
 use deno_core::v8;
 use errors::ErrorMetadata;
-use fastrace::Event;
+use fastrace::{
+    local::LocalSpan,
+    Event,
+};
 use metrics::{
     log_counter,
     log_counter_with_labels,
@@ -647,7 +650,7 @@ pub fn record_component_function_path(component_function_path: &ResolvedComponen
             Cow::Owned(component_path.to_string()),
         ));
     }
-    Event::add_to_local_parent("component_function_path", || labels);
+    LocalSpan::add_event(Event::new("component_function_path").with_properties(|| labels));
 }
 
 register_convex_counter!(
