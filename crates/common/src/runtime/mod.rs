@@ -367,14 +367,14 @@ pub type KeyedRateLimiter<K, RT> = governor::RateLimiter<
 >;
 
 pub fn new_rate_limiter<RT: Runtime>(runtime: RT, quota: Quota) -> RateLimiter<RT> {
-    RateLimiter::direct_with_clock(quota, &RuntimeClock { runtime })
+    RateLimiter::direct_with_clock(quota, RuntimeClock { runtime })
 }
 
 pub fn new_keyed_rate_limiter<RT: Runtime, K: Hash + Eq + Clone>(
     runtime: RT,
     quota: Quota,
 ) -> KeyedRateLimiter<K, RT> {
-    KeyedRateLimiter::dashmap_with_clock(quota, &RuntimeClock { runtime })
+    KeyedRateLimiter::dashmap_with_clock(quota, RuntimeClock { runtime })
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
