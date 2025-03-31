@@ -32,6 +32,10 @@ export const AnimatedValue: Story = {
   render: () => <Animation />,
 };
 
+export const Solid: Story = {
+  args: { fraction: 0.5, variant: "solid" },
+};
+
 function Animation() {
   const [value, setValue] = useState(0);
   useEffect(() => {

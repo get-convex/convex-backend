@@ -11,8 +11,11 @@ import { useGlobalLocalStorage } from "dashboard-common/lib/useGlobalLocalStorag
 import { ProjectCard } from "components/projects/ProjectCard";
 import { useProjects } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
+import { useTeamOrbSubscription } from "api/billing";
+import { useReferralState } from "api/referrals";
 import { ProjectDetails } from "generatedApi";
 import Link from "next/link";
+import { ReferralsBanner } from "components/referral/ReferralsBanner";
 import { DocsGrid } from "components/projects/DocsGrid";
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
@@ -27,7 +30,15 @@ export default withAuthenticatedPage(() => {
   const projects = useProjects(team?.id, 30000);
   const nonDemoProjects = projects?.filter((p) => !p.isDemo);
   const entitlements = useTeamEntitlements(team?.id);
+  const referralState = useReferralState(team?.id);
   const [showAsList] = useGlobalLocalStorage("showProjectsAsList", false);
+  const { subscription } = useTeamOrbSubscription(team?.id);
+  const isFreePlan =
+    subscription === undefined ? undefined : subscription === null;
+  const [prefersReferralsBannerHidden, setPrefersReferralsBannerHidden] =
+    useGlobalLocalStorage("prefersReferralsBannerHidden", false);
+  const ReferralsBannerVisible =
+    isFreePlan && team && referralState && !prefersReferralsBannerHidden;
 
   return (
     <>
@@ -57,6 +68,15 @@ export default withAuthenticatedPage(() => {
                       </div>
                     </Callout>
                   )}
+
+                {ReferralsBannerVisible && (
+                  <ReferralsBanner
+                    className="mb-4"
+                    team={team}
+                    referralState={referralState}
+                    onHide={() => setPrefersReferralsBannerHidden(true)}
+                  />
+                )}
 
                 <ProjectGrid projects={nonDemoProjects} />
               </div>
