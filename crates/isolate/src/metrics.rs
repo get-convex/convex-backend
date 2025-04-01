@@ -696,3 +696,20 @@ pub fn log_run_udf(
         ],
     );
 }
+
+register_convex_counter!(
+    COMPONENT_GET_USER_IDENTITY_TOTAL,
+    "Number of times that components call getUserIdentity()",
+    &["has_user_identity"]
+);
+
+pub fn log_component_get_user_identity(has_user_identity: bool) {
+    log_counter_with_labels(
+        &COMPONENT_GET_USER_IDENTITY_TOTAL,
+        1,
+        vec![StaticMetricLabel::new(
+            "has_user_identity",
+            has_user_identity.as_label(),
+        )],
+    );
+}

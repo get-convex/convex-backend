@@ -113,6 +113,7 @@ use crate::{
     isolate2::client::QueryId,
     metrics::{
         async_syscall_timer,
+        log_component_get_user_identity,
         log_run_udf,
     },
 };
@@ -773,6 +774,9 @@ impl<RT: Runtime, P: AsyncSyscallProvider<RT>> DatabaseSyscallsV1<RT, P> {
         // TODO: Somehow make the Transaction aware of the dependency on the user.
         let tx = provider.tx()?;
         let user_identity = tx.user_identity();
+        if !provider.component()?.is_root() {
+            log_component_get_user_identity(user_identity.is_some());
+        }
         if let Some(user_identity) = user_identity {
             return user_identity.try_into();
         }
