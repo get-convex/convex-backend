@@ -58,6 +58,15 @@ describe("AuthorizeProject", () => {
         allowedRedirects: ["https://test-app.com/callback"],
         allowImplicitFlow: true,
       },
+      "test-subdomain-client": {
+        name: "Test App With Any Subdomain Allowed",
+        allowedRedirects: [],
+        allowedRedirectsAnySubdomain: [
+          "https://a.pages.dev/foo",
+          "http://b.com/bar",
+        ],
+        allowImplicitFlow: true,
+      },
     },
   };
 
@@ -332,5 +341,85 @@ describe("AuthorizeProject", () => {
     expect(getByTestId("login-layout")).toContainElement(
       screen.getByText("Authorize access to your project"),
     );
+  });
+
+  describe("allowedRedirectsAnySubdomain", () => {
+    test("accepts a subdomain of an allowed domain with matching path", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=https://b.a.pages.dev/foo&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(
+        screen.getByText("Authorize access to your project"),
+      ).toBeInTheDocument();
+    });
+
+    test("accepts multiple levels of subdomains with matching path", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=https://c.b.a.pages.dev/foo&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(
+        screen.getByText("Authorize access to your project"),
+      ).toBeInTheDocument();
+    });
+
+    test("rejects if domain structure is changed", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=https://b.a.c.pages.dev/foo&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    });
+
+    test("rejects if path is different", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=https://b.a.pages.dev/foo/bar&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    });
+
+    test("rejects if protocol is different", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=http://b.a.pages.dev/foo&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    });
+
+    test("accepts a subdomain for second allowed domain with matching path", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=http://sub.b.com/bar&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(
+        screen.getByText("Authorize access to your project"),
+      ).toBeInTheDocument();
+    });
+
+    test("rejects if port is different", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=https://b.a.pages.dev:8080/foo&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    });
+
+    test("rejects query parameters", () => {
+      mockRouter.setCurrentUrl(
+        "/?client_id=test-subdomain-client&redirect_uri=https://b.a.pages.dev/foo?query=param&response_type=token",
+      );
+
+      render(<AuthorizeProject />);
+      expect(screen.getByTestId("invalid-redirect-uri")).toBeInTheDocument();
+    });
   });
 });

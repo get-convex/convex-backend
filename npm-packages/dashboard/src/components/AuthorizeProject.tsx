@@ -330,7 +330,12 @@ function validateOAuthConfig(
   config: OAuthConfig,
   oauthProviderConfiguration: Record<
     string,
-    { name: string; allowedRedirects: string[]; allowImplicitFlow?: boolean }
+    {
+      name: string;
+      allowedRedirects: string[];
+      allowImplicitFlow?: boolean;
+      allowedRedirectsAnySubdomain?: string[];
+    }
   >,
 ): {
   callingApplication: { name: string; allowedRedirects: string[] };
@@ -357,7 +362,7 @@ function validateOAuthConfig(
     };
   }
 
-  if (!callingApplication.allowedRedirects.includes(config.redirectUri)) {
+  if (!redirectUriAllowed(callingApplication, config.redirectUri)) {
     // Don't include the invalid redirectUri in the validated config
     return {
       callingApplication,
@@ -415,6 +420,49 @@ function validateOAuthConfig(
     callingApplication,
     validatedConfig,
   };
+}
+
+function redirectUriAllowed(
+  callingApplication: {
+    allowedRedirectsAnySubdomain?: string[];
+    allowedRedirects: string[];
+  },
+  redirectUri: string,
+): boolean {
+  if (callingApplication.allowedRedirects.includes(redirectUri)) {
+    return true;
+  }
+
+  return (callingApplication.allowedRedirectsAnySubdomain || []).some(
+    (allowedPattern) => {
+      // https://    a.pages.dev/foo allows both
+      // https://  b.a.pages.dev/foo and
+      // https://c.b.a.pages.dev/foo.
+      let allowedUrl: URL;
+      let redirectUrl: URL;
+      try {
+        allowedUrl = new URL(allowedPattern);
+        redirectUrl = new URL(redirectUri);
+      } catch (e) {
+        captureException(e);
+        return false;
+      }
+
+      if (
+        redirectUrl.hostname !== allowedUrl.hostname &&
+        !redirectUrl.hostname.endsWith(`.${allowedUrl.hostname}`)
+      ) {
+        return false;
+      }
+
+      return (
+        redirectUrl.protocol === allowedUrl.protocol &&
+        redirectUrl.port === allowedUrl.port &&
+        redirectUrl.pathname === allowedUrl.pathname &&
+        redirectUrl.search === allowedUrl.search
+      );
+    },
+  );
 }
 
 function buildOAuthRedirectUrl(
