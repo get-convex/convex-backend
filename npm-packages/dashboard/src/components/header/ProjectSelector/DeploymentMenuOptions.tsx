@@ -86,7 +86,14 @@ export function DeploymentMenuOptions({
         eventName="switch to production deployment"
       >
         <SignalIcon className="h-4 w-4" />
-        Production
+        <p>
+          Production{" "}
+          {prod && (
+            <span className="text-xs text-content-secondary">
+              ({prod?.name})
+            </span>
+          )}
+        </p>
       </SelectorItem>
       <AllPersonalDeployments team={team} project={project} close={close} />
       {previews.length === 0 && (
@@ -124,7 +131,7 @@ export function DeploymentMenuOptions({
                 onClick={() => logEvent("toggle preview deployments")}
               >
                 <div className="flex w-full items-center justify-between gap-2">
-                  <div className="p-2 text-xs text-content-secondary">
+                  <div className="p-2 text-xs font-semibold text-content-secondary">
                     Preview Deployments ({previews.length})
                   </div>
                   {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
@@ -145,6 +152,7 @@ export function DeploymentMenuOptions({
                         previewDeployment.previewIdentifier ??
                         previewDeployment.name
                       }
+                      name={previewDeployment.name}
                     />
                   </SelectorItem>
                 ))}
@@ -162,7 +170,7 @@ export function DeploymentMenuOptions({
                 onClick={() => logEvent("toggle other deployments")}
               >
                 <div className="flex w-full items-center justify-between gap-2">
-                  <div className="p-2 text-xs text-content-secondary">
+                  <div className="p-2 text-xs font-semibold text-content-secondary">
                     Other Deployments ({teamMemberDeployments.length})
                   </div>
                   {open ? <ChevronUpIcon /> : <ChevronDownIcon />}
@@ -176,7 +184,10 @@ export function DeploymentMenuOptions({
                     selected={router.query.deploymentName === d.name}
                     eventName="switch to other deployment"
                   >
-                    <DeploymentOption identifier={`${d.creator}'s Dev`} />
+                    <DeploymentOption
+                      identifier={`${d.creator}'s Dev`}
+                      name={d.name}
+                    />
                   </SelectorItem>
                 ))}
               </Disclosure.Panel>
@@ -255,7 +266,8 @@ function AllPersonalDeployments({
             <GlobeIcon className="h-4 w-4" />
           )}
           <DeploymentOption
-            identifier={`${d.kind === "local" ? `${d.deviceName} ${hasMultipleActiveLocalDeployments ? `(Port ${d.port})` : ""}` : "Development (Cloud)"}`}
+            identifier={`${d.kind === "local" ? `${d.deviceName} ${hasMultipleActiveLocalDeployments ? `(Port ${d.port})` : ""}` : "Cloud Dev"}`}
+            name={d.name}
           />
         </SelectorItem>
       ))}
@@ -289,7 +301,13 @@ function sortDevDeployments(deployments: DeploymentResponse[]) {
   });
 }
 
-function DeploymentOption({ identifier }: { identifier: string }) {
+function DeploymentOption({
+  identifier,
+  name,
+}: {
+  identifier: string;
+  name: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const isOverflowing = useIsOverflowing(ref);
 
@@ -303,8 +321,11 @@ function DeploymentOption({ identifier }: { identifier: string }) {
       side="right"
       wrapsButton
     >
-      <p className="max-w-[14rem] truncate" ref={ref}>
-        {identifier}
+      <p className="max-w-[20rem] truncate" ref={ref}>
+        {identifier}{" "}
+        {name && (
+          <span className="text-xs text-content-secondary">({name})</span>
+        )}
       </p>
     </Tooltip>
   );

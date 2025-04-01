@@ -72,7 +72,8 @@ export function DeploymentLabel({
     <div
       className={cn(
         "flex items-center gap-2 rounded-md",
-        !inline && getBackgroundColor(deployment.deploymentType),
+        !inline &&
+          getBackgroundColor(deployment.deploymentType, deployment.kind),
         !inline && "p-1",
       )}
     >
@@ -96,7 +97,13 @@ export function DeploymentLabel({
   );
 }
 
-function getBackgroundColor(type: DeploymentType): string {
+function getBackgroundColor(
+  type: DeploymentType,
+  kind: "local" | "cloud",
+): string {
+  if (kind === "local") {
+    return "border border-cyan-700 bg-cyan-200/50 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-500";
+  }
   switch (type) {
     case "prod":
       return "border border-purple-600 dark:border-purple-900 bg-purple-100/50 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400";
@@ -131,7 +138,7 @@ function getDeploymentLabel({
       }
       return whoseName === null
         ? "Development (Cloud)"
-        : `${whoseName}’s Dev (Cloud)`;
+        : `${whoseName}’s Cloud Dev`;
     }
     default: {
       const _typecheck: never = deployment.deploymentType;
