@@ -239,7 +239,7 @@ dependencies = [
  "slugify",
  "sourcemap",
  "storage",
- "strum 0.26.2",
+ "strum 0.27.1",
  "tempfile",
  "thiserror 2.0.11",
  "thousands",
@@ -1239,7 +1239,7 @@ dependencies = [
  "proptest-derive",
  "serde",
  "serde_json",
- "strum 0.26.2",
+ "strum 0.27.1",
  "tuple_struct",
  "utoipa",
 ]
@@ -1877,7 +1877,7 @@ dependencies = [
  "sha2",
  "shape_inference",
  "sourcemap",
- "strum 0.26.2",
+ "strum 0.27.1",
  "thiserror 2.0.11",
  "tld",
  "tokio",
@@ -4129,7 +4129,7 @@ dependencies = [
  "openidconnect",
  "reqwest 0.12.14",
  "reqwest-middleware",
- "strum 0.26.2",
+ "strum 0.27.1",
  "thiserror 2.0.11",
  "tokio",
 ]
@@ -5020,7 +5020,7 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
- "strum 0.26.2",
+ "strum 0.27.1",
  "tokio",
  "tokio-tungstenite",
  "tracing",
@@ -5532,7 +5532,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "storage",
- "strum 0.26.2",
+ "strum 0.27.1",
  "tempfile",
  "thiserror 2.0.11",
  "tokio",
@@ -8686,11 +8686,11 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.26.2"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
+checksum = "f64def088c51c9510a8579e3c5d67c65349dcf755e5479ad3d010aa6454e2c32"
 dependencies = [
- "strum_macros 0.26.2",
+ "strum_macros 0.27.1",
 ]
 
 [[package]]
@@ -8708,11 +8708,11 @@ dependencies = [
 
 [[package]]
 name = "strum_macros"
-version = "0.26.2"
+version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
+checksum = "c77a8c5abcaf0f9ce05d62342b7d298c346515365c36b673df4ebe3ced01fde8"
 dependencies = [
- "heck 0.4.1",
+ "heck 0.5.0",
  "proc-macro2",
  "quote",
  "rustversion",
@@ -9717,7 +9717,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69fff37da548239c3bf9e64a12193d261e8b22b660991c6fd2df057c168f435f"
 dependencies = [
  "cc",
- "windows-targets 0.48.0",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
