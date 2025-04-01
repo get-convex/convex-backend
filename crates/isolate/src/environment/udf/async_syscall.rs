@@ -111,7 +111,10 @@ use crate::{
     },
     helpers::UdfArgsJson,
     isolate2::client::QueryId,
-    metrics::async_syscall_timer,
+    metrics::{
+        async_syscall_timer,
+        log_run_udf,
+    },
 };
 
 pub struct PendingSyscall {
@@ -556,21 +559,50 @@ impl<RT: Runtime> AsyncSyscallProvider<RT> for DatabaseUdfEnvironment<RT> {
         self.phase.put_tx(tx)?;
 
         let outcome = match (udf_type, outcome) {
-            (UdfType::Query, FunctionOutcome::Query(outcome)) => {
-                if self.is_system() && outcome.result.is_ok() {
-                    self.next_journal = outcome.journal.clone();
-                }
-                outcome
-            },
-            (UdfType::Mutation, FunctionOutcome::Mutation(outcome)) => outcome,
+            (UdfType::Query, FunctionOutcome::Query(outcome))
+            | (UdfType::Mutation, FunctionOutcome::Mutation(outcome)) => outcome,
             _ => anyhow::bail!("Unexpected outcome for {udf_type:?}"),
         };
 
+        let UdfOutcome {
+            result,
+            observed_identity,
+            // TODO: initialize the inner UDF's seed from the outer RNG seed
+            observed_rng: _,
+            // TODO: use the same timestamp for the inner UDF as the outer
+            observed_time: _,
+            // TODO: consider propagating syscall traces
+            syscall_trace: _,
+            log_lines,
+            journal,
+            arguments: _,
+            identity: _,
+            path: _,
+            udf_server_version: _,
+            unix_timestamp: _,
+            rng_seed: _,
+        } = outcome;
+
+        log_run_udf(
+            self.udf_type,
+            udf_type,
+            self.phase.observed_identity(),
+            observed_identity,
+        );
+
+        if observed_identity {
+            self.observe_identity()?;
+        }
+
+        if self.is_system() && udf_type == UdfType::Query && result.is_ok() {
+            self.next_journal = journal;
+        }
+
         // TODO(ENG-7663): restrict log lines within subfunctions instead of
         // limiting them only when they are returned to the parent.
-        self.emit_sub_function_log_lines(path.for_logging(), outcome.log_lines.clone());
+        self.emit_sub_function_log_lines(path.for_logging(), log_lines);
 
-        let result = match outcome.result {
+        let result = match result {
             Ok(r) => r.unpack(),
             Err(e) => {
                 // TODO: How do we want to propagate stack traces between component calls?

@@ -449,15 +449,23 @@ async fn test_query_cache_unauthed_race(
     Ok(())
 }
 
-#[convex_macro::test_runtime]
-async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow::Result<()> {
+async fn test_query_cache_with_conditional_auth_check_inner(
+    rt: TestRuntime,
+    subquery: bool,
+) -> anyhow::Result<()> {
     let application = Application::new_for_tests(&rt).await?;
     application.load_udf_tests_modules().await?;
+
+    let query = if subquery {
+        "auth:conditionallyCheckAuthInSubquery"
+    } else {
+        "auth:conditionallyCheckAuth"
+    };
 
     // First run query that doesn't check auth
     let result1 = run_query(
         &application,
-        "auth:conditionallyCheckAuth",
+        query,
         json!({}),
         Identity::user(UserIdentity::test()),
         false,
@@ -465,14 +473,7 @@ async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow
     .await?;
     rt.advance_time(Duration::from_secs(1)).await;
     // The query is cached across identities.
-    let result2 = run_query(
-        &application,
-        "auth:conditionallyCheckAuth",
-        json!({}),
-        Identity::system(),
-        true,
-    )
-    .await?;
+    let result2 = run_query(&application, query, json!({}), Identity::system(), true).await?;
     assert_eq!(result1, result2);
 
     insert_object(&application).await?;
@@ -480,25 +481,28 @@ async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow
     // Now that there's an object, the query checks auth.
     let result3 = run_query(
         &application,
-        "auth:conditionallyCheckAuth",
+        query,
         json!({}),
         Identity::user(UserIdentity::test()),
         false,
     )
     .await?;
-    let result4 = run_query(
-        &application,
-        "auth:conditionallyCheckAuth",
-        json!({}),
-        Identity::system(),
-        false,
-    )
-    .await?;
+    let result4 = run_query(&application, query, json!({}), Identity::system(), false).await?;
     assert_ne!(result1, result3);
     assert_ne!(result1, result4);
     assert_ne!(result3, result4); // different auth
 
     Ok(())
+}
+#[convex_macro::test_runtime]
+async fn test_query_cache_with_conditional_auth_check(rt: TestRuntime) -> anyhow::Result<()> {
+    test_query_cache_with_conditional_auth_check_inner(rt, false).await
+}
+#[convex_macro::test_runtime]
+async fn test_query_cache_with_conditional_auth_check_in_subquery(
+    rt: TestRuntime,
+) -> anyhow::Result<()> {
+    test_query_cache_with_conditional_auth_check_inner(rt, true).await
 }
 
 #[convex_macro::test_runtime]

@@ -13,7 +13,10 @@ use must_let::must_let;
 use runtime::testing::TestRuntime;
 use sync_types::UserIdentityAttributes;
 
-use crate::test_helpers::UdfTest;
+use crate::test_helpers::{
+    UdfTest,
+    UdfTestType,
+};
 
 #[convex_macro::test_runtime]
 async fn test_auth_basic(rt: TestRuntime) -> anyhow::Result<()> {
@@ -43,29 +46,42 @@ async fn test_auth_basic(rt: TestRuntime) -> anyhow::Result<()> {
     .await
 }
 
+async fn test_conditionally_observed_identity_inner(
+    t: UdfTestType,
+    subquery: bool,
+) -> anyhow::Result<()> {
+    let query = if subquery {
+        "auth:conditionallyCheckAuthInSubquery"
+    } else {
+        "auth:conditionallyCheckAuth"
+    };
+
+    let identity = Identity::user(UserIdentity::test());
+    let (_, outcome) = t
+        .query_outcome(query, assert_obj!(), identity.clone())
+        .await?;
+    assert!(!outcome.observed_identity);
+    // the function checks identity only after an object is inserted
+    t.mutation("basic:insertObject", assert_obj!()).await?;
+    let (_, outcome) = t
+        .query_outcome(query, assert_obj!(), identity.clone())
+        .await?;
+    assert!(outcome.observed_identity);
+    Ok(())
+}
+
 #[convex_macro::test_runtime]
 async fn test_conditionally_observed_identity(rt: TestRuntime) -> anyhow::Result<()> {
     UdfTest::run_test_with_isolate2(rt, async move |t| {
-        let identity = Identity::user(UserIdentity::test());
-        let (_, outcome) = t
-            .query_outcome(
-                "auth:conditionallyCheckAuth",
-                assert_obj!(),
-                identity.clone(),
-            )
-            .await?;
-        assert!(!outcome.observed_identity);
-        // the function checks identity only after an object is inserted
-        t.mutation("basic:insertObject", assert_obj!()).await?;
-        let (_, outcome) = t
-            .query_outcome(
-                "auth:conditionallyCheckAuth",
-                assert_obj!(),
-                identity.clone(),
-            )
-            .await?;
-        assert!(outcome.observed_identity);
-        Ok(())
+        test_conditionally_observed_identity_inner(t, false).await
+    })
+    .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_conditionally_observed_identity_in_subquery(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate(rt, async move |t| {
+        test_conditionally_observed_identity_inner(t, true).await
     })
     .await
 }

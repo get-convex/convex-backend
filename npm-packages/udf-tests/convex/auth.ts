@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { api } from "./_generated/api";
 
 export const getName = query(async function ({ auth }) {
   const user = await auth.getUserIdentity();
@@ -28,3 +29,9 @@ export const conditionallyCheckAuth = query(async function (ctx) {
   const user = await ctx.auth.getUserIdentity();
   return user?.tokenIdentifier ?? "No user";
 });
+
+export const conditionallyCheckAuthInSubquery = query(
+  async function (ctx): Promise<string> {
+    return await ctx.runQuery(api.auth.conditionallyCheckAuth);
+  },
+);

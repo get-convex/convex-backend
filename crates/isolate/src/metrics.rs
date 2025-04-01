@@ -661,3 +661,38 @@ register_convex_counter!(
 pub fn log_http_action_with_unknown_identity() {
     log_counter(&HTTP_ACTION_WITH_UNKNOWN_IDENTITY_TOTAL, 1);
 }
+
+register_convex_counter!(
+    RUN_UDF_TOTAL,
+    "Number of times that UDFs invoke nested UDFs",
+    &[
+        "outer_type",
+        "inner_type",
+        "outer_observed_identity",
+        "inner_observed_identity"
+    ]
+);
+
+pub fn log_run_udf(
+    outer_type: UdfType,
+    inner_type: UdfType,
+    outer_observed_identity: bool,
+    inner_observed_identity: bool,
+) {
+    log_counter_with_labels(
+        &RUN_UDF_TOTAL,
+        1,
+        vec![
+            StaticMetricLabel::new("outer_type", outer_type.to_lowercase_string()),
+            StaticMetricLabel::new("inner_type", inner_type.to_lowercase_string()),
+            StaticMetricLabel::new(
+                "outer_observed_identity",
+                outer_observed_identity.as_label(),
+            ),
+            StaticMetricLabel::new(
+                "inner_observed_identity",
+                inner_observed_identity.as_label(),
+            ),
+        ],
+    );
+}
