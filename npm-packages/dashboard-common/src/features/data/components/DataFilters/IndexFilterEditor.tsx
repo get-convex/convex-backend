@@ -172,16 +172,12 @@ export function IndexFilterEditor({
 
       if (filter.type === "indexEq") {
         onChange({ ...filter, value: timestamp }, idx);
-      } else if (
-        ("lowerValue" in filter && currentOperator === "lt") ||
-        currentOperator === "lte"
-      ) {
-        onChange({ ...filter, lowerValue: timestamp }, idx);
-      } else if (
-        ("upperValue" in filter && currentOperator === "gt") ||
-        currentOperator === "gte"
-      ) {
+      } else if (currentOperator === "lt" || currentOperator === "lte") {
+        // For less than operators, update the upperValue since they are upper bounds
         onChange({ ...filter, upperValue: timestamp }, idx);
+      } else if (currentOperator === "gt" || currentOperator === "gte") {
+        // For greater than operators, update the lowerValue since they are lower bounds
+        onChange({ ...filter, lowerValue: timestamp }, idx);
       }
     },
     [filter, idx, onChange, currentOperator],
@@ -304,17 +300,46 @@ export function IndexFilterEditor({
       // Try to preserve the current value
       if (filter.type === "indexEq") {
         value = filter.value;
-      } else if ("lowerValue" in filter) {
+      } else if (
+        filter.type === "indexRange" &&
+        (op === "lt" || op === "lte") &&
+        "upperValue" in filter &&
+        filter.upperValue !== null &&
+        filter.upperValue !== undefined
+      ) {
+        // When switching to lt/lte, preserve the upperValue if it exists
+        value = filter.upperValue;
+      } else if (
+        filter.type === "indexRange" &&
+        (op === "gt" || op === "gte") &&
+        "lowerValue" in filter &&
+        filter.lowerValue !== null &&
+        filter.lowerValue !== undefined
+      ) {
+        // When switching to gt/gte, preserve the lowerValue if it exists
         value = filter.lowerValue;
-      } else if ("upperValue" in filter) {
+      } else if (
+        "lowerValue" in filter &&
+        filter.lowerValue !== null &&
+        filter.lowerValue !== undefined
+      ) {
+        value = filter.lowerValue;
+      } else if (
+        "upperValue" in filter &&
+        filter.upperValue !== null &&
+        filter.upperValue !== undefined
+      ) {
         value = filter.upperValue;
       }
 
+      // Create a new range filter with ONLY the properties needed for the current operator
       const rangeFilter: FilterByIndexRange = {
         type: "indexRange",
         enabled: filter.enabled,
+        // For gt/gte operators, set only lowerOp and lowerValue
         lowerOp: op === "gt" || op === "gte" ? op : undefined,
         lowerValue: op === "gt" || op === "gte" ? value : null,
+        // For lt/lte operators, set only upperOp and upperValue
         upperOp: op === "lt" || op === "lte" ? op : undefined,
         upperValue: op === "lt" || op === "lte" ? value : null,
       };
@@ -408,14 +433,16 @@ export function IndexFilterEditor({
         currentOperator === "gt" ||
         currentOperator === "gte")
     ) {
+      // Fix: Use the correct value based on the operator
+      // lt/lte operators use upperValue, gt/gte operators use lowerValue
       const value =
         currentOperator === "lt" || currentOperator === "lte"
-          ? filter.lowerValue
-          : filter.upperValue;
+          ? filter.upperValue
+          : filter.lowerValue;
       const handler =
         currentOperator === "lt" || currentOperator === "lte"
-          ? handleLowerValueChange
-          : handleUpperValueChange;
+          ? handleUpperValueChange
+          : handleLowerValueChange;
 
       return (
         <div className="ml-[-1px] flex-1">

@@ -57,6 +57,8 @@ export function DateTimePicker({
           prevDateTime.getSeconds(),
           prevDateTime.getMilliseconds(),
         );
+        // Call onChange directly with the updated date
+        onChange(updatedDateTime);
         return updatedDateTime;
       });
     }
@@ -74,6 +76,8 @@ export function DateTimePicker({
         return prevDateTime;
       }
 
+      // Call onChange directly with the new valid time
+      onChange(newDateTime);
       return newDateTime;
     });
   };
@@ -82,6 +86,7 @@ export function DateTimePicker({
     const parsedDate = parse(inputValue, dateTimeFormat, new Date());
     if (!Number.isNaN(parsedDate.getTime())) {
       setDateTime(parsedDate);
+      onChange(parsedDate);
     } else {
       setInputValue(format(dateTime, dateTimeFormat));
     }
@@ -92,13 +97,6 @@ export function DateTimePicker({
     setInputValue(format(dateTime, dateTimeFormat));
     setVisibleMonth(dateTime);
   }, [dateTime]);
-
-  // Callback to the parent when the datetime has changed.
-  useEffect(() => {
-    if (dateTime.getTime() !== date.getTime()) {
-      onChange(dateTime);
-    }
-  }, [dateTime, date, onChange]);
 
   // Close the popover when clicking/touching outside.
   useInteractOutside(wrapperRef, () => {
@@ -177,7 +175,7 @@ export function DateTimePicker({
         <input
           type="time"
           step="1"
-          value={format(dateTime, "hh:mm:ss")}
+          value={format(dateTime, "HH:mm:ss")}
           onChange={handleTimeChange}
           className="mt-2 w-full cursor-text rounded-md border bg-transparent p-2 text-right text-sm"
           aria-label="Set time"
