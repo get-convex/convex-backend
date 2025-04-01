@@ -30,6 +30,7 @@ use sync_types::CanonicalizedModulePath;
 use value::{
     heap_size::WithHeapSize,
     ConvexValue,
+    DeveloperDocumentId,
     FieldPath,
     ResolvedDocumentId,
     TableName,
@@ -46,6 +47,7 @@ use crate::{
             CronJobLogLines,
             CronJobState,
             CronJobStatus,
+            CronNextRun,
             CronSpec,
         },
     },
@@ -84,6 +86,21 @@ pub static CRON_JOB_LOGS_NAME_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "name".parse().expect("invalid name field"));
 static CRON_JOB_LOGS_TS_FIELD: LazyLock<FieldPath> =
     LazyLock::new(|| "ts".parse().expect("invalid ts field"));
+
+pub static CRON_NEXT_RUN_TABLE: LazyLock<TableName> = LazyLock::new(|| {
+    "_cron_next_run"
+        .parse()
+        .expect("_cron_next_run is not a valid system table name")
+});
+
+pub static CRON_NEXT_RUN_INDEX_BY_NEXT_TS: LazyLock<IndexName> =
+    LazyLock::new(|| system_index(&CRON_NEXT_RUN_TABLE, "by_next_ts"));
+pub static CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID: LazyLock<IndexName> =
+    LazyLock::new(|| system_index(&CRON_NEXT_RUN_TABLE, "by_cron_job_id"));
+static CRON_NEXT_RUN_NEXT_TS_FIELD: LazyLock<FieldPath> =
+    LazyLock::new(|| "nextTs".parse().expect("invalid nextTs field"));
+static CRON_NEXT_RUN_CRON_JOB_ID_FIELD: LazyLock<FieldPath> =
+    LazyLock::new(|| "cronJobId".parse().expect("invalid cronJobId field"));
 
 pub struct CronJobsTable;
 impl SystemTable for CronJobsTable {
@@ -131,6 +148,34 @@ impl SystemTable for CronJobLogsTable {
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
         ParseDocument::<CronJobLog>::parse(document).map(|_| ())
+    }
+}
+
+pub struct CronNextRunTable;
+impl SystemTable for CronNextRunTable {
+    fn table_name(&self) -> &'static TableName {
+        &CRON_NEXT_RUN_TABLE
+    }
+
+    fn indexes(&self) -> Vec<SystemIndex> {
+        vec![
+            SystemIndex {
+                name: CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
+                fields: vec![CRON_NEXT_RUN_NEXT_TS_FIELD.clone()]
+                    .try_into()
+                    .unwrap(),
+            },
+            SystemIndex {
+                name: CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
+                fields: vec![CRON_NEXT_RUN_CRON_JOB_ID_FIELD.clone()]
+                    .try_into()
+                    .unwrap(),
+            },
+        ]
+    }
+
+    fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
+        ParseDocument::<CronNextRun>::parse(document).map(|_| ())
     }
 }
 
@@ -199,17 +244,49 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         cron_spec: CronSpec,
     ) -> anyhow::Result<()> {
         let now = self.runtime().generate_timestamp()?;
+        let next_ts = compute_next_ts(&cron_spec, None, now)?;
         let cron = CronJob {
             name,
-            next_ts: compute_next_ts(&cron_spec, None, now)?,
+            next_ts,
             cron_spec,
             state: CronJobState::Pending,
             prev_ts: None,
         };
-        SystemMetadataModel::new(self.tx, self.component.into())
+
+        let cron_job_id = SystemMetadataModel::new(self.tx, self.component.into())
             .insert(&CRON_JOBS_TABLE, cron.try_into()?)
+            .await?
+            .developer_id;
+
+        let next_run = CronNextRun {
+            cron_job_id,
+            state: CronJobState::Pending,
+            prev_ts: None,
+            next_ts,
+        };
+
+        SystemMetadataModel::new(self.tx, self.component.into())
+            .insert(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
             .await?;
+
         Ok(())
+    }
+
+    async fn next_run(
+        &mut self,
+        cron_job_id: DeveloperDocumentId,
+    ) -> anyhow::Result<Option<ParsedDocument<CronNextRun>>> {
+        let query = Query::index_range(IndexRange {
+            index_name: CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
+            range: vec![IndexRangeExpression::Eq(
+                CRON_NEXT_RUN_CRON_JOB_ID_FIELD.clone(),
+                ConvexValue::from(cron_job_id).into(),
+            )],
+            order: Order::Asc,
+        });
+        let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), query)?;
+        let next_run = query_stream.expect_at_most_one(self.tx).await?;
+        next_run.map(|v| v.parse()).transpose()
     }
 
     pub async fn update(
@@ -228,9 +305,16 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     }
 
     pub async fn delete(&mut self, cron_job: ParsedDocument<CronJob>) -> anyhow::Result<()> {
+        let id = cron_job.id();
         SystemMetadataModel::new(self.tx, self.component.into())
-            .delete(cron_job.clone().id())
+            .delete(id)
             .await?;
+        let next_run = self.next_run(id.developer_id).await?;
+        if let Some(next_run) = next_run {
+            SystemMetadataModel::new(self.tx, self.component.into())
+                .delete(next_run.id())
+                .await?;
+        }
         self.apply_job_log_retention(cron_job.name.clone(), 0)
             .await?;
         Ok(())
@@ -247,8 +331,25 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .namespace(self.component.into())
             .tablet_matches_name(id.tablet_id, &CRON_JOBS_TABLE));
         SystemMetadataModel::new(self.tx, self.component.into())
-            .replace(id, job.try_into()?)
+            .replace(id, job.clone().try_into()?)
             .await?;
+
+        let next_run = CronNextRun {
+            cron_job_id: id.developer_id,
+            state: job.state,
+            prev_ts: None,
+            next_ts: job.next_ts,
+        };
+        let existing_next_run = self.next_run(id.developer_id).await?;
+        if let Some(existing_next_run) = existing_next_run {
+            SystemMetadataModel::new(self.tx, self.component.into())
+                .replace(existing_next_run.id(), next_run.try_into()?)
+                .await?;
+        } else {
+            SystemMetadataModel::new(self.tx, self.component.into())
+                .insert(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
+                .await?;
+        }
         Ok(())
     }
 

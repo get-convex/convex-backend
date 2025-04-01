@@ -81,7 +81,7 @@ impl fmt::Display for MigrationCompletionCriterion {
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 117; // nipunn
+pub const DATABASE_VERSION: DatabaseVersion = 118; // nipunn
 
 pub struct MigrationWorker<RT: Runtime> {
     rt: RT,
@@ -392,6 +392,8 @@ impl<RT: Runtime> MigrationWorker<RT> {
                     .await?;
                 MigrationCompletionCriterion::MigrationComplete(to_version)
             },
+            // Empty migration for 118 - represents creation of CronNextRun table
+            118 => MigrationCompletionCriterion::MigrationComplete(to_version),
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),
         };

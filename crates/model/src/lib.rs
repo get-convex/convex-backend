@@ -80,6 +80,9 @@ use cron_jobs::{
     CRON_JOBS_TABLE,
     CRON_JOB_LOGS_INDEX_BY_NAME_TS,
     CRON_JOB_LOGS_TABLE,
+    CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID,
+    CRON_NEXT_RUN_INDEX_BY_NEXT_TS,
+    CRON_NEXT_RUN_TABLE,
 };
 pub use database::defaults::{
     SystemIndex,
@@ -179,6 +182,7 @@ use crate::{
     cron_jobs::{
         CronJobLogsTable,
         CronJobsTable,
+        CronNextRunTable,
     },
     deployment_audit_log::{
         DeploymentAuditLogsTable,
@@ -252,9 +256,10 @@ enum DefaultTableNumber {
     ComponentsTable = 32,
     FunctionHandlesTable = 33,
     CanonicalUrls = 34,
+    CronNextRun = 35,
     // Keep this number and your user name up to date. The number makes it easy to know
     // what to use next. The username on the same line detects merge conflicts
-    // Next Number - 35 - lee
+    // Next Number - 36 - nipunn
 }
 
 impl From<DefaultTableNumber> for TableNumber {
@@ -295,6 +300,7 @@ impl From<DefaultTableNumber> for &'static dyn SystemTable {
             DefaultTableNumber::ComponentsTable => &ComponentsTable,
             DefaultTableNumber::FunctionHandlesTable => &FunctionHandlesTable,
             DefaultTableNumber::CanonicalUrls => &CanonicalUrlsTable,
+            DefaultTableNumber::CronNextRun => &CronNextRunTable,
         }
     }
 }
@@ -326,6 +332,8 @@ static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = Laz
         CRON_JOBS_INDEX_BY_NAME.clone(),
         CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
         CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
+        CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
+        CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
         ENVIRONMENT_VARIABLES_INDEX_BY_NAME.clone(),
         EXPORTS_BY_STATE_AND_TS_INDEX.clone(),
         FILE_STORAGE_ID_INDEX.clone(),
@@ -517,6 +525,7 @@ pub fn component_system_tables() -> Vec<&'static dyn SystemTable> {
         &ScheduledJobsTable,
         &CronJobsTable,
         &CronJobLogsTable,
+        &CronNextRunTable,
         &ModulesTable,
         &UdfConfigTable,
         &SourcePackagesTable,
@@ -531,6 +540,7 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
         MODULES_TABLE.clone(),
         ENVIRONMENT_VARIABLES_TABLE.clone(),
         CRON_JOBS_TABLE.clone(),
+        CRON_NEXT_RUN_TABLE.clone(),
         BACKEND_STATE_TABLE.clone(),
         CANONICAL_URLS_TABLE.clone(),
         BACKEND_INFO_TABLE.clone(),
@@ -570,6 +580,7 @@ pub static FIRST_SEEN_TABLE: LazyLock<BTreeMap<TableName, DatabaseVersion>> = La
         BACKEND_STATE_TABLE.clone() => 75,
         CRON_JOBS_TABLE.clone() => 47,
         CRON_JOB_LOGS_TABLE.clone() => 51,
+        CRON_NEXT_RUN_TABLE.clone() => 118,
         SOURCE_PACKAGES_TABLE.clone() => 44,
         ENVIRONMENT_VARIABLES_TABLE.clone() => 44,
         AWS_LAMBDA_VERSIONS_TABLE.clone() => 44,
@@ -599,6 +610,8 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         CRON_JOBS_INDEX_BY_NEXT_TS.clone() => 47,
         CRON_JOBS_INDEX_BY_NAME.clone() => 49,
         CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone() => 51,
+        CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone() => 118,
+        CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone() => 118,
         EXPORTS_BY_STATE_AND_TS_INDEX.clone() => 88,
         TABLES_INDEX.clone() => 44,
         SCHEMAS_STATE_INDEX.clone() => 44,

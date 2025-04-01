@@ -27,6 +27,7 @@ use sync_types::{
 use value::{
     codegen_convex_serialization,
     heap_size::HeapSize,
+    id_v6::DeveloperDocumentId,
     json_deserialize,
     obj,
     ConvexArray,
@@ -1084,3 +1085,48 @@ mod tests {
         assert_roundtrips::<_, CronJob>(cron_job_obj);
     }
 }
+
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct CronNextRun {
+    // Internally tracked metadata to execute the current run of the cron
+    pub cron_job_id: DeveloperDocumentId,
+    pub state: CronJobState,
+    pub prev_ts: Option<Timestamp>,
+    pub next_ts: Timestamp,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedCronNextRun {
+    cron_job_id: String,
+    state: CronJobState,
+    prev_ts: Option<i64>,
+    next_ts: i64,
+}
+
+impl From<CronNextRun> for SerializedCronNextRun {
+    fn from(run: CronNextRun) -> Self {
+        Self {
+            state: run.state,
+            prev_ts: run.prev_ts.map(|ts| ts.into()),
+            next_ts: run.next_ts.into(),
+            cron_job_id: run.cron_job_id.encode(),
+        }
+    }
+}
+
+impl TryFrom<SerializedCronNextRun> for CronNextRun {
+    type Error = anyhow::Error;
+
+    fn try_from(value: SerializedCronNextRun) -> anyhow::Result<Self, Self::Error> {
+        Ok(Self {
+            cron_job_id: DeveloperDocumentId::decode(&value.cron_job_id)?,
+            state: value.state,
+            prev_ts: value.prev_ts.map(|ts| ts.try_into()).transpose()?,
+            next_ts: value.next_ts.try_into()?,
+        })
+    }
+}
+
+codegen_convex_serialization!(CronNextRun, SerializedCronNextRun);
