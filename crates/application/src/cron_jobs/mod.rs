@@ -8,6 +8,7 @@ use std::{
 };
 
 use common::{
+    self,
     backoff::Backoff,
     components::{
         CanonicalizedComponentFunctionPath,
@@ -15,10 +16,7 @@ use common::{
         ComponentPath,
         PublicFunctionPath,
     },
-    document::{
-        ParseDocument,
-        ParsedDocument,
-    },
+    document::ParseDocument,
     errors::{
         report_error,
         JsError,
@@ -31,11 +29,6 @@ use common::{
         UDF_EXECUTOR_OCC_MAX_RETRIES,
     },
     log_lines::LogLines,
-    query::{
-        IndexRange,
-        Order,
-        Query,
-    },
     runtime::Runtime,
     types::{
         FunctionCaller,
@@ -46,7 +39,6 @@ use common::{
 use database::{
     BootstrapComponentsModel,
     Database,
-    ResolvedQuery,
     Transaction,
 };
 use errors::ErrorMetadataAnyhowExt;
@@ -58,12 +50,12 @@ use futures::{
     FutureExt,
     TryStreamExt,
 };
-use futures_async_stream::try_stream;
 use keybroker::Identity;
 use model::{
     backend_state::BackendStateModel,
     cron_jobs::{
         next_ts::compute_next_ts,
+        stream_cron_jobs_to_run,
         types::{
             CronJob,
             CronJobLogLines,
@@ -72,8 +64,6 @@ use model::{
             CronJobStatus,
         },
         CronModel,
-        CRON_JOBS_INDEX_BY_NEXT_TS,
-        CRON_JOBS_TABLE,
     },
     modules::ModuleModel,
 };
@@ -220,7 +210,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
         job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
     ) -> anyhow::Result<Option<Timestamp>> {
         let now = self.rt.generate_timestamp()?;
-        let mut job_stream = self.stream_jobs_to_run(tx);
+        let mut job_stream = stream_cron_jobs_to_run(tx);
         while let Some(job) = job_stream.try_next().await? {
             let (job_id, job) = job.clone().into_id_and_value();
             if running_job_ids.contains(&job_id) {
@@ -259,42 +249,6 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             running_job_ids.insert(job_id);
         }
         Ok(None)
-    }
-
-    #[try_stream(boxed, ok = ParsedDocument<CronJob>, error = anyhow::Error)]
-    async fn stream_jobs_to_run<'a>(&'a self, tx: &'a mut Transaction<RT>) {
-        let namespaces: Vec<_> = tx
-            .table_mapping()
-            .iter()
-            .filter(|(_, _, _, name)| **name == *CRON_JOBS_TABLE)
-            .map(|(_, namespace, ..)| namespace)
-            .collect();
-        let index_query = Query::index_range(IndexRange {
-            index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
-            range: vec![],
-            order: Order::Asc,
-        });
-        // Key is (next_ts, namespace), where next_ts is for sorting and namespace
-        // is for deduping.
-        // Value is (job, query) where job is the job to run and query will get
-        // the next job to run in that namespace.
-        let mut queries = BTreeMap::new();
-        for namespace in namespaces {
-            let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
-            if let Some(doc) = query.next(tx, None).await? {
-                let job: ParsedDocument<CronJob> = doc.parse()?;
-                let next_ts = job.next_ts;
-                queries.insert((next_ts, namespace), (job, query));
-            }
-        }
-        while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
-            yield min_job;
-            if let Some(doc) = query.next(tx, None).await? {
-                let job: ParsedDocument<CronJob> = doc.parse()?;
-                let next_ts = job.next_ts;
-                queries.insert((next_ts, namespace), (job, query));
-            }
-        }
     }
 
     // This handles re-running the cron job on transient errors. It

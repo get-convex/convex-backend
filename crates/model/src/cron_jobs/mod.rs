@@ -25,6 +25,7 @@ use database::{
     SystemMetadataModel,
     Transaction,
 };
+use futures_async_stream::try_stream;
 use sync_types::CanonicalizedModulePath;
 use value::{
     heap_size::WithHeapSize,
@@ -321,5 +322,41 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
                 .await?;
         }
         Ok(())
+    }
+}
+
+#[try_stream(boxed, ok = ParsedDocument<CronJob>, error = anyhow::Error)]
+pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT>) {
+    let namespaces: Vec<_> = tx
+        .table_mapping()
+        .iter()
+        .filter(|(_, _, _, name)| **name == *CRON_JOBS_TABLE)
+        .map(|(_, namespace, ..)| namespace)
+        .collect();
+    let index_query = Query::index_range(IndexRange {
+        index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+        range: vec![],
+        order: Order::Asc,
+    });
+    // Key is (next_ts, namespace), where next_ts is for sorting and namespace
+    // is for deduping.
+    // Value is (job, query) where job is the job to run and query will get
+    // the next job to run in that namespace.
+    let mut queries = BTreeMap::new();
+    for namespace in namespaces {
+        let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
+        if let Some(doc) = query.next(tx, None).await? {
+            let job: ParsedDocument<CronJob> = doc.parse()?;
+            let next_ts = job.next_ts;
+            queries.insert((next_ts, namespace), (job, query));
+        }
+    }
+    while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
+        yield min_job;
+        if let Some(doc) = query.next(tx, None).await? {
+            let job: ParsedDocument<CronJob> = doc.parse()?;
+            let next_ts = job.next_ts;
+            queries.insert((next_ts, namespace), (job, query));
+        }
     }
 }
