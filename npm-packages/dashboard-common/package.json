@@ -28,7 +28,7 @@
     "@heroicons/react": "2.2.0",
     "@monaco-editor/react": "4.5.1",
     "@radix-ui/react-tooltip": "~1.1.0",
-    "@tanstack/react-table": "~8.20.6",
+    "@tanstack/react-table": "~8.21.0",
     "acorn": "~8.8.1",
     "base64-js": "^1.5.1",
     "classnames": "^2.3.2",
