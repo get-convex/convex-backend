@@ -24,6 +24,6 @@
     "vite": "^5.4.12",
     "esbuild": "0.25.1",
     "webpack-cli": "4.10.0",
-    "webpack": "5.97.1"
+    "webpack": "5.98.0"
   }
 }
