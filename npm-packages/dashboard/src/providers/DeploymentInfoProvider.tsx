@@ -90,7 +90,15 @@ export function DeploymentInfoProvider({
     if (accessToken && (deploymentOverride || deploymentName)) {
       void f();
     }
-  }, [accessToken, deploymentName, deploymentOverride]);
+  }, [
+    accessToken,
+    deploymentName,
+    deploymentOverride,
+    deploymentsURI,
+    enableIndexFilters,
+    projectsURI,
+    teamsURI,
+  ]);
 
   return deploymentInfo ? (
     <DeploymentInfoContext.Provider value={deploymentInfo}>
