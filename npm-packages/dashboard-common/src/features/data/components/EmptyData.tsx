@@ -45,7 +45,7 @@ export function EmptyDataContent({
   }
 
   return (
-    <Sheet padding={false} className="w-full rounded-t-none">
+    <Sheet padding={false} className="w-full">
       <EmptySection
         Icon={TableIcon}
         header={
