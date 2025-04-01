@@ -92,6 +92,7 @@
     "path-to-regexp@^0.1.10": "^0.1.12",
     "path-to-regexp@^3": "^3.3.0",
     "path-to-regexp@^6": "^6.3.0",
+    "trim@<0.0.3": "^0.0.3"
     // "example1": "^1.0.0",
     // "example2": "npm:@company/example2@^1.0.0"
   },
