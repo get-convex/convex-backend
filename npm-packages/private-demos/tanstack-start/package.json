@@ -34,7 +34,7 @@
     "concurrently": "~8.2.2",
     "eslint": "^8.29.0",
     "eslint-config-react-app": "~7.0.1",
-    "prettier": "3.5.1",
+    "prettier": "3.5.2",
     "typescript": "~5.0.3"
   }
 }

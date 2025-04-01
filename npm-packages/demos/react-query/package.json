@@ -13,7 +13,7 @@
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "prettier": "3.5.1",
+    "prettier": "3.5.2",
     "@convex-dev/react-query": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-query-devtools": "^5.62.0"

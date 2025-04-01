@@ -13,7 +13,7 @@
     "@convex-dev/triggers": "workspace:*"
   },
   "devDependencies": {
-    "prettier": "3.5.1",
+    "prettier": "3.5.2",
     "@types/node": "^18.17.0",
     "typescript": "~5.0.3"
   }

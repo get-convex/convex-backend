@@ -10,7 +10,7 @@
     "base64-js": "^1.5.1",
     "web-streams-polyfill": "~3.3.0",
     "abortcontroller-polyfill": "1.7.6",
-    "prettier": "3.5.1",
+    "prettier": "3.5.2",
     "udf-syscall-ffi": "workspace:*"
   },
   "devDependencies": {

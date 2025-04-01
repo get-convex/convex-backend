@@ -14,7 +14,7 @@
     "react-dom": "^18.0.0",
     "@clerk/backend": "^1.19.2",
     "@clerk/clerk-react": "^5.20.0",
-    "prettier": "3.5.1",
+    "prettier": "3.5.2",
     "svix": "^1.21.0"
   },
   "devDependencies": {

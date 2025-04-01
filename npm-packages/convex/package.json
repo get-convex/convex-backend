@@ -235,7 +235,7 @@
   "dependencies": {
     "esbuild": "0.25.1",
     "jwt-decode": "^4.0.0",
-    "prettier": "3.5.1"
+    "prettier": "3.5.2"
   },
   "peerDependencies": {
     "@auth0/auth0-react": "^2.0.1",
