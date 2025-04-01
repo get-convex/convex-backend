@@ -28,13 +28,13 @@ export function getDeploymentTypeFromConfiguredDeployment(raw: string) {
   return type;
 }
 
-export function isTryItOutDeployment(deploymentName: string) {
-  return deploymentName.startsWith("tryitout-");
+export function isAnonymousDeployment(deploymentName: string) {
+  return deploymentName.startsWith("anonymous-");
 }
 
-export function removeTryItOutPrefix(deploymentName: string) {
-  if (isTryItOutDeployment(deploymentName)) {
-    return deploymentName.slice("tryitout-".length);
+export function removeAnonymousPrefix(deploymentName: string) {
+  if (isAnonymousDeployment(deploymentName)) {
+    return deploymentName.slice("anonymous-".length);
   }
   return deploymentName;
 }

@@ -59,7 +59,7 @@ export async function bigBrainEnableFeatureMetadata(
   });
 }
 
-export async function bigBrainGenerateTryItOutAdminKey(
+export async function bigBrainGenerateAdminKeyForAnonymousDeployment(
   ctx: Context,
   data: {
     instanceName: string;

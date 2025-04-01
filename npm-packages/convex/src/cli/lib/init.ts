@@ -32,7 +32,7 @@ export async function finalizeConfiguration(
   if (options.wroteToGitIgnore) {
     logMessage(ctx, chalk.gray(`  Added ".env.local" to .gitignore`));
   }
-  if (options.deploymentType === "tryitout") {
+  if (options.deploymentType === "anonymous") {
     logMessage(
       ctx,
       `Run \`npx convex login\` at any time to create an account and link this deployment.`,
@@ -59,7 +59,7 @@ export async function finalizeConfiguration(
 
 function messageForDeploymentType(deploymentType: DeploymentType, url: string) {
   switch (deploymentType) {
-    case "tryitout":
+    case "anonymous":
       return `Started running a deployment locally at ${url}`;
     case "local":
       return `Started running a deployment locally at ${url}`;

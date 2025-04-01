@@ -16,11 +16,11 @@ import {
   ProjectSelection,
 } from "./deploymentSelection.js";
 import { loadLocalDeploymentCredentials } from "./localDeployment/localDeployment.js";
-import { loadTryItOutDeployment } from "./localDeployment/tryitout.js";
+import { loadAnonymousDeployment } from "./localDeployment/anonymous.js";
 export type DeploymentName = string;
 export type CloudDeploymentType = "prod" | "dev" | "preview";
 export type AccountRequiredDeploymentType = CloudDeploymentType | "local";
-export type DeploymentType = AccountRequiredDeploymentType | "tryitout";
+export type DeploymentType = AccountRequiredDeploymentType | "anonymous";
 
 export type Project = {
   id: string;
@@ -722,7 +722,7 @@ export async function loadSelectedDeploymentCredentials(
         { ensureLocalRunning },
       );
     }
-    case "tryItOut": {
+    case "anonymous": {
       if (deploymentSelection.deploymentName === null) {
         return await ctx.crash({
           exitCode: 1,
@@ -731,7 +731,7 @@ export async function loadSelectedDeploymentCredentials(
             "No CONVEX_DEPLOYMENT set, run `npx convex dev` to configure a Convex project",
         });
       }
-      const config = await loadTryItOutDeployment(
+      const config = await loadAnonymousDeployment(
         ctx,
         deploymentSelection.deploymentName,
       );
@@ -747,7 +747,7 @@ export async function loadSelectedDeploymentCredentials(
         url,
         deploymentFields: {
           deploymentName: deploymentSelection.deploymentName,
-          deploymentType: "tryitout",
+          deploymentType: "anonymous",
           projectSlug: null,
           teamSlug: null,
         },

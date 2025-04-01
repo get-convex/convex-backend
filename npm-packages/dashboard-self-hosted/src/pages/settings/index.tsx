@@ -12,8 +12,9 @@ import { CopyTextButton } from "dashboard-common/elements/CopyTextButton";
 export default function Settings() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
-  const isTryItOutDeployment = deployment?.name?.startsWith("tryitout-");
-
+  const isAnonymousDeployment =
+    deployment?.name?.startsWith("anonymous-") ||
+    deployment?.name?.startsWith("tryitout-");
   return (
     <DeploymentSettingsLayout page="url-and-deploy-key">
       <Sheet>
@@ -31,7 +32,7 @@ export default function Settings() {
           <p className="max-w-prose text-content-secondary">
             Deploy keys are only available for cloud deployments.
           </p>
-          {isTryItOutDeployment ? (
+          {isAnonymousDeployment ? (
             <>
               <p className="max-w-prose text-content-primary">
                 You can create a Convex account and automatically link this

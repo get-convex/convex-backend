@@ -14,9 +14,9 @@ import {
 } from "./lib/api.js";
 import { actionDescription } from "./lib/command.js";
 import { getDeploymentSelection } from "./lib/deploymentSelection.js";
-import { isTryItOutDeployment } from "./lib/deployment.js";
 import { checkIfDashboardIsRunning } from "./lib/localDeployment/dashboard.js";
 import { getDashboardUrl } from "./lib/dashboard.js";
+import { isAnonymousDeployment } from "./lib/deployment.js";
 
 export const DASHBOARD_HOST = process.env.CONVEX_PROVISION_HOST
   ? "http://localhost:6789"
@@ -50,7 +50,7 @@ export const dashboard = new Command("dashboard")
       return;
     }
     const dashboardUrl = getDashboardUrl(ctx, deployment.deploymentFields);
-    if (isTryItOutDeployment(deployment.deploymentFields.deploymentName)) {
+    if (isAnonymousDeployment(deployment.deploymentFields.deploymentName)) {
       const warningMessage = `You are not currently running the dashboard locally. Make sure \`npx convex dev\` is running and try again.`;
       if (dashboardUrl === null) {
         logWarning(ctx, warningMessage);

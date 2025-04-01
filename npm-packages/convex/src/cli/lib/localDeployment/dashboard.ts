@@ -7,7 +7,7 @@ import {
 } from "./filePaths.js";
 import { choosePorts } from "./utils.js";
 import { startServer } from "./serve.js";
-import { listExistingTryItOutDeployments } from "./tryitout.js";
+import { listExistingAnonymousDeployments } from "./anonymous.js";
 import { localDeploymentUrl, selfHostedEventTag } from "./run.js";
 import serveHandler from "serve-handler";
 import { ensureDashboardDownloaded } from "./download.js";
@@ -18,9 +18,9 @@ export const DEFAULT_LOCAL_DASHBOARD_API_PORT = 6791;
 
 /**
  * This runs the `dashboard-self-hosted` app locally.
- * It's currently just used for the `tryitout` flow, while everything else
+ * It's currently just used for the `anonymous` flow, while everything else
  * uses `dashboard.convex.dev`, and some of the code below is written
- * assuming this is only used for `tryitout`.
+ * assuming this is only used for `anonymous`.
  */
 export async function handleDashboard(ctx: Context, version: string) {
   const anonymousId = loadUuidForAnonymousUser(ctx) ?? undefined;
@@ -53,7 +53,7 @@ export async function handleDashboard(ctx: Context, version: string) {
         void reportSelfHostedEvent(ctx, {
           anonymousId,
           eventName: "self_host_dashboard_connected",
-          tag: selfHostedEventTag("tryItOut"),
+          tag: selfHostedEventTag("anonymous"),
         });
       }
       await serveHandler(request, response, {
@@ -110,7 +110,7 @@ async function startServingListDeploymentsApi(ctx: Context, port: number) {
     ctx,
     port,
     async (request, response) => {
-      const deployments = await listExistingTryItOutDeployments(ctx);
+      const deployments = await listExistingAnonymousDeployments(ctx);
       const deploymentsJson = deployments.map((d) => ({
         name: d.deploymentName,
         url: localDeploymentUrl(d.config.ports.cloud),

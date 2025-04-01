@@ -54,10 +54,10 @@ import {
   DeploymentSelection,
   ProjectSelection,
   deploymentNameFromSelection,
-  shouldAllowTryItOut,
+  shouldAllowAnonymousDevelopment,
 } from "./lib/deploymentSelection.js";
 import { ensureLoggedIn } from "./lib/login.js";
-import { handleTryItOutDeployment } from "./lib/localDeployment/tryitout.js";
+import { handleAnonymousDeployment } from "./lib/localDeployment/anonymous.js";
 type DeploymentCredentials = {
   url: string;
   adminKey: string;
@@ -236,7 +236,7 @@ export async function _deploymentCredentialsOrConfigure(
         partitionId,
       });
     }
-    case "tryItOut": {
+    case "anonymous": {
       const hasAuth = ctx.bigBrainAuth() !== null;
       if (hasAuth && deploymentSelection.deploymentName !== null) {
         const shouldConfigure =
@@ -277,7 +277,7 @@ export async function _deploymentCredentialsOrConfigure(
               default: "no",
             });
       if (shouldPromptForLogin === "no") {
-        const result = await handleTryItOutDeployment(ctx, {
+        const result = await handleAnonymousDeployment(ctx, {
           chosenConfiguration,
           deploymentName: deploymentSelection.deploymentName,
           ...cmdOptions.localOptions,
@@ -287,7 +287,7 @@ export async function _deploymentCredentialsOrConfigure(
           url: result.deploymentUrl,
           deploymentFields: {
             deploymentName: result.deploymentName,
-            deploymentType: "tryitout",
+            deploymentType: "anonymous",
             projectSlug: null,
             teamSlug: null,
           },
@@ -324,7 +324,7 @@ async function handleDeploymentWithinProject(
 ) {
   const hasAuth = ctx.bigBrainAuth() !== null;
   const loginMessage =
-    hasAuth && shouldAllowTryItOut()
+    hasAuth && shouldAllowAnonymousDevelopment()
       ? undefined
       : `Tip: You can try out Convex without creating an account by clearing the ${CONVEX_DEPLOYMENT_ENV_VAR_NAME} environment variable.`;
   await ensureLoggedIn(ctx, {

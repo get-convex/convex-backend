@@ -9,9 +9,9 @@ import {
   deploymentNameFromAdminKeyOrCrash,
   deploymentTypeFromAdminKey,
   getDeploymentTypeFromConfiguredDeployment,
+  isAnonymousDeployment,
   isPreviewDeployKey,
   isProjectKey,
-  isTryItOutDeployment,
   stripDeploymentTypePrefix,
 } from "./deployment.js";
 import { buildEnvironment } from "./envvars.js";
@@ -219,7 +219,7 @@ export type DeploymentSelection =
       kind: "chooseProject";
     }
   | {
-      kind: "tryItOut";
+      kind: "anonymous";
       deploymentName: string | null;
     };
 
@@ -276,8 +276,11 @@ function logDeploymentSelection(ctx: Context, selection: DeploymentSelection) {
       logVerbose(ctx, `Choose project`);
       break;
     }
-    case "tryItOut": {
-      logVerbose(ctx, `Try it out`);
+    case "anonymous": {
+      logVerbose(
+        ctx,
+        `Anonymous, has selected deployment?: ${selection.deploymentName !== null}`,
+      );
       break;
     }
     default: {
@@ -387,9 +390,9 @@ async function _getDeploymentSelection(
 
   // Check if they're logged in
   const isLoggedIn = ctx.bigBrainAuth() !== null;
-  if (!isLoggedIn && shouldAllowTryItOut()) {
+  if (!isLoggedIn && shouldAllowAnonymousDevelopment()) {
     return {
-      kind: "tryItOut",
+      kind: "anonymous",
       deploymentName: null,
     };
   }
@@ -527,9 +530,9 @@ async function getDeploymentSelectionFromEnv(
     const targetDeploymentType =
       getDeploymentTypeFromConfiguredDeployment(convexDeployment);
     const targetDeploymentName = stripDeploymentTypePrefix(convexDeployment);
-    const isTryItOut = isTryItOutDeployment(targetDeploymentName);
-    if (isTryItOut) {
-      if (!shouldAllowTryItOut()) {
+    const isAnonymous = isAnonymousDeployment(targetDeploymentName);
+    if (isAnonymous) {
+      if (!shouldAllowAnonymousDevelopment()) {
         return {
           kind: "unknown",
         };
@@ -537,7 +540,7 @@ async function getDeploymentSelectionFromEnv(
       return {
         kind: "success",
         metadata: {
-          kind: "tryItOut",
+          kind: "anonymous",
           deploymentName: targetDeploymentName,
         },
       };
@@ -608,7 +611,7 @@ export const deploymentNameAndTypeFromSelection = (
     case "chooseProject": {
       return null;
     }
-    case "tryItOut": {
+    case "anonymous": {
       return null;
     }
   }
@@ -616,7 +619,7 @@ export const deploymentNameAndTypeFromSelection = (
   return null;
 };
 
-export const shouldAllowTryItOut = (): boolean => {
+export const shouldAllowAnonymousDevelopment = (): boolean => {
   // Temporary flag while we build out this flow
-  return process.env.CONVEX_TRY_IT_OUT !== undefined;
+  return process.env.CONVEX_ALLOW_ANONYMOUS !== undefined;
 };

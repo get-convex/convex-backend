@@ -23,9 +23,9 @@
       config.json
       convex_local_storage
       convex_local_backend.sqlite3
-    tryitout-convex-backend-state
+    anonymous-convex-backend-state
       config.json // contains { uuid: <uuid> }, used to identify the anonymous user
-      tryitout-chess
+      anonymous-chess
         config.json
         convex_local_storage
         convex_local_backend.sqlite3
@@ -38,14 +38,16 @@ import { recursivelyDelete } from "../fsUtils.js";
 import crypto from "crypto";
 
 // Naming is hard, but "local" refers to deployments linked to a Convex project
-// and "tryItOut" refers to deployments that are not linked to a Convex project
+// and "anonymous" refers to deployments that are not linked to a Convex project
 // (but in both cases they are running locally).
-export type LocalDeploymentKind = "local" | "tryItOut";
+export type LocalDeploymentKind = "local" | "anonymous";
 
 export function rootDeploymentStateDir(kind: LocalDeploymentKind) {
   return path.join(
     rootDirectory(),
-    kind === "local" ? "convex-backend-state" : "tryitout-convex-backend-state",
+    kind === "local"
+      ? "convex-backend-state"
+      : "anonymous-convex-backend-state",
   );
 }
 
@@ -169,7 +171,7 @@ export function saveDashboardConfig(ctx: Context, config: DashboardConfig) {
 
 export function loadUuidForAnonymousUser(ctx: Context) {
   const configFile = path.join(
-    rootDeploymentStateDir("tryItOut"),
+    rootDeploymentStateDir("anonymous"),
     "config.json",
   );
   if (!ctx.fs.exists(configFile)) {
@@ -191,12 +193,12 @@ export function ensureUuidForAnonymousUser(ctx: Context) {
     return uuid;
   }
   const newUuid = crypto.randomUUID();
-  const tryItOutDir = rootDeploymentStateDir("tryItOut");
-  if (!ctx.fs.exists(tryItOutDir)) {
-    ctx.fs.mkdir(tryItOutDir, { recursive: true });
+  const anonymousDir = rootDeploymentStateDir("anonymous");
+  if (!ctx.fs.exists(anonymousDir)) {
+    ctx.fs.mkdir(anonymousDir, { recursive: true });
   }
   ctx.fs.writeUtf8File(
-    path.join(tryItOutDir, "config.json"),
+    path.join(anonymousDir, "config.json"),
     JSON.stringify({ uuid: newUuid }),
   );
   return newUuid;

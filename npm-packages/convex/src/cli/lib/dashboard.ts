@@ -17,7 +17,7 @@ export function getDashboardUrl(
   },
 ): string | null {
   switch (deploymentType) {
-    case "tryitout": {
+    case "anonymous": {
       return localDashboardUrl(ctx, deploymentName);
     }
     case "local":

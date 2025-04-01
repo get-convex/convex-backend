@@ -1,5 +1,5 @@
 // ----------------------------------------------------------------------------
-// Try it out (No account)
+// Anonymous (No account)
 
 import path from "path";
 import {
@@ -11,7 +11,7 @@ import {
 } from "../../../bundler/context.js";
 import { promptSearch, promptString, promptYesNo } from "../utils/prompts.js";
 import {
-  bigBrainGenerateTryItOutAdminKey,
+  bigBrainGenerateAdminKeyForAnonymousDeployment,
   bigBrainPause,
   bigBrainStart,
 } from "./bigBrain.js";
@@ -39,12 +39,12 @@ import { handleDashboard } from "./dashboard.js";
 import crypto from "crypto";
 import { recursivelyDelete, recursivelyCopy } from "../fsUtils.js";
 import { ensureBackendBinaryDownloaded } from "./download.js";
-import { isTryItOutDeployment } from "../deployment.js";
+import { isAnonymousDeployment } from "../deployment.js";
 import { createProject } from "../api.js";
-import { removeTryItOutPrefix } from "../deployment.js";
+import { removeAnonymousPrefix } from "../deployment.js";
 import { nodeFs } from "../../../bundler/fs.js";
 
-export async function handleTryItOutDeployment(
+export async function handleAnonymousDeployment(
   ctx: Context,
   options: {
     ports?: {
@@ -62,11 +62,11 @@ export async function handleTryItOutDeployment(
     return await ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: "Cannot run a try-it-out deployment in offline mode",
+      printedMessage: "Cannot run a local deployment while offline",
     });
   }
 
-  const deployment = await chooseTryItOutDeployment(ctx, {
+  const deployment = await chooseDeployment(ctx, {
     deploymentName: options.deploymentName,
     chosenConfiguration: options.chosenConfiguration,
   });
@@ -131,7 +131,7 @@ export async function handleTryItOutDeployment(
     });
   } else {
     instanceSecret = generateInstanceSecret();
-    const data = await bigBrainGenerateTryItOutAdminKey(ctx, {
+    const data = await bigBrainGenerateAdminKeyForAnonymousDeployment(ctx, {
       instanceName: deployment.deploymentName,
       instanceSecret,
     });
@@ -156,7 +156,7 @@ export async function handleTryItOutDeployment(
 
   const { cleanupHandle } = await handlePotentialUpgrade(ctx, {
     deploymentName: deployment.deploymentName,
-    deploymentKind: "tryItOut",
+    deploymentKind: "anonymous",
     oldVersion:
       deployment.kind === "existing" ? deployment.config.backendVersion : null,
     newBinaryPath: binaryPath,
@@ -182,11 +182,11 @@ export async function handleTryItOutDeployment(
   };
 }
 
-export async function loadTryItOutDeployment(
+export async function loadAnonymousDeployment(
   ctx: Context,
   deploymentName: string,
 ): Promise<LocalDeploymentConfig> {
-  const config = loadDeploymentConfig(ctx, "tryItOut", deploymentName);
+  const config = loadDeploymentConfig(ctx, "anonymous", deploymentName);
   if (config === null) {
     return ctx.crash({
       exitCode: 1,
@@ -197,22 +197,22 @@ export async function loadTryItOutDeployment(
   return config;
 }
 
-export async function listExistingTryItOutDeployments(ctx: Context): Promise<
+export async function listExistingAnonymousDeployments(ctx: Context): Promise<
   Array<{
     deploymentName: string;
     config: LocalDeploymentConfig;
   }>
 > {
-  const dir = rootDeploymentStateDir("tryItOut");
+  const dir = rootDeploymentStateDir("anonymous");
   if (!ctx.fs.exists(dir)) {
     return [];
   }
   const deploymentNames = ctx.fs
     .listDir(dir)
     .map((d) => d.name)
-    .filter((d) => isTryItOutDeployment(d));
+    .filter((d) => isAnonymousDeployment(d));
   return deploymentNames.flatMap((deploymentName) => {
-    const config = loadDeploymentConfig(ctx, "tryItOut", deploymentName);
+    const config = loadDeploymentConfig(ctx, "anonymous", deploymentName);
     if (config !== null) {
       return [{ deploymentName, config }];
     }
@@ -220,7 +220,7 @@ export async function listExistingTryItOutDeployments(ctx: Context): Promise<
   });
 }
 
-async function chooseTryItOutDeployment(
+async function chooseDeployment(
   ctx: Context,
   options: {
     deploymentName: string | null;
@@ -241,7 +241,7 @@ async function chooseTryItOutDeployment(
       deploymentName: string;
     }
 > {
-  const deployments = await listExistingTryItOutDeployments(ctx);
+  const deployments = await listExistingAnonymousDeployments(ctx);
   if (options.deploymentName !== null && options.chosenConfiguration === null) {
     const existing = deployments.find(
       (d) => d.deploymentName === options.deploymentName,
@@ -343,7 +343,7 @@ async function promptForNewDeployment(
 
   const uniqueName = await getUniqueName(
     ctx,
-    `tryitout-${deploymentName}`,
+    `anonymous-${deploymentName}`,
     existingNames,
   );
   logVerbose(ctx, `Deployment name: ${uniqueName}`);
@@ -385,7 +385,7 @@ async function getUniqueName(
   });
 }
 /**
- * This takes a "try it out" deployment and makes it a "local" deployment
+ * This takes an "anonymous" deployment and makes it a "local" deployment
  * that is associated with a project in the given team.
  */
 export async function handleLinkToProject(
@@ -406,7 +406,7 @@ export async function handleLinkToProject(
   );
   const config = await loadDeploymentConfig(
     ctx,
-    "tryItOut",
+    "anonymous",
     args.deploymentName,
   );
   if (config === null) {
@@ -424,7 +424,7 @@ export async function handleLinkToProject(
     allowOtherDeployments: true,
     maxTimeSecs: 5,
   });
-  const projectName = removeTryItOutPrefix(args.deploymentName);
+  const projectName = removeAnonymousPrefix(args.deploymentName);
   let projectSlug: string;
   if (args.projectSlug !== null) {
     projectSlug = args.projectSlug;
@@ -452,14 +452,14 @@ export async function handleLinkToProject(
     return ctx.crash({
       exitCode: 1,
       errorType: "fatal",
-      printedMessage: `Project ${projectSlug} already has a local deployment, so we cannot link this try-it-out deployment to it.`,
+      printedMessage: `Project ${projectSlug} already has a local deployment, so we cannot link this anonymous local deployment to it.`,
     });
   }
   logVerbose(ctx, `Moving ${args.deploymentName} to ${localDeploymentName}`);
   await moveDeployment(
     ctx,
     {
-      deploymentKind: "tryItOut",
+      deploymentKind: "anonymous",
       deploymentName: args.deploymentName,
     },
     {

@@ -16,11 +16,13 @@ import { cn } from "dashboard-common/lib/cn";
 export function ConvexCloudReminderToast() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
-  const isTryItOutDeployment = deployment?.name?.startsWith("tryitout-");
+  const isAnonymousDevelopment =
+    deployment?.name?.startsWith("anonymous-") ||
+    deployment?.name?.startsWith("tryitout-");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
-  if (!isTryItOutDeployment || isDismissed) {
+  if (!isAnonymousDevelopment || isDismissed) {
     return null;
   }
 
@@ -47,7 +49,7 @@ export function ConvexCloudReminderToast() {
               }
             }}
             aria-expanded={isExpanded}
-            aria-controls="tryitout-details"
+            aria-controls="anonymous-development-details"
           >
             <div className="flex items-center gap-2">
               {isExpanded ? (
@@ -72,7 +74,7 @@ export function ConvexCloudReminderToast() {
         </div>
         {isExpanded && (
           <div
-            id="tryitout-details"
+            id="anonymous-development-details"
             className="flex flex-col gap-2 border-purple-500 px-4 py-3 text-sm text-content-primary"
           >
             <p>You are currently trying out Convex by running it locally.</p>

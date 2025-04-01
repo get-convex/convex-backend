@@ -56,7 +56,7 @@ export async function runLocalBackend(
   if (args.isLatestVersion) {
     // CLI args that were added in later versions of backend go here instead of above
     // since the CLI may run older versions of backend (e.g. when upgrading).
-    if (args.deploymentKind === "tryItOut") {
+    if (args.deploymentKind === "anonymous") {
       const uuid = loadUuidForAnonymousUser(ctx);
       if (uuid !== null) {
         commandArgs.push(
@@ -293,5 +293,5 @@ export function localDeploymentUrl(cloudPort: number): string {
 export function selfHostedEventTag(
   deploymentKind: LocalDeploymentKind,
 ): string {
-  return deploymentKind === "local" ? "cli-local-dev" : "cli-tryitout";
+  return deploymentKind === "local" ? "cli-local-dev" : "cli-anonymous-dev";
 }

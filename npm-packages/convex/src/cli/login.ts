@@ -10,8 +10,8 @@ import { checkAuthorization, performLogin } from "./lib/login.js";
 import { loadUuidForAnonymousUser } from "./lib/localDeployment/filePaths.js";
 import {
   handleLinkToProject,
-  listExistingTryItOutDeployments,
-} from "./lib/localDeployment/tryitout.js";
+  listExistingAnonymousDeployments,
+} from "./lib/localDeployment/anonymous.js";
 import {
   DASHBOARD_HOST,
   deploymentDashboardUrlPage,
@@ -25,9 +25,9 @@ import {
 } from "./configure.js";
 import {
   getDeploymentSelection,
-  shouldAllowTryItOut,
+  shouldAllowAnonymousDevelopment,
 } from "./lib/deploymentSelection.js";
-import { removeTryItOutPrefix } from "./lib/deployment.js";
+import { removeAnonymousPrefix } from "./lib/deployment.js";
 
 export const login = new Command("login")
   .description("Login to Convex")
@@ -120,15 +120,15 @@ async function handleLinkingDeployments(
     interactive: boolean;
   },
 ) {
-  if (!shouldAllowTryItOut()) {
+  if (!shouldAllowAnonymousDevelopment()) {
     return;
   }
-  const tryItOutDeployments = await listExistingTryItOutDeployments(ctx);
-  if (tryItOutDeployments.length === 0) {
+  const anonymousDeployments = await listExistingAnonymousDeployments(ctx);
+  if (anonymousDeployments.length === 0) {
     if (args.interactive) {
       logMessage(
         ctx,
-        "It doesn't look like you have any tryitout deployments to link. You can run `npx convex dev` to set up a new project or select an existing one.",
+        "It doesn't look like you have any deployments to link. You can run `npx convex dev` to set up a new project or select an existing one.",
       );
     }
     return;
@@ -136,7 +136,7 @@ async function handleLinkingDeployments(
 
   if (!args.interactive) {
     const message = getMessage(
-      tryItOutDeployments.map((d) => d.deploymentName),
+      anonymousDeployments.map((d) => d.deploymentName),
     );
     const createProjects = await promptYesNo(ctx, {
       message,
@@ -160,10 +160,10 @@ async function handleLinkingDeployments(
       "Choose a team for your deployments:",
     );
     const projectsRemaining = await getProjectsRemaining(ctx, teamSlug);
-    if (tryItOutDeployments.length > projectsRemaining) {
+    if (anonymousDeployments.length > projectsRemaining) {
       logFailure(
         ctx,
-        `You have ${tryItOutDeployments.length} deployments to link, but only have ${projectsRemaining} projects remaining. If you'd like to choose which ones to link, run this command with the --link-deployments flag.`,
+        `You have ${anonymousDeployments.length} deployments to link, but only have ${projectsRemaining} projects remaining. If you'd like to choose which ones to link, run this command with the --link-deployments flag.`,
       );
       return;
     }
@@ -174,13 +174,13 @@ async function handleLinkingDeployments(
       envFile: undefined,
     });
     const configuredDeployment =
-      deploymentSelection.kind === "tryItOut"
+      deploymentSelection.kind === "anonymous"
         ? deploymentSelection.deploymentName
         : null;
 
     let dashboardUrl = teamDashboardUrl(teamSlug);
 
-    for (const deployment of tryItOutDeployments) {
+    for (const deployment of anonymousDeployments) {
       const linkedDeployment = await handleLinkToProject(ctx, {
         deploymentName: deployment.deploymentName,
         teamSlug,
@@ -214,6 +214,7 @@ async function handleLinkingDeployments(
       ctx,
       `Sucessfully linked your deployments! Visit ${dashboardUrl} to get started.`,
     );
+    return;
   }
 
   const deploymentSelection = await getDeploymentSelection(ctx, {
@@ -222,21 +223,21 @@ async function handleLinkingDeployments(
     envFile: undefined,
   });
   const configuredDeployment =
-    deploymentSelection.kind === "tryItOut"
+    deploymentSelection.kind === "anonymous"
       ? deploymentSelection.deploymentName
       : null;
   while (true) {
     logMessage(
       ctx,
       getDeploymentListMessage(
-        tryItOutDeployments.map((d) => d.deploymentName),
+        anonymousDeployments.map((d) => d.deploymentName),
       ),
     );
-    const updatedTryItOutDeployments =
-      await listExistingTryItOutDeployments(ctx);
+    const updatedAnonymousDeployments =
+      await listExistingAnonymousDeployments(ctx);
     const deploymentToLink = await promptSearch(ctx, {
       message: "Which deployment would you like to link to your account?",
-      choices: updatedTryItOutDeployments.map((d) => ({
+      choices: updatedAnonymousDeployments.map((d) => ({
         name: d.deploymentName,
         value: d.deploymentName,
       })),
@@ -249,7 +250,7 @@ async function handleLinkingDeployments(
     const { projectSlug } = await selectProject(ctx, "ask", {
       team: teamSlug,
       devDeployment: "local",
-      defaultProjectName: removeTryItOutPrefix(deploymentToLink),
+      defaultProjectName: removeAnonymousPrefix(deploymentToLink),
     });
     const linkedDeployment = await handleLinkToProject(ctx, {
       deploymentName: deploymentToLink,
@@ -293,22 +294,22 @@ async function getProjectsRemaining(ctx: Context, teamSlug: string) {
   return response.projectsRemaining;
 }
 
-function getDeploymentListMessage(tryItOutDeploymentNames: string[]) {
-  let message = `You have ${tryItOutDeploymentNames.length} existing deployments.`;
+function getDeploymentListMessage(anonymousDeploymentNames: string[]) {
+  let message = `You have ${anonymousDeploymentNames.length} existing deployments.`;
   message += `\n\nDeployments:`;
-  for (const deploymentName of tryItOutDeploymentNames) {
+  for (const deploymentName of anonymousDeploymentNames) {
     message += `\n- ${deploymentName}`;
   }
   return message;
 }
 
-function getMessage(tryItOutDeploymentNames: string[]) {
-  if (tryItOutDeploymentNames.length === 1) {
-    return `Would you like to link your existing deployment to your account? ("${tryItOutDeploymentNames[0]}")`;
+function getMessage(anonymousDeploymentNames: string[]) {
+  if (anonymousDeploymentNames.length === 1) {
+    return `Would you like to link your existing deployment to your account? ("${anonymousDeploymentNames[0]}")`;
   }
-  let message = `You have ${tryItOutDeploymentNames.length} existing deployments. Would you like to link them to your account?`;
+  let message = `You have ${anonymousDeploymentNames.length} existing deployments. Would you like to link them to your account?`;
   message += `\n\nDeployments:`;
-  for (const deploymentName of tryItOutDeploymentNames) {
+  for (const deploymentName of anonymousDeploymentNames) {
     message += `\n- ${deploymentName}`;
   }
   message += `\n\nYou can alternatively run \`npx convex login --link-deployments\` to interactively choose which deployments to add.`;
