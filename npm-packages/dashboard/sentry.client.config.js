@@ -14,7 +14,7 @@ Sentry.init({
   dsn: SENTRY_DSN,
   profilesSampleRate: 0.5,
   tracesSampleRate: 0.5,
-  tunnel: "/api/sentry",
+  tunnel: `${process.env.NEXT_PUBLIC_BIG_BRAIN_URL}/sentry`,
   environment,
   integrations: [
     new Sentry.BrowserTracing({
