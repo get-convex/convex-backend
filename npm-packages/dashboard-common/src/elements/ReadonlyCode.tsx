@@ -82,20 +82,21 @@ function setupAutoHeight(
   maxHeight: number,
   variant: "editor" | "diff",
 ) {
-  const updateHeight = () => {
-    if (ref.current) {
-      const contentHeight = Math.min(maxHeight, editor.getContentHeight());
-
-      // eslint-disable-next-line no-param-reassign
-      ref.current.style.height = `${contentHeight}px`;
-      editor.layout({
-        height: contentHeight,
-        width:
-          variant === "diff"
-            ? ref.current.offsetWidth / 2
-            : ref.current.offsetWidth,
-      });
+  const updateHeight = (e: editor.IContentSizeChangedEvent) => {
+    if (!e.contentHeightChanged || !ref.current) {
+      return;
     }
+    const contentHeight = Math.min(maxHeight, editor.getContentHeight());
+
+    // eslint-disable-next-line no-param-reassign
+    ref.current.style.height = `${contentHeight}px`;
+    editor.layout({
+      height: contentHeight,
+      width:
+        variant === "diff"
+          ? ref.current.offsetWidth / 2
+          : ref.current.offsetWidth,
+    });
   };
   editor.onDidContentSizeChange(updateHeight);
 }
