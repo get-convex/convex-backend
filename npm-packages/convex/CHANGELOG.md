@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.22.0
+
+- Options for turning off MCP tools and blocking prod deployments (see
+  `npx convex mcp`)
+- Add `--run-sh` option to `npx convex dev`, similar to `--run` but for shell
+  commands
+- Add `inflightMutations` and `inflightActions` to
+  `convexClient.connectionState()`
+
 ## 1.21.0
 
 - `npx convex dev` tails logs by default. See the `--tail-logs` option for more.
