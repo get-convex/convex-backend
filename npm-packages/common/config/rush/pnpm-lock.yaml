@@ -275,8 +275,8 @@ importers:
         specifier: ~1.2.4
         version: 1.2.4(eslint@9.21.0(jiti@2.4.2))
       '@eslint/eslintrc':
-        specifier: ~3.2.0
-        version: 3.2.0
+        specifier: ~3.3.0
+        version: 3.3.1
       '@eslint/js':
         specifier: ~9.21.0
         version: 9.21.0
@@ -35423,7 +35423,7 @@ snapshots:
       '@eslint-community/regexpp': 4.12.1
       '@eslint/config-array': 0.19.1
       '@eslint/core': 0.9.1
-      '@eslint/eslintrc': 3.2.0
+      '@eslint/eslintrc': 3.3.1
       '@eslint/js': 9.16.0
       '@eslint/plugin-kit': 0.2.4
       '@humanfs/node': 0.16.6
