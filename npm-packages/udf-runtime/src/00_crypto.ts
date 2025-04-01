@@ -127,7 +127,7 @@ class SubtleCrypto {
     const normalizedAlgorithm = normalizeAlgorithmSign(algorithm);
 
     const handle = key[_handle];
-    const keyData = KEY_STORE.get(handle).data;
+    const innerKey = KEY_STORE.get(handle);
 
     // 8.
     if (normalizedAlgorithm.name !== key.algorithm.name) {
@@ -158,7 +158,7 @@ class SubtleCrypto {
         // 2.
         const hashAlgorithm = key[_algorithm].hash.name;
         const signature = performOp("crypto/sign", {
-          key: keyData,
+          key: innerKey.data,
           algorithm: "RSASSA-PKCS1-v1_5",
           hash: hashAlgorithm,
           data: dataCopy,
@@ -178,7 +178,7 @@ class SubtleCrypto {
         // 2.
         const hashAlgorithm = key[_algorithm].hash.name;
         const signature = performOp("crypto/sign", {
-          key: keyData,
+          key: innerKey.data,
           algorithm: "RSA-PSS",
           hash: hashAlgorithm,
           saltLength: normalizedAlgorithm.saltLength,
@@ -215,7 +215,7 @@ class SubtleCrypto {
         }
 
         const signature = performOp("crypto/sign", {
-          key: keyData,
+          key: innerKey.data,
           algorithm: "ECDSA",
           hash: hashAlgorithm,
           namedCurve,
@@ -228,7 +228,7 @@ class SubtleCrypto {
         const hashAlgorithm = key.algorithm.hash.name;
 
         const signature = performOp("crypto/sign", {
-          key: keyData,
+          key: innerKey.data,
           algorithm: "HMAC",
           hash: hashAlgorithm,
           data: dataCopy,
@@ -246,7 +246,8 @@ class SubtleCrypto {
         }
 
         // https://briansmith.org/rustdoc/src/ring/ec/curve25519/ed25519/signing.rs.html#260
-        const signature = performOp("crypto/signEd25519", keyData, dataCopy);
+        // N.B.: for Ed25519 keys, `innerKey` is the key data directly (not `innerKey.data`)
+        const signature = performOp("crypto/signEd25519", innerKey, dataCopy);
         if (signature === null) {
           throw new DOMException("Failed to sign", "OperationError");
         }
