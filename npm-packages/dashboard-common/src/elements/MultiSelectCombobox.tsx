@@ -149,7 +149,7 @@ export function MultiSelectCombobox({
                   >
                     <Combobox.Options
                       static
-                      className="max-h-60 overflow-auto rounded border bg-background-secondary pb-1 text-xs shadow scrollbar focus:outline-none"
+                      className="max-h-60 w-fit min-w-full max-w-80 overflow-auto rounded border bg-background-secondary pb-1 text-xs shadow scrollbar focus:outline-none"
                     >
                       <div className="min-w-fit">
                         {!disableSearch && (

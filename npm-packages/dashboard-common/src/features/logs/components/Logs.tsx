@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDebounce, usePrevious } from "react-use";
 import isEqual from "lodash/isEqual";
 import { dismissToast, toast } from "@common/lib/utils";
@@ -18,6 +25,8 @@ import { MAX_LOGS, UdfLog, useLogs } from "@common/lib/useLogs";
 import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
 import { TextInput } from "@common/elements/TextInput";
 import { Button } from "@common/elements/Button";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function Logs({
   nents: allNents,
@@ -26,6 +35,10 @@ export function Logs({
   nents: Nent[];
   selectedNent: Nent | null;
 }) {
+  const { useCurrentDeployment } = useContext(DeploymentInfoContext);
+  const deployment = useCurrentDeployment();
+  const deploymentPrefix = deployment?.name;
+
   const nents = allNents.filter((nent) => nent.name !== null);
   const logsConnectivityCallbacks = useRef({
     onReconnected: () => {
@@ -44,22 +57,33 @@ export function Logs({
   });
 
   // Manage state for filter text.
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useGlobalLocalStorage(
+    `logs/${deploymentPrefix}/filter`,
+    "",
+  );
 
   // Manage state for current log levels.
-  // TODO: Use query params to track this state.
-  const [levels, setLevels] = useState([
-    "success",
-    "failure",
-    "DEBUG",
-    "INFO",
-    "WARN",
-    "ERROR",
-  ]);
+  const [levels, setLevels] = useGlobalLocalStorage(
+    `logs/${deploymentPrefix}/levels`,
+    ["success", "failure", "DEBUG", "INFO", "WARN", "ERROR"],
+  );
 
-  const [selectedNents, setSelectedNents] = useState<string[]>([
-    selectedNent ? selectedNent.path : NENT_APP_PLACEHOLDER,
-  ]);
+  const defaultSelectedNent = useMemo(
+    () => [selectedNent ? selectedNent.path : NENT_APP_PLACEHOLDER],
+    [selectedNent],
+  );
+
+  const [selectedNents, setSelectedNents] = useGlobalLocalStorage<string[]>(
+    `logs/${deploymentPrefix}/selectedNents`,
+    defaultSelectedNent,
+  );
+
+  // When the selected nent changes from props, update the storage if not already set
+  useEffect(() => {
+    if (selectedNent && !selectedNents.includes(selectedNent.path)) {
+      setSelectedNents(defaultSelectedNent);
+    }
+  }, [selectedNent, selectedNents, setSelectedNents, defaultSelectedNent]);
 
   const moduleFunctions = useModuleFunctions();
   const functions = useMemo(
@@ -70,9 +94,26 @@ export function Logs({
     [moduleFunctions],
   );
 
-  const [selectedFunctions, setSelectedFunctions] = useState<string[]>(
-    functionsForSelectedNents(selectedNents, functions),
+  const defaultSelectedFunctions = useMemo(
+    () => functionsForSelectedNents(selectedNents, functions),
+    [selectedNents, functions],
   );
+
+  const [selectedFunctions, setSelectedFunctions] = useGlobalLocalStorage<
+    string[]
+  >(`logs/${deploymentPrefix}/selectedFunctions`, defaultSelectedFunctions);
+
+  // Update selected functions when available functions change
+  useEffect(() => {
+    if (functions.length > 0 && selectedFunctions.length === 0) {
+      setSelectedFunctions(defaultSelectedFunctions);
+    }
+  }, [
+    functions,
+    selectedFunctions,
+    setSelectedFunctions,
+    defaultSelectedFunctions,
+  ]);
 
   const [logs, setLogs] = useState<UdfLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<UdfLog[]>([]);

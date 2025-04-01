@@ -89,7 +89,9 @@ export function FunctionNameOption({
         <span
           className={cn(
             "hidden border p-0.5 rounded absolute bg-background-secondary top-[-3px]",
-            oneLine ? "right-[-3px]" : "break-all max-w-full",
+            oneLine
+              ? "right-[-3px]"
+              : "whitespace-normal break-words max-w-full",
             showHover && "block",
             !disableTruncation &&
               "group-focus/overlay:block group-focus/overlay:ring",
