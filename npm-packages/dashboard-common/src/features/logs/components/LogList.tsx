@@ -505,7 +505,7 @@ function LogListHeader({
 function RequestIdLogsHeader() {
   return (
     <div className="flex items-center gap-4 border-b py-2 pl-2 text-xs text-content-secondary">
-      <div className="flex min-w-[7.5rem] items-center gap-1">
+      <div className="flex min-w-[9.25rem] items-center gap-1">
         Timestamp
         <Tooltip tip="Logs are sorted by timestamp, with the oldest logs appearing first.">
           <CaretUpIcon />
@@ -518,7 +518,7 @@ function RequestIdLogsHeader() {
 
 function TimestampColumn() {
   return (
-    <div className="flex min-w-[7.5rem] items-center gap-1">
+    <div className="flex min-w-[9.25rem] items-center gap-1">
       Timestamp
       <Tooltip tip="Logs are sorted by timestamp, with the most recent logs appearing first.">
         <CaretDownIcon />

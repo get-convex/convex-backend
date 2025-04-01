@@ -51,8 +51,16 @@ export function LogListItem({
             setShownLog ? "p-0.5 ml-2" : "w-full",
           )}
         >
-          <div className="min-w-[7.5rem] whitespace-nowrap text-left">
+          <div className="min-w-[9.25rem] whitespace-nowrap text-left">
             {log.localizedTimestamp}
+            <span
+              className={classNames(
+                isFailure ? "text-content-error" : "text-content-secondary",
+              )}
+            >
+              .
+              {new Date(log.timestamp).toISOString().split(".")[1].slice(0, -1)}
+            </span>
           </div>
           {setShownLog && (
             <div className="-ml-0.5 min-w-8 overflow-hidden rounded border px-0.5 py-[1px] text-[10px] group-hover:border-border-selected">

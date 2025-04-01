@@ -35,8 +35,15 @@ export function DeploymentEventListItem({
       onClick={() => setShowDetails(true)}
       variant="unstyled"
     >
-      <div className="min-w-[7.5rem] whitespace-nowrap text-left font-mono text-content-primary">
+      <div className="min-w-[9.25rem] whitespace-nowrap text-left font-mono text-content-primary">
         {timestamp}
+        <span className="text-content-secondary">
+          .
+          {new Date(event._creationTime)
+            .toISOString()
+            .split(".")[1]
+            .slice(0, -1)}
+        </span>
       </div>
 
       {/* Blank lines for when deployment event list items are displayed as items in the logs page */}
