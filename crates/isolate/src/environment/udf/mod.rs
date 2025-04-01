@@ -310,7 +310,6 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
         UdfRequest {
             path_and_args,
             udf_type,
-            identity,
             transaction,
             journal,
             context,
@@ -327,7 +326,7 @@ impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
             udf_type,
             path,
             arguments,
-            identity,
+            identity: transaction.inert_identity(),
             udf_server_version,
 
             phase: UdfPhase::new(

@@ -47,7 +47,6 @@ use common::{
         fetch::FetchClient,
         RoutedHttpPath,
     },
-    identity::InertIdentity,
     knobs::{
         FUNRUN_ISOLATE_ACTIVE_THREADS,
         HEAP_WORKER_REPORT_INTERVAL_SECONDS,
@@ -319,7 +318,6 @@ pub trait ActionCallbacks: Send + Sync {
 pub struct UdfRequest<RT: Runtime> {
     pub path_and_args: ValidatedPathAndArgs,
     pub udf_type: UdfType,
-    pub identity: InertIdentity,
     pub transaction: Transaction<RT>,
     pub journal: QueryJournal,
     pub context: ExecutionContext,
@@ -678,7 +676,6 @@ impl<RT: Runtime> IsolateClient<RT> {
             request: UdfRequest {
                 path_and_args,
                 udf_type,
-                identity: transaction.inert_identity(),
                 transaction,
                 journal,
                 context,

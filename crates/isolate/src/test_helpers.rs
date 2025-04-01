@@ -1472,7 +1472,6 @@ pub async fn bogus_udf_request<RT: Runtime>(
             None,
         ),
         udf_type: UdfType::Query,
-        identity: Identity::system().into(),
         transaction: tx,
         journal: QueryJournal::new(),
         context: ExecutionContext::new_for_test(),
