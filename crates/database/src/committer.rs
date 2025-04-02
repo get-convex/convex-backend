@@ -1076,7 +1076,7 @@ impl CommitterClient {
         transaction: Transaction<RT>,
         write_source: WriteSource,
     ) -> anyhow::Result<Timestamp> {
-        let _timer = metrics::commit_client_timer();
+        let _timer = metrics::commit_client_timer(transaction.identity());
         self.check_generated_ids(&transaction).await?;
 
         // Finish reading everything from persistence.

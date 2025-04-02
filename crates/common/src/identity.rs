@@ -9,6 +9,7 @@ use std::{
     str::FromStr,
 };
 
+use metrics::StaticMetricLabel;
 #[cfg(any(test, feature = "testing"))]
 use proptest::prelude::*;
 use sync_types::{
@@ -35,6 +36,7 @@ pub enum InertIdentity {
     ActingUser(MemberId, UserIdentifier),
 }
 
+pub const IDENTITY_LABEL: &str = "identity";
 impl InertIdentity {
     pub fn user_identifier(&self) -> Option<&UserIdentifier> {
         match self {
@@ -43,6 +45,17 @@ impl InertIdentity {
             },
             _ => None,
         }
+    }
+
+    pub fn tag(&self) -> StaticMetricLabel {
+        let type_str = match self {
+            InertIdentity::System => "system",
+            InertIdentity::InstanceAdmin(_) => "instance_admin",
+            InertIdentity::Unknown => "unknown",
+            InertIdentity::User(_) => "user",
+            InertIdentity::ActingUser(..) => "acting_user",
+        };
+        StaticMetricLabel::new(IDENTITY_LABEL, type_str)
     }
 }
 

@@ -3,10 +3,12 @@ use ::search::metrics::{
     SEARCH_TYPE_LABEL,
 };
 use common::{
+    identity::IDENTITY_LABEL,
     runtime::Runtime,
     types::Timestamp,
 };
 use errors::ErrorMetadata;
+use keybroker::Identity;
 use metrics::{
     log_counter,
     log_counter_with_labels,
@@ -202,11 +204,14 @@ pub fn verify_invariants_timer() -> Timer<VMHistogram> {
 
 register_convex_histogram!(
     DATABASE_COMMIT_CLIENT_SECONDS,
-    "Time taken to submit a commit"
+    "Time taken to submit a commit",
+    &[IDENTITY_LABEL],
 );
 /// Includes time waiting in queue for the committer thread.
-pub fn commit_client_timer() -> Timer<VMHistogram> {
-    Timer::new(&DATABASE_COMMIT_CLIENT_SECONDS)
+pub fn commit_client_timer(identity: &Identity) -> Timer<VMHistogramVec> {
+    let mut timer = Timer::new_with_labels(&DATABASE_COMMIT_CLIENT_SECONDS);
+    timer.add_label(identity.tag());
+    timer
 }
 
 register_convex_histogram!(DATABASE_COMMIT_QUEUE_SECONDS, "Time a commit is queued");

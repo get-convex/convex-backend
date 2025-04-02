@@ -40,6 +40,7 @@ use common::{
     },
 };
 use errors::ErrorMetadata;
+use metrics::StaticMetricLabel;
 use openidconnect::{
     core::{
         CoreIdToken,
@@ -223,6 +224,10 @@ impl Identity {
             _ => {},
         }
         Ok(())
+    }
+
+    pub fn tag(&self) -> StaticMetricLabel {
+        InertIdentity::from(self.clone()).tag()
     }
 }
 
