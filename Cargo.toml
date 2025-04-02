@@ -115,9 +115,9 @@ proptest-http = { git = "https://github.com/nipunn1313/proptest-http", rev = "0e
 prost = { version = "0.13", features = [ "no-recursion-limit" ] }
 prost-types = "0.13"
 prost-reflect = { version = "0.14.0", features = [ "text-format", "miette" ] }
-pyo3 = "0.23.3"
-pyo3-async-runtimes = { version = "0.23.0", features = [ "tokio-runtime" ] }
-pyo3-build-config = { version = "0.23.3", features = [ "resolve-config" ] }
+pyo3 = "0.24"
+pyo3-async-runtimes = { version = "0.24", features = [ "tokio-runtime" ] }
+pyo3-build-config = { version = "0.24", features = [ "resolve-config" ] }
 qdrant_segment = { git = "https://github.com/get-convex/qdrant", rev = "a5d1b7bc9fd04861316b6455204c8a946d43117e", package = "segment" }
 qdrant_common = { git = "https://github.com/get-convex/qdrant", rev = "a5d1b7bc9fd04861316b6455204c8a946d43117e", package = "qdrant_common" }
 quote = "1.0"
