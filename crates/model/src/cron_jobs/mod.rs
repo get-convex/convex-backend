@@ -272,7 +272,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         Ok(())
     }
 
-    async fn next_run(
+    pub async fn next_run(
         &mut self,
         cron_job_id: DeveloperDocumentId,
     ) -> anyhow::Result<Option<ParsedDocument<CronNextRun>>> {

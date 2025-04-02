@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
+    self,
     backoff::Backoff,
     document::{
         ParseDocument,
@@ -38,6 +39,12 @@ use value::{
 
 use crate::{
     canonical_urls::CANONICAL_URLS_TABLE,
+    cron_jobs::{
+        types::CronNextRun,
+        CronModel,
+        CRON_JOBS_TABLE,
+        CRON_NEXT_RUN_TABLE,
+    },
     database_globals::{
         types::DatabaseVersion,
         DatabaseGlobalsModel,
@@ -81,7 +88,7 @@ impl fmt::Display for MigrationCompletionCriterion {
 // migrations unless explicitly dropping support.
 // Add a user name next to the version when you make a change to highlight merge
 // conflicts.
-pub const DATABASE_VERSION: DatabaseVersion = 118; // nipunn
+pub const DATABASE_VERSION: DatabaseVersion = 119; // nipunn
 
 pub struct MigrationWorker<RT: Runtime> {
     rt: RT,
@@ -394,6 +401,51 @@ impl<RT: Runtime> MigrationWorker<RT> {
             },
             // Empty migration for 118 - represents creation of CronNextRun table
             118 => MigrationCompletionCriterion::MigrationComplete(to_version),
+            119 => {
+                let mut tx = self.db.begin_system().await?;
+                let namespaces: Vec<_> = tx
+                    .table_mapping()
+                    .iter()
+                    .filter_map(|(_, namespace, _, table_name)| {
+                        if table_name == &*CRON_JOBS_TABLE {
+                            Some(namespace)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                for namespace in namespaces {
+                    let crons = CronModel::new(&mut tx, namespace.into()).list().await?;
+                    for cron in crons.values() {
+                        let next_run = CronNextRun {
+                            cron_job_id: cron.id().developer_id,
+                            state: cron.state,
+                            prev_ts: cron.prev_ts,
+                            next_ts: cron.next_ts,
+                        };
+                        if let Some(existing_next_run) = CronModel::new(&mut tx, namespace.into())
+                            .next_run(cron.id().developer_id)
+                            .await?
+                            .map(|next_run| next_run.into_value())
+                        {
+                            if existing_next_run != next_run {
+                                SystemMetadataModel::new(&mut tx, namespace)
+                                    .replace(cron.id(), next_run.try_into()?)
+                                    .await?;
+                            }
+                        } else {
+                            SystemMetadataModel::new(&mut tx, namespace)
+                                .insert(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
+                                .await?;
+                        }
+                    }
+                }
+                self.db
+                    .commit_with_write_source(tx, "migration_119")
+                    .await?;
+                MigrationCompletionCriterion::MigrationComplete(to_version)
+            },
             // NOTE: Make sure to increase DATABASE_VERSION when adding new migrations.
             _ => anyhow::bail!("Version did not define a migration! {}", to_version),
         };
