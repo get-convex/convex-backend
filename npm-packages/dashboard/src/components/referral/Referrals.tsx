@@ -44,10 +44,8 @@ export function ReferralsInner({
   const referralsCount = referralState?.referrals.length;
 
   return (
-    <div className="flex grow flex-col gap-6 overflow-hidden">
-      <div className="flex items-center gap-2">
-        <h2>Referrals</h2>
-      </div>
+    <>
+      <h2>Referrals</h2>
 
       {isPaidPlan && (
         <Callout>
@@ -135,7 +133,7 @@ export function ReferralsInner({
           )}
         </div>
       </Sheet>
-    </div>
+    </>
   );
 }
 
