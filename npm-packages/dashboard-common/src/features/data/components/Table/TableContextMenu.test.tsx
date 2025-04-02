@@ -108,6 +108,7 @@ describe("TableContextMenu", () => {
       op: "eq",
       value: defaultProps.defaultDocument.name,
       id: expect.anything(),
+      enabled: true,
     });
   });
 

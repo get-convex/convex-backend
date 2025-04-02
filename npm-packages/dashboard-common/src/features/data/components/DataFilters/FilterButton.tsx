@@ -39,7 +39,7 @@ export function FilterButton({
     <div className="flex items-center gap-2">
       <span>{enableIndexFilters ? "Filter & Sort" : "Filter"}</span>
       {(indexFilters?.length || validFilterNames.size > 0) && (
-        <span className="rounded-full border bg-background-primary px-1 py-0 text-xs tabular-nums leading-[14px] text-content-secondary">
+        <span className="rounded-full border bg-blue-100/50 px-1 py-0 text-xs tabular-nums leading-[14px] text-content-accent dark:bg-blue-700/50 dark:text-white">
           {(indexFilters?.length || 0) + (regularFilters?.length || 0)}
         </span>
       )}

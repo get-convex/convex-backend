@@ -10,6 +10,8 @@ import {
 import { GenericDocument } from "convex/server";
 import {
   Filter,
+  FilterByIndex,
+  FilterByIndexRange,
   FilterExpression,
   FilterValidationError,
 } from "system-udfs/convex/_system/frontend/lib/filters";
@@ -38,11 +40,7 @@ import { cn } from "@common/lib/cn";
 import { useTableIndexes } from "@common/features/data/lib/api";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { IndexFilterState } from "./IndexFilterEditor";
-import {
-  IndexFilters,
-  DEFAULT_INDEX_NAME,
-  getDefaultIndexClause,
-} from "./IndexFilters";
+import { IndexFilters, getDefaultIndex } from "./IndexFilters";
 
 export function DataFilters({
   defaultDocument,
@@ -296,10 +294,37 @@ export function DataFilters({
                   </Button>
                 ) : (
                   hasFilters && (
-                    <p className="ml-1 flex gap-0.5 text-xs font-medium text-content-secondary">
-                      <CheckIcon />
-                      Filters applied
-                    </p>
+                    <div className="flex w-full items-center gap-1">
+                      <p className="ml-1 flex gap-0.5 text-xs font-medium text-content-secondary">
+                        <CheckIcon />
+                        Filters applied
+                      </p>
+                      <Button
+                        size="xs"
+                        variant="neutral"
+                        className="ml-auto text-xs"
+                        onClick={() => {
+                          onChangeFilters({
+                            clauses: [],
+                            index: shownFilters.index
+                              ? {
+                                  name: shownFilters.index.name,
+                                  clauses: shownFilters.index.clauses.map(
+                                    (clause) => ({
+                                      ...clause,
+                                      enabled: false,
+                                    }),
+                                  ) as
+                                    | FilterByIndex[]
+                                    | [...FilterByIndex[], FilterByIndexRange],
+                                }
+                              : undefined,
+                          });
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    </div>
                   )
                 )}
                 {dataFetchErrors && dataFetchErrors.length > 0 && (
@@ -440,10 +465,7 @@ function useDataFilters({
       draftFilters ??
       ({
         clauses: [],
-        index: {
-          name: DEFAULT_INDEX_NAME,
-          clauses: [getDefaultIndexClause()],
-        },
+        index: getDefaultIndex(),
       } as FilterExpression),
     [draftFilters],
   );
@@ -499,10 +521,7 @@ function useDataFilters({
           ...shownFilters.clauses.slice(0, idx),
           ...shownFilters.clauses.slice(idx + 1),
         ],
-        index: shownFilters.index || {
-          name: DEFAULT_INDEX_NAME,
-          clauses: [getDefaultIndexClause()],
-        },
+        index: shownFilters.index || getDefaultIndex(),
       } as FilterExpression;
       setDraftFilters(newFilters);
     },
@@ -518,10 +537,7 @@ function useDataFilters({
           generateNewFilter(),
           ...shownFilters.clauses.slice(idx),
         ],
-        index: shownFilters.index || {
-          name: DEFAULT_INDEX_NAME,
-          clauses: [getDefaultIndexClause()],
-        },
+        index: shownFilters.index || getDefaultIndex(),
       } as FilterExpression;
       setDraftFilters(newFilters);
     },

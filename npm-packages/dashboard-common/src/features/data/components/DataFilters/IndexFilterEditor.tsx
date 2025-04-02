@@ -581,26 +581,33 @@ export function IndexFilterEditor({
             disabled={!filter.enabled}
           />
         ) : (
-          <div
-            className={cn(
-              "ml-[-1px] flex w-fit items-center border px-2 py-1 text-xs cursor-not-allowed",
-              filter.enabled
-                ? "bg-background-secondary"
-                : "bg-background-tertiary text-content-secondary",
-            )}
+          <Tooltip
+            tip={
+              filter.enabled &&
+              "In an index filter, you can only change the operator of the last enabled filter."
+            }
           >
-            {currentOperator === "between"
-              ? "is between"
-              : currentOperator === "lt"
-                ? "<"
-                : currentOperator === "lte"
-                  ? "<="
-                  : currentOperator === "gt"
-                    ? ">"
-                    : currentOperator === "gte"
-                      ? ">="
-                      : "equals"}
-          </div>
+            <div
+              className={cn(
+                "ml-[-1px] flex w-fit items-center border px-2 py-1 text-xs cursor-not-allowed",
+                filter.enabled
+                  ? "bg-background-secondary"
+                  : "bg-background-tertiary text-content-secondary",
+              )}
+            >
+              {currentOperator === "between"
+                ? "is between"
+                : currentOperator === "lt"
+                  ? "<"
+                  : currentOperator === "lte"
+                    ? "<="
+                    : currentOperator === "gt"
+                      ? ">"
+                      : currentOperator === "gte"
+                        ? ">="
+                        : "equals"}
+            </div>
+          </Tooltip>
         )}
 
         {/* Render the appropriate value editor */}

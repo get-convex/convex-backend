@@ -143,8 +143,8 @@ export const useTableFilters = (
 function hasValidEnabledFilters(filters?: FilterExpression) {
   return (
     !!filters &&
-    (filters.clauses.filter(isValidFilter).filter((f) => f.enabled).length >
-      0 ||
+    (filters.clauses.filter(isValidFilter).filter((f) => f.enabled !== false)
+      .length > 0 ||
       (filters.index?.clauses.filter((f) => f.enabled).length ?? 0) > 0)
   );
 }

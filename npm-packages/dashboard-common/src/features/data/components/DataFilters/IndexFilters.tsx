@@ -2,7 +2,10 @@ import { ArrowsUpDownIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
 import { ValidatorJSON } from "convex/values";
-import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
+import {
+  FilterByIndexRange,
+  FilterExpression,
+} from "system-udfs/convex/_system/frontend/lib/filters";
 import { Button } from "@common/elements/Button";
 import { Combobox } from "@common/elements/Combobox";
 import { Tooltip } from "@common/elements/Tooltip";
@@ -11,8 +14,18 @@ import { SchemaJson } from "@common/lib/format";
 import Link from "next/link";
 import { IndexFilterEditor, IndexFilterState } from "./IndexFilterEditor";
 
+export function getDefaultIndex(): {
+  name: string;
+  clauses: [FilterByIndexRange];
+} {
+  return {
+    name: DEFAULT_INDEX_NAME,
+    clauses: [getDefaultIndexClause()],
+  };
+}
+
 // Function to generate a default index clause with current timestamp
-function getDefaultIndexClause() {
+function getDefaultIndexClause(): FilterByIndexRange {
   return {
     type: "indexRange",
     enabled: false,
@@ -135,6 +148,11 @@ export function IndexFilters({
               if (!option) {
                 return;
               }
+
+              // Clear all errors for the existing index filters
+              shownFilters.index?.clauses.forEach((_, idx) => {
+                onError(idx, []);
+              });
 
               const newFilters = {
                 ...shownFilters,
@@ -308,5 +326,3 @@ export function IndexFilters({
     </>
   );
 }
-
-export { DEFAULT_INDEX_NAME, DEFAULT_INDEX, getDefaultIndexClause };

@@ -294,6 +294,7 @@ function CellActions({
             field: state.selectedCell?.column,
             op: "eq",
             value: convexToJson(value),
+            enabled: true,
           });
         }}
       />

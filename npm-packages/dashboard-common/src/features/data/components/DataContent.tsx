@@ -51,6 +51,7 @@ import {
 } from "react-resizable-panels";
 import { cn } from "@common/lib/cn";
 import { useTableIndexes } from "@common/features/data/lib/api";
+import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
 
 export function DataContent({
   tableName,
@@ -294,8 +295,14 @@ export function DataContent({
                     onAddDraftFilter={(filter: Filter) => {
                       setDraftFilters((prev) =>
                         prev
-                          ? { clauses: [...prev.clauses, filter] }
-                          : { clauses: [filter] },
+                          ? {
+                              clauses: [...prev.clauses, filter],
+                              index: prev.index ?? getDefaultIndex(),
+                            }
+                          : {
+                              clauses: [filter],
+                              index: getDefaultIndex(),
+                            },
                       );
                       setShowFilters(true);
                     }}
