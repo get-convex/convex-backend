@@ -18,9 +18,16 @@ const algorithmNameLiteral = <AlgorithmName extends string>(
     .refine((n): n is AlgorithmName => n === algorithmName);
 };
 
-const algorithmNameLiteralWithParams = <AlgorithmName extends string>(
+const algorithmNameLiteralWithParams = <
+  AlgorithmName extends string,
+  T extends z.ZodRawShape,
+  UnknownKeys extends z.UnknownKeysParam,
+  Catchall extends z.ZodTypeAny,
+  Output,
+  Input,
+>(
   algorithmName: AlgorithmName,
-  params: z.AnyZodObject,
+  params: z.ZodObject<T, UnknownKeys, Catchall, Output, Input>,
 ) => {
   return params.extend({
     name: algorithmNameLiteral(algorithmName),
@@ -52,22 +59,35 @@ const digest = z.union([
 ]);
 
 const rsaHashedKeyGenParams = z.object({
+  modulusLength: z.number(),
+  publicExponent: z.instanceof(Uint8Array),
   hash: digest,
+});
+
+const ecKeyGenParams = z.object({
+  // see `supportedNamedCurves`
+  namedCurve: z.union([z.literal("P-256"), z.literal("P-384")]),
 });
 
 const hmacKeyGenParams = z.object({
   hash: digest,
+  length: z.onumber(),
 });
 
-const hmacImportParams = z.object({
+const aesKeyGenParams = z.object({
+  length: z.union([z.literal(128), z.literal(192), z.literal(256)]),
+});
+
+export const hmacImportParams = z.object({
   hash: digest,
+  length: z.onumber(),
 });
 
 const ecdsaParams = z.object({
   hash: digest,
 });
 
-const rsaHashedImportParams = z.object({
+export const rsaHashedImportParams = z.object({
   hash: digest,
 });
 
@@ -107,11 +127,29 @@ const rsaPssParams = z.object({
   saltLength: z.number(),
 });
 
-const _generateKey = z.union([
+export const generateKeyPublicKeyAlgorithm = z.union([
   algorithmNameLiteralWithParams("RSASSA-PKCS1-v1_5", rsaHashedKeyGenParams),
   algorithmNameLiteralWithParams("RSA-PSS", rsaHashedKeyGenParams),
   algorithmNameLiteralWithParams("RSA-OAEP", rsaHashedKeyGenParams),
-  algorithmNameLiteralWithParams("HMAC", hmacKeyGenParams),
+  algorithmNameLiteralWithParams("ECDSA", ecKeyGenParams),
+  algorithmNameLiteralWithParams("ECDH", ecKeyGenParams),
+  algorithmNameLiteralWithoutParams("Ed25519"),
+  algorithmNameLiteralWithoutParams("X25519"),
+]);
+export const generateKeyHmac = algorithmNameLiteralWithParams(
+  "HMAC",
+  hmacKeyGenParams,
+);
+export const generateKeyAes = z.union([
+  algorithmNameLiteralWithParams("AES-CTR", aesKeyGenParams),
+  algorithmNameLiteralWithParams("AES-CBC", aesKeyGenParams),
+  algorithmNameLiteralWithParams("AES-GCM", aesKeyGenParams),
+  algorithmNameLiteralWithParams("AES-KW", aesKeyGenParams),
+]);
+const generateKey = z.union([
+  generateKeyPublicKeyAlgorithm,
+  generateKeyHmac,
+  generateKeyAes,
 ]);
 
 const importKey = z.union([
@@ -157,12 +195,14 @@ export const deriveBits = z.union([
   algorithmNameLiteralWithParams("X25519", ecdhKeyDeriveParams),
 ]);
 
+const unknownAlgorithm = "Unrecognized or invalid algorithm";
+
 export const normalizeAlgorithmSign = (
   input: unknown,
 ): z.infer<typeof sign> => {
   const result = sign.safeParse(input);
   if (!result.success) {
-    throw new Error("Unrecognized algorithm");
+    throw new DOMException(unknownAlgorithm);
   } else {
     return result.data;
   }
@@ -173,7 +213,7 @@ export const normalizeAlgorithmVerify = (
 ): z.infer<typeof verify> => {
   const result = verify.safeParse(input);
   if (!result.success) {
-    throw new Error("Unrecognized algorithm");
+    throw new DOMException(unknownAlgorithm);
   } else {
     return result.data;
   }
@@ -184,7 +224,7 @@ export const normalizeAlgorithmImportKey = (
 ): z.infer<typeof importKey> => {
   const result = importKey.safeParse(input);
   if (!result.success) {
-    throw new Error("Unrecognized algorithm");
+    throw new DOMException(unknownAlgorithm);
   } else {
     return result.data;
   }
@@ -195,7 +235,7 @@ export const normalizeAlgorithmDeriveBits = (
 ): z.infer<typeof deriveBits> => {
   const result = deriveBits.safeParse(input);
   if (!result.success) {
-    throw new Error("Unrecognized algorithm");
+    throw new DOMException(unknownAlgorithm);
   } else {
     return result.data;
   }
@@ -206,7 +246,7 @@ export const normalizeAlgorithmGetKeyLength = (
 ): z.infer<typeof getKeyLength> => {
   const result = getKeyLength.safeParse(input);
   if (!result.success) {
-    throw new Error("Unrecognized algorithm");
+    throw new DOMException(unknownAlgorithm);
   } else {
     return result.data;
   }
@@ -217,7 +257,18 @@ export const normalizeAlgorithmDigest = (
 ): z.infer<typeof digest> => {
   const result = digest.safeParse(input);
   if (!result.success) {
-    throw new Error("Unrecognized algorithm");
+    throw new DOMException(unknownAlgorithm);
+  } else {
+    return result.data;
+  }
+};
+
+export const normalizeAlgorithmGenerateKey = (
+  input: unknown,
+): z.infer<typeof generateKey> => {
+  const result = generateKey.safeParse(input);
+  if (!result.success) {
+    throw new DOMException(unknownAlgorithm);
   } else {
     return result.data;
   }

@@ -3,8 +3,9 @@
 
 import * as z from "zod";
 import { getKeyLength } from "./normalize_algorithm";
+import { throwUncatchableDeveloperError } from "../helpers";
 
-export default function (algorithm: z.infer<typeof getKeyLength>) {
+export default function (algorithm: z.infer<typeof getKeyLength>): number {
   switch (algorithm.name) {
     case "AES-CBC":
     case "AES-CTR":
@@ -23,7 +24,7 @@ export default function (algorithm: z.infer<typeof getKeyLength>) {
     }
     case "HMAC": {
       // 1.
-      let length;
+      let length: number;
       if (algorithm.length === undefined) {
         switch (algorithm.hash.name) {
           case "SHA-1":
@@ -55,13 +56,17 @@ export default function (algorithm: z.infer<typeof getKeyLength>) {
     }
     case "HKDF": {
       // 1.
-      return null;
+      return throwUncatchableDeveloperError(
+        "deriving HKDF key not implemented",
+      );
     }
     case "PBKDF2": {
       // 1.
-      return null;
+      return throwUncatchableDeveloperError(
+        "deriving PBKDF2 key not implemented",
+      );
     }
-    default:
-      throw new TypeError("unreachable");
   }
+  const _: never = algorithm;
+  throw new TypeError("unreachable");
 }

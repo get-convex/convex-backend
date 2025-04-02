@@ -1,6 +1,7 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/ext/crypto/import_key.rs
 
+use anyhow::Context as _;
 use deno_core::ToJsBuffer;
 use elliptic_curve::pkcs8::PrivateKeyInfo;
 use p256::pkcs8::EncodePrivateKey;
@@ -35,7 +36,6 @@ use super::{
     CryptoNamedCurve,
     CryptoOps,
 };
-use crate::ops::crypto::shared::secure_rng_unavailable;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -535,16 +535,13 @@ fn import_key_ec_jwk(
             // Import using ring, to validate key
             let key_alg = match named_curve {
                 EcNamedCurve::P256 => CryptoNamedCurve::P256.into(),
-                EcNamedCurve::P384 => CryptoNamedCurve::P256.into(),
+                EcNamedCurve::P384 => CryptoNamedCurve::P384.into(),
                 EcNamedCurve::P521 => return Err(data_error("Unsupported named curve")),
             };
 
-            let _key_pair = EcdsaKeyPair::from_private_key_and_public_key(
-                key_alg,
-                private_d.as_bytes(),
-                point_bytes.as_ref(),
-                secure_rng_unavailable()?,
-            );
+            validate_ecdsa_private_key(key_alg, private_d.as_bytes(), &point_bytes)
+                .ok()
+                .context("Invalid key")?;
 
             Ok(ImportKeyResult::Ec {
                 raw_data: RustRawKeyData::Private(pkcs8_der.as_bytes().to_vec().into()),
@@ -552,6 +549,36 @@ fn import_key_ec_jwk(
         },
         _ => unreachable!(),
     }
+}
+
+fn validate_ecdsa_pkcs8(
+    key_alg: &'static ring::signature::EcdsaSigningAlgorithm,
+    pkcs8: &[u8],
+) -> Result<(), ring::error::KeyRejected> {
+    EcdsaKeyPair::from_pkcs8(
+        key_alg,
+        pkcs8,
+        // This randomness does not affect whether the key is accepted or rejected, and we throw
+        // away the returned keypair
+        &ring::rand::SystemRandom::new(),
+    )?;
+    Ok(())
+}
+
+fn validate_ecdsa_private_key(
+    key_alg: &'static ring::signature::EcdsaSigningAlgorithm,
+    private_key: &[u8],
+    public_key: &[u8],
+) -> Result<(), ring::error::KeyRejected> {
+    EcdsaKeyPair::from_private_key_and_public_key(
+        key_alg,
+        private_key,
+        public_key,
+        // This randomness does not affect whether the key is accepted or rejected, and we throw
+        // away the returned keypair
+        &ring::rand::SystemRandom::new(),
+    )?;
+    Ok(())
 }
 
 pub struct ECParametersSpki {
@@ -604,16 +631,22 @@ fn import_key_ec(
         KeyData::Pkcs8(data) => {
             // 2-7
             // Deserialize PKCS8 - validate structure, extracts named_curve
-            let named_curve_alg = match named_curve {
-                EcNamedCurve::P256 | EcNamedCurve::P384 => {
-                    let pk = PrivateKeyInfo::from_der(data.as_ref())
-                        .map_err(|_| data_error("expected valid PKCS#8 data"))?;
-                    pk.algorithm.oid
-                },
-                EcNamedCurve::P521 => return Err(data_error("Unsupported named curve")),
-            };
+            let pk = PrivateKeyInfo::from_der(data.as_ref())
+                .map_err(|_| data_error("expected valid PKCS#8 data"))?;
+            let alg = pk.algorithm.oid;
+            // id-ecPublicKey
+            if alg != elliptic_curve::ALGORITHM_OID {
+                return Err(data_error("unsupported algorithm"));
+            }
 
-            // 8-9.
+            let params = ECParametersSpki::try_from(
+                pk.algorithm
+                    .parameters
+                    .ok_or_else(|| data_error("malformed parameters"))?,
+            )
+            .map_err(|_| data_error("malformed parameters"))?;
+
+            let named_curve_alg = params.named_curve_alg;
             let pk_named_curve = match named_curve_alg {
                 // id-secp256r1
                 ID_SECP256R1_OID => Some(EcNamedCurve::P256),
@@ -633,9 +666,7 @@ fn import_key_ec(
                 };
 
                 // deserialize pkcs8 using ring crate, to VALIDATE public key
-                let _private_key =
-                    EcdsaKeyPair::from_pkcs8(signing_alg, &data, secure_rng_unavailable()?)
-                        .map_err(|e| anyhow::anyhow!(e))?;
+                validate_ecdsa_pkcs8(signing_alg, &data).map_err(|e| anyhow::anyhow!(e))?;
 
                 // 11.
                 if named_curve != pk_named_curve {

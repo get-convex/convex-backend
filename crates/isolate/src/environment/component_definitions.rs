@@ -470,6 +470,13 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DefinitionEnvironment {
         ))
     }
 
+    fn crypto_rng(&mut self) -> anyhow::Result<super::crypto_rng::CryptoRng> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoCryptoRngDuringDefinitionEvaluation",
+            "Cannot use cryptographic randomness when evaluating app definition"
+        ))
+    }
+
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoDateDuringDefinitionEvaluation",

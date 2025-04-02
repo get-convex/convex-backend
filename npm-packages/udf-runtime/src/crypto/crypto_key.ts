@@ -57,3 +57,5 @@ export class CryptoKey {
     })}`;
   }
 }
+
+export type CryptoKeyPair = { privateKey: CryptoKey; publicKey: CryptoKey };

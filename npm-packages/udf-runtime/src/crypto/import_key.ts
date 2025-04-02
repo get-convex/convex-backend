@@ -1,6 +1,7 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 // https://github.com/denoland/deno/blob/main/ext/crypto/00_crypto.js
 
+import { z } from "zod";
 import { performOp } from "../syscall.js";
 import { CryptoKey, KEY_STORE } from "./crypto_key.js";
 import {
@@ -10,15 +11,19 @@ import {
   TypedArrayPrototypeGetByteLength,
   WeakMapPrototypeSet,
 } from "./helpers.js";
-import { normalizeAlgorithmDigest } from "./normalize_algorithm.js";
+import {
+  hmacImportParams,
+  normalizeAlgorithmDigest,
+  rsaHashedImportParams,
+} from "./normalize_algorithm.js";
 
 export function hmac(
-  format,
-  normalizedAlgorithm,
-  keyData,
-  extractable,
-  keyUsages,
-) {
+  format: string,
+  normalizedAlgorithm: z.infer<typeof hmacImportParams> & { name: "HMAC" },
+  keyData: any, // type depends on `format`
+  extractable: boolean,
+  keyUsages: readonly string[],
+): CryptoKey {
   // 2.
   if (
     ArrayPrototypeFind(
@@ -30,8 +35,8 @@ export function hmac(
   }
 
   // 3.
-  let hash;
-  let data;
+  let hash: { name: any };
+  let data: Uint8Array<ArrayBufferLike>;
 
   // 4. https://w3c.github.io/webcrypto/#hmac-operations
   switch (format) {
@@ -203,8 +208,8 @@ export function hmac(
 
 export function pbkdf2(
   format: "raw" | "jwk" | "pkcs8" | "spki",
-  keyData,
-  extractable,
+  keyData: BufferSource,
+  extractable: boolean,
   keyUsages: string[],
 ) {
   // 1.
@@ -242,7 +247,7 @@ export function pbkdf2(
   return key;
 }
 
-const SUPPORTED_KEY_USAGES = {
+export const SUPPORTED_KEY_USAGES = {
   "RSASSA-PKCS1-v1_5": {
     public: ["verify"],
     private: ["sign"],
@@ -264,10 +269,28 @@ const SUPPORTED_KEY_USAGES = {
     jwkUse: "sig",
   },
   ECDH: {
-    public: [],
+    public: [] as string[],
     private: ["deriveKey", "deriveBits"],
     jwkUse: "enc",
   },
+  Ed25519: {
+    public: ["verify"],
+    private: ["sign"],
+    jwkUse: "sig",
+  },
+  X25519: {
+    public: [] as string[],
+    private: ["deriveKey", "deriveBits"],
+    jwkUse: "enc",
+  },
+};
+
+export const SUPPORTED_SYMMETRIC_KEY_USAGES = {
+  "AES-CTR": ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+  "AES-CBC": ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+  "AES-GCM": ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
+  "AES-KW": ["wrapKey", "unwrapKey"],
+  HMAC: ["sign", "verify"],
 };
 
 // P-521 is not yet supported.
@@ -306,15 +329,17 @@ const aesJwkAlg = {
   },
 };
 
-function usageIntersection(a: string[], b: string[]) {
+export function usageIntersection(a: readonly string[], b: readonly string[]) {
   return a.filter((i) => b.includes(i));
 }
 
 export function rsa(
   format: "raw" | "jwk" | "pkcs8" | "spki",
-  normalizedAlgorithm,
-  keyData,
-  extractable,
+  normalizedAlgorithm: z.infer<typeof rsaHashedImportParams> & {
+    name: "RSASSA-PKCS1-v1_5" | "RSA-PSS" | "RSA-OAEP";
+  },
+  keyData: any, // type depends on `format`
+  extractable: boolean,
   keyUsages: string[],
 ) {
   switch (format) {
@@ -453,7 +478,8 @@ export function rsa(
       // 5.
       if (jwk.key_ops !== undefined) {
         if (
-          jwk.key_ops.find((u) => !recognisedUsages.includes(u)) !== undefined
+          jwk.key_ops.find((u: string) => !recognisedUsages.includes(u)) !==
+          undefined
         ) {
           throw new DOMException(
             "'key_ops' property of JsonWebKey is invalid",
@@ -461,7 +487,7 @@ export function rsa(
           );
         }
 
-        if (!jwk.key_ops.every((u) => keyUsages.includes(u))) {
+        if (!jwk.key_ops.every((u: string) => keyUsages.includes(u))) {
           throw new DOMException(
             "'key_ops' property of JsonWebKey is invalid",
             "DataError",
@@ -691,11 +717,13 @@ export function rsa(
 }
 
 export function ec(
-  format,
-  normalizedAlgorithm,
-  keyData,
-  extractable,
-  keyUsages,
+  format: string,
+  normalizedAlgorithm:
+    | { name: "ECDSA"; namedCurve: string }
+    | { name: "ECDH"; namedCurve: string },
+  keyData: any, // type depends on `format`
+  extractable: boolean,
+  keyUsages: readonly string[],
 ) {
   const supportedUsages = SUPPORTED_KEY_USAGES[normalizedAlgorithm.name];
 
@@ -918,7 +946,7 @@ export function ec(
 
       // 9.
       if (jwk.alg !== undefined && normalizedAlgorithm.name === "ECDSA") {
-        let algNamedCurve;
+        let algNamedCurve: string;
 
         switch (jwk.alg) {
           case "ES256": {
@@ -1024,13 +1052,15 @@ export function ec(
 }
 
 export function aes(
-  format,
-  normalizedAlgorithm,
-  keyData,
-  extractable,
-  keyUsages,
-  supportedKeyUsages,
+  format: string,
+  normalizedAlgorithm: { name: "AES-CTR" | "AES-CBC" | "AES-GCM" | "AES-KW" },
+  keyData: any, // type depends on `format`
+  extractable: boolean,
+  keyUsages: readonly string[],
 ) {
+  const supportedKeyUsages =
+    SUPPORTED_SYMMETRIC_KEY_USAGES[normalizedAlgorithm.name];
+
   // 1.
   if (
     ArrayPrototypeFind(
@@ -1188,7 +1218,12 @@ export function aes(
   return key;
 }
 
-export function hkdf(format, keyData, extractable, keyUsages) {
+export function hkdf(
+  format: string,
+  keyData: BufferSource,
+  extractable: boolean,
+  keyUsages: readonly string[],
+) {
   if (format !== "raw") {
     throw new DOMException("Format not supported", "NotSupportedError");
   }
@@ -1231,7 +1266,12 @@ export function hkdf(format, keyData, extractable, keyUsages) {
   return key;
 }
 
-export function ed25519(format, keyData, extractable, keyUsages) {
+export function ed25519(
+  format: string,
+  keyData: any, // type depends on `format`
+  extractable: boolean,
+  keyUsages: readonly string[],
+) {
   switch (format) {
     case "raw": {
       // 1.
@@ -1453,7 +1493,12 @@ export function ed25519(format, keyData, extractable, keyUsages) {
   }
 }
 
-export function x25519(format, keyData, extractable, keyUsages) {
+export function x25519(
+  format: string,
+  keyData: any, // type depends on `format`
+  extractable: boolean,
+  keyUsages: readonly string[],
+) {
   switch (format) {
     case "raw": {
       // 1.

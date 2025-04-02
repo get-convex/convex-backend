@@ -3,6 +3,7 @@
 
 mod ed25519;
 mod export_key;
+mod generate_key;
 mod import_key;
 mod shared;
 mod x25519;
@@ -65,14 +66,14 @@ use self::{
     },
     shared::{
         not_supported,
-        secure_rng_unavailable,
         type_error,
         AnyError,
+        RustRawKeyData,
         V8RawKeyData,
     },
 };
 use super::OpProvider;
-use crate::ops::crypto::shared::crypto_rng_unavailable;
+use crate::environment::crypto_rng::CryptoRng;
 
 #[convex_macro::v8_op]
 pub fn op_crypto_random_uuid<'b, P: OpProvider<'b>>(provider: &mut P) -> anyhow::Result<String> {
@@ -97,6 +98,7 @@ pub fn op_crypto_sign<'b, P: OpProvider<'b>>(
     args: CryptoSignArgs,
 ) -> anyhow::Result<ToJsBuffer> {
     let signature = CryptoOps::sign(
+        || provider.crypto_rng(),
         &args.key,
         &args.data,
         args.algorithm,
@@ -127,6 +129,7 @@ pub fn op_crypto_verify<'b, P: OpProvider<'b>>(
         &args.signature,
         args.algorithm,
         args.named_curve,
+        args.salt_length,
         args.hash,
     )
 }
@@ -266,6 +269,24 @@ pub fn op_crypto_export_pkcs8_x25519<'b, P: OpProvider<'b>>(
     CryptoOps::export_pkcs8_x25519(&pkey)
 }
 
+#[convex_macro::v8_op]
+pub fn op_crypto_generate_keypair<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    algorithm: GenerateKeypairAlgorithm,
+) -> anyhow::Result<GeneratedKeypair> {
+    let rng = provider.crypto_rng()?;
+    CryptoOps::generate_keypair(rng, algorithm)
+}
+
+#[convex_macro::v8_op]
+pub fn op_crypto_generate_key_bytes<'b, P: OpProvider<'b>>(
+    provider: &mut P,
+    length: usize,
+) -> anyhow::Result<ToJsBuffer> {
+    let rng = provider.crypto_rng()?;
+    CryptoOps::generate_key_bytes(rng, length)
+}
+
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CryptoSignArgs {
@@ -284,6 +305,7 @@ pub struct CryptoVerifyArgs {
     pub algorithm: Algorithm,
     pub hash: Option<CryptoHash>,
     pub signature: ByteBuf,
+    pub salt_length: Option<u32>,
     pub named_curve: Option<CryptoNamedCurve>,
     pub data: ByteBuf,
 }
@@ -386,6 +408,45 @@ pub struct DeriveKeyArg {
     // info: Option<ByteBuf>,
 }
 
+#[derive(Deserialize)]
+pub enum Curve25519Algorithm {
+    Ed25519,
+    X25519,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all_fields = "camelCase")]
+#[serde(untagged)]
+pub enum GenerateKeypairAlgorithm {
+    Rsa {
+        name: Algorithm,
+        modulus_length: usize,
+        public_exponent: ByteBuf,
+    },
+    Ec {
+        name: Algorithm,
+        named_curve: CryptoNamedCurve,
+    },
+    Curve25519 {
+        name: Curve25519Algorithm,
+    },
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeneratedKeypair {
+    public_raw_data: GeneratedKey,
+    private_raw_data: GeneratedKey,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+pub enum GeneratedKey {
+    KeyData(RustRawKeyData),
+    // Ed25519/X25519 store just raw key bytes instead of a structure :/
+    RawBytes(ToJsBuffer),
+}
+
 #[derive(Serialize, Deserialize, Clone, Copy)]
 pub enum Algorithm {
     #[serde(rename = "RSASSA-PKCS1-v1_5")]
@@ -444,6 +505,7 @@ impl CryptoOps {
     }
 
     pub fn sign(
+        rng: impl FnOnce() -> anyhow::Result<CryptoRng>,
         key: &[u8],
         data: &[u8],
         algorithm: Algorithm,
@@ -478,40 +540,47 @@ impl CryptoOps {
             Algorithm::RsaPss => {
                 use rsa::pss::SigningKey;
                 let private_key = RsaPrivateKey::from_pkcs1_der(key)?;
+                // RSA-PSS uses randomized padding; this requires the crypto RNG
+                let rng = rng()?;
 
                 let salt_len = salt_length
                     .ok_or_else(|| type_error("Missing argument saltLength".to_string()))?
                     as usize;
 
-                let rng = crypto_rng_unavailable()?;
                 match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
                     CryptoHash::Sha1 => {
                         let signing_key =
                             SigningKey::<Sha1>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(rng, data)
+                        signing_key.sign_with_rng(&mut rng.rsa(), data)
                     },
                     CryptoHash::Sha256 => {
                         let signing_key =
                             SigningKey::<Sha256>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(rng, data)
+                        signing_key.sign_with_rng(&mut rng.rsa(), data)
                     },
                     CryptoHash::Sha384 => {
                         let signing_key =
                             SigningKey::<Sha384>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(rng, data)
+                        signing_key.sign_with_rng(&mut rng.rsa(), data)
                     },
                     CryptoHash::Sha512 => {
                         let signing_key =
                             SigningKey::<Sha512>::new_with_salt_len(private_key, salt_len);
-                        signing_key.sign_with_rng(rng, data)
+                        signing_key.sign_with_rng(&mut rng.rsa(), data)
                     },
                 }
                 .to_vec()
             },
             Algorithm::Ecdsa => {
                 let curve: &EcdsaSigningAlgorithm = named_curve.ok_or_else(not_supported)?.into();
+                // ECDSA uses a nonce that must never be reused or revealed, or
+                // else it leaks the private key. So we require a true CryptoRng
+                // here.
+                // TODO: we could use RFC6979 deterministic signatures instead
+                // (but `ring` does not support it).
+                let rng = rng()?;
 
-                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, secure_rng_unavailable()?)
+                let key_pair = EcdsaKeyPair::from_pkcs8(curve, key, &rng.ring())
                     .map_err(|e| anyhow::anyhow!(e))?;
                 // We only support P256-SHA256 & P384-SHA384. These are recommended signature
                 // pairs. https://briansmith.org/rustdoc/ring/signature/index.html#statics
@@ -523,7 +592,7 @@ impl CryptoOps {
                 };
 
                 let signature = key_pair
-                    .sign(secure_rng_unavailable()?, data)
+                    .sign(&rng.ring(), data)
                     .map_err(|e| anyhow::anyhow!(e))?;
 
                 // Signature data as buffer.
@@ -549,6 +618,7 @@ impl CryptoOps {
         signature: &[u8],
         algorithm: Algorithm,
         named_curve: Option<CryptoNamedCurve>,
+        salt_length: Option<u32>,
         hash: Option<CryptoHash>,
     ) -> anyhow::Result<bool> {
         let verification = match algorithm {
@@ -586,21 +656,29 @@ impl CryptoOps {
                 let public_key = read_rsa_public_key(key)?;
                 let signature: Signature = signature.as_ref().try_into()?;
 
+                let salt_len = salt_length
+                    .ok_or_else(|| type_error("Missing argument saltLength".to_string()))?
+                    as usize;
+
                 match hash.ok_or_else(|| type_error("Missing argument hash".to_string()))? {
                     CryptoHash::Sha1 => {
-                        let verifying_key: VerifyingKey<Sha1> = public_key.into();
+                        let verifying_key: VerifyingKey<Sha1> =
+                            VerifyingKey::new_with_salt_len(public_key, salt_len);
                         verifying_key.verify(data, &signature).is_ok()
                     },
                     CryptoHash::Sha256 => {
-                        let verifying_key: VerifyingKey<Sha256> = public_key.into();
+                        let verifying_key: VerifyingKey<Sha256> =
+                            VerifyingKey::new_with_salt_len(public_key, salt_len);
                         verifying_key.verify(data, &signature).is_ok()
                     },
                     CryptoHash::Sha384 => {
-                        let verifying_key: VerifyingKey<Sha384> = public_key.into();
+                        let verifying_key: VerifyingKey<Sha384> =
+                            VerifyingKey::new_with_salt_len(public_key, salt_len);
                         verifying_key.verify(data, &signature).is_ok()
                     },
                     CryptoHash::Sha512 => {
-                        let verifying_key: VerifyingKey<Sha512> = public_key.into();
+                        let verifying_key: VerifyingKey<Sha512> =
+                            VerifyingKey::new_with_salt_len(public_key, salt_len);
                         verifying_key.verify(data, &signature).is_ok()
                     },
                 }
@@ -623,7 +701,10 @@ impl CryptoOps {
                         private_key = EcdsaKeyPair::from_pkcs8(
                             signing_alg,
                             &key.data,
-                            secure_rng_unavailable()?,
+                            // This RNG would only be used if we used this key for *signing*, but
+                            // all we are doing is constructing its public key which is
+                            // deterministic
+                            &ring::rand::SystemRandom::new(),
                         )
                         .map_err(|e| anyhow::anyhow!(e))?;
 

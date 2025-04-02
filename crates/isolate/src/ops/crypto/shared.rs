@@ -3,7 +3,6 @@
 
 use std::borrow::Cow;
 
-use common::errors::JsError;
 use deno_core::ToJsBuffer;
 use elliptic_curve::sec1::ToEncodedPoint;
 use errors::ErrorMetadata;
@@ -20,8 +19,6 @@ use serde::{
     Serialize,
 };
 use serde_bytes::ByteBuf;
-
-use crate::environment::UncatchableDeveloperError;
 
 pub type AnyError = anyhow::Error;
 
@@ -47,7 +44,7 @@ pub enum ShaHash {
     Sha512,
 }
 
-#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Eq, PartialEq, Debug)]
 pub enum EcNamedCurve {
     #[serde(rename = "P-256")]
     P256,
@@ -171,20 +168,4 @@ pub fn not_supported() -> AnyError {
 
 pub fn unsupported_format() -> AnyError {
     not_supported_error("unsupported format")
-}
-
-// TODO(CX-5960) implement secure random, either only in actions or with
-// determinism.
-pub fn secure_rng_unavailable() -> anyhow::Result<&'static dyn ring::rand::SecureRandom> {
-    anyhow::bail!(UncatchableDeveloperError {
-        js_error: JsError::from_message("Convex runtime does not support SecureRandom".to_string())
-    })
-}
-
-pub fn crypto_rng_unavailable() -> anyhow::Result<&'static mut rsa::rand_core::OsRng> {
-    anyhow::bail!(UncatchableDeveloperError {
-        js_error: JsError::from_message(
-            "Convex runtime does not support CryptoRngCore".to_string()
-        )
-    })
 }

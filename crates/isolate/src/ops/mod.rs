@@ -76,6 +76,8 @@ use self::{
         op_crypto_export_pkcs8_x25519,
         op_crypto_export_spki_ed25519,
         op_crypto_export_spki_x25519,
+        op_crypto_generate_key_bytes,
+        op_crypto_generate_keypair,
         op_crypto_get_random_values,
         op_crypto_import_key,
         op_crypto_import_pkcs8_ed25519,
@@ -137,6 +139,7 @@ pub use self::{
 };
 use crate::{
     environment::{
+        crypto_rng::CryptoRng,
         AsyncOpRequest,
         IsolateEnvironment,
     },
@@ -152,6 +155,7 @@ use crate::{
 
 pub trait OpProvider<'b> {
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
+    fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng>;
     fn scope(&mut self) -> &mut v8::HandleScope<'b>;
     fn lookup_source_map(
         &mut self,
@@ -203,6 +207,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> OpProvider<'b>
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         let state = self.state_mut()?;
         state.environment.rng()
+    }
+
+    fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng> {
+        let state = self.state_mut()?;
+        state.environment.crypto_rng()
     }
 
     fn lookup_source_map(
@@ -420,6 +429,8 @@ pub fn run_op<'b, P: OpProvider<'b>>(
         "crypto/JwkXEd25519" => op_crypto_jwk_x_ed25519(provider, args, rv)?,
         "crypto/exportSpkiX25519" => op_crypto_export_spki_x25519(provider, args, rv)?,
         "crypto/exportPkcs8X25519" => op_crypto_export_pkcs8_x25519(provider, args, rv)?,
+        "crypto/generateKeyPair" => op_crypto_generate_keypair(provider, args, rv)?,
+        "crypto/generateKeyBytes" => op_crypto_generate_key_bytes(provider, args, rv)?,
         _ => {
             anyhow::bail!(ErrorMetadata::bad_request(
                 "UnknownOperation",

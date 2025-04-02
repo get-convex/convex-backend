@@ -15,6 +15,7 @@ import {
 import {
   normalizeAlgorithmDeriveBits,
   normalizeAlgorithmDigest,
+  normalizeAlgorithmGenerateKey,
   normalizeAlgorithmGetKeyLength,
   normalizeAlgorithmImportKey,
   normalizeAlgorithmSign,
@@ -22,6 +23,7 @@ import {
 } from "./crypto/normalize_algorithm.js";
 import {
   KEY_STORE,
+  CryptoKeyPair,
   CryptoKey,
   _handle,
   _type,
@@ -30,6 +32,7 @@ import {
 } from "./crypto/crypto_key.js";
 import * as ImportKey from "./crypto/import_key.js";
 import * as ExportKey from "./crypto/export_key.js";
+import * as GenerateKey from "./crypto/generate_key.js";
 import { deriveBits } from "./crypto/derive_bits.js";
 import getKeyLength from "./crypto/get_key_length.js";
 
@@ -145,7 +148,8 @@ class SubtleCrypto {
       );
     }
 
-    switch (normalizedAlgorithm.name) {
+    const algorithmName = normalizedAlgorithm.name;
+    switch (algorithmName) {
       case "RSASSA-PKCS1-v1_5": {
         // 1.
         if (key[_type] !== "private") {
@@ -255,7 +259,8 @@ class SubtleCrypto {
       }
     }
 
-    throw new TypeError(`Unknown algorithm name ${normalizedAlgorithm.name}`);
+    const _: never = algorithmName;
+    throw new TypeError(`Unknown algorithm name ${algorithmName}`);
   }
 
   async importKey(
@@ -328,16 +333,7 @@ class SubtleCrypto {
       }
       case "AES-CTR":
       case "AES-CBC":
-      case "AES-GCM": {
-        return ImportKey.aes(
-          format,
-          normalizedAlgorithm,
-          keyData,
-          extractable,
-          keyUsages,
-          ["encrypt", "decrypt", "wrapKey", "unwrapKey"],
-        );
-      }
+      case "AES-GCM":
       case "AES-KW": {
         return ImportKey.aes(
           format,
@@ -345,7 +341,6 @@ class SubtleCrypto {
           keyData,
           extractable,
           keyUsages,
-          ["wrapKey", "unwrapKey"],
         );
       }
       case "X25519": {
@@ -502,7 +497,6 @@ class SubtleCrypto {
     const result = await this.importKey(
       "raw",
       secret,
-      // @ts-expect-error TODO: figure out why these types don't match up
       normalizedDerivedKeyAlgorithmImport,
       extractable,
       keyUsages,
@@ -557,7 +551,8 @@ class SubtleCrypto {
       );
     }
 
-    switch (normalizedAlgorithm.name) {
+    const algorithmName = normalizedAlgorithm.name;
+    switch (algorithmName) {
       case "RSASSA-PKCS1-v1_5": {
         if (key[_type] !== "public") {
           throw new DOMException(
@@ -589,6 +584,7 @@ class SubtleCrypto {
           algorithm: "RSA-PSS",
           hash: hashAlgorithm,
           signature,
+          saltLength: normalizedAlgorithm.saltLength,
           data: dataCopy,
         });
       }
@@ -643,7 +639,8 @@ class SubtleCrypto {
       }
     }
 
-    throw new TypeError(`Unknown algorithm name ${normalizedAlgorithm.name}`);
+    const _: never = algorithmName;
+    throw new TypeError(`Unknown algorithm name ${algorithmName}`);
   }
 
   async wrapKey() {
@@ -654,8 +651,47 @@ class SubtleCrypto {
     throwNotImplementedMethodError("unwrapKey", "SubtleCrypto");
   }
 
-  async generateKey() {
-    throwNotImplementedMethodError("generateKey", "SubtleCrypto");
+  async generateKey(
+    algorithm:
+      | AlgorithmIdentifier
+      | AesKeyGenParams
+      | HmacKeyGenParams
+      | RsaHashedKeyGenParams
+      | EcKeyGenParams,
+    extractable: boolean,
+    keyUsages: ReadonlyArray<KeyUsage>,
+  ): Promise<CryptoKeyPair | CryptoKey> {
+    const prefix = "Failed to execute 'generateKey' on 'SubtleCrypto'";
+    requiredArguments(arguments.length, 3, prefix);
+
+    const normalizedAlgorithm = normalizeAlgorithmGenerateKey(algorithm);
+    const algorithmName = normalizedAlgorithm.name;
+    switch (algorithmName) {
+      case "HMAC": {
+        return GenerateKey.hmac(normalizedAlgorithm, extractable, keyUsages);
+      }
+      case "ECDH":
+      case "ECDSA":
+      case "RSASSA-PKCS1-v1_5":
+      case "RSA-PSS":
+      case "RSA-OAEP":
+      case "Ed25519": {
+        return GenerateKey.keyPair(normalizedAlgorithm, extractable, keyUsages);
+      }
+      case "AES-CTR":
+      case "AES-CBC":
+      case "AES-GCM":
+      case "AES-KW": {
+        return GenerateKey.aes(normalizedAlgorithm, extractable, keyUsages);
+      }
+      case "X25519": {
+        return throwUncatchableDeveloperError(
+          "Generating X25519 keys is not yet supported",
+        );
+      }
+    }
+    const _: never = algorithmName;
+    throw new DOMException("Not implemented", "NotSupportedError");
   }
 
   inspect() {

@@ -146,6 +146,13 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AnalyzeEnvironment {
         Ok(&mut self.rng)
     }
 
+    fn crypto_rng(&mut self) -> anyhow::Result<super::crypto_rng::CryptoRng> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoCryptoRngDuringImport",
+            "Cannot use cryptographic randomness at import time"
+        ))
+    }
+
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         Ok(self.unix_timestamp)
     }

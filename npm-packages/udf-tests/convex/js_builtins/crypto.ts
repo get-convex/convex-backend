@@ -2,7 +2,7 @@
 
 import { wrapInTests } from "./testHelpers";
 import { assert, expect } from "chai";
-import { query } from "../_generated/server.js";
+import { action, query } from "../_generated/server.js";
 
 // -----------------------------------------------------------------------------
 // Begin tests from Deno
@@ -107,47 +107,47 @@ async function testImportArrayBufferKey() {
   await subtle.sign({ name: "HMAC" }, cryptoKey, new Uint8Array(8));
 }
 
-// async function testSignVerify() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
-//   for (const algorithm of ["RSA-PSS", "RSASSA-PKCS1-v1_5"]) {
-//     for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]) {
-//       const keyPair = await subtle.generateKey(
-//         {
-//           name: algorithm,
-//           modulusLength: 2048,
-//           publicExponent: new Uint8Array([1, 0, 1]),
-//           hash,
-//         },
-//         true,
-//         ["sign", "verify"],
-//       );
+async function testSignVerify() {
+  const subtle = crypto.subtle;
+  assert(subtle);
+  for (const algorithm of ["RSA-PSS", "RSASSA-PKCS1-v1_5"]) {
+    for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]) {
+      const keyPair = await subtle.generateKey(
+        {
+          name: algorithm,
+          modulusLength: 2048,
+          publicExponent: new Uint8Array([1, 0, 1]),
+          hash,
+        },
+        true,
+        ["sign", "verify"],
+      );
 
-//       const data = new Uint8Array([1, 2, 3]);
+      const data = new Uint8Array([1, 2, 3]);
 
-//       const signAlgorithm = { name: algorithm, saltLength: 32 };
+      const signAlgorithm = { name: algorithm, saltLength: 32 };
 
-//       const signature = await subtle.sign(
-//         signAlgorithm,
-//         keyPair.privateKey,
-//         data,
-//       );
+      const signature = await subtle.sign(
+        signAlgorithm,
+        keyPair.privateKey,
+        data,
+      );
 
-//       assert(signature);
-//       assert(signature.byteLength > 0);
-//       assert(signature.byteLength % 8 == 0);
-//       assert(signature instanceof ArrayBuffer);
+      assert(signature);
+      assert(signature.byteLength > 0);
+      assert.strictEqual(signature.byteLength % 8, 0);
+      assert(signature instanceof ArrayBuffer);
 
-//       const verified = await subtle.verify(
-//         signAlgorithm,
-//         keyPair.publicKey,
-//         signature,
-//         data,
-//       );
-//       assert(verified);
-//     }
-//   }
-// }
+      const verified = await subtle.verify(
+        signAlgorithm,
+        keyPair.publicKey,
+        signature,
+        data,
+      );
+      assert(verified);
+    }
+  }
+}
 
 // deno-fmt-ignore
 const plainText = new Uint8Array([
@@ -210,7 +210,7 @@ const hashPlainTextVector = [
 
 //     assert(cipherText);
 //     assert(cipherText.byteLength > 0);
-//     assertEquals(cipherText.byteLength * 8, 2048);
+//     assert.equal(cipherText.byteLength * 8, 2048);
 //     assert(cipherText instanceof ArrayBuffer);
 
 //     const decrypted = await subtle.decrypt(
@@ -220,7 +220,7 @@ const hashPlainTextVector = [
 //     );
 //     assert(decrypted);
 //     assert(decrypted instanceof ArrayBuffer);
-//     assertEquals(new Uint8Array(decrypted), plainText);
+//     assert.equal(new Uint8Array(decrypted), plainText);
 
 //     const badPlainText = new Uint8Array(plainText.byteLength + 1);
 //     badPlainText.set(plainText, 0);
@@ -233,145 +233,143 @@ const hashPlainTextVector = [
 //   }
 // }
 
-// async function testGenerateRSAKey() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
+async function testGenerateRSAKey() {
+  const subtle = crypto.subtle;
+  assert(subtle);
 
-//   const keyPair = await subtle.generateKey(
-//     {
-//       name: "RSA-PSS",
-//       modulusLength: 2048,
-//       publicExponent: new Uint8Array([1, 0, 1]),
-//       hash: "SHA-256",
-//     },
-//     true,
-//     ["sign", "verify"],
-//   );
+  const keyPair = await subtle.generateKey(
+    {
+      name: "RSA-PSS",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  );
 
-//   assert(keyPair.privateKey);
-//   assert(keyPair.publicKey);
-//   assertEquals(keyPair.privateKey.extractable, true);
-//   assert(keyPair.privateKey.usages.includes("sign"));
-// }
+  assert(keyPair.privateKey);
+  assert(keyPair.publicKey);
+  assert.equal(keyPair.privateKey.extractable, true);
+  assert(keyPair.privateKey.usages.includes("sign"));
+}
 
-// async function testGenerateHMACKey() {
-//   const key = await crypto.subtle.generateKey(
-//     {
-//       name: "HMAC",
-//       hash: "SHA-512",
-//     },
-//     true,
-//     ["sign", "verify"],
-//   );
+async function testGenerateHMACKey() {
+  const key = await crypto.subtle.generateKey(
+    {
+      name: "HMAC",
+      hash: "SHA-512",
+    },
+    true,
+    ["sign", "verify"],
+  );
 
-//   assert(key);
-//   assertEquals(key.extractable, true);
-//   assert(key.usages.includes("sign"));
-// }
+  assert(key);
+  assert.equal(key.extractable, true);
+  assert(key.usages.includes("sign"));
+}
 
-// async function testECDSASignVerify() {
-//   const key = await crypto.subtle.generateKey(
-//     {
-//       name: "ECDSA",
-//       namedCurve: "P-384",
-//     },
-//     true,
-//     ["sign", "verify"],
-//   );
+async function testECDSASignVerify() {
+  const key = await crypto.subtle.generateKey(
+    {
+      name: "ECDSA",
+      namedCurve: "P-384",
+    },
+    true,
+    ["sign", "verify"],
+  );
 
-//   const encoder = new TextEncoder();
-//   const encoded = encoder.encode("Hello, World!");
-//   const signature = await crypto.subtle.sign(
-//     { name: "ECDSA", hash: "SHA-384" },
-//     key.privateKey,
-//     encoded,
-//   );
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode("Hello, World!");
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-384" },
+    key.privateKey,
+    encoded,
+  );
 
-//   assert(signature);
-//   assert(signature instanceof ArrayBuffer);
+  assert(signature);
+  assert(signature instanceof ArrayBuffer);
 
-//   const verified = await crypto.subtle.verify(
-//     { hash: { name: "SHA-384" }, name: "ECDSA" },
-//     key.publicKey,
-//     signature,
-//     encoded,
-//   );
-//   assert(verified);
-// }
+  const verified = await crypto.subtle.verify(
+    { hash: { name: "SHA-384" }, name: "ECDSA" },
+    key.publicKey,
+    signature,
+    encoded,
+  );
+  assert(verified);
+}
 
 // Tests the "bad paths" as a temporary replacement for sign_verify/ecdsa WPT.
-// async function testECDSASignVerifyFail() {
-//   const key = await crypto.subtle.generateKey(
-//     {
-//       name: "ECDSA",
-//       namedCurve: "P-384",
-//     },
-//     true,
-//     ["sign", "verify"],
-//   );
+async function testECDSASignVerifyFail() {
+  const key = await crypto.subtle.generateKey(
+    {
+      name: "ECDSA",
+      namedCurve: "P-384",
+    },
+    true,
+    ["sign", "verify"],
+  );
 
-//   const encoded = new Uint8Array([1]);
-//   // Signing with a public key (InvalidAccessError)
-//   await assertRejects(async () => {
-//     await crypto.subtle.sign(
-//       { name: "ECDSA", hash: "SHA-384" },
-//       key.publicKey,
-//       new Uint8Array([1]),
-//     );
-//     throw new TypeError("unreachable");
-//   }, DOMException);
+  const encoded = new Uint8Array([1]);
+  // Signing with a public key (InvalidAccessError)
+  await expect(
+    crypto.subtle.sign(
+      { name: "ECDSA", hash: "SHA-384" },
+      key.publicKey,
+      new Uint8Array([1]),
+    ),
+  ).to.be.rejectedWith(DOMException);
 
-//   // Do a valid sign for later verifying.
-//   const signature = await crypto.subtle.sign(
-//     { name: "ECDSA", hash: "SHA-384" },
-//     key.privateKey,
-//     encoded,
-//   );
+  // Do a valid sign for later verifying.
+  const signature = await crypto.subtle.sign(
+    { name: "ECDSA", hash: "SHA-384" },
+    key.privateKey,
+    encoded,
+  );
 
-//   // Verifying with a private key (InvalidAccessError)
-//   await assertRejects(async () => {
-//     await crypto.subtle.verify(
-//       { hash: { name: "SHA-384" }, name: "ECDSA" },
-//       key.privateKey,
-//       signature,
-//       encoded,
-//     );
-//     throw new TypeError("unreachable");
-//   }, DOMException);
-// }
+  // Verifying with a private key (InvalidAccessError)
+  await expect(
+    crypto.subtle.verify(
+      { hash: { name: "SHA-384" }, name: "ECDSA" },
+      key.privateKey,
+      signature,
+      encoded,
+    ),
+  ).to.be.rejectedWith(DOMException);
+}
 
 // https://github.com/denoland/deno/issues/11313
-// async function testSignRSASSAKey() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
+async function testSignRSASSAKey() {
+  const subtle = crypto.subtle;
+  assert(subtle);
 
-//   const keyPair = await subtle.generateKey(
-//     {
-//       name: "RSASSA-PKCS1-v1_5",
-//       modulusLength: 2048,
-//       publicExponent: new Uint8Array([1, 0, 1]),
-//       hash: "SHA-256",
-//     },
-//     true,
-//     ["sign", "verify"],
-//   );
+  const keyPair = await subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  );
 
-//   assert(keyPair.privateKey);
-//   assert(keyPair.publicKey);
-//   assertEquals(keyPair.privateKey.extractable, true);
-//   assert(keyPair.privateKey.usages.includes("sign"));
+  assert(keyPair.privateKey);
+  assert(keyPair.publicKey);
+  assert.equal(keyPair.privateKey.extractable, true);
+  assert(keyPair.privateKey.usages.includes("sign"));
 
-//   const encoder = new TextEncoder();
-//   const encoded = encoder.encode("Hello, World!");
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode("Hello, World!");
 
-//   const signature = await crypto.subtle.sign(
-//     { name: "RSASSA-PKCS1-v1_5" },
-//     keyPair.privateKey,
-//     encoded,
-//   );
+  const signature = await crypto.subtle.sign(
+    { name: "RSASSA-PKCS1-v1_5" },
+    keyPair.privateKey,
+    encoded,
+  );
 
-//   assert(signature);
-// }
+  assert(signature);
+}
 
 const jwk: JsonWebKey = {
   kty: "oct",
@@ -1023,7 +1021,7 @@ async function testImportRsaJwk() {
   }
 }
 
-const _jwtECKeys = {
+const jwtECKeys = {
   "256": {
     size: 256,
     algo: "ES256",
@@ -1060,139 +1058,134 @@ const _jwtECKeys = {
   },
 };
 
-// type JWK = Record<string, string>;
+type JWK = Record<string, string>;
 
-// function equalJwk(expected: JWK, got: JWK): boolean {
-//   const fields = Object.keys(expected);
+function equalJwk(expected: JWK, got: JWK): boolean {
+  const fields = Object.keys(expected);
 
-//   for (let i = 0; i < fields.length; i++) {
-//     const fieldName = fields[i];
+  for (let i = 0; i < fields.length; i++) {
+    const fieldName = fields[i];
 
-//     if (!(fieldName in got)) {
-//       return false;
-//     }
-//     if (expected[fieldName] !== got[fieldName]) {
-//       return false;
-//     }
-//   }
+    if (!(fieldName in got)) {
+      return false;
+    }
+    if (expected[fieldName] !== got[fieldName]) {
+      return false;
+    }
+  }
 
-//   return true;
-// }
+  return true;
+}
 
-// async function testImportExportEcDsaJwk() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
+async function testImportExportEcDsaJwk() {
+  const subtle = crypto.subtle;
+  assert(subtle);
 
-//   for (const [_key, keyData] of Object.entries(jwtECKeys)) {
-//     const { publicJWK, privateJWK, algo } = keyData;
+  for (const [_key, keyData] of Object.entries(jwtECKeys)) {
+    const { publicJWK, privateJWK, algo } = keyData;
 
-//     // 1. Test import EcDsa
-//     const privateKeyECDSA = await subtle.importKey(
-//       "jwk",
-//       {
-//         alg: algo,
-//         ...privateJWK,
-//         ext: true,
-//         key_ops: ["sign"],
-//       },
-//       { name: "ECDSA", namedCurve: privateJWK.crv },
-//       true,
-//       ["sign"],
-//     );
-//     const expPrivateKeyJWK = await subtle.exportKey("jwk", privateKeyECDSA);
-//     assert(equalJwk(privateJWK, expPrivateKeyJWK as JWK));
+    // 1. Test import EcDsa
+    const privateKeyECDSA = await subtle.importKey(
+      "jwk",
+      {
+        alg: algo,
+        ...privateJWK,
+        ext: true,
+        key_ops: ["sign"],
+      },
+      { name: "ECDSA", namedCurve: privateJWK.crv },
+      true,
+      ["sign"],
+    );
+    const expPrivateKeyJWK = await subtle.exportKey("jwk", privateKeyECDSA);
+    assert(equalJwk(privateJWK, expPrivateKeyJWK as JWK));
 
-//     const publicKeyECDSA = await subtle.importKey(
-//       "jwk",
-//       {
-//         alg: algo,
-//         ...publicJWK,
-//         ext: true,
-//         key_ops: ["verify"],
-//       },
-//       { name: "ECDSA", namedCurve: publicJWK.crv },
-//       true,
-//       ["verify"],
-//     );
+    const publicKeyECDSA = await subtle.importKey(
+      "jwk",
+      {
+        alg: algo,
+        ...publicJWK,
+        ext: true,
+        key_ops: ["verify"],
+      },
+      { name: "ECDSA", namedCurve: publicJWK.crv },
+      true,
+      ["verify"],
+    );
 
-//     const expPublicKeyJWK = await subtle.exportKey("jwk", publicKeyECDSA);
+    const expPublicKeyJWK = await subtle.exportKey("jwk", publicKeyECDSA);
 
-//     assert(equalJwk(publicJWK, expPublicKeyJWK as JWK));
+    assert(equalJwk(publicJWK, expPublicKeyJWK as JWK));
 
-//     const signatureECDSA = await subtle.sign(
-//       { name: "ECDSA", hash: `SHA-${keyData.size}` },
-//       privateKeyECDSA,
-//       new Uint8Array([1, 2, 3, 4]),
-//     );
+    const signatureECDSA = await subtle.sign(
+      { name: "ECDSA", hash: `SHA-${keyData.size}` },
+      privateKeyECDSA,
+      new Uint8Array([1, 2, 3, 4]),
+    );
 
-//     const verifyECDSA = await subtle.verify(
-//       { name: "ECDSA", hash: `SHA-${keyData.size}` },
-//       publicKeyECDSA,
-//       signatureECDSA,
-//       new Uint8Array([1, 2, 3, 4]),
-//     );
-//     assert(verifyECDSA);
-//   }
-// }
+    const verifyECDSA = await subtle.verify(
+      { name: "ECDSA", hash: `SHA-${keyData.size}` },
+      publicKeyECDSA,
+      signatureECDSA,
+      new Uint8Array([1, 2, 3, 4]),
+    );
+    assert(verifyECDSA);
+  }
+}
 
-// async function testImportEcDhJwk() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
+async function testImportEcDhJwk() {
+  const subtle = crypto.subtle;
+  assert(subtle);
 
-//   for (const [_key, jwkData] of Object.entries(jwtECKeys)) {
-//     const { size, publicJWK, privateJWK } = jwkData;
+  for (const [_key, jwkData] of Object.entries(jwtECKeys)) {
+    const { size, publicJWK, privateJWK } = jwkData;
 
-//     // 1. Test import EcDsa
-//     const privateKeyECDH = await subtle.importKey(
-//       "jwk",
-//       {
-//         ...privateJWK,
-//         ext: true,
-//         key_ops: ["deriveBits"],
-//       },
-//       { name: "ECDH", namedCurve: privateJWK.crv },
-//       true,
-//       ["deriveBits"],
-//     );
+    // 1. Test import EcDsa
+    const privateKeyECDH = await subtle.importKey(
+      "jwk",
+      {
+        ...privateJWK,
+        ext: true,
+        key_ops: ["deriveBits"],
+      },
+      { name: "ECDH", namedCurve: privateJWK.crv },
+      true,
+      ["deriveBits"],
+    );
 
-//     // const expPrivateKeyJWK = await subtle.exportKey(
-//     //   "jwk",
-//     //   privateKeyECDH,
-//     // );
-//     // assert(equalJwk(privateJWK, expPrivateKeyJWK as JWK));
+    const expPrivateKeyJWK = await subtle.exportKey("jwk", privateKeyECDH);
+    assert(equalJwk(privateJWK, expPrivateKeyJWK as JWK));
 
-//     const publicKeyECDH = await subtle.importKey(
-//       "jwk",
-//       {
-//         ...publicJWK,
-//         ext: true,
-//         key_ops: [],
-//       },
-//       { name: "ECDH", namedCurve: publicJWK.crv },
-//       true,
-//       [],
-//     );
-//     // const expPublicKeyJWK = await subtle.exportKey(
-//     //   "jwk",
-//     //   publicKeyECDH,
-//     // );
-//     // assert(equalJwk(publicJWK, expPublicKeyJWK as JWK));
+    const publicKeyECDH = await subtle.importKey(
+      "jwk",
+      {
+        ...publicJWK,
+        ext: true,
+        key_ops: [],
+      },
+      { name: "ECDH", namedCurve: publicJWK.crv },
+      true,
+      [],
+    );
+    const expPublicKeyJWK = await subtle.exportKey("jwk", publicKeyECDH);
+    assert(equalJwk(publicJWK, expPublicKeyJWK as JWK));
 
-//     const derivedKey = await subtle.deriveBits(
-//       {
-//         name: "ECDH",
-//         public: publicKeyECDH,
-//       },
-//       privateKeyECDH,
-//       size,
-//     );
+    const _size = size;
+    // const derivedKey = await subtle.deriveBits(
+    //   {
+    //     name: "ECDH",
+    //     public: publicKeyECDH,
+    //   },
+    //   privateKeyECDH,
+    //   size,
+    // );
 
-//     assert(derivedKey instanceof ArrayBuffer);
-//     assert.strictEqual(derivedKey.byteLength, size / 8);
-//   }
-// }
+    // assert(derivedKey instanceof ArrayBuffer);
+    // assert.strictEqual(derivedKey.byteLength, size / 8);
+  }
+}
 
-const _ecTestKeys = [
+const ecTestKeys = [
   {
     size: 256,
     namedCurve: "P-256",
@@ -1270,118 +1263,93 @@ const _ecTestKeys = [
   },
 ];
 
-// async function testImportEcSpkiPkcs8() {
-//   const subtle = crypto.subtle;
-//   assert(subtle);
+async function testImportEcSpkiPkcs8() {
+  const subtle = crypto.subtle;
+  assert(subtle);
 
-//   for (const { namedCurve, raw, spki, pkcs8, signatureLength } of ecTestKeys) {
-//     const rawPublicKeyECDSA = await subtle.importKey(
-//       "raw",
-//       raw,
-//       { name: "ECDSA", namedCurve },
-//       true,
-//       ["verify"],
-//     );
+  for (const { namedCurve, raw, spki, pkcs8, signatureLength } of ecTestKeys) {
+    const rawPublicKeyECDSA = await subtle.importKey(
+      "raw",
+      raw,
+      { name: "ECDSA", namedCurve },
+      true,
+      ["verify"],
+    );
 
-//     // const expPublicKeyRaw = await subtle.exportKey(
-//     //   "raw",
-//     //   rawPublicKeyECDSA,
-//     // );
+    const expPublicKeyRaw = await subtle.exportKey("raw", rawPublicKeyECDSA);
 
-//     // assertEquals(new Uint8Array(expPublicKeyRaw), raw);
+    assert.deepEqual(new Uint8Array(expPublicKeyRaw), raw);
 
-//     const privateKeyECDSA = await subtle.importKey(
-//       "pkcs8",
-//       pkcs8,
-//       { name: "ECDSA", namedCurve },
-//       true,
-//       ["sign"],
-//     );
+    const privateKeyECDSA = await subtle.importKey(
+      "pkcs8",
+      pkcs8,
+      { name: "ECDSA", namedCurve },
+      true,
+      ["sign"],
+    );
 
-//     // const expPrivateKeyPKCS8 = await subtle.exportKey(
-//     //   "pkcs8",
-//     //   privateKeyECDSA,
-//     // );
+    const expPrivateKeyPKCS8 = await subtle.exportKey("pkcs8", privateKeyECDSA);
 
-//     // assertEquals(new Uint8Array(expPrivateKeyPKCS8), pkcs8);
+    assert.deepEqual(new Uint8Array(expPrivateKeyPKCS8), pkcs8);
 
-//     // const expPrivateKeyJWK = await subtle.exportKey(
-//     //   "jwk",
-//     //   privateKeyECDSA,
-//     // );
+    const expPrivateKeyJWK = await subtle.exportKey("jwk", privateKeyECDSA);
 
-//     // assertEquals(expPrivateKeyJWK.crv, namedCurve);
+    assert.strictEqual(expPrivateKeyJWK.crv, namedCurve);
 
-//     const publicKeyECDSA = await subtle.importKey(
-//       "spki",
-//       spki,
-//       { name: "ECDSA", namedCurve },
-//       true,
-//       ["verify"],
-//     );
+    const publicKeyECDSA = await subtle.importKey(
+      "spki",
+      spki,
+      { name: "ECDSA", namedCurve },
+      true,
+      ["verify"],
+    );
 
-//     // const expPublicKeySPKI = await subtle.exportKey(
-//     //   "spki",
-//     //   publicKeyECDSA,
-//     // );
+    const expPublicKeySPKI = await subtle.exportKey("spki", publicKeyECDSA);
 
-//     // assertEquals(new Uint8Array(expPublicKeySPKI), spki);
+    assert.deepEqual(new Uint8Array(expPublicKeySPKI), spki);
 
-//     // const expPublicKeyJWK = await subtle.exportKey(
-//     //   "jwk",
-//     //   publicKeyECDSA,
-//     // );
+    const expPublicKeyJWK = await subtle.exportKey("jwk", publicKeyECDSA);
 
-//     // assert.strictEqual(expPublicKeyJWK.crv, namedCurve);
+    assert.strictEqual(expPublicKeyJWK.crv, namedCurve);
 
-//     // for (
-//     //   const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]
-//     // ) {
-//     //   if (
-//     //     (hash == "SHA-256" && namedCurve == "P-256") ||
-//     //     (hash == "SHA-384" && namedCurve == "P-384")
-//     //   ) {
-//     //     const signatureECDSA = await subtle.sign(
-//     //       { name: "ECDSA", hash },
-//     //       privateKeyECDSA,
-//     //       new Uint8Array([1, 2, 3, 4]),
-//     //     );
+    for (const hash of ["SHA-1", "SHA-256", "SHA-384", "SHA-512"]) {
+      if (
+        (hash === "SHA-256" && namedCurve === "P-256") ||
+        (hash === "SHA-384" && namedCurve === "P-384")
+      ) {
+        const signatureECDSA = await subtle.sign(
+          { name: "ECDSA", hash },
+          privateKeyECDSA,
+          new Uint8Array([1, 2, 3, 4]),
+        );
 
-//     //     const verifyECDSA = await subtle.verify(
-//     //       { name: "ECDSA", hash },
-//     //       publicKeyECDSA,
-//     //       signatureECDSA,
-//     //       new Uint8Array([1, 2, 3, 4]),
-//     //     );
-//     //     assert(verifyECDSA);
-//     //   } else {
-//     //     await assertRejects(
-//     //       async () => {
-//     //         await subtle.sign(
-//     //           { name: "ECDSA", hash },
-//     //           privateKeyECDSA,
-//     //           new Uint8Array([1, 2, 3, 4]),
-//     //         );
-//     //       },
-//     //       DOMException,
-//     //       "Not implemented",
-//     //     );
-//     //     await assertRejects(
-//     //       async () => {
-//     //         await subtle.verify(
-//     //           { name: "ECDSA", hash },
-//     //           publicKeyECDSA,
-//     //           new Uint8Array(signatureLength),
-//     //           new Uint8Array([1, 2, 3, 4]),
-//     //         );
-//     //       },
-//     //       DOMException,
-//     //       "Not implemented",
-//     //     );
-//     //   }
-//     // }
-//   }
-// }
+        const verifyECDSA = await subtle.verify(
+          { name: "ECDSA", hash },
+          publicKeyECDSA,
+          signatureECDSA,
+          new Uint8Array([1, 2, 3, 4]),
+        );
+        assert(verifyECDSA);
+      } else {
+        await expect(
+          subtle.sign(
+            { name: "ECDSA", hash },
+            privateKeyECDSA,
+            new Uint8Array([1, 2, 3, 4]),
+          ),
+        ).to.be.rejectedWith(DOMException, "Not implemented");
+        await expect(
+          subtle.verify(
+            { name: "ECDSA", hash },
+            publicKeyECDSA,
+            new Uint8Array(signatureLength),
+            new Uint8Array([1, 2, 3, 4]),
+          ),
+        ).to.be.rejectedWith(DOMException, "Not implemented");
+      }
+    }
+  }
+}
 
 async function testAesGcmEncrypt() {
   const _key = await crypto.subtle.importKey(
@@ -1634,21 +1602,21 @@ async function testAesGcmTagLength() {
   // });
 }
 
-// async function ecPrivateKeyMaterialExportSpki() {
-//   // `generateKey` generates a key pair internally stored as "private" key.
-//   const keys = await crypto.subtle.generateKey(
-//     { name: "ECDSA", namedCurve: "P-256" },
-//     true,
-//     ["sign", "verify"],
-//   );
+async function ecPrivateKeyMaterialExportSpki() {
+  // `generateKey` generates a key pair internally stored as "private" key.
+  const keys = await crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign", "verify"],
+  );
 
-//   assert(keys.privateKey instanceof CryptoKey);
-//   assert(keys.publicKey instanceof CryptoKey);
+  assert(keys.privateKey instanceof CryptoKey);
+  assert(keys.publicKey instanceof CryptoKey);
 
-//   // `exportKey` should be able to perform necessary conversion to export spki.
-//   const spki = await crypto.subtle.exportKey("spki", keys.publicKey);
-//   assert(spki instanceof ArrayBuffer);
-// }
+  // `exportKey` should be able to perform necessary conversion to export spki.
+  const spki = await crypto.subtle.exportKey("spki", keys.publicKey);
+  assert(spki instanceof ArrayBuffer);
+}
 
 // https://github.com/denoland/deno/issues/13911
 async function importJwkWithUse() {
@@ -1670,55 +1638,55 @@ async function importJwkWithUse() {
 }
 
 // https://github.com/denoland/deno/issues/14215
-// async function exportKeyNotExtractable() {
-//   const key = await crypto.subtle.generateKey(
-//     {
-//       name: "HMAC",
-//       hash: "SHA-512",
-//     },
-//     false,
-//     ["sign", "verify"],
-//   );
+async function exportKeyNotExtractable() {
+  const key = await crypto.subtle.generateKey(
+    {
+      name: "HMAC",
+      hash: "SHA-512",
+    },
+    false,
+    ["sign", "verify"],
+  );
 
-//   assert(key);
-//   assertEquals(key.extractable, false);
+  assert(key);
+  assert.equal(key.extractable, false);
 
-//   await assertRejects(async () => {
-//     // Should fail
-//     await crypto.subtle.exportKey("raw", key);
-//   }, DOMException);
-// }
+  // Should fail
+  await expect(crypto.subtle.exportKey("raw", key)).to.be.rejectedWith(
+    DOMException,
+  );
+}
 
 // https://github.com/denoland/deno/issues/15126
-// async function testImportLeadingZeroesKey() {
-//   const alg = { name: "ECDSA", namedCurve: "P-256" };
+async function testImportLeadingZeroesKey() {
+  const alg = { name: "ECDSA", namedCurve: "P-256" };
 
-//   const jwk = {
-//     kty: "EC",
-//     crv: "P-256",
-//     alg: "ES256",
-//     x: "EvidcdFB1xC6tgfakqZsU9aIURxAJkcX62zHe1Nt6xU",
-//     y: "AHsk6BioGM7MZWeXOE_49AGmtuaXFT3Ill3DYtz9uYg",
-//     d: "WDeYo4o1heCF9l_2VIaClRyIeO16zsMlN8UG6Le9dU8",
-//     key_ops: ["sign"],
-//     ext: true,
-//   };
+  const jwk = {
+    kty: "EC",
+    crv: "P-256",
+    alg: "ES256",
+    x: "EvidcdFB1xC6tgfakqZsU9aIURxAJkcX62zHe1Nt6xU",
+    y: "AHsk6BioGM7MZWeXOE_49AGmtuaXFT3Ill3DYtz9uYg",
+    d: "WDeYo4o1heCF9l_2VIaClRyIeO16zsMlN8UG6Le9dU8",
+    key_ops: ["sign"],
+    ext: true,
+  };
 
-//   const key = await crypto.subtle.importKey("jwk", jwk, alg, true, ["sign"]);
+  const key = await crypto.subtle.importKey("jwk", jwk, alg, true, ["sign"]);
 
-//   assert(key instanceof CryptoKey);
-//   assert.strictEqual(key.type, "private");
-// }
+  assert(key instanceof CryptoKey);
+  assert.strictEqual(key.type, "private");
+}
 
 // https://github.com/denoland/deno/issues/15523
-// async function testECspkiRoundTrip() {
-//   const alg = { name: "ECDH", namedCurve: "P-256" };
-//   const { publicKey } = await crypto.subtle.generateKey(alg, true, [
-//     "deriveBits",
-//   ]);
-//   const spki = await crypto.subtle.exportKey("spki", publicKey);
-//   await crypto.subtle.importKey("spki", spki, alg, true, []);
-// }
+async function testECspkiRoundTrip() {
+  const alg = { name: "ECDH", namedCurve: "P-256" };
+  const { publicKey } = await crypto.subtle.generateKey(alg, true, [
+    "deriveBits",
+  ]);
+  const spki = await crypto.subtle.exportKey("spki", publicKey);
+  await crypto.subtle.importKey("spki", spki, alg, true, []);
+}
 
 async function testHmacJwkImport() {
   await crypto.subtle.importKey(
@@ -1849,7 +1817,28 @@ async function testInvalidAlgorithm() {
       false,
       ["sign"],
     ),
-  ).to.be.rejectedWith(/Unrecognized algorithm/);
+  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+
+  await expect(
+    subtle.sign({ name: "foo" }, {} as any, new Uint8Array()),
+  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+
+  await expect(
+    subtle.verify(
+      { name: "foo" },
+      {} as any,
+      new Uint8Array(),
+      new Uint8Array(),
+    ),
+  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+
+  await expect(
+    subtle.deriveBits({ name: "foo" }, {} as any, 128),
+  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
+
+  await expect(
+    subtle.generateKey({ name: "foo" }, false, ["sign"]),
+  ).to.be.rejectedWith(DOMException, /Unrecognized or invalid algorithm/);
 }
 
 async function testDeriveBitsPBKDF2() {
@@ -1962,16 +1951,74 @@ async function testEd25519Sign() {
   );
 }
 
+async function testEd25519GenerateKey() {
+  const { privateKey, publicKey } = (await crypto.subtle.generateKey(
+    "Ed25519",
+    true,
+    ["sign", "verify"],
+  )) as CryptoKeyPair; // our typescript definitions are missing an overload for Ed25519
+  const message = new Uint8Array([1, 2, 3, 4, 5]);
+  const signature = new Uint8Array(
+    await crypto.subtle.sign("Ed25519", privateKey, message),
+  );
+  assert.isTrue(
+    await crypto.subtle.verify("Ed25519", publicKey, signature, message),
+    "generated public key should verify signature",
+  );
+  const wrongSignature = new Uint8Array(signature);
+  wrongSignature[0] = (wrongSignature[0] + 1) & 0xff;
+  assert.isFalse(
+    await crypto.subtle.verify("Ed25519", publicKey, wrongSignature, message),
+    "generated public key should reject wrong signature",
+  );
+
+  const exportedPrivate = await crypto.subtle.exportKey("jwk", privateKey);
+  const exportedPublic = await crypto.subtle.exportKey("jwk", publicKey);
+  const importedPrivate = await crypto.subtle.importKey(
+    "jwk",
+    exportedPrivate,
+    "Ed25519",
+    false,
+    ["sign"],
+  );
+  const importedPublic = await crypto.subtle.importKey(
+    "jwk",
+    exportedPublic,
+    "Ed25519",
+    false,
+    ["verify"],
+  );
+  assert.deepEqual(
+    new Uint8Array(
+      await crypto.subtle.sign("Ed25519", importedPrivate, message),
+    ),
+    signature,
+    "reimported private key generates the same signature",
+  );
+  assert.isTrue(
+    await crypto.subtle.verify("Ed25519", importedPublic, signature, message),
+    "reimported public key should still verify correct signature",
+  );
+  assert.isFalse(
+    await crypto.subtle.verify(
+      "Ed25519",
+      importedPublic,
+      wrongSignature,
+      message,
+    ),
+    "reimported public key should still reject wrong signature",
+  );
+}
+
 export const methodNotImplemented = query({
   handler: async () => {
-    await crypto.subtle.generateKey(
-      {
-        name: "HMAC",
-        hash: "SHA-512",
-      },
-      true,
-      ["sign"],
-    );
+    await crypto.subtle.encrypt({} as any, null as any, new Uint8Array(1));
+  },
+});
+
+export const generateX25519NotImplemented = query({
+  handler: async () => {
+    await crypto.subtle.generateKey("X25519", false, ["deriveBits"]);
   },
 });
 
@@ -1992,32 +2039,19 @@ export const test = query({
       randomUUID,
 
       testImportArrayBufferKey,
-      // testSignVerify,
-      // testEncryptDecrypt,
-      // testGenerateRSAKey,
-      // testGenerateHMACKey,
-      // testECDSASignVerify,
-      // testECDSASignVerifyFail,
-      // testSignRSASSAKey,
       subtleCryptoHmacImportExport,
       importRsaPkcs8,
       importRsaSpki,
       importRsaPKCS8Regression,
       importNonInteroperableRsaPkcs8,
       testImportRsaJwk,
-      // importing EC keys requires SecureRandom
-      // testImportExportEcDsaJwk,
-      // estImportEcDhJwk,
-      // testImportEcSpkiPkcs8,
+      testImportEcDhJwk,
       testAesGcmEncrypt,
       testSecretJwkBase64Url,
       // testAESWrapKey,
       testAesGcmTagLength,
-      // ecPrivateKeyMaterialExportSpki,
       importJwkWithUse,
-      // exportKeyNotExtractable
-      // testImportLeadingZeroesKey,
-      // testECspkiRoundTrip,
+      testImportLeadingZeroesKey,
       testHmacJwkImport,
 
       // End of Deno tests.
@@ -2030,6 +2064,29 @@ export const test = query({
       testDeriveKeyPBKDF2,
       testDigest,
       testEd25519Sign,
+    });
+  },
+});
+
+export const testAction = action({
+  handler: async () => {
+    return await wrapInTests({
+      // Deno tests (that require randomness)
+      testSignVerify,
+      // testEncryptDecrypt,
+      testImportExportEcDsaJwk,
+      testImportEcSpkiPkcs8,
+      testGenerateRSAKey,
+      testGenerateHMACKey,
+      testECDSASignVerify,
+      testECDSASignVerifyFail,
+      testSignRSASSAKey,
+      exportKeyNotExtractable,
+      ecPrivateKeyMaterialExportSpki,
+      testECspkiRoundTrip,
+      // end of Deno tests
+
+      testEd25519GenerateKey,
     });
   },
 });

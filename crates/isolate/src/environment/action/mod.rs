@@ -123,10 +123,13 @@ use self::{
     },
     task_executor::TaskExecutor,
 };
-use super::warnings::{
-    approaching_duration_limit_warning,
-    approaching_limit_warning,
-    SystemWarning,
+use super::{
+    crypto_rng::CryptoRng,
+    warnings::{
+        approaching_duration_limit_warning,
+        approaching_limit_warning,
+        SystemWarning,
+    },
 };
 use crate::{
     client::{
@@ -1362,6 +1365,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for ActionEnvironment<RT> {
 
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         self.phase.rng()
+    }
+
+    fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng> {
+        Ok(CryptoRng::new())
     }
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {

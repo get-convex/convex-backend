@@ -19,12 +19,12 @@ export function copyBuffer(input: ArrayBufferView | ArrayBuffer): Uint8Array {
 
 // In Deno these are primordials.
 
-export function ArrayPrototypeIncludes<T>(array: T[], item: T) {
+export function ArrayPrototypeIncludes<T>(array: readonly T[], item: T) {
   return array.includes(item);
 }
 
 export function ArrayPrototypeFind<T>(
-  array: T[],
+  array: readonly T[],
   predicate: (t: T) => boolean,
 ) {
   return array.find(predicate);

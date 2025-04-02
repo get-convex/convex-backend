@@ -67,8 +67,23 @@ async fn test_crypto(rt: TestRuntime) -> anyhow::Result<()> {
         assert_contains(
             &t.query_js_error("js_builtins/crypto:methodNotImplemented", assert_obj!())
                 .await?,
-            "Not implemented: generateKey for SubtleCrypto",
+            "Not implemented: encrypt for SubtleCrypto",
         );
+
+        assert_contains(
+            &t.query_js_error("js_builtins/crypto:generateX25519NotImplemented", assert_obj!())
+                .await?,
+            "Generating X25519 keys is not yet supported",
+        );
+        Ok(())
+    }).await
+}
+
+#[convex_macro::test_runtime]
+async fn test_crypto_in_action(rt: TestRuntime) -> anyhow::Result<()> {
+    UdfTest::run_test_with_isolate(rt, async move |t: UdfTestType| {
+        must_let!(let ConvexValue::String(r) = t.action("js_builtins/crypto:testAction", assert_obj!()).await?);
+        assert_eq!(String::from(r), "success".to_string());
         Ok(())
     }).await
 }

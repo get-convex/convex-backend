@@ -7,11 +7,14 @@ use model::{
     },
     modules::module_versions::FullModuleSource,
 };
+
+use self::crypto_rng::CryptoRng;
 pub mod action;
 pub mod analyze;
 pub mod async_op;
 pub mod auth_config;
 pub mod component_definitions;
+pub mod crypto_rng;
 pub mod helpers;
 pub mod schema;
 pub mod udf;
@@ -76,6 +79,7 @@ pub trait IsolateEnvironment<RT: Runtime>: 'static {
 
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()>;
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng>;
+    fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng>;
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp>;
 
     fn get_environment_variable(&mut self, name: EnvVarName)

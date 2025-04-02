@@ -26,6 +26,7 @@ use futures::{
 };
 use isolate::{
     environment::{
+        crypto_rng::CryptoRng,
         AsyncOpRequest,
         IsolateEnvironment,
     },
@@ -118,6 +119,10 @@ impl IsolateEnvironment<TestRuntime> for TestEnvironment {
 
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         Ok(&mut self.rng)
+    }
+
+    fn crypto_rng(&mut self) -> anyhow::Result<CryptoRng> {
+        anyhow::bail!("CryptoRng not allowed in simulation")
     }
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {

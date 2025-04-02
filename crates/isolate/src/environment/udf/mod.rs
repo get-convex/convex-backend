@@ -196,6 +196,16 @@ pub struct DatabaseUdfEnvironment<RT: Runtime> {
     udf_callback: Box<dyn UdfCallback<RT>>,
 }
 
+fn not_allowed_in_udf(name: &str, description: &str) -> ErrorMetadata {
+    ErrorMetadata::bad_request(
+        format!("No{name}InQueriesOrMutations"),
+        format!(
+            "Can't use {description} in queries and mutations. Please consider using an action. \
+            See https://docs.convex.dev/functions/actions for more details.",
+        ),
+    )
+}
+
 impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
     fn trace(&mut self, level: LogLevel, messages: Vec<String>) -> anyhow::Result<()> {
         self.emit_log_line(LogLine::new_developer_log_line(
@@ -210,6 +220,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 
     fn rng(&mut self) -> anyhow::Result<&mut ChaCha12Rng> {
         self.phase.rng()
+    }
+
+    fn crypto_rng(&mut self) -> anyhow::Result<super::crypto_rng::CryptoRng> {
+        anyhow::bail!(not_allowed_in_udf("CryptoRng", "cryptographic randomness"))
     }
 
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
@@ -271,13 +285,10 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
         request: AsyncOpRequest,
         _resolver: v8::Global<v8::PromiseResolver>,
     ) -> anyhow::Result<()> {
-        anyhow::bail!(ErrorMetadata::bad_request(
-                format!("No{}InQueriesOrMutations", request.name_for_error()),
-                format!(
-                    "Can't use {} in queries and mutations. Please consider using an action. See https://docs.convex.dev/functions/actions for more details.",
-                    request.description_for_error()
-                ),
-            ))
+        anyhow::bail!(not_allowed_in_udf(
+            request.name_for_error(),
+            &request.description_for_error(),
+        ))
     }
 
     fn record_heap_stats(&self, mut isolate_stats: IsolateHeapStats) {

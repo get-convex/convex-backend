@@ -480,6 +480,11 @@ mod op_provider {
             state.environment.rng()
         }
 
+        fn crypto_rng(&mut self) -> anyhow::Result<crate::environment::crypto_rng::CryptoRng> {
+            // TODO: this needs to detect if we are in an action
+            anyhow::bail!("TODO: CryptoRng in isolate2")
+        }
+
         fn scope(&mut self) -> &mut v8::HandleScope<'scope> {
             self.scope
         }

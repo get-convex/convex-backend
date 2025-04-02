@@ -83,6 +83,13 @@ impl<RT: Runtime> IsolateEnvironment<RT> for AuthConfigEnvironment {
         ))
     }
 
+    fn crypto_rng(&mut self) -> anyhow::Result<super::crypto_rng::CryptoRng> {
+        anyhow::bail!(ErrorMetadata::bad_request(
+            "NoCryptoRngDuringAuthConfig",
+            "Cannot use cryptographic randomness when evaluating auth config file"
+        ))
+    }
+
     fn unix_timestamp(&mut self) -> anyhow::Result<UnixTimestamp> {
         anyhow::bail!(ErrorMetadata::bad_request(
             "NoDateDuringAuthConfig",
