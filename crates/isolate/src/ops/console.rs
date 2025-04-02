@@ -19,6 +19,7 @@ pub fn op_console_message<'b, P: OpProvider<'b>>(
     messages: Vec<String>,
 ) -> anyhow::Result<()> {
     for message in messages.iter() {
+        tracing::trace!("console message: {:?}", message);
         metrics::log_log_line(message);
     }
     provider.trace(level.parse()?, messages)?;
@@ -35,6 +36,9 @@ pub fn op_console_trace<'b, P: OpProvider<'b>>(
         provider.lookup_source_map(s)
     });
     messages.push(js_error.to_string());
+    for message in messages.iter() {
+        tracing::trace!("console trace: {:?}", message);
+    }
     provider.trace(LogLevel::Log, messages)?;
     Ok(())
 }
