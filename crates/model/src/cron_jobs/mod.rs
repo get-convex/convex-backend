@@ -337,7 +337,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         let next_run = CronNextRun {
             cron_job_id: id.developer_id,
             state: job.state,
-            prev_ts: None,
+            prev_ts: job.prev_ts,
             next_ts: job.next_ts,
         };
         let existing_next_run = self.next_run(id.developer_id).await?;
