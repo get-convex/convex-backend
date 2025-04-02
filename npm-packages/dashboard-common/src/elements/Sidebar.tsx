@@ -114,6 +114,7 @@ export function SidebarLink({
   proBadge,
   small,
   tip,
+  target,
 }: {
   collapsed?: boolean;
   href: string;
@@ -125,6 +126,7 @@ export function SidebarLink({
   proBadge?: boolean;
   small?: boolean;
   tip?: string;
+  target?: "_blank";
 }) {
   const { query: currentQuery } = useRouter();
   return (
@@ -148,6 +150,7 @@ export function SidebarLink({
         isDisabled: disabled,
         small,
       })}
+      target={target}
     >
       {Icon && (
         <Icon

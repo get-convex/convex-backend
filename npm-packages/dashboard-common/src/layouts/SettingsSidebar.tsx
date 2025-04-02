@@ -44,6 +44,11 @@ export function SettingsSidebar({
   const team = useCurrentTeam();
   const project = useCurrentProject();
 
+  const { isCloudDeploymentInSelfHostedDashboard, deploymentName } =
+    useIsCloudDeploymentInSelfHostedDashboard();
+  const isSelfHostedDeployment =
+    isSelfHosted && !isCloudDeploymentInSelfHostedDashboard;
+
   const entitlements = useTeamEntitlements(team?.id);
   // Hide the badge until entitlements are loaded
   const logStreamingEntitlementGranted =
@@ -67,41 +72,61 @@ export function SettingsSidebar({
         )}
       >
         {/* On larger screens, this is a sidebar and not a popover menu. */}
-        {allowedPages.map((page) => (
-          <SidebarLink
-            href={`${deploymentsURI}/settings/${page === "url-and-deploy-key" ? "" : page}`}
-            isActive={page === selectedPage}
-            key={page}
-            disabled={
-              shouldLock(page) ||
-              (isSelfHosted && ["backups", "integrations"].includes(page))
-            }
-            tip={
-              ["backups", "integrations"].includes(page) && isSelfHosted
-                ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
-                : undefined
-            }
-            Icon={shouldLock(page) ? LockClosedIcon : undefined}
-            proBadge={
-              page === "integrations" &&
-              !(
-                logStreamingEntitlementGranted &&
-                streamingExportEntitlementGranted
-              )
-            }
-          >
-            {DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]}
-          </SidebarLink>
-        ))}
+        {allowedPages.map((page) => {
+          const isCloudOnlyPage = ["backups", "integrations"].includes(page);
+          const showInCloudDashboard =
+            isCloudOnlyPage && isCloudDeploymentInSelfHostedDashboard;
+          const isUnavailableForSelfHosted =
+            isCloudOnlyPage && isSelfHostedDeployment;
+
+          return (
+            <SidebarLink
+              href={
+                showInCloudDashboard
+                  ? `https://dashboard.convex.dev/d/${deploymentName}/settings/${page}`
+                  : `${deploymentsURI}/settings/${page === "url-and-deploy-key" ? "" : page}`
+              }
+              isActive={page === selectedPage}
+              key={page}
+              disabled={shouldLock(page) || isUnavailableForSelfHosted}
+              tip={
+                isUnavailableForSelfHosted
+                  ? `The ${DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]} feature is not currently available in self-hosted deployments.`
+                  : undefined
+              }
+              Icon={shouldLock(page) ? LockClosedIcon : undefined}
+              proBadge={
+                page === "integrations" &&
+                !(
+                  logStreamingEntitlementGranted &&
+                  streamingExportEntitlementGranted
+                )
+              }
+              target={showInCloudDashboard ? "_blank" : undefined}
+            >
+              <div className="flex items-center justify-between gap-2">
+                {DEPLOYMENT_SETTINGS_PAGES_AND_NAMES[page]}
+                {showInCloudDashboard && <ExternalLinkIcon />}
+              </div>
+            </SidebarLink>
+          );
+        })}
         <div className="flex flex-col gap-2 border-t py-2">
           <SidebarLink
-            href={`${projectsURI}/settings`}
+            href={
+              isCloudDeploymentInSelfHostedDashboard
+                ? `https://dashboard.convex.dev/dp/${deploymentName}/settings`
+                : `${projectsURI}/settings`
+            }
             isActive={false}
-            disabled={isSelfHosted}
+            disabled={isSelfHostedDeployment}
             tip={
-              isSelfHosted
+              isSelfHostedDeployment
                 ? "Project settings are not available in self-hosted deployments."
                 : undefined
+            }
+            target={
+              isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined
             }
           >
             <div className="flex items-center justify-between gap-2">
@@ -110,14 +135,27 @@ export function SettingsSidebar({
             </div>
           </SidebarLink>
           <SidebarLink
-            href={`${teamsURI}/settings/usage`}
-            query={{ projectSlug: project?.slug || "" }}
+            href={
+              isCloudDeploymentInSelfHostedDashboard
+                ? `https://dashboard.convex.dev/dp/${deploymentName}/usage`
+                : `${teamsURI}/settings/usage`
+            }
+            query={
+              isCloudDeploymentInSelfHostedDashboard
+                ? {}
+                : {
+                    projectSlug: project?.slug ?? "",
+                  }
+            }
             isActive={false}
-            disabled={isSelfHosted}
+            disabled={isSelfHostedDeployment}
             tip={
-              isSelfHosted
+              isSelfHostedDeployment
                 ? "Project usage is not available in self-hosted deployments."
                 : undefined
+            }
+            target={
+              isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined
             }
           >
             <div className="flex items-center justify-between gap-2">
@@ -143,4 +181,48 @@ function useAllowedPages() {
   pages = pages.filter((d) => d !== "snapshots");
 
   return pages;
+}
+
+/**
+ * Determines if the deployment URL is a default cloud deployment URL.
+ *
+ * This gives a false negative if the deployment is a cloud deployment with a custom domain.
+ */
+function useIsCloudDeploymentInSelfHostedDashboard():
+  | {
+      isCloudDeploymentInSelfHostedDashboard: false;
+      deploymentName: undefined;
+    }
+  | {
+      isCloudDeploymentInSelfHostedDashboard: true;
+      deploymentName: string;
+    } {
+  const context = useContext(DeploymentInfoContext);
+
+  if (
+    !context.isSelfHosted ||
+    !("deploymentUrl" in context) ||
+    !context.deploymentUrl
+  ) {
+    return {
+      isCloudDeploymentInSelfHostedDashboard: false,
+      deploymentName: undefined,
+    };
+  }
+
+  const match = context.deploymentUrl.match(
+    /^https:\/\/([a-z]+-[a-z]+-[0-9]{3})\.convex\.cloud$/,
+  );
+
+  if (!match) {
+    return {
+      isCloudDeploymentInSelfHostedDashboard: false,
+      deploymentName: undefined,
+    };
+  }
+
+  return {
+    isCloudDeploymentInSelfHostedDashboard: true,
+    deploymentName: match[1],
+  };
 }
