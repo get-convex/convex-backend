@@ -424,17 +424,21 @@ impl<RT: Runtime> MigrationWorker<RT> {
                             prev_ts: cron.prev_ts,
                             next_ts: cron.next_ts,
                         };
-                        if let Some(existing_next_run) = CronModel::new(&mut tx, namespace.into())
-                            .next_run(cron.id().developer_id)
-                            .await?
-                            .map(|next_run| next_run.into_value())
+                        if let Some((existing_next_run_id, existing_next_run)) =
+                            CronModel::new(&mut tx, namespace.into())
+                                .next_run(cron.id().developer_id)
+                                .await?
+                                .map(|next_run| (next_run.into_id_and_value()))
                         {
+                            // If there's an existing next run, update if it's
+                            // different.
                             if existing_next_run != next_run {
                                 SystemMetadataModel::new(&mut tx, namespace)
-                                    .replace(cron.id(), next_run.try_into()?)
+                                    .replace(existing_next_run_id, next_run.try_into()?)
                                     .await?;
                             }
                         } else {
+                            // If there's no existing next run, create a new one.
                             SystemMetadataModel::new(&mut tx, namespace)
                                 .insert(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
                                 .await?;
