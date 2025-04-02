@@ -347,7 +347,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
                 .await?;
         } else {
             SystemMetadataModel::new(self.tx, self.component.into())
-                .insert(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
+                .insert_metadata(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
                 .await?;
         }
         Ok(())
