@@ -16,13 +16,16 @@ const getProps: GetServerSideProps<{
   const isFirstServerCall = req?.url?.indexOf("/_next/data/") === -1;
   const shouldRedirectToDeploymentPage = resolvedUrl.startsWith("/d/");
   const shouldRedirectToProjectPage = resolvedUrl.startsWith("/p/");
+  const shouldRedirectToProjectPageFromDeployment =
+    resolvedUrl.startsWith("/dp/");
 
   // If this is not the first time we're loading props, we can return early
   // and not re-fetch additional data.
   if (
     !isFirstServerCall &&
     !shouldRedirectToDeploymentPage &&
-    !shouldRedirectToProjectPage
+    !shouldRedirectToProjectPage &&
+    !shouldRedirectToProjectPageFromDeployment
   ) {
     return { props: {} };
   }
@@ -126,6 +129,20 @@ const getProps: GetServerSideProps<{
 
     if (shouldRedirectToDeploymentPage && deploymentName !== undefined) {
       return redirectToDeploymentPage(
+        resolvedUrl,
+        res,
+        deploymentName as string,
+        teams,
+        projects,
+        deployments,
+      );
+    }
+
+    if (
+      shouldRedirectToProjectPageFromDeployment &&
+      deploymentName !== undefined
+    ) {
+      return redirectToProjectPageFromDeploymentName(
         resolvedUrl,
         res,
         deploymentName as string,
@@ -241,6 +258,38 @@ function redirectToDeploymentPage(
     redirect: {
       permanent: false,
       destination: `/t/${owningTeam.slug}/${owningProject.slug}/${deploymentName}${remainingPath}`,
+    },
+  };
+}
+
+function redirectToProjectPageFromDeploymentName(
+  resolvedUrl: string,
+  res: GetServerSidePropsContext["res"],
+  deploymentName: string,
+  teams: Team[],
+  projects: ProjectDetails[],
+  deployments: DeploymentResponse[],
+) {
+  const deployment = deployments.find(
+    (d: DeploymentResponse) => d.name === deploymentName,
+  );
+
+  const owningProject = projects.find(
+    (p: ProjectDetails) => p.id === deployment?.projectId,
+  );
+  const owningTeam = teams.find((t: Team) => t.id === owningProject?.teamId);
+  if (
+    owningTeam === undefined ||
+    owningProject === undefined ||
+    deployment === undefined
+  ) {
+    return pageNotFound(res);
+  }
+  const remainingPath = resolvedUrl.slice(`/dp/${deploymentName}`.length);
+  return {
+    redirect: {
+      permanent: false,
+      destination: `/t/${owningTeam.slug}/${owningProject.slug}${remainingPath}`,
     },
   };
 }
