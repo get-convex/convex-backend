@@ -1157,12 +1157,12 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
     }
 }
 
-static DEFAULT_CONFIG: LazyLock<UdfTestConfig> = LazyLock::new(|| UdfTestConfig {
+pub static DEFAULT_CONFIG: LazyLock<UdfTestConfig> = LazyLock::new(|| UdfTestConfig {
     isolate_config: IsolateConfig::default(),
     udf_server_version: Version::parse("1000.0.0").unwrap(),
 });
 
-static DEFAULT_MAX_ISOLATE_WORKERS: usize = 2;
+pub static DEFAULT_MAX_ISOLATE_WORKERS: usize = 2;
 
 #[derive(Clone)]
 pub struct UdfTestConfig {

@@ -391,3 +391,18 @@ export const simpleQuery = query(async ({ db }) => {
 export const invokeFunctionDirectly = query(async (ctx) => {
   await (simpleQuery as any)(ctx, {});
 });
+
+export const recursiveSubfunction = query(
+  async (ctx, { depth }: { depth: number }): Promise<number> => {
+    if (depth > 0) {
+      return (
+        1 +
+        (await ctx.runQuery(api.adversarial.recursiveSubfunction, {
+          depth: depth - 1,
+        }))
+      );
+    } else {
+      return 0;
+    }
+  },
+);

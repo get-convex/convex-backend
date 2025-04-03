@@ -51,6 +51,7 @@ use crate::{
     test_helpers::{
         UdfTest,
         UdfTestConfig,
+        DEFAULT_CONFIG,
     },
     tests::logging::nested_function_udf_test,
     IsolateConfig,
@@ -950,4 +951,24 @@ async fn test_uncatchable_errors_are_uncatchable(rt: TestRuntime) -> anyhow::Res
         Ok(())
     })
     .await
+}
+
+#[convex_macro::test_runtime]
+async fn test_subfunction_depth(rt: TestRuntime) -> anyhow::Result<()> {
+    let t = UdfTest::default_with_config(DEFAULT_CONFIG.clone(), 16, rt).await?;
+    let error = t
+        .query_js_error(
+            "adversarial:recursiveSubfunction",
+            assert_obj!("depth" => 9.0),
+        )
+        .await?;
+    assert_contains(&error, "Cross component call depth limit exceeded");
+    let result = t
+        .query(
+            "adversarial:recursiveSubfunction",
+            assert_obj!("depth" => 8.0),
+        )
+        .await?;
+    assert_eq!(result, ConvexValue::Float64(8.0));
+    Ok(())
 }
