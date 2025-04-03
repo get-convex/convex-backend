@@ -1040,8 +1040,8 @@ impl Display for FieldValidator {
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
 pub enum ValidationError {
     #[display(
-        fmt = "Found ID \"{id}\" from table `{found_table_name}`, which does not match the table \
-               name in validator `v.id(\"{validator_table}\")`.{context}"
+        "Found ID \"{id}\" from table `{found_table_name}`, which does not match the table name \
+         in validator `v.id(\"{validator_table}\")`.{context}"
     )]
     TableNamesDoNotMatch {
         id: DeveloperDocumentId,
@@ -1050,24 +1050,25 @@ pub enum ValidationError {
         context: ValidationContext,
     },
     #[display(
-        fmt = "Found ID \"{id}\" from a system table, which does not match the table name in \
-               validator `v.id(\"{validator_table}\")`.{context}"
+        "Found ID \"{id}\" from a system table, which does not match the table name in validator \
+         `v.id(\"{validator_table}\")`.{context}"
     )]
     SystemTableReference {
         id: DeveloperDocumentId,
         validator_table: TableName,
         context: ValidationContext,
     },
-    #[display(fmt = "`{value}` does not match literal validator \
-                     `v.literal({literal_validator})`.{context}")]
+    #[display(
+        "`{value}` does not match literal validator `v.literal({literal_validator})`.{context}"
+    )]
     LiteralValuesDoNotMatch {
         value: ConvexValue,
         literal_validator: LiteralValidator,
         context: ValidationContext,
     },
     #[display(
-        fmt = "Object is missing the required field `{field_name}`. Consider wrapping the field \
-               validator in `v.optional(...)` if this is expected.
+        "Object is missing the required field `{field_name}`. Consider wrapping the field \
+         validator in `v.optional(...)` if this is expected.
 {context}
 Object: {object}
 Validator: {object_validator}"
@@ -1079,7 +1080,7 @@ Validator: {object_validator}"
         context: ValidationContext,
     },
     #[display(
-        fmt = "Object contains extra field `{field_name}` that is not in the validator.
+        "Object contains extra field `{field_name}` that is not in the validator.
 {context}
 Object: {object}
 Validator: {object_validator}"
@@ -1090,10 +1091,12 @@ Validator: {object_validator}"
         object_validator: ObjectValidator,
         context: ValidationContext,
     },
-    #[display(fmt = "Value does not match validator.
+    #[display(
+        "Value does not match validator.
 {context}
 Value: {value}
-Validator: {validator}")]
+Validator: {validator}"
+    )]
     NoMatch {
         value: ConvexValue,
         validator: Validator,

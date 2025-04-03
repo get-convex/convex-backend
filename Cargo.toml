@@ -45,7 +45,7 @@ ctrlc = "3.4"
 deadpool-postgres = "^0.14.0"
 deno_core = "0.284.0"
 deno_core_icudata = "0.73.0"
-derive_more = "0.99"
+derive_more = { version = "2", features = [ "full" ] }
 divan = "0.1.14"
 dotenvy = "0.15.7"
 dynfmt = "0.1.5"

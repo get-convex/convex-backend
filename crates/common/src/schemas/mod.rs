@@ -63,8 +63,8 @@ pub const MAX_INDEXES_PER_TABLE: usize = 64;
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
 pub enum SchemaValidationError {
     #[display(
-        fmt = "Document with ID \"{id}\" in table \"{table_name}\" does not match the schema: \
-               {validation_error}"
+        "Document with ID \"{id}\" in table \"{table_name}\" does not match the schema: \
+         {validation_error}"
     )]
     ExistingDocument {
         validation_error: ValidationError,
@@ -75,19 +75,18 @@ pub enum SchemaValidationError {
     // TODO: Figure out if it's possible to surface the document ID here,
     // this is a concurrent write condition
     #[display(
-        fmt = "New document in table \"{table_name}\" does not match the schema: \
-               {validation_error}"
+        "New document in table \"{table_name}\" does not match the schema: {validation_error}"
     )]
     NewDocument {
         validation_error: ValidationError,
         table_name: TableName,
     },
 
-    #[display(fmt = "Failed to delete table \"{table_name}\" because it appears in the schema")]
+    #[display("Failed to delete table \"{table_name}\" because it appears in the schema")]
     TableCannotBeDeleted { table_name: TableName },
     #[display(
-        fmt = "Failed to delete table \"{table_name}\" because `v.id(\"{table_name}\")` appears \
-               in the schema of table \"{table_in_schema}\""
+        "Failed to delete table \"{table_name}\" because `v.id(\"{table_name}\")` appears in the \
+         schema of table \"{table_in_schema}\""
     )]
     ReferencedTableCannotBeDeleted {
         table_in_schema: TableName,
@@ -98,18 +97,18 @@ pub enum SchemaValidationError {
 #[derive(derive_more::Display, Debug, Clone, PartialEq)]
 pub enum SchemaEnforcementError {
     #[display(
-        fmt = "Failed to insert or update a document in table \"{table_name}\" because it does \
-               not match the schema: {validation_error}"
+        "Failed to insert or update a document in table \"{table_name}\" because it does not \
+         match the schema: {validation_error}"
     )]
     Document {
         validation_error: ValidationError,
         table_name: TableName,
     },
-    #[display(fmt = "Failed to delete table \"{table_name}\" because it appears in the schema")]
+    #[display("Failed to delete table \"{table_name}\" because it appears in the schema")]
     TableCannotBeDeleted { table_name: TableName },
     #[display(
-        fmt = "Failed to delete table \"{table_name}\" because `v.id(\"{table_name}\")` appears \
-               in the schema of table \"{table_in_schema}\""
+        "Failed to delete table \"{table_name}\" because `v.id(\"{table_name}\")` appears in the \
+         schema of table \"{table_in_schema}\""
     )]
     ReferencedTableCannotBeDeleted {
         table_in_schema: TableName,

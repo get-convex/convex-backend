@@ -35,7 +35,7 @@ use crate::{
 
 /// Descriptor for an index, e.g., "by_email".
 #[derive(Clone, derive_more::Deref, derive_more::Display, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[display(fmt = "{_0}")]
+#[display("{_0}")]
 pub struct IndexDescriptor(Cow<'static, str>);
 
 impl IndexDescriptor {
