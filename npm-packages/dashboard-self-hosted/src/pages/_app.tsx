@@ -220,7 +220,7 @@ const deploymentInfo: Omit<DeploymentInfo, "deploymentUrl" | "adminKey"> = {
   projectsURI: "",
   deploymentsURI: "",
   isSelfHosted: true,
-  enableIndexFilters: false,
+  enableIndexFilters: true,
 };
 
 function DeploymentInfoProvider({
