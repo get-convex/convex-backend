@@ -198,7 +198,14 @@ export function ChartForFunctionRate({
                 strokeWidth={1}
                 vertical={false}
                 verticalFill={[]}
+                horizontalFill={["rgba(var(--background-tertiary), 0.33)"]}
                 syncWithTicks
+                horizontalValues={
+                  kind !== "schedulerStatus"
+                    ? // For some reason (likely due to the size of the chart), ticks don't appear at 75 if the value is exactly 75. So, get as close to 75 as possible
+                      [0, 25, 50, 74.999, 100]
+                    : undefined
+                }
               />
 
               {chartData.lineKeys.map((line) => {

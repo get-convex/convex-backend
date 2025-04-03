@@ -115,6 +115,9 @@ export function BigChart({
                         strokeWidth={1}
                         vertical={false}
                         verticalFill={[]}
+                        horizontalFill={[
+                          "rgba(var(--background-tertiary), 0.33)",
+                        ]}
                         syncWithTicks
                       />
                       <Tooltip

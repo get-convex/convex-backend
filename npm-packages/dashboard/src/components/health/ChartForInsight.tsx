@@ -110,6 +110,7 @@ function InsightsLineChart<T extends Record<string, any>>({
                 strokeWidth={1}
                 vertical={false}
                 verticalFill={[]}
+                horizontalFill={["rgba(var(--background-tertiary), 0.33)"]}
                 syncWithTicks
               />
 
