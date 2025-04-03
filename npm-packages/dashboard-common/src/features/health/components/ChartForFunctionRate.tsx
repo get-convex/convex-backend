@@ -203,7 +203,7 @@ export function ChartForFunctionRate({
                 horizontalValues={
                   kind !== "schedulerStatus"
                     ? // For some reason (likely due to the size of the chart), ticks don't appear at 75 if the value is exactly 75. So, get as close to 75 as possible
-                      [0, 25, 50, 74.999, 100]
+                      [0, 25, 50, 74.99, 100]
                     : undefined
                 }
               />
