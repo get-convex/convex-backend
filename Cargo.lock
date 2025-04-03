@@ -4817,6 +4817,7 @@ name = "keybroker"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.13.1",
  "byteorder",
  "chrono",
  "clap",
@@ -4837,6 +4838,7 @@ dependencies = [
  "rsa",
  "runtime",
  "serde",
+ "serde_json",
  "sodium_secretbox",
  "tracing",
 ]

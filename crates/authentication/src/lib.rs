@@ -18,14 +18,16 @@ use chrono::TimeZone;
 use common::auth::AuthInfo;
 use errors::ErrorMetadata;
 use futures::Future;
-use keybroker::UserIdentity;
+use keybroker::{
+    CoreIdTokenWithCustomClaims,
+    UserIdentity,
+};
 use oauth2::{
     HttpRequest,
     HttpResponse,
 };
 use openidconnect::{
     core::{
-        CoreIdToken,
         CoreIdTokenVerifier,
         CoreProviderMetadata,
     },
@@ -108,10 +110,9 @@ where
     F: Future<Output = Result<HttpResponse, E>>,
     E: std::error::Error + 'static + Send + Sync,
 {
-    let token = CoreIdToken::from_str(&token_str.0).context(ErrorMetadata::unauthenticated(
-        "InvalidAuthHeader",
-        "Could not parse as id token",
-    ))?;
+    let token = CoreIdTokenWithCustomClaims::from_str(&token_str.0).context(
+        ErrorMetadata::unauthenticated("InvalidAuthHeader", "Could not parse as id token"),
+    )?;
     let (audiences, issuer) = {
         let verifier = CoreIdTokenVerifier::new_insecure_without_verification();
         let claims = match token.claims(&verifier, |_: Option<&openidconnect::Nonce>| Ok(())) {

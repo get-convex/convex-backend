@@ -1,6 +1,9 @@
 use core::panic;
 use std::{
-    collections::BTreeMap,
+    collections::{
+        BTreeMap,
+        HashMap,
+    },
     fmt,
     time::{
         Duration,
@@ -43,9 +46,14 @@ use errors::ErrorMetadata;
 use metrics::StaticMetricLabel;
 use openidconnect::{
     core::{
-        CoreIdToken,
+        CoreGenderClaim,
         CoreIdTokenVerifier,
+        CoreJsonWebKeyType,
+        CoreJweContentEncryptionAlgorithm,
+        CoreJwsSigningAlgorithm,
     },
+    AdditionalClaims,
+    IdToken,
     Nonce,
 };
 use pb::{
@@ -370,7 +378,7 @@ pub struct UserIdentity {
     pub expiration: SystemTime,
     pub attributes: UserIdentityAttributes,
     // The original token this user identity was created from.
-    pub original_token: CoreIdToken,
+    pub original_token: CoreIdTokenWithCustomClaims,
 }
 
 #[cfg(any(test, feature = "testing"))]
@@ -422,9 +430,21 @@ macro_rules! get_localized_string {
     };
 }
 
+pub type CoreIdTokenWithCustomClaims = IdToken<
+    CustomClaims,
+    CoreGenderClaim,
+    CoreJweContentEncryptionAlgorithm,
+    CoreJwsSigningAlgorithm,
+    CoreJsonWebKeyType,
+>;
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq, Eq)]
+pub struct CustomClaims(HashMap<String, serde_json::Value>);
+impl AdditionalClaims for CustomClaims {}
+
 impl UserIdentity {
     pub fn from_token(
-        token: CoreIdToken,
+        token: CoreIdTokenWithCustomClaims,
         verifier: CoreIdTokenVerifier,
     ) -> Result<Self, anyhow::Error> {
         // NB: Nonce verification is optional, and we'd need the developer to create and
@@ -436,7 +456,7 @@ impl UserIdentity {
         let subject = claims.subject().to_string();
         let issuer = claims.issuer().to_string();
         let mut custom_claims = BTreeMap::new();
-        for claim in claims.custom_claims() {
+        for claim in &claims.additional_claims().0 {
             // Filter out standard claims and claims set by auth providers
             match claim.0.as_str() {
                 // Standard claims that we support: see https://docs.convex.dev/api/interfaces/server.UserIdentity

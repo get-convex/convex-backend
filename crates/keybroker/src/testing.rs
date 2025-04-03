@@ -6,16 +6,14 @@ use chrono::{
 };
 use openidconnect::{
     core::{
-        CoreIdToken,
-        CoreIdTokenClaims,
         CoreIdTokenVerifier,
         CoreJwsSigningAlgorithm,
         CoreRsaPrivateSigningKey,
     },
     Audience,
-    EmptyAdditionalClaims,
     EndUserEmail,
     EndUserName,
+    IdTokenClaims,
     IssuerUrl,
     JsonWebKeyId,
     StandardClaims,
@@ -24,7 +22,13 @@ use openidconnect::{
 use rsa::pkcs1::EncodeRsaPrivateKey;
 use sync_types::UserIdentityAttributes;
 
-use crate::UserIdentity;
+use crate::{
+    broker::{
+        CoreIdTokenWithCustomClaims,
+        CustomClaims,
+    },
+    UserIdentity,
+};
 
 pub static TEST_SIGNING_KEY: LazyLock<CoreRsaPrivateSigningKey> = LazyLock::new(|| {
     let key = rsa::RsaPrivateKey::new(&mut rsa::rand_core::OsRng, 2048).unwrap();
@@ -42,8 +46,8 @@ impl TestUserIdentity for UserIdentity {
         let issuer = "https://testauth.fake.domain".to_owned();
         let audience = Audience::new("client-id-123".to_string());
 
-        let token = CoreIdToken::new(
-            CoreIdTokenClaims::new(
+        let token = CoreIdTokenWithCustomClaims::new(
+            IdTokenClaims::new(
                 IssuerUrl::new(issuer).unwrap(),
                 vec![audience],
                 Utc::now() + Duration::seconds(600),
@@ -51,7 +55,7 @@ impl TestUserIdentity for UserIdentity {
                 StandardClaims::new(SubjectIdentifier::new(subject))
                     .set_email(Some(EndUserEmail::new("foo@bar.com".to_string())))
                     .set_name(Some(EndUserName::new("Al Pastor".to_string()).into())),
-                EmptyAdditionalClaims {},
+                CustomClaims::default(),
             ),
             &*TEST_SIGNING_KEY,
             CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,

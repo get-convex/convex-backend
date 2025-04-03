@@ -9,12 +9,17 @@ mod secret;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
+#[cfg(test)]
+mod tests;
+
 pub use sync_types::UserIdentityAttributes;
 
 pub use self::{
     broker::{
         AdminIdentity,
         AdminIdentityPrincipal,
+        CoreIdTokenWithCustomClaims,
+        CustomClaims,
         GetFileAuthorization,
         Identity,
         KeyBroker,
