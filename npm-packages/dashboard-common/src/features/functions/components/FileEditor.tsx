@@ -41,7 +41,11 @@ export function FileEditor({
   }, [router.events]);
 
   return (
-    <Sheet className="h-full overflow-hidden py-2" padding={false} ref={ref}>
+    <Sheet
+      className="max-h-full w-full overflow-y-auto py-2"
+      padding={false}
+      ref={ref}
+    >
       <div className="grow">
         {sourceCode === undefined ? (
           <div className="my-20">
@@ -64,7 +68,7 @@ export function FileEditor({
                   }
                 : undefined
             }
-            height={{ type: "content", maxHeightRem: 30 }}
+            height={{ type: "parent" }}
           />
         )}
       </div>

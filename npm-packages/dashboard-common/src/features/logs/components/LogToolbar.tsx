@@ -15,6 +15,7 @@ export function LogToolbar({
   selectedNents,
   setSelectedNents,
   firstItem,
+  hideFunctionFilter = false,
 }: {
   functions: string[];
   selectedFunctions: string[];
@@ -25,6 +26,7 @@ export function LogToolbar({
   selectedNents: string[];
   setSelectedNents(newValue: string[]): void;
   firstItem?: React.ReactNode;
+  hideFunctionFilter?: boolean;
 }) {
   return (
     <div className="flex w-full flex-wrap items-center justify-end gap-2">
@@ -49,27 +51,29 @@ export function LogToolbar({
           />
         </div>
       )}
-      <div className="min-w-[9.5rem]">
-        <MultiSelectCombobox
-          options={functionsForSelectedNents(selectedNents, functions)}
-          selectedOptions={functionsForSelectedNents(
-            selectedNents,
-            selectedFunctions,
-          )}
-          processFilterOption={(option) => {
-            const id = functionIdentifierFromValue(option);
-            return id.componentPath
-              ? `${id.componentPath}/${id.identifier}`
-              : id.identifier;
-          }}
-          setSelectedOptions={setSelectedFunctions}
-          unit="function"
-          unitPlural="functions"
-          label="Functions"
-          labelHidden
-          Option={FunctionNameOption}
-        />
-      </div>
+      {!hideFunctionFilter && (
+        <div className="min-w-[9.5rem]">
+          <MultiSelectCombobox
+            options={functionsForSelectedNents(selectedNents, functions)}
+            selectedOptions={functionsForSelectedNents(
+              selectedNents,
+              selectedFunctions,
+            )}
+            processFilterOption={(option) => {
+              const id = functionIdentifierFromValue(option);
+              return id.componentPath
+                ? `${id.componentPath}/${id.identifier}`
+                : id.identifier;
+            }}
+            setSelectedOptions={setSelectedFunctions}
+            unit="function"
+            unitPlural="functions"
+            label="Functions"
+            labelHidden
+            Option={FunctionNameOption}
+          />
+        </div>
+      )}
       <div className="min-w-[9.5rem]">
         <MultiSelectCombobox
           options={["success", "failure", "DEBUG", "INFO", "WARN", "ERROR"]}

@@ -1,13 +1,14 @@
 import { Tab as HeadlessTab } from "@headlessui/react";
-import classNames from "classnames";
 import { Fragment, PropsWithChildren } from "react";
 import { Button, ButtonProps } from "@common/elements/Button";
+import { cn } from "@common/lib/cn";
 
 export function Tab({
   disabled,
   tip,
   children,
   large = false,
+  className,
   ...props
 }: ButtonProps &
   PropsWithChildren<{ disabled?: boolean; tip?: string; large?: boolean }>) {
@@ -18,7 +19,7 @@ export function Tab({
           disabled={disabled}
           tip={tip}
           variant="unstyled"
-          className={classNames(
+          className={cn(
             "p-2 text-sm rounded whitespace-nowrap cursor-pointer",
             !disabled && selected
               ? "text-content-primary"
@@ -31,6 +32,7 @@ export function Tab({
             // It's OK for tabs.
             // eslint-disable-next-line no-restricted-syntax
             large && "text-lg",
+            className,
           )}
           {...props}
         >

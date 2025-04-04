@@ -27,7 +27,7 @@ export function DirectorySidebar({
       )}
       ref={ref}
     >
-      <div className="flex flex-col px-3">
+      <div className="mb-2 flex flex-col px-3">
         <NentSwitcher />
         <h5>Function Explorer</h5>
       </div>

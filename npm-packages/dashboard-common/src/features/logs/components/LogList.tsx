@@ -90,6 +90,7 @@ export function LogList({
     },
     [paused, setPaused],
   );
+
   return (
     <div className="flex h-full w-full flex-auto flex-col gap-2 overflow-hidden">
       {shownLog && logs && (
@@ -101,7 +102,7 @@ export function LogList({
         />
       )}
       {interleavedLogs !== undefined && (
-        <Sheet className="h-full w-full" padding={false} ref={sheetRef}>
+        <Sheet className="min-h-full w-full" padding={false} ref={sheetRef}>
           {heightOfListContainer !== 0 && (
             <WindowedLogList
               {...{

@@ -1,6 +1,5 @@
 import { PlayIcon } from "@radix-ui/react-icons";
 import { useQuery } from "convex/react";
-import classNames from "classnames";
 import { useContext, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { lt } from "semver";
@@ -54,7 +53,7 @@ export function FunctionSummary({
     return <Loading />;
   }
   return (
-    <div className={classNames("flex h-full flex-col overflow-hidden")}>
+    <div className="flex h-full flex-col overflow-hidden">
       <div className="flex items-end justify-between gap-2 pb-2">
         {showEnableProdEditsModal && (
           <ProductionEditsConfirmationDialog
@@ -69,20 +68,20 @@ export function FunctionSummary({
           />
         )}
         <div className="flex items-center gap-2">
-          <div className="flex flex-col items-start gap-1">
-            <div className="flex items-center gap-3">
-              <h3 className="font-mono">{currentOpenFunction.name}</h3>
-              <div className="rounded border px-1 py-0.5 text-xs font-semibold text-content-primary">
-                {functionTypeLabel(currentOpenFunction.udfType)}
-              </div>
+          <div className="flex items-center gap-3">
+            <h3 className="font-mono">{currentOpenFunction.name}</h3>
+            <div className="rounded border p-1 text-xs font-semibold text-content-primary">
+              {currentOpenFunction.visibility.kind === "internal" &&
+                "Internal "}
+              {functionTypeLabel(currentOpenFunction.udfType)}
             </div>
-            {currentOpenFunction.displayName !== currentOpenFunction.name && (
-              <CopyTextButton
-                className="font-mono"
-                text={currentOpenFunction.displayName}
-              />
-            )}
           </div>
+          {currentOpenFunction.displayName !== currentOpenFunction.name && (
+            <CopyTextButton
+              className="font-mono"
+              text={currentOpenFunction.displayName}
+            />
+          )}
         </div>
         {
           // Supported UDF types for in-dashboard testing
@@ -113,7 +112,7 @@ export function FunctionSummary({
                   : setShowEnableProdEditsModal(true)
               }
               icon={<PlayIcon />}
-              size="sm"
+              size="xs"
               variant="primary"
             >
               Run Function

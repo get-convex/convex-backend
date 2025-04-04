@@ -11,16 +11,19 @@ export function SchedulingLayout({ children }: { children: React.ReactNode }) {
   const currentPage = pathParts[pathParts.length - 1];
 
   return (
-    <div className="flex h-full flex-col p-6 py-4">
-      <div className="w-fit min-w-60">
-        <NentSwitcher />
+    <div className="flex h-full flex-col">
+      <div className="flex w-full items-center gap-4 bg-background-secondary px-6 pt-4">
+        <h3>Schedules</h3>
+        {/* Negative margin accounting for the margin on NentSwitcher */}
+        <div className="-mb-4 w-fit min-w-60">
+          <NentSwitcher />
+        </div>
       </div>
-      <div className="-ml-2 mb-4 flex gap-4">
+      <div className="mb-4 flex gap-2 border-b bg-background-secondary px-4 pt-2">
         <HeadlessTab.Group
           selectedIndex={currentPage.startsWith("functions") ? 0 : 1}
         >
           <Tab
-            large
             href={{
               pathname: `${basePath}/functions`,
               query,
@@ -29,7 +32,6 @@ export function SchedulingLayout({ children }: { children: React.ReactNode }) {
             Scheduled Functions
           </Tab>
           <Tab
-            large
             href={{
               pathname: `${basePath}/crons`,
               query,
@@ -39,7 +41,7 @@ export function SchedulingLayout({ children }: { children: React.ReactNode }) {
           </Tab>
         </HeadlessTab.Group>
       </div>
-      <div className="grow">{children}</div>
+      <div className="mx-6 mb-4 grow">{children}</div>
     </div>
   );
 }
