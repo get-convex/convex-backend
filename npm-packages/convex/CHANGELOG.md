@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.23.0
+
+- `npx convex dev` now supports the option of running Convex locally without an
+  account
+
 ## 1.22.0
 
 - Options for turning off MCP tools and blocking prod deployments (see
