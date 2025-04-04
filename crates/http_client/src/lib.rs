@@ -3,7 +3,9 @@
 
 use std::sync::LazyLock;
 
+use bytes::BufMut;
 use futures::Future;
+use http_body_util::BodyExt;
 use http_cache::XCACHE;
 use http_cache_reqwest::{
     Cache,
@@ -13,6 +15,7 @@ use http_cache_reqwest::{
 };
 use metrics::log_http_response;
 use openidconnect::{
+    http,
     HttpRequest,
     HttpResponse,
 };
@@ -64,10 +67,11 @@ async fn cached_http_client_inner(
     // `anyhow::Error`. We can collect the result as an `anyhow::Error`, then
     // convert it to a `AsStdError` which does implement `std::error::Error
     let res: Result<HttpResponse, anyhow::Error> = try {
+        let (parts, body) = request.into_parts();
         let mut request_builder = HTTP_CLIENT
-            .request(request.method.as_str().parse()?, request.url.as_str())
-            .body(request.body);
-        for (name, value) in &request.headers {
+            .request(parts.method.as_str().parse()?, parts.uri.to_string())
+            .body(body);
+        for (name, value) in &parts.headers {
             request_builder = request_builder.header(name.as_str(), value.as_bytes());
         }
         let request = request_builder.build()?;
@@ -82,22 +86,13 @@ async fn cached_http_client_inner(
 
         log_http_response(purpose, cache_hit);
 
-        let status_code = response.status();
-        let headers = response.headers().to_owned();
-        let chunks = response.bytes().await?;
-        HttpResponse {
-            status_code: status_code.as_str().parse()?,
-            headers: headers
-                .iter()
-                .map(|(name, value)| {
-                    Ok((
-                        openidconnect::http::HeaderName::from_bytes(name.as_ref())?,
-                        openidconnect::http::HeaderValue::from_bytes(value.as_bytes())?,
-                    ))
-                })
-                .collect::<anyhow::Result<_>>()?,
-            body: chunks.to_vec(),
-        }
+        // `openidconnect` requires that the response be a single `Vec<u8>`
+        // chunk, so read the entire response body here
+        let (parts, body) = http::Response::from(response).into_parts();
+        let body = body.collect().await?;
+        let mut vec_body = vec![];
+        vec_body.put(body.aggregate());
+        HttpResponse::from_parts(parts, vec_body)
     };
     res.map_err(AsStdError)
 }
@@ -105,12 +100,9 @@ async fn cached_http_client_inner(
 #[cfg(test)]
 mod tests {
     use http_cache::XCACHE;
-    use openidconnect::{
-        http::{
-            header::HeaderValue,
-            Method,
-        },
-        HttpRequest,
+    use openidconnect::http::{
+        self,
+        header::HeaderValue,
     };
     use reqwest::Url;
 
@@ -124,22 +116,17 @@ mod tests {
         // Use Google's OpenID configuration, which should never disappear
         let url =
             Url::parse("https://accounts.google.com/.well-known/openid-configuration").unwrap();
-        let request = HttpRequest {
-            url: url.clone(),
-            method: Method::GET,
-            headers: vec![(
-                openidconnect::http::header::ACCEPT,
+        let request = http::Request::get(url.to_string())
+            .header(
+                http::header::ACCEPT,
                 HeaderValue::from_static("application/json"),
-            )]
-            .into_iter()
-            .collect(),
-            body: vec![],
-        };
+            )
+            .body(vec![])?;
         let response = cached_http_client_inner(request.clone(), ClientPurpose::ProviderMetadata)
             .await
             .unwrap();
         assert_eq!(
-            response.headers.get(XCACHE).unwrap().as_bytes(),
+            response.headers().get(XCACHE).unwrap().as_bytes(),
             "MISS".as_bytes()
         );
         // Send the request again
@@ -147,7 +134,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            response.headers.get(XCACHE).unwrap().as_bytes(),
+            response.headers().get(XCACHE).unwrap().as_bytes(),
             "HIT".as_bytes()
         );
         Ok(())

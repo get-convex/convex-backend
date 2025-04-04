@@ -48,7 +48,6 @@ use openidconnect::{
     core::{
         CoreGenderClaim,
         CoreIdTokenVerifier,
-        CoreJsonWebKeyType,
         CoreJweContentEncryptionAlgorithm,
         CoreJwsSigningAlgorithm,
     },
@@ -435,7 +434,6 @@ pub type CoreIdTokenWithCustomClaims = IdToken<
     CoreGenderClaim,
     CoreJweContentEncryptionAlgorithm,
     CoreJwsSigningAlgorithm,
-    CoreJsonWebKeyType,
 >;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default, PartialEq, Eq)]

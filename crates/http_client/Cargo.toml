@@ -9,7 +9,9 @@ doctest = false
 
 [dependencies]
 anyhow = { workspace = true }
+bytes = { workspace = true }
 futures = { workspace = true }
+http-body-util = { workspace = true }
 http-cache = { workspace = true }
 http-cache-reqwest = { workspace = true }
 metrics = { path = "../metrics" }

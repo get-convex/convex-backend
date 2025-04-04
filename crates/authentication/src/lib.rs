@@ -31,12 +31,6 @@ use openidconnect::{
         CoreIdTokenVerifier,
         CoreProviderMetadata,
     },
-    http::{
-        header::ACCEPT,
-        HeaderValue,
-        Method,
-        StatusCode,
-    },
     ClaimsVerificationError,
     ClientId,
     DiscoveryError,
@@ -152,7 +146,7 @@ where
     // provider.
     // TODO(CX-606): Add an caching layer that respects the HTTP cache headers
     // in the response.
-    let metadata = CoreProviderMetadata::discover_async(issuer.clone(), http_client)
+    let metadata = CoreProviderMetadata::discover_async(issuer.clone(), &http_client)
         .await
         .map_err(|e| {
             let short = "AuthProviderDiscoveryFailed";
@@ -308,30 +302,29 @@ where
     E: std::error::Error + 'static + Send + Sync,
 {
     let encoded_token = JWT::<ConsoleClaims, biscuit::Empty>::new_encoded(&access_token.0);
-    let jwks_request = HttpRequest {
-        url: jwks_url(auth_url),
-        method: Method::GET,
-        headers: vec![(ACCEPT, HeaderValue::from_static("application/json"))]
-            .into_iter()
-            .collect(),
-        body: Vec::new(),
-    };
-    let response = http_client(jwks_request).await?;
-    if response.status_code != StatusCode::OK {
+    let jwks_request = http::Request::builder()
+        .uri(jwks_url(auth_url).to_string())
+        .method(http::Method::GET)
+        .header(
+            http::header::ACCEPT,
+            const { http::HeaderValue::from_static("application/json") },
+        )
+        .body(vec![])?;
+    let (response, body) = http_client(jwks_request).await?.into_parts();
+    if response.status != http::StatusCode::OK {
         anyhow::bail!(
             "Error from auth jwks request {} {}: {}",
-            response.status_code,
-            response.status_code.canonical_reason().unwrap_or("Unknown"),
-            String::from_utf8_lossy(&response.body),
+            response.status,
+            response.status.canonical_reason().unwrap_or("Unknown"),
+            String::from_utf8_lossy(&body),
         )
     }
-    let jwks: JWKSet<biscuit::Empty> =
-        serde_json::de::from_slice(&response.body).with_context(|| {
-            format!(
-                "Invalid auth jwks response body: {}",
-                String::from_utf8_lossy(&response.body)
-            )
-        })?;
+    let jwks: JWKSet<biscuit::Empty> = serde_json::de::from_slice(&body).with_context(|| {
+        format!(
+            "Invalid auth jwks response body: {}",
+            String::from_utf8_lossy(&body)
+        )
+    })?;
 
     let algorithm = encoded_token
         .unverified_header()
@@ -413,14 +406,12 @@ mod tests {
             CoreIdToken,
             CoreIdTokenClaims,
             CoreJsonWebKeySet,
-            CoreJsonWebKeyType,
             CoreJweContentEncryptionAlgorithm,
             CoreJwsSigningAlgorithm,
             CoreProviderMetadata,
             CoreResponseType,
             CoreSubjectIdentifierType,
         },
-        http::StatusCode,
         AdditionalClaims,
         Audience,
         EmptyAdditionalClaims,
@@ -463,20 +454,18 @@ mod tests {
             let metadata_ = metadata.clone();
             let jwks_ = jwks.clone();
             async move {
-                if request.url.path().ends_with("openid-configuration") {
-                    Ok(HttpResponse {
-                        status_code: StatusCode::OK,
-                        headers: vec![].into_iter().collect(),
-                        body: metadata_.into_bytes(),
-                    })
-                } else if request.url.path().ends_with("jwks.json") {
-                    Ok(HttpResponse {
-                        status_code: StatusCode::OK,
-                        headers: vec![].into_iter().collect(),
-                        body: jwks_.into_bytes(),
-                    })
+                if request.uri().path().ends_with("openid-configuration") {
+                    Ok(http::Response::builder()
+                        .status(http::StatusCode::OK)
+                        .body(metadata_.into_bytes())
+                        .unwrap())
+                } else if request.uri().path().ends_with("jwks.json") {
+                    Ok(http::Response::builder()
+                        .status(http::StatusCode::OK)
+                        .body(jwks_.into_bytes())
+                        .unwrap())
                 } else {
-                    panic!("unexpected request path {:?}", request.url);
+                    panic!("unexpected request path {:?}", request.uri());
                 }
             }
             .boxed_local()
@@ -587,7 +576,6 @@ mod tests {
             CoreGenderClaim,
             CoreJweContentEncryptionAlgorithm,
             CoreJwsSigningAlgorithm,
-            CoreJsonWebKeyType,
         >::new(
             IdTokenClaims::new(
                 issuer_url.clone(),
