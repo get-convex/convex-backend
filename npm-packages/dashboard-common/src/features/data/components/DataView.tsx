@@ -84,6 +84,7 @@ export function DataView() {
           <div className="h-full w-full">
             <div className="flex h-full">
               <SidebarDetailLayout
+                resizeHandleTitle="Tables"
                 panelSizeKey={`${deploymentId}/data`}
                 sidebarComponent={<DataSideBarSkeleton />}
                 contentComponent={<DataContentSkeleton />}
@@ -101,6 +102,7 @@ export function DataView() {
                 showSchema={showSchemaProps}
               />
             }
+            resizeHandleTitle="Tables"
             contentComponent={
               tableMetadata.name === null ? (
                 <EmptyData />

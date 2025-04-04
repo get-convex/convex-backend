@@ -190,7 +190,7 @@ export function DataContent({
     <PanelGroup
       direction="horizontal"
       className={cn(
-        "flex w-full h-full overflow-x-auto scrollbar pl-6 min-w-[30rem]",
+        "flex w-full h-full overflow-x-auto scrollbar pl-6 min-w-[20rem]",
         popupEl ? "pr-0" : "pr-6",
       )}
       autoSaveId="data-content"
@@ -199,7 +199,7 @@ export function DataContent({
         className={cn(
           "flex shrink flex-col gap-2 overflow-hidden py-4",
           "max-w-full",
-          popupEl ? "min-w-[10rem]" : "min-w-[30rem]",
+          popupEl ? "min-w-[10rem]" : "min-w-[20rem]",
         )}
         ref={ref}
         defaultSize={80}

@@ -29,7 +29,7 @@ export function DirectorySidebar({
     >
       <div className="mb-2 flex flex-col px-3">
         <NentSwitcher />
-        <h5>Function Explorer</h5>
+        <h5>Functions</h5>
       </div>
       <input
         id="Search functions"

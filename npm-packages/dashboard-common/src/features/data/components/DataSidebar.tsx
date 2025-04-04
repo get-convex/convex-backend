@@ -62,7 +62,7 @@ export function DataSidebar({
         />
       )}
       <div className={cn("flex-1 overflow-auto scrollbar px-3 pt-1")}>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-0.5">
           {Array.from(tables.keys())
             .filter(
               (r) =>
@@ -93,9 +93,7 @@ export function DataSidebar({
             icon={<CodeIcon />}
             className="animate-fadeInFromLoading overflow-hidden"
           >
-            <span className="truncate">
-              {showSchema.hasSaved ? <>Show Schema</> : <>Generate Schema</>}
-            </span>
+            <span className="truncate">Schema</span>
           </Button>
         )}
       </div>
@@ -194,11 +192,11 @@ export function CreateNewTable({ tableData }: { tableData: TableMetadata }) {
     </form>
   ) : (
     <Button
-      inline
       size="sm"
       className="mt-1 max-w-full"
       onClick={() => setNewTableName("")}
       icon={<PlusIcon aria-hidden="true" />}
+      inline
       disabled={
         !canCreateTable || !!(selectedNent && selectedNent.state !== "active")
       }

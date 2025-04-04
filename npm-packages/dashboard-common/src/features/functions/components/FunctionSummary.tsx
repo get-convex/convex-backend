@@ -70,7 +70,9 @@ export function FunctionSummary({
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-3">
             <h3 className="font-mono">{currentOpenFunction.name}</h3>
-            <div className="rounded border p-1 text-xs font-semibold text-content-primary">
+            <div
+              className={`rounded p-1 text-xs font-semibold ${getFunctionTypeStyles(currentOpenFunction.udfType).text} ${getFunctionTypeStyles(currentOpenFunction.udfType).background}`}
+            >
               {currentOpenFunction.visibility.kind === "internal" &&
                 "Internal "}
               {functionTypeLabel(currentOpenFunction.udfType)}
@@ -145,4 +147,34 @@ export const functionTypeLabel = (udfType: UdfType) => {
       text = "Function";
   }
   return text;
+};
+
+export const getFunctionTypeStyles = (udfType: UdfType) => {
+  switch (udfType) {
+    case "Query":
+      return {
+        text: "text-yellow-500",
+        background: "bg-yellow-500/10",
+      };
+    case "Mutation":
+      return {
+        text: "text-blue-500",
+        background: "bg-blue-500/10",
+      };
+    case "Action":
+      return {
+        text: "text-purple-500",
+        background: "bg-purple-500/10",
+      };
+    case "HttpAction":
+      return {
+        text: "text-green-500",
+        background: "bg-green-500/10",
+      };
+    default:
+      return {
+        text: "text-content-primary",
+        background: "bg-background-tertiary",
+      };
+  }
 };

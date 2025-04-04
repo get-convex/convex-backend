@@ -42,11 +42,11 @@ export function FileEditor({
 
   return (
     <Sheet
-      className="max-h-full w-full overflow-y-auto py-2"
+      className="h-full w-full overflow-y-auto py-2"
       padding={false}
       ref={ref}
     >
-      <div className="grow">
+      <div className="h-full">
         {sourceCode === undefined ? (
           <div className="my-20">
             <Loading />

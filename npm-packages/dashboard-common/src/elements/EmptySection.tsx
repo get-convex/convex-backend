@@ -14,7 +14,7 @@ export function EmptySection({
   sheet = true,
 }: {
   Icon: React.FunctionComponent<{ className: string | undefined }>;
-  color?: "yellow" | "red" | "purple" | "green";
+  color?: "yellow" | "red" | "purple" | "green" | "none";
   header: string;
   body: React.ReactNode;
   action?: React.ReactNode;
@@ -35,11 +35,12 @@ export function EmptySection({
               "from-red-300 to-util-brand-red",
             color === "purple" && "from-purple-200 to-util-brand-purple",
             color === "green" && "from-util-success to-util-success",
+            color === "none" && "bg-transparent shadow-none",
           )}
         >
           <Icon className="h-6 w-6 text-white" />
         </div>
-        <h2 className="mx-2 mb-2 text-content-secondary">{header}</h2>
+        <h2 className="mx-2 mb-2">{header}</h2>
 
         <p className="mb-2 max-w-prose text-balance text-content-tertiary">
           {body}

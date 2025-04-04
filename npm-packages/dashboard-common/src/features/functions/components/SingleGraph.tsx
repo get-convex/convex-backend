@@ -18,16 +18,20 @@ import { LoadingTransition } from "@common/elements/Loading";
 export function SingleGraph({
   title,
   dataSource,
+  data,
   syncId,
 }: {
   title: "Cache Hit Rate" | "Function Calls" | "Errors" | "Execution Time";
-  dataSource: ChartDataSource;
   syncId?: string;
-}) {
-  const [chartData, setChartData] = useState<ChartData>();
+} & (
+  | { dataSource: ChartDataSource; data?: undefined }
+  | { dataSource?: undefined; data: ChartData }
+)): JSX.Element {
+  const [chartData, setChartData] = useState<ChartData | undefined>(data);
 
   useEffect(() => {
     async function getChartData() {
+      if (!dataSource) return;
       const initEndDate = new Date();
       const initStartDate = new Date(initEndDate);
       initStartDate.setHours(initStartDate.getHours() - 1);

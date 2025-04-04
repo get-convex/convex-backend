@@ -314,7 +314,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
   const { page } = useContext(InsightsContext) || {};
   return (
     <div
-      className="flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 scrollbar"
+      className="flex w-full shrink-0 grow flex-col gap-4 overflow-y-auto px-6 pb-4 scrollbar"
       // @ts-expect-error https://github.com/facebook/react/issues/17157
       inert={page !== "home" ? "inert" : undefined}
     >

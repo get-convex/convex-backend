@@ -1,7 +1,7 @@
 import classNames from "classnames";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { ReactNode, useContext, useRef, useState } from "react";
+import { ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { useLocalStorage } from "react-use";
 import { gt } from "semver";
 import udfs from "@common/udfs";
@@ -25,16 +25,21 @@ export function SidebarDetailLayout({
   sidebarComponent,
   contentComponent,
   panelSizeKey,
+  resizeHandleTitle,
 }: {
   sidebarComponent: ReactNode;
   contentComponent: ReactNode;
   panelSizeKey: string;
+  resizeHandleTitle: string;
 }) {
   const router = useRouter();
 
   const cleanPath = router.asPath.split("?")[0];
 
   const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    window.innerWidth < 768 && panelRef.current?.collapse();
+  }, []);
   const panelRef = useRef<ImperativePanelHandle>(null);
 
   const { ErrorBoundary } = useContext(DeploymentInfoContext);
@@ -54,7 +59,7 @@ export function SidebarDetailLayout({
           maxSize={75}
           className={classNames(
             "h-full flex",
-            !collapsed && "border-r min-w-[14rem] max-w-[26rem]",
+            !collapsed && "border-r min-w-[10rem] max-w-[26rem]",
           )}
           collapsedSize={0}
           onCollapse={() => setCollapsed(true)}
@@ -67,6 +72,7 @@ export function SidebarDetailLayout({
           collapsed={collapsed}
           direction="right"
           panelRef={panelRef}
+          handleTitle={resizeHandleTitle}
         />
         <Panel
           className="relative h-full grow overflow-x-auto"
@@ -145,11 +151,13 @@ export function ResizeHandle({
   direction = "left",
   panelRef,
   className,
+  handleTitle,
 }: {
   collapsed: boolean;
   direction: "left" | "right";
   panelRef?: React.RefObject<ImperativePanelHandle>;
   className?: string;
+  handleTitle?: string;
 }) {
   const [dragging, setDragging] = useState(false);
   return (
@@ -169,14 +177,26 @@ export function ResizeHandle({
         onClick={() => panelRef?.current?.expand()}
         disabled={!collapsed}
         className={cn(
-          "absolute top-1/2 -translate-y-1/2 left-0 z-20 bg-background-secondary py-2 px-0.5 border transition-all",
+          "absolute flex flex-col items-center gap-1 text-xs top-1/2 -translate-y-1/2 left-0 z-20 bg-background-secondary py-2 px-0.5 border transition-all",
           dragging && "text-content-primary border-util-accent border-4",
           direction === "right"
             ? "rounded-r-md border-l-0"
-            : "rounded-l-md ml-[-1.125rem] border-r-0",
+            : "rounded-l-md ml-[-1.25rem] border-r-0",
         )}
         icon={<DragHandleDots2Icon className="text-content-secondary" />}
-      />
+      >
+        {handleTitle && collapsed && (
+          <span
+            style={{ writingMode: "vertical-rl" }}
+            className={cn(
+              direction === "right" && "rotate-180",
+              dragging ? "text-content-primary" : "text-content-secondary",
+            )}
+          >
+            {handleTitle}
+          </span>
+        )}
+      </Button>
     </PanelResizeHandle>
   );
 }

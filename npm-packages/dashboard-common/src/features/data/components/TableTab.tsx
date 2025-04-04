@@ -5,6 +5,7 @@ import omit from "lodash/omit";
 import { sidebarLinkClassNames } from "@common/elements/Sidebar";
 import { Tooltip } from "@common/elements/Tooltip";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
+import { cn } from "@common/lib/cn";
 
 export function TableTab({
   selectedTable,
@@ -53,10 +54,13 @@ export function TableTab({
               },
             }}
             key={table}
-            className={sidebarLinkClassNames({
-              isActive: selectedTable === table,
-              small: true,
-            })}
+            className={cn(
+              sidebarLinkClassNames({
+                isActive: selectedTable === table,
+                small: true,
+              }),
+              "py-1",
+            )}
             onClick={() => onSelectTable?.()}
           >
             <div className="flex w-full max-w-full items-start gap-0.5">

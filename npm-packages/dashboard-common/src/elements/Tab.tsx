@@ -20,15 +20,13 @@ export function Tab({
           tip={tip}
           variant="unstyled"
           className={cn(
-            "p-2 text-sm rounded whitespace-nowrap cursor-pointer",
+            "px-3 py-2 text-sm whitespace-nowrap cursor-pointer",
             !disabled && selected
-              ? "text-content-primary"
+              ? "text-content-primary border-b-2 border-content-primary"
               : "text-content-secondary",
             disabled
               ? "disabled:text-content-secondary cursor-not-allowed"
-              : "hover:bg-background-tertiary",
-            selected &&
-              "font-semibold underline underline-offset-8 decoration-2",
+              : "hover:text-content-primary",
             // It's OK for tabs.
             // eslint-disable-next-line no-restricted-syntax
             large && "text-lg",

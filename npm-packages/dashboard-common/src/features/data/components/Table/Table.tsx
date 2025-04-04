@@ -331,6 +331,7 @@ export function Table({
             collapsed={collapsed}
             direction="left"
             panelRef={panelRef}
+            handleTitle="View Selected"
           />
           <Panel
             defaultSize={30}
