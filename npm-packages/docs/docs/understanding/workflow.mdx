@@ -19,25 +19,44 @@ You install Convex adding the npm dependency to your app:
 npm i convex
 ```
 
-Then you create your Convex project and start backend dev loop:
+Then you create your Convex project and start the backend dev loop:
 
 ```sh
 npx convex dev
 ```
 
-The first time you run the `npx convex dev` command you'll be asked to:
+The first time you run the `npx convex dev` command you'll be asked whether you
+want start developing locally without an account or create an account.
 
-1. Create an account if it doesn't exist
-   1. This adds your credentials to your `~/.convex/config.json` file. You can
-      run `npx convex logout` to log your machine out of the account in the
-      future.
-1. Create a new Convex project if it doesn't exist
+### Developing without an account
 
-Then Convex will automatically provision a new personal development deployment
-for this project for you:
+`npx convex dev` will prompt you for the name of your project, and then start
+running the open-source Convex backend locally on your machine (this is also
+called a "deployment").
+
+The data for your project will be saved in the `~/.convex` directory.
+
+1. The name of your project will get saved to your `.env.local` file so future
+   runs of `npx convex dev` will know to use this project.
+1. A `convex/` folder will be created (if it doesn't exist), where you'll write
+   your Convex backend functions.
+
+You can run `npx convex login` in the future to create an account and link any
+existing projects.
+
+### Developing with an account
+
+`npx convex dev` will prompt you through creating an account if one doesn't
+exist, and will add your credentials to `~/.convex/config.json` on your machine.
+You can run `npx convex logout` to log you machine out of the account in the
+future.
+
+Next, `npx convex dev` will create a new project and provision a new personal
+development deployment for this project:
 
 1.  Deployment details will automatically be added to your `.env.local` file so
-    future runs of `npx convex dev` will know what dev deployment to connect to.
+    future runs of `npx convex dev` will know which dev deployment to connect
+    to.
 1.  A `convex/` folder will be created (if it doesn't exist), where you'll write
     your Convex backend functions.
 
@@ -45,14 +64,17 @@ for this project for you:
   ![Convex directory in your app](/img/convex-directory.png)
 </div>
 
-## Developing your app
+## Running the dev loop
 
 Keep the `npx convex dev` command running while you're working on your Convex
 app. This continuously pushes backend code you write in the `convex/` folder to
-your dev deployment. It also keeps the necessary TypeScript types up-to-date as
-you write your backend code.
+your deployment. It also keeps the necessary TypeScript types up-to-date as you
+write your backend code.
 
-You can then add new new server functions to your Convex backend:
+When you're developing with a locally running deployment, `npx convex dev` is
+also responsible for running your deployment.
+
+You can then add new server functions to your Convex backend:
 
 ```typescript title="convex/tasks.ts"
 import { query } from "./_generated/server";
@@ -74,8 +96,9 @@ export const getTaskList = query({
 
 When you write and save this code in your editor, several things happen:
 
-1. The `npx convex dev` command uploads the contents of your `convex/` directory
-   to your dev deployment.
+1. The `npx convex dev` command typechecks your code and updates the
+   `convex/_generated` directory.
+1. The contents of your `convex/` directory get uploaded to your dev deployment.
 1. Your Convex dev deployment analyzes your code and finds all Convex functions.
    In this example, it determines that `tasks.getTaskList` is a new public query
    function.
@@ -114,6 +137,8 @@ applied and enforced on your backend.
 The [Convex dashboard](/docs/dashboard/deployments/deployments.md) will be a
 trusty helper throughout your dev, debug and deploy workflow in Convex.
 
+`npx convex dashboard` will open a link to the dashboard for your deployment.
+
 ### Logs
 
 Since Convex functions are TypeScript functions you can always use the standard
@@ -139,13 +164,16 @@ There is a lot more to to the dashboard. Be sure to click around or
 
 ## Deploying your app
 
-So far you've been working on your app against your personal dev deployment for
-the current project.
+So far you've been working on your app against your personal dev deployment.
 
-All projects have one production deployment. It has separate data and has a
-separate push process from personal dev deployments, which allows you and your
-teammates to work on new features using personal dev deployments without
-disrupting your app running in production.
+All Convex projects have one production deployment running in the cloud. It has
+separate data and has a separate push process from personal dev deployments,
+which allows you and your teammates to work on new features using personal dev
+deployments without disrupting your app running in production.
+
+If you have not created a Convex account yet, you will need to do so with
+`npx convex login`. This will automatically link any projects you've started
+with your new account, and enable using your production deployment.
 
 To push your code to your production deployment for your project you run the
 deploy command:

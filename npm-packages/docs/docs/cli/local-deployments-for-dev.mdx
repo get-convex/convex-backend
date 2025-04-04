@@ -8,23 +8,22 @@ Instead of syncing code to a Convex dev deployment hosted in the cloud, you can
 develop against a deployment running on your own computer. You can even use the
 Convex dashboard with local deployments!
 
-## Background on Deployments in Convex
+## Background on deployments in Convex
 
 Each Convex deployment contains its own data, functions, scheduled functions,
-etc. A project has one production deployment, one cloud deployment for
+etc. A project has one production deployment, up to one cloud deployment for
 development per team member, and potentially many transient
-[preview deployments](/docs/testing.mdx).
+[preview deployments](/docs/production/hosting/preview-deployments.mdx).
 
-Running the deployment you're syncing code to during development on your own
-machine makes code sync faster and means resources like functions calls and
-database bandwidth don't count against
+You can also develop with Convex using a deployment running on your own machine.
+Since the deployment is running locally, code sync is faster and means resources
+like functions calls and database bandwidth don't count against
 [the quotas for your Convex plan](https://www.convex.dev/pricing).
 
-Local deployments are not recommended for production use: they're development
-deployments, i.e. logs for function results and full stack traces for error
-responses are sent to connected clients. For information about self-hosting a
-production deployment instead, see the
-[convex-backend GitHub repo](https://github.com/get-convex/convex-backend).
+You can use local deployments with an existing Convex project, and view your
+deployment in the Convex dashboard under your project. You can also use local
+deployments without a Convex account and debug and inspect them with a locally
+running version of the Convex dashboard.
 
 ## Using local deployments
 
@@ -33,23 +32,19 @@ production deployment instead, see the
 While using local deployments, the local Convex backend runs as a subprocess of
 the `npx convex dev` command and exits when that command is stopped. This means
 a `convex dev` command must be running in order to run other commands like
-`npx convex run` against this local deployment.
+`npx convex run` against this local deployment or for your frontend to connect
+to this deployment.
 
-State for local backends is stored the `~/.convex/convex-backend-state/`
-directory.
+State for local backends is stored the `~/.convex/` directory.
 
-### Using a Local Deployments for a New Project
+### Anonymous development
 
-When creating a new project you can choose to start out with local development
-right away by choosing this option during project creation.
+You can use local deployments to develop with Convex without having to create an
+account. Whenever you want to create an account to deploy your app to production
+or to use more Convex features, you can use `npx convex login` to link your
+local deployments with your account.
 
-In addition to downloading the Convex backend binary and pushing your code to
-it, this command updates the `CONVEX_DEPLOYMENT` environment variable in your
-`.env.local` file so clients like webapps you're developing and Convex CLI
-commands like `npx convex dev` and `npx convex run` know to use the local
-deployment.
-
-### Enabling for an Existing Project
+### Local deployments for an existing project
 
 To use a local deployment for an existing project, run:
 
@@ -61,6 +56,19 @@ You'll also always be given the option for a local deployment if you run
 `npx convex dev --configure`. Other flows may assume you want a cloud deployment
 in some situations, for example when connecting to a project for which you
 already have a cloud development deployment.
+
+## Local deployments vs. production
+
+Local deployments are not recommended for production use: they're development
+deployments, i.e. logs for function results and full stack traces for error
+responses are sent to connected clients.
+
+For running a production application, you can use a production deployment hosted
+on the Convex cloud. Learn more about deploying to production
+[here](/docs/production.mdx).
+
+Alternatively, you can self-host a production deployment using the
+[open source convex-backend repo](https://github.com/get-convex/convex-backend).
 
 ### Disabling
 
