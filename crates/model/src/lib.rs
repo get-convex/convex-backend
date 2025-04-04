@@ -90,6 +90,7 @@ pub use database::defaults::{
 };
 use database::{
     defaults::bootstrap_system_tables,
+    BootstrapComponentsModel,
     ComponentDefinitionsTable,
     ComponentsTable,
     Database,
@@ -379,6 +380,25 @@ pub async fn initialize_application_system_tables<RT: Runtime>(
             }
         }
     }
+    for component_id in BootstrapComponentsModel::new(&mut tx)
+        .all_component_paths()
+        .keys()
+        .copied()
+    {
+        if component_id.is_root() {
+            continue;
+        }
+        for table in component_system_tables() {
+            initialize_application_system_table(
+                &mut tx,
+                table,
+                component_id.into(),
+                &DEFAULT_TABLE_NUMBERS,
+            )
+            .await?;
+        }
+    }
+
     database
         .commit_with_write_source(tx, "init_app_system_tables")
         .await?;
