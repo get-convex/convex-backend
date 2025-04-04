@@ -2234,22 +2234,22 @@ impl ConflictingReadWithWriteSource {
             current_writer.0.as_deref().unwrap_or("unknownwriter")
         );
 
-        let formatted = if let Some(stack_traces) = self.read.stack_traces {
-            format!(
-                "{msg}. Displaying {}/{} stack traces of relevant reads. Increase \
-                 NUM_READ_SET_STACKS for more:\n{}",
+        let formatted = format!(
+            "{msg}. Use RUST_BACKTRACE=1 READ_SET_CAPTURE_BACKTRACES=true to find trace of \
+             relevant reads"
+        );
+
+        if let Some(stack_traces) = self.read.stack_traces {
+            tracing::error!(
+                "Displaying {}/{} stack traces of relevant reads. Increase NUM_READ_SET_STACKS \
+                 for more:",
                 cmp::min(*NUM_READ_SET_STACKS, stack_traces.len()),
                 stack_traces.len(),
-                stack_traces
-                    .iter()
-                    .take(*NUM_READ_SET_STACKS)
-                    .join(&format!("\nRead of {index} occured at\n"))
-            )
-        } else {
-            format!(
-                "{msg}. Use RUST_BACKTRACE=1 READ_SET_CAPTURE_BACKTRACES=true to find trace of \
-                 relevant reads"
-            )
+            );
+
+            for stack_trace in stack_traces.iter().take(*NUM_READ_SET_STACKS) {
+                tracing::error!("Read of {index} occurred at {stack_trace}");
+            }
         };
         anyhow::anyhow!(formatted).context(ErrorMetadata::system_occ())
     }
