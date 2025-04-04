@@ -29,8 +29,9 @@ export async function choosePorts(
       }
       ports.push(port);
     } else {
-      const lastPort = ports.length > 0 ? ports[ports.length - 1] : startPort;
-      const port = await detect(lastPort + 1);
+      const portToTry =
+        ports.length > 0 ? ports[ports.length - 1] + 1 : startPort;
+      const port = await detect(portToTry);
       ports.push(port);
     }
   }

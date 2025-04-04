@@ -34,16 +34,14 @@ function App({
   pageProps: {
     deploymentUrl,
     adminKey,
-    listDeploymentsApiUrl,
-    selectedDeploymentName,
+    defaultListDeploymentsApiUrl,
     ...pageProps
   },
 }: AppProps & {
   pageProps: {
     deploymentUrl: string | null;
     adminKey: string | null;
-    listDeploymentsApiUrl: string | null;
-    selectedDeploymentName: string | null;
+    defaultListDeploymentsApiUrl: string | null;
   };
 }) {
   return (
@@ -60,8 +58,7 @@ function App({
           <DeploymentInfoProvider
             deploymentUrl={deploymentUrl}
             adminKey={adminKey}
-            listDeploymentsApiUrl={listDeploymentsApiUrl}
-            selectedDeploymentName={selectedDeploymentName}
+            defaultListDeploymentsApiUrl={defaultListDeploymentsApiUrl}
           >
             <DeploymentApiProvider deploymentOverride="local">
               <WaitForDeploymentApi>
@@ -97,8 +94,8 @@ function normalizeUrl(url: string) {
 App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
   // On server-side, get from process.env
   if (ctx.req) {
-    // This is a relative URL, so add localhost as the origin so it can be parsed
-    const url = new URL(ctx.req.url, "http://127.0.0.1");
+    // Note -- we can't use `ctx.req.url` when serving the dashboard statically,
+    // so instead we'll read from query params on the client side.
 
     let deploymentUrl: string | null = null;
     if (process.env.NEXT_PUBLIC_DEPLOYMENT_URL) {
@@ -106,7 +103,6 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
     }
 
     const listDeploymentsApiPort =
-      url.searchParams.get(LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM) ??
       process.env.NEXT_PUBLIC_DEFAULT_LIST_DEPLOYMENTS_API_PORT;
     let listDeploymentsApiUrl: string | null = null;
     if (listDeploymentsApiPort) {
@@ -116,15 +112,11 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
       }
     }
 
-    const selectedDeploymentName =
-      url.searchParams.get(SELECTED_DEPLOYMENT_NAME_QUERY_PARAM) ?? null;
-
     return {
       pageProps: {
         deploymentUrl,
         adminKey: null,
-        listDeploymentsApiUrl,
-        selectedDeploymentName,
+        defaultListDeploymentsApiUrl: listDeploymentsApiUrl,
       },
     };
   }
@@ -142,7 +134,7 @@ App.getInitialProps = async ({ ctx }: { ctx: { req?: any } }) => {
     pageProps: {
       deploymentUrl: clientSideDeploymentUrl ?? null,
       adminKey: clientSideAdminKey ?? null,
-      listDeploymentsApiUrl: clientSideListDeploymentsApiUrl ?? null,
+      defaultListDeploymentsApiUrl: clientSideListDeploymentsApiUrl ?? null,
       selectedDeploymentName: clientSideSelectedDeploymentName ?? null,
     },
   };
@@ -227,18 +219,19 @@ function DeploymentInfoProvider({
   children,
   deploymentUrl,
   adminKey,
-  listDeploymentsApiUrl,
-  selectedDeploymentName,
+  defaultListDeploymentsApiUrl,
 }: {
   children: React.ReactNode;
   deploymentUrl: string | null;
   adminKey: string | null;
-  listDeploymentsApiUrl: string | null;
-  selectedDeploymentName: string | null;
+  defaultListDeploymentsApiUrl: string | null;
 }) {
-  const [shouldListDeployments, setShouldListDeployments] = useState(
-    listDeploymentsApiUrl !== null,
-  );
+  const [listDeploymentsApiUrl, setListDeploymentsApiUrl] = useState<
+    string | null
+  >(null);
+  const [selectedDeploymentName, setSelectedDeploymentName] = useState<
+    string | null
+  >(null);
   const [isValidDeploymentInfo, setIsValidDeploymentInfo] = useState<
     boolean | null
   >(null);
@@ -297,22 +290,40 @@ function DeploymentInfoProvider({
   useEffect(() => {
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
+      const listDeploymentsApiPort = url.searchParams.get(
+        LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM,
+      );
+      const selectedDeploymentNameFromUrl = url.searchParams.get(
+        SELECTED_DEPLOYMENT_NAME_QUERY_PARAM,
+      );
       url.searchParams.delete(LIST_DEPLOYMENTS_API_PORT_QUERY_PARAM);
       url.searchParams.delete(SELECTED_DEPLOYMENT_NAME_QUERY_PARAM);
       window.history.replaceState({}, "", url.toString());
+      if (listDeploymentsApiPort) {
+        if (!Number.isNaN(parseInt(listDeploymentsApiPort))) {
+          setListDeploymentsApiUrl(
+            normalizeUrl(`http://127.0.0.1:${listDeploymentsApiPort}`),
+          );
+        }
+      } else {
+        setListDeploymentsApiUrl(defaultListDeploymentsApiUrl);
+      }
+      if (selectedDeploymentNameFromUrl) {
+        setSelectedDeploymentName(selectedDeploymentNameFromUrl);
+      }
     }
-  }, []);
+  }, [defaultListDeploymentsApiUrl]);
   if (!mounted) return null;
 
   if (!isValidDeploymentInfo) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center gap-8">
         <ConvexLogo />
-        {shouldListDeployments && listDeploymentsApiUrl !== null ? (
+        {listDeploymentsApiUrl !== null ? (
           <DeploymentList
             listDeploymentsApiUrl={listDeploymentsApiUrl}
             onError={() => {
-              setShouldListDeployments(false);
+              setListDeploymentsApiUrl(null);
             }}
             onSelect={onSubmit}
             selectedDeploymentName={selectedDeploymentName}
