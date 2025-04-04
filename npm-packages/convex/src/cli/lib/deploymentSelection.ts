@@ -620,6 +620,9 @@ export const deploymentNameAndTypeFromSelection = (
 };
 
 export const shouldAllowAnonymousDevelopment = (): boolean => {
-  // Temporary flag while we build out this flow
-  return process.env.CONVEX_ALLOW_ANONYMOUS !== undefined;
+  // Kill switch / temporary opt out
+  if (process.env.CONVEX_ALLOW_ANONYMOUS === "false") {
+    return false;
+  }
+  return true;
 };

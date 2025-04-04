@@ -73,11 +73,11 @@ export async function handleAnonymousDeployment(
   if (deployment.kind === "first") {
     logMessage(
       ctx,
-      "This command, `npx convex dev`, will run your deployment and update it with the function you write in the `convex/` directory.",
+      "This command, `npx convex dev`, will run your Convex backend locally and update it with the function you write in the `convex/` directory.",
     );
     logMessage(
       ctx,
-      "Use `npx convex dashboard` to view and interact with your deployment from a web UI.",
+      "Use `npx convex dashboard` to view and interact with your project from a web UI.",
     );
     logMessage(
       ctx,
@@ -86,7 +86,7 @@ export async function handleAnonymousDeployment(
     ensureUuidForAnonymousUser(ctx);
     if (process.stdin.isTTY) {
       const result = await promptYesNo(ctx, {
-        message: "Got it? Let's get started!",
+        message: "Continue?",
         default: true,
       });
       if (!result) {
@@ -249,7 +249,7 @@ async function chooseDeployment(
     if (existing === undefined) {
       logWarning(
         ctx,
-        `Could not find deployment with name ${options.deploymentName}!`,
+        `Could not find project with name ${options.deploymentName}!`,
       );
     } else {
       return {
@@ -260,13 +260,13 @@ async function chooseDeployment(
     }
   }
   if (deployments.length === 0) {
-    logMessage(ctx, "Let's set up your first deployment.");
+    logMessage(ctx, "Let's set up your first project.");
     return await promptForNewDeployment(ctx, []);
   }
 
   if (options.chosenConfiguration === "new") {
     const deploymentName = await promptString(ctx, {
-      message: "Choose a name for your new deployment:",
+      message: "Choose a name for your new project:",
       default: path.basename(process.cwd()),
     });
     const uniqueName = await getUniqueName(
@@ -282,7 +282,7 @@ async function chooseDeployment(
   }
 
   const newOrExisting = await promptSearch(ctx, {
-    message: "Which deployment would you like to use?",
+    message: "Which project would you like to use?",
     choices: [
       ...(options.chosenConfiguration === "existing"
         ? []
@@ -307,7 +307,7 @@ async function chooseDeployment(
       return ctx.crash({
         exitCode: 1,
         errorType: "fatal",
-        printedMessage: `Could not find deployment with name ${newOrExisting}!`,
+        printedMessage: `Could not find project with name ${newOrExisting}!`,
       });
     }
     return {
@@ -381,7 +381,7 @@ async function getUniqueName(
   return ctx.crash({
     exitCode: 1,
     errorType: "fatal",
-    printedMessage: `Could not generate a unique name for your deployment, please choose a different name`,
+    printedMessage: `Could not generate a unique name for your project, please choose a different name`,
   });
 }
 /**

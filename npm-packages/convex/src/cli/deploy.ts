@@ -109,7 +109,11 @@ Same format as .env.local or .env files, and overrides them.`,
           "To deploy your Convex app to the cloud, log in by running `npx convex login`.\n" +
           "See https://docs.convex.dev/production for more information on how Convex cloud works and instructions on how to set up hosting.",
       );
-      return;
+      return await ctx.crash({
+        exitCode: 1,
+        errorType: "fatal",
+        printedMessage: null,
+      });
     }
 
     if (deploymentSelection.kind === "preview") {
