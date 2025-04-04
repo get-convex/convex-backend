@@ -1,3 +1,4 @@
+import React, { useContext } from "react";
 import { ArrowsUpDownIcon, FingerPrintIcon } from "@heroicons/react/24/outline";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { GenericDocument } from "convex/server";
@@ -12,6 +13,7 @@ import { Tooltip } from "@common/elements/Tooltip";
 import { Popover } from "@common/elements/Popover";
 import { SchemaJson } from "@common/lib/format";
 import Link from "next/link";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { IndexFilterEditor, IndexFilterState } from "./IndexFilterEditor";
 
 export function getDefaultIndex(): {
@@ -86,6 +88,9 @@ export function IndexFilters({
   onError,
   hasInvalidFilters,
 }: IndexFiltersProps) {
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
+  const log = useLogDeploymentEvent();
+
   // Restructure indexOptions to use the Option<IndexOptionValue> type
   const indexOptions = indexes
     ? [
@@ -149,6 +154,10 @@ export function IndexFilters({
                 return;
               }
 
+              log("sort by index combobox opened", {
+                selectedOption: option.name,
+              });
+
               // Clear all errors for the existing index filters
               shownFilters.index?.clauses.forEach((_, idx) => {
                 onError(idx, []);
@@ -196,6 +205,7 @@ export function IndexFilters({
                 variant="neutral"
                 className="w-fit text-xs"
                 icon={<FingerPrintIcon className="size-4" />}
+                onClick={() => log("viewed sort by index empty state")}
               >
                 Index: {DEFAULT_INDEX_LABEL}
               </Button>

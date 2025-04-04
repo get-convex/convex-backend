@@ -104,6 +104,8 @@ export function DataFilters({
   const numRowsWeKnowOf = hasFilters ? numRowsLoaded : numRows;
 
   const { enableIndexFilters } = useContext(DeploymentInfoContext);
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
+  const log = useLogDeploymentEvent();
 
   return (
     <form
@@ -115,6 +117,13 @@ export function DataFilters({
         if (hasInvalidFilters) {
           return;
         }
+        log("apply filters", {
+          hasIndexFilters:
+            (shownFilters.index?.clauses || []).filter((c) => c.enabled)
+              .length > 0,
+          hasOtherFilters:
+            shownFilters.clauses.filter((c) => c.enabled !== false).length > 0,
+        });
         onChangeFilters(
           draftFilters || {
             clauses: [],
@@ -249,6 +258,16 @@ export function DataFilters({
                         if (hasInvalidFilters) {
                           return;
                         }
+                        log("apply filters", {
+                          hasIndexFilters:
+                            (shownFilters.index?.clauses || []).filter(
+                              (c) => c.enabled,
+                            ).length > 0,
+                          hasOtherFilters:
+                            shownFilters.clauses.filter(
+                              (c) => c.enabled !== false,
+                            ).length > 0,
+                        });
                         onChangeFilters(shownFilters);
                       }}
                       onError={(...args) => onError("filter", ...args)}
@@ -273,7 +292,10 @@ export function DataFilters({
                   size="xs"
                   className="text-xs"
                   icon={<PlusIcon />}
-                  onClick={() => onAddFilter(shownFilters.clauses.length)}
+                  onClick={() => {
+                    onAddFilter(shownFilters.clauses.length);
+                    log("add filter");
+                  }}
                 >
                   Add filter
                 </Button>
@@ -443,6 +465,8 @@ function useDataFilters({
   setDraftFilters(next: FilterExpression): void;
   activeSchema: SchemaJson | null;
 }) {
+  const { useLogDeploymentEvent } = useContext(DeploymentInfoContext);
+  const log = useLogDeploymentEvent();
   const [invalidFilters, { set: setInvalidFilters }] = useMap();
 
   const isDirty = !isEqual(filters, draftFilters);
@@ -473,6 +497,7 @@ function useDataFilters({
   const onChangeFilter = useCallback(
     (filter: FilterState, idx: number) => {
       const newFilters = cloneDeep(shownFilters);
+      const oldFilter = newFilters.clauses[idx];
 
       // Convert the FilterState to a Filter
       let newFilter: Filter;
@@ -495,10 +520,33 @@ function useDataFilters({
         };
       }
 
+      // Log filter changes
+      if (oldFilter) {
+        if (oldFilter.enabled !== filter.enabled) {
+          log("filter toggle", {
+            enabled: filter.enabled,
+            filterType: "regular",
+            filterIndex: idx,
+          });
+        } else if (oldFilter.op !== filter.op) {
+          log("filter operator change", {
+            oldOperator: oldFilter.op,
+            newOperator: filter.op,
+            filterType: "regular",
+            filterIndex: idx,
+          });
+        } else if (oldFilter.field !== filter.field) {
+          log("filter field change", {
+            filterType: "regular",
+            filterIndex: idx,
+          });
+        }
+      }
+
       newFilters.clauses[idx] = newFilter;
       setDraftFilters(newFilters);
     },
-    [shownFilters, setDraftFilters],
+    [shownFilters, setDraftFilters, log],
   );
 
   const onChangeIndexFilter = useCallback(
@@ -507,13 +555,37 @@ function useDataFilters({
       if (!newFilters.index) {
         throw new Error("Index not found");
       }
+      const oldFilter = newFilters.index.clauses[idx];
+
+      // Log index filter changes
+      if (oldFilter) {
+        if (oldFilter.enabled !== filter.enabled) {
+          log("filter toggle", {
+            enabled: filter.enabled,
+            filterType: "index",
+            filterIndex: idx,
+          });
+        } else if (oldFilter.type !== filter.type) {
+          log("index filter type change", {
+            oldType: oldFilter.type,
+            newType: filter.type,
+            filterIndex: idx,
+          });
+        }
+      }
+
       newFilters.index.clauses[idx] = filter;
       setDraftFilters(newFilters);
     },
-    [shownFilters, setDraftFilters],
+    [shownFilters, setDraftFilters, log],
   );
+
   const onDeleteFilter = useCallback(
     (idx: number) => {
+      log("filter delete", {
+        filterType: "regular",
+        filterIndex: idx,
+      });
       setInvalidFilters(idx, undefined);
       const newFilters = {
         ...shownFilters,
@@ -525,11 +597,15 @@ function useDataFilters({
       } as FilterExpression;
       setDraftFilters(newFilters);
     },
-    [shownFilters, setDraftFilters, setInvalidFilters],
+    [shownFilters, setDraftFilters, setInvalidFilters, log],
   );
 
   const onAddFilter = useCallback(
     (idx: number) => {
+      log("filter add", {
+        filterType: "regular",
+        filterIndex: idx,
+      });
       const newFilters = {
         ...shownFilters,
         clauses: [
@@ -541,7 +617,7 @@ function useDataFilters({
       } as FilterExpression;
       setDraftFilters(newFilters);
     },
-    [shownFilters, setDraftFilters],
+    [shownFilters, setDraftFilters, log],
   );
 
   const onError = useCallback(
@@ -574,6 +650,10 @@ function useDataFilters({
 
   const onChangeOrder = useCallback(
     (newOrder: "asc" | "desc") => {
+      log("filter order change", {
+        oldOrder: shownFilters.order,
+        newOrder,
+      });
       const newFilters = {
         ...shownFilters,
         clauses: shownFilters.clauses.map((filter, idx) => ({
@@ -585,7 +665,7 @@ function useDataFilters({
       setDraftFilters(newFilters);
       onChangeFilters(newFilters);
     },
-    [shownFilters, setDraftFilters, onChangeFilters, invalidFilters],
+    [shownFilters, setDraftFilters, onChangeFilters, invalidFilters, log],
   );
 
   return {
