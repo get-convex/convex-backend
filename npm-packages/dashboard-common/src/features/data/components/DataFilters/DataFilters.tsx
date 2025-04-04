@@ -224,6 +224,7 @@ export function DataFilters({
                   setDraftFilters={setDraftFilters}
                   onChangeOrder={onChangeOrder}
                   onChangeIndexFilter={onChangeIndexFilter}
+                  invalidFilters={invalidFilters}
                   onError={(...args) => onError("index", ...args)}
                   hasInvalidFilters={hasInvalidFilters}
                 />
@@ -272,8 +273,10 @@ export function DataFilters({
                       }}
                       onError={(...args) => onError("filter", ...args)}
                       error={
-                        dataFetchErrors?.find((e) => e.filter === idx)?.error ||
-                        invalidFilters[`filter:${idx}`]
+                        clause.enabled !== false
+                          ? dataFetchErrors?.find((e) => e.filter === idx)
+                              ?.error || invalidFilters[`filter/${idx}`]
+                          : undefined
                       }
                       autoFocusValueEditor={
                         idx === shownFilters.clauses.length - 1
@@ -410,7 +413,9 @@ function FilterItem({
       />
       {error && (
         <Tooltip tip={error}>
-          <ExclamationTriangleIcon className="mt-1.5 size-4 text-content-errorSecondary" />
+          <div className="rounded border bg-background-error p-1">
+            <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
+          </div>
         </Tooltip>
       )}
     </div>
@@ -658,7 +663,7 @@ function useDataFilters({
         ...shownFilters,
         clauses: shownFilters.clauses.map((filter, idx) => ({
           ...filter,
-          enabled: invalidFilters[`filter:${idx}`] ? false : filter.enabled,
+          enabled: invalidFilters[`filter/${idx}`] ? false : filter.enabled,
         })),
         order: newOrder,
       };

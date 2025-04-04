@@ -11,12 +11,14 @@ import { DateTimePicker } from "@common/features/data/components/FilterEditor/Da
 import { cn } from "@common/lib/cn";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import { Tooltip } from "@common/elements/Tooltip";
+import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 
 export type IndexFilterState = FilterByIndex | FilterByIndexRange;
 
 export type IndexFilterEditorProps = {
   idx: number;
   field: string;
+  error: string | undefined;
   onChange(filter: IndexFilterState, idx: number): void;
   onApplyFilters(): void;
   onError(idx: number, errors: string[]): void;
@@ -38,9 +40,14 @@ const filterTypeOptions: Option<string>[] = [
   { value: "between", label: "is between" },
 ];
 
+// Define a constant for the error message
+const RANGE_ERROR_MESSAGE =
+  "The lower bound of this range is currently set to a value that is higher than the upper bound. This filter would never match any documents.";
+
 export function IndexFilterEditor({
   idx,
   field,
+  error,
   onChange,
   onApplyFilters,
   onError,
@@ -186,21 +193,45 @@ export function IndexFilterEditor({
   // Handle lower date change for _creationTime between
   const handleLowerDateChange = useCallback(
     (date: Date) => {
+      const timestamp = date.getTime();
       if ("lowerValue" in filter) {
-        onChange({ ...filter, lowerValue: date.getTime() }, idx);
+        onChange({ ...filter, lowerValue: timestamp }, idx);
+
+        // Check if lowerValue is greater than upperValue
+        if (
+          filter.type === "indexRange" &&
+          typeof filter.upperValue === "number" &&
+          timestamp > filter.upperValue
+        ) {
+          onError(idx, [RANGE_ERROR_MESSAGE]);
+        } else if (error === RANGE_ERROR_MESSAGE) {
+          onError(idx, []);
+        }
       }
     },
-    [filter, idx, onChange],
+    [filter, idx, onChange, onError, error],
   );
 
   // Handle upper date change for _creationTime between
   const handleUpperDateChange = useCallback(
     (date: Date) => {
+      const timestamp = date.getTime();
       if ("upperValue" in filter) {
-        onChange({ ...filter, upperValue: date.getTime() }, idx);
+        onChange({ ...filter, upperValue: timestamp }, idx);
+
+        // Check if upperValue is less than lowerValue
+        if (
+          filter.type === "indexRange" &&
+          typeof filter.lowerValue === "number" &&
+          timestamp < filter.lowerValue
+        ) {
+          onError(idx, [RANGE_ERROR_MESSAGE]);
+        } else if (error === RANGE_ERROR_MESSAGE) {
+          onError(idx, []);
+        }
       }
     },
-    [filter, idx, onChange],
+    [filter, idx, onChange, onError, error],
   );
 
   // Handle changes to range filter values
@@ -215,9 +246,21 @@ export function IndexFilterEditor({
               ? Number(value)
               : (value as JSONValue);
         onChange({ ...filter, lowerValue: jsonValue }, idx);
+
+        // Check if lowerValue is greater than upperValue
+        if (
+          filter.type === "indexRange" &&
+          jsonValue !== null &&
+          filter.upperValue !== null &&
+          filter.upperValue !== undefined &&
+          typeof jsonValue === typeof filter.upperValue &&
+          jsonValue > filter.upperValue
+        ) {
+          onError(idx, [RANGE_ERROR_MESSAGE]);
+        }
       }
     },
-    [filter, idx, onChange],
+    [filter, idx, onChange, onError],
   );
 
   const handleUpperValueChange = useCallback(
@@ -231,9 +274,21 @@ export function IndexFilterEditor({
               ? Number(value)
               : (value as JSONValue);
         onChange({ ...filter, upperValue: jsonValue }, idx);
+
+        // Check if upperValue is less than lowerValue
+        if (
+          filter.type === "indexRange" &&
+          jsonValue !== null &&
+          filter.lowerValue !== null &&
+          filter.lowerValue !== undefined &&
+          typeof jsonValue === typeof filter.lowerValue &&
+          jsonValue < filter.lowerValue
+        ) {
+          onError(idx, [RANGE_ERROR_MESSAGE]);
+        }
       }
     },
-    [filter, idx, onChange],
+    [filter, idx, onChange, onError],
   );
 
   // Convert to range filter
@@ -612,6 +667,13 @@ export function IndexFilterEditor({
 
         {/* Render the appropriate value editor */}
         {renderValueEditor()}
+        {error && (
+          <Tooltip tip={error}>
+            <div className="ml-1 rounded border bg-background-error p-1">
+              <ExclamationTriangleIcon className="size-4 text-content-errorSecondary" />
+            </div>
+          </Tooltip>
+        )}
       </div>
     </div>
   );

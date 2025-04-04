@@ -72,11 +72,13 @@ type IndexFiltersProps = {
   onChangeIndexFilter: (filter: IndexFilterState, idx: number) => void;
   onError: (idx: number, errors: string[]) => void;
   hasInvalidFilters: boolean;
+  invalidFilters: Record<string, string>;
 };
 
 export function IndexFilters({
   shownFilters,
   defaultDocument,
+  invalidFilters,
   indexes,
   tableName,
   activeSchema,
@@ -313,6 +315,9 @@ export function IndexFilters({
               key={idx}
               idx={idx}
               field={fieldName}
+              error={
+                clause.enabled ? invalidFilters[`index/${idx}`] : undefined
+              }
               onChange={onChangeIndexFilter}
               onApplyFilters={() => {
                 if (hasInvalidFilters) {
