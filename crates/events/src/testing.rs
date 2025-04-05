@@ -181,6 +181,14 @@ impl UsageCounterState {
                 tables: _,
                 system_tables: _,
             } => todo!(),
+            UsageEvent::InsightReadLimit {
+                id: _,
+                request_id: _,
+                udf_id: _,
+                component_path: _,
+                calls: _,
+                success: _,
+            } => todo!(),
         }
     }
 }

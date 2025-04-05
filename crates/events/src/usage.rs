@@ -60,6 +60,14 @@ pub struct FunctionCallUsageFields {
     pub occ_retry_count: Option<u64>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct InsightReadLimitCall {
+    pub table_name: String,
+    pub bytes_read: u64,
+    pub documents_read: u64,
+}
+
 // TODO(CX-5845): Use proper serializable types for constants rather than
 // Strings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -115,6 +123,14 @@ pub enum UsageEvent {
         ingress: u64,
         egress: u64,
         egress_rows: u64,
+    },
+    InsightReadLimit {
+        id: String,
+        request_id: String,
+        udf_id: String,
+        component_path: Option<String>,
+        calls: Vec<InsightReadLimitCall>,
+        success: bool,
     },
     VectorBandwidth {
         id: String,

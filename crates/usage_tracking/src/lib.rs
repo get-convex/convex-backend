@@ -12,6 +12,11 @@ use anyhow::Context;
 use common::{
     components::ComponentPath,
     execution_context::ExecutionId,
+    knobs::{
+        FUNCTION_LIMIT_WARNING_RATIO,
+        TRANSACTION_MAX_READ_SIZE_BYTES,
+        TRANSACTION_MAX_READ_SIZE_ROWS,
+    },
     types::{
         ModuleEnvironment,
         StorageUuid,
@@ -21,6 +26,7 @@ use common::{
 };
 use events::usage::{
     FunctionCallUsageFields,
+    InsightReadLimitCall,
     UsageEvent,
     UsageEventLogger,
 };
@@ -253,6 +259,7 @@ impl UsageCounter {
             stats,
             execution_id,
             request_id,
+            success,
             &mut usage_metrics,
         );
         self.usage_logger.record(usage_metrics);
@@ -276,6 +283,7 @@ impl UsageCounter {
             stats,
             execution_id,
             request_id,
+            true,
             &mut usage_metrics,
         );
         self.usage_logger.record(usage_metrics);
@@ -287,6 +295,7 @@ impl UsageCounter {
         stats: FunctionUsageStats,
         execution_id: ExecutionId,
         request_id: RequestId,
+        success: bool,
         usage_metrics: &mut Vec<UsageEvent>,
     ) {
         // Merge the storage stats.
@@ -332,7 +341,7 @@ impl UsageCounter {
                 egress_rows: 0,
             });
         }
-        for ((component_path, table_name), egress_size) in stats.database_egress_size {
+        for ((component_path, table_name), egress_size) in stats.database_egress_size.clone() {
             let rows = stats
                 .database_egress_rows
                 .get(&(component_path.clone(), table_name.clone()))
@@ -348,6 +357,53 @@ impl UsageCounter {
                 egress_rows: *rows,
             });
         }
+
+        // Check read limits and add InsightReadLimit event if thresholds are exceeded
+        let total_rows: u64 = stats.database_egress_rows.values().sum();
+        let total_bytes: u64 = stats.database_egress_size.values().sum();
+
+        let row_threshold =
+            (*TRANSACTION_MAX_READ_SIZE_ROWS as f64 * *FUNCTION_LIMIT_WARNING_RATIO) as u64;
+        let byte_threshold =
+            (*TRANSACTION_MAX_READ_SIZE_BYTES as f64 * *FUNCTION_LIMIT_WARNING_RATIO) as u64;
+
+        let did_exceed_document_threshold = total_rows >= row_threshold;
+        let did_exceed_byte_threshold = total_bytes >= byte_threshold;
+
+        if did_exceed_document_threshold || did_exceed_byte_threshold {
+            let mut calls = Vec::new();
+            let component_path: ComponentPath = stats
+                .database_egress_rows
+                .clone()
+                .into_iter()
+                .next()
+                .map(|((cp, _), _)| cp)
+                .expect("Expected at least one database egress row since thresholds were exceeded");
+
+            for ((cp, table_name), egress_rows) in stats.database_egress_rows.into_iter() {
+                let egress = stats
+                    .database_egress_size
+                    .get(&(cp, table_name.clone()))
+                    .copied()
+                    .unwrap_or(0);
+
+                calls.push(InsightReadLimitCall {
+                    table_name,
+                    bytes_read: egress,
+                    documents_read: egress_rows,
+                });
+            }
+
+            usage_metrics.push(UsageEvent::InsightReadLimit {
+                id: execution_id.to_string(),
+                request_id: request_id.to_string(),
+                udf_id: udf_id.clone(),
+                component_path: component_path.serialize(),
+                calls,
+                success,
+            });
+        }
+
         for ((component_path, table_name), ingress_size) in stats.vector_ingress_size {
             usage_metrics.push(UsageEvent::VectorBandwidth {
                 id: execution_id.to_string(),
