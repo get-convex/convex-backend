@@ -9,11 +9,6 @@ import { LogStreams } from "@common/features/health/components/LogStreams";
 import { LastDeployed } from "@common/features/health/components/LastDeployed";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { PageContent } from "@common/elements/PageContent";
-import udfs from "@common/udfs";
-import { useQuery } from "convex/react";
-import { Sheet } from "@common/elements/Sheet";
-import { EmptySection } from "@common/elements/EmptySection";
-import Image from "next/image";
 
 export function HealthView({
   header,
@@ -33,11 +28,11 @@ export function HealthView({
         ? "grid-cols-2 grid"
         : "flex flex-col items-center";
 
-  const lastPushEvent = useQuery(udfs.deploymentEvents.lastPushEvent, {});
+  // const lastPushEvent = useQuery(udfs.deploymentEvents.lastPushEvent, {});
   return (
     <PageContent>
       <DeploymentPageTitle title="Health" />
-      {lastPushEvent === null && (
+      {/* {lastPushEvent === null && (
         <div className="absolute z-50 flex h-full w-full max-w-[88rem] items-center justify-center overflow-hidden bg-[black]/10">
           <Sheet className="m-6 h-fit w-fit max-w-lg bg-background-secondary/95 p-2 backdrop-blur-[2px]">
             <EmptySection
@@ -60,7 +55,7 @@ export function HealthView({
             />
           </Sheet>
         </div>
-      )}
+      )} */}
       <div className="flex max-h-full max-w-full flex-col gap-2 overflow-hidden pt-2">
         {sizedHeader}
         <PagesWrapper>
