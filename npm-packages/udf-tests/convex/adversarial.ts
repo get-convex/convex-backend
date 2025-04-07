@@ -77,7 +77,7 @@ export const queryLeak = query(async ({ db }) => {
 });
 
 export const queryATon = query(async ({ db }) => {
-  for (let i = 0; i < 15000; i++) {
+  for (let i = 0; i < 30000; i++) {
     for await (const _row of db.query("test")) {
       break;
     }
@@ -85,7 +85,7 @@ export const queryATon = query(async ({ db }) => {
 });
 
 export const queryTooManyTimes = query(async ({ db }) => {
-  for (let i = 0; i < 5000; i++) {
+  for (let i = 0; i < 10000; i++) {
     await db
       .query("test")
       .withIndex("by_hello", (q) => q.eq("hello", i))
@@ -249,13 +249,13 @@ export const oom = query(async ({ db }) => {
 });
 
 export const tooManyWrites = mutation(async ({ db }) => {
-  for (let i = 0; i < 8193; i++) {
+  for (let i = 0; i < 16002; i++) {
     await db.insert("test", { counter: i });
   }
 });
 
 export const manyWrites = mutation(async ({ db }) => {
-  for (let i = 0; i < 8093; i++) {
+  for (let i = 0; i < 15990; i++) {
     await db.insert("test", { counter: i });
   }
 });

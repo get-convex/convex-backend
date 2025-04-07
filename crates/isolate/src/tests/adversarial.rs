@@ -343,9 +343,9 @@ async fn test_iterate_consumed(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_reads_too_large(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    // 16 documents per write * 256KiB per document * 5 writes = 20 MiB, which is
+    // 32 documents per write * 256KiB per document * 5 writes = 40 MiB, which is
     // higher that the limit on reads.
-    let count_per_write = 16.0;
+    let count_per_write = 32.0;
     let mut ids: Vec<ConvexValue> = vec![];
     for _ in 0..5 {
         let more_ids = t
@@ -372,9 +372,9 @@ async fn test_reads_too_large(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_reads_large(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    // 6 documents per write * 256KiB per document * 5 writes = 7 MiB, which is
+    // 12 documents per write * 256KiB per document * 5 writes = 14 MiB, which is
     // close to the limit on reads.
-    let count_per_write = 6.0;
+    let count_per_write = 12.0;
     let mut ids: Vec<ConvexValue> = vec![];
     for _ in 0..5 {
         let more_ids = t
@@ -413,7 +413,7 @@ async fn test_writes_too_big(rt: TestRuntime) -> anyhow::Result<()> {
 #[convex_macro::test_runtime]
 async fn test_writes_big(rt: TestRuntime) -> anyhow::Result<()> {
     let t = UdfTest::default(rt).await?;
-    let count = 30.0;
+    let count = 60.0;
     let mut log_lines = t
         .mutation_log_lines("adversarial:bigWrite", assert_obj!("count" => count))
         .await?;

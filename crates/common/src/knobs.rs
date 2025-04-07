@@ -210,11 +210,11 @@ pub static HTTP_SERVER_MAX_CONCURRENT_REQUESTS: LazyLock<usize> =
 
 /// Max number of user writes in a transaction
 pub static TRANSACTION_MAX_NUM_USER_WRITES: LazyLock<usize> =
-    LazyLock::new(|| env_config("TRANSACTION_MAX_NUM_USER_WRITES", 8192));
+    LazyLock::new(|| env_config("TRANSACTION_MAX_NUM_USER_WRITES", 16000));
 
 /// Max size of user writes in a transaction, in bytes
 pub static TRANSACTION_MAX_USER_WRITE_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
-    env_config("TRANSACTION_MAX_USER_WRITE_SIZE_BYTES", 1 << 23) // 8 MiB
+    env_config("TRANSACTION_MAX_USER_WRITE_SIZE_BYTES", 1 << 24) // 16 MiB
 });
 
 /// SnapshotManager maintains a bounded time range of versions,
@@ -340,11 +340,11 @@ pub static MAX_REACTOR_CALL_DEPTH: LazyLock<usize> =
 
 /// Number of rows that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SIZE_ROWS: LazyLock<usize> =
-    LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SIZE_ROWS", 16384));
+    LazyLock::new(|| env_config("TRANSACTION_MAX_READ_SIZE_ROWS", 32000));
 
 /// Number of bytes that can be read in a transaction.
 pub static TRANSACTION_MAX_READ_SIZE_BYTES: LazyLock<usize> = LazyLock::new(|| {
-    env_config("TRANSACTION_MAX_READ_SIZE_BYTES", 1 << 23) // 8 MiB
+    env_config("TRANSACTION_MAX_READ_SIZE_BYTES", 1 << 24) // 16 MiB
 });
 
 /// Maximum number of intervals that can be read in a transaction.
