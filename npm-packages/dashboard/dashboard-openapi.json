@@ -2140,6 +2140,31 @@
         }
       }
     },
+    "/teams/{team_id}/usage/get_token_info": {
+      "get": {
+        "operationId": "get_token_info",
+        "parameters": [
+          {
+            "name": "team_id",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTokenInfoResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/teams/{team_id}/usage/query": {
       "get": {
         "operationId": "query_usage_databricks",
@@ -3331,6 +3356,25 @@
               "integer",
               "null"
             ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "GetTokenInfoResponse": {
+        "type": "object",
+        "required": [
+          "tokensUsed",
+          "tokensQuota"
+        ],
+        "properties": {
+          "tokensQuota": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tokensUsed": {
+            "type": "integer",
             "format": "int64",
             "minimum": 0
           }
