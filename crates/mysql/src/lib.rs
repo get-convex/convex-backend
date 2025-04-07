@@ -1542,7 +1542,13 @@ static DELETE_DOCUMENT_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLoc
                 .join(" OR ");
             (
                 chunk_size,
-                format!("DELETE FROM @db_name.documents WHERE {where_clauses}"),
+                // Note the use of "multi-table DELETE syntax" (`DELETE table
+                // FROM table WHERE ...`) which MySQL requires for FORCE INDEX
+                // syntax
+                format!(
+                    "DELETE @db_name.documents FROM @db_name.documents FORCE INDEX \
+                     (documents_by_table_and_id) WHERE {where_clauses}"
+                ),
             )
         })
         .collect()
