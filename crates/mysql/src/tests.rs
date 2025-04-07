@@ -21,6 +21,7 @@ use common::{
     shutdown::ShutdownSignal,
     testing::{
         self,
+        assert_contains,
         persistence_test_suite,
         TestIdGenerator,
     },
@@ -90,7 +91,7 @@ mod raw_statements {
         MySqlPersistence::new(
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
-                true,
+                false,
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name.clone(),
@@ -105,7 +106,7 @@ mod raw_statements {
         MySqlPersistence::new(
             Arc::new(ConvexMySqlPool::new(
                 &opts.url.clone(),
-                true,
+                false,
                 Option::<ProdRuntime>::None,
             )?),
             opts.db_name.clone(),
@@ -360,5 +361,44 @@ async fn test_table_count() -> anyhow::Result<()> {
         "Unexpected number of tables after INIT_SQL. Did you forget to update \
          EXPECTED_TABLE_COUNT?"
     );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_max_system_size_value() -> anyhow::Result<()> {
+    let options = MySqlOptions {
+        allow_read_only: false,
+        version: PersistenceVersion::V5,
+        use_prepared_statements: false,
+    };
+    let opts = crate::itest::new_db_opts().await?;
+    let persistence = MySqlPersistence::new(
+        Arc::new(ConvexMySqlPool::new(
+            &opts.url.clone(),
+            options.use_prepared_statements,
+            Option::<ProdRuntime>::None,
+        )?),
+        opts.db_name,
+        options,
+        ShutdownSignal::panic(),
+    )
+    .await?;
+    let table: TableName = str::parse("table")?;
+    let id = TestIdGenerator::new().user_generate(&table);
+    let value = "a".repeat(common::value::MAX_SIZE - 70); // hard mode: try `\x7f` for an even larger generated statement
+    let doc = ResolvedDocument::new(id, CreationTime::ONE, assert_obj!("field" => value))?;
+    let r = DocumentLogEntry {
+        ts: Timestamp::MIN,
+        id: doc.id_with_table_id(),
+        value: Some(doc),
+        prev_ts: None,
+    };
+    let err = persistence
+        .write(vec![r], BTreeSet::new(), ConflictStrategy::Error)
+        .await
+        .unwrap_err();
+    // TODO(ENG-8900): this is arguably a bug - MySQL persistence can't accept a
+    // max-size system document
+    assert_contains(&format!("{:#}", err), "packet too large");
     Ok(())
 }

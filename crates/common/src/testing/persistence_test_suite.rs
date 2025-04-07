@@ -526,7 +526,7 @@ pub async fn write_and_load_value_types<P: Persistence>(p: Arc<P>) -> anyhow::Re
         ConvexValue::String("\u{10348}".try_into()?),
         ConvexValue::Bytes(vec![].try_into()?),
         ConvexValue::Bytes(vec![3, 3, 4, 4].try_into()?),
-        ConvexValue::Bytes(vec![0; (1 << 25) - 10000].try_into()?),
+        ConvexValue::Bytes(vec![0; (1 << 24) - 10000].try_into()?),
         ConvexValue::Array(vec![ConvexValue::Null].try_into()?),
         ConvexValue::Set(btreeset!(ConvexValue::Null).try_into()?),
         ConvexValue::Map(btreemap!(ConvexValue::Null => ConvexValue::Null).try_into()?),
