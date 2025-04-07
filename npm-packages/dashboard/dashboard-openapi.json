@@ -2906,6 +2906,7 @@
           "projectSlug",
           "projectId",
           "teamSlug",
+          "teamId",
           "deploymentName",
           "prodUrl",
           "projectsRemaining",
@@ -2931,6 +2932,9 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "teamId": {
+            "$ref": "#/components/schemas/TeamId"
           },
           "teamSlug": {
             "$ref": "#/components/schemas/TeamSlug"
