@@ -112,7 +112,10 @@ export function TransferProject() {
             labelHidden={false}
             placeholder="Select a team"
             buttonProps={{
-              tip: validationError,
+              tip:
+                validationError ||
+                (!isAdminOfOldTeam &&
+                  "You must be an admin of this team to transfer a project."),
             }}
             options={
               teams
