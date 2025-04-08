@@ -157,8 +157,8 @@ function BytesReadThresholdProblem({
   );
 }
 
-export const documentsReadLimit = 16384;
-export const megabytesReadLimit = 8;
+export const documentsReadLimit = 32000;
+export const megabytesReadLimit = 16;
 
 const bytesLimitString = `${megabytesReadLimit} MB`;
 const documentsLimitString = documentsReadLimit.toLocaleString();

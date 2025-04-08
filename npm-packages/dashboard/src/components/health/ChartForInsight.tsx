@@ -254,7 +254,7 @@ function ChartCountBytesRead({
     <InsightsLineChart
       data={data}
       dataKey="count"
-      name={`function calls reading more than ${formatBytes(8 * 1024 * 1024 * 0.8)}`}
+      name={`function calls reading more than ${formatBytes(megabytesReadLimit * 1024 * 1024 * 0.8)}`}
     />
   );
 }
@@ -294,7 +294,7 @@ function ChartCountDocumentsRead({
     <InsightsLineChart
       data={data}
       dataKey="count"
-      name={`function calls reading more than ${formatNumberCompact(16384 * 0.8)} documents`}
+      name={`function calls reading more than ${formatNumberCompact(documentsReadLimit * 0.8)} documents`}
     />
   );
 }
