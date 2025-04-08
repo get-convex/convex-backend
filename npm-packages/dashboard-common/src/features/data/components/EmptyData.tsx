@@ -56,7 +56,13 @@ export function EmptyDataContent({
   return (
     <div className="relative h-full w-full">
       {/* Background table example */}
-      <div className="pointer-events-none absolute inset-0 opacity-50">
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          maskImage:
+            "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgb(0,0,0,0.3) 30%, transparent 85%)",
+        }}
+      >
         <div className="flex h-full w-full flex-col">
           {/* Example DataToolbar */}
           {noTables && (

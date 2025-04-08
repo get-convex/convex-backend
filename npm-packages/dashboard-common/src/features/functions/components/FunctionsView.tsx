@@ -110,7 +110,11 @@ function EmptyFunctions() {
     <div className="relative h-full w-full overflow-hidden">
       {/* Background example */}
       <div
-        className="pointer-events-none absolute inset-0 select-none opacity-50"
+        className="pointer-events-none absolute inset-0 select-none"
+        style={{
+          maskImage:
+            "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgb(0,0,0,0.3) 30%, transparent 85%)",
+        }}
         inert
       >
         <div className="flex h-full w-full flex-col">
