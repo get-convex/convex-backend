@@ -1012,7 +1012,7 @@ async fn search_works_after_bootstrapping(
     let scenario = Scenario::new(rt.clone()).await?;
     let hold_guard = pause_controller.hold(FINISHED_BOOTSTRAP_UPDATES);
     let mut wait_for_blocked = hold_guard.wait_for_blocked().boxed();
-    let mut handle = scenario.database.start_search_and_vector_bootstrap();
+    let handle = scenario.database.start_search_and_vector_bootstrap();
     let bootstrap_fut = handle.join().fuse();
     pin_mut!(bootstrap_fut);
     select_biased! {
@@ -1060,7 +1060,7 @@ async fn test_bootstrap_search_index_recompute_pending_writes(
     let db_clone = db.clone();
     let finish_bootstrap_fut = async move {
         let pause_guard = hold_guard.wait_for_blocked().await;
-        let mut handle = db_clone.start_search_and_vector_bootstrap();
+        let handle = db_clone.start_search_and_vector_bootstrap();
         handle.join().await?;
         if let Some(pause_guard) = pause_guard {
             pause_guard.unpause();

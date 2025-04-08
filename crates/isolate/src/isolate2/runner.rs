@@ -501,7 +501,7 @@ async fn run_request<RT: Runtime>(
 
     // Spawn a separate Tokio thread to receive log lines.
     let (log_line_tx, log_line_rx) = oneshot::channel();
-    let mut log_line_processor = rt.spawn("log_line_processor", async move {
+    let log_line_processor = rt.spawn("log_line_processor", async move {
         let mut log_lines: Vec<LogLine> = vec![];
         while let Some(line) = log_line_receiver.recv().await {
             log_lines.push(line);
@@ -1082,7 +1082,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
     // The protocol is synchronous, so there should never be more than
     // one pending request at a time.
     let (sender, receiver) = mpsc::channel(1);
-    let mut v8_handle = rt.spawn_thread("isolate2", || async {
+    let v8_handle = rt.spawn_thread("isolate2", || async {
         if let Err(e) = v8_thread(receiver, Box::new(environment)).await {
             println!("Error in isolate thread: {:?}", e);
         }
@@ -1090,7 +1090,7 @@ pub async fn run_isolate_v2_udf<RT: Runtime>(
 
     let client = IsolateThreadClient::new(rt.clone(), sender, user_timeout, semaphore);
     let (sender, receiver) = oneshot::channel();
-    let mut tokio_handle = rt.spawn(
+    let tokio_handle = rt.spawn(
         "tokio_thread",
         tokio_thread(
             rt.clone(),

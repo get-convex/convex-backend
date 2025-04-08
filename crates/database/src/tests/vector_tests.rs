@@ -133,7 +133,7 @@ impl<RT: Runtime> Scenario<RT> {
             },
         )
         .await?;
-        let mut handle = db.start_search_and_vector_bootstrap();
+        let handle = db.start_search_and_vector_bootstrap();
         handle.join().await?;
 
         let self_ = Self {
@@ -698,7 +698,7 @@ async fn test_concurrent_index_version_searches(rt: ProdRuntime) -> anyhow::Resu
             );
         }))
     }
-    for mut handle in handles {
+    for handle in handles {
         handle.join().await?;
     }
 

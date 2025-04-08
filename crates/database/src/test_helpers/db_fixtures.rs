@@ -92,7 +92,7 @@ impl<RT: Runtime> DbFixtures<RT> {
         .await?;
         db.set_search_storage(search_storage.clone());
         if bootstrap_search_and_vector_indexes {
-            let mut handle = db.start_search_and_vector_bootstrap();
+            let handle = db.start_search_and_vector_bootstrap();
             handle.join().await?;
         }
         let build_index_args = BuildTextIndexArgs {

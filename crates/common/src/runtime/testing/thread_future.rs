@@ -8,50 +8,11 @@ use std::{
 };
 
 use futures::{
-    future::BoxFuture,
     Future,
     FutureExt,
 };
 
-use crate::{
-    knobs::RUNTIME_STACK_SIZE,
-    runtime::{
-        JoinError,
-        SpawnHandle,
-    },
-};
-
-// We have a slight divergence between `spawn` and `spawn_thread` where dropping
-// the handle from `spawn_thread` cancels the thread. `spawn`, on the other
-// hand, inherits tokio's behavior of detaching the task.
-pub struct ThreadFutureHandle {
-    pub handle: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl SpawnHandle for ThreadFutureHandle {
-    fn shutdown(&mut self) {
-        if let Some(ref mut handle) = self.handle {
-            handle.abort();
-        }
-    }
-
-    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
-        let handle = self.handle.take();
-        let future = async move {
-            if let Some(h) = handle {
-                h.await?;
-            }
-            Ok(())
-        };
-        future.boxed()
-    }
-}
-
-impl Drop for ThreadFutureHandle {
-    fn drop(&mut self) {
-        self.shutdown();
-    }
-}
+use crate::knobs::RUNTIME_STACK_SIZE;
 
 pub struct ThreadFuture {
     std_handle: Option<std::thread::JoinHandle<()>>,

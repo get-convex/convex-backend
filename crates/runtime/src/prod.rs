@@ -4,6 +4,10 @@ use std::{
     future::Future,
     pin::Pin,
     sync::LazyLock,
+    task::{
+        ready,
+        Poll,
+    },
     thread,
     time::{
         Instant,
@@ -25,14 +29,12 @@ use common::{
         JoinError,
         Runtime,
         SpawnHandle,
+        TokioSpawnHandle,
         GLOBAL_TASK_MANAGER,
     },
 };
 use futures::{
-    future::{
-        BoxFuture,
-        FusedFuture,
-    },
+    future::FusedFuture,
     FutureExt,
 };
 use rand::RngCore;
@@ -52,29 +54,6 @@ use tokio_metrics_collector::TaskMonitor;
 
 static INSTANT_EPOCH: LazyLock<Instant> = LazyLock::new(Instant::now);
 
-pub struct FutureHandle {
-    handle: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl SpawnHandle for FutureHandle {
-    fn shutdown(&mut self) {
-        if let Some(ref mut handle) = self.handle {
-            handle.abort();
-        }
-    }
-
-    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
-        let handle = self.handle.take();
-        async move {
-            if let Some(handle) = handle {
-                handle.await?;
-            }
-            Ok(())
-        }
-        .boxed()
-    }
-}
-
 pub struct ThreadHandle {
     cancel: Option<oneshot::Sender<()>>,
     done: Option<oneshot::Receiver<bool>>,
@@ -88,26 +67,26 @@ impl SpawnHandle for ThreadHandle {
         }
     }
 
-    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
-        let done = self.done.take();
-        let future = async move {
-            let Some(done) = done else {
-                return Ok(());
-            };
-            // If the future exited cleanly, use its result.
-            if let Ok(was_canceled) = done.await {
-                return if !was_canceled {
-                    Ok(())
-                } else {
-                    Err(JoinError::Canceled)
-                };
+    fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>> {
+        if let Some(done) = &mut self.done {
+            let result = ready!(Pin::new(done).poll(cx));
+            self.done = None;
+            match result {
+                // the future was not canceled
+                Ok(false) => Poll::Ready(Ok(())),
+                // the future was canceled by `.shutdown()`
+                Ok(true) => Poll::Ready(Err(JoinError::Canceled)),
+                Err(_) => {
+                    let join_r = self.handle.take().expect("Future completed twice?").join();
+                    // Otherwise look at the result from `std::thread` to see if it panicked.
+                    let join_err =
+                        join_r.expect_err("Future didn't exit cleanly but didn't panic?");
+                    Poll::Ready(Err(JoinError::Panicked(anyhow::anyhow!("{:?}", join_err))))
+                },
             }
-            let join_r = self.handle.take().expect("Future completed twice?").join();
-            // Otherwise look at the result from `std::thread` to see if it panicked.
-            let join_err = join_r.expect_err("Future didn't exit cleanly but didn't panic?");
-            Err(JoinError::Panicked(anyhow::anyhow!("{:?}", join_err)))
-        };
-        future.boxed()
+        } else {
+            Poll::Ready(Ok(()))
+        }
     }
 }
 
@@ -222,9 +201,7 @@ impl Runtime for ProdRuntime {
     ) -> Box<dyn SpawnHandle> {
         let monitor = GLOBAL_TASK_MANAGER.lock().get(name);
         let handle = self.rt.spawn(propagate_tracing(monitor.instrument(f)));
-        Box::new(FutureHandle {
-            handle: Some(handle),
-        })
+        Box::new(TokioSpawnHandle::from(handle))
     }
 
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(

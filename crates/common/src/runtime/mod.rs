@@ -3,7 +3,10 @@
 
 use std::{
     collections::HashMap,
-    future::Future,
+    future::{
+        self,
+        Future,
+    },
     hash::Hash,
     num::TryFromIntError,
     ops::{
@@ -12,6 +15,7 @@ use std::{
     },
     pin::Pin,
     sync::LazyLock,
+    task::Poll,
     time::{
         Duration,
         SystemTime,
@@ -26,10 +30,7 @@ use fastrace::{
     Span,
 };
 use futures::{
-    future::{
-        BoxFuture,
-        FusedFuture,
-    },
+    future::FusedFuture,
     select_biased,
     stream,
     FutureExt,
@@ -97,7 +98,52 @@ impl From<tokio::task::JoinError> for JoinError {
 
 pub trait SpawnHandle: Send + Sync {
     fn shutdown(&mut self);
-    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>>;
+    fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>>;
+    fn join<'a>(mut self) -> impl Future<Output = Result<(), JoinError>> + 'a
+    where
+        Self: Sized + 'a,
+    {
+        future::poll_fn(move |cx| self.poll_join(cx))
+    }
+}
+
+impl<T: SpawnHandle + ?Sized> SpawnHandle for Box<T> {
+    fn shutdown(&mut self) {
+        (**self).shutdown()
+    }
+
+    fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>> {
+        (**self).poll_join(cx)
+    }
+}
+
+impl dyn SpawnHandle {
+    // This inherent impl just forwards to the default trait impl, but means
+    // that callers don't need to import the trait to call it
+    pub fn join(self: Box<Self>) -> impl Future<Output = Result<(), JoinError>> {
+        SpawnHandle::join(self)
+    }
+}
+
+pub struct TokioSpawnHandle {
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl From<tokio::task::JoinHandle<()>> for TokioSpawnHandle {
+    fn from(handle: tokio::task::JoinHandle<()>) -> Self {
+        Self { handle }
+    }
+}
+
+impl SpawnHandle for TokioSpawnHandle {
+    fn shutdown(&mut self) {
+        self.handle.abort();
+    }
+
+    fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>> {
+        std::task::ready!(Pin::new(&mut self.handle).poll(cx))?;
+        Poll::Ready(Ok(()))
+    }
 }
 
 /// Shutdown the associated future, preempting it at its next yield point, and

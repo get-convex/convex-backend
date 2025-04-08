@@ -15,10 +15,7 @@ use std::{
 };
 
 use futures::{
-    future::{
-        BoxFuture,
-        FusedFuture,
-    },
+    future::FusedFuture,
     Future,
     FutureExt,
 };
@@ -28,10 +25,7 @@ use rand::{
     SeedableRng,
 };
 use rand_chacha::ChaCha12Rng;
-use thread_future::{
-    ThreadFuture,
-    ThreadFutureHandle,
-};
+use thread_future::ThreadFuture;
 use tokio::runtime::{
     Builder,
     RngSeed,
@@ -39,9 +33,9 @@ use tokio::runtime::{
 };
 
 use super::{
-    JoinError,
     Runtime,
     SpawnHandle,
+    TokioSpawnHandle,
 };
 use crate::pause::PauseClient;
 
@@ -161,9 +155,7 @@ impl Runtime for TestRuntime {
         f: impl Future<Output = ()> + Send + 'static,
     ) -> Box<dyn SpawnHandle> {
         let handle = self.tokio_handle.spawn(f);
-        Box::new(TestFutureHandle {
-            handle: Some(handle),
-        })
+        Box::new(TokioSpawnHandle::from(handle))
     }
 
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
@@ -174,9 +166,7 @@ impl Runtime for TestRuntime {
         let handle = self
             .tokio_handle
             .spawn(ThreadFuture::new(self.tokio_handle.clone(), f));
-        Box::new(ThreadFutureHandle {
-            handle: Some(handle),
-        })
+        Box::new(TokioSpawnHandle::from(handle))
     }
 
     fn system_time(&self) -> SystemTime {
@@ -215,33 +205,13 @@ impl RngCore for TestRng {
     }
 }
 
-pub struct TestFutureHandle {
-    handle: Option<tokio::task::JoinHandle<()>>,
-}
-
-impl SpawnHandle for TestFutureHandle {
-    fn shutdown(&mut self) {
-        if let Some(ref mut handle) = self.handle {
-            handle.abort();
-        }
-    }
-
-    fn join(&mut self) -> BoxFuture<'_, Result<(), JoinError>> {
-        let handle = self.handle.take();
-        let future = async move {
-            if let Some(h) = handle {
-                h.await?;
-            }
-            Ok(())
-        };
-        future.boxed()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::MutexWithTimeout;
+    use crate::runtime::{
+        JoinError,
+        MutexWithTimeout,
+    };
 
     #[test]
     fn test_runtime2() -> anyhow::Result<()> {

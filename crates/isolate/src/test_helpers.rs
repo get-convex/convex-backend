@@ -319,7 +319,7 @@ impl<RT: Runtime, P: Persistence> UdfTest<RT, P> {
             },
         )
         .await?;
-        let mut handle = database.start_search_and_vector_bootstrap();
+        let handle = database.start_search_and_vector_bootstrap();
         handle.join().await?;
         let key_broker = KeyBroker::new(DEV_INSTANCE_NAME, InstanceSecret::try_from(DEV_SECRET)?)?;
         let modules_storage = Arc::new(LocalDirStorage::new(rt.clone())?);

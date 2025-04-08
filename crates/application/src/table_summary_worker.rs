@@ -183,7 +183,7 @@ impl<RT: Runtime> TableSummaryWorker<RT> {
 impl TableSummaryClient {
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         let inner = { self.inner.lock().take() };
-        if let Some(mut inner) = inner {
+        if let Some(inner) = inner {
             let _ = inner.cancel_sender.send(());
             // NB: We don't want to use `shutdown_and_join` here since we actually want to
             // block on our flush completing successfully.

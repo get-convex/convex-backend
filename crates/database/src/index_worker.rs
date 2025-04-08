@@ -672,7 +672,7 @@ impl<RT: Runtime> IndexWriter<RT> {
                     })
             })
             .collect();
-        for mut handle in handles {
+        for handle in handles {
             handle.join().await?;
         }
         rx.close();
