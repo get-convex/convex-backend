@@ -156,11 +156,7 @@ pub trait ApplicationTestExt<RT: Runtime> {
     async fn load_component_tests_modules(&self, layout: &str) -> anyhow::Result<()>;
     async fn run_test_push(&self, request: StartPushRequest) -> anyhow::Result<FinishPushDiff>;
 
-    async fn test_one_off_cron_job_executor_run(
-        &self,
-        job: CronJob,
-        job_id: ResolvedDocumentId,
-    ) -> anyhow::Result<()>;
+    async fn test_one_off_cron_job_executor_run(&self, job: CronJob) -> anyhow::Result<()>;
     fn validate_user_defined_index_fields(
         &self,
         fields: IndexedFields,
@@ -298,11 +294,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         Ok(())
     }
 
-    async fn test_one_off_cron_job_executor_run(
-        &self,
-        job: CronJob,
-        job_id: ResolvedDocumentId,
-    ) -> anyhow::Result<()> {
+    async fn test_one_off_cron_job_executor_run(&self, job: CronJob) -> anyhow::Result<()> {
         let test_executor = CronJobExecutor::new(
             self.runtime.clone(),
             DEV_INSTANCE_NAME.into(),
@@ -310,7 +302,7 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
             self.runner.clone(),
             self.function_log.clone(),
         );
-        test_executor.execute_job(job, job_id).await;
+        test_executor.execute_job(job).await;
         Ok(())
     }
 

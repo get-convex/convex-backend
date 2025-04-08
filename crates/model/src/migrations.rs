@@ -419,14 +419,14 @@ impl<RT: Runtime> MigrationWorker<RT> {
                     let crons = CronModel::new(&mut tx, namespace.into()).list().await?;
                     for cron in crons.values() {
                         let next_run = CronNextRun {
-                            cron_job_id: cron.id().developer_id,
+                            cron_job_id: cron.id.developer_id,
                             state: cron.state,
                             prev_ts: cron.prev_ts,
                             next_ts: cron.next_ts,
                         };
                         if let Some((existing_next_run_id, existing_next_run)) =
                             CronModel::new(&mut tx, namespace.into())
-                                .next_run(cron.id().developer_id)
+                                .next_run(cron.id.developer_id)
                                 .await?
                                 .map(|next_run| (next_run.into_id_and_value()))
                         {

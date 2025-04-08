@@ -11,6 +11,7 @@ use anyhow::{
     Context,
 };
 use common::{
+    document::ParsedDocument,
     log_lines::RawLogLines,
     types::Timestamp,
 };
@@ -33,6 +34,7 @@ use value::{
     ConvexArray,
     ConvexObject,
     ConvexValue,
+    ResolvedDocumentId,
 };
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -48,6 +50,9 @@ pub enum CronValidationError {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
 pub struct CronJob {
+    // Id into _cron_jobs table
+    pub id: ResolvedDocumentId,
+
     // Unique identifier of a cron
     pub name: CronIdentifier,
 
@@ -60,45 +65,74 @@ pub struct CronJob {
     pub next_ts: Timestamp,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SerializedCronJob {
-    name: String,
-    cron_spec: SerializedCronSpec,
-    state: CronJobState,
-    prev_ts: Option<i64>,
-    next_ts: i64,
+impl CronJob {
+    pub(crate) fn new(cron: ParsedDocument<CronJobMetadata>, next_run: CronNextRun) -> Self {
+        let (id, cron) = cron.into_id_and_value();
+        Self {
+            id,
+            name: cron.name,
+            cron_spec: cron.cron_spec,
+            state: next_run.state,
+            prev_ts: next_run.prev_ts,
+            next_ts: next_run.next_ts,
+        }
+    }
 }
 
-impl TryFrom<CronJob> for SerializedCronJob {
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub struct CronJobMetadata {
+    // Unique identifier of a cron
+    pub name: CronIdentifier,
+
+    // Cron-related metadata specified by the user and updated on pushes
+    pub cron_spec: CronSpec,
+
+    // Keep these three fields for now for fwds/backwards compatibility during rollout
+    pub state: Option<CronJobState>,
+    pub prev_ts: Option<Timestamp>,
+    pub next_ts: Option<Timestamp>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SerializedCronJobMetadata {
+    name: String,
+    cron_spec: SerializedCronSpec,
+    state: Option<CronJobState>,
+    prev_ts: Option<i64>,
+    next_ts: Option<i64>,
+}
+
+impl TryFrom<CronJobMetadata> for SerializedCronJobMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(job: CronJob) -> anyhow::Result<Self, Self::Error> {
+    fn try_from(job: CronJobMetadata) -> anyhow::Result<Self, Self::Error> {
         Ok(Self {
             name: job.name.to_string(),
             cron_spec: job.cron_spec.try_into()?,
             state: job.state,
             prev_ts: job.prev_ts.map(|ts| ts.into()),
-            next_ts: job.next_ts.into(),
+            next_ts: job.next_ts.map(|ts| ts.into()),
         })
     }
 }
 
-impl TryFrom<SerializedCronJob> for CronJob {
+impl TryFrom<SerializedCronJobMetadata> for CronJobMetadata {
     type Error = anyhow::Error;
 
-    fn try_from(value: SerializedCronJob) -> anyhow::Result<Self, Self::Error> {
+    fn try_from(value: SerializedCronJobMetadata) -> anyhow::Result<Self, Self::Error> {
         Ok(Self {
             name: value.name.parse()?,
             cron_spec: value.cron_spec.try_into()?,
             state: value.state,
             prev_ts: value.prev_ts.map(|ts| ts.try_into()).transpose()?,
-            next_ts: value.next_ts.try_into()?,
+            next_ts: value.next_ts.map(|ts| ts.try_into()).transpose()?,
         })
     }
 }
 
-codegen_convex_serialization!(CronJob, SerializedCronJob);
+codegen_convex_serialization!(CronJobMetadata, SerializedCronJobMetadata);
 
 /// Check that a string can be used as a CronIdentifier.
 pub fn check_valid_cron_identifier(s: &str) -> anyhow::Result<()> {
@@ -1034,9 +1068,9 @@ mod tests {
     };
 
     use crate::cron_jobs::types::{
-        CronJob,
         CronJobLog,
         CronJobLogLines,
+        CronJobMetadata,
         CronJobResult,
         CronJobStatus,
     };
@@ -1082,7 +1116,7 @@ mod tests {
             "prevTs" => 1702268400000000000,
             "state" => {"type" => "pending"},
         );
-        assert_roundtrips::<_, CronJob>(cron_job_obj);
+        assert_roundtrips::<_, CronJobMetadata>(cron_job_obj);
     }
 }
 

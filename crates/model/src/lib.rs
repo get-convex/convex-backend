@@ -76,13 +76,13 @@ use components::handles::{
 };
 use cron_jobs::{
     CRON_JOBS_INDEX_BY_NAME,
-    CRON_JOBS_INDEX_BY_NEXT_TS,
     CRON_JOBS_TABLE,
     CRON_JOB_LOGS_INDEX_BY_NAME_TS,
     CRON_JOB_LOGS_TABLE,
     CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID,
     CRON_NEXT_RUN_INDEX_BY_NEXT_TS,
     CRON_NEXT_RUN_TABLE,
+    DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS,
 };
 pub use database::defaults::{
     SystemIndex,
@@ -331,7 +331,7 @@ static SYSTEM_INDEXES_WITHOUT_CREATION_TIME: LazyLock<BTreeSet<IndexName>> = Laz
     btreeset! {
         BY_COMPONENT_PATH_INDEX.clone(),
         CRON_JOBS_INDEX_BY_NAME.clone(),
-        CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
         CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone(),
         CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
         CRON_NEXT_RUN_INDEX_BY_CRON_JOB_ID.clone(),
@@ -627,7 +627,7 @@ pub static FIRST_SEEN_INDEX: LazyLock<BTreeMap<IndexName, DatabaseVersion>> = La
         SCHEDULED_JOBS_INDEX_BY_UDF_PATH.clone() => 44,
         SESSION_REQUESTS_INDEX.clone() => 44,
         FILE_STORAGE_ID_INDEX.clone() => 44,
-        CRON_JOBS_INDEX_BY_NEXT_TS.clone() => 47,
+        DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone() => 47,
         CRON_JOBS_INDEX_BY_NAME.clone() => 49,
         CRON_JOB_LOGS_INDEX_BY_NAME_TS.clone() => 51,
         CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone() => 118,

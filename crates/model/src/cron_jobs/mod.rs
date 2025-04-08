@@ -3,6 +3,7 @@ use std::{
     sync::LazyLock,
 };
 
+use anyhow::Context;
 use common::{
     components::ComponentId,
     document::{
@@ -27,6 +28,7 @@ use database::{
 };
 use futures_async_stream::try_stream;
 use sync_types::CanonicalizedModulePath;
+use types::CronJobMetadata;
 use value::{
     heap_size::WithHeapSize,
     ConvexValue,
@@ -34,6 +36,7 @@ use value::{
     FieldPath,
     ResolvedDocumentId,
     TableName,
+    TableNamespace,
 };
 
 use crate::{
@@ -65,7 +68,7 @@ pub static CRON_JOBS_TABLE: LazyLock<TableName> = LazyLock::new(|| {
         .expect("_cron_jobs is not a valid system table name")
 });
 
-pub static CRON_JOBS_INDEX_BY_NEXT_TS: LazyLock<IndexName> =
+pub static DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&CRON_JOBS_TABLE, "by_next_ts"));
 pub static CRON_JOBS_INDEX_BY_NAME: LazyLock<IndexName> =
     LazyLock::new(|| system_index(&CRON_JOBS_TABLE, "by_name"));
@@ -112,7 +115,7 @@ impl SystemTable for CronJobsTable {
         vec![
             // Used to find next jobs to execute for crons.
             SystemIndex {
-                name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+                name: DEPRECATED_CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
                 fields: vec![CRON_JOBS_NEXT_TS_FIELD.clone()].try_into().unwrap(),
             },
             // Used to find cron job by name
@@ -124,7 +127,7 @@ impl SystemTable for CronJobsTable {
     }
 
     fn validate_document(&self, document: ResolvedDocument) -> anyhow::Result<()> {
-        ParseDocument::<CronJob>::parse(document).map(|_| ())
+        ParseDocument::<CronJobMetadata>::parse(document).map(|_| ())
     }
 }
 
@@ -245,12 +248,12 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     ) -> anyhow::Result<()> {
         let now = self.runtime().generate_timestamp()?;
         let next_ts = compute_next_ts(&cron_spec, None, now)?;
-        let cron = CronJob {
+        let cron = CronJobMetadata {
             name,
-            next_ts,
             cron_spec,
-            state: CronJobState::Pending,
+            state: Some(CronJobState::Pending),
             prev_ts: None,
+            next_ts: Some(next_ts),
         };
 
         let cron_job_id = SystemMetadataModel::new(self.tx, self.component.into())
@@ -285,71 +288,73 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             order: Order::Asc,
         });
         let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), query)?;
-        let next_run = query_stream.expect_at_most_one(self.tx).await?;
-        next_run.map(|v| v.parse()).transpose()
+        query_stream
+            .expect_at_most_one(self.tx)
+            .await?
+            .map(|v| v.parse())
+            .transpose()
     }
 
     pub async fn update(
         &mut self,
-        cron_job: ParsedDocument<CronJob>,
+        mut cron_job: CronJob,
         new_cron_spec: CronSpec,
     ) -> anyhow::Result<()> {
-        let (job_id, mut cron_job) = cron_job.into_id_and_value();
         if new_cron_spec.cron_schedule != cron_job.cron_spec.cron_schedule {
             let now = self.runtime().generate_timestamp()?;
             cron_job.next_ts = compute_next_ts(&new_cron_spec, cron_job.prev_ts, now)?;
         }
         cron_job.cron_spec = new_cron_spec;
-        self.update_job_state(job_id, cron_job).await?;
+        self.update_job_state(cron_job).await?;
         Ok(())
     }
 
-    pub async fn delete(&mut self, cron_job: ParsedDocument<CronJob>) -> anyhow::Result<()> {
-        let id = cron_job.id();
+    pub async fn delete(&mut self, cron_job: CronJob) -> anyhow::Result<()> {
         SystemMetadataModel::new(self.tx, self.component.into())
-            .delete(id)
+            .delete(cron_job.id)
             .await?;
-        let next_run = self.next_run(id.developer_id).await?;
-        if let Some(next_run) = next_run {
-            SystemMetadataModel::new(self.tx, self.component.into())
-                .delete(next_run.id())
-                .await?;
-        }
+        let next_run = self
+            .next_run(cron_job.id.developer_id)
+            .await?
+            .context("No next run found")?;
+        SystemMetadataModel::new(self.tx, self.component.into())
+            .delete(next_run.id())
+            .await?;
         self.apply_job_log_retention(cron_job.name.clone(), 0)
             .await?;
         Ok(())
     }
 
-    pub async fn update_job_state(
-        &mut self,
-        id: ResolvedDocumentId,
-        job: CronJob,
-    ) -> anyhow::Result<()> {
+    pub async fn update_job_state(&mut self, job: CronJob) -> anyhow::Result<()> {
         anyhow::ensure!(self
             .tx
             .table_mapping()
             .namespace(self.component.into())
-            .tablet_matches_name(id.tablet_id, &CRON_JOBS_TABLE));
+            .tablet_matches_name(job.id.tablet_id, &CRON_JOBS_TABLE));
+        let cron_job = CronJobMetadata {
+            name: job.name,
+            cron_spec: job.cron_spec,
+            state: Some(job.state),
+            prev_ts: job.prev_ts,
+            next_ts: Some(job.next_ts),
+        };
         SystemMetadataModel::new(self.tx, self.component.into())
-            .replace(id, job.clone().try_into()?)
+            .replace(job.id, cron_job.try_into()?)
             .await?;
 
         let next_run = CronNextRun {
-            cron_job_id: id.developer_id,
+            cron_job_id: job.id.developer_id,
             state: job.state,
             prev_ts: job.prev_ts,
             next_ts: job.next_ts,
         };
-        let existing_next_run = self.next_run(id.developer_id).await?;
-        if let Some(existing_next_run) = existing_next_run {
-            SystemMetadataModel::new(self.tx, self.component.into())
-                .replace(existing_next_run.id(), next_run.try_into()?)
-                .await?;
-        } else {
-            SystemMetadataModel::new(self.tx, self.component.into())
-                .insert_metadata(&CRON_NEXT_RUN_TABLE, next_run.try_into()?)
-                .await?;
-        }
+        let existing_next_run = self
+            .next_run(job.id.developer_id)
+            .await?
+            .context("No next run found")?;
+        SystemMetadataModel::new(self.tx, self.component.into())
+            .replace(existing_next_run.id(), next_run.try_into()?)
+            .await?;
         Ok(())
     }
 
@@ -377,15 +382,31 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn list(
-        &mut self,
-    ) -> anyhow::Result<BTreeMap<CronIdentifier, ParsedDocument<CronJob>>> {
+    pub async fn get(&mut self, id: ResolvedDocumentId) -> anyhow::Result<Option<CronJob>> {
+        let Some(job) = self.tx.get(id).await? else {
+            return Ok(None);
+        };
+        let cron: ParsedDocument<CronJobMetadata> = job.parse()?;
+        let next_run = self
+            .next_run(id.developer_id)
+            .await?
+            .context("No next run found")?
+            .into_value();
+        Ok(Some(CronJob::new(cron, next_run)))
+    }
+
+    pub async fn list(&mut self) -> anyhow::Result<BTreeMap<CronIdentifier, CronJob>> {
         let cron_query = Query::full_table_scan(CRON_JOBS_TABLE.clone(), Order::Asc);
         let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), cron_query)?;
         let mut cron_jobs = BTreeMap::new();
         while let Some(job) = query_stream.next(self.tx, None).await? {
-            let cron: ParsedDocument<CronJob> = job.parse()?;
-            cron_jobs.insert(cron.name.clone(), cron);
+            let cron: ParsedDocument<CronJobMetadata> = job.parse()?;
+            let next_run = self
+                .next_run(cron.id().developer_id)
+                .await?
+                .context("No next run found")?
+                .into_value();
+            cron_jobs.insert(cron.name.clone(), CronJob::new(cron, next_run));
         }
         Ok(cron_jobs)
     }
@@ -426,7 +447,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     }
 }
 
-#[try_stream(boxed, ok = ParsedDocument<CronJob>, error = anyhow::Error)]
+#[try_stream(boxed, ok = CronJob, error = anyhow::Error)]
 pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT>) {
     let namespaces: Vec<_> = tx
         .table_mapping()
@@ -435,7 +456,7 @@ pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT
         .map(|(_, namespace, ..)| namespace)
         .collect();
     let index_query = Query::index_range(IndexRange {
-        index_name: CRON_JOBS_INDEX_BY_NEXT_TS.clone(),
+        index_name: CRON_NEXT_RUN_INDEX_BY_NEXT_TS.clone(),
         range: vec![],
         order: Order::Asc,
     });
@@ -444,20 +465,35 @@ pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT
     // Value is (job, query) where job is the job to run and query will get
     // the next job to run in that namespace.
     let mut queries = BTreeMap::new();
+    let cron_from_doc =
+        async |namespace: TableNamespace, doc: ResolvedDocument, tx: &mut Transaction<RT>| {
+            let next_run: ParsedDocument<CronNextRun> = doc.parse()?;
+            let cron_job_id = next_run
+                .cron_job_id
+                .to_resolved(tx.table_mapping().namespace(namespace).number_to_tablet())?;
+            let job: ParsedDocument<CronJobMetadata> = tx
+                .get(cron_job_id)
+                .await?
+                .context("No cron job found")?
+                .parse()?;
+            Ok::<_, anyhow::Error>(CronJob::new(job, next_run.into_value()))
+        };
+
+    // Initialize streaming query for each namespace
     for namespace in namespaces {
         let mut query = ResolvedQuery::new(tx, namespace, index_query.clone())?;
         if let Some(doc) = query.next(tx, None).await? {
-            let job: ParsedDocument<CronJob> = doc.parse()?;
-            let next_ts = job.next_ts;
-            queries.insert((next_ts, namespace), (job, query));
+            let cron_job = cron_from_doc(namespace, doc, tx).await?;
+            queries.insert((cron_job.next_ts, namespace), (cron_job, query));
         }
     }
+
+    // Process each namespace in order of next_ts
     while let Some(((_min_next_ts, namespace), (min_job, mut query))) = queries.pop_first() {
         yield min_job;
         if let Some(doc) = query.next(tx, None).await? {
-            let job: ParsedDocument<CronJob> = doc.parse()?;
-            let next_ts = job.next_ts;
-            queries.insert((next_ts, namespace), (job, query));
+            let cron_job = cron_from_doc(namespace, doc, tx).await?;
+            queries.insert((cron_job.next_ts, namespace), (cron_job, query));
         }
     }
 }

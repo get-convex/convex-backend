@@ -10,7 +10,6 @@ use common::{
         ComponentId,
         ComponentPath,
     },
-    document::ParsedDocument,
     query::{
         IndexRange,
         IndexRangeExpression,
@@ -62,10 +61,7 @@ fn test_cron_identifier() -> CronIdentifier {
 
 async fn create_cron_job(
     tx: &mut Transaction<TestRuntime>,
-) -> anyhow::Result<(
-    BTreeMap<CronIdentifier, ParsedDocument<CronJob>>,
-    CronModel<TestRuntime>,
-)> {
+) -> anyhow::Result<(BTreeMap<CronIdentifier, CronJob>, CronModel<TestRuntime>)> {
     let mut cron_model = CronModel::new(tx, ComponentId::test_user());
     let mut map = serde_json::Map::new();
     map.insert(
@@ -158,11 +154,10 @@ pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Re
 
     let jobs = model.list().await?;
     assert_eq!(jobs.len(), original_jobs.len() + 1);
-    let job_doc = jobs.get(&test_cron_identifier()).unwrap();
-    let (job_id, job) = job_doc.clone().into_id_and_value();
+    let job = jobs.get(&test_cron_identifier()).unwrap();
 
     // Delete the cron job
-    model.delete(job_doc.clone()).await?;
+    model.delete(job.clone()).await?;
     let jobs = model.list().await?;
     assert_eq!(jobs.len(), original_jobs.len());
 
@@ -172,7 +167,7 @@ pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Re
     // to execute after the cron was created but before it was deleted. We should
     // handle the race condition gracefully instead of trying to run the stale cron.
     application
-        .test_one_off_cron_job_executor_run(job, job_id)
+        .test_one_off_cron_job_executor_run(job.clone())
         .await?;
     Ok(())
 }
