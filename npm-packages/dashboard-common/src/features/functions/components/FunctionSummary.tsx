@@ -54,7 +54,7 @@ export function FunctionSummary({
   }
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-end justify-between gap-2 pb-2">
+      <div className="flex flex-wrap items-end justify-between gap-2 pb-2">
         {showEnableProdEditsModal && (
           <ProductionEditsConfirmationDialog
             onClose={() => {
@@ -67,8 +67,8 @@ export function FunctionSummary({
             }}
           />
         )}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2">
             <h3 className="font-mono">{currentOpenFunction.name}</h3>
             <div
               className={`rounded p-1 text-xs font-semibold ${getFunctionTypeStyles(currentOpenFunction.udfType).text} ${getFunctionTypeStyles(currentOpenFunction.udfType).background}`}
