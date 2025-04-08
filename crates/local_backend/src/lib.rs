@@ -243,7 +243,7 @@ pub async fn make_app(
             config.beacon_tag.clone(),
             config.beacon_fields.clone(),
         );
-        runtime.spawn("beacon_worker", beacon_future);
+        runtime.spawn_background("beacon_worker", beacon_future);
     }
 
     let app_state = LocalAppState {

@@ -672,19 +672,21 @@ impl<RT: Runtime> Drop for S3Upload<RT> {
     fn drop(&mut self) {
         if self.needs_abort_on_drop {
             let fut = self._abort();
-            self.runtime.spawn("abort_multipart_upload", async move {
-                if let Err(e) = fut.await {
-                    // abort-multipart-upload is idempotent. It has the following properties.
-                    //
-                    // abort after a successful abort - succeeds
-                    // abort after a successful complete - succeeds
-                    // complete after a successful abort - fails with a descriptive error.
-                    report_error(
-                        &mut anyhow::anyhow!(e).context("Couldn't async abort multipart upload"),
-                    )
-                    .await;
-                }
-            });
+            self.runtime
+                .spawn_background("abort_multipart_upload", async move {
+                    if let Err(e) = fut.await {
+                        // abort-multipart-upload is idempotent. It has the following properties.
+                        //
+                        // abort after a successful abort - succeeds
+                        // abort after a successful complete - succeeds
+                        // complete after a successful abort - fails with a descriptive error.
+                        report_error(
+                            &mut anyhow::anyhow!(e)
+                                .context("Couldn't async abort multipart upload"),
+                        )
+                        .await;
+                    }
+                });
         }
     }
 }

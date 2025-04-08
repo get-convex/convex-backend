@@ -1220,7 +1220,8 @@ impl<RT: Runtime> Application<RT> {
             // Spawn running the action in a separate future. This way, even if we
             // get cancelled, it will continue to run to completion.
             let (tx, rx) = oneshot::channel();
-            self.runtime.spawn("run_action", async move {
+            // TODO: cancel this handle with the application
+            self.runtime.spawn_background("run_action", async move {
                 let result = run_action.await;
                 // Don't log errors if the caller has gone away.
                 _ = tx.send(result);
@@ -1278,24 +1279,26 @@ impl<RT: Runtime> Application<RT> {
             .map(|ctx| Span::root(format!("{}::http_actions_future", func_path!()), ctx))
             .unwrap_or(Span::noop());
         let response_streamer_ = response_streamer.clone();
-        self.runtime.spawn("run_http_action", async move {
-            let result = runner
-                .run_http_action(
-                    request_id,
-                    http_request,
-                    response_streamer_,
-                    identity,
-                    caller,
-                )
-                .in_span(span)
-                .await;
-            if let Err(Err(mut e)) = tx.send(result) {
-                // If the caller has gone away, and the result is a system error,
-                // log to sentry.
-                report_error(&mut e).await;
-            }
-            rt_.pause_client().wait("end_run_http_action").await;
-        });
+        // TODO: cancel this handle with the application
+        self.runtime
+            .spawn_background("run_http_action", async move {
+                let result = runner
+                    .run_http_action(
+                        request_id,
+                        http_request,
+                        response_streamer_,
+                        identity,
+                        caller,
+                    )
+                    .in_span(span)
+                    .await;
+                if let Err(Err(mut e)) = tx.send(result) {
+                    // If the caller has gone away, and the result is a system error,
+                    // log to sentry.
+                    report_error(&mut e).await;
+                }
+                rt_.pause_client().wait("end_run_http_action").await;
+            });
         let result = rx
             .await
             .context("run_http_action one shot sender dropped prematurely?")?;

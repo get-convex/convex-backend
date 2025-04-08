@@ -88,6 +88,16 @@ impl SpawnHandle for ThreadHandle {
             Poll::Ready(Ok(()))
         }
     }
+
+    fn detach(mut self: Box<Self>) {
+        self.cancel.take();
+    }
+}
+
+impl Drop for ThreadHandle {
+    fn drop(&mut self) {
+        self.shutdown();
+    }
 }
 
 impl ThreadHandle {

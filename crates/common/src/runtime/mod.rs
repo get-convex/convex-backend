@@ -96,9 +96,18 @@ impl From<tokio::task::JoinError> for JoinError {
     }
 }
 
+#[must_use = "Tasks are canceled when their `SpawnHandle` is dropped."]
 pub trait SpawnHandle: Send + Sync {
+    /// Stops the spawned task "soon". This happens asynchronously.
     fn shutdown(&mut self);
+    /// Wait for the spawned task to finish. Don't use this function directly,
+    /// call `.join()` instead.
     fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>>;
+    /// Allows the spawned task to keep running indefinitely. By default, a task
+    /// is shut down on drop.
+    fn detach(self: Box<Self>);
+    /// Wait for the spawned task to finish. Returns an error if the task was
+    /// canceled (using `.shutdown()`) or panicked.
     fn join<'a>(mut self) -> impl Future<Output = Result<(), JoinError>> + 'a
     where
         Self: Sized + 'a,
@@ -115,6 +124,10 @@ impl<T: SpawnHandle + ?Sized> SpawnHandle for Box<T> {
     fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>> {
         (**self).poll_join(cx)
     }
+
+    fn detach(self: Box<Self>) {
+        (*self).detach()
+    }
 }
 
 impl dyn SpawnHandle {
@@ -123,26 +136,60 @@ impl dyn SpawnHandle {
     pub fn join(self: Box<Self>) -> impl Future<Output = Result<(), JoinError>> {
         SpawnHandle::join(self)
     }
+
+    /// Wait for the spawn task to finish, but if the returned future is
+    /// canceled, the spawned task continues running as though it were
+    /// `detach()`ed.
+    pub fn join_or_detach(self: Box<Self>) -> impl Future<Output = Result<(), JoinError>> {
+        struct DetachOnDrop(Option<Box<dyn SpawnHandle>>);
+        impl Drop for DetachOnDrop {
+            fn drop(&mut self) {
+                self.0.take().expect("lost spawn handle?").detach();
+            }
+        }
+        let mut handle = DetachOnDrop(Some(self));
+        future::poll_fn(move |cx| handle.0.as_mut().expect("lost spawn handle?").poll_join(cx))
+    }
+
+    pub fn shutdown_and_join(self: Box<Self>) -> impl Future<Output = anyhow::Result<()>> {
+        shutdown_and_join(self)
+    }
 }
 
 pub struct TokioSpawnHandle {
-    handle: tokio::task::JoinHandle<()>,
+    handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl From<tokio::task::JoinHandle<()>> for TokioSpawnHandle {
     fn from(handle: tokio::task::JoinHandle<()>) -> Self {
-        Self { handle }
+        Self {
+            handle: Some(handle),
+        }
     }
 }
 
 impl SpawnHandle for TokioSpawnHandle {
     fn shutdown(&mut self) {
-        self.handle.abort();
+        self.handle.as_ref().expect("shutdown after detach").abort();
     }
 
     fn poll_join(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<(), JoinError>> {
-        std::task::ready!(Pin::new(&mut self.handle).poll(cx))?;
+        std::task::ready!(
+            Pin::new(&mut self.handle.as_mut().expect("poll after detach")).poll(cx)
+        )?;
         Poll::Ready(Ok(()))
+    }
+
+    fn detach(mut self: Box<Self>) {
+        self.handle.take();
+    }
+}
+
+impl Drop for TokioSpawnHandle {
+    fn drop(&mut self) {
+        if let Some(handle) = &self.handle {
+            handle.abort();
+        }
     }
 }
 
@@ -230,16 +277,29 @@ pub trait Runtime: Clone + Sync + Send + 'static {
     fn wait(&self, duration: Duration) -> Pin<Box<dyn FusedFuture<Output = ()> + Send + 'static>>;
 
     /// Spawn a future on the runtime's executor.
+    ///
+    /// The spawned task will be canceled if the returned `SpawnHandle` is
+    /// dropped, unless `detach()` is called on it.
     fn spawn(
         &self,
         name: &'static str,
         f: impl Future<Output = ()> + Send + 'static,
     ) -> Box<dyn SpawnHandle>;
 
+    /// Shorthand for `spawn().detach()`
+    ///
+    /// This should only be used for tasks that are best-effort (e.g. cleaning
+    /// up partial progress) or that are truly process-global.
+    fn spawn_background(&self, name: &'static str, f: impl Future<Output = ()> + Send + 'static) {
+        self.spawn(name, f).detach()
+    }
+
     /// Spawn a future on a reserved OS thread. This is only really necessary
     /// for libraries like `V8` that care about being called from a
     /// particular thread.
-    #[must_use = "Threads are canceled when their `SpawnHandle` is dropped."]
+    ///
+    /// The spawned task will be canceled if the returned `SpawnHandle` is
+    /// dropped, unless `detach()` is called on it.
     fn spawn_thread<Fut: Future<Output = ()>, F: FnOnce() -> Fut + Send + 'static>(
         &self,
         name: &str,

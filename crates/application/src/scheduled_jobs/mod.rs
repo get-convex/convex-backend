@@ -328,7 +328,8 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 &mut self.rt.rng(),
                 BTreeMap::new(),
             );
-            self.rt.spawn(
+            // TODO: cancel this handle with the application
+            self.rt.spawn_background(
                 "spawn_scheduled_job",
                 async move {
                     context.execute_job(job, job_id).await;

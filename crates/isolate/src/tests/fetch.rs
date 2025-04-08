@@ -215,7 +215,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
                     .expect("invalid response")
             }),
         );
-    rt.spawn("test_server", serve(router, 4545));
+    let _server = rt.spawn("test_server", serve(router, 4545));
     let redirected_router = Router::new().route(
         "/print_auth",
         get(|req: Request<Body>| async move {
@@ -232,7 +232,7 @@ async fn test_fetch_basic(rt: ProdRuntime) -> anyhow::Result<()> {
                 .expect("invalid response")
         }),
     );
-    rt.spawn("test_router", serve(redirected_router, 4547));
+    let _router = rt.spawn("test_router", serve(redirected_router, 4547));
 
     let t = UdfTest::default(rt).await?;
     must_let!(let (ConvexValue::String(r), _outcome, log_lines) = t.action_outcome_and_log_lines(
@@ -301,7 +301,7 @@ async fn test_fetch_timing(rt: ProdRuntime) -> anyhow::Result<()> {
                     .expect("invalid response")
             }),
         );
-    rt.spawn("test_router", serve(router, 4546));
+    let _router = rt.spawn("test_router", serve(router, 4546));
 
     let t = UdfTest::default(rt.clone()).await?;
 
@@ -354,7 +354,7 @@ async fn test_fetch_abort(rt: ProdRuntime) -> anyhow::Result<()> {
             Response::builder().body(Body::from("ok")).unwrap()
         }),
     );
-    rt.spawn("test_router", serve(router, 4548));
+    let _router = rt.spawn("test_router", serve(router, 4548));
 
     // fetchAbort is an action that fetches from /pause, and in parallel it
     // waits for triggerAbort. When triggerAbort is called, it aborts the fetch

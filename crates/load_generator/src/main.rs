@@ -451,9 +451,9 @@ fn main() -> Result<(), MainError> {
         .map(|addr| register_prometheus_exporter(runtime.clone(), addr));
     let load_generator = async move {
         run(&config).await?;
-        if let Some((mut handle, flush)) = maybe_metrics {
+        if let Some((handle, flush)) = maybe_metrics {
             flush().await;
-            handle.shutdown();
+            handle.shutdown_and_join().await?;
         }
         Ok::<_, MainError>(())
     };

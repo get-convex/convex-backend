@@ -523,7 +523,7 @@ impl<RT: Runtime> Drop for ConvexMySqlPool<RT> {
             return;
         };
         let pool = self.pool.clone();
-        runtime.spawn("mysql_pool_disconnect", async move {
+        runtime.spawn_background("mysql_pool_disconnect", async move {
             let _ = pool.disconnect().await;
             tracing::info!("ConvexMySqlPool pool successfully closed");
         });

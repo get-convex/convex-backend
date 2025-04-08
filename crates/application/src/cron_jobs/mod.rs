@@ -231,7 +231,8 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             );
             let context = self.clone();
             let tx = job_finished_tx.clone();
-            self.rt.spawn(
+            // TODO: cancel this handle with the application
+            self.rt.spawn_background(
                 "spawn_cron_job",
                 async move {
                     select_biased! {
