@@ -19,6 +19,7 @@ import { PulseIcon } from "@common/elements/icons";
 import { Sidebar } from "@common/elements/Sidebar";
 import { FunctionRunnerWrapper } from "@common/features/functionRunner/components/FunctionRunnerWrapper";
 import { FunctionsProvider } from "@common/lib/functions/FunctionsProvider";
+import { useIsGlobalRunnerShown } from "@common/features/functionRunner/lib/functionRunner";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -33,6 +34,7 @@ export function DeploymentDashboardLayout({
   const [isGlobalRunnerVertical, setIsGlobalRunnerVertical] =
     useGlobalLocalStorage("functionRunnerOrientation", false);
   const [isRunnerExpanded, setIsRunnerExpanded] = useState(false);
+  const isGlobalRunnerShown = useIsGlobalRunnerShown();
   const { deploymentsURI: uriPrefix } = useContext(DeploymentInfoContext);
 
   const exploreDeploymentPages = [
@@ -123,7 +125,7 @@ export function DeploymentDashboardLayout({
             {/* If the function runner is fully expanded, hide the content */}
             <div
               className={
-                isRunnerExpanded
+                isRunnerExpanded && isGlobalRunnerShown
                   ? "h-0 w-0"
                   : "h-full w-full overflow-x-auto scrollbar"
               }

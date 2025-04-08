@@ -153,23 +153,23 @@ export const getFunctionTypeStyles = (udfType: UdfType) => {
   switch (udfType) {
     case "Query":
       return {
-        text: "text-yellow-500",
-        background: "bg-yellow-500/10",
+        text: "text-yellow-700 dark:text-yellow-200",
+        background: "bg-yellow-100/50 dark:bg-yellow-900/50",
       };
     case "Mutation":
       return {
-        text: "text-blue-500",
-        background: "bg-blue-500/10",
+        text: "text-blue-700 dark:text-blue-200",
+        background: "bg-blue-100/50 dark:bg-blue-900/50",
       };
     case "Action":
       return {
-        text: "text-purple-500",
-        background: "bg-purple-500/10",
+        text: "text-purple-700 dark:text-purple-200",
+        background: "bg-purple-100/50 dark:bg-purple-900/50",
       };
     case "HttpAction":
       return {
-        text: "text-green-500",
-        background: "bg-green-500/10",
+        text: "text-green-700 dark:text-green-200",
+        background: "bg-green-100/50 dark:bg-green-900/50",
       };
     default:
       return {
