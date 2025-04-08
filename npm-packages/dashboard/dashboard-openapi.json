@@ -2294,6 +2294,34 @@
         }
       }
     },
+    "/teams/{team_slug}/usage/record_tokens": {
+      "post": {
+        "operationId": "record_tokens",
+        "parameters": [
+          {
+            "name": "team_slug",
+            "in": "path",
+            "description": "",
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordTokensArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/update_profile_name": {
       "put": {
         "operationId": "update_profile_name",
@@ -3947,6 +3975,19 @@
         "properties": {
           "deploymentName": {
             "type": "string"
+          }
+        }
+      },
+      "RecordTokensArgs": {
+        "type": "object",
+        "required": [
+          "tokens"
+        ],
+        "properties": {
+          "tokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
