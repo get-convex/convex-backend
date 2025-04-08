@@ -24,7 +24,7 @@ import {
 
 const retryingFetch = fetchRetryFactory(fetch);
 
-export const productionProvisionHost = "https://provision.convex.dev";
+export const productionProvisionHost = "https://api.convex.dev";
 export const provisionHost =
   process.env.CONVEX_PROVISION_HOST || productionProvisionHost;
 const BIG_BRAIN_URL = `${provisionHost}/api/`;

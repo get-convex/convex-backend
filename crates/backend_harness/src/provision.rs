@@ -50,7 +50,7 @@ static REPO_ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
 static SELF_HOSTED_DOCKER_COMPOSE: LazyLock<PathBuf> =
     LazyLock::new(|| REPO_ROOT.join("self-hosted/docker/docker-compose.yml"));
 
-const PROD_PROVISION_HOST: &str = "https://provision.convex.dev";
+const PROD_PROVISION_HOST: &str = "https://api.convex.dev";
 /// Port usher runs on locally
 const USHER_PORT: u16 = 8002;
 /// Address of local test backend through usher
