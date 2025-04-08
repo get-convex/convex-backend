@@ -277,7 +277,7 @@ function ProjectSelectorPanel({
             key={lastHoveredProject.id}
             ref={setPopperElement}
             style={styles.popper}
-            className="min-w-[8rem] max-w-[12rem] rounded border bg-background-secondary shadow-sm sm:min-w-[12rem] sm:max-w-[20rem]"
+            className="max-h-[30rem] min-w-[8rem] max-w-[12rem] overflow-y-auto rounded border bg-background-secondary shadow-sm scrollbar sm:min-w-[12rem] sm:max-w-[20rem]"
             {...attributes.popper}
           >
             <div className="flex items-center justify-between gap-2 px-2 pt-2">
