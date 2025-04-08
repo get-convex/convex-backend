@@ -135,7 +135,7 @@ function SettingsNavigation() {
   return (
     <nav
       data-settings-nav
-      className="sticky top-24 hidden h-fit max-h-[calc(100vh-12rem)] w-[14rem] shrink-0 overflow-visible pr-8 md:block"
+      className="sticky top-0 hidden h-fit w-[14rem] shrink-0 overflow-visible pr-8 md:block"
       aria-label="Settings navigation"
     >
       <div
@@ -215,15 +215,15 @@ function ProjectSettings() {
           <title>Project Settings | {project.name} | Convex Dashboard</title>
         )}
       </Head>
-      <div className="m-auto flex max-h-screen max-w-[80rem] grow flex-col gap-4 px-6 pb-6">
-        <h2 className="sticky top-0 z-10 bg-background-primary py-6">
+      <div className="m-auto flex h-full max-w-[80rem] grow flex-col gap-6 px-6">
+        <h2 className="sticky top-0 z-10 bg-background-primary pt-6">
           Project Settings
         </h2>
-        <div className="flex grow flex-col gap-6 md:flex-row md:gap-6">
+        <div className="flex grow flex-col items-start gap-6 overflow-y-hidden md:flex-row">
           <SettingsNavigation />
           <div
             data-settings-content
-            className="flex h-[calc(100vh-12rem)] grow flex-col gap-6 overflow-y-auto pr-2 scrollbar"
+            className="flex h-full grow flex-col gap-6 overflow-y-auto pb-6 pr-2 scrollbar"
           >
             {team && project ? (
               <div id={SECTION_IDS.projectForm}>
