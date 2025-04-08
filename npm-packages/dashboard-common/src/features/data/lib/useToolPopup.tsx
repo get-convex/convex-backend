@@ -229,7 +229,9 @@ function EditSingleDocumentPanel({
         }
         await invalidateShapes();
       }}
-      defaultDocument={editingDocument}
+      defaultDocument={Object.fromEntries(
+        Object.entries(editingDocument).filter(([_, v]) => v !== undefined),
+      )}
       validator={validator}
       shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
     />
