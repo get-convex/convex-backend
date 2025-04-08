@@ -63,7 +63,6 @@ pub struct TestLocalBackend {
 }
 
 pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<TestLocalBackend> {
-    let (preempt_tx, _preempt_rx) = async_broadcast::broadcast(1);
     let (_shutdown_tx, shutdown_rx) = async_broadcast::broadcast(1);
     let persistence = TestPersistence::new();
     let config = LocalConfig::new_for_test()?;
@@ -72,7 +71,7 @@ pub async fn setup_backend_for_test(runtime: ProdRuntime) -> anyhow::Result<Test
         config.clone(),
         Arc::new(persistence),
         shutdown_rx,
-        ShutdownSignal::new(preempt_tx, config.name(), 0),
+        ShutdownSignal::no_op(),
     )
     .await?;
     let router = router(st.clone());

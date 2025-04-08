@@ -1,30 +1,33 @@
 use std::sync::Arc;
 
+use parking_lot::Mutex;
+use tokio::sync::mpsc;
+
 use crate::errors::report_error_sync;
 
 // Used by the database to signal it has encountered a fatal error.
 #[derive(Clone)]
 pub struct ShutdownSignal {
-    shutdown_tx: Option<async_broadcast::Sender<ShutdownMessage>>,
+    shutdown_tx: Option<Arc<Mutex<Option<mpsc::UnboundedSender<ShutdownMessage>>>>>,
     instance_name: String,
     generation_id: u64,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ShutdownMessage {
-    pub error: Arc<anyhow::Error>,
+    pub error: anyhow::Error,
     pub instance_name: String,
     pub generation_id: u64,
 }
 
 impl ShutdownSignal {
     pub fn new(
-        shutdown_tx: async_broadcast::Sender<ShutdownMessage>,
+        shutdown_tx: mpsc::UnboundedSender<ShutdownMessage>,
         instance_name: String,
         generation_id: u64,
     ) -> Self {
         Self {
-            shutdown_tx: Some(shutdown_tx),
+            shutdown_tx: Some(Arc::new(Mutex::new(Some(shutdown_tx)))),
             instance_name,
             generation_id,
         }
@@ -32,9 +35,13 @@ impl ShutdownSignal {
 
     pub fn signal(&self, mut fatal_error: anyhow::Error) {
         report_error_sync(&mut fatal_error);
-        if let Some(ref shutdown_tx) = self.shutdown_tx {
-            _ = shutdown_tx.try_broadcast(ShutdownMessage {
-                error: Arc::new(fatal_error),
+        if let Some(ref shutdown_tx_mutex) = self.shutdown_tx {
+            let Some(shutdown_tx) = shutdown_tx_mutex.lock().take() else {
+                // A shutdown message has already been sent for this instance. Do nothing.
+                return;
+            };
+            _ = shutdown_tx.send(ShutdownMessage {
+                error: fatal_error,
                 instance_name: self.instance_name.clone(),
                 generation_id: self.generation_id,
             });
@@ -55,9 +62,8 @@ impl ShutdownSignal {
 
     #[cfg(any(test, feature = "testing"))]
     pub fn no_op() -> Self {
-        let (sender, _receiver) = async_broadcast::broadcast(1);
         Self {
-            shutdown_tx: Some(sender),
+            shutdown_tx: Some(Arc::new(Mutex::new(None))),
             instance_name: "".to_owned(),
             generation_id: 0,
         }
