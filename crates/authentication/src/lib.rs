@@ -57,6 +57,10 @@ const CONFIG_URL_SUFFIX: &str = ".well-known/jwks.json";
 /// and not user-facing. These API access tokens are constructed from multiple
 /// clients (eg dashboard/cli)
 pub const CONVEX_CONSOLE_API_AUDIENCE: &str = "https://console.convex.dev/api/";
+// This is the client ID for the Auth0 application used for the dashboard.
+// For... reasons, it's hard to get some clients to set the audience to the
+// console one, so accept this one as well.
+pub const ALTERNATE_CONVEX_API_AUDIENCE: &str = "nANKpAFe4scUPxW77869QHVKYAgrPwy7";
 
 /// Extract the bearer token from an `Authorization: Bearer` header.
 pub async fn extract_bearer_token(header: Option<String>) -> anyhow::Result<Option<String>> {
@@ -343,27 +347,45 @@ where
             "AccessTokenInvalid",
             "Access Token could not be decoded",
         ))?;
-    decoded_token
-        .validate(ValidationOptions {
-            claim_presence_options: ClaimPresenceOptions {
-                issuer: Presence::Required,
-                audience: Presence::Required,
-                subject: Presence::Required,
-                expiry: Presence::Required,
-                ..Default::default()
-            },
-            temporal_options: TemporalOptions {
-                epsilon: chrono::Duration::zero(),
-                now: Some(chrono::DateTime::from(system_time)),
-            },
-            issuer: Validation::Validate(auth_url.to_string()),
-            audience: Validation::Validate(CONVEX_CONSOLE_API_AUDIENCE.to_string()),
-            ..ValidationOptions::default()
-        })
-        .context(ErrorMetadata::unauthenticated(
+
+    let mut validation_options = ValidationOptions {
+        claim_presence_options: ClaimPresenceOptions {
+            issuer: Presence::Required,
+            audience: Presence::Required,
+            subject: Presence::Required,
+            expiry: Presence::Required,
+            ..Default::default()
+        },
+        temporal_options: TemporalOptions {
+            epsilon: chrono::Duration::zero(),
+            now: Some(chrono::DateTime::from(system_time)),
+        },
+        issuer: Validation::Validate(auth_url.to_string()),
+        audience: Validation::Validate(CONVEX_CONSOLE_API_AUDIENCE.to_string()),
+        ..ValidationOptions::default()
+    };
+    let validation_result = decoded_token.validate(validation_options.clone());
+
+    if matches!(
+        validation_result,
+        Err(biscuit::errors::Error::ValidationError(
+            biscuit::errors::ValidationError::InvalidAudience(_)
+        ))
+    ) {
+        validation_options.audience =
+            Validation::Validate(ALTERNATE_CONVEX_API_AUDIENCE.to_string());
+        decoded_token
+            .validate(validation_options)
+            .context(ErrorMetadata::unauthenticated(
+                "AccessTokenInvalid",
+                "Access Token could not be validated",
+            ))?;
+    } else {
+        validation_result.context(ErrorMetadata::unauthenticated(
             "AccessTokenInvalid",
             "Access Token could not be validated",
         ))?;
+    }
     let claims = decoded_token
         .payload()
         .context(ErrorMetadata::unauthenticated(
