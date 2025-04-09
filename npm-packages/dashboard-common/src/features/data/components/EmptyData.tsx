@@ -54,7 +54,7 @@ export function EmptyDataContent({
   }
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full animate-fadeIn">
       {/* Background table example */}
       <div
         className="pointer-events-none absolute inset-0"

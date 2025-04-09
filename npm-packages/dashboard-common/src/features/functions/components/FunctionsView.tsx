@@ -107,7 +107,7 @@ function Functions() {
 
 function EmptyFunctions() {
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="relative h-full w-full animate-fadeIn overflow-hidden">
       {/* Background example */}
       <div
         className="pointer-events-none absolute inset-0 select-none"
