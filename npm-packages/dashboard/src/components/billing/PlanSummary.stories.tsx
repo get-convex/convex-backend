@@ -37,6 +37,7 @@ export const Primary: StoryObj<typeof PlanSummaryForTeam> = {
       maxCloudBackups: 50,
       maxProjects: 10,
       projectMaxPreviewDeployments: 10,
+      maxChefTokens: 8500000,
     },
   },
 };

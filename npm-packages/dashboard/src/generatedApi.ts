@@ -1303,6 +1303,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/teams/{team_slug}/usage/get_token_info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get_token_info"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{team_slug}/usage/record_tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["record_tokens"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/update_profile_name": {
         parameters: {
             query?: never;
@@ -1473,6 +1505,7 @@ export interface components {
             projectSlug: components["schemas"]["ProjectSlug"];
             /** Format: int64 */
             projectsRemaining: number;
+            teamId: components["schemas"]["TeamId"];
             teamSlug: components["schemas"]["TeamSlug"];
         };
         CreateSubscriptionArgs: {
@@ -1578,6 +1611,12 @@ export interface components {
             state?: null | components["schemas"]["SpendingLimitsState"];
             /** Format: int64 */
             warningThresholdCents?: number | null;
+        };
+        GetTokenInfoResponse: {
+            /** Format: int64 */
+            tokensQuota: number;
+            /** Format: int64 */
+            tokensUsed: number;
         };
         InstanceAuthForDashboardInteractionsResponse: {
             adminKey: components["schemas"]["SerializedAccessToken"];
@@ -1726,6 +1765,10 @@ export interface components {
         ProvisionDeploymentDashboardResponse: {
             deploymentName: string;
         };
+        RecordTokensArgs: {
+            /** Format: int64 */
+            tokens: number;
+        };
         ReferralCode: string;
         ReferralState: {
             referrals: components["schemas"]["TeamName"][];
@@ -1804,6 +1847,8 @@ export interface components {
             auditLogsEnabled: boolean;
             customDomainsEnabled: boolean;
             logStreamingEnabled: boolean;
+            /** Format: int64 */
+            maxChefTokens: number;
             /** Format: int64 */
             maxCloudBackups: number;
             /** Format: int64 */
@@ -1962,6 +2007,7 @@ export type EnvironmentVariableJson = components['schemas']['EnvironmentVariable
 export type GetCurrentSpendResponse = components['schemas']['GetCurrentSpendResponse'];
 export type GetOptInsResponse = components['schemas']['GetOptInsResponse'];
 export type GetSpendingLimitsResponse = components['schemas']['GetSpendingLimitsResponse'];
+export type GetTokenInfoResponse = components['schemas']['GetTokenInfoResponse'];
 export type InstanceAuthForDashboardInteractionsResponse = components['schemas']['InstanceAuthForDashboardInteractionsResponse'];
 export type InstanceName = components['schemas']['InstanceName'];
 export type InvitationResponse = components['schemas']['InvitationResponse'];
@@ -1994,6 +2040,7 @@ export type ProjectSlug = components['schemas']['ProjectSlug'];
 export type ProposedTeamName = components['schemas']['ProposedTeamName'];
 export type ProvisionDeploymentDashboardArgs = components['schemas']['ProvisionDeploymentDashboardArgs'];
 export type ProvisionDeploymentDashboardResponse = components['schemas']['ProvisionDeploymentDashboardResponse'];
+export type RecordTokensArgs = components['schemas']['RecordTokensArgs'];
 export type ReferralCode = components['schemas']['ReferralCode'];
 export type ReferralState = components['schemas']['ReferralState'];
 export type RemoveMemberArgs = components['schemas']['RemoveMemberArgs'];
@@ -3854,6 +3901,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TeamUsageStateResponse"];
+                };
+            };
+        };
+    };
+    get_token_info: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetTokenInfoResponse"];
+                };
+            };
+        };
+    };
+    record_tokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordTokensArgs"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetTokenInfoResponse"];
                 };
             };
         };

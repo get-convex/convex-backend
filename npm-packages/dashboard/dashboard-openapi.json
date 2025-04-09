@@ -4243,7 +4243,8 @@
           "auditLogsEnabled",
           "customDomainsEnabled",
           "periodicBackupsEnabled",
-          "maxCloudBackups"
+          "maxCloudBackups",
+          "maxChefTokens"
         ],
         "properties": {
           "auditLogsEnabled": {
@@ -4254,6 +4255,11 @@
           },
           "logStreamingEnabled": {
             "type": "boolean"
+          },
+          "maxChefTokens": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           },
           "maxCloudBackups": {
             "type": "integer",
