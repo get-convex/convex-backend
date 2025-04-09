@@ -11,6 +11,7 @@ use anyhow::{
     Context,
 };
 use common::{
+    components::ComponentId,
     document::ParsedDocument,
     log_lines::RawLogLines,
     types::Timestamp,
@@ -53,6 +54,9 @@ pub struct CronJob {
     // Id into _cron_jobs table
     pub id: ResolvedDocumentId,
 
+    // The component that defined the job
+    pub component: ComponentId,
+
     // Unique identifier of a cron
     pub name: CronIdentifier,
 
@@ -66,10 +70,15 @@ pub struct CronJob {
 }
 
 impl CronJob {
-    pub(crate) fn new(cron: ParsedDocument<CronJobMetadata>, next_run: CronNextRun) -> Self {
+    pub(crate) fn new(
+        cron: ParsedDocument<CronJobMetadata>,
+        component: ComponentId,
+        next_run: CronNextRun,
+    ) -> Self {
         let (id, cron) = cron.into_id_and_value();
         Self {
             id,
+            component,
             name: cron.name,
             cron_spec: cron.cron_spec,
             state: next_run.state,

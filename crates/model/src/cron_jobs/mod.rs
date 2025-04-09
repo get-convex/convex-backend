@@ -392,7 +392,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .await?
             .context("No next run found")?
             .into_value();
-        Ok(Some(CronJob::new(cron, next_run)))
+        Ok(Some(CronJob::new(cron, self.component, next_run)))
     }
 
     pub async fn list(&mut self) -> anyhow::Result<BTreeMap<CronIdentifier, CronJob>> {
@@ -406,7 +406,10 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
                 .await?
                 .context("No next run found")?
                 .into_value();
-            cron_jobs.insert(cron.name.clone(), CronJob::new(cron, next_run));
+            cron_jobs.insert(
+                cron.name.clone(),
+                CronJob::new(cron, self.component, next_run),
+            );
         }
         Ok(cron_jobs)
     }
@@ -476,7 +479,7 @@ pub async fn stream_cron_jobs_to_run<'a, RT: Runtime>(tx: &'a mut Transaction<RT
                 .await?
                 .context("No cron job found")?
                 .parse()?;
-            Ok::<_, anyhow::Error>(CronJob::new(job, next_run.into_value()))
+            Ok::<_, anyhow::Error>(CronJob::new(job, namespace.into(), next_run.into_value()))
         };
 
     // Initialize streaming query for each namespace

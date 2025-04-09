@@ -642,7 +642,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             .begin_with_usage(Identity::Unknown(None), usage_tracker)
             .await?;
         // Verify that the cron job has not changed.
-        let new_job = CronModel::new(&mut tx, ComponentId::Root)
+        let new_job = CronModel::new(&mut tx, expected_state.component)
             .get(expected_state.id)
             .await?;
         Ok((new_job.as_ref() == Some(expected_state)).then_some(tx))
