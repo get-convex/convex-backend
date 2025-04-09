@@ -3,6 +3,7 @@ use metrics::{
     log_counter_with_labels,
     log_distribution,
     log_distribution_with_labels,
+    log_gauge_with_labels,
     register_convex_counter,
     register_convex_gauge,
     register_convex_histogram,
@@ -490,4 +491,104 @@ register_convex_counter!(
 );
 pub fn log_large_statement(labels: Vec<StaticMetricLabel>) {
     log_counter_with_labels(&MYSQL_LARGE_STATEMENT_TOTAL, 1, labels)
+}
+
+register_convex_gauge!(
+    MYSQL_POOL_CONNECTION_COUNT_INFO,
+    "Gauge of active connections to the database server, this includes both connections that have \
+     belong
+    to the pool, and connections currently owned by the application.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_CONNECTIONS_IN_POOL_INFO,
+    "Gauge of active connections that currently belong to the pool.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_ACTIVE_WAIT_REQUESTS_INFO,
+    "Gauge of GetConn requests that are currently active.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_CREATE_FAILED_TOTAL,
+    "Counter of connections that failed to be created.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_DISCARDED_SUPERFLUOUS_CONNECTION_TOTAL,
+    "Counter of connections discarded due to pool constraints.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_DISCARDED_UNESTABLISHED_CONNECTION_TOTAL,
+    "Counter of connections discarded due to being closed upon return to the pool.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_DIRTY_CONNECTION_RETURN_TOTAL,
+    "Counter of connections that have been returned to the pool dirty that needed to be cleaned
+    (ie. open transactions, pending queries, etc).",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_DISCARDED_EXPIRED_CONNECTION_TOTAL,
+    "Counter of connections that have been discarded as they were expired by the pool constraints.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_RESETTING_CONNECTION_TOTAL,
+    "Counter of connections that have been reset.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_DISCARDED_ERROR_DURING_CLEANUP_TOTAL,
+    "Counter of connections that have been discarded as they returned an error during cleanup.",
+    &["cluster_name"],
+);
+register_convex_gauge!(
+    MYSQL_POOL_CONNECTION_RETURNED_TO_POOL_TOTAL,
+    "Counter of connections that have been returned to the pool.",
+    &["cluster_name"],
+);
+pub fn log_pool_metrics(cluster_name: &str, metrics: &mysql_async::Metrics) {
+    use std::sync::atomic::Ordering;
+    macro_rules! mysql_metric {
+        ($name:ident, $gauge:ident) => {
+            log_gauge_with_labels(
+                &$gauge,
+                metrics.$name.load(Ordering::Relaxed) as f64,
+                vec![cluster_name_label(cluster_name)],
+            )
+        };
+    }
+    mysql_metric!(connection_count, MYSQL_POOL_CONNECTION_COUNT_INFO);
+    mysql_metric!(connections_in_pool, MYSQL_POOL_CONNECTIONS_IN_POOL_INFO);
+    mysql_metric!(active_wait_requests, MYSQL_POOL_ACTIVE_WAIT_REQUESTS_INFO);
+    mysql_metric!(create_failed, MYSQL_POOL_CREATE_FAILED_TOTAL);
+    mysql_metric!(
+        discarded_superfluous_connection,
+        MYSQL_POOL_DISCARDED_SUPERFLUOUS_CONNECTION_TOTAL
+    );
+    mysql_metric!(
+        discarded_unestablished_connection,
+        MYSQL_POOL_DISCARDED_UNESTABLISHED_CONNECTION_TOTAL
+    );
+    mysql_metric!(
+        dirty_connection_return,
+        MYSQL_POOL_DIRTY_CONNECTION_RETURN_TOTAL
+    );
+    mysql_metric!(
+        discarded_expired_connection,
+        MYSQL_POOL_DISCARDED_EXPIRED_CONNECTION_TOTAL
+    );
+    mysql_metric!(resetting_connection, MYSQL_POOL_RESETTING_CONNECTION_TOTAL);
+    mysql_metric!(
+        discarded_error_during_cleanup,
+        MYSQL_POOL_DISCARDED_ERROR_DURING_CLEANUP_TOTAL
+    );
+    mysql_metric!(
+        connection_returned_to_pool,
+        MYSQL_POOL_CONNECTION_RETURNED_TO_POOL_TOTAL
+    );
 }

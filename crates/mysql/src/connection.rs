@@ -510,6 +510,13 @@ impl<RT: Runtime> ConvexMySqlPool<RT> {
         &self.cluster_name
     }
 
+    /// Report gauges with information about the MySQL pool.
+    /// Note that this only makes sense if there is a single pool for this
+    /// cluster in this process.
+    pub fn log_pool_metrics(&self) {
+        crate::metrics::log_pool_metrics(&self.cluster_name, &self.pool.metrics());
+    }
+
     pub async fn shutdown(&self) -> anyhow::Result<()> {
         tracing::info!("Shutting down ConvexMySqlPool");
         Ok(self.pool.clone().disconnect().await?)
