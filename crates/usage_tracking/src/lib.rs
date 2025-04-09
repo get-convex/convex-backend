@@ -372,36 +372,41 @@ impl UsageCounter {
 
         if did_exceed_document_threshold || did_exceed_byte_threshold {
             let mut calls = Vec::new();
-            let component_path: ComponentPath = stats
-                .database_egress_rows
-                .clone()
-                .into_iter()
-                .next()
-                .map(|((cp, _), _)| cp)
-                .expect("Expected at least one database egress row since thresholds were exceeded");
+            let component_path: Option<ComponentPath> =
+                match stats.database_egress_rows.first_key_value() {
+                    Some(((component_path, _), _)) => Some(component_path.clone()),
+                    None => {
+                        tracing::error!(
+                            "Failed to find component path despite thresholds being exceeded"
+                        );
+                        None
+                    },
+                };
 
-            for ((cp, table_name), egress_rows) in stats.database_egress_rows.into_iter() {
-                let egress = stats
-                    .database_egress_size
-                    .get(&(cp, table_name.clone()))
-                    .copied()
-                    .unwrap_or(0);
+            if let Some(component_path) = component_path {
+                for ((cp, table_name), egress_rows) in stats.database_egress_rows.into_iter() {
+                    let egress = stats
+                        .database_egress_size
+                        .get(&(cp, table_name.clone()))
+                        .copied()
+                        .unwrap_or(0);
 
-                calls.push(InsightReadLimitCall {
-                    table_name,
-                    bytes_read: egress,
-                    documents_read: egress_rows,
+                    calls.push(InsightReadLimitCall {
+                        table_name,
+                        bytes_read: egress,
+                        documents_read: egress_rows,
+                    });
+                }
+
+                usage_metrics.push(UsageEvent::InsightReadLimit {
+                    id: execution_id.to_string(),
+                    request_id: request_id.to_string(),
+                    udf_id: udf_id.clone(),
+                    component_path: component_path.serialize(),
+                    calls,
+                    success,
                 });
             }
-
-            usage_metrics.push(UsageEvent::InsightReadLimit {
-                id: execution_id.to_string(),
-                request_id: request_id.to_string(),
-                udf_id: udf_id.clone(),
-                component_path: component_path.serialize(),
-                calls,
-                success,
-            });
         }
 
         for ((component_path, table_name), ingress_size) in stats.vector_ingress_size {
