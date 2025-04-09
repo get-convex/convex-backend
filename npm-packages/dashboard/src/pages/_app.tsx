@@ -1,5 +1,6 @@
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
+import "../elements/styles/commandPalette.css";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
 import React from "react";
@@ -27,6 +28,7 @@ import {
   LaunchDarklyConsumer,
   MaybeLaunchDarklyProvider,
 } from "providers/LaunchDarklyProviders";
+import { CommandPalette } from "elements/CommandPalette";
 import { Fallback } from "./500";
 
 declare global {
@@ -91,6 +93,7 @@ export default function App({ Component, pageProps }: AppProps) {
                     <MaybeLaunchDarklyProvider>
                       <LaunchDarklyConsumer>
                         <div className="flex h-screen flex-col">
+                          <CommandPalette />
                           <DashboardHeader />
                           {inDeployment ? (
                             <DeploymentInfoProvider>

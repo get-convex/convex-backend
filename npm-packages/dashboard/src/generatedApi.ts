@@ -151,6 +151,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/delete_projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["dashboard_delete_projects"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/deployments/{deployment_id}/configure_periodic_backup": {
         parameters: {
             query?: never;
@@ -1528,6 +1544,9 @@ export interface components {
         DeleteAccessTokenArgs: {
             name: components["schemas"]["DeviceName"];
         };
+        DeleteProjectsArgs: {
+            projectIds: components["schemas"]["ProjectId"][];
+        };
         /** Format: int64 */
         DeploymentId: number;
         DeploymentResponse: {
@@ -1992,6 +2011,7 @@ export type CreateSubscriptionArgs = components['schemas']['CreateSubscriptionAr
 export type CreateTeamArgs = components['schemas']['CreateTeamArgs'];
 export type DeactivatePreviewDeploymentArgs = components['schemas']['DeactivatePreviewDeploymentArgs'];
 export type DeleteAccessTokenArgs = components['schemas']['DeleteAccessTokenArgs'];
+export type DeleteProjectsArgs = components['schemas']['DeleteProjectsArgs'];
 export type DeploymentId = components['schemas']['DeploymentId'];
 export type DeploymentResponse = components['schemas']['DeploymentResponse'];
 export type DeploymentType = components['schemas']['DeploymentType'];
@@ -2258,6 +2278,27 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    dashboard_delete_projects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteProjectsArgs"];
+            };
+        };
         responses: {
             200: {
                 headers: {

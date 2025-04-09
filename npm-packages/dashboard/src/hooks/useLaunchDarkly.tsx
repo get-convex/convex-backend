@@ -13,11 +13,15 @@ const flagDefaults: {
   spendingLimits: boolean;
   enableIndexFilters: boolean;
   referralsPage: boolean;
+  commandPalette: boolean;
+  commandPaletteDeleteProjects: boolean;
 } = {
   oauthProviderConfiguration: {},
   spendingLimits: false,
   enableIndexFilters: false,
   referralsPage: false,
+  commandPalette: false,
+  commandPaletteDeleteProjects: false,
 };
 
 function kebabCaseKeys(object: typeof flagDefaults) {

@@ -208,6 +208,26 @@
         }
       }
     },
+    "/delete_projects": {
+      "post": {
+        "operationId": "dashboard_delete_projects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteProjectsArgs"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/deployments/{deployment_id}/configure_periodic_backup": {
       "post": {
         "operationId": "configure_periodic_backup",
@@ -3061,6 +3081,20 @@
           }
         },
         "additionalProperties": false
+      },
+      "DeleteProjectsArgs": {
+        "type": "object",
+        "required": [
+          "projectIds"
+        ],
+        "properties": {
+          "projectIds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectId"
+            }
+          }
+        }
       },
       "DeploymentId": {
         "type": "integer",

@@ -18,7 +18,7 @@ export function useProjectById(teamId?: number, projectId?: number) {
 }
 
 export function useProjects(
-  teamId?: number,
+  teamId: number | undefined,
   refreshInterval?: SWRConfiguration["refreshInterval"],
 ) {
   const [initialData] = useInitialData();
@@ -72,5 +72,17 @@ export function useDeleteProject(
     },
     successToast: projectName ? `Deleted project: ${projectName}.` : undefined,
     redirectTo: "/",
+  });
+}
+
+export function useDeleteProjects(teamId: number | undefined) {
+  return useBBMutation({
+    path: "/delete_projects",
+    pathParams: undefined,
+    mutateKey: "/teams/{team_id}/projects",
+    mutatePathParams: {
+      team_id: teamId?.toString() || "",
+    },
+    successToast: "Projects deleted.",
   });
 }
