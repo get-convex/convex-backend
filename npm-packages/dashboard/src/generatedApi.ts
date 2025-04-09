@@ -1632,6 +1632,7 @@ export interface components {
             warningThresholdCents?: number | null;
         };
         GetTokenInfoResponse: {
+            isDisabled: boolean;
             /** Format: int64 */
             tokensQuota: number;
             /** Format: int64 */

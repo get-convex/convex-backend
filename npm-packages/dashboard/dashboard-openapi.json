@@ -3438,9 +3438,13 @@
         "type": "object",
         "required": [
           "tokensUsed",
-          "tokensQuota"
+          "tokensQuota",
+          "isTeamDisabled"
         ],
         "properties": {
+          "isTeamDisabled": {
+            "type": "boolean"
+          },
           "tokensQuota": {
             "type": "integer",
             "format": "int64",
