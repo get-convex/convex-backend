@@ -279,7 +279,7 @@ pub static SCHEDULED_JOB_EXECUTION_PARALLELISM: LazyLock<usize> =
 
 /// Initial backoff in milliseconds on a system error from a scheduled job.
 pub static SCHEDULED_JOB_INITIAL_BACKOFF: LazyLock<Duration> =
-    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULED_JOB_INITIAL_BACKOFF_MS", 10)));
+    LazyLock::new(|| Duration::from_millis(env_config("SCHEDULED_JOB_INITIAL_BACKOFF_MS", 500)));
 
 /// Max backoff in seconds on a system error from a scheduled job.
 /// Scheduled jobs can hit many OCCs, so we may need to slow them down if they

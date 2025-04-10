@@ -82,8 +82,8 @@ use crate::{
 
 mod metrics;
 
-const INITIAL_BACKOFF: Duration = Duration::from_millis(10);
-const MAX_BACKOFF: Duration = Duration::from_secs(5);
+const INITIAL_BACKOFF: Duration = Duration::from_millis(500);
+const MAX_BACKOFF: Duration = Duration::from_secs(15);
 
 // Truncate result and log lines for cron job logs since they are only
 // used for the dashboard
