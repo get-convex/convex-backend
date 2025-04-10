@@ -76,7 +76,6 @@ use common::{
     },
 };
 use futures::{
-    future,
     pin_mut,
     stream::FusedStream,
     Future,
@@ -92,7 +91,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use value::{
     DeveloperDocumentId,
-    InternalDocumentId,
     TableNamespace,
 };
 
@@ -195,11 +193,11 @@ impl IndexSelector {
         tables.into_iter()
     }
 
-    fn filter_id(&self, id: InternalDocumentId) -> bool {
+    fn tablet_id(&self) -> Option<TabletId> {
         match self {
-            Self::All(_) => true,
-            Self::Index { name, .. } => *name.table() == id.table(),
-            Self::ManyIndexes { tablet_id, .. } => *tablet_id == id.table(),
+            Self::All(_) => None,
+            Self::Index { name, .. } => Some(*name.table()),
+            Self::ManyIndexes { tablet_id, .. } => Some(*tablet_id),
         }
     }
 }
@@ -940,9 +938,11 @@ impl<RT: Runtime> IndexWriter<RT> {
         order: Order,
         index_selector: &'a IndexSelector,
     ) -> impl Stream<Item = anyhow::Result<RevisionPair>> + 'a {
-        let document_stream = reader
-            .load_documents(range, order)
-            .try_filter(|entry| future::ready(index_selector.filter_id(entry.id)));
+        let document_stream = if let Some(tablet_id) = index_selector.tablet_id() {
+            reader.load_documents_from_table(tablet_id, range, order)
+        } else {
+            reader.load_documents(range, order)
+        };
         stream_revision_pairs(document_stream, reader)
     }
 

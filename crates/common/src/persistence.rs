@@ -529,16 +529,28 @@ impl RepeatablePersistence {
         self.upper_bound
     }
 
-    /// Same as [`Persistence::load_all_documents`] but only including documents
-    /// in the snapshot range.
-    pub fn load_all_documents(&self, order: Order) -> DocumentStream<'_> {
-        self.load_documents(TimestampRange::snapshot(*self.upper_bound), order)
-    }
-
     /// Same as [`Persistence::load_documents`] but only including documents in
     /// the snapshot range.
     pub fn load_documents(&self, range: TimestampRange, order: Order) -> DocumentStream<'_> {
         let stream = self.reader.load_documents(
+            range,
+            order,
+            *DEFAULT_DOCUMENTS_PAGE_SIZE,
+            self.retention_validator.clone(),
+        );
+        Box::pin(stream.try_filter(|entry| future::ready(entry.ts <= *self.upper_bound)))
+    }
+
+    /// Same as [`Persistence::load_documents_from_table`] but only including
+    /// documents in the snapshot range.
+    pub fn load_documents_from_table(
+        &self,
+        tablet_id: TabletId,
+        range: TimestampRange,
+        order: Order,
+    ) -> DocumentStream<'_> {
+        let stream = self.reader.load_documents_from_table(
+            tablet_id,
             range,
             order,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,

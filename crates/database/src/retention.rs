@@ -1432,9 +1432,7 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         let Some(doc) = maybe_doc else {
             return Ok(());
         };
-        if doc.id().tablet_id != index_tablet_id {
-            return Ok(());
-        }
+        anyhow::ensure!(doc.id().tablet_id == index_tablet_id);
         let index_id = doc.id().internal_id();
         let index: ParsedDocument<IndexMetadata<TabletId>> = doc.parse()?;
         let index = index.into_value();
@@ -1471,7 +1469,8 @@ impl<RT: Runtime> LeaderRetentionManager<RT> {
         retention_validator: Arc<dyn RetentionValidator>,
     ) -> anyhow::Result<()> {
         let reader = persistence.reader();
-        let mut document_stream = reader.load_documents(
+        let mut document_stream = reader.load_documents_from_table(
+            index_table_id,
             TimestampRange::new(**cursor..*latest_ts)?,
             Order::Asc,
             *DEFAULT_DOCUMENTS_PAGE_SIZE,
