@@ -20,6 +20,7 @@ import { Sidebar } from "@common/elements/Sidebar";
 import { FunctionRunnerWrapper } from "@common/features/functionRunner/components/FunctionRunnerWrapper";
 import { FunctionsProvider } from "@common/lib/functions/FunctionsProvider";
 import { useIsGlobalRunnerShown } from "@common/features/functionRunner/lib/functionRunner";
+import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsCloudDeploymentInSelfHostedDashboard";
 
 type LayoutProps = {
   children: JSX.Element;
@@ -36,6 +37,8 @@ export function DeploymentDashboardLayout({
   const [isRunnerExpanded, setIsRunnerExpanded] = useState(false);
   const isGlobalRunnerShown = useIsGlobalRunnerShown();
   const { deploymentsURI: uriPrefix } = useContext(DeploymentInfoContext);
+  const { isCloudDeploymentInSelfHostedDashboard, deploymentName } =
+    useIsCloudDeploymentInSelfHostedDashboard();
 
   const exploreDeploymentPages = [
     {
@@ -90,7 +93,10 @@ export function DeploymentDashboardLayout({
           key: "history",
           label: "History",
           Icon: CounterClockwiseClockIcon,
-          href: `${uriPrefix}/history`,
+          href: isCloudDeploymentInSelfHostedDashboard
+            ? `https://dashboard.convex.dev/d/${deploymentName}/history`
+            : `${uriPrefix}/history`,
+          target: isCloudDeploymentInSelfHostedDashboard ? "_blank" : undefined,
           disabled: !auditLogsEnabled,
           tooltip: auditLogsEnabled
             ? undefined

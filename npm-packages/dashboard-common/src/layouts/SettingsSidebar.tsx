@@ -5,6 +5,7 @@ import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { SidebarLink } from "@common/elements/Sidebar";
 import { useNents } from "@common/lib/useNents";
+import { useIsCloudDeploymentInSelfHostedDashboard } from "@common/lib/useIsCloudDeploymentInSelfHostedDashboard";
 
 export const DEPLOYMENT_SETTINGS_PAGES_AND_NAMES = {
   "url-and-deploy-key": "URL & Deploy Key",
@@ -181,48 +182,4 @@ function useAllowedPages() {
   pages = pages.filter((d) => d !== "snapshots");
 
   return pages;
-}
-
-/**
- * Determines if the deployment URL is a default cloud deployment URL.
- *
- * This gives a false negative if the deployment is a cloud deployment with a custom domain.
- */
-function useIsCloudDeploymentInSelfHostedDashboard():
-  | {
-      isCloudDeploymentInSelfHostedDashboard: false;
-      deploymentName: undefined;
-    }
-  | {
-      isCloudDeploymentInSelfHostedDashboard: true;
-      deploymentName: string;
-    } {
-  const context = useContext(DeploymentInfoContext);
-
-  if (
-    !context.isSelfHosted ||
-    !("deploymentUrl" in context) ||
-    !context.deploymentUrl
-  ) {
-    return {
-      isCloudDeploymentInSelfHostedDashboard: false,
-      deploymentName: undefined,
-    };
-  }
-
-  const match = context.deploymentUrl.match(
-    /^https:\/\/([a-z]+-[a-z]+-[0-9]{3})\.convex\.cloud$/,
-  );
-
-  if (!match) {
-    return {
-      isCloudDeploymentInSelfHostedDashboard: false,
-      deploymentName: undefined,
-    };
-  }
-
-  return {
-    isCloudDeploymentInSelfHostedDashboard: true,
-    deploymentName: match[1],
-  };
 }
