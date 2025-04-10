@@ -289,7 +289,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             return Ok(job.id);
         };
         let (_, component_path) = self.get_job_component(&mut tx, job.id).await?;
-        tracing::info!("Executing {:?}!", job.cron_spec.udf_path);
+        tracing::debug!("Executing {:?}!", job.cron_spec.udf_path);
 
         // Since we don't specify the function type in the cron, we have to use
         // the analyzed result.
