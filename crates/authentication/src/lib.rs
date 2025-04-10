@@ -225,15 +225,32 @@ pub struct ConsoleClaims {
 pub struct ConsoleAccessToken {
     email: String,
     sub: String,
+    name: Option<String>,
+    nickname: Option<String>,
 }
 impl ConsoleAccessToken {
     #[cfg(any(test, feature = "testing"))]
     pub fn new(email: String, sub: String) -> Self {
-        Self { email, sub }
+        Self {
+            email,
+            sub,
+            name: None,
+            nickname: None,
+        }
     }
 
     pub fn email(&self) -> &str {
         &self.email
+    }
+}
+
+impl From<ConsoleAccessToken> for UserInfo {
+    fn from(value: ConsoleAccessToken) -> Self {
+        Self {
+            email: value.email,
+            name: value.name,
+            nickname: value.nickname,
+        }
     }
 }
 
@@ -400,6 +417,9 @@ where
             .as_ref()
             .expect("Already validated subject is present")
             .to_owned(),
+        // TODO(sarah) read these from the token if possible
+        nickname: None,
+        name: None,
     })
 }
 
