@@ -3,10 +3,20 @@ use std::fmt::Debug;
 use anyhow::Context;
 use aws_config::retry::RetryConfig;
 use aws_sdk_s3::{
-    types::Object,
+    types::{
+        Delete,
+        DeleteMarkerEntry,
+        Object,
+        ObjectIdentifier,
+    },
     Client,
 };
-use futures_async_stream::try_stream;
+use aws_smithy_types_convert::stream::PaginationStreamExt;
+use futures::{
+    stream::TryStreamExt,
+    Stream,
+    StreamExt,
+};
 
 use crate::must_s3_config_from_env;
 
@@ -32,44 +42,79 @@ impl S3Client {
         Ok(Self(s3_client))
     }
 
-    #[try_stream(ok = Vec<Object>, error = anyhow::Error)]
-    pub async fn list_all_s3_files_from_bucket(&self, bucket: String) {
-        let mut documents_stream = self
+    /// Lists all keys in a bucket, grouped by the substring from the start of
+    /// the key to the delimiter (inclusive). E.g. for a bucket with the
+    /// following keys: a/1.txt
+    /// a/2.txt
+    /// b/1.txt
+    /// b/2/3.txt
+    /// and a delimiter of "/", the prefixes will be ["a/", "b/"].
+    /// This can be useful for buckets that contain a directory for every
+    /// instance
+    /// Any files inside the `.trash` directory are not included.
+    pub fn list_all_prefixes(
+        &self,
+        bucket: String,
+        delimiter: String,
+    ) -> impl Stream<Item = anyhow::Result<String>> + Send + Unpin {
+        let stream = self
             .0
             .list_objects_v2()
             .bucket(bucket)
+            .delimiter(delimiter)
             .into_paginator()
-            .send();
+            .send()
+            .into_stream_03x();
+        stream
+            .map_err(anyhow::Error::from)
+            .map_ok(|output| {
+                futures::stream::iter(output.common_prefixes.unwrap_or_default()).map(Ok)
+            })
+            .try_flatten()
+            .map_ok(|p| p.prefix.expect("inner field must be present"))
+            .try_filter(|p| futures::future::ready(!p.starts_with(S3_TRASH_FOLDER)))
+    }
 
-        tracing::debug!("Starting API calls to AWS");
+    /// Lists all files in a bucket, optionally filtered to a prefix.
+    /// Any files inside the `.trash` directory are not included.
+    pub fn list_all_s3_files_from_bucket(
+        &self,
+        bucket: String,
+        prefix: Option<String>,
+    ) -> impl Stream<Item = anyhow::Result<Object>> + Send + Unpin {
+        let stream = self
+            .0
+            .list_objects_v2()
+            .bucket(bucket)
+            .set_prefix(prefix)
+            .into_paginator()
+            .send()
+            .into_stream_03x();
+        stream
+            .map_err(anyhow::Error::from)
+            .map_ok(|output| futures::stream::iter(output.contents.unwrap_or_default()).map(Ok))
+            .try_flatten()
+            .try_filter(|obj| {
+                futures::future::ready(!obj.key().unwrap_or_default().starts_with(S3_TRASH_FOLDER))
+            })
+    }
 
-        loop {
-            let output = documents_stream.next().await;
-
-            match output {
-                None => break,
-                Some(result) => {
-                    if let Err(ref e) = result {
-                        if let Some(r) = e.raw_response() {
-                            tracing::error!("{r:?}");
-                        }
-                    }
-                    let result = result.context("Error listing files")?;
-                    let current_documents = result.contents.unwrap_or_default();
-                    tracing::debug!(
-                        "Fetched a page of {} files from AWS",
-                        current_documents.len()
-                    );
-
-                    yield current_documents
-                        .into_iter()
-                        .filter(|obj| !obj.key.clone().unwrap().starts_with(S3_TRASH_FOLDER))
-                        .collect();
-                },
-            }
+    pub async fn delete_s3_files(
+        &self,
+        bucket: String,
+        objects: impl Stream<Item = ObjectIdentifier> + Unpin,
+    ) -> anyhow::Result<()> {
+        let mut stream = objects.chunks(1000);
+        while let Some(chunk) = stream.next().await {
+            let req = self.0.delete_objects().bucket(&bucket).delete(
+                Delete::builder()
+                    .set_objects(Some(chunk))
+                    .quiet(true)
+                    .build()?,
+            );
+            req.send().await?;
         }
-
-        tracing::debug!("Fetched all user file metadata from AWS");
+        Ok(())
     }
 
     pub async fn delete_s3_file(
@@ -100,45 +145,91 @@ impl S3Client {
         instance_name: String,
         for_real: bool,
     ) -> anyhow::Result<()> {
-        tracing::debug!("Making API call to AWS");
-        let files = self
-            .0
-            .list_object_versions()
-            .bucket(bucket.clone())
-            .prefix(instance_name.clone())
-            .send()
-            .await?;
+        let mut all_delete_markers: Vec<DeleteMarkerEntry> = vec![];
+        let mut key_marker: Option<String> = None;
+        let mut version_id_marker: Option<String> = None;
 
-        tracing::info!("Retrieved files from AWS. Starting undelete");
+        loop {
+            let mut req_builder = self
+                .0
+                .list_object_versions()
+                .bucket(bucket.clone())
+                .prefix(instance_name.clone());
 
-        let mut deleted_objects = 0;
-        for marker in files.delete_markers() {
-            let key = marker
-                .key
-                .clone()
-                .context("Expected delete marker to have a key")?;
-            if for_real {
-                self.delete_s3_file(
-                    bucket.clone(),
-                    key,
-                    Some(
-                        marker
-                            .version_id
-                            .clone()
-                            .context("Expected delete marker to have a version id")?,
-                    ),
-                )
-                .await?;
-            } else {
-                println!(
-                    "DRY RUN: Would have deleted S3 delete marker with key {}",
-                    key
-                );
+            if let Some(ref marker) = key_marker {
+                req_builder = req_builder.key_marker(marker.clone());
             }
-            deleted_objects += 1;
+            if let Some(ref marker) = version_id_marker {
+                req_builder = req_builder.version_id_marker(marker.clone());
+            }
+
+            let resp = req_builder.send().await?;
+
+            // Get the delete markers slice, defaulting to an empty slice if None.
+            let markers: &[DeleteMarkerEntry] = resp.delete_markers();
+            // Extend the collected vector with the markers from the current page.
+            all_delete_markers.extend_from_slice(markers);
+
+            if resp.is_truncated() == Some(true) {
+                key_marker = resp.next_key_marker().map(String::from);
+                version_id_marker = resp.next_version_id_marker().map(String::from);
+                // Ensure both markers are present if truncated, otherwise break.
+                if key_marker.is_none() && version_id_marker.is_none() {
+                    tracing::warn!(
+                        "ListObjectVersions response was truncated but missing next markers. \
+                         Stopping pagination."
+                    );
+                    break;
+                }
+            } else {
+                break; // Exit loop if not truncated
+            }
         }
 
-        tracing::info!("Recovered {deleted_objects} deleted files for instance {instance_name}");
+        tracing::info!(
+            "Retrieved {} total delete markers from AWS. Starting undelete",
+            all_delete_markers.len()
+        );
+
+        let num_markers_found = all_delete_markers.len();
+
+        if !for_real {
+            // Simulate the deletion for a dry run
+            for marker in &all_delete_markers {
+                let key_str = marker.key.as_deref().unwrap_or("[missing key]");
+                let version_str = marker
+                    .version_id
+                    .as_deref()
+                    .unwrap_or("[missing version_id]");
+                println!(
+                    "DRY RUN: Would delete marker for key {} version {}",
+                    key_str, version_str
+                );
+            }
+            tracing::info!(
+                "DRY RUN: Would have recovered {num_markers_found} deleted files for instance \
+                 {instance_name}"
+            );
+        } else {
+            // Convert markers to ObjectIdentifiers for batch deletion.
+            let identifiers_iter = all_delete_markers.into_iter().map(|marker| {
+                let key = marker.key.expect("DeleteMarkerEntry missing key");
+                let version_id = marker
+                    .version_id
+                    .expect("DeleteMarkerEntry missing version_id");
+                ObjectIdentifier::builder()
+                    .key(key)
+                    .version_id(version_id)
+                    .build()
+                    .expect("Building ObjectIdentifier failed unexpectedly")
+            });
+
+            let stream = futures::stream::iter(identifiers_iter);
+            self.delete_s3_files(bucket.clone(), stream).await?;
+            tracing::info!(
+                "Recovered {num_markers_found} deleted files for instance {instance_name}"
+            );
+        }
 
         Ok(())
     }

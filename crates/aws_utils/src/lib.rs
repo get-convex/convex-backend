@@ -40,7 +40,7 @@ pub fn must_config_from_env() -> anyhow::Result<ConfigLoader> {
         anyhow::bail!("AWS_SECRET_ACCESS_KEY env variable must be set");
     };
     let credentials = EnvironmentVariableCredentialsProvider::new();
-    Ok(aws_config::defaults(BehaviorVersion::v2024_03_28())
+    Ok(aws_config::defaults(BehaviorVersion::v2025_01_17())
         .region(region)
         .credentials_provider(credentials))
 }
