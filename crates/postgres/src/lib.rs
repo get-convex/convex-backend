@@ -306,7 +306,7 @@ impl Persistence for PostgresPersistence {
                                     update.id,
                                     &update.value,
                                     update.prev_ts,
-                                ));
+                                )?);
                             }
                             let future = async {
                                 let timer = metrics::insert_document_chunk_timer();
@@ -324,7 +324,7 @@ impl Persistence for PostgresPersistence {
                                 update.id,
                                 &update.value,
                                 update.prev_ts,
-                            );
+                            )?;
                             let future = async {
                                 let timer = metrics::insert_one_document_timer();
                                 tx.execute_raw(&insert_document, params).await?;
@@ -400,7 +400,10 @@ impl Persistence for PostgresPersistence {
             .transact(move |tx| {
                 async move {
                     let stmt = tx.prepare_cached(WRITE_PERSISTENCE_GLOBAL).await?;
-                    let params = [Param::PersistenceGlobalKey(key), Param::JsonValue(value)];
+                    let params = [
+                        Param::PersistenceGlobalKey(key),
+                        Param::JsonValue(value.to_string()),
+                    ];
                     tx.execute_raw(&stmt, params).await?;
                     Ok(())
                 }
@@ -1206,13 +1209,13 @@ fn document_params(
     id: InternalDocumentId,
     maybe_document: &Option<ResolvedDocument>,
     prev_ts: Option<Timestamp>,
-) -> [Param; NUM_DOCUMENT_PARAMS] {
+) -> anyhow::Result<[Param; NUM_DOCUMENT_PARAMS]> {
     let (json_value, deleted) = match maybe_document {
-        Some(doc) => (doc.to_internal_json(), false),
-        None => (JsonValue::Null, true),
+        Some(doc) => (doc.value().json_serialize()?, false),
+        None => (JsonValue::Null.to_string(), true),
     };
 
-    [
+    Ok([
         internal_doc_id_param(id),
         Param::Ts(i64::from(ts)),
         Param::TableId(id.table()),
@@ -1222,7 +1225,7 @@ fn document_params(
             Some(prev_ts) => Param::Ts(i64::from(prev_ts)),
             None => Param::None,
         },
-    ]
+    ])
 }
 
 fn internal_id_param(id: InternalId) -> Param {
@@ -1270,7 +1273,7 @@ enum Param {
     Ts(i64),
     Limit(i64),
     TableId(TabletId),
-    JsonValue(JsonValue),
+    JsonValue(String),
     Deleted(bool),
     Bytes(Vec<u8>),
     PersistenceGlobalKey(PersistenceGlobalKey),
@@ -1288,7 +1291,7 @@ impl ToSql for Param {
             Param::None => Ok(IsNull::Yes),
             Param::Ts(ts) => ts.to_sql(ty, out),
             Param::TableId(s) => s.0 .0.to_vec().to_sql(ty, out),
-            Param::JsonValue(v) => serde_json::to_vec(v)?.to_sql(ty, out),
+            Param::JsonValue(v) => v.as_bytes().to_sql(ty, out),
             Param::Deleted(d) => d.to_sql(ty, out),
             Param::Bytes(v) => v.to_sql(ty, out),
             Param::Limit(v) => v.to_sql(ty, out),

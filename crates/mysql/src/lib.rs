@@ -316,7 +316,7 @@ impl<RT: Runtime> Persistence for MySqlPersistence<RT> {
                                     update.id,
                                     update.value.clone(),
                                     update.prev_ts,
-                                );
+                                )?;
                             }
                             let future = async {
                                 let timer =
@@ -1265,19 +1265,19 @@ fn document_params(
     id: InternalDocumentId,
     maybe_doc: Option<ResolvedDocument>,
     prev_ts: Option<Timestamp>,
-) -> Vec<mysql_async::Value> {
-    let (json_value, deleted) = match maybe_doc {
-        Some(document) => (document.to_internal_json(), false),
-        None => (serde_json::Value::Null, true),
+) -> anyhow::Result<Vec<mysql_async::Value>> {
+    let (json_str, deleted) = match maybe_doc {
+        Some(document) => (document.value().json_serialize()?, false),
+        None => (serde_json::Value::Null.to_string(), true),
     };
 
     query.push(internal_doc_id_param(id).into());
     query.push(i64::from(ts).into());
     query.push(internal_id_param(id.table().0).into());
-    query.push(json_value.into());
+    query.push(mysql_async::Value::Bytes(json_str.into_bytes()));
     query.push(deleted.into());
     query.push(prev_ts.map(i64::from).into());
-    query
+    Ok(query)
 }
 
 fn internal_id_param(id: InternalId) -> Vec<u8> {
