@@ -340,6 +340,7 @@ impl<RT: Runtime> IndexWorker<RT> {
                 )
                 .await?;
             }
+            drop(index_documents);
             if num_to_backfill > 0 {
                 // We backfilled at least one index during this loop iteration.
                 // There's no point in subscribing, as we'd immediately be woken by our own
