@@ -19,6 +19,7 @@ use std::{
     },
     fmt::Write,
     future::Future,
+    iter,
     ops::Bound,
     pin::Pin,
     sync::{
@@ -119,6 +120,7 @@ use metrics::write_persistence_global_timer;
 use mysql_async::Row;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
+use smallvec::SmallVec;
 
 use crate::{
     chunks::smart_chunks,
@@ -971,39 +973,42 @@ impl<RT: Runtime> PersistenceReader for MySqlReader<RT> {
         let ids: Vec<_> = ids.into_iter().collect();
 
         let mut result = BTreeMap::new();
-        let mut results = vec![];
 
         for chunk in smart_chunks(&ids) {
-            let mut params = vec![];
-            for DocumentPrevTsQuery { id, ts, prev_ts } in chunk {
-                params.push(i64::from(*ts).into());
+            let mut params = Vec::with_capacity(chunk.len() * 3);
+            let mut id_ts_to_query: HashMap<
+                (InternalDocumentId, Timestamp),
+                SmallVec<[DocumentPrevTsQuery; 1]>,
+            > = HashMap::with_capacity(chunk.len());
+            for q @ &DocumentPrevTsQuery { id, ts: _, prev_ts } in chunk {
                 params.push(internal_id_param(id.table().0).into());
-                params.push(internal_doc_id_param(*id).into());
-                params.push(i64::from(*prev_ts).into());
+                params.push(internal_doc_id_param(id).into());
+                params.push(i64::from(prev_ts).into());
+                // the underlying query does not care about `ts` and will
+                // deduplicate, so create a map from DB results back to queries
+                id_ts_to_query.entry((id, prev_ts)).or_default().push(*q);
             }
             let result_stream = client
                 .query_stream(exact_rev_chunk(chunk.len()), params, chunk.len())
                 .await?;
             pin_mut!(result_stream);
-            while let Some(result) = result_stream.try_next().await? {
-                results.push(result);
+            while let Some(row) = result_stream.try_next().await? {
+                let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
+                let entry = DocumentLogEntry {
+                    ts: prev_ts,
+                    id,
+                    value: maybe_doc,
+                    prev_ts: prev_prev_ts,
+                };
+                let original_queries = id_ts_to_query
+                    .get(&(id, prev_ts))
+                    .context("exact_rev_chunk query returned an unasked row")?;
+                for (entry, &q) in
+                    iter::repeat_n(entry, original_queries.len()).zip(original_queries)
+                {
+                    anyhow::ensure!(result.insert(q, entry).is_none());
+                }
             }
-        }
-        for row in results.into_iter() {
-            let ts: i64 = row.get(6).unwrap();
-            let ts = Timestamp::try_from(ts)?;
-            let (prev_ts, id, maybe_doc, prev_prev_ts) = self.row_to_document(row)?;
-            anyhow::ensure!(result
-                .insert(
-                    DocumentPrevTsQuery { id, ts, prev_ts },
-                    DocumentLogEntry {
-                        ts: prev_ts,
-                        id,
-                        value: maybe_doc,
-                        prev_ts: prev_prev_ts,
-                    }
-                )
-                .is_none());
         }
 
         if let Some(min_ts) = ids.iter().map(|DocumentPrevTsQuery { ts, .. }| *ts).min() {
@@ -1700,23 +1705,18 @@ D.ts = I2.ts AND D.table_id = I2.table_id AND D.id = I2.document_id
 static EXACT_REV_CHUNK_QUERIES: LazyLock<HashMap<usize, String>> = LazyLock::new(|| {
     smart_chunk_sizes()
         .map(|chunk_size| {
-            let select = r#"
-SELECT id, ts, table_id, json_value, deleted, prev_ts, ? as query_ts
+            let where_clause = iter::repeat("(table_id = ? AND id = ? AND ts = ?)")
+                .take(chunk_size)
+                .join(" OR ");
+            (
+                chunk_size,
+                format!(
+                    "SELECT id, ts, table_id, json_value, deleted, prev_ts
 FROM @db_name.documents FORCE INDEX (PRIMARY)
-WHERE table_id = ? AND id = ? AND ts = ?
-ORDER BY ts ASC, table_id ASC, id ASC
-"#;
-            let queries = (1..=chunk_size)
-                .map(|i| format!("q{i} AS ({select})"))
-                .join(", ");
-            let union_all = (1..=chunk_size)
-                .map(|i| {
-                    format!(
-                        "SELECT id, ts, table_id, json_value, deleted, prev_ts, query_ts FROM q{i}"
-                    )
-                })
-                .join(" UNION ALL ");
-            (chunk_size, format!("WITH {queries} {union_all}"))
+WHERE {where_clause}
+ORDER BY ts ASC, table_id ASC, id ASC"
+                ),
+            )
         })
         .collect()
 });
