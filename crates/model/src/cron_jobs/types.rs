@@ -96,11 +96,6 @@ pub struct CronJobMetadata {
 
     // Cron-related metadata specified by the user and updated on pushes
     pub cron_spec: CronSpec,
-
-    // Keep these three fields for now for fwds/backwards compatibility during rollout
-    pub state: Option<CronJobState>,
-    pub prev_ts: Option<Timestamp>,
-    pub next_ts: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -108,9 +103,6 @@ pub struct CronJobMetadata {
 pub struct SerializedCronJobMetadata {
     name: String,
     cron_spec: SerializedCronSpec,
-    state: Option<CronJobState>,
-    prev_ts: Option<i64>,
-    next_ts: Option<i64>,
 }
 
 impl TryFrom<CronJobMetadata> for SerializedCronJobMetadata {
@@ -120,9 +112,6 @@ impl TryFrom<CronJobMetadata> for SerializedCronJobMetadata {
         Ok(Self {
             name: job.name.to_string(),
             cron_spec: job.cron_spec.try_into()?,
-            state: job.state,
-            prev_ts: job.prev_ts.map(|ts| ts.into()),
-            next_ts: job.next_ts.map(|ts| ts.into()),
         })
     }
 }
@@ -134,9 +123,6 @@ impl TryFrom<SerializedCronJobMetadata> for CronJobMetadata {
         Ok(Self {
             name: value.name.parse()?,
             cron_spec: value.cron_spec.try_into()?,
-            state: value.state,
-            prev_ts: value.prev_ts.map(|ts| ts.try_into()).transpose()?,
-            next_ts: value.next_ts.map(|ts| ts.try_into()).transpose()?,
         })
     }
 }
@@ -1121,9 +1107,6 @@ mod tests {
                 "udfPath" => "crons.js:vacuumOldEntries"
             },
             "name" => "vacuum old entries",
-            "nextTs" => 1702354800000000000,
-            "prevTs" => 1702268400000000000,
-            "state" => {"type" => "pending"},
         );
         assert_roundtrips::<_, CronJobMetadata>(cron_job_obj);
     }

@@ -248,13 +248,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
     ) -> anyhow::Result<()> {
         let now = self.runtime().generate_timestamp()?;
         let next_ts = compute_next_ts(&cron_spec, None, now)?;
-        let cron = CronJobMetadata {
-            name,
-            cron_spec,
-            state: Some(CronJobState::Pending),
-            prev_ts: None,
-            next_ts: Some(next_ts),
-        };
+        let cron = CronJobMetadata { name, cron_spec };
 
         let cron_job_id = SystemMetadataModel::new(self.tx, self.component.into())
             .insert(&CRON_JOBS_TABLE, cron.try_into()?)
@@ -334,9 +328,6 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         let cron_job = CronJobMetadata {
             name: job.name,
             cron_spec: job.cron_spec,
-            state: Some(job.state),
-            prev_ts: job.prev_ts,
-            next_ts: Some(job.next_ts),
         };
         SystemMetadataModel::new(self.tx, self.component.into())
             .replace(job.id, cron_job.try_into()?)

@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use pretty_assertions::assert_eq;
 use proptest::prelude::*;
 use serde_json::Value as JsonValue;
 

@@ -208,6 +208,7 @@ dependencies = [
  "base64 0.13.1",
  "derive_more",
  "headers",
+ "pretty_assertions",
  "proptest",
  "proptest-derive",
  "rand 0.9.0",
