@@ -5,7 +5,6 @@ use std::{
 };
 
 use common::{
-    bootstrap_model::components::handles::FunctionHandle,
     components::{
         CanonicalizedComponentFunctionPath,
         ComponentId,
@@ -80,7 +79,6 @@ pub struct TaskExecutor<RT: Runtime> {
     pub context: ExecutionContext,
     pub resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
     pub component_id: ComponentId,
-    pub function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
     pub convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
 }
 

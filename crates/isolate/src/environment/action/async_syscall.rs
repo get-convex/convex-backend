@@ -17,10 +17,7 @@ use errors::{
     ErrorMetadataAnyhowExt,
 };
 use model::{
-    components::{
-        auth::propagate_component_auth,
-        handles::function_handle_not_found,
-    },
+    components::auth::propagate_component_auth,
     file_storage::FileStorageId,
 };
 use serde::{
@@ -462,15 +459,10 @@ impl<RT: Runtime> TaskExecutor<RT> {
                 self.resolve_function(&reference)?
             },
         };
-        // TODO(lee) remove preloaded function handles and call action callback instead,
-        // after the callback is deployed to backend & usher.
-        let handle = {
-            let function_handles = self.function_handles.lock();
-            function_handles.get(&function_path).cloned()
-        };
-        let Some(handle) = handle else {
-            anyhow::bail!(function_handle_not_found());
-        };
+        let handle = self
+            .action_callbacks
+            .create_function_handle(self.identity.clone(), function_path)
+            .await?;
         Ok(serde_json::to_value(String::from(handle))?)
     }
 }

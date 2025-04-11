@@ -128,26 +128,6 @@ impl<'a, RT: Runtime> FunctionHandlesModel<'a, RT> {
         })
     }
 
-    pub async fn preload(
-        &mut self,
-    ) -> anyhow::Result<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>> {
-        let mut handles = BTreeMap::new();
-        let index_query = Query::full_table_scan(FUNCTION_HANDLES_TABLE.clone(), Order::Asc);
-        let mut query_stream = ResolvedQuery::new(self.tx, TableNamespace::Global, index_query)?;
-        while let Some(doc) = query_stream.next(self.tx, None).await? {
-            let handle: ParsedDocument<FunctionHandleMetadata> = doc.parse()?;
-            if handle.deleted_ts.is_none() {
-                let path = CanonicalizedComponentFunctionPath {
-                    component: BootstrapComponentsModel::new(self.tx)
-                        .must_component_path(handle.component)?,
-                    udf_path: handle.path.clone(),
-                };
-                handles.insert(path, FunctionHandle::new(handle.developer_id()));
-            }
-        }
-        Ok(handles)
-    }
-
     pub async fn get_with_component_path(
         &mut self,
         path: CanonicalizedComponentFunctionPath,

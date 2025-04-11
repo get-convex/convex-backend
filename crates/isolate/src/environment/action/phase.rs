@@ -6,9 +6,7 @@ use std::{
 
 use anyhow::Context;
 use common::{
-    bootstrap_model::components::handles::FunctionHandle,
     components::{
-        CanonicalizedComponentFunctionPath,
         ComponentId,
         Reference,
         Resource,
@@ -30,10 +28,7 @@ use database::{
 use errors::ErrorMetadata;
 use model::{
     canonical_urls::CanonicalUrlsModel,
-    components::{
-        handles::FunctionHandlesModel,
-        ComponentsModel,
-    },
+    components::ComponentsModel,
     config::module_loader::ModuleLoader,
     environment_variables::{
         types::{
@@ -98,7 +93,6 @@ enum ActionPreloaded<RT: Runtime> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-        function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
         convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
     },
     Preloading,
@@ -119,7 +113,6 @@ impl<RT: Runtime> ActionPhase<RT> {
         module_loader: Arc<dyn ModuleLoader<RT>>,
         default_system_env_vars: BTreeMap<EnvVarName, EnvVarValue>,
         resources: Arc<Mutex<BTreeMap<Reference, Resource>>>,
-        function_handles: Arc<Mutex<BTreeMap<CanonicalizedComponentFunctionPath, FunctionHandle>>>,
         convex_origin_override: Arc<Mutex<Option<ConvexOrigin>>>,
     ) -> Self {
         Self {
@@ -131,7 +124,6 @@ impl<RT: Runtime> ActionPhase<RT> {
                 module_loader,
                 default_system_env_vars,
                 resources,
-                function_handles,
                 convex_origin_override,
             },
         }
@@ -151,7 +143,6 @@ impl<RT: Runtime> ActionPhase<RT> {
             module_loader,
             default_system_env_vars,
             resources,
-            function_handles,
             convex_origin_override,
         } = preloaded
         else {
@@ -246,16 +237,6 @@ impl<RT: Runtime> ActionPhase<RT> {
                 .await?,
             )
         };
-
-        {
-            let handles = with_release_permit(
-                timeout,
-                permit_slot,
-                FunctionHandlesModel::new(&mut tx).preload(),
-            )
-            .await?;
-            *function_handles.lock() = handles;
-        }
 
         self.preloaded = ActionPreloaded::Ready {
             modules,

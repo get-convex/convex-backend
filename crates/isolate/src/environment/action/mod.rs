@@ -259,7 +259,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let syscall_trace = Arc::new(Mutex::new(SyscallTrace::new()));
         let (task_retval_sender, task_responses) = mpsc::unbounded_channel();
         let resources = Arc::new(Mutex::new(BTreeMap::new()));
-        let function_handles = Arc::new(Mutex::new(BTreeMap::new()));
         let convex_origin_override = Arc::new(Mutex::new(None));
         let task_executor = TaskExecutor {
             rt: rt.clone(),
@@ -276,7 +275,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             context,
             resources: resources.clone(),
             component_id: component,
-            function_handles: function_handles.clone(),
             convex_origin_override: convex_origin_override.clone(),
         };
         let (pending_task_sender, pending_task_receiver) = spsc::unbounded_channel();
@@ -300,7 +298,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                 module_loader,
                 default_system_env_vars,
                 resources,
-                function_handles,
                 convex_origin_override,
             ),
             syscall_trace,
