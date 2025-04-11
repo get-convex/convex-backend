@@ -565,6 +565,7 @@ static APP_TABLES_TO_LOAD_IN_MEMORY: LazyLock<BTreeSet<TableName>> = LazyLock::n
         CANONICAL_URLS_TABLE.clone(),
         BACKEND_INFO_TABLE.clone(),
         AWS_LAMBDA_VERSIONS_TABLE.clone(),
+        SOURCE_PACKAGES_TABLE.clone(),
     }
 });
 
