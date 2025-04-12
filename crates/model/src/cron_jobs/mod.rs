@@ -207,7 +207,7 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
                 WithHeapSize::default()
             };
 
-        let old_crons = self.list().await?;
+        let old_crons = self.list_metadata().await?;
         let mut added_crons: Vec<&CronIdentifier> = vec![];
         let mut updated_crons: Vec<&CronIdentifier> = vec![];
         let mut deleted_crons: Vec<&CronIdentifier> = vec![];
@@ -289,26 +289,50 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
             .transpose()
     }
 
-    pub async fn update(
+    async fn update(
         &mut self,
-        mut cron_job: CronJob,
+        mut cron_job: ParsedDocument<CronJobMetadata>,
         new_cron_spec: CronSpec,
     ) -> anyhow::Result<()> {
         if new_cron_spec.cron_schedule != cron_job.cron_spec.cron_schedule {
+            // Skip updating the next run ts, if the runs are close together on the old
+            // schedule. This is a heuristic to avoid OCC with existing cron
+            // jobs running/changing state. True solution would be to move this
+            // logic to the async worker, but quickfix for now is to skip the
+            // `update_job_state`.
             let now = self.runtime().generate_timestamp()?;
-            cron_job.next_ts = compute_next_ts(&new_cron_spec, cron_job.prev_ts, now)?;
+            let next_ts = compute_next_ts(&cron_job.cron_spec, None, now)?;
+            let next_next_run = compute_next_ts(&cron_job.cron_spec, Some(next_ts), next_ts)?;
+            if next_next_run.secs_since_f64(now) > 30.0 {
+                // Read in next-run to the readset and update it.
+                let mut next_run = self
+                    .next_run(cron_job.id().developer_id)
+                    .await?
+                    .context("No next run found")?
+                    .into_value();
+
+                // Recalculate on the new schedule.
+                let now = self.runtime().generate_timestamp()?;
+                next_run.next_ts = compute_next_ts(&new_cron_spec, next_run.prev_ts, now)?;
+                self.update_job_state(next_run).await?;
+            }
         }
         cron_job.cron_spec = new_cron_spec;
-        self.update_job_state(cron_job).await?;
+        SystemMetadataModel::new(self.tx, self.component.into())
+            .replace(cron_job.id(), cron_job.into_value().try_into()?)
+            .await?;
         Ok(())
     }
 
-    pub async fn delete(&mut self, cron_job: CronJob) -> anyhow::Result<()> {
+    pub async fn delete(
+        &mut self,
+        cron_job: ParsedDocument<CronJobMetadata>,
+    ) -> anyhow::Result<()> {
         SystemMetadataModel::new(self.tx, self.component.into())
-            .delete(cron_job.id)
+            .delete(cron_job.id())
             .await?;
         let next_run = self
-            .next_run(cron_job.id.developer_id)
+            .next_run(cron_job.id().developer_id)
             .await?
             .context("No next run found")?;
         SystemMetadataModel::new(self.tx, self.component.into())
@@ -319,28 +343,9 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
         Ok(())
     }
 
-    pub async fn update_job_state(&mut self, job: CronJob) -> anyhow::Result<()> {
-        anyhow::ensure!(self
-            .tx
-            .table_mapping()
-            .namespace(self.component.into())
-            .tablet_matches_name(job.id.tablet_id, &CRON_JOBS_TABLE));
-        let cron_job = CronJobMetadata {
-            name: job.name,
-            cron_spec: job.cron_spec,
-        };
-        SystemMetadataModel::new(self.tx, self.component.into())
-            .replace(job.id, cron_job.try_into()?)
-            .await?;
-
-        let next_run = CronNextRun {
-            cron_job_id: job.id.developer_id,
-            state: job.state,
-            prev_ts: job.prev_ts,
-            next_ts: job.next_ts,
-        };
+    pub async fn update_job_state(&mut self, next_run: CronNextRun) -> anyhow::Result<()> {
         let existing_next_run = self
-            .next_run(job.id.developer_id)
+            .next_run(next_run.cron_job_id)
             .await?
             .context("No next run found")?;
         SystemMetadataModel::new(self.tx, self.component.into())
@@ -401,6 +406,19 @@ impl<'a, RT: Runtime> CronModel<'a, RT> {
                 cron.name.clone(),
                 CronJob::new(cron, self.component, next_run),
             );
+        }
+        Ok(cron_jobs)
+    }
+
+    pub async fn list_metadata(
+        &mut self,
+    ) -> anyhow::Result<BTreeMap<CronIdentifier, ParsedDocument<CronJobMetadata>>> {
+        let cron_query = Query::full_table_scan(CRON_JOBS_TABLE.clone(), Order::Asc);
+        let mut query_stream = ResolvedQuery::new(self.tx, self.component.into(), cron_query)?;
+        let mut cron_jobs = BTreeMap::new();
+        while let Some(job) = query_stream.next(self.tx, None).await? {
+            let cron: ParsedDocument<CronJobMetadata> = job.parse()?;
+            cron_jobs.insert(cron.name.clone(), cron);
         }
         Ok(cron_jobs)
     }

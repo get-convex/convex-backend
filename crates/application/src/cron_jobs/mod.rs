@@ -61,6 +61,7 @@ use model::{
             CronJobResult,
             CronJobState,
             CronJobStatus,
+            CronNextRun,
         },
         CronModel,
     },
@@ -519,7 +520,7 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 let mut updated_job = job.clone();
                 updated_job.state = CronJobState::InProgress;
                 CronModel::new(&mut tx, component)
-                    .update_job_state(updated_job.clone())
+                    .update_job_state(updated_job.cron_next_run())
                     .await?;
                 self.database
                     .commit_with_write_source(tx, "cron_in_progress")
@@ -771,11 +772,13 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 .await?;
         }
 
-        let mut updated_job = job.clone();
-        updated_job.state = CronJobState::Pending;
-        updated_job.prev_ts = Some(prev_ts);
-        updated_job.next_ts = next_ts;
-        model.update_job_state(updated_job.clone()).await?;
+        let next_run = CronNextRun {
+            cron_job_id: job.id.developer_id,
+            state: CronJobState::Pending,
+            prev_ts: Some(prev_ts),
+            next_ts,
+        };
+        model.update_job_state(next_run).await?;
         Ok(())
     }
 }

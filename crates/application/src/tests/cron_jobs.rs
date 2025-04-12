@@ -157,7 +157,12 @@ pub(crate) async fn test_cron_jobs_race_condition(rt: TestRuntime) -> anyhow::Re
     let job = jobs.get(&test_cron_identifier()).unwrap();
 
     // Delete the cron job
-    model.delete(job.clone()).await?;
+    let job_metadata = model
+        .list_metadata()
+        .await?
+        .remove(&test_cron_identifier())
+        .unwrap();
+    model.delete(job_metadata).await?;
     let jobs = model.list().await?;
     assert_eq!(jobs.len(), original_jobs.len());
 

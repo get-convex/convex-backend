@@ -86,6 +86,22 @@ impl CronJob {
             next_ts: next_run.next_ts,
         }
     }
+
+    pub fn cron_metadata(&self) -> CronJobMetadata {
+        CronJobMetadata {
+            name: self.name.clone(),
+            cron_spec: self.cron_spec.clone(),
+        }
+    }
+
+    pub fn cron_next_run(&self) -> CronNextRun {
+        CronNextRun {
+            cron_job_id: self.id.developer_id,
+            state: self.state,
+            prev_ts: self.prev_ts,
+            next_ts: self.next_ts,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
