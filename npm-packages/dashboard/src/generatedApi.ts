@@ -1632,6 +1632,10 @@ export interface components {
             warningThresholdCents?: number | null;
         };
         GetTokenInfoResponse: {
+            /** Format: int64 */
+            centitokensQuota: number;
+            /** Format: int64 */
+            centitokensUsed: number;
             isTeamDisabled: boolean;
             /** Format: int64 */
             tokensQuota: number;
@@ -1787,7 +1791,7 @@ export interface components {
         };
         RecordTokensArgs: {
             /** Format: int64 */
-            tokens: number;
+            centitokens: number;
         };
         ReferralCode: string;
         ReferralState: {

@@ -3439,9 +3439,21 @@
         "required": [
           "tokensUsed",
           "tokensQuota",
+          "centitokensUsed",
+          "centitokensQuota",
           "isTeamDisabled"
         ],
         "properties": {
+          "centitokensQuota": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "centitokensUsed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
           "isTeamDisabled": {
             "type": "boolean"
           },
@@ -4026,10 +4038,10 @@
       "RecordTokensArgs": {
         "type": "object",
         "required": [
-          "tokens"
+          "centitokens"
         ],
         "properties": {
-          "tokens": {
+          "centitokens": {
             "type": "integer",
             "format": "int64",
             "minimum": 0
