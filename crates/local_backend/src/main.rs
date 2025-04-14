@@ -32,7 +32,7 @@ use tokio::{
     signal::{
         self,
     },
-    sync::mpsc,
+    sync::oneshot,
 };
 
 fn main() -> Result<(), MainError> {
@@ -99,8 +99,8 @@ async fn run_server(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result
 
 async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::Result<()> {
     // Used to receive fatal errors from the database or /preempt endpoint.
-    let (preempt_tx, mut preempt_rx) = mpsc::unbounded_channel();
-    let preempt_signal = ShutdownSignal::new(preempt_tx.clone(), config.name(), 0);
+    let (preempt_tx, preempt_rx) = oneshot::channel();
+    let preempt_signal = ShutdownSignal::new(preempt_tx);
     // Use to signal to the http service to stop.
     let (shutdown_tx, shutdown_rx) = async_broadcast::broadcast(1);
     let persistence = connect_persistence(
@@ -142,9 +142,6 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
     let serve_future = future::try_join(serve_http_future, proxy_future).fuse();
     futures::pin_mut!(serve_future);
 
-    let preempt_future = async move { preempt_rx.recv().await }.fuse();
-    futures::pin_mut!(preempt_future);
-
     // Start shutdown when we get a manual shutdown signal or with the first
     // ctrl-c.
     let mut force_exit_duration = None;
@@ -153,7 +150,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
             r?;
             panic!("Serve future stopped unexpectedly!")
         },
-        _err = preempt_future => {
+        _err = preempt_rx.fuse() => {
             // If we fail with a fatal error, we want to exit immediately.
             tracing::info!("Received a fatal error. Shutting down immediately");
             force_exit_duration = Some(Duration::from_secs(0));
