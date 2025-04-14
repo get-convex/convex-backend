@@ -1,15 +1,15 @@
 import { useContext, useState } from "react";
-import { DeploymentInfoContext } from "dashboard-common/lib/deploymentContext";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
   Cross2Icon,
   ExternalLinkIcon,
 } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { CopyTextButton } from "dashboard-common/elements/CopyTextButton";
+import { Button } from "@ui/Button";
+import { CopyTextButton } from "@common/elements/CopyTextButton";
 import Link from "next/link";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 
 // Little toast to prompt users who are trying out Convex before creating
 // an account about the Convex cloud product.

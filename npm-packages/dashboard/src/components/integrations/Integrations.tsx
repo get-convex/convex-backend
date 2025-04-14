@@ -1,16 +1,17 @@
 import React from "react";
 import { Integration } from "system-udfs/convex/_system/frontend/common";
 import { Team, TeamEntitlementsResponse } from "generatedApi";
-import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
-import { Button } from "dashboard-common/elements/Button";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
+import { Callout } from "@ui/Callout";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 import {
   EXC_INTEGRATIONS,
   EXPORT_INTEGRATIONS,
   ExceptionReportingIntegration,
   LOG_INTEGRATIONS,
   LogIntegration,
-} from "dashboard-common/lib/integrationHelpers";
+} from "@common/lib/integrationHelpers";
 
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";

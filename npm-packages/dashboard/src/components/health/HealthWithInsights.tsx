@@ -5,14 +5,14 @@ import React, {
   useContext,
   createContext,
 } from "react";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import { useFunctionUrl } from "dashboard-common/lib/deploymentApi";
-import { Button } from "dashboard-common/elements/Button";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { MultiSelectCombobox } from "dashboard-common/elements/MultiSelectCombobox";
-import { FunctionNameOption } from "dashboard-common/elements/FunctionNameOption";
-import { HealthView } from "dashboard-common/features/health/components/HealthView";
+import { useFunctionUrl } from "@common/lib/deploymentApi";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
+import { MultiSelectCombobox } from "@ui/MultiSelectCombobox";
+import { FunctionNameOption } from "@common/elements/FunctionNameOption";
+import { HealthView } from "@common/features/health/components/HealthView";
 import {
   InsightsSummaryData,
   useInsightsPeriod,
@@ -23,12 +23,12 @@ import Link from "next/link";
 import {
   itemIdentifier,
   useModuleFunctions,
-} from "dashboard-common/lib/functions/FunctionsProvider";
+} from "@common/lib/functions/FunctionsProvider";
 import {
   functionIdentifierValue,
   functionIdentifierFromValue,
-} from "dashboard-common/lib/functions/generateFileTree";
-import { useNents } from "dashboard-common/lib/useNents";
+} from "@common/lib/functions/generateFileTree";
+import { useNents } from "@common/lib/useNents";
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";

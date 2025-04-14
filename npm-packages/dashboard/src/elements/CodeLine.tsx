@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import { CopyButton } from "dashboard-common/elements/CopyButton";
+import { CopyButton } from "@common/elements/CopyButton";
 
 // Pass a list of words/tokens to prevent line-wrapping in the middle
 // of them, like in `--foo=bar`.

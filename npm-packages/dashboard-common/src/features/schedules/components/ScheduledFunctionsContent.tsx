@@ -3,7 +3,7 @@ import { usePaginatedScheduledJobs } from "@common/features/schedules/lib/usePag
 import { ScheduledFunctionsContentToolbar } from "@common/features/schedules/components/ScheduledFunctionsContentToolbar";
 import { ScheduledFunctionsListHeader } from "@common/features/schedules/components/ScheduledFunctionsListHeader";
 import { ScheduledFunctionsList } from "@common/features/schedules/components/ScheduledFunctionsList";
-import { Sheet } from "@common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { ModuleFunction } from "@common/lib/functions/types";
 
 export function ScheduledFunctionsContent({

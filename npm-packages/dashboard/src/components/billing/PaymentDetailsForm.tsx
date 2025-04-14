@@ -9,8 +9,8 @@ import {
   StripeElements,
   SetupIntent,
 } from "@stripe/stripe-js";
-import { Button } from "dashboard-common/elements/Button";
-import { Spinner } from "dashboard-common/elements/Spinner";
+import { Button } from "@ui/Button";
+import { Spinner } from "@ui/Spinner";
 
 export function PaymentDetailsForm({
   retrieveSetupIntent,

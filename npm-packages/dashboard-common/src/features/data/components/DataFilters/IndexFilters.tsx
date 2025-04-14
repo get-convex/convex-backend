@@ -7,10 +7,10 @@ import {
   FilterByIndexRange,
   FilterExpression,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { Button } from "@common/elements/Button";
-import { Combobox } from "@common/elements/Combobox";
-import { Tooltip } from "@common/elements/Tooltip";
-import { Popover } from "@common/elements/Popover";
+import { Button } from "@ui/Button";
+import { Combobox } from "@ui/Combobox";
+import { Tooltip } from "@ui/Tooltip";
+import { Popover } from "@ui/Popover";
 import { SchemaJson } from "@common/lib/format";
 import Link from "next/link";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";

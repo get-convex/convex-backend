@@ -1,5 +1,5 @@
 import { captureMessage } from "@sentry/nextjs";
-import { Callout } from "dashboard-common/elements/Callout";
+import { Callout } from "@ui/Callout";
 import Link from "next/link";
 
 export default function Custom500() {

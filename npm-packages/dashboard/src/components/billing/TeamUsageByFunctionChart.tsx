@@ -1,7 +1,7 @@
 import { ChevronDownIcon, DesktopIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
 import { useTeamEntitlements } from "api/teams";
 import { AggregatedFunctionMetrics } from "hooks/usageMetrics";
 import { rootComponentPath } from "api/usage";
@@ -13,7 +13,7 @@ import {
   Team,
   ProjectDetails,
 } from "generatedApi";
-import { PuzzlePieceIcon } from "dashboard-common/elements/icons";
+import { PuzzlePieceIcon } from "@common/elements/icons";
 import { BANDWIDTH_CATEGORIES } from "./lib/teamUsageCategories";
 import {
   QuantityType,

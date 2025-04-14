@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TeamAccessTokenResponse } from "generatedApi";
 import { AccessTokenListKind } from "api/accessTokens";
 
-import { LoadingTransition } from "dashboard-common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 import {
   GenerateDeployKeyWithNameButton,
   GenerateDeployKeyWithNameButtonProps,

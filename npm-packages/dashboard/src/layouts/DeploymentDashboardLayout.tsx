@@ -11,8 +11,8 @@ import {
   useGlobalLDContext,
   useLDContextWithDeployment,
 } from "hooks/useLaunchDarklyContext";
-import { WaitForDeploymentApi } from "dashboard-common/lib/deploymentContext";
-import { DeploymentDashboardLayout as CommonDeploymentDashboardLayout } from "dashboard-common/layouts/DeploymentDashboardLayout";
+import { WaitForDeploymentApi } from "@common/lib/deploymentContext";
+import { DeploymentDashboardLayout as CommonDeploymentDashboardLayout } from "@common/layouts/DeploymentDashboardLayout";
 
 type LayoutProps = {
   children: JSX.Element;

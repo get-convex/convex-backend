@@ -10,7 +10,7 @@ module.exports = {
   plugins: [],
   settings: {
     tailwindcss: {
-      config: "../dashboard-common/tailwind.config.ts",
+      config: "../ui/tailwind.config.ts",
     },
   },
   overrides: [

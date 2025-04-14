@@ -5,18 +5,19 @@ import {
   TrashIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Combobox, Option } from "dashboard-common/elements/Combobox";
-import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Combobox, Option } from "@ui/Combobox";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
+import { Callout } from "@ui/Callout";
 import { captureMessage } from "@sentry/nextjs";
 import {
   ENVIRONMENT_VARIABLES_ROW_CLASSES,
   ENVIRONMENT_VARIABLE_NAME_COLUMN,
-} from "dashboard-common/features/settings/components/EnvironmentVariables";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
-import { TextInput } from "dashboard-common/elements/TextInput";
+} from "@common/features/settings/components/EnvironmentVariables";
+import { Sheet } from "@ui/Sheet";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
 import { useDeployments } from "api/deployments";
 import { useCurrentProject } from "api/projects";
@@ -33,14 +34,14 @@ import {
   useCreateVanityDomain,
   useDeleteVanityDomain,
 } from "api/vanityDomains";
-import { useDeploymentUrl } from "dashboard-common/lib/deploymentApi";
+import { useDeploymentUrl } from "@common/lib/deploymentApi";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
 import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider";
-import { WaitForDeploymentApi } from "dashboard-common/lib/deploymentContext";
+import { WaitForDeploymentApi } from "@common/lib/deploymentContext";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { useUpdateCanonicalUrl } from "hooks/deploymentApi";
-import { Loading } from "dashboard-common/elements/Loading";
+import { Loading } from "@ui/Loading";
 
 export function CustomDomains({
   team,

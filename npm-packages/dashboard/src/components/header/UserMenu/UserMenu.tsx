@@ -1,6 +1,6 @@
-import { Menu, MenuLink } from "dashboard-common/elements/Menu";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { ToggleTheme } from "dashboard-common/elements/ToggleTheme";
+import { Menu, MenuLink } from "@ui/Menu";
+import { Tooltip } from "@ui/Tooltip";
+import { ToggleTheme } from "@common/elements/ToggleTheme";
 import { GearIcon, PersonIcon, ExitIcon } from "@radix-ui/react-icons";
 import { useAuth0 } from "hooks/useAuth0";
 import Image from "next/image";

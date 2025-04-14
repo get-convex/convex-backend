@@ -4,7 +4,7 @@ import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import udfs from "@common/udfs";
 import { useRouter } from "next/router";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { GenericDocument } from "convex/server";
 import { SourceLocation } from "acorn";
 import type { editor } from "monaco-editor/esm/vs/editor/editor.api";

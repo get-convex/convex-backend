@@ -1,5 +1,5 @@
 import { StoryObj } from "@storybook/react";
-import { Callout } from "./Callout";
+import { Callout } from "@ui/Callout";
 
 export default { component: Callout };
 

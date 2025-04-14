@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { SpendingLimitsSection } from "./SubscriptionOverview";
 
 const meta: Meta<typeof SpendingLimitsSection> = {

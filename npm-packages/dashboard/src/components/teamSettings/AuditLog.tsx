@@ -1,13 +1,13 @@
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { endOfDay } from "date-fns";
-import { LoadingTransition } from "dashboard-common/elements/Loading";
-import { useDateFilters } from "dashboard-common/elements/DateRangePicker";
+import { LoadingTransition } from "@ui/Loading";
+import { useDateFilters } from "@common/elements/DateRangePicker";
 import { useTeamAuditLog } from "api/auditLog";
 import { useProjects } from "api/projects";
 import { useTeamMembers } from "api/teams";
 import { AuditLogAction, Team } from "generatedApi";
 import { useRouter } from "next/router";
-import { Spinner } from "dashboard-common/elements/Spinner";
+import { Spinner } from "@ui/Spinner";
 import { AuditLogContent } from "./AuditLogContent";
 import { AuditLogToolbar } from "./AuditLogToolbar";
 

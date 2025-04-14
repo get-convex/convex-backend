@@ -19,9 +19,9 @@ import {
   SchemaJson,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { Shape } from "shapes";
-import { LoadingLogo, LoadingTransition } from "@common/elements/Loading";
-import { Sheet } from "@common/elements/Sheet";
-import { Button } from "@common/elements/Button";
+import { LoadingLogo, LoadingTransition } from "@ui/Loading";
+import { Sheet } from "@ui/Sheet";
+import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useSelectionState } from "@common/features/data/lib/useSelectionState";
 import { useDataToolbarActions } from "@common/features/data/lib/useDataToolbarActions";
@@ -49,7 +49,7 @@ import {
   Panel,
   PanelGroup,
 } from "react-resizable-panels";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { useTableIndexes } from "@common/features/data/lib/api";
 import { getDefaultIndex } from "@common/features/data/components/DataFilters/IndexFilters";
 

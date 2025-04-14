@@ -35,6 +35,7 @@
     "convex": "workspace:*",
     "convex-analytics": "workspace:*",
     "dashboard-common": "workspace:*",
+    "ui": "workspace:*",
     "date-fns": "^2.29.3",
     "fetch-retry": "~6.0.0",
     "formik": "^2.4.6",

@@ -10,9 +10,9 @@ import { ExternalLinkIcon, GearIcon } from "@radix-ui/react-icons";
 import { useContext } from "react";
 import { HealthCard } from "@common/elements/HealthCard";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { Button } from "@common/elements/Button";
-import { Tooltip } from "@common/elements/Tooltip";
-import { Loading } from "@common/elements/Loading";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Loading } from "@ui/Loading";
 import {
   integrationName,
   configToUrl,

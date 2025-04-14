@@ -1,13 +1,14 @@
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
-import { toast } from "dashboard-common/lib/utils";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
-import { Checkbox } from "dashboard-common/elements/Checkbox";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { Popover } from "dashboard-common/elements/Popover";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Spinner } from "@ui/Spinner";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
+import { toast } from "@common/lib/utils";
+import { Sheet } from "@ui/Sheet";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
+import { Callout } from "@ui/Callout";
+import { Checkbox } from "@ui/Checkbox";
+import { TextInput } from "@ui/TextInput";
+import { Popover } from "@ui/Popover";
 import {
   useDisablePeriodicBackup,
   useGetPeriodicBackupConfig,
@@ -22,10 +23,10 @@ import {
 } from "generatedApi";
 import Link from "next/link";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { useHasProjectAdminPermissions } from "api/roles";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
-import { Combobox } from "dashboard-common/elements/Combobox";
+import { Combobox } from "@ui/Combobox";
 import { BackupList } from "./BackupList";
 import { BackupRestoreStatus } from "./BackupRestoreStatus";
 import { BackupNowButton } from "./BackupListItem";

@@ -3,11 +3,11 @@ import {
   ChevronDownIcon,
   SewingPinFilledIcon,
 } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
 import { HTMLAttributeAnchorTarget, ReactNode } from "react";
 import Link, { LinkProps } from "next/link";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import { logEvent } from "convex-analytics";
 
 export function SelectorItem({

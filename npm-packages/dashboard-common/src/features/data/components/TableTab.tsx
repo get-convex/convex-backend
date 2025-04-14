@@ -3,9 +3,9 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import omit from "lodash/omit";
 import { sidebarLinkClassNames } from "@common/elements/Sidebar";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 
 export function TableTab({
   selectedTable,

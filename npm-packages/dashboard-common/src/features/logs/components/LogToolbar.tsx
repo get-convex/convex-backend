@@ -1,5 +1,5 @@
 import difference from "lodash/difference";
-import { MultiSelectCombobox } from "@common/elements/MultiSelectCombobox";
+import { MultiSelectCombobox } from "@ui/MultiSelectCombobox";
 import { NentNameOption } from "@common/elements/NentSwitcher";
 import { functionIdentifierFromValue } from "@common/lib/functions/generateFileTree";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";

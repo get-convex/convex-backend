@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { useVerifyProfileEmail } from "api/profile";
 import { LoginLayout } from "layouts/LoginLayout";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";

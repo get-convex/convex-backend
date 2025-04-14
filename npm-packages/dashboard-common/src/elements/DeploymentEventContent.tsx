@@ -18,7 +18,7 @@ import { SchemaJson, displaySchema } from "@common/lib/format";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { ReadonlyCodeDiff } from "@common/elements/ReadonlyCode";
 import { NentNameOption } from "@common/elements/NentSwitcher";
 import { NENT_APP_PLACEHOLDER } from "@common/lib/useNents";

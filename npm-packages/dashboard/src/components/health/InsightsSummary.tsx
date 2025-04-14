@@ -1,6 +1,6 @@
 import { InsightsSummaryData } from "api/insights";
-import { Loading } from "dashboard-common/elements/Loading";
-import { EmptySection } from "dashboard-common/elements/EmptySection";
+import { Loading } from "@ui/Loading";
+import { EmptySection } from "@common/elements/EmptySection";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
 import { InsightsSummaryListItem } from "./InsightsSummaryListItem";
 

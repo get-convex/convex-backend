@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import mockRouter from "next-router-mock";
 import { endOfDay, parse, startOfDay } from "date-fns";
 import { act } from "react";
-import { DATE_FORMAT } from "dashboard-common/elements/DateRangePicker";
+import { DATE_FORMAT } from "@common/elements/DateRangePicker";
 
 import { AuditLog } from "./AuditLog";
 

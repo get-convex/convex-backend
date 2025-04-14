@@ -1,16 +1,16 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { NonProdDeploymentWarning } from "components/deploymentSettings/NonProdDeploymentWarning";
 import { DeployKeysForDeployment } from "components/deploymentSettings/DeployKeysForDeployment";
 import { useCurrentDeployment } from "api/deployments";
 import { useRouter } from "next/router";
 import { usePathname } from "next/navigation";
 import { DeletePreviewDeployment } from "components/deploymentSettings/DeletePreviewDeployment";
-import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
+import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import {
   DeploymentUrl,
   HttpActionsUrl,
-} from "dashboard-common/features/settings/components/DeploymentUrl";
+} from "@common/features/settings/components/DeploymentUrl";
 
 export { getServerSideProps } from "lib/ssr";
 

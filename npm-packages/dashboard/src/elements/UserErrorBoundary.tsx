@@ -2,7 +2,7 @@ import { captureException } from "@sentry/nextjs";
 import Link from "next/link";
 import React from "react";
 
-import { Callout } from "dashboard-common/elements/Callout";
+import { Callout } from "@ui/Callout";
 
 export function Fallback({ eventId }: { eventId: string | null }) {
   return (

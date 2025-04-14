@@ -3,7 +3,7 @@ import { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
-import { KeyboardShortcut } from "@common/elements/KeyboardShortcut";
+import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 
 export type CellEditorProps = {

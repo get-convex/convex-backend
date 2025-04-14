@@ -1,6 +1,6 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { Loading } from "dashboard-common/elements/Loading";
-import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
+import { Loading } from "@ui/Loading";
+import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { Backups } from "components/deploymentSettings/Backups";
 import { useCurrentDeployment } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";

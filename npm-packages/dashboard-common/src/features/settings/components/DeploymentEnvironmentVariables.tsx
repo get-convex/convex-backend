@@ -11,8 +11,8 @@ import {
 } from "@common/features/settings/components/EnvironmentVariables";
 import { useUpdateEnvVars } from "@common/features/settings/lib/api";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { Button } from "@common/elements/Button";
-import { Sheet } from "@common/elements/Sheet";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 
 export function DeploymentEnvironmentVariables() {

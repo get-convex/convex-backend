@@ -12,14 +12,14 @@ import {
   isTypeFilterOp,
   typeOf,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { Combobox, type Option } from "@common/elements/Combobox";
+import { Combobox, type Option } from "@ui/Combobox";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
-import { Checkbox } from "@common/elements/Checkbox";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Checkbox } from "@ui/Checkbox";
+import { Tooltip } from "@ui/Tooltip";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 
 export const operatorOptions: Readonly<
   Option<(FilterByType | FilterByBuiltin)["op"]>[]

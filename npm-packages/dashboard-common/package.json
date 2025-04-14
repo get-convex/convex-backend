@@ -7,8 +7,6 @@
   "scripts": {
     "build": "npm run build:generated && tsc --noEmit",
     "build:generated": "python3 scripts/build-convexServerTypes.py",
-    "storybook": "storybook dev -s ./public -p 6006 --no-open",
-    "build-storybook": "storybook build",
     "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'",
     "lint:fix": "eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '**/*.stories.tsx'"
   },
@@ -32,8 +30,8 @@
     "acorn": "~8.8.1",
     "base64-js": "^1.5.1",
     "classnames": "^2.3.2",
-    "clsx": "2.1.1",
     "date-fns": "^2.29.3",
+    "ui": "workspace:*",
     "formik": "^2.4.6",
     "fuzzy": "~0.1.3",
     "id-encoding": "workspace:*",
@@ -70,15 +68,7 @@
   },
   "devDependencies": {
     "@jest/types": "^29.6.0",
-    "@storybook/addon-essentials": "^7.6.16",
-    "@storybook/addon-interactions": "^7.6.16",
-    "@storybook/addon-links": "^7.6.16",
-    "@storybook/addon-styling": "^1.3.7",
-    "@storybook/addon-themes": "^7.6.16",
-    "@storybook/cli": "^7.6.16",
-    "@storybook/nextjs": "^7.6.16",
     "@storybook/react": "^7.6.16",
-    "@storybook/types": "^7.6.16",
     "@tailwindcss/forms": "^0.5.6",
     "@testing-library/dom": "~10.4.0",
     "@testing-library/jest-dom": "~6.6.0",
@@ -117,10 +107,8 @@
     "postcss": "^8.4.19",
     "prettier": "3.5.2",
     "prettier-plugin-tailwindcss": "~0.3.0",
-    "storybook": "^7.6.16",
     "tailwindcss": "^3.2.4",
     "tailwind-scrollbar": "3.0.3",
-    "typescript": "~5.0.3",
-    "storybook-addon-next-router": "~4.0.2"
+    "typescript": "~5.0.3"
   }
 }

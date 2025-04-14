@@ -11,8 +11,8 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
-import { cn } from "@common/lib/cn";
-import { LoadingLogo } from "@common/elements/Loading";
+import { cn } from "@ui/cn";
+import { LoadingLogo } from "@ui/Loading";
 import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 
 export const PROVISION_PROD_PAGE_NAME = "production";

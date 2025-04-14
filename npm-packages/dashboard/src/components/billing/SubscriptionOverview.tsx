@@ -7,11 +7,11 @@ import {
   useGetCurrentSpend,
   useGetSpendingLimits,
 } from "api/billing";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Button } from "dashboard-common/elements/Button";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { formatDate } from "dashboard-common/lib/format";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Loading } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { Spinner } from "@ui/Spinner";
+import { formatDate } from "@common/lib/format";
+import { Sheet } from "@ui/Sheet";
 import { useFormik } from "formik";
 import { useStripeAddressSetup, useStripePaymentSetup } from "hooks/useStripe";
 import { Elements } from "@stripe/react-stripe-js";
@@ -23,10 +23,10 @@ import {
   OrbSubscriptionResponse,
   Team,
 } from "generatedApi";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { QuestionMarkCircledIcon } from "@radix-ui/react-icons";
-import { Callout } from "dashboard-common/elements/Callout";
-import { formatUsd } from "dashboard-common/lib/utils";
+import { Callout } from "@ui/Callout";
+import { formatUsd } from "@common/lib/utils";
 import { BillingContactInputs } from "./BillingContactInputs";
 import { CreateSubscriptionSchema } from "./UpgradePlanContent";
 import { PaymentDetailsForm } from "./PaymentDetailsForm";

@@ -1,6 +1,6 @@
 import { StoryObj } from "@storybook/react";
 import { useEffect, useState } from "react";
-import { ProgressBar } from "@common/elements/ProgressBar";
+import { ProgressBar } from "@ui/ProgressBar";
 
 export default {
   component: ProgressBar,

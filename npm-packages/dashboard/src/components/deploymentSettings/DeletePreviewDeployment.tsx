@@ -3,10 +3,10 @@ import {
   useCurrentDeployment,
   useDeletePreviewDeployment,
 } from "api/deployments";
-import { Button } from "dashboard-common/elements/Button";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Button } from "@ui/Button";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
+import { Sheet } from "@ui/Sheet";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useRouter } from "next/router";
 import { useState } from "react";
 

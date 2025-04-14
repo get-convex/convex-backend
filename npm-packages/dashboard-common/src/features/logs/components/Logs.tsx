@@ -23,8 +23,8 @@ import {
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { MAX_LOGS, UdfLog, useLogs } from "@common/lib/useLogs";
 import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
-import { TextInput } from "@common/elements/TextInput";
-import { Button } from "@common/elements/Button";
+import { TextInput } from "@ui/TextInput";
+import { Button } from "@ui/Button";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 

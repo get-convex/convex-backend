@@ -18,7 +18,7 @@ import isArray from "lodash/isArray";
 import isPlainObject from "lodash/isPlainObject";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import { stringifyValue } from "@common/lib/stringifyValue";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import {
   ConvexSchemaValidationError,

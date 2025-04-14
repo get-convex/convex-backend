@@ -3,14 +3,11 @@ import { useAuthHeader } from "hooks/fetching";
 import { useEffect, useState } from "react";
 import { LoginLayout } from "layouts/LoginLayout";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { useProfileEmails } from "api/profile";
 import { EmailList } from "components/profile/EmailList";
 import { useAcceptInvite } from "api/invitations";
-import {
-  LoadingTransition,
-  LoadingLogo,
-} from "dashboard-common/elements/Loading";
+import { LoadingTransition, LoadingLogo } from "@ui/Loading";
 
 export { getServerSideProps } from "lib/ssr";
 

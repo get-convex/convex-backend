@@ -1,17 +1,17 @@
 import { AppAccessTokenResponse, ProjectDetails } from "generatedApi";
 
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import {
   useDeleteAppAccessTokenByName,
   useProjectAppAccessTokens,
 } from "api/accessTokens";
-import { LoadingTransition } from "dashboard-common/elements/Loading";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
-import { Button } from "dashboard-common/elements/Button";
+import { LoadingTransition } from "@ui/Loading";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
+import { Button } from "@ui/Button";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { useState } from "react";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Spinner } from "@ui/Spinner";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 export function AuthorizedApplications({
   project,

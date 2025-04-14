@@ -9,9 +9,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { LoadingTransition } from "@common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 import { ChartData, ChartDataSource } from "@common/lib/charts/types";
-import { Callout } from "@common/elements/Callout";
+import { Callout } from "@ui/Callout";
 import { ChartTooltip } from "@common/elements/ChartTooltip";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 

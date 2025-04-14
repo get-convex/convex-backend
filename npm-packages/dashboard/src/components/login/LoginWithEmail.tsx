@@ -1,6 +1,6 @@
 import { ArrowRightIcon } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { buttonClasses } from "dashboard-common/elements/Button";
+import { buttonClasses } from "@ui/Button";
 
 import { useRouter } from "next/router";
 

@@ -16,7 +16,7 @@ import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 
 import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
 
-import { KeyboardShortcut } from "@common/elements/KeyboardShortcut";
+import { KeyboardShortcut } from "@ui/KeyboardShortcut";
 import { DataDetail } from "@common/features/data/components/Table/DataCell/DataDetail";
 import { CellEditor } from "@common/features/data/components/Table/DataCell/CellEditor";
 import { DataCellValue } from "@common/features/data/components/Table/DataCell/DataCellValue";
@@ -33,7 +33,7 @@ import { useTrackCellChanges } from "@common/features/data/components/Table/Data
 import { useValidator } from "@common/features/data/components/Table/DataCell/utils/useValidator";
 import { SchemaJson } from "@common/lib/format";
 import { stringifyValue } from "@common/lib/stringifyValue";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 
 export type DataCellProps = {
   value: Value;

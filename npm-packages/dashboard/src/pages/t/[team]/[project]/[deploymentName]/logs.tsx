@@ -1,5 +1,5 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { LogsView } from "dashboard-common/features/logs/components/LogsView";
+import { LogsView } from "@common/features/logs/components/LogsView";
 
 export { getServerSideProps } from "lib/ssr";
 

@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { useDiscordAccounts, useUnlinkDiscordAccount } from "api/discord";
-import { Button } from "dashboard-common/elements/Button";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { DiscordAccount, DiscordAccountDetails } from "generatedApi";
 

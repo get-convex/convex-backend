@@ -1,28 +1,30 @@
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
+// eslint-disable-next-line import/no-relative-packages
+import "../../../ui/src/styles/shared.css";
 import { AppProps } from "next/app";
 import Head from "next/head";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { useSessionStorage } from "react-use";
 import { ExitIcon, GearIcon } from "@radix-ui/react-icons";
-import { ConvexLogo } from "dashboard-common/elements/ConvexLogo";
-import { ToastContainer } from "dashboard-common/elements/ToastContainer";
-import { ThemeConsumer } from "dashboard-common/elements/ThemeConsumer";
-import { Favicon } from "dashboard-common/elements/Favicon";
-import { ToggleTheme } from "dashboard-common/elements/ToggleTheme";
-import { Menu, MenuItem } from "dashboard-common/elements/Menu";
+import { ConvexLogo } from "@common/elements/ConvexLogo";
+import { ToastContainer } from "@common/elements/ToastContainer";
+import { ThemeConsumer } from "@common/elements/ThemeConsumer";
+import { Favicon } from "@common/elements/Favicon";
+import { ToggleTheme } from "@common/elements/ToggleTheme";
+import { Menu, MenuItem } from "@ui/Menu";
 import { ThemeProvider } from "next-themes";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "components/ErrorBoundary";
-import { DeploymentDashboardLayout } from "dashboard-common/layouts/DeploymentDashboardLayout";
+import { DeploymentDashboardLayout } from "@common/layouts/DeploymentDashboardLayout";
 import {
   DeploymentApiProvider,
   WaitForDeploymentApi,
   DeploymentInfo,
   DeploymentInfoContext,
-} from "dashboard-common/lib/deploymentContext";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+} from "@common/lib/deploymentContext";
+import { Tooltip } from "@ui/Tooltip";
 import { DeploymentCredentialsForm } from "components/DeploymentCredentialsForm";
 import { DeploymentList } from "components/DeploymentList";
 import { checkDeploymentInfo } from "lib/checkDeploymentInfo";

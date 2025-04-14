@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { Cross2Icon, ReloadIcon } from "@radix-ui/react-icons";
 import startCase from "lodash/startCase";
 import {

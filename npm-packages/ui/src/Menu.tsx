@@ -2,9 +2,9 @@ import { Fragment, ReactNode, useState } from "react";
 import { Menu as HeadlessMenu, Portal } from "@headlessui/react";
 import { PopperChildrenProps, usePopper } from "react-popper";
 import classNames from "classnames";
-import { Button, ButtonProps } from "@common/elements/Button";
-import { Key, KeyboardShortcut } from "@common/elements/KeyboardShortcut";
-import { TooltipSide } from "@common/elements/Tooltip";
+import { Button, ButtonProps } from "@ui/Button";
+import { Key, KeyboardShortcut } from "@ui/KeyboardShortcut";
+import { TooltipSide } from "@ui/Tooltip";
 
 export type MenuProps = {
   children: React.ReactElement | (React.ReactElement | null)[];
@@ -50,7 +50,7 @@ export function Menu({
               ref={setPopperElement}
               style={styles.popper}
               {...attributes.popper}
-              className="z-50 flex max-h-[20rem] flex-col gap-1 overflow-auto whitespace-nowrap rounded-lg border bg-background-secondary py-2 text-sm shadow-md"
+              className="bg-background-secondary z-50 flex max-h-[20rem] flex-col gap-1 overflow-auto whitespace-nowrap rounded-lg border py-2 text-sm shadow-md"
             >
               {children}
             </HeadlessMenu.Items>
@@ -105,7 +105,7 @@ export function MenuItem({
           {shortcut && (
             <KeyboardShortcut
               value={shortcut}
-              className="ml-auto pl-6 text-content-tertiary"
+              className="text-content-tertiary ml-auto pl-6"
             />
           )}
         </Button>
@@ -148,7 +148,7 @@ export function MenuLink({
           {shortcut && (
             <KeyboardShortcut
               value={shortcut}
-              className="ml-auto pl-6 text-content-tertiary"
+              className="text-content-tertiary ml-auto pl-6"
             />
           )}
         </a>

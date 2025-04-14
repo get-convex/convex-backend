@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 
 export default function Custom404() {
   return (
@@ -12,7 +12,6 @@ export default function Custom404() {
             onClick={() => {
               window.location.href = "/";
             }}
-            passHref
             className="flex items-center underline"
           >
             Go back.

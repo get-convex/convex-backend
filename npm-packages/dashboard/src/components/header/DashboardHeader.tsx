@@ -19,7 +19,7 @@ import { ProjectSelector } from "components/header/ProjectSelector/ProjectSelect
 import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { Team } from "generatedApi";
 
-import { PROVISION_PROD_PAGE_NAME } from "dashboard-common/lib/deploymentContext";
+import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
 import { UsageBanner, useCurrentUsageBanner } from "./UsageBanner";
 import {
   FailedPaymentBanner,

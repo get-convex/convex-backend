@@ -5,7 +5,7 @@ import { useContext, useState } from "react";
 import udfs from "@common/udfs";
 import { SchemaJson } from "system-udfs/convex/_system/frontend/lib/filters";
 import { useNents } from "@common/lib/useNents";
-import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
 import { ClearTableConfirmation } from "@common/features/data/components/DataToolbar/ClearTableConfirmation";

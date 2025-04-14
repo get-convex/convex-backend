@@ -1,12 +1,12 @@
 import classNames from "classnames";
-import { Loading } from "dashboard-common/elements/Loading";
-import { PageContent } from "dashboard-common/elements/PageContent";
+import { Loading } from "@ui/Loading";
+import { PageContent } from "@common/elements/PageContent";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import startCase from "lodash/startCase";
 import Head from "next/head";
 import React from "react";
 import { Team } from "generatedApi";
-import { SidebarLink } from "dashboard-common/elements/Sidebar";
+import { SidebarLink } from "@common/elements/Sidebar";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 
 export function TeamSettingsLayout({

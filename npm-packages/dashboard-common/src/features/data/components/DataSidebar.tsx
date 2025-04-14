@@ -3,9 +3,9 @@ import { useMutation } from "convex/react";
 import classNames from "classnames";
 import { useContext, useState } from "react";
 import udfs from "@common/udfs";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
-import { TextInput } from "@common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 import {
   isTableMissingFromSchema,
   useActiveSchema,
@@ -14,8 +14,8 @@ import {
 import { TableTab } from "@common/features/data/components/TableTab";
 import { TableMetadata } from "@common/lib/useTableMetadata";
 import { NentSwitcher } from "@common/elements/NentSwitcher";
-import { Loading } from "@common/elements/Loading";
-import { Button } from "@common/elements/Button";
+import { Loading } from "@ui/Loading";
+import { Button } from "@ui/Button";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { toast } from "@common/lib/utils";

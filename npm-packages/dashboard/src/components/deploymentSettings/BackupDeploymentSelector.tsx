@@ -1,12 +1,12 @@
 import { Listbox, Transition } from "@headlessui/react";
 import { CaretSortIcon, ChevronLeftIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Button } from "@ui/Button";
+import { Loading } from "@ui/Loading";
+import { Tooltip } from "@ui/Tooltip";
 import { useDeployments } from "api/deployments";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import { Fragment, useCallback, useMemo, useState } from "react";
 import { DeploymentResponse, Team } from "generatedApi";
 import { FullDeploymentName } from "./BackupListItem";

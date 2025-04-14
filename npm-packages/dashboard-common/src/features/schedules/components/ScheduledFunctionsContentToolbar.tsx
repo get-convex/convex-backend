@@ -8,16 +8,16 @@ import {
   useCurrentOpenFunction,
   useModuleFunctions,
 } from "@common/lib/functions/FunctionsProvider";
-import { Combobox } from "@common/elements/Combobox";
+import { Combobox } from "@ui/Combobox";
 import {
   displayName,
   functionIdentifierFromValue,
   functionIdentifierValue,
 } from "@common/lib/functions/generateFileTree";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";
-import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 export function ScheduledFunctionsContentToolbar() {
   const currentOpenFunction = useCurrentOpenFunction();

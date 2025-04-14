@@ -1,6 +1,6 @@
 import { SWRConfiguration } from "swr";
 
-import { ProjectEnvVarConfig } from "dashboard-common/features/settings/lib/types";
+import { ProjectEnvVarConfig } from "@common/features/settings/lib/types";
 import { useBBMutation, useBBQuery } from "api/api";
 
 export type ProjectEnvironmentVariable = {

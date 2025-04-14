@@ -7,8 +7,8 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { Tooltip } from "@common/elements/Tooltip";
-import { Button } from "@common/elements/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Button } from "@ui/Button";
 
 export type SidebarItem = {
   key: string | null;
@@ -143,7 +143,6 @@ export function SidebarLink({
                 : query,
             }
       }
-      passHref
       aria-disabled={disabled}
       className={sidebarLinkClassNames({
         isActive,

@@ -6,7 +6,7 @@ import {
   ActionText,
 } from "@common/elements/DeploymentEventContent";
 import { ITEM_SIZE } from "@common/features/logs/components/LogListItem";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { formatDateTime } from "@common/lib/format";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { DetailPanel } from "@common/elements/DetailPanel";

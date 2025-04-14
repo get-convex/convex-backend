@@ -5,7 +5,7 @@ import classNames from "classnames";
 import { entryOutput, useLogsForSingleFunction } from "@common/lib/useLogs";
 import { LogLinesOutput } from "@common/elements/LogOutput";
 import { usePrettyReadonlyCode } from "@common/lib/usePrettyReadonlyCode";
-import { Spinner } from "@common/elements/Spinner";
+import { Spinner } from "@ui/Spinner";
 import { RequestFilter } from "@common/lib/appMetrics";
 import { msFormat } from "@common/lib/format";
 import { CopyButton } from "@common/elements/CopyButton";

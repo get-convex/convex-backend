@@ -1,9 +1,9 @@
 import { PlanSummary, UsageOverview } from "components/billing/PlanSummary";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Button } from "dashboard-common/elements/Button";
-import { formatBytes, formatNumberCompact } from "dashboard-common/lib/format";
-import { sidebarLinkClassNames } from "dashboard-common/elements/Sidebar";
+import { Sheet } from "@ui/Sheet";
+import { Loading } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { formatBytes, formatNumberCompact } from "@common/lib/format";
+import { sidebarLinkClassNames } from "@common/elements/Sidebar";
 import {
   AggregatedFunctionMetrics,
   useUsageTeamActionComputeDaily,

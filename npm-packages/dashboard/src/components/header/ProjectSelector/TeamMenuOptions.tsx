@@ -1,5 +1,5 @@
 import { PlusIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { SelectorItem } from "elements/SelectorItem";
 import { useCurrentTeam } from "api/teams";
 import { useRouter } from "next/router";

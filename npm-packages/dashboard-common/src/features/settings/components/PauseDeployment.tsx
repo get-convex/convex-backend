@@ -1,11 +1,11 @@
 import React, { useContext, useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
-import { Sheet } from "@common/elements/Sheet";
-import { Loading } from "@common/elements/Loading";
-import { Button } from "@common/elements/Button";
-import { Callout } from "@common/elements/Callout";
-import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import { Sheet } from "@ui/Sheet";
+import { Loading } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { Callout } from "@ui/Callout";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import udfs from "@common/udfs";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useChangeDeploymentState } from "../lib/api";

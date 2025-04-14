@@ -1,12 +1,12 @@
 import { DownloadIcon, EnvelopeClosedIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { Callout } from "dashboard-common/elements/Callout";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Button } from "@ui/Button";
+import { Spinner } from "@ui/Spinner";
+import { Callout } from "@ui/Callout";
+import { Sheet } from "@ui/Sheet";
 import { useGetZipExport } from "hooks/deploymentApi";
 import { Fragment } from "react";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { useCurrentDeployment } from "api/deployments";
 import { CompletedExport } from "system-udfs/convex/_system/frontend/common";
 

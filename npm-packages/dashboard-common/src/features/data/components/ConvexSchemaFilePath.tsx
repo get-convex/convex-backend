@@ -1,4 +1,4 @@
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 
 export function ConvexSchemaFilePath({ className }: { className?: string }) {
   return (

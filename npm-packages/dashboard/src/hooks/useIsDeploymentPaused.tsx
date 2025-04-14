@@ -1,4 +1,4 @@
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { useQuery } from "convex/react";
 import { useCurrentTeam } from "api/teams";
 import { useTeamUsageState } from "api/usage";

@@ -2,8 +2,8 @@ import * as Yup from "yup";
 import { useFormik } from "formik";
 import { Infer } from "convex/values";
 import { webhookConfig } from "system-udfs/convex/schema";
-import { Button } from "dashboard-common/elements/Button";
-import { TextInput } from "dashboard-common/elements/TextInput";
+import { Button } from "@ui/Button";
+import { TextInput } from "@ui/TextInput";
 import { useCreateWebhookSink } from "../../hooks/deploymentApi";
 
 const webhookValidationSchema = Yup.object().shape({

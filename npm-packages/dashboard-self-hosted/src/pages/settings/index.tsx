@@ -1,13 +1,13 @@
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import {
   DeploymentUrl,
   HttpActionsUrl,
-} from "dashboard-common/features/settings/components/DeploymentUrl";
-import { DeploymentSettingsLayout } from "dashboard-common/layouts/DeploymentSettingsLayout";
+} from "@common/features/settings/components/DeploymentUrl";
+import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import Link from "next/link";
 import { useContext } from "react";
-import { DeploymentInfoContext } from "dashboard-common/lib/deploymentContext";
-import { CopyTextButton } from "dashboard-common/elements/CopyTextButton";
+import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { CopyTextButton } from "@common/elements/CopyTextButton";
 
 export default function Settings() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);

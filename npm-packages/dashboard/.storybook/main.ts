@@ -3,10 +3,9 @@ import path from "path";
 
 const config: StorybookConfig = {
   stories: [
-    "../src/**/*.stories.mdx",
     "../src/**/*.stories.@(js|jsx|ts|tsx)",
-    "../../dashboard-common/src/**/*.stories.mdx",
     "../../dashboard-common/src/**/*.stories.@(js|jsx|ts|tsx)",
+    "../../ui/src/**/*.stories.@(js|jsx|ts|tsx)",
   ],
   addons: [
     "@storybook/addon-links",
@@ -29,11 +28,8 @@ const config: StorybookConfig = {
           ...config.resolve,
           alias: {
             ...config.resolve?.alias,
-            "dashboard-common": path.resolve(
-              __dirname,
-              "../../dashboard-common/src",
-            ),
             "@common": path.resolve(__dirname, "../../dashboard-common/src"),
+            "@ui": path.resolve(__dirname, "../../ui/src"),
           },
         };
 

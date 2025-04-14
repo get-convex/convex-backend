@@ -8,11 +8,11 @@ import type {
 } from "generatedApi";
 import { useRouter } from "next/router";
 import { useRef, useState } from "react";
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Combobox, Option } from "dashboard-common/elements/Combobox";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Combobox, Option } from "@ui/Combobox";
+import { Spinner } from "@ui/Spinner";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { CaretSortIcon } from "@radix-ui/react-icons";
 import { useMount } from "react-use";
 import classNames from "classnames";

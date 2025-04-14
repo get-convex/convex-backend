@@ -1,14 +1,14 @@
 import React, { useId, useState } from "react";
 import { ReferralState, Team } from "generatedApi";
-import { TextInput } from "@common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { useTeamOrbSubscription } from "api/billing";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { cn } from "dashboard-common/lib/cn";
-import { Callout } from "dashboard-common/elements/Callout";
+import { Sheet } from "@ui/Sheet";
+import { cn } from "@ui/cn";
+import { Callout } from "@ui/Callout";
 import { useReferralState } from "api/referrals";
-import { Loading } from "dashboard-common/elements/Loading";
-import { useCopy } from "dashboard-common/lib/useCopy";
+import { Loading } from "@ui/Loading";
+import { useCopy } from "@common/lib/useCopy";
 import { logEvent } from "convex-analytics";
 import { ReferralsBenefits } from "./ReferralsBenefits";
 

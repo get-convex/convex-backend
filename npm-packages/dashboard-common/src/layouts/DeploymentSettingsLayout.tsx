@@ -6,11 +6,11 @@ import {
   SettingsPageKind,
 } from "@common/layouts/SettingsSidebar";
 import { PageContent } from "@common/elements/PageContent";
-import { Popover } from "@common/elements/Popover";
-import { Button } from "@common/elements/Button";
+import { Popover } from "@ui/Popover";
+import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useIsOverflowing } from "@common/lib/useIsOverflowing";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 
 export function DeploymentSettingsLayout({
   page,

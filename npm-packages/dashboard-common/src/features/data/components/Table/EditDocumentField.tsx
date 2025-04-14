@@ -6,7 +6,7 @@ import { ValidatorJSON, Value } from "convex/values";
 import isEqual from "lodash/isEqual";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 
 export function EditDocumentField({
   column,

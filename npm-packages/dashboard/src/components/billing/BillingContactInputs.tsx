@@ -1,4 +1,4 @@
-import { TextInput } from "dashboard-common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 import { useFormik, useFormikContext } from "formik";
 import { BillingContactResponse } from "generatedApi";
 import { UpgradeFormState } from "./upgradeFormState";

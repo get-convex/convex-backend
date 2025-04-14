@@ -28,7 +28,7 @@ import {
   Panel,
   PanelGroup,
 } from "react-resizable-panels";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
@@ -47,7 +47,7 @@ import { TableHeader } from "@common/features/data/components/Table/TableHeader"
 import { useStoredColumnOrder } from "@common/features/data/components/Table/utils/useDataColumns";
 import { ViewDocument } from "@common/features/data/components/Table/ViewDocument";
 import { pageSize } from "@common/features/data/components/Table/utils/useQueryFilteredTable";
-import { LoadingLogo } from "@common/elements/Loading";
+import { LoadingLogo } from "@ui/Loading";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
 

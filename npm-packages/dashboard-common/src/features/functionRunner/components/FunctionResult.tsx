@@ -4,11 +4,11 @@ import type { FunctionResult as FunctionResultType } from "convex/browser";
 import { useContext, useEffect, useState } from "react";
 import { useSessionStorage } from "react-use";
 import { Value } from "convex/values";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { toast } from "@common/lib/utils";
 import { RequestFilter } from "@common/lib/appMetrics";
-import { Spinner } from "@common/elements/Spinner";
+import { Spinner } from "@ui/Spinner";
 import { ComponentId } from "@common/lib/useNents";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {

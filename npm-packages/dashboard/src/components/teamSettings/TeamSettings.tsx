@@ -8,9 +8,9 @@ import { useProjects } from "api/projects";
 import { useTeamOrbSubscription } from "api/billing";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
 import { Team } from "generatedApi";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Button } from "dashboard-common/elements/Button";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Sheet } from "@ui/Sheet";
+import { Button } from "@ui/Button";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { useState } from "react";
 import { TeamForm } from "./TeamForm";
 

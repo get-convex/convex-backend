@@ -1,8 +1,8 @@
 import React from "react";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Button, ButtonProps } from "@common/elements/Button";
-import { Sheet } from "@common/elements/Sheet";
+import { Button, ButtonProps } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 
 export function EmptySection({
   Icon,

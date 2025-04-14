@@ -3,7 +3,7 @@ import { useCurrentTeam } from "api/teams";
 import { useProjects } from "api/projects";
 import { useProfile } from "api/profile";
 import { useRouter } from "next/router";
-import { Loading } from "dashboard-common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { useEffect } from "react";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 

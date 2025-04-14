@@ -1,4 +1,4 @@
-import { Callout } from "dashboard-common/elements/Callout";
+import { Callout } from "@ui/Callout";
 
 export default function Custom500() {
   return <Fallback error={null} />;

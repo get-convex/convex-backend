@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Modal } from "@common/elements/Modal";
+import { Modal } from "@ui/Modal";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { SourceMissingPanel } from "@common/elements/SourceMissingPanel";
 

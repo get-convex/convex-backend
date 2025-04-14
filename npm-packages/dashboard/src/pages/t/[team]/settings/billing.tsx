@@ -1,6 +1,7 @@
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
-import { Button } from "dashboard-common/elements/Button";
+import { Sheet } from "@ui/Sheet";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
+import { Callout } from "@ui/Callout";
+import { Button } from "@ui/Button";
 import { useTeamMembers } from "api/teams";
 import { useListPlans, useTeamOrbSubscription } from "api/billing";
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
@@ -12,11 +13,11 @@ import { Team } from "generatedApi";
 import { Plans } from "components/billing/Plans";
 import { SubscriptionOverview } from "components/billing/SubscriptionOverview";
 import { ErrorBoundary, captureMessage } from "@sentry/nextjs";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import { UpgradePlanContentContainer } from "components/billing/UpgradePlanContent";
 import { useProfile } from "api/profile";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import { Loading } from "dashboard-common/elements/Loading";
+import { Loading } from "@ui/Loading";
 
 export { getServerSideProps } from "lib/ssr";
 

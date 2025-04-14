@@ -1,0 +1,188 @@
+@tailwind base;
+
+:root {
+  --red-100: 252, 215, 203;
+  --red-200: 255, 202, 193;
+  --red-300: 252, 165, 165;
+  --red-400: 253, 76, 65;
+  --red-500: 238, 52, 47;
+  --red-700: 168, 21, 21;
+  --red-900: 107, 33, 31;
+  --purple-100: 241, 200, 233;
+  --purple-200: 232, 180, 220;
+  --purple-500: 141, 38, 118;
+  --purple-700: 86, 0, 83;
+  --purple-900: 113, 36, 96;
+  --blue-100: 204, 222, 250;
+  --blue-200: 177, 202, 240;
+  --blue-500: 7, 78, 232;
+  --blue-700: 33, 34, 181;
+  --blue-900: 0, 43, 153;
+  --cyan-200: 170, 227, 239;
+  --cyan-500: 7, 192, 232;
+  --cyan-700: 0, 155, 221;
+  --cyan-900: 15, 89, 105;
+  --green-100: 203, 237, 182;
+  --green-200: 180, 236, 146;
+  --green-500: 79, 176, 20;
+  --green-700: 34, 137, 9;
+  --green-900: 44, 83, 20;
+  --yellow-50: 254, 252, 232;
+  --yellow-100: 250, 228, 171;
+  --yellow-200: 230, 226, 168;
+  --yellow-500: 243, 176, 28;
+  --yellow-700: 213, 113, 21;
+  --yellow-900: 109, 82, 23;
+  --neutral-1: 222, 226, 234;
+  --neutral-2: 204, 206, 211;
+  --neutral-3: 174, 177, 184;
+  --neutral-4: 151, 154, 164;
+  --neutral-5: 133, 136, 147;
+  --neutral-6: 118, 121, 131;
+  --neutral-7: 103, 106, 116;
+  --neutral-8: 88, 92, 101;
+  --neutral-9: 73, 76, 84;
+  --neutral-10: 57, 60, 66;
+  --neutral-11: 41, 43, 48;
+  --neutral-12: 24, 25, 28;
+  --accent: 63, 82, 149;
+  --info: 7, 191, 232;
+  --success: var(--green-500);
+  --warning: var(--yellow-500);
+  --error: var(--red-500);
+  --brand-purple: var(--purple-500);
+  --brand-red: var(--red-500);
+  --brand-yellow: var(--yellow-500);
+  --chart-line-1: 31, 119, 180;
+  --chart-line-2: 255, 127, 14;
+  --chart-line-3: 44, 160, 44;
+  --chart-line-4: 214, 39, 40;
+  --chart-line-5: 148, 103, 189;
+  --chart-line-6: 140, 86, 75;
+  --chart-line-7: 227, 119, 194;
+  --chart-line-8: 188, 189, 34;
+}
+
+html.light {
+  --background-brand: 249, 247, 238;
+  --background-primary: 243, 240, 237;
+  --background-secondary: 253, 252, 250;
+  --background-tertiary: 240, 238, 235;
+  --background-highlight: var(--yellow-50);
+  --background-success: var(--green-100);
+  --background-warning: var(--yellow-100);
+  --background-error: var(--red-100);
+  --background-error-secondary: var(--red-200);
+  --content-primary: 42, 40, 37;
+  --content-secondary: 120, 118, 113;
+  --content-tertiary: 120, 118, 113;
+  --content-accent: 48, 106, 207;
+  --content-success: var(--green-700);
+  --content-warning: var(--yellow-900);
+  --content-error: var(--red-700);
+  --content-error-secondary: var(--red-500);
+  --content-link: var(--blue-700);
+  --border-transparent: 33, 34, 30, 0.14;
+  --border-selected: 30, 28, 25;
+}
+
+html.dark {
+  --background-brand: var(--background-primary);
+  --background-primary: 30, 28, 26;
+  --background-secondary: 42, 40, 37;
+  --background-tertiary: 60, 58, 65;
+  --background-highlight: var(--yellow-900);
+  --background-success: var(--green-900);
+  --background-warning: var(--yellow-900);
+  --background-error: var(--red-900);
+  --background-error-secondary: var(--red-700);
+  --content-primary: 255, 255, 255;
+  --content-secondary: 185, 177, 170;
+  --content-tertiary: 143, 135, 128;
+  --content-accent: 99, 168, 248;
+  --content-success: var(--green-200);
+  --content-warning: var(--yellow-200);
+  --content-error: var(--red-200);
+  --content-error-secondary: var(--red-400);
+  --content-link: var(--blue-200);
+  --border-transparent: 163, 156, 148, 0.3;
+  --border-selected: 225, 215, 205;
+}
+
+@layer base {
+  h1 {
+    @apply text-2xl;
+  }
+  h2 {
+    @apply text-xl;
+  }
+  h3 {
+    @apply text-lg font-semibold;
+  }
+  h4 {
+    @apply text-base font-semibold;
+  }
+  h5 {
+    @apply text-sm font-semibold;
+  }
+
+  /* Don't show arrows on number inputs */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  * {
+    @apply border-border-transparent;
+  }
+
+  html,
+  body {
+    @apply bg-background-primary;
+  }
+
+  strong {
+    @apply font-semibold;
+  }
+
+  .scrollbar {
+    @apply scrollbar-thin scrollbar-thumb-neutral-1 scrollbar-corner-background-secondary
+    scrollbar-thumb-rounded dark:scrollbar-thumb-neutral-8;
+  }
+
+  /* Position the toast close button on the top right corner so that it draws less attention */
+  html [data-sonner-toaster][dir="ltr"] {
+    --toast-close-button-start: unset;
+    --toast-close-button-end: 0;
+    --toast-close-button-transform: translate(35%, -35%);
+  }
+
+  /* Use the colors from our custom palette for toasts */
+  [data-sonner-toast],
+  [data-sonner-toast] [data-close-button] {
+    @apply bg-background-secondary
+      border-background-tertiary
+      text-content-primary !important;
+  }
+
+  [data-sonner-toast][data-type="success"],
+  [data-sonner-toast][data-type="success"] [data-close-button] {
+    @apply bg-green-50
+      border-green-100
+      text-green-700
+      dark:bg-green-950
+      dark:border-green-900
+      dark:text-green-200 !important;
+  }
+
+  [data-sonner-toast][data-type="error"],
+  [data-sonner-toast][data-type="error"] [data-close-button] {
+    @apply bg-red-50
+      border-red-100
+      text-red-700
+      dark:bg-red-950
+      dark:border-red-900
+      dark:text-red-200 !important;
+  }
+}

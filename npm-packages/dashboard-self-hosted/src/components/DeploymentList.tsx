@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { useEffect, useState } from "react";
 import { useLocalStorage } from "react-use";
 

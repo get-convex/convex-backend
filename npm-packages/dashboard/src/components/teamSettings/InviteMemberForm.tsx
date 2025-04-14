@@ -1,9 +1,9 @@
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Combobox } from "dashboard-common/elements/Combobox";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { toast } from "dashboard-common/lib/utils";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Combobox } from "@ui/Combobox";
+import { Sheet } from "@ui/Sheet";
+import { TextInput } from "@ui/TextInput";
+import { toast } from "@common/lib/utils";
 
 import { useFormik } from "formik";
 import { useCreateInvite } from "api/invitations";

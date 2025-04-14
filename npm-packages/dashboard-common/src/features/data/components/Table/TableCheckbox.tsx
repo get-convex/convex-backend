@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { forwardRef, useId } from "react";
-import { Checkbox } from "@common/elements/Checkbox";
+import { Checkbox } from "@ui/Checkbox";
 
 type TableCheckboxProps = {
   checked: boolean;

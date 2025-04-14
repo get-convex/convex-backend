@@ -1,6 +1,6 @@
 import React from "react";
 import { useSize } from "react-use";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { SchedulerStatus } from "@common/elements/SchedulerStatus";
 import { FailureRate } from "@common/features/health/components/FailureRate";
 import { CacheHitRate } from "@common/features/health/components/CacheHitRate";

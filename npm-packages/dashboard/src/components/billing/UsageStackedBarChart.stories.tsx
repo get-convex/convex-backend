@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
 import { DailyPerTagMetrics } from "hooks/usageMetrics";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { UsageStackedBarChart } from "./UsageBarChart";
 
 const meta: Meta<typeof UsageStackedBarChart> = {

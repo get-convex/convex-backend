@@ -20,10 +20,10 @@ import {
   itemIdentifier,
   useModuleFunctions,
 } from "@common/lib/functions/FunctionsProvider";
-import { Button } from "@common/elements/Button";
-import { Tooltip } from "@common/elements/Tooltip";
-import { ClosePanelButton } from "@common/elements/ClosePanelButton";
-import { Combobox, Option } from "@common/elements/Combobox";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
+import { Combobox, Option } from "@ui/Combobox";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import {
   displayName,

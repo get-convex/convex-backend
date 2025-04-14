@@ -1,9 +1,9 @@
 /* This example requires Tailwind CSS v2.0+ */
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment, ReactNode, useState } from "react";
-import { Loading } from "@common/elements/Loading";
-import { Callout } from "@common/elements/Callout";
-import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { Loading } from "@ui/Loading";
+import { Callout } from "@ui/Callout";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
 
 export function DetailPanel({
   onClose,

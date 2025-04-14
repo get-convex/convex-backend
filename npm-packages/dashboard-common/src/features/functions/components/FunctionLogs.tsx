@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { useDebounce, useLocalStorage } from "react-use";
-import { TextInput } from "@common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 import { LogList } from "@common/features/logs/components/LogList";
 import { LogToolbar } from "@common/features/logs/components/LogToolbar";
 import { filterLogs } from "@common/features/logs/lib/filterLogs";
@@ -9,7 +9,7 @@ import { functionIdentifierValue } from "@common/lib/functions/generateFileTree"
 import { UdfLog, useLogs } from "@common/lib/useLogs";
 import { ModuleFunction } from "@common/lib/functions/types";
 import { Nent } from "@common/lib/useNents";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";

@@ -1,5 +1,4 @@
-import { cn } from "@common/lib/cn";
-import { Snippet } from "@common/elements/Snippet";
+import { cn } from "@ui/cn";
 
 type CalloutVariant = "instructions" | "error" | "localDev" | "upsell";
 
@@ -31,39 +30,5 @@ export function Callout({
     >
       {children}
     </div>
-  );
-}
-
-export function LocalDevCallout({
-  variant = "localDev",
-  children,
-  tipText,
-  command,
-  ...props
-}: {
-  variant?: CalloutVariant;
-  tipText: string;
-  command?: string;
-  children?: React.ReactNode;
-} & React.HTMLAttributes<HTMLDivElement>) {
-  const isDev = process.env.NEXT_PUBLIC_ENVIRONMENT === "development";
-  if (!isDev) {
-    return null;
-  }
-  return (
-    <Callout variant={variant} {...props}>
-      <div className="grow flex-col text-xs">
-        {tipText}
-        {command && (
-          <Snippet
-            value={command}
-            monospace
-            copying="Command"
-            className="grow"
-          />
-        )}
-      </div>
-      {children}
-    </Callout>
   );
 }

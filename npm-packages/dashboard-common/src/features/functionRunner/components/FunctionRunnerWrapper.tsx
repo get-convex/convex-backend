@@ -5,7 +5,7 @@ import { useEffect, useCallback, useContext } from "react";
 import { usePrevious } from "react-use";
 import udfs from "@common/udfs";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { FunctionIcon } from "@common/elements/icons";
 import { toast } from "@common/lib/utils";
 import {

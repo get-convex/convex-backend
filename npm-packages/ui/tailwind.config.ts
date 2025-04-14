@@ -158,8 +158,11 @@ export const utilColors = {
 export default {
   darkMode: "class",
   content: [
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "../ui/src/**/*.{js,ts,jsx,tsx}",
+    "../ui/src/*.{js,ts,jsx,tsx}",
+    "../dashboard/src/**/*.{js,ts,jsx,tsx}",
     "../dashboard-common/src/**/*.{js,ts,jsx,tsx}",
+    "../dashboard-self-hosted/src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {

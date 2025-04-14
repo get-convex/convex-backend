@@ -1,4 +1,4 @@
-import { HealthView } from "dashboard-common/features/health/components/HealthView";
+import { HealthView } from "@common/features/health/components/HealthView";
 
 export default function Page() {
   return (

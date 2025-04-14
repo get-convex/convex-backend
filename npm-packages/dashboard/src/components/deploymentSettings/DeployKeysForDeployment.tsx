@@ -17,7 +17,7 @@ import {
 } from "generatedApi";
 
 import { useAccessToken } from "hooks/useServerSideData";
-import { DeploymentType } from "dashboard-common/features/settings/components/DeploymentUrl";
+import { DeploymentType } from "@common/features/settings/components/DeploymentUrl";
 import { DeploymentAccessTokenList } from "./DeploymentAccessTokenList";
 
 function getAdminKeyPrefix(deployment: DeploymentResponse) {

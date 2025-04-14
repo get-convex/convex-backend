@@ -3,10 +3,10 @@ import {
   CrossCircledIcon,
   ExclamationTriangleIcon,
 } from "@radix-ui/react-icons";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Button } from "dashboard-common/elements/Button";
-import { FunctionNameOption } from "dashboard-common/elements/FunctionNameOption";
-import { functionIdentifierValue } from "dashboard-common/lib/functions/generateFileTree";
+import { Tooltip } from "@ui/Tooltip";
+import { Button } from "@ui/Button";
+import { FunctionNameOption } from "@common/elements/FunctionNameOption";
+import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { useRouter } from "next/router";
 import { SparklineForInsight } from "./SparklineForInsight";
 import { ProblemForInsight } from "./ProblemForInsight";

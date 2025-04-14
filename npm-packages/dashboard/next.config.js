@@ -114,23 +114,6 @@ const nextConfig = {
   },
   // from https://github.com/vercel/next.js/blob/c110dfd57c754f88cb239dc154a4b7d49e5696a3/examples/with-webassembly/next.config.js
   webpack(config, { isServer, dev }) {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      "dashboard-common": path.resolve(__dirname, "../dashboard-common/src"),
-      "@local/elements": path.resolve(
-        __dirname,
-        "../dashboard-common/src/elements",
-      ),
-      "@local/lib": path.resolve(__dirname, "../dashboard-common/src/lib"),
-      "@local/features": path.resolve(
-        __dirname,
-        "../dashboard-common/src/features",
-      ),
-      "@local/layouts": path.resolve(
-        __dirname,
-        "../dashboard-common/src/layouts",
-      ),
-    };
     config.resolve.symlinks = true; // Ensure Webpack follows symlinks
     // Force Webpack to watch changes in the src directory of local packages
     config.watchOptions = {

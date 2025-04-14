@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Combobox as HeadlessCombobox } from "@headlessui/react";
 import { CaretSortIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import isEqual from "lodash/isEqual";
 import { test } from "fuzzy";
-import { Button, ButtonProps } from "@common/elements/Button";
+import { Button, ButtonProps } from "@ui/Button";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 

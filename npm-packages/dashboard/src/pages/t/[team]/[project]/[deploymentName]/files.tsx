@@ -1,5 +1,5 @@
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
-import { FileStorageView } from "dashboard-common/features/files/components/FileStorageView";
+import { FileStorageView } from "@common/features/files/components/FileStorageView";
 
 export { getServerSideProps } from "lib/ssr";
 

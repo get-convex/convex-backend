@@ -40,7 +40,7 @@ describe("SettingsSidebar", () => {
 
       expect(link).toHaveAttribute(
         "href",
-        "/t/test-team/test-project/fine-marmot-266/settings",
+        "/t/test-team/test-project/fine-marmot-266/settings/",
       );
       expect(link).not.toHaveAttribute("target");
       expect(link).not.toBeDisabled();
@@ -134,7 +134,7 @@ describe("SettingsSidebar", () => {
         name: "URL & Deploy Key",
       });
 
-      expect(link).toHaveAttribute("href", "/settings");
+      expect(link).toHaveAttribute("href", "/settings/");
       expect(link).not.toHaveAttribute("target");
       expect(link).not.toBeDisabled();
     });
@@ -203,7 +203,7 @@ describe("SettingsSidebar", () => {
         name: "URL & Deploy Key",
       });
 
-      expect(link).toHaveAttribute("href", "/settings");
+      expect(link).toHaveAttribute("href", "/settings/");
       expect(link).not.toHaveAttribute("target");
       expect(link).not.toBeDisabled();
     });

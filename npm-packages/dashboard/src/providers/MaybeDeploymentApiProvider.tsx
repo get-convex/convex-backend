@@ -1,7 +1,7 @@
 import {
   DeploymentApiProviderProps,
   DeploymentApiProvider,
-} from "dashboard-common/lib/deploymentContext";
+} from "@common/lib/deploymentContext";
 import { useAccessToken } from "hooks/useServerSideData";
 
 export function MaybeDeploymentApiProvider({

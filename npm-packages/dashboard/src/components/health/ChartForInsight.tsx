@@ -11,8 +11,8 @@ import {
   formatBytes,
   formatNumberCompact,
   toNumericUTC,
-} from "dashboard-common/lib/format";
-import { ChartTooltip } from "dashboard-common/elements/ChartTooltip";
+} from "@common/lib/format";
+import { ChartTooltip } from "@common/elements/ChartTooltip";
 import { format } from "date-fns";
 import {
   ResponsiveContainer,
@@ -24,9 +24,9 @@ import {
   ReferenceLine,
   CartesianGrid,
 } from "recharts";
-import { LoadingTransition } from "dashboard-common/elements/Loading";
-import { DeploymentTimes } from "dashboard-common/features/health/components/DeploymentTimes";
-import { useDeploymentAuditLogs } from "dashboard-common/lib/useDeploymentAuditLog";
+import { LoadingTransition } from "@ui/Loading";
+import { DeploymentTimes } from "@common/features/health/components/DeploymentTimes";
+import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
 import { documentsReadLimit, megabytesReadLimit } from "./ProblemForInsight";
 
 export function ChartForInsight({ insight }: { insight: InsightsSummaryData }) {

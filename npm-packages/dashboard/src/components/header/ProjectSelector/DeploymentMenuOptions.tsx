@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useRef } from "react";
 import { CommandLineIcon, SignalIcon } from "@heroicons/react/20/solid";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { SelectorItem } from "elements/SelectorItem";
 import {
   ChevronDownIcon,
@@ -17,8 +17,8 @@ import {
 import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
 import { Disclosure } from "@headlessui/react";
 import { logEvent } from "convex-analytics";
-import { PROVISION_PROD_PAGE_NAME } from "dashboard-common/lib/deploymentContext";
-import { useIsOverflowing } from "dashboard-common/lib/useIsOverflowing";
+import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
+import { useIsOverflowing } from "@common/lib/useIsOverflowing";
 
 export function DeploymentMenuOptions({
   team,

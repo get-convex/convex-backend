@@ -1,11 +1,11 @@
-import { Button } from "dashboard-common/elements/Button";
-import { Combobox } from "dashboard-common/elements/Combobox";
+import { Button } from "@ui/Button";
+import { Combobox } from "@ui/Combobox";
 import { useState } from "react";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Callout } from "dashboard-common/elements/Callout";
+import { Spinner } from "@ui/Spinner";
+import { Sheet } from "@ui/Sheet";
+import { Callout } from "@ui/Callout";
 import { Team } from "generatedApi";
-import { Loading } from "dashboard-common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { ReferralsBenefits } from "components/referral/ReferralsBenefits";
 import Link from "next/link";
 import { MAX_REFERRALS } from "./Referrals";

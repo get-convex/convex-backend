@@ -20,8 +20,8 @@ import {
   FilterState,
 } from "@common/features/data/components/FilterEditor/FilterEditor";
 import { SchemaJson } from "@common/lib/format";
-import { Button } from "@common/elements/Button";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
 import {
   FilterButton,
   filterMenuId,
@@ -36,7 +36,7 @@ import {
   validatorForColumn,
 } from "@common/features/data/components/Table/utils/validators";
 import { useFilterHistory } from "@common/features/data/lib/useTableFilters";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { useTableIndexes } from "@common/features/data/lib/api";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { IndexFilterState } from "./IndexFilterEditor";

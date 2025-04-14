@@ -10,7 +10,7 @@ import { reportHttpError } from "hooks/fetching";
 import {
   DeploymentInfo,
   DeploymentInfoContext,
-} from "dashboard-common/lib/deploymentContext";
+} from "@common/lib/deploymentContext";
 import { useCurrentTeam, useTeamEntitlements, useTeamMembers } from "api/teams";
 import { useCurrentDeployment } from "api/deployments";
 import { useHasProjectAdminPermissions } from "api/roles";

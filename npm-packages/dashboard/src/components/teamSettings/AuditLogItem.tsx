@@ -5,10 +5,10 @@ import {
   QuestionMarkCircledIcon,
   ArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { ReadonlyCode } from "dashboard-common/elements/ReadonlyCode";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
-import { stringifyValue } from "dashboard-common/lib/stringifyValue";
+import { Button } from "@ui/Button";
+import { ReadonlyCode } from "@common/elements/ReadonlyCode";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
+import { stringifyValue } from "@common/lib/stringifyValue";
 import {
   Team,
   MemberResponse,
@@ -23,8 +23,8 @@ import Link from "next/link";
 import { useDeploymentById } from "api/deployments";
 import { BackupIdentifier } from "elements/BackupIdentifier";
 import { TeamMemberLink } from "elements/TeamMemberLink";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { formatUsd } from "dashboard-common/lib/utils";
+import { Tooltip } from "@ui/Tooltip";
+import { formatUsd } from "@common/lib/utils";
 
 // TODO: Figure out how to get typing on metadata in
 // big brain

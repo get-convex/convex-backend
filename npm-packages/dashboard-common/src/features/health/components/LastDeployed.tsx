@@ -1,12 +1,12 @@
 import { useQuery } from "convex/react";
 import udfs from "@common/udfs";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { HealthCard } from "@common/elements/HealthCard";
 import { TimestampDistance } from "@common/elements/TimestampDistance";
-import { Loading } from "@common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { useEffect, useState } from "react";
 import semver from "semver";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 
 function useLatestConvexVersion(currentVersion: string | undefined) {
   const [hasUpdate, setHasUpdate] = useState(false);

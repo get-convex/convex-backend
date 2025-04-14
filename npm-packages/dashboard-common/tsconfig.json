@@ -13,14 +13,14 @@
     "resolveJsonModule": true,
     "downlevelIteration": true,
     "jsx": "preserve",
-    "baseUrl": "./src",
-    "rootDir": "./src",
+    "baseUrl": "src",
     "customConditions": ["convex-internal-types"],
     "isolatedModules": true,
     "noEmit": true,
     "outDir": "./dist",
     "paths": {
-      "@common/*": ["*"]
+      "@common/*": ["*"],
+      "@ui/*": ["../../ui/src/*"]
     }
   },
   "include": ["src/**/*", "src/*", "next-env.d.ts"],

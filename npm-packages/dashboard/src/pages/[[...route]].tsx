@@ -1,7 +1,7 @@
 import { useRouter } from "next/router";
 import { useTeams } from "api/teams";
 import { useEffect } from "react";
-import { Loading } from "dashboard-common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 
 export { getServerSideProps } from "lib/ssr";

@@ -7,16 +7,16 @@ import {
   ExclamationTriangleIcon,
   MinusCircledIcon,
 } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
-import { toast } from "dashboard-common/lib/utils";
-import { Callout } from "dashboard-common/elements/Callout";
-import { Modal } from "dashboard-common/elements/Modal";
-import { Checkbox } from "dashboard-common/elements/Checkbox";
-import { Menu, MenuItem } from "dashboard-common/elements/Menu";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Loading } from "@ui/Loading";
+import { Spinner } from "@ui/Spinner";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
+import { toast } from "@common/lib/utils";
+import { Callout } from "@ui/Callout";
+import { Modal } from "@ui/Modal";
+import { Checkbox } from "@ui/Checkbox";
+import { Menu, MenuItem } from "@ui/Menu";
 import { useEffect, useId, useRef, useState } from "react";
 import { DeploymentResponse, ProjectDetails, Team } from "generatedApi";
 import { useDeploymentById } from "api/deployments";

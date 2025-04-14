@@ -1,8 +1,8 @@
 import { Pencil1Icon, PlusIcon, TrashIcon } from "@radix-ui/react-icons";
 import { useContext } from "react";
-import { Button } from "@common/elements/Button";
-import { Tooltip } from "@common/elements/Tooltip";
-import { Spinner } from "@common/elements/Spinner";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Spinner } from "@ui/Spinner";
 import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";

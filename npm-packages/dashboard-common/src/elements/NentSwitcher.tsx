@@ -1,7 +1,7 @@
-import { cn } from "@common/lib/cn";
-import { Combobox } from "@common/elements/Combobox";
+import { cn } from "@ui/cn";
+import { Combobox } from "@ui/Combobox";
 import { PuzzlePieceIcon } from "@common/elements/icons";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { NENT_APP_PLACEHOLDER, Nent, useNents } from "@common/lib/useNents";
 
 export function NentSwitcher({

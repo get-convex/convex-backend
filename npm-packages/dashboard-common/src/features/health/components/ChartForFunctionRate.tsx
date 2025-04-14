@@ -17,9 +17,9 @@ import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
 import { timeLabel } from "@common/elements/BigChart";
 import { ChartData } from "@common/lib/charts/types";
 import { DeploymentTimes } from "@common/features/health/components/DeploymentTimes";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
-import { LoadingTransition } from "@common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 
 export function ChartForFunctionRate({
   chartData,

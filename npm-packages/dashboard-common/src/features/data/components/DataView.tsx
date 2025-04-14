@@ -17,8 +17,8 @@ import { useTableMetadataAndUpdateURL } from "@common/lib/useTableMetadata";
 import { useNents } from "@common/lib/useNents";
 import { SchemaJson } from "@common/lib/format";
 import { useTableShapes } from "@common/lib/deploymentApi";
-import { Modal } from "@common/elements/Modal";
-import { LoadingTransition } from "@common/elements/Loading";
+import { Modal } from "@ui/Modal";
+import { LoadingTransition } from "@ui/Loading";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 
 export function DataView() {

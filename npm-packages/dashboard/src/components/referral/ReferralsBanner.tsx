@@ -1,10 +1,10 @@
 import { CheckIcon, CopyIcon, DotsVerticalIcon } from "@radix-ui/react-icons";
 import { logEvent } from "convex-analytics";
-import { Menu, MenuItem } from "dashboard-common/elements/Menu";
-import { ProgressBar } from "dashboard-common/elements/ProgressBar";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { cn } from "dashboard-common/lib/cn";
-import { useCopy } from "dashboard-common/lib/useCopy";
+import { Menu, MenuItem } from "@ui/Menu";
+import { ProgressBar } from "@ui/ProgressBar";
+import { TextInput } from "@ui/TextInput";
+import { cn } from "@ui/cn";
+import { useCopy } from "@common/lib/useCopy";
 import { ReferralState, Team } from "generatedApi";
 import { useId, useState } from "react";
 

@@ -18,14 +18,14 @@ import {
 } from "@common/features/schedules/lib/cronHelpers";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { prettier } from "@common/lib/format";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { displayName } from "@common/lib/functions/generateFileTree";
 import { LiveTimestampDistance } from "@common/elements/TimestampDistance";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { DetailPanel } from "@common/elements/DetailPanel";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
-import { Sheet } from "@common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { Doc } from "system-udfs/convex/_generated/dataModel";
 
 const COLUMN_STYLES = [

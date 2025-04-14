@@ -7,13 +7,13 @@ import { useContext, useEffect, useRef } from "react";
 import omit from "lodash/omit";
 import { useContextMenuTrigger } from "@common/features/data/lib/useContextMenuTrigger";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
-import { Checkbox } from "@common/elements/Checkbox";
+import { Checkbox } from "@ui/Checkbox";
 import { identifierNeedsEscape } from "@common/features/data/lib/helpers";
 import { emptyColumnName } from "@common/features/data/components/Table/utils/useDataColumns";
 import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
 import { columnWidthToString } from "@common/features/data/components/Table/DataRow";
-import { Tooltip } from "@common/elements/Tooltip";
-import { cn } from "@common/lib/cn";
+import { Tooltip } from "@ui/Tooltip";
+import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 type ColumnHeaderProps = {

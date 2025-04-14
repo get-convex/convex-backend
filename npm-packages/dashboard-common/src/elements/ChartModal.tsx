@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal } from "@common/elements/Modal";
+import { Modal } from "@ui/Modal";
 import { BigChart } from "@common/elements/BigChart";
 import { ChartDataSource } from "@common/lib/charts/types";
 

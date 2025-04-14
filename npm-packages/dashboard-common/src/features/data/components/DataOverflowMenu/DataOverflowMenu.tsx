@@ -9,7 +9,7 @@ import {
 import { useContext } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useNents } from "@common/lib/useNents";
-import { Menu, MenuItem } from "@common/elements/Menu";
+import { Menu, MenuItem } from "@ui/Menu";
 import { TableSchemaStatus } from "@common/features/data/components/TableSchema";
 
 export function DataOverflowMenu({

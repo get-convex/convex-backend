@@ -13,10 +13,10 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { SidebarDetailLayout } from "@common/layouts/SidebarDetailLayout";
 import { EmptySection } from "@common/elements/EmptySection";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
-import { Tab } from "@common/elements/Tab";
+import { Tab } from "@ui/Tab";
 import { Tab as HeadlessTab } from "@headlessui/react";
 import { useNents } from "@common/lib/useNents";
-import { Sheet } from "@common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { FunctionLogs } from "./FunctionLogs";
 
 export function FunctionsView() {

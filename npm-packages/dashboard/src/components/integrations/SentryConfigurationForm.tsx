@@ -1,5 +1,5 @@
-import { Button } from "dashboard-common/elements/Button";
-import { TextInput } from "dashboard-common/elements/TextInput";
+import { Button } from "@ui/Button";
+import { TextInput } from "@ui/TextInput";
 import { Infer } from "convex/values";
 import { useFormik } from "formik";
 import { useCreateSentrySink } from "hooks/deploymentApi";

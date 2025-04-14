@@ -5,9 +5,9 @@ import {
   ExclamationTriangleIcon,
   ReloadIcon,
 } from "@radix-ui/react-icons";
-import { Button } from "@common/elements/Button";
-import { Tooltip } from "@common/elements/Tooltip";
-import { Spinner } from "@common/elements/Spinner";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Spinner } from "@ui/Spinner";
 
 export function ScheduledFunctionsListHeader({
   isPaused,

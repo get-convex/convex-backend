@@ -6,7 +6,7 @@ import { parseAndFilterToSingleTable } from "system-udfs/convex/_system/frontend
 import { SchemaJson } from "@common/lib/format";
 import { useNents } from "@common/lib/useNents";
 import { useTableShapes } from "@common/lib/deploymentApi";
-import { LoadingTransition } from "@common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 import { ShowSchema } from "@common/features/data/components/ShowSchema";
 
 export interface TableSchemaStatus {

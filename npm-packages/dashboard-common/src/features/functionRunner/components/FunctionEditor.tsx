@@ -8,12 +8,12 @@ import { useTheme } from "next-themes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import udfs from "@common/udfs";
 import { Uri } from "monaco-editor/esm/vs/editor/editor.api";
-import { Button } from "@common/elements/Button";
-import { Loading } from "@common/elements/Loading";
+import { Button } from "@ui/Button";
+import { Loading } from "@ui/Loading";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { SchemaJson, displaySchema } from "@common/lib/format";
 import { useRunTestFunction } from "@common/features/functionRunner/lib/client";
-import { Spinner } from "@common/elements/Spinner";
+import { Spinner } from "@ui/Spinner";
 import { ComponentId } from "@common/lib/useNents";
 import { Result } from "@common/features/functionRunner/components/Result";
 import {

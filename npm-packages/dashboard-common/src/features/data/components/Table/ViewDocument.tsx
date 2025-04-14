@@ -1,6 +1,6 @@
 import { GenericDocument } from "convex/server";
 import { useState } from "react";
-import { TextInput } from "@common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
 import { EditDocumentField } from "@common/features/data/components/Table/EditDocumentField";
 import {
@@ -11,7 +11,7 @@ import { SchemaJson } from "@common/lib/format";
 import { useNents } from "@common/lib/useNents";
 import { CopyButton } from "@common/elements/CopyButton";
 import { stringifyValue } from "@common/lib/stringifyValue";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 
 export function ViewDocument({
   rows,

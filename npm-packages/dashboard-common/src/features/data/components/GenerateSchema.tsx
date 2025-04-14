@@ -5,7 +5,7 @@ import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { ConvexSchemaFilePath } from "@common/features/data/components/ConvexSchemaFilePath";
 import { HighlightLines, ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { displaySchemaFromShapes } from "@common/lib/format";
-import { Callout } from "@common/elements/Callout";
+import { Callout } from "@ui/Callout";
 import { CopyButton } from "@common/elements/CopyButton";
 
 export type LineHighlighter = (code: string) => HighlightLines;

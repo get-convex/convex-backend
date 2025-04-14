@@ -1,6 +1,6 @@
 import classNames from "classnames";
 import { Integration } from "system-udfs/convex/_system/frontend/common";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 
 type HealthStatusMetadata = {
   lightTextColor: string;

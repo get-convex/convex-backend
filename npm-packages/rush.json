@@ -533,6 +533,10 @@
       "projectFolder": "dashboard-self-hosted"
     },
     {
+      "packageName": "ui",
+      "projectFolder": "ui"
+    },
+    {
       "packageName": "udf-runtime",
       "projectFolder": "udf-runtime"
     },

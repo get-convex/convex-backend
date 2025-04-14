@@ -11,9 +11,9 @@ import { EmptySection } from "@common/elements/EmptySection";
 import { useNents } from "@common/lib/useNents";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useTableMetadata } from "@common/lib/useTableMetadata";
-import { Loading } from "@common/elements/Loading";
-import { Button } from "@common/elements/Button";
-import { Sheet } from "@common/elements/Sheet";
+import { Loading } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 
 // Example table data for the background
 const EXAMPLE_COLUMNS = ["_id", "name", "email", "_creationTime"];

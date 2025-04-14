@@ -4,10 +4,10 @@ import {
   PlusIcon,
   RocketIcon,
 } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
-import { Callout } from "dashboard-common/elements/Callout";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { useGlobalLocalStorage } from "dashboard-common/lib/useGlobalLocalStorage";
+import { Button } from "@ui/Button";
+import { Callout } from "@ui/Callout";
+import { TextInput } from "@ui/TextInput";
+import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { ProjectCard } from "components/projects/ProjectCard";
 import { useProjects } from "api/projects";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
@@ -21,7 +21,7 @@ import { useCreateProjectModal } from "hooks/useCreateProjectModal";
 import { withAuthenticatedPage } from "lib/withAuthenticatedPage";
 import Head from "next/head";
 import { useState } from "react";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 
 export { getServerSideProps } from "lib/ssr";
 

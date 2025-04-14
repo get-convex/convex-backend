@@ -17,7 +17,7 @@ module.exports = {
   plugins: ["prettier", "tailwindcss"],
   settings: {
     tailwindcss: {
-      config: path.join(__dirname, "./tailwind.config.ts"),
+      config: path.join(__dirname, "../ui/tailwind.config.ts"),
     },
   },
   rules: {
@@ -132,7 +132,7 @@ module.exports = {
           {
             element: "button",
             message:
-              "use elements/Button instead. If you really need a custom button, disable this rule and leave a comment explaining why.",
+              "use @ui/Button instead. If you really need a custom button, disable this rule and leave a comment explaining why.",
           },
           {
             element: "details",

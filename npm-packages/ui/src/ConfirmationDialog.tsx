@@ -1,8 +1,8 @@
 import React, { ReactNode, useState } from "react";
-import { TextInput } from "@common/elements/TextInput";
-import { Button } from "@common/elements/Button";
-import { Spinner } from "@common/elements/Spinner";
-import { Modal } from "@common/elements/Modal";
+import { TextInput } from "@ui/TextInput";
+import { Button } from "@ui/Button";
+import { Spinner } from "@ui/Spinner";
+import { Modal } from "@ui/Modal";
 
 export function ConfirmationDialog({
   onClose,
@@ -56,7 +56,7 @@ export function ConfirmationDialog({
           <>
             <div className="mt-4 text-sm">
               Type{" "}
-              <code className="rounded bg-background-tertiary p-1 text-sm text-content-primary">
+              <code className="bg-background-tertiary text-content-primary rounded p-1 text-sm">
                 {validationText}
               </code>{" "}
               in the box below to confirm.

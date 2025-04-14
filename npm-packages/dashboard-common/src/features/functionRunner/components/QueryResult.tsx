@@ -10,7 +10,7 @@ import {
   getFunctionName,
   makeFunctionReference,
 } from "convex/server";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import * as FunctionTypes from "@common/lib/functions/types";
 import { Result } from "@common/features/functionRunner/components/Result";
 

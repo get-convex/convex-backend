@@ -1,10 +1,10 @@
 import { useAuth0 } from "hooks/useAuth0";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Button } from "dashboard-common/elements/Button";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Sheet } from "@ui/Sheet";
+import { Button } from "@ui/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Spinner } from "@ui/Spinner";
+import { TextInput } from "@ui/TextInput";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 import { RadioGroup } from "@headlessui/react";
 import classNames from "classnames";
@@ -22,7 +22,7 @@ import { UserProfile } from "@auth0/nextjs-auth0/client";
 import { Emails } from "components/profile/Emails";
 import { DiscordAccounts } from "components/profile/DiscordAccounts";
 import { MemberResponse } from "generatedApi";
-import { LoadingTransition } from "dashboard-common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 import { useTheme } from "next-themes";
 
 export { getServerSideProps } from "lib/ssr";

@@ -1,8 +1,8 @@
 import React from "react";
 import { Index, useTableIndexes } from "@common/features/data/lib/api";
-import { Callout } from "@common/elements/Callout";
-import { Spinner } from "@common/elements/Spinner";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Callout } from "@ui/Callout";
+import { Spinner } from "@ui/Spinner";
+import { Tooltip } from "@ui/Tooltip";
 
 function IndexRow({ index }: { index: Index }) {
   const { type, fields } = getIndexDescription(index);

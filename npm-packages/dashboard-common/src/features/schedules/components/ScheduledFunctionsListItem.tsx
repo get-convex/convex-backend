@@ -11,13 +11,13 @@ import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { useCopy } from "@common/lib/useCopy";
 import { DetailPanel } from "@common/elements/DetailPanel";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
-import { Loading } from "@common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { stringifyValue } from "@common/lib/stringifyValue";
 import { prettier } from "@common/lib/format";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
-import { Menu, MenuItem } from "@common/elements/Menu";
-import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import { Menu, MenuItem } from "@ui/Menu";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 
 type JobItemProps = {
   data: { jobs: ScheduledJob[] };

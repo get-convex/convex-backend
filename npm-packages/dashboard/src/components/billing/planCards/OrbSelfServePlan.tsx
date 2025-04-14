@@ -1,5 +1,5 @@
 import { useIsCurrentMemberTeamAdmin } from "api/roles";
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { useSupportFormOpen } from "elements/SupportWidget";
 import { OrbSubscriptionResponse, PlanResponse, Team } from "generatedApi";
 import { useRouter } from "next/router";

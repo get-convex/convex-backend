@@ -5,15 +5,15 @@ import {
   ChevronUpIcon,
   CrossCircledIcon,
 } from "@radix-ui/react-icons";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { Button } from "dashboard-common/elements/Button";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { ConfirmationDialog } from "dashboard-common/elements/ConfirmationDialog";
+import { Spinner } from "@ui/Spinner";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
+import { Tooltip } from "@ui/Tooltip";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { TeamMemberLink } from "elements/TeamMemberLink";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { Doc, Id } from "system-udfs/convex/_generated/dataModel";
 import { formatDistanceStrict } from "date-fns";
 import Link from "next/link";
@@ -23,7 +23,7 @@ import { Infer } from "convex/values";
 import { useCancelImport, useConfirmImport } from "hooks/deploymentApi";
 import { Disclosure } from "@headlessui/react";
 import { useState } from "react";
-import { PuzzlePieceIcon } from "dashboard-common/elements/icons";
+import { PuzzlePieceIcon } from "@common/elements/icons";
 
 function ConfirmImportButton({
   snapshotImport,

@@ -7,15 +7,15 @@ import {
 } from "api/projects";
 import { useCurrentTeam } from "api/teams";
 import React from "react";
-import { Checkbox } from "dashboard-common/elements/Checkbox";
+import { Checkbox } from "@ui/Checkbox";
 import { useHotkeys } from "react-hotkeys-hook";
-import { buttonClasses } from "dashboard-common/elements/Button";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { TimestampDistance } from "dashboard-common/elements/TimestampDistance";
+import { buttonClasses } from "@ui/Button";
+import { Spinner } from "@ui/Spinner";
+import { TimestampDistance } from "@common/elements/TimestampDistance";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { useClickAway } from "react-use";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import { useRouter } from "next/router";
 
 export function CommandPalette() {

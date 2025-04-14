@@ -1,5 +1,5 @@
 import { MagnifyingGlassIcon, PlusIcon } from "@radix-ui/react-icons";
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { useCurrentProject } from "api/projects";
 import { useState } from "react";
 import { Team, ProjectDetails } from "generatedApi";

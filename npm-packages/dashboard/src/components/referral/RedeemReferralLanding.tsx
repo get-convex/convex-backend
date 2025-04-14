@@ -1,8 +1,8 @@
 import { GitHubLogoIcon } from "@radix-ui/react-icons";
 import { logEvent } from "convex-analytics";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { cn } from "dashboard-common/lib/cn";
+import { Sheet } from "@ui/Sheet";
+import { Spinner } from "@ui/Spinner";
+import { cn } from "@ui/cn";
 import { useState } from "react";
 
 export function RedeemReferralLanding({

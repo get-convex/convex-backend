@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { TrashIcon } from "@radix-ui/react-icons";
 import { useDeleteComponent } from "@common/features/settings/lib/api";
-import { Sheet } from "@common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { Nent } from "@common/lib/useNents";
-import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
-import { Button } from "@common/elements/Button";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
+import { Button } from "@ui/Button";
 
 export function Components({ nents }: { nents: Nent[] }) {
   const sortedNents = [...nents]

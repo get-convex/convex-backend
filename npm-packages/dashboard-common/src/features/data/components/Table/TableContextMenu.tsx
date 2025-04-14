@@ -15,7 +15,7 @@ import {
   typeOf,
 } from "system-udfs/convex/_system/frontend/lib/filters";
 import { UrlObject } from "url";
-import { Key } from "@common/elements/KeyboardShortcut";
+import { Key } from "@ui/KeyboardShortcut";
 import { ContextMenu } from "@common/features/data/components/ContextMenu";
 import { PopupState } from "@common/features/data/lib/useToolPopup";
 import { operatorOptions } from "@common/features/data/components/FilterEditor/FilterEditor";

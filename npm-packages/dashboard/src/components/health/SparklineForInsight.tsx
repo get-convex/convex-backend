@@ -8,7 +8,7 @@ import {
 } from "api/insights";
 
 import { Sparklines, SparklinesCurve } from "react-sparklines";
-import { LoadingTransition } from "dashboard-common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 
 export function SparklineForInsight({
   insight,

@@ -1,10 +1,10 @@
 import useSWR from "swr";
 
-import { toast } from "dashboard-common/lib/utils";
-import { Button } from "dashboard-common/elements/Button";
+import { toast } from "@common/lib/utils";
+import { Button } from "@ui/Button";
 import { SymbolIcon } from "@radix-ui/react-icons";
 import { captureMessage } from "@sentry/nextjs";
-import { LocalDevCallout } from "dashboard-common/elements/Callout";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
 
 // To test that this works
 // set the following in your .env.local:

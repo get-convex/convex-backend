@@ -4,7 +4,7 @@ import {
   InfoCircledIcon,
 } from "@radix-ui/react-icons";
 import classNames from "classnames";
-import { Button, buttonClasses } from "dashboard-common/elements/Button";
+import { Button, buttonClasses } from "@ui/Button";
 import { useUnpauseTeam } from "api/teams";
 import { useTeamUsageState } from "api/usage";
 import Link from "next/link";

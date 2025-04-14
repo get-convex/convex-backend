@@ -20,11 +20,11 @@ import { FileModal } from "@common/features/schedules/components/crons/FileModal
 import { CronsTable } from "@common/features/schedules/components/crons/CronsTable";
 import { useCronJobs } from "@common/features/schedules/lib/CronsProvider";
 import { useSourceCode } from "@common/lib/functions/useSourceCode";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { PageContent } from "@common/elements/PageContent";
-import { LoadingTransition } from "@common/elements/Loading";
-import { Sheet } from "@common/elements/Sheet";
-import { Tooltip } from "@common/elements/Tooltip";
+import { LoadingTransition } from "@ui/Loading";
+import { Sheet } from "@ui/Sheet";
+import { Tooltip } from "@ui/Tooltip";
 import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { formatDateTime, msFormat } from "@common/lib/format";
 import { displayName } from "@common/lib/functions/generateFileTree";

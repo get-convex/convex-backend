@@ -2,9 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { useState } from "react";
 import { ToastContainer } from "@common/elements/ToastContainer";
 import { toast } from "@common/lib/utils";
-import { Sheet } from "@common/elements/Sheet";
-import { TextInput } from "@common/elements/TextInput";
-import { Button } from "@common/elements/Button";
+import { Sheet } from "@ui/Sheet";
+import { TextInput } from "@ui/TextInput";
+import { Button } from "@ui/Button";
 
 export default {
   component: ToastContainer,

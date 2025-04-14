@@ -1,14 +1,14 @@
 import React, { useContext } from "react";
 import { LockClosedIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { Disclosure } from "@headlessui/react";
 import { ModuleFunction } from "@common/lib/functions/types";
 import { useCurrentOpenFunction } from "@common/lib/functions/FunctionsProvider";
 import { useCurrentGloballyOpenFunction } from "@common/features/functionRunner/lib/functionRunner";
 import { FunctionIcon } from "@common/elements/icons";
-import { Tooltip } from "@common/elements/Tooltip";
-import { Button } from "@common/elements/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { Button } from "@ui/Button";
 import { sidebarLinkClassNames } from "@common/elements/Sidebar";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 

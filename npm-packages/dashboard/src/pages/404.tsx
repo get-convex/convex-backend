@@ -1,4 +1,4 @@
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { LoginLayout } from "layouts/LoginLayout";
 import { useRouter } from "next/router";
 
@@ -20,7 +20,6 @@ export default function Custom404() {
               onClick={() => {
                 window.location.href = "/";
               }}
-              passHref
               className="flex items-center underline"
             >
               Go back.

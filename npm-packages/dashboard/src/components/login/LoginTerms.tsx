@@ -1,6 +1,6 @@
-import { Button } from "dashboard-common/elements/Button";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { LoadingLogo } from "dashboard-common/elements/Loading";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
+import { LoadingLogo } from "@ui/Loading";
 import { useAcceptOptIns, useHasOptedIn } from "api/optins";
 import { useRouter } from "next/router";
 import { ChangeEvent, useEffect, useState } from "react";

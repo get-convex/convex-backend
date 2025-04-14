@@ -4,7 +4,7 @@ import { Flourish } from "layouts/LoginLayout";
 import Head from "next/head";
 import { useParams } from "next/navigation";
 import Background from "components/login/images/background.svg";
-import { ConvexLogo } from "dashboard-common/elements/ConvexLogo";
+import { ConvexLogo } from "@common/elements/ConvexLogo";
 import { RedeemReferralLanding } from "components/referral/RedeemReferralLanding";
 
 export const getServerSideProps: GetServerSideProps = async ({

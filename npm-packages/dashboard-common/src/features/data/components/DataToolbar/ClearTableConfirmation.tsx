@@ -2,10 +2,10 @@ import { Cursor } from "convex/server";
 import { useContext, useState } from "react";
 import { useMountedState } from "react-use";
 import { useInvalidateShapes } from "@common/features/data/lib/api";
-import { ConfirmationDialog } from "@common/elements/ConfirmationDialog";
+import { ConfirmationDialog } from "@ui/ConfirmationDialog";
 import { toast } from "@common/lib/utils";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { ProgressBar } from "@common/elements/ProgressBar";
+import { ProgressBar } from "@ui/ProgressBar";
 
 export function ClearTableConfirmation({
   numRows,

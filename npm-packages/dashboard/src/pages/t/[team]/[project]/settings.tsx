@@ -1,10 +1,11 @@
 import { DeleteProjectModal } from "components/projects/modals/DeleteProjectModal";
-import { PageContent } from "dashboard-common/elements/PageContent";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Button } from "dashboard-common/elements/Button";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Callout, LocalDevCallout } from "dashboard-common/elements/Callout";
-import { DeploymentType } from "dashboard-common/features/settings/components/DeploymentUrl";
+import { PageContent } from "@common/elements/PageContent";
+import { Loading } from "@ui/Loading";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
+import { LocalDevCallout } from "@common/elements/LocalDevCallout";
+import { Callout } from "@ui/Callout";
+import { DeploymentType } from "@common/features/settings/components/DeploymentUrl";
 import { useDeployments } from "api/deployments";
 import { useCurrentTeam, useTeamEntitlements } from "api/teams";
 import { useCurrentProject } from "api/projects";
@@ -37,7 +38,7 @@ import { MemberProjectRoles } from "components/projects/MemberProjectRoles";
 import { DeploymentAccessTokenList } from "components/deploymentSettings/DeploymentAccessTokenList";
 import { CustomDomains } from "components/projectSettings/CustomDomains";
 import { TransferProject } from "components/projects/TransferProject";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import { AuthorizedApplications } from "components/projectSettings/AuthorizedApplications";
 
 const SECTION_IDS = {

@@ -1,5 +1,5 @@
 import { Meta, StoryObj } from "@storybook/react";
-import { Menu, MenuItem, MenuLink } from "@common/elements/Menu";
+import { Menu, MenuItem, MenuLink } from "@ui/Menu";
 
 export default {
   component: Menu,

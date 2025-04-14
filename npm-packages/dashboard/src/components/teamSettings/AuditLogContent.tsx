@@ -1,4 +1,4 @@
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import {
   AuditLogEventResponse,
   MemberResponse,

@@ -1,6 +1,6 @@
 import { render, cleanup } from "@testing-library/react";
 
-import { PROVISION_PROD_PAGE_NAME } from "dashboard-common/lib/deploymentContext";
+import { PROVISION_PROD_PAGE_NAME } from "@common/lib/deploymentContext";
 import { ProvisionProductionDeploymentPage } from "./ProvisionProductionDeploymentPage";
 
 jest.mock("api/profile", () => {});

@@ -1,15 +1,15 @@
-import { Modal } from "dashboard-common/elements/Modal";
-import { TextInput } from "dashboard-common/elements/TextInput";
-import { Button } from "dashboard-common/elements/Button";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Spinner } from "dashboard-common/elements/Spinner";
+import { Modal } from "@ui/Modal";
+import { TextInput } from "@ui/TextInput";
+import { Button } from "@ui/Button";
+import { Loading } from "@ui/Loading";
+import { Spinner } from "@ui/Spinner";
 import { ReactElement, useState } from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { Team, CreateProjectResponse } from "generatedApi";
 import { useCurrentTeam } from "api/teams";
 import { useCreateProject } from "api/projects";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 
 export function useCreateProjectModal(): [
   ReactElement | null,

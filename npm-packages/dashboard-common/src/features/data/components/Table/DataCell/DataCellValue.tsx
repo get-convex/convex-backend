@@ -1,6 +1,6 @@
 import { forwardRef } from "react";
 import { isInCommonUTCTimestampRange } from "@common/features/data/lib/helpers";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 
 type DataCellValueProps = {
   isDateField: boolean;

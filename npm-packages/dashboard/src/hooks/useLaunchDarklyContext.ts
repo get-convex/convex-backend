@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { User } from "hooks/useAuth0";
 import { createGlobalState } from "react-use";
 import { useQuery } from "convex/react";
-import udfs from "dashboard-common/udfs";
+import udfs from "@common/udfs";
 import { useProfile } from "api/profile";
 import { useCurrentTeam } from "api/teams";
 import { useProjects } from "api/projects";

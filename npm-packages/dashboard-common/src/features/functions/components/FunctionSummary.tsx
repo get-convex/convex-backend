@@ -10,9 +10,9 @@ import { FunctionRunnerDisabledWhilePaused } from "@common/features/functions/co
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { useShowGlobalRunner } from "@common/features/functionRunner/lib/functionRunner";
 import { ModuleFunction } from "@common/lib/functions/types";
-import { Loading } from "@common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { ProductionEditsConfirmationDialog } from "@common/elements/ProductionEditsConfirmationDialog";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 
 export function FunctionSummary({
   currentOpenFunction,

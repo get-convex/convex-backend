@@ -1,6 +1,6 @@
 import { ReactNode, useContext, useMemo } from "react";
 import { useRouter } from "next/router";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { Module } from "system-udfs/convex/_system/frontend/common";
 import { createGlobalState } from "react-use";
 import {
@@ -13,7 +13,7 @@ import { ModuleFunction } from "@common/lib/functions/types";
 import { useListModulesAllNents } from "@common/lib/functions/useListModules";
 import { createContextHook } from "@common/lib/createContextHook";
 import { ComponentId, Nent, useNents } from "@common/lib/useNents";
-import { LoadingLogo } from "@common/elements/Loading";
+import { LoadingLogo } from "@ui/Loading";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 const [FunctionsContext, useFunctions] = createContextHook<

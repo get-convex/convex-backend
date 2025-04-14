@@ -3,8 +3,8 @@ import {
   useAdminKey,
   useDeploymentAuthHeader,
   useDeploymentUrl,
-} from "dashboard-common/lib/deploymentApi";
-import { toast } from "dashboard-common/lib/utils";
+} from "@common/lib/deploymentApi";
+import { toast } from "@common/lib/utils";
 import {
   CompletedExport,
   DatadogSiteLocation,
@@ -13,7 +13,7 @@ import {
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import { logDeploymentEvent } from "convex-analytics";
 import { reportHttpError } from "hooks/fetching";
-import { ConnectedDeploymentContext } from "dashboard-common/lib/deploymentContext";
+import { ConnectedDeploymentContext } from "@common/lib/deploymentContext";
 import { AuthorizeArgs, AuthorizeResponse } from "generatedApi";
 
 export const deviceTokenDeploymentAuth = async (

@@ -34,13 +34,13 @@ import {
 } from "@common/features/logs/lib/interleaveLogs";
 import { DeploymentAuditLogEvent } from "@common/lib/useDeploymentAuditLog";
 import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
-import { Sheet } from "@common/elements/Sheet";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Sheet } from "@ui/Sheet";
+import { Tooltip } from "@ui/Tooltip";
 import { InfiniteScrollList } from "@common/elements/InfiniteScrollList";
-import { Button } from "@common/elements/Button";
-import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { Button } from "@ui/Button";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
-import { TextInput } from "@common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 
 export type LogListProps = {
   logs?: UdfLog[];

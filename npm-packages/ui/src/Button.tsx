@@ -1,8 +1,9 @@
+import React, { forwardRef, useContext } from "react";
 import classNames from "classnames";
-import Link, { LinkProps } from "next/link";
 import { tv } from "tailwind-variants";
-import { forwardRef } from "react";
-import { Tooltip, TooltipSide } from "@common/elements/Tooltip";
+import { Tooltip, TooltipSide } from "@ui/Tooltip";
+import { UrlObject } from "url";
+import { UIContext } from "@ui/UIContext";
 
 export type ButtonProps = {
   children?: React.ReactNode;
@@ -17,9 +18,11 @@ export type ButtonProps = {
   tipSide?: TooltipSide;
 } & (
   | React.ButtonHTMLAttributes<HTMLButtonElement>
-  | (LinkProps & {
+  | {
+      href: React.AnchorHTMLAttributes<HTMLAnchorElement>["href"] | UrlObject;
+      onClick?: React.AnchorHTMLAttributes<HTMLAnchorElement>["onClick"];
       target?: React.AnchorHTMLAttributes<HTMLAnchorElement>["target"];
-    })
+    }
 );
 
 export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
@@ -38,6 +41,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
   },
   ref,
 ) {
+  const Link = useContext(UIContext);
   const { href, onClick, target, type } =
     "href" in props
       ? { ...props, type: undefined }
@@ -76,7 +80,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
   }
   return (
     <Tooltip tip={tip} side={tipSide} wrapsButton>
-      {/* We're allowed to use button here. It's the Button component. */}
+      {/* we're allowed to use button here. It's the Button component */}
       {/* eslint-disable-next-line react/forbid-elements */}
       <button
         // eslint-disable-next-line react/button-has-type

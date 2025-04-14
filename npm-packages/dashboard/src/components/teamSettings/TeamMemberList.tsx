@@ -1,8 +1,8 @@
 import { Team, InvitationResponse, TeamMemberResponse } from "generatedApi";
 
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { LoadingTransition } from "dashboard-common/elements/Loading";
-import { TextInput } from "dashboard-common/elements/TextInput";
+import { Sheet } from "@ui/Sheet";
+import { LoadingTransition } from "@ui/Loading";
+import { TextInput } from "@ui/TextInput";
 import { useState } from "react";
 import { useProjects } from "api/projects";
 import {

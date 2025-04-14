@@ -13,13 +13,13 @@ import {
   PanelResizeHandle,
 } from "react-resizable-panels";
 import { DragHandleDots2Icon } from "@radix-ui/react-icons";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 
 import { PageContent } from "@common/elements/PageContent";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
-import { Tooltip } from "@common/elements/Tooltip";
-import { ClosePanelButton } from "@common/elements/ClosePanelButton";
-import { Button } from "@common/elements/Button";
+import { Tooltip } from "@ui/Tooltip";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
+import { Button } from "@ui/Button";
 
 export function SidebarDetailLayout({
   sidebarComponent,

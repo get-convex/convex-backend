@@ -2,7 +2,7 @@ import {
   formatBytes,
   formatNumber,
   formatNumberCompact,
-} from "dashboard-common/lib/format";
+} from "@common/lib/format";
 
 export type QuantityType =
   // Receives data in units of the given entity name

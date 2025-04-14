@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/router";
 import { useMount } from "react-use";
-import { Sheet } from "@common/elements/Sheet";
-import { Loading } from "@common/elements/Loading";
+import { Sheet } from "@ui/Sheet";
+import { Loading } from "@ui/Loading";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { useSourceCode } from "@common/lib/functions/useSourceCode";
 import { SourceMissingPanel } from "@common/elements/SourceMissingPanel";

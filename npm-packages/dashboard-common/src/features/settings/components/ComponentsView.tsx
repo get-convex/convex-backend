@@ -1,4 +1,4 @@
-import { LoadingTransition } from "@common/elements/Loading";
+import { LoadingTransition } from "@ui/Loading";
 import { DeploymentSettingsLayout } from "@common/layouts/DeploymentSettingsLayout";
 import { useNents } from "@common/lib/useNents";
 import { Components } from "@common/features/settings/components/Components";

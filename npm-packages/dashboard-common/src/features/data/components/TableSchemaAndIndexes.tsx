@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
-import { Loading } from "@common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { IndexList } from "@common/features/data/components/IndexList";
 import {
   TableSchemaContainer,

@@ -1,8 +1,8 @@
 import { SunIcon, MoonIcon, LightningBoltIcon } from "@radix-ui/react-icons";
 import startCase from "lodash/startCase";
 import { useTheme } from "next-themes";
-import { cn } from "@common/lib/cn";
-import { Tooltip } from "./Tooltip";
+import { cn } from "@ui/cn";
+import { Tooltip } from "@ui/Tooltip";
 
 export function ToggleTheme() {
   const { theme: currentTheme, setTheme } = useTheme();

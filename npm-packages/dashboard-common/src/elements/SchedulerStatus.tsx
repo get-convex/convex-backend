@@ -1,12 +1,12 @@
 import { formatDistance } from "date-fns";
 import { useContext, useState } from "react";
 import { BarChartIcon, ResetIcon } from "@radix-ui/react-icons";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { HealthCard } from "@common/elements/HealthCard";
 import { useSchedulerLag } from "@common/lib/appMetrics";
 import { ChartForFunctionRate } from "@common/features/health/components/ChartForFunctionRate";
 import { BigMetric } from "@common/elements/BigMetric";
-import { Button } from "@common/elements/Button";
+import { Button } from "@ui/Button";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 export function SchedulerStatus({ small = false }: { small?: boolean }) {

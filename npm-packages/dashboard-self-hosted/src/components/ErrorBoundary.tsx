@@ -1,7 +1,7 @@
 import { ExitIcon } from "@radix-ui/react-icons";
 import React, { ReactNode, ErrorInfo } from "react";
-import { Button } from "@common/elements/Button";
-import { Sheet } from "@common/elements/Sheet";
+import { Button } from "@ui/Button";
+import { Sheet } from "@ui/Sheet";
 
 interface ErrorBoundaryProps {
   children: ReactNode;

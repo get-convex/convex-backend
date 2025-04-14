@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ClosePanelButton } from "@common/elements/ClosePanelButton";
+import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { Panel } from "react-resizable-panels";
 import { ResizeHandle } from "@common/layouts/SidebarDetailLayout";
 

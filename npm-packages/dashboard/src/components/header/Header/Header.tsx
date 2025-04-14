@@ -5,7 +5,7 @@ import Image from "next/legacy/image";
 import Link from "next/link";
 import { SupportWidget, useSupportFormOpen } from "elements/SupportWidget";
 import { Portal } from "@headlessui/react";
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { useReducer } from "react";
 import { AskAI } from "elements/AskAI";
 import { UserMenu } from "../UserMenu/UserMenu";

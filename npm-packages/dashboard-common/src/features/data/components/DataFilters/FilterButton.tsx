@@ -1,7 +1,7 @@
 import { ChevronDownIcon, MixerHorizontalIcon } from "@radix-ui/react-icons";
 import { FilterExpression } from "system-udfs/convex/_system/frontend/lib/filters";
-import { Button } from "@common/elements/Button";
-import { cn } from "@common/lib/cn";
+import { Button } from "@ui/Button";
+import { cn } from "@ui/cn";
 import { useContext } from "react";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 

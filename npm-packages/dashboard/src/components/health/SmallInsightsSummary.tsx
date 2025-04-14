@@ -1,7 +1,7 @@
 import { useCurrentDeployment } from "api/deployments";
 import { useInsightsPeriod, useInsightsSummary } from "api/insights";
-import { Button } from "dashboard-common/elements/Button";
-import { HealthCard } from "dashboard-common/elements/HealthCard";
+import { Button } from "@ui/Button";
+import { HealthCard } from "@common/elements/HealthCard";
 import { ChevronRightIcon } from "@radix-ui/react-icons";
 import { InsightsSummary } from "./InsightsSummary";
 

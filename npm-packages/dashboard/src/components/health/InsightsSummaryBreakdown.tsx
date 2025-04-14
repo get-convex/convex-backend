@@ -1,6 +1,6 @@
 import { InsightsSummaryData } from "api/insights";
-import { Sheet } from "dashboard-common/elements/Sheet";
-import { Loading } from "dashboard-common/elements/Loading";
+import { Sheet } from "@ui/Sheet";
+import { Loading } from "@ui/Loading";
 import { ProblemForInsight } from "./ProblemForInsight";
 import { ChartForInsight } from "./ChartForInsight";
 import { EventsForInsight } from "./EventsForInsight";

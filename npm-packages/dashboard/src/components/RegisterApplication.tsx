@@ -1,10 +1,10 @@
-import { Button } from "dashboard-common/elements/Button";
-import { TextInput } from "dashboard-common/elements/TextInput";
+import { Button } from "@ui/Button";
+import { TextInput } from "@ui/TextInput";
 import { useFormik } from "formik";
-import { Spinner } from "dashboard-common/elements/Spinner";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Spinner } from "@ui/Spinner";
+import { Sheet } from "@ui/Sheet";
 import { useAuthHeader } from "hooks/fetching";
-import { toast } from "dashboard-common/lib/utils";
+import { toast } from "@common/lib/utils";
 import * as Yup from "yup";
 import { useState } from "react";
 import { useProfile } from "api/profile";

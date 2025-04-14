@@ -16,16 +16,16 @@ import {
   useOCCFailedEvents,
   useOCCRetriedEvents,
 } from "api/insights";
-import { Button } from "dashboard-common/elements/Button";
-import { FunctionNameOption } from "dashboard-common/elements/FunctionNameOption";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
-import { formatBytes, formatNumberCompact } from "dashboard-common/lib/format";
-import { functionIdentifierValue } from "dashboard-common/lib/functions/generateFileTree";
-import { ComponentId, useNents } from "dashboard-common/lib/useNents";
-import { documentHref } from "dashboard-common/lib/utils";
+import { Button } from "@ui/Button";
+import { FunctionNameOption } from "@common/elements/FunctionNameOption";
+import { Loading } from "@ui/Loading";
+import { Tooltip } from "@ui/Tooltip";
+import { formatBytes, formatNumberCompact } from "@common/lib/format";
+import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
+import { ComponentId, useNents } from "@common/lib/useNents";
+import { documentHref } from "@common/lib/utils";
 import { rootComponentPath } from "api/usage";
-import { cn } from "dashboard-common/lib/cn";
+import { cn } from "@ui/cn";
 import Link from "next/link";
 import { useContext } from "react";
 

@@ -4,13 +4,13 @@ import {
   FilterByIndex,
   FilterByIndexRange,
 } from "system-udfs/convex/_system/frontend/lib/filters";
-import { Checkbox } from "@common/elements/Checkbox";
+import { Checkbox } from "@ui/Checkbox";
 import { ObjectEditor } from "@common/elements/ObjectEditor/ObjectEditor";
-import { Combobox, Option } from "@common/elements/Combobox";
+import { Combobox, Option } from "@ui/Combobox";
 import { DateTimePicker } from "@common/features/data/components/FilterEditor/DateTimePicker";
-import { cn } from "@common/lib/cn";
+import { cn } from "@ui/cn";
 import { UNDEFINED_PLACEHOLDER } from "system-udfs/convex/_system/frontend/patchDocumentsFields";
-import { Tooltip } from "@common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import { ExclamationTriangleIcon } from "@radix-ui/react-icons";
 
 export type IndexFilterState = FilterByIndex | FilterByIndexRange;

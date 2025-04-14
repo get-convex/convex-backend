@@ -1,3 +1,3 @@
-import { FunctionsView } from "dashboard-common/features/functions/components/FunctionsView";
+import { FunctionsView } from "@common/features/functions/components/FunctionsView";
 
 export default FunctionsView;

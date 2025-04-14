@@ -1,3 +1,3 @@
-import { HistoryView } from "dashboard-common/features/history/components/HistoryView";
+import { HistoryView } from "@common/features/history/components/HistoryView";
 
 export default HistoryView;

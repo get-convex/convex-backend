@@ -1,8 +1,8 @@
 import React from "react";
 import { Meta, StoryObj } from "@storybook/react";
-import { Callout } from "dashboard-common/elements/Callout";
+import { Callout } from "@ui/Callout";
 import { Formik } from "formik";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import {
   UpgradePlanContent,
   UpgradePlanContentProps,

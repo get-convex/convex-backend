@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { formatDate } from "dashboard-common/lib/format";
+import { formatDate } from "@common/lib/format";
 import { OrbSubscriptionResponse, Team } from "generatedApi";
 import { SubscriptionOverview } from "./SubscriptionOverview";
 

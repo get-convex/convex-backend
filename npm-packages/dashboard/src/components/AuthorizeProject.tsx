@@ -1,21 +1,21 @@
 import { useTeamEntitlements, useTeams } from "api/teams";
 import { useProjects } from "api/projects";
 import Head from "next/head";
-import { Button } from "dashboard-common/elements/Button";
-import { Combobox } from "dashboard-common/elements/Combobox";
+import { Button } from "@ui/Button";
+import { Combobox } from "@ui/Combobox";
 import { useState } from "react";
 import { useFormik } from "formik";
-import { Spinner } from "dashboard-common/elements/Spinner";
+import { Spinner } from "@ui/Spinner";
 import { useAccessToken } from "hooks/useServerSideData";
 import { useRouter } from "next/router";
 import { useCreateTeamAccessToken, useAuthorizeApp } from "api/accessTokens";
 import { LoginLayout } from "layouts/LoginLayout";
-import { Sheet } from "dashboard-common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { PlusIcon, ResetIcon } from "@radix-ui/react-icons";
 import { CreateProjectForm } from "hooks/useCreateProjectModal";
 import { useLaunchDarkly } from "hooks/useLaunchDarkly";
 import Link from "next/link";
-import { Callout } from "dashboard-common/elements/Callout";
+import { Callout } from "@ui/Callout";
 import { captureException } from "@sentry/nextjs";
 
 export function AuthorizeProject() {

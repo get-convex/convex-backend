@@ -1,19 +1,19 @@
 import * as Yup from "yup";
 import React, { useCallback, useEffect, useId } from "react";
-import { TextInput } from "@common/elements/TextInput";
+import { TextInput } from "@ui/TextInput";
 import { Form, Formik, getIn, useFormikContext } from "formik";
-import { Button } from "dashboard-common/elements/Button";
+import { Button } from "@ui/Button";
 import { useSetSpendingLimit } from "api/billing";
-import { Loading } from "dashboard-common/elements/Loading";
-import { Checkbox } from "dashboard-common/elements/Checkbox";
-import { cn } from "dashboard-common/lib/cn";
+import { Loading } from "@ui/Loading";
+import { Checkbox } from "@ui/Checkbox";
+import { cn } from "@ui/cn";
 import {
   ExclamationTriangleIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import { Tooltip } from "dashboard-common/elements/Tooltip";
+import { Tooltip } from "@ui/Tooltip";
 import Link from "next/link";
-import { formatUsd } from "dashboard-common/lib/utils";
+import { formatUsd } from "@common/lib/utils";
 import { Team } from "generatedApi";
 
 export type SpendingLimitsValue = {

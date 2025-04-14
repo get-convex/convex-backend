@@ -13,9 +13,9 @@ import {
   DeploymentAuditLogFilters,
   usePaginatedDeploymentEvents,
 } from "@common/lib/useDeploymentAuditLog";
-import { Loading } from "@common/elements/Loading";
+import { Loading } from "@ui/Loading";
 import { toast } from "@common/lib/utils";
-import { Sheet } from "@common/elements/Sheet";
+import { Sheet } from "@ui/Sheet";
 import { PageContent } from "@common/elements/PageContent";
 import { DeploymentPageTitle } from "@common/elements/DeploymentPageTitle";
 

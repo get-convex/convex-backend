@@ -1,5 +1,8 @@
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
+// eslint-disable-next-line import/no-relative-packages
+import "../../../ui/src/styles/shared.css";
+// eslint-disable-next-line import/no-relative-packages
 import "../elements/styles/commandPalette.css";
 import type { AppProps } from "next/app";
 import { useRouter } from "next/router";
@@ -15,9 +18,9 @@ import { useRouterProgress } from "hooks/useRouterProgress";
 import Head from "next/head";
 import { RefreshSession } from "components/login/RefreshSession";
 import { useDashboardVersion } from "hooks/useDashboardVersion";
-import { Favicon } from "dashboard-common/elements/Favicon";
-import { ThemeConsumer } from "dashboard-common/elements/ThemeConsumer";
-import { ToastContainer } from "dashboard-common/elements/ToastContainer";
+import { Favicon } from "@common/elements/Favicon";
+import { ThemeConsumer } from "@common/elements/ThemeConsumer";
+import { ToastContainer } from "@common/elements/ToastContainer";
 import { ThemeProvider } from "next-themes";
 import { CurrentDeploymentDashboardLayout } from "layouts/DeploymentDashboardLayout";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
@@ -29,7 +32,9 @@ import {
   MaybeLaunchDarklyProvider,
 } from "providers/LaunchDarklyProviders";
 import { CommandPalette } from "elements/CommandPalette";
-import { Fallback } from "./500";
+import { Fallback } from "pages/500";
+import { UIProvider } from "@ui/UIContext";
+import Link from "next/link";
 
 declare global {
   interface Window {
@@ -75,59 +80,61 @@ export default function App({ Component, pageProps }: AppProps) {
         <meta name="description" content="Manage your Convex apps" />
         <Favicon />
       </Head>
-      <PostHogProvider>
-        <ThemeProvider attribute="class" disableTransitionOnChange>
-          <ThemeConsumer />
-          <UserProvider user={pageProps.user}>
-            <RefreshSession />
-            <SentryUserProvider>
-              <ErrorBoundary fallback={Fallback}>
-                <SWRConfig
-                  value={{ ...swrConfig(), fallback: { initialData } }}
-                >
-                  <ToastContainer />
+      <UIProvider Link={Link}>
+        <PostHogProvider>
+          <ThemeProvider attribute="class" disableTransitionOnChange>
+            <ThemeConsumer />
+            <UserProvider user={pageProps.user}>
+              <RefreshSession />
+              <SentryUserProvider>
+                <ErrorBoundary fallback={Fallback}>
+                  <SWRConfig
+                    value={{ ...swrConfig(), fallback: { initialData } }}
+                  >
+                    <ToastContainer />
 
-                  {inUnauthedRoute ? (
-                    <Component {...pageProps} />
-                  ) : (
-                    <MaybeLaunchDarklyProvider>
-                      <LaunchDarklyConsumer>
-                        <div className="flex h-screen flex-col">
-                          <CommandPalette />
-                          <DashboardHeader />
-                          {inDeployment ? (
-                            <DeploymentInfoProvider>
-                              <MaybeDeploymentApiProvider>
-                                <CurrentDeploymentDashboardLayout>
-                                  <ErrorBoundary
-                                    fallback={Fallback}
-                                    key={pathWithoutQueryString}
-                                  >
-                                    <Component {...pageProps} />
-                                  </ErrorBoundary>
-                                </CurrentDeploymentDashboardLayout>
-                              </MaybeDeploymentApiProvider>
-                            </DeploymentInfoProvider>
-                          ) : (
-                            <DashboardLayout>
-                              <ErrorBoundary
-                                fallback={Fallback}
-                                key={pathWithoutQueryString}
-                              >
-                                <Component {...pageProps} />
-                              </ErrorBoundary>
-                            </DashboardLayout>
-                          )}
-                        </div>
-                      </LaunchDarklyConsumer>
-                    </MaybeLaunchDarklyProvider>
-                  )}
-                </SWRConfig>
-              </ErrorBoundary>
-            </SentryUserProvider>
-          </UserProvider>
-        </ThemeProvider>
-      </PostHogProvider>
+                    {inUnauthedRoute ? (
+                      <Component {...pageProps} />
+                    ) : (
+                      <MaybeLaunchDarklyProvider>
+                        <LaunchDarklyConsumer>
+                          <div className="flex h-screen flex-col">
+                            <CommandPalette />
+                            <DashboardHeader />
+                            {inDeployment ? (
+                              <DeploymentInfoProvider>
+                                <MaybeDeploymentApiProvider>
+                                  <CurrentDeploymentDashboardLayout>
+                                    <ErrorBoundary
+                                      fallback={Fallback}
+                                      key={pathWithoutQueryString}
+                                    >
+                                      <Component {...pageProps} />
+                                    </ErrorBoundary>
+                                  </CurrentDeploymentDashboardLayout>
+                                </MaybeDeploymentApiProvider>
+                              </DeploymentInfoProvider>
+                            ) : (
+                              <DashboardLayout>
+                                <ErrorBoundary
+                                  fallback={Fallback}
+                                  key={pathWithoutQueryString}
+                                >
+                                  <Component {...pageProps} />
+                                </ErrorBoundary>
+                              </DashboardLayout>
+                            )}
+                          </div>
+                        </LaunchDarklyConsumer>
+                      </MaybeLaunchDarklyProvider>
+                    )}
+                  </SWRConfig>
+                </ErrorBoundary>
+              </SentryUserProvider>
+            </UserProvider>
+          </ThemeProvider>
+        </PostHogProvider>
+      </UIProvider>
     </>
   );
 }

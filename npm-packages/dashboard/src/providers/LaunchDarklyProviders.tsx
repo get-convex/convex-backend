@@ -7,7 +7,7 @@ import {
   asyncWithLDProvider,
   withLDConsumer,
 } from "launchdarkly-react-client-sdk";
-import { LoadingLogo } from "dashboard-common/elements/Loading";
+import { LoadingLogo } from "@ui/Loading";
 import { flagDefaultsKebabCase } from "hooks/useLaunchDarkly";
 import { useGlobalLDContext, useLDContext } from "hooks/useLaunchDarklyContext";
 import { useAccessToken } from "hooks/useServerSideData";
