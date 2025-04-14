@@ -163,22 +163,6 @@ pub static LEASE_LOST_COOL_DOWN: LazyLock<Duration> = LazyLock::new(|| {
     ))
 });
 
-/// The time for which we will try to preempt a backend after we know it has
-/// lost its lease. Duration of 0 means preemption is disabled, all past serving
-/// records will be assumed shut down and deleted without attempting to preempt
-/// them. We default to 0 in dev as no preemption is necessary.
-///
-/// Try to proactively preempt past backends for up to 2 minutes. This can
-/// be much lower, but we use higher timeout to protect against transiently
-/// unreachable backends. By the time elapses, a network partitioning backend,
-/// should attempt to write, discover it has lost its lease and self-preempt.
-pub static BACKEND_PREEMPTION_TIMEOUT: LazyLock<Duration> = LazyLock::new(|| {
-    Duration::from_secs(env_config(
-        "BACKEND_PREEMPTION_TIMEOUT_SECS",
-        prod_override(0, 120),
-    ))
-});
-
 /// How long the queue must be nonempty before we consider traffic to be
 /// "congested" and start shedding traffic. When we are idle (not congested) it
 /// is how long each request can live in the queue.
