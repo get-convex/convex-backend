@@ -132,12 +132,7 @@ impl<RT: Runtime> S3Storage<RT> {
         key_prefix: String,
         runtime: RT,
     ) -> anyhow::Result<Self> {
-        let config = must_s3_config_from_env()
-            .context("AWS env variables are required when using S3 storage")?
-            .retry_config(RetryConfig::standard())
-            .load()
-            .await;
-        let client = Client::new(&config);
+        let client = s3_client().await?;
         let storage = Self {
             client,
             bucket,
@@ -155,6 +150,22 @@ impl<RT: Runtime> S3Storage<RT> {
         let bucket_name = s3_bucket_name(&use_case)?;
         S3Storage::new_with_prefix(bucket_name, key_prefix, runtime).await
     }
+}
+
+async fn s3_client() -> Result<Client, anyhow::Error> {
+    static S3_CLIENT: tokio::sync::OnceCell<Client> = tokio::sync::OnceCell::const_new();
+    let client = S3_CLIENT
+        .get_or_try_init(|| async {
+            let config = must_s3_config_from_env()
+                .context("AWS env variables are required when using S3 storage")?
+                .retry_config(RetryConfig::standard())
+                .load()
+                .await;
+            anyhow::Ok(Client::new(&config))
+        })
+        .await?
+        .clone();
+    Ok(client)
 }
 
 struct ClientDrivenUpload {
