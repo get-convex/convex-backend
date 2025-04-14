@@ -4,7 +4,7 @@ import udfs from "@common/udfs";
 import {
   CronSpec,
   Module,
-  CronJobWithLastRun,
+  CronJobWithRuns,
   CronJobLog,
 } from "system-udfs/convex/_system/frontend/common";
 import { useInMemoryDocumentCache } from "@common/features/schedules/lib/useInMemoryDocumentCache";
@@ -15,7 +15,7 @@ import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 
 type CronJobsContextType = {
   cronsModule: Module | undefined;
-  cronJobs: CronJobWithLastRun[] | undefined;
+  cronJobs: CronJobWithRuns[] | undefined;
   loading: boolean;
   cronJobRuns: CronJobLog[] | undefined;
 };
@@ -34,7 +34,7 @@ export function CronJobsProviderWithCronHistory({
   // Get functions
   const modules = useListModules();
   // Get cron jobs
-  const cronJobs: CronJobWithLastRun[] | undefined = useQuery(
+  const cronJobs: CronJobWithRuns[] | undefined = useQuery(
     udfs.listCronJobs.default,
     { componentId: useNents().selectedNent?.id || null },
   );
@@ -48,7 +48,7 @@ export function CronJobsProviderWithCronHistory({
 
   // This might be a new typed (source mapped cron jobs) in the future.
   const [orderedCronJobs, cronsModule]: [
-    CronJobWithLastRun[] | undefined,
+    CronJobWithRuns[] | undefined,
     Module | undefined,
   ] = useMemo(() => {
     if (!cronJobs || !modules || !cronJobRuns) return [undefined, undefined];
@@ -74,7 +74,7 @@ export function CronJobsProviderWithCronHistory({
     }
     if (!cronSpecs) return [undefined, cronsModuleInner];
 
-    const cronJobsMap = new Map<string, CronJobWithLastRun>();
+    const cronJobsMap = new Map<string, CronJobWithRuns>();
     for (const cronJob of cronJobs) {
       cronJobsMap.set(cronJob.name, cronJob);
     }

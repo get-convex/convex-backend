@@ -8,7 +8,7 @@ import { ChevronRightIcon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import {
   CronSchedule,
   CronJobLog,
-  CronJobWithLastRun,
+  CronJobWithRuns,
 } from "system-udfs/convex/_system/frontend/common";
 import { useWasmCron } from "@common/features/schedules/lib/useWasmCron";
 import {
@@ -26,6 +26,7 @@ import { Button } from "@common/elements/Button";
 import { DetailPanel } from "@common/elements/DetailPanel";
 import { ReadonlyCode } from "@common/elements/ReadonlyCode";
 import { Sheet } from "@common/elements/Sheet";
+import { Doc } from "system-udfs/convex/_generated/dataModel";
 
 const COLUMN_STYLES = [
   { fontWeight: "500", flex: "2 0 80px", fontSize: "0.875rem" },
@@ -46,7 +47,10 @@ function Name({ value }: CellProps<CronDatum, string>) {
 
 function Schedule({
   value: { schedule },
-}: CellProps<CronDatum, { schedule: CronSchedule; nextDate: Date }>) {
+}: CellProps<
+  CronDatum,
+  { schedule: CronSchedule; nextDate: Date | undefined }
+>) {
   const literal = scheduleLiteral(schedule);
 
   let formattedSchedule = "";
@@ -129,17 +133,17 @@ function PrevNextTs({
 }: CellProps<
   CronDatum,
   {
-    nextDate: Date;
+    nextDate: Date | undefined;
     prevDate: Date;
     prevRun: CronJobLog | undefined;
-    state: CronJobWithLastRun["state"];
+    nextRun: Doc<"_cron_next_run"> | undefined;
   }
 >) {
-  const isRunning = value.state.type === "inProgress";
+  const isRunning = value.nextRun?.state.type === "inProgress";
   return (
     <div className="flex flex-col truncate">
       <PrevTs date={value.prevDate} isRunning={isRunning} run={value.prevRun} />
-      <NextTs value={value.nextDate} />
+      {value.nextDate && <NextTs value={value.nextDate} />}
     </div>
   );
 }
@@ -202,10 +206,12 @@ function Args({ value }: CellProps<CronDatum, JSONValue[]>) {
   );
 }
 
-function cronDatum(cronJob: CronJobWithLastRun) {
-  const { name, cronSpec, nextTs, prevTs, lastRun, state } = cronJob;
-  const nextDate = new Date(Number(nextTs / BigInt("1000000")));
-  const prevDate = prevTs && new Date(Number(prevTs / BigInt("1000000")));
+function cronDatum(cronJob: CronJobWithRuns) {
+  const { name, cronSpec, lastRun, nextRun } = cronJob;
+  const nextDate = nextRun
+    ? new Date(Number(nextRun.nextTs / BigInt("1000000")))
+    : undefined;
+  const prevDate = lastRun && new Date(Number(lastRun.ts / BigInt("1000000")));
   return {
     name,
     schedule: { schedule: cronSpec.cronSchedule, nextDate },
@@ -213,7 +219,7 @@ function cronDatum(cronJob: CronJobWithLastRun) {
       prevDate,
       nextDate,
       prevRun: lastRun,
-      state,
+      state: nextRun?.state,
     },
     udfPath: cronSpec.udfPath,
     udfArgs:
@@ -225,7 +231,7 @@ function cronDatum(cronJob: CronJobWithLastRun) {
 }
 type CronDatum = ReturnType<typeof cronDatum>;
 
-export function CronsTable({ cronJobs }: { cronJobs: CronJobWithLastRun[] }) {
+export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
   const columns = useMemo(
     () =>
       [

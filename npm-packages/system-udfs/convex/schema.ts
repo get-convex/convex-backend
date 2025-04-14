@@ -241,6 +241,11 @@ const backendStateTable = defineTable({
   state: deploymentState,
 });
 
+export const cronJobState = v.union(
+  v.object({ type: v.literal("pending") }),
+  v.object({ type: v.literal("inProgress") }),
+);
+
 export default defineSchema({
   _tables: defineTable({
     name: v.string(),
@@ -319,15 +324,15 @@ export default defineSchema({
   _cron_jobs: defineTable({
     name: v.string(),
     cronSpec: analyzedCronSpec,
-    state: v.union(
-      v.object({ type: v.literal("pending") }),
-      v.object({ type: v.literal("inProgress") }),
-    ),
-    nextTs: v.int64(),
+  }).index("by_name", ["name"]),
+  _cron_next_run: defineTable({
+    cronJobId: v.id("_cron_jobs"),
+    state: cronJobState,
     prevTs: v.union(v.int64(), v.null()),
+    nextTs: v.int64(),
   })
-    .index("by_next_ts", ["nextTs"])
-    .index("by_name", ["name"]),
+    .index("by_cron_job_id", ["cronJobId"])
+    .index("by_next_ts", ["nextTs"]),
   _cron_job_logs: defineTable({
     name: v.string(),
     ts: v.int64(),

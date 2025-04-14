@@ -13,8 +13,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  CronJob,
   CronJobLog,
+  CronJobWithRuns,
 } from "system-udfs/convex/_system/frontend/common";
 import { FileModal } from "@common/features/schedules/components/crons/FileModal";
 import { CronsTable } from "@common/features/schedules/components/crons/CronsTable";
@@ -92,7 +92,7 @@ function Details({
   cronJob,
   cronJobRuns,
 }: {
-  cronJob: CronJob;
+  cronJob: CronJobWithRuns;
   cronJobRuns: CronJobLog[];
 }) {
   const router = useRouter();
@@ -100,7 +100,7 @@ function Details({
     delete router.query.id;
     void router.push({ query: router.query });
   };
-  const currentlyRunning = cronJob.state.type === "inProgress";
+  const currentlyRunning = cronJob.nextRun?.state.type === "inProgress";
 
   return (
     <div className="flex h-full w-full max-w-6xl flex-col gap-4">
@@ -193,13 +193,19 @@ function CronJobLogListItem({ cronJobLog }: { cronJobLog: CronJobLog }) {
 /**
  * The next scheduled execution, or the currently running execution.
  */
-export function TopCronJobLogListItem({ cronJob }: { cronJob: CronJob }) {
+export function TopCronJobLogListItem({
+  cronJob,
+}: {
+  cronJob: CronJobWithRuns;
+}) {
   const url = useFunctionUrl(cronJob.cronSpec.udfPath);
 
-  const timestamp = formatDateTime(
-    new Date(Number(cronJob.nextTs / BigInt(1000000))),
-  );
-  const currentlyRunning = cronJob.state.type === "inProgress";
+  const { nextRun } = cronJob;
+  const nextTs = nextRun?.nextTs;
+  const timestamp = nextTs
+    ? formatDateTime(new Date(Number(nextTs / BigInt(1000000))))
+    : null;
+  const currentlyRunning = nextRun?.state.type === "inProgress";
 
   // Make a quickly-updating timer to make function execution feel fast.
   // To avoid a React render every frame (often fine but can gum things up),
@@ -210,7 +216,7 @@ export function TopCronJobLogListItem({ cronJob }: { cronJob: CronJob }) {
       let handle = 0;
       const update = () => {
         if (estRuntimeRef.current) {
-          const start = new Date(Number(cronJob.nextTs) / 1000000);
+          const start = new Date(Number(nextTs) / 1000000);
           const s = msFormat(Date.now() - +start);
           estRuntimeRef.current.textContent = s;
           requestAnimationFrame(update);
@@ -219,7 +225,7 @@ export function TopCronJobLogListItem({ cronJob }: { cronJob: CronJob }) {
       handle = requestAnimationFrame(update);
       return () => cancelAnimationFrame(handle);
     }
-  }, [currentlyRunning, cronJob.nextTs]);
+  }, [currentlyRunning, nextTs]);
 
   const textColor = currentlyRunning
     ? "text-content-primary"
@@ -228,7 +234,9 @@ export function TopCronJobLogListItem({ cronJob }: { cronJob: CronJob }) {
     <div className="flex items-start gap-4 font-mono text-xs">
       <div className="flex flex-col gap-2">
         <div className="flex h-6 items-center gap-4">
-          <div className={`${textColor} whitespace-nowrap`}>{timestamp}</div>
+          <div className={`${textColor} whitespace-nowrap`}>
+            {timestamp ?? "unknown"}
+          </div>
           <div
             className={`${textColor} w-14 whitespace-nowrap text-right text-content-secondary`}
           >

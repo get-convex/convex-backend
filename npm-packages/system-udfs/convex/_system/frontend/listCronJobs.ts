@@ -1,11 +1,11 @@
-import { CronJob, CronJobWithLastRun } from "./common";
+import { CronJob, CronJobWithRuns } from "./common";
 import { queryPrivateSystem } from "../secretSystemTables";
 import { v } from "convex/values";
 export default queryPrivateSystem({
   args: { componentId: v.optional(v.union(v.string(), v.null())) },
-  handler: async ({ db }): Promise<CronJobWithLastRun[]> => {
+  handler: async ({ db }): Promise<CronJobWithRuns[]> => {
     const jobs: CronJob[] = await db.query("_cron_jobs").collect();
-    const jobsWithLastRun: CronJobWithLastRun[] = [];
+    const jobsWithRuns: CronJobWithRuns[] = [];
 
     for (const job of jobs) {
       const lastRun = await db
@@ -13,12 +13,17 @@ export default queryPrivateSystem({
         .withIndex("by_name_and_ts", (q) => q.eq("name", job.name))
         .order("desc")
         .first();
-      jobsWithLastRun.push({
+      const nextRun = await db
+        .query("_cron_next_run")
+        .withIndex("by_cron_job_id", (q) => q.eq("cronJobId", job._id))
+        .first();
+      jobsWithRuns.push({
         ...job,
-        lastRun: lastRun || null,
+        lastRun: lastRun,
+        nextRun: nextRun,
       });
     }
 
-    return jobsWithLastRun;
+    return jobsWithRuns;
   },
 });
