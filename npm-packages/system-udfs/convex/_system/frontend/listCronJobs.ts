@@ -17,6 +17,9 @@ export default queryPrivateSystem({
         .query("_cron_next_run")
         .withIndex("by_cron_job_id", (q) => q.eq("cronJobId", job._id))
         .first();
+      if (nextRun === null) {
+        throw new Error("No next run found for cron job");
+      }
       jobsWithRuns.push({
         ...job,
         lastRun: lastRun,

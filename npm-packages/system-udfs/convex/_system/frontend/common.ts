@@ -97,9 +97,8 @@ export type CronSpec = Doc<"_cron_jobs">["cronSpec"];
 export type CronSchedule = Doc<"_cron_jobs">["cronSpec"]["cronSchedule"];
 export type CronJobLog = Doc<"_cron_job_logs">;
 export type CronJobWithRuns = Doc<"_cron_jobs"> & {
-  // only undefined while feature-flagged (but still might be null)
-  lastRun: CronJobLog | null | undefined;
-  nextRun: Doc<"_cron_next_run"> | null | undefined;
+  lastRun: CronJobLog | null;
+  nextRun: Doc<"_cron_next_run">;
 };
 
 export type Modules = Map<string, Module>;

@@ -100,7 +100,7 @@ function Details({
     delete router.query.id;
     void router.push({ query: router.query });
   };
-  const currentlyRunning = cronJob.nextRun?.state.type === "inProgress";
+  const currentlyRunning = cronJob.nextRun.state.type === "inProgress";
 
   return (
     <div className="flex h-full w-full max-w-6xl flex-col gap-4">
@@ -201,11 +201,9 @@ export function TopCronJobLogListItem({
   const url = useFunctionUrl(cronJob.cronSpec.udfPath);
 
   const { nextRun } = cronJob;
-  const nextTs = nextRun?.nextTs;
-  const timestamp = nextTs
-    ? formatDateTime(new Date(Number(nextTs / BigInt(1000000))))
-    : null;
-  const currentlyRunning = nextRun?.state.type === "inProgress";
+  const { nextTs, state } = nextRun;
+  const timestamp = formatDateTime(new Date(Number(nextTs / BigInt(1000000))));
+  const currentlyRunning = state.type === "inProgress";
 
   // Make a quickly-updating timer to make function execution feel fast.
   // To avoid a React render every frame (often fine but can gum things up),

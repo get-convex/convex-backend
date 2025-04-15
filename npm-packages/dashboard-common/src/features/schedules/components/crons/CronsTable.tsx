@@ -136,10 +136,10 @@ function PrevNextTs({
     nextDate: Date | undefined;
     prevDate: Date;
     prevRun: CronJobLog | undefined;
-    nextRun: Doc<"_cron_next_run"> | undefined;
+    nextRun: Doc<"_cron_next_run">;
   }
 >) {
-  const isRunning = value.nextRun?.state.type === "inProgress";
+  const isRunning = value.nextRun.state.type === "inProgress";
   return (
     <div className="flex flex-col truncate">
       <PrevTs date={value.prevDate} isRunning={isRunning} run={value.prevRun} />
@@ -208,9 +208,7 @@ function Args({ value }: CellProps<CronDatum, JSONValue[]>) {
 
 function cronDatum(cronJob: CronJobWithRuns) {
   const { name, cronSpec, lastRun, nextRun } = cronJob;
-  const nextDate = nextRun
-    ? new Date(Number(nextRun.nextTs / BigInt("1000000")))
-    : undefined;
+  const nextDate = new Date(Number(nextRun.nextTs / BigInt("1000000")));
   const prevDate = lastRun && new Date(Number(lastRun.ts / BigInt("1000000")));
   return {
     name,
@@ -219,7 +217,7 @@ function cronDatum(cronJob: CronJobWithRuns) {
       prevDate,
       nextDate,
       prevRun: lastRun,
-      state: nextRun?.state,
+      state: nextRun.state,
     },
     udfPath: cronSpec.udfPath,
     udfArgs:
