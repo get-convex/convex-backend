@@ -1,3 +1,4 @@
+import { omit } from "lodash-es";
 import {
   ComponentType,
   createContext,
@@ -45,7 +46,7 @@ function DefaultLink({
           ? href
           : `${href.pathname}${encodeQuery(href.query)}${href.hash || ""}`
       }
-      {...props}
+      {...omit(props, "passHref")}
     >
       {children}
     </a>
