@@ -30,6 +30,8 @@ import { DeploymentList } from "components/DeploymentList";
 import { checkDeploymentInfo } from "lib/checkDeploymentInfo";
 import { ConvexCloudReminderToast } from "components/ConvexCloudReminderToast";
 import { z } from "zod";
+import { UIProvider } from "@ui/UIContext";
+import Link from "next/link";
 
 function App({
   Component,
@@ -53,28 +55,30 @@ function App({
         <meta name="description" content="Manage your Convex apps" />
         <Favicon />
       </Head>
-      <ThemeProvider attribute="class" disableTransitionOnChange>
-        <ThemeConsumer />
-        <ToastContainer />
-        <div className="flex h-screen flex-col">
-          <DeploymentInfoProvider
-            deploymentUrl={deploymentUrl}
-            adminKey={adminKey}
-            defaultListDeploymentsApiUrl={defaultListDeploymentsApiUrl}
-          >
-            <DeploymentApiProvider deploymentOverride="local">
-              <WaitForDeploymentApi>
-                <DeploymentDashboardLayout>
-                  <>
-                    <Component {...pageProps} />
-                    <ConvexCloudReminderToast />
-                  </>
-                </DeploymentDashboardLayout>
-              </WaitForDeploymentApi>
-            </DeploymentApiProvider>
-          </DeploymentInfoProvider>
-        </div>
-      </ThemeProvider>
+      <UIProvider Link={Link}>
+        <ThemeProvider attribute="class" disableTransitionOnChange>
+          <ThemeConsumer />
+          <ToastContainer />
+          <div className="flex h-screen flex-col">
+            <DeploymentInfoProvider
+              deploymentUrl={deploymentUrl}
+              adminKey={adminKey}
+              defaultListDeploymentsApiUrl={defaultListDeploymentsApiUrl}
+            >
+              <DeploymentApiProvider deploymentOverride="local">
+                <WaitForDeploymentApi>
+                  <DeploymentDashboardLayout>
+                    <>
+                      <Component {...pageProps} />
+                      <ConvexCloudReminderToast />
+                    </>
+                  </DeploymentDashboardLayout>
+                </WaitForDeploymentApi>
+              </DeploymentApiProvider>
+            </DeploymentInfoProvider>
+          </div>
+        </ThemeProvider>
+      </UIProvider>
     </>
   );
 }
