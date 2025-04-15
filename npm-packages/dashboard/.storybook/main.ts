@@ -5,7 +5,7 @@ const config: StorybookConfig = {
   stories: [
     "../src/**/*.stories.@(js|jsx|ts|tsx)",
     "../../dashboard-common/src/**/*.stories.@(js|jsx|ts|tsx)",
-    "../../ui/src/**/*.stories.@(js|jsx|ts|tsx)",
+    "../../@convex-dev/design-system/src/**/*.stories.@(js|jsx|ts|tsx)",
   ],
   addons: [
     "@storybook/addon-links",
@@ -29,7 +29,10 @@ const config: StorybookConfig = {
           alias: {
             ...config.resolve?.alias,
             "@common": path.resolve(__dirname, "../../dashboard-common/src"),
-            "@ui": path.resolve(__dirname, "../../ui/src"),
+            "@ui": path.resolve(
+              __dirname,
+              "../../@convex-dev/design-system/src",
+            ),
           },
         };
 

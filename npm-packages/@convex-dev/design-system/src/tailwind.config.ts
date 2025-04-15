@@ -1,5 +1,6 @@
 import tailwindScrollbar from "tailwind-scrollbar";
 import tailwindForms from "@tailwindcss/forms";
+import { Config } from "tailwindcss";
 
 export const numberedColors = {
   red: {
@@ -157,12 +158,11 @@ export const utilColors = {
   },
 };
 
-// eslint-disable-next-line import/no-default-export
-export default {
+const config: Config = {
   darkMode: "class",
   content: [
-    "../ui/src/**/*.{js,ts,jsx,tsx}",
-    "../ui/src/*.{js,ts,jsx,tsx}",
+    "../@convex-dev/design-system/src/**/*.{js,ts,jsx,tsx}",
+    "../@convex-dev/design-system/src/*.{js,ts,jsx,tsx}",
     "../dashboard/src/**/*.{js,ts,jsx,tsx}",
     "../dashboard-common/src/**/*.{js,ts,jsx,tsx}",
     "../dashboard-self-hosted/src/**/*.{js,ts,jsx,tsx}",
@@ -188,16 +188,16 @@ export default {
         },
         blinkFill: {
           "0%": {
-            fillOpacity: 1,
-            opacity: 1,
+            fillOpacity: "1",
+            opacity: "1",
           },
           "50%": {
-            fillOpacity: 0.75,
-            opacity: 0.75,
+            fillOpacity: "0.75",
+            opacity: "0.75",
           },
           "100%": {
-            fillOpacity: 1,
-            opacity: 1,
+            fillOpacity: "1",
+            opacity: "1",
           },
         },
         shimmer: {
@@ -207,13 +207,13 @@ export default {
         },
         blink: {
           "0%": {
-            opacity: 1,
+            opacity: "1",
           },
           "50%": {
-            opacity: 0.5,
+            opacity: "0.5",
           },
           "100%": {
-            opacity: 1,
+            opacity: "1",
           },
         },
         vhs: {
@@ -251,10 +251,10 @@ export default {
         },
         fadeIn: {
           "0%": {
-            opacity: 0,
+            opacity: "0",
           },
           "100%": {
-            opacity: 1,
+            opacity: "1",
           },
         },
         indeterminateProgressBar: {
@@ -295,3 +295,6 @@ export default {
     tailwindForms({ strategy: "class" }),
   ],
 };
+
+// eslint-disable-next-line import/no-default-export
+export default config;

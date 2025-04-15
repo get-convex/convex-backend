@@ -1,7 +1,7 @@
 // eslint-disable-next-line import/no-relative-packages
 import "../../../dashboard-common/src/styles/globals.css";
 // eslint-disable-next-line import/no-relative-packages
-import "../../../ui/src/styles/shared.css";
+import "../../../@convex-dev/design-system/src/styles/shared.css";
 import { AppProps } from "next/app";
 import Head from "next/head";
 import { useQuery } from "convex/react";

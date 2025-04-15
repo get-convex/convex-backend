@@ -18,7 +18,7 @@
     "baseUrl": "src",
     "customConditions": ["convex-internal-types"],
     "paths": {
-      "@ui/*": ["../../ui/src/*"],
+      "@ui/*": ["../../@convex-dev/design-system/src/*"],
       "@common/*": ["../../dashboard-common/src/*"]
     }
   },

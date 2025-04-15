@@ -1,0 +1,159 @@
+{
+  "name": "@convex-dev/design-system",
+  "version": "0.1.2",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "package.json"
+  ],
+  "scripts": {
+    "build": "tsc && tsc-alias && mkdir -p dist/styles && cp src/styles/shared.css dist/styles/shared.css",
+    "lint": "eslint ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'",
+    "lint:fix": "eslint --fix ./src --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.stories.tsx'"
+  },
+  "peerDependencies": {
+    "@radix-ui/react-icons": "~1.3.0",
+    "react": "^18.0.0",
+    "tailwindcss": "^3.0.0",
+    "tailwind-scrollbar": "^3.0.0",
+    "@tailwindcss/forms": "^0.5.6"
+  },
+  "dependencies": {
+    "clsx": "2.1.1",
+    "@headlessui/react": "1.7.19",
+    "@radix-ui/react-tooltip": "~1.1.0",
+    "classnames": "^2.3.2",
+    "fuzzy": "~0.1.3",
+    "lodash": "~4.17.21",
+    "react-dom": "^18.0.0",
+    "react-popper": "^2.3.0",
+    "react-use": "~17.6.0",
+    "tailwind-merge": "^1.14.0",
+    "tailwind-variants": "~0.2.0"
+  },
+  "devDependencies": {
+    "@jest/types": "^29.6.0",
+    "@storybook/react": "^7.6.16",
+    "@tailwindcss/forms": "^0.5.6",
+    "@testing-library/dom": "~10.4.0",
+    "@testing-library/jest-dom": "~6.6.0",
+    "@testing-library/react": "~16.2.0",
+    "@testing-library/user-event": "~14.6.0",
+    "@types/jest": "^27.0.0",
+    "@types/lodash": "~4.17.0",
+    "@types/node": "^18.17.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@types/testing-library__jest-dom": "~5.14.5",
+    "@typescript-eslint/eslint-plugin": "^6.7.4",
+    "@typescript-eslint/parser": "^6.7.4",
+    "eslint": "^8.29.0",
+    "eslint-config-airbnb": "^19.0.4",
+    "eslint-config-airbnb-typescript": "^17.0.0",
+    "eslint-config-next": "~13.4.16",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.30.0",
+    "eslint-plugin-jsx-a11y": "^6.6.0",
+    "eslint-plugin-prettier": "^4.1.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-tailwindcss": "~3.12.1",
+    "jest": "^29.6.0",
+    "jest-environment-jsdom": "^29.5.0",
+    "postcss": "^8.4.19",
+    "prettier": "3.5.2",
+    "prettier-plugin-tailwindcss": "~0.3.0",
+    "tailwindcss": "^3.2.4",
+    "tailwind-scrollbar": "3.0.3",
+    "typescript": "~5.0.3",
+    "tsc-alias": "~1.8.15"
+  },
+  "exports": {
+    "./Button": {
+      "import": "./dist/Button.jsx",
+      "types": "./dist/Button.d.ts"
+    },
+    "./Callout": {
+      "import": "./dist/Callout.jsx",
+      "types": "./dist/Callout.d.ts"
+    },
+    "./Checkbox": {
+      "import": "./dist/Checkbox.jsx",
+      "types": "./dist/Checkbox.d.ts"
+    },
+    "./ConfirmationDialog": {
+      "import": "./dist/ConfirmationDialog.jsx",
+      "types": "./dist/ConfirmationDialog.d.ts"
+    },
+    "./ClosePanelButton": {
+      "import": "./dist/ClosePanelButton.jsx",
+      "types": "./dist/ClosePanelButton.d.ts"
+    },
+    "./Combobox": {
+      "import": "./dist/Combobox.jsx",
+      "types": "./dist/Combobox.d.ts"
+    },
+    "./KeyboardShortcut": {
+      "import": "./dist/KeyboardShortcut.jsx",
+      "types": "./dist/KeyboardShortcut.d.ts"
+    },
+    "./Loading": {
+      "import": "./dist/Loading.jsx",
+      "types": "./dist/Loading.d.ts"
+    },
+    "./Menu": {
+      "import": "./dist/Menu.jsx",
+      "types": "./dist/Menu.d.ts"
+    },
+    "./Modal": {
+      "import": "./dist/Modal.jsx",
+      "types": "./dist/Modal.d.ts"
+    },
+    "./MultiSelectCombobox": {
+      "import": "./dist/MultiSelectCombobox.jsx",
+      "types": "./dist/MultiSelectCombobox.d.ts"
+    },
+    "./Popover": {
+      "import": "./dist/Popover.jsx",
+      "types": "./dist/Popover.d.ts"
+    },
+    "./ProgressBar": {
+      "import": "./dist/ProgressBar.jsx",
+      "types": "./dist/ProgressBar.d.ts"
+    },
+    "./Sheet": {
+      "import": "./dist/Sheet.jsx",
+      "types": "./dist/Sheet.d.ts"
+    },
+    "./Spinner": {
+      "import": "./dist/Spinner.jsx",
+      "types": "./dist/Spinner.d.ts"
+    },
+    "./Tab": {
+      "import": "./dist/Tab.jsx",
+      "types": "./dist/Tab.d.ts"
+    },
+    "./TextInput": {
+      "import": "./dist/TextInput.jsx",
+      "types": "./dist/TextInput.d.ts"
+    },
+    "./Tooltip": {
+      "import": "./dist/Tooltip.jsx",
+      "types": "./dist/Tooltip.d.ts"
+    },
+    "./UIContext": {
+      "import": "./dist/UIContext.jsx",
+      "types": "./dist/UIContext.d.ts"
+    },
+    "./styles/shared.css": {
+      "import": "./dist/styles/shared.css",
+      "types": "./dist/styles/shared.css"
+    },
+    "./tailwind.config": {
+      "import": "./dist/tailwind.config.js",
+      "types": "./dist/tailwind.config.d.ts",
+      "default": "./dist/tailwind.config.js"
+    }
+  }
+}

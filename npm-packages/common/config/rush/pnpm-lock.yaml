@@ -16,6 +16,154 @@ importers:
 
   .: {}
 
+  ../../@convex-dev/design-system:
+    dependencies:
+      '@headlessui/react':
+        specifier: 1.7.19
+        version: 1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-icons':
+        specifier: ~1.3.0
+        version: 1.3.2(react@18.3.1)
+      '@radix-ui/react-tooltip':
+        specifier: ~1.1.0
+        version: 1.1.7(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      classnames:
+        specifier: ^2.3.2
+        version: 2.5.1
+      clsx:
+        specifier: 2.1.1
+        version: 2.1.1
+      fuzzy:
+        specifier: ~0.1.3
+        version: 0.1.3
+      lodash:
+        specifier: ~4.17.21
+        version: 4.17.21
+      react:
+        specifier: ^18.0.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.0.0
+        version: 18.3.1(react@18.3.1)
+      react-popper:
+        specifier: ^2.3.0
+        version: 2.3.0(@popperjs/core@2.11.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-use:
+        specifier: ~17.6.0
+        version: 17.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      tailwind-merge:
+        specifier: ^1.14.0
+        version: 1.14.0
+      tailwind-variants:
+        specifier: ~0.2.0
+        version: 0.2.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+    devDependencies:
+      '@jest/types':
+        specifier: ^29.6.0
+        version: 29.6.3
+      '@storybook/react':
+        specifier: ^7.6.16
+        version: 7.6.20(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4)
+      '@tailwindcss/forms':
+        specifier: ^0.5.6
+        version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+      '@testing-library/dom':
+        specifier: ~10.4.0
+        version: 10.4.0
+      '@testing-library/jest-dom':
+        specifier: ~6.6.0
+        version: 6.6.3
+      '@testing-library/react':
+        specifier: ~16.2.0
+        version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@testing-library/user-event':
+        specifier: ~14.6.0
+        version: 14.6.1(@testing-library/dom@10.4.0)
+      '@types/jest':
+        specifier: ^27.0.0
+        version: 27.5.2
+      '@types/lodash':
+        specifier: ~4.17.0
+        version: 4.17.14
+      '@types/node':
+        specifier: ^18.17.0
+        version: 18.19.70
+      '@types/react':
+        specifier: ^18.0.0
+        version: 18.3.18
+      '@types/react-dom':
+        specifier: ^18.0.0
+        version: 18.3.5(@types/react@18.3.18)
+      '@types/testing-library__jest-dom':
+        specifier: ~5.14.5
+        version: 5.14.9
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^6.7.4
+        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint@8.57.1)(typescript@5.0.4)
+      '@typescript-eslint/parser':
+        specifier: ^6.7.4
+        version: 6.21.0(eslint@8.57.1)(typescript@5.0.4)
+      eslint:
+        specifier: ^8.29.0
+        version: 8.57.1
+      eslint-config-airbnb:
+        specifier: ^19.0.4
+        version: 19.0.4(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint-plugin-jsx-a11y@6.10.2(eslint@8.57.1))(eslint-plugin-react-hooks@4.6.2(eslint@8.57.1))(eslint-plugin-react@7.37.3(eslint@8.57.1))(eslint@8.57.1)
+      eslint-config-airbnb-typescript:
+        specifier: ^17.0.0
+        version: 17.1.0(@typescript-eslint/eslint-plugin@6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint@8.57.1)(typescript@5.0.4))(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint@8.57.1)
+      eslint-config-next:
+        specifier: ~13.4.16
+        version: 13.4.19(eslint@8.57.1)(typescript@5.0.4)
+      eslint-config-prettier:
+        specifier: ^9.1.0
+        version: 9.1.0(eslint@8.57.1)
+      eslint-plugin-import:
+        specifier: ^2.30.0
+        version: 2.31.0(eslint@8.57.1)
+      eslint-plugin-jsx-a11y:
+        specifier: ^6.6.0
+        version: 6.10.2(eslint@8.57.1)
+      eslint-plugin-prettier:
+        specifier: ^4.1.0
+        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2)
+      eslint-plugin-react:
+        specifier: ^7.37.2
+        version: 7.37.3(eslint@8.57.1)
+      eslint-plugin-react-hooks:
+        specifier: ^4.6.2
+        version: 4.6.2(eslint@8.57.1)
+      eslint-plugin-tailwindcss:
+        specifier: ~3.12.1
+        version: 3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+      jest:
+        specifier: ^29.6.0
+        version: 29.7.0(@types/node@18.19.70)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+      jest-environment-jsdom:
+        specifier: ^29.5.0
+        version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
+      postcss:
+        specifier: ^8.4.19
+        version: 8.4.49
+      prettier:
+        specifier: 3.5.2
+        version: 3.5.2
+      prettier-plugin-tailwindcss:
+        specifier: ~0.3.0
+        version: 0.3.0(prettier@3.5.2)
+      tailwind-scrollbar:
+        specifier: 3.0.3
+        version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
+      tailwindcss:
+        specifier: ^3.2.4
+        version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
+      tsc-alias:
+        specifier: ~1.8.15
+        version: 1.8.15
+      typescript:
+        specifier: ~5.0.3
+        version: 5.0.4
+
   ../../@convex-dev/eslint-plugin:
     dependencies:
       '@types/eslint':
@@ -598,6 +746,9 @@ importers:
       '@auth0/nextjs-auth0':
         specifier: 3.5.0
         version: 3.5.0(next@14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))
+      '@convex-dev/design-system':
+        specifier: workspace:*
+        version: link:../@convex-dev/design-system
       '@headlessui/react':
         specifier: 1.7.19
         version: 1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -703,9 +854,6 @@ importers:
       system-udfs:
         specifier: workspace:*
         version: link:../system-udfs
-      ui:
-        specifier: workspace:*
-        version: link:../ui
       yup:
         specifier: ~0.32.11
         version: 0.32.11
@@ -914,6 +1062,9 @@ importers:
 
   ../../dashboard-common:
     dependencies:
+      '@convex-dev/design-system':
+        specifier: workspace:*
+        version: link:../@convex-dev/design-system
       '@floating-ui/react':
         specifier: ^0.27.0
         version: 0.27.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -1061,9 +1212,6 @@ importers:
       tailwind-variants:
         specifier: ~0.2.0
         version: 0.2.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
-      ui:
-        specifier: workspace:*
-        version: link:../ui
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -1203,6 +1351,9 @@ importers:
 
   ../../dashboard-self-hosted:
     dependencies:
+      '@convex-dev/design-system':
+        specifier: workspace:*
+        version: link:../@convex-dev/design-system
       '@radix-ui/react-icons':
         specifier: ~1.3.0
         version: 1.3.2(react@18.3.1)
@@ -1230,9 +1381,6 @@ importers:
       system-udfs:
         specifier: workspace:*
         version: link:../system-udfs
-      ui:
-        specifier: workspace:*
-        version: link:../ui
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -4490,151 +4638,6 @@ importers:
       '@types/node':
         specifier: ^18.17.0
         version: 18.19.70
-      typescript:
-        specifier: ~5.0.3
-        version: 5.0.4
-
-  ../../ui:
-    dependencies:
-      '@headlessui/react':
-        specifier: 1.7.19
-        version: 1.7.19(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@radix-ui/react-icons':
-        specifier: ~1.3.0
-        version: 1.3.2(react@18.3.1)
-      '@radix-ui/react-tooltip':
-        specifier: ~1.1.0
-        version: 1.1.7(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      classnames:
-        specifier: ^2.3.2
-        version: 2.5.1
-      clsx:
-        specifier: 2.1.1
-        version: 2.1.1
-      fuzzy:
-        specifier: ~0.1.3
-        version: 0.1.3
-      lodash:
-        specifier: ~4.17.21
-        version: 4.17.21
-      react:
-        specifier: ^18.0.0
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.0.0
-        version: 18.3.1(react@18.3.1)
-      react-popper:
-        specifier: ^2.3.0
-        version: 2.3.0(@popperjs/core@2.11.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      react-use:
-        specifier: ~17.6.0
-        version: 17.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      tailwind-merge:
-        specifier: ^1.14.0
-        version: 1.14.0
-      tailwind-variants:
-        specifier: ~0.2.0
-        version: 0.2.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
-    devDependencies:
-      '@jest/types':
-        specifier: ^29.6.0
-        version: 29.6.3
-      '@storybook/react':
-        specifier: ^7.6.16
-        version: 7.6.20(encoding@0.1.13)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.0.4)
-      '@tailwindcss/forms':
-        specifier: ^0.5.6
-        version: 0.5.10(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
-      '@testing-library/dom':
-        specifier: ~10.4.0
-        version: 10.4.0
-      '@testing-library/jest-dom':
-        specifier: ~6.6.0
-        version: 6.6.3
-      '@testing-library/react':
-        specifier: ~16.2.0
-        version: 16.2.0(@testing-library/dom@10.4.0)(@types/react-dom@18.3.5(@types/react@18.3.18))(@types/react@18.3.18)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@testing-library/user-event':
-        specifier: ~14.6.0
-        version: 14.6.1(@testing-library/dom@10.4.0)
-      '@types/jest':
-        specifier: ^27.0.0
-        version: 27.5.2
-      '@types/lodash':
-        specifier: ~4.17.0
-        version: 4.17.14
-      '@types/node':
-        specifier: ^18.17.0
-        version: 18.19.70
-      '@types/react':
-        specifier: ^18.0.0
-        version: 18.3.18
-      '@types/react-dom':
-        specifier: ^18.0.0
-        version: 18.3.5(@types/react@18.3.18)
-      '@types/testing-library__jest-dom':
-        specifier: ~5.14.5
-        version: 5.14.9
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^6.7.4
-        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint@8.57.1)(typescript@5.0.4)
-      '@typescript-eslint/parser':
-        specifier: ^6.7.4
-        version: 6.21.0(eslint@8.57.1)(typescript@5.0.4)
-      eslint:
-        specifier: ^8.29.0
-        version: 8.57.1
-      eslint-config-airbnb:
-        specifier: ^19.0.4
-        version: 19.0.4(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint-plugin-jsx-a11y@6.10.2(eslint@8.57.1))(eslint-plugin-react-hooks@4.6.2(eslint@8.57.1))(eslint-plugin-react@7.37.3(eslint@8.57.1))(eslint@8.57.1)
-      eslint-config-airbnb-typescript:
-        specifier: ^17.0.0
-        version: 17.1.0(@typescript-eslint/eslint-plugin@6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint@8.57.1)(typescript@5.0.4))(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint-plugin-import@2.31.0(eslint@8.57.1))(eslint@8.57.1)
-      eslint-config-next:
-        specifier: ~13.4.16
-        version: 13.4.19(eslint@8.57.1)(typescript@5.0.4)
-      eslint-config-prettier:
-        specifier: ^9.1.0
-        version: 9.1.0(eslint@8.57.1)
-      eslint-plugin-import:
-        specifier: ^2.30.0
-        version: 2.31.0(eslint@8.57.1)
-      eslint-plugin-jsx-a11y:
-        specifier: ^6.6.0
-        version: 6.10.2(eslint@8.57.1)
-      eslint-plugin-prettier:
-        specifier: ^4.1.0
-        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2)
-      eslint-plugin-react:
-        specifier: ^7.37.2
-        version: 7.37.3(eslint@8.57.1)
-      eslint-plugin-react-hooks:
-        specifier: ^4.6.2
-        version: 4.6.2(eslint@8.57.1)
-      eslint-plugin-tailwindcss:
-        specifier: ~3.12.1
-        version: 3.12.1(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
-      jest:
-        specifier: ^29.6.0
-        version: 29.7.0(@types/node@18.19.70)(babel-plugin-macros@3.1.0)(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
-      jest-environment-jsdom:
-        specifier: ^29.5.0
-        version: 29.7.0(bufferutil@4.0.9)(supports-color@10.0.0)(utf-8-validate@5.0.10)
-      postcss:
-        specifier: ^8.4.19
-        version: 8.4.49
-      prettier:
-        specifier: 3.5.2
-        version: 3.5.2
-      prettier-plugin-tailwindcss:
-        specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.2)
-      tailwind-scrollbar:
-        specifier: 3.0.3
-        version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
-      tailwindcss:
-        specifier: ^3.2.4
-        version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4))
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -14572,6 +14575,9 @@ packages:
     resolution: {integrity: sha512-w9UMqWwJxHNOvoNzSJ2oPF5wvYcvP7jUvYzhp67yEhTi17ZDBBC1z9pTdGuzjD+EFIqLSYRweZjqfiPzQ06Ebg==}
     engines: {node: '>= 0.4'}
 
+  get-tsconfig@4.10.0:
+    resolution: {integrity: sha512-kGzZ3LWWQcGIAmg6iWvXn0ei6WDtV26wzHRMwDSzmAbcXrTEXxHy6IehI6/4eT6VRKyMP1eF1VqwrVUmE/LR7A==}
+
   get-tsconfig@4.8.1:
     resolution: {integrity: sha512-k9PN+cFBmaLWtVz29SkUoqU5O0slLuHJXt/2P+tMVFT+phsSGXGkp9t3rQIqdz0e+06EHNGs3oM6ZX1s2zHxRg==}
 
@@ -16921,6 +16927,10 @@ packages:
     resolution: {integrity: sha512-WWdIxpyjEn+FhQJQQv9aQAYlHoNVdzIzUySNV1gHUPDSdZJ3yZn7pAAbQcV7B56Mvu881q9FZV+0Vx2xC44VWA==}
     engines: {node: ^18.17.0 || >=20.5.0}
 
+  mylas@2.1.13:
+    resolution: {integrity: sha512-+MrqnJRtxdF+xngFfUUkIMQrUUL0KsxbADUkn23Z/4ibGg192Q+z+CQyiYwvWTsYjJygmMR8+w3ZDa98Zh6ESg==}
+    engines: {node: '>=12.0.0'}
+
   mz@2.7.0:
     resolution: {integrity: sha512-z81GNO7nnYMEhrGh9LeymoE4+Yr0Wn5McHIZMK5cfQCl+NDX08sCZgUc9/6MHni9IWuFLm1Z3HTCXu2z9fN62Q==}
 
@@ -17723,6 +17733,10 @@ packages:
   please-upgrade-node@3.2.0:
     resolution: {integrity: sha512-gQR3WpIgNIKwBMVLkpMUeR3e1/E1y42bqDQZfql+kDeXd8COYfM8PQA4X6y7a8u9Ua9FHmsrrmirW2vHs45hWg==}
 
+  plimit-lit@1.6.1:
+    resolution: {integrity: sha512-B7+VDyb8Tl6oMJT9oSO2CW8XC/T4UcJGrwOVoNGwOQsQYhlpfajmrMj5xeejqaASq3V/EqThyOeATEOMuSEXiA==}
+    engines: {node: '>=12'}
+
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -18287,6 +18301,10 @@ packages:
 
   querystringify@2.2.0:
     resolution: {integrity: sha512-FIqgj2EUvTa7R50u0rGsyTftzjYmv/a3hO345bZNrqabNqjtgiDMgmo4mkUjd+nzU5oF3dClKqFIPUKybUyqoQ==}
+
+  queue-lit@1.5.2:
+    resolution: {integrity: sha512-tLc36IOPeMAubu8BkW8YDBV+WyIgKlYU7zUNs0J5Vk9skSZ4JfGlPOqplP0aHdfv7HL0B2Pg6nwiq60Qc6M2Hw==}
+    engines: {node: '>=12'}
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
@@ -20240,6 +20258,11 @@ packages:
 
   ts.cryptojs256@1.0.1:
     resolution: {integrity: sha512-9XtEgRVOZBCdpPcCEhfvv9I2AVXdvfI81I/KpFM0wEfbq5JVHlXH7bfIjGQmYrIHGiBEHKsIaStQ87k926J7dA==}
+
+  tsc-alias@1.8.15:
+    resolution: {integrity: sha512-yKLVx8ddUurRwhVcS6JFF2ZjksOX2ZWDRIdgt+PQhJBDegIdAdilptiHsuAbx9UFxa16GFrxeKQ2kTcGvR6fkQ==}
+    engines: {node: '>=16.20.2'}
+    hasBin: true
 
   tsconfck@3.1.4:
     resolution: {integrity: sha512-kdqWFGVJqe+KGYvlSO9NIaWn9jT1Ny4oKVzAJsKii5eoE9snzTJzL4+MMVOMn+fikWGFmKEylcXL710V/kIPJQ==}
@@ -35784,6 +35807,10 @@ snapshots:
       es-errors: 1.3.0
       get-intrinsic: 1.2.7
 
+  get-tsconfig@4.10.0:
+    dependencies:
+      resolve-pkg-maps: 1.0.0
+
   get-tsconfig@4.8.1:
     dependencies:
       resolve-pkg-maps: 1.0.0
@@ -39049,6 +39076,8 @@ snapshots:
 
   mute-stream@2.0.0: {}
 
+  mylas@2.1.13: {}
+
   mz@2.7.0:
     dependencies:
       any-promise: 1.3.0
@@ -40127,6 +40156,10 @@ snapshots:
     dependencies:
       semver-compare: 1.0.0
 
+  plimit-lit@1.6.1:
+    dependencies:
+      queue-lit: 1.5.2
+
   pluralize@8.0.0: {}
 
   pnp-webpack-plugin@1.7.0(typescript@5.0.4):
@@ -40679,6 +40712,8 @@ snapshots:
   querystring-es3@0.2.1: {}
 
   querystringify@2.2.0: {}
+
+  queue-lit@1.5.2: {}
 
   queue-microtask@1.2.3: {}
 
@@ -43246,6 +43281,16 @@ snapshots:
   ts-toolbelt@6.15.5: {}
 
   ts.cryptojs256@1.0.1: {}
+
+  tsc-alias@1.8.15:
+    dependencies:
+      chokidar: 3.6.0
+      commander: 9.5.0
+      get-tsconfig: 4.10.0
+      globby: 11.1.0
+      mylas: 2.1.13
+      normalize-path: 3.0.0
+      plimit-lit: 1.6.1
 
   tsconfck@3.1.4(typescript@5.7.2):
     optionalDependencies:

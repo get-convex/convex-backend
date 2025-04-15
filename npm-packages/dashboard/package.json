@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "3.5.0",
+    "@convex-dev/design-system": "workspace:*",
     "@headlessui/react": "1.7.19",
     "@heroicons/react": "2.2.0",
     "@next/bundle-analyzer": "~12.3.0",
@@ -35,7 +36,6 @@
     "convex": "workspace:*",
     "convex-analytics": "workspace:*",
     "dashboard-common": "workspace:*",
-    "ui": "workspace:*",
     "date-fns": "^2.29.3",
     "fetch-retry": "~6.0.0",
     "formik": "^2.4.6",

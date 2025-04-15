@@ -56,7 +56,7 @@ export function ConfirmationDialog({
           <>
             <div className="mt-4 text-sm">
               Type{" "}
-              <code className="bg-background-tertiary text-content-primary rounded p-1 text-sm">
+              <code className="rounded bg-background-tertiary p-1 text-sm text-content-primary">
                 {validationText}
               </code>{" "}
               in the box below to confirm.

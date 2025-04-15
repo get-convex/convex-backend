@@ -20,6 +20,7 @@
     "react-use": "~17.6.0"
   },
   "dependencies": {
+    "@convex-dev/design-system": "workspace:*",
     "@floating-ui/react": "^0.27.0",
     "@fontsource-variable/inter": "5.0.3",
     "@headlessui/react": "1.7.19",
@@ -31,7 +32,6 @@
     "base64-js": "^1.5.1",
     "classnames": "^2.3.2",
     "date-fns": "^2.29.3",
-    "ui": "workspace:*",
     "formik": "^2.4.6",
     "fuzzy": "~0.1.3",
     "id-encoding": "workspace:*",

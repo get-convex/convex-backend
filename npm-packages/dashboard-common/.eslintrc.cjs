@@ -17,7 +17,10 @@ module.exports = {
   plugins: ["prettier", "tailwindcss"],
   settings: {
     tailwindcss: {
-      config: path.join(__dirname, "../ui/tailwind.config.ts"),
+      config: path.join(
+        __dirname,
+        "../@convex-dev/design-system/src/tailwind.config.ts",
+      ),
     },
   },
   rules: {

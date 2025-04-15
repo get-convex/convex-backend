@@ -10,7 +10,7 @@ module.exports = {
   plugins: ["boundaries"],
   settings: {
     tailwindcss: {
-      config: "../ui/tailwind.config.ts",
+      config: "../@convex-dev/design-system/src/tailwind.config.ts",
     },
     "boundaries/elements": [
       {

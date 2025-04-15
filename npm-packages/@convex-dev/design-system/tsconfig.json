@@ -14,14 +14,15 @@
     "downlevelIteration": true,
     "jsx": "preserve",
     "baseUrl": "./src",
+    "declaration": true,
+    "declarationMap": true,
     "rootDir": "./src",
     "isolatedModules": true,
-    "noEmit": true,
     "outDir": "./dist",
     "paths": {
       "@ui/*": ["*"]
     }
   },
   "include": ["src/**/*", "src/*"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "src/**/*.stories.tsx"]
 }

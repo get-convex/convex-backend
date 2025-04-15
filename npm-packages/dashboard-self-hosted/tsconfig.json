@@ -19,7 +19,7 @@
     "customConditions": ["convex-internal-types"],
     "paths": {
       "@common/*": ["../../dashboard-common/src/*"],
-      "@ui/*": ["../../ui/src/*"]
+      "@ui/*": ["../../@convex-dev/design-system/src/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],

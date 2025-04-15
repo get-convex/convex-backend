@@ -533,8 +533,8 @@
       "projectFolder": "dashboard-self-hosted"
     },
     {
-      "packageName": "ui",
-      "projectFolder": "ui"
+      "packageName": "@convex-dev/design-system",
+      "projectFolder": "@convex-dev/design-system"
     },
     {
       "packageName": "udf-runtime",

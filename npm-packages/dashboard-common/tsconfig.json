@@ -20,7 +20,7 @@
     "outDir": "./dist",
     "paths": {
       "@common/*": ["*"],
-      "@ui/*": ["../../ui/src/*"]
+      "@ui/*": ["../../@convex-dev/design-system/src/*"]
     }
   },
   "include": ["src/**/*", "src/*", "next-env.d.ts"],
