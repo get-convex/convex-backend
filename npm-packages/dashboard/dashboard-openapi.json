@@ -3441,7 +3441,8 @@
           "tokensQuota",
           "centitokensUsed",
           "centitokensQuota",
-          "isTeamDisabled"
+          "isTeamDisabled",
+          "isPaidPlan"
         ],
         "properties": {
           "centitokensQuota": {
@@ -3453,6 +3454,9 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0
+          },
+          "isPaidPlan": {
+            "type": "boolean"
           },
           "isTeamDisabled": {
             "type": "boolean"
