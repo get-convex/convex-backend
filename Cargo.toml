@@ -21,7 +21,7 @@ aws-config = "1"
 aws-sdk-s3 = "1"
 aws-smithy-http = "0.62"
 aws-smithy-types-convert = { version = "0.60", features = [ "convert-streams" ] }
-aws-types = "1.1"
+aws-types = "1"
 axum = { version = "0.8", features = [ "ws", "original-uri", "macros", "multipart" ] }
 axum-extra = { version = "0.10", features = [ "typed-header", "cookie" ] }
 backoff = { version = "0.4", features = [ "tokio" ] }
