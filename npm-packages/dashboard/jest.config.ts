@@ -14,6 +14,7 @@ const customJestConfig = {
     "^dashboard-common/(.*)$": "<rootDir>/../dashboard-common/src/$1",
     "^@common/(.*)$": "<rootDir>/../dashboard-common/src/$1",
     "^@ui/(.*)$": "<rootDir>/../@convex-dev/design-system/src/$1",
+    "lodash-es": "<rootDir>/../dashboard/node_modules/lodash",
   },
   // Add roots for both packages to run all tests
   roots: ["<rootDir>", "<rootDir>/../dashboard-common"],

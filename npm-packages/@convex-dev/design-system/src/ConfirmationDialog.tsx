@@ -49,7 +49,7 @@ export function ConfirmationDialog({
       : false;
 
   return (
-    <Modal title={dialogTitle} onClose={onClose}>
+    <Modal title={dialogTitle} onClose={onClose} size="sm">
       <div className="pb-3">
         {dialogBody}{" "}
         {validationText && (

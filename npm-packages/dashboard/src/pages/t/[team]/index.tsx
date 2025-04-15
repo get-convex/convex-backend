@@ -106,8 +106,8 @@ function ProjectGrid({ projects }: { projects: ProjectDetails[] }) {
     <div className="flex flex-col items-center">
       <div className="mb-4 flex w-full animate-fadeInFromLoading flex-col flex-wrap gap-4 sm:flex-row sm:items-center">
         <h3>Projects</h3>
-        <div className="flex flex-wrap gap-4 sm:ml-auto sm:flex-nowrap">
-          <div className="hidden gap-2 rounded border bg-background-secondary px-2 py-1 lg:flex">
+        <div className="flex flex-wrap gap-2 sm:ml-auto sm:flex-nowrap">
+          <div className="hidden gap-1 rounded-md border bg-background-secondary p-1 lg:flex">
             <Button
               icon={<GridIcon />}
               variant="neutral"

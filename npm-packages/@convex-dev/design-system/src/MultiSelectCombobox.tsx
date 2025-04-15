@@ -1,6 +1,6 @@
 import {
   CheckIcon,
-  CaretSortIcon,
+  ChevronDownIcon,
   MagnifyingGlassIcon,
 } from "@radix-ui/react-icons";
 import { Combobox } from "@headlessui/react";
@@ -125,14 +125,19 @@ export function MultiSelectCombobox({
                 <Combobox.Button
                   className={classNames(
                     "flex gap-2 w-full justify-between",
-                    "truncate relative rounded py-2 px-3 text-left text-sm text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+                    "truncate relative rounded-md py-1.5 px-1.5 text-left text-sm text-content-primary disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
                     "border",
                     "focus:border-border-selected focus:outline-none bg-background-secondary hover:bg-background-tertiary",
                     open && "border-border-selected",
                   )}
                 >
                   {displayValue}
-                  <CaretSortIcon className="relative z-30 -ml-6 h-5 w-5 text-content-primary" />
+                  <ChevronDownIcon
+                    className={cn(
+                      "relative z-30 -ml-6 h-5 w-5 text-content-primary transition-all",
+                      open && "rotate-180",
+                    )}
+                  />
                 </Combobox.Button>
               </div>
 
@@ -149,7 +154,7 @@ export function MultiSelectCombobox({
                   >
                     <Combobox.Options
                       static
-                      className="max-h-60 w-fit min-w-full max-w-80 overflow-auto rounded border bg-background-secondary pb-1 text-xs shadow scrollbar focus:outline-none"
+                      className="max-h-60 w-fit min-w-full max-w-80 overflow-auto rounded-md border bg-background-secondary pb-1 text-xs shadow scrollbar focus:outline-none"
                     >
                       <div className="min-w-fit">
                         {!disableSearch && (

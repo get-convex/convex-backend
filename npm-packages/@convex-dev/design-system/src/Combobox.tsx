@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { Combobox as HeadlessCombobox } from "@headlessui/react";
-import { CaretSortIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
+import { ChevronDownIcon, MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import { cn } from "@ui/cn";
-import isEqual from "lodash/isEqual";
-import { test } from "fuzzy";
+import { isEqual } from "lodash-es";
+import fuzzy from "fuzzy";
 import { Button, ButtonProps } from "@ui/Button";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
+
+const { test } = fuzzy;
 
 export type Option<T> = { label: string; value: T };
 
 export function Combobox<T>({
   options,
+  optionsHeader,
   optionsWidth = "fixed",
   selectedOption,
   setSelectedOption,
@@ -35,6 +38,7 @@ export function Combobox<T>({
   label: React.ReactNode;
   labelHidden?: boolean;
   className?: string;
+  optionsHeader?: React.ReactNode;
   options: Readonly<Option<T>[]>;
   placeholder?: string;
   searchPlaceholder?: string;
@@ -157,13 +161,13 @@ export function Combobox<T>({
                   data-testid={`combobox-button-${label}`}
                   className={cn(
                     "flex gap-1 w-full items-center group",
-                    "truncate relative text-left text-content-primary rounded disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
+                    "truncate relative text-left text-content-primary rounded-md disabled:bg-background-tertiary disabled:text-content-secondary disabled:cursor-not-allowed",
                     "border focus-visible:z-10 focus-visible:border-border-selected focus-visible:outline-none bg-background-secondary text-sm",
                     "hover:bg-background-tertiary",
                     "cursor-pointer",
                     open && "border-border-selected z-10",
-                    size === "sm" && "py-1 px-2 text-xs",
-                    size === "md" && "py-2 px-3",
+                    size === "sm" && "py-1 px-1.5 text-xs",
+                    size === "md" && "p-1.5",
                     innerButtonClasses,
                   )}
                   {...buttonProps}
@@ -190,8 +194,11 @@ export function Combobox<T>({
                     )}
                   </div>
                   {size === "md" && (
-                    <CaretSortIcon
-                      className={cn("text-content-primary", "ml-auto size-5")}
+                    <ChevronDownIcon
+                      className={cn(
+                        "text-content-primary ml-auto size-4 transition-all",
+                        open && "rotate-180",
+                      )}
                     />
                   )}
                 </HeadlessCombobox.Button>
@@ -210,12 +217,15 @@ export function Combobox<T>({
                     <HeadlessCombobox.Options
                       static
                       className={cn(
-                        "mt-1 max-h-[14.75rem] overflow-auto rounded bg-background-secondary pb-1 text-xs shadow scrollbar border",
+                        "mt-1 max-h-[14.75rem] overflow-auto rounded-md bg-background-secondary pb-1 text-xs shadow scrollbar border",
                       )}
                       ref={(el) => {
                         el && "scrollTo" in el && el.scrollTo(0, 0);
                       }}
                     >
+                      {optionsHeader && (
+                        <div className="border-b p-1 pb-2">{optionsHeader}</div>
+                      )}
                       <div className="min-w-fit">
                         {!disableSearch && (
                           <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3 pt-1">

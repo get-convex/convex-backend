@@ -36,8 +36,8 @@ export function DateRangePicker({
           id="date"
           variant="neutral"
           className="w-fit justify-start text-left font-normal"
+          icon={<CalendarIcon className="size-4" />}
         >
-          <CalendarIcon className="h-4 w-4" />
           {from ? (
             to ? (
               <>

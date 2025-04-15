@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/design-system",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -25,23 +25,21 @@
     "@radix-ui/react-tooltip": "~1.1.0",
     "classnames": "^2.3.2",
     "fuzzy": "~0.1.3",
-    "lodash": "~4.17.21",
     "react-dom": "^18.0.0",
     "react-popper": "^2.3.0",
     "react-use": "~17.6.0",
     "tailwind-merge": "^1.14.0",
-    "tailwind-variants": "~0.2.0"
+    "tailwind-variants": "~0.2.0",
+    "lodash-es": "~4.17.21"
   },
   "devDependencies": {
     "@jest/types": "^29.6.0",
     "@storybook/react": "^7.6.16",
-    "@tailwindcss/forms": "^0.5.6",
     "@testing-library/dom": "~10.4.0",
     "@testing-library/jest-dom": "~6.6.0",
     "@testing-library/react": "~16.2.0",
     "@testing-library/user-event": "~14.6.0",
     "@types/jest": "^27.0.0",
-    "@types/lodash": "~4.17.0",
     "@types/node": "^18.17.0",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
@@ -64,10 +62,9 @@
     "postcss": "^8.4.19",
     "prettier": "3.5.2",
     "prettier-plugin-tailwindcss": "~0.3.0",
-    "tailwindcss": "^3.2.4",
-    "tailwind-scrollbar": "3.0.3",
     "typescript": "~5.0.3",
-    "tsc-alias": "~1.8.15"
+    "tsc-alias": "~1.8.15",
+    "@types/lodash-es": "~4.17.12"
   },
   "exports": {
     "./Button": {

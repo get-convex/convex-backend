@@ -9,7 +9,7 @@ module.exports = {
   },
   settings: {
     tailwindcss: {
-      config: "./tailwind.config.ts",
+      config: "./src/tailwind.config.ts",
     },
   },
 };

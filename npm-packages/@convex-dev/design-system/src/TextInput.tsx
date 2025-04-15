@@ -67,7 +67,7 @@ export const TextInput = forwardRef<
         )}
       >
         {(type === "search" || leftAddon !== undefined) && (
-          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+          <div className="pointer-events-none absolute inset-y-0 left-1.5 flex items-center">
             {leftAddon ??
               (SearchIcon ? (
                 <SearchIcon className="text-content-secondary" />
@@ -85,13 +85,13 @@ export const TextInput = forwardRef<
           className={cn(
             error && "focus:border-content-error",
             !error && "focus:border-border-selected text-content-primary",
-            "block rounded bg-background-secondary",
-            size === "sm" ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm",
+            "block rounded-md bg-background-secondary",
+            size === "sm" ? "px-1.5 py-1 text-xs" : "p-1.5 px-2 text-sm",
             "disabled:text-content-secondary disabled:bg-background-tertiary placeholder-content-tertiary border focus:outline-none",
             "shrink grow disabled:cursor-not-allowed truncate",
             "min-w-0",
-            (type === "search" || leftAddon !== undefined) && "pl-9",
-            rightAddon !== undefined && "pr-9",
+            (type === "search" || leftAddon !== undefined) && "pl-6",
+            rightAddon !== undefined && "pr-6",
             className,
           )}
           {...rest}
