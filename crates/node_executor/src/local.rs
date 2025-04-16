@@ -194,7 +194,6 @@ impl LocalNodeExecutor {
                     _ = timeout_future.fuse() => {
                         anyhow::Ok(NodeExecutorStreamPart::InvokeComplete(Err(InvokeResponse {
                             response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
-                            memory_used_in_mb: 512,
                             aws_request_id: None,
                         })))
                     },
@@ -242,7 +241,6 @@ impl NodeExecutor for LocalNodeExecutor {
                 if e.is_timeout() {
                     return Ok(InvokeResponse {
                         response: EXECUTE_TIMEOUT_RESPONSE_JSON.clone(),
-                        memory_used_in_mb: 512,
                         aws_request_id: None,
                     });
                 } else {
@@ -261,7 +259,6 @@ impl NodeExecutor for LocalNodeExecutor {
         match result {
             Ok(payload) => Ok(InvokeResponse {
                 response: payload,
-                memory_used_in_mb: 512,
                 aws_request_id: None,
             }),
             Err(e) => Ok(e),

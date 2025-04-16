@@ -138,7 +138,6 @@ pub trait NodeExecutor: Sync + Send {
 
 pub struct InvokeResponse {
     pub response: JsonValue,
-    pub memory_used_in_mb: u64,
     pub aws_request_id: Option<String>,
 }
 
@@ -237,7 +236,6 @@ impl<RT: Runtime> Actions<RT> {
         };
         let InvokeResponse {
             response,
-            memory_used_in_mb,
             aws_request_id,
         } = self.executor.invoke(request, log_line_sender).await?;
         let execute_result = ExecuteResponse::try_from(response.clone()).map_err(|e| {
@@ -301,7 +299,8 @@ impl<RT: Runtime> Actions<RT> {
         Ok(NodeActionOutcome {
             result,
             syscall_trace,
-            memory_used_in_mb,
+            // This shouldn't ever be None, but we'll use the default 512MB as a fallback.
+            memory_used_in_mb: execute_result.memory_allocated_mb.unwrap_or(512),
         })
     }
 
@@ -315,7 +314,6 @@ impl<RT: Runtime> Actions<RT> {
         let request = ExecutorRequest::BuildDeps(request);
         let InvokeResponse {
             response,
-            memory_used_in_mb: _,
             aws_request_id,
         } = self.executor.invoke(request, log_line_sender).await?;
         let response: BuildDepsResponse =
@@ -394,7 +392,6 @@ impl<RT: Runtime> Actions<RT> {
 
         let InvokeResponse {
             response,
-            memory_used_in_mb: _,
             aws_request_id,
         } = self.invoke_analyze(request).await?;
         let response: AnalyzeResponse = serde_json::from_value(response.clone()).map_err(|e| {
@@ -687,6 +684,7 @@ struct ExecuteResponse {
     udf_time: Option<Duration>,
     total_executor_time: Option<Duration>,
     syscall_trace: SyscallTrace,
+    memory_allocated_mb: Option<u64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -747,6 +745,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 udf_time_ms: Option<f64>,
                 total_executor_time_ms: Option<f64>,
                 syscall_trace: Option<BTreeMap<String, SyscallStatsJson>>,
+                memory_allocated_mb: Option<u64>,
             },
             #[serde(rename_all = "camelCase")]
             Error {
@@ -760,6 +759,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 udf_time_ms: Option<f64>,
                 total_executor_time_ms: Option<f64>,
                 syscall_trace: Option<BTreeMap<String, SyscallStatsJson>>,
+                memory_allocated_mb: Option<u64>,
             },
         }
         let resp_json: ExecuteResponseJson = serde_json::from_value(v)?;
@@ -772,6 +772,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 udf_time_ms,
                 total_executor_time_ms,
                 syscall_trace,
+                memory_allocated_mb,
             } => ExecuteResponse {
                 result: ExecuteResponseResult::Success { udf_return },
                 num_invocations: Some(num_invocations),
@@ -785,6 +786,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                     .map(|(k, v)| (k, v.into()))
                     .collect::<BTreeMap<_, SyscallStats>>()
                     .into(),
+                memory_allocated_mb,
             },
             ExecuteResponseJson::Error {
                 message,
@@ -797,6 +799,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                 udf_time_ms,
                 total_executor_time_ms,
                 syscall_trace,
+                memory_allocated_mb,
             } => ExecuteResponse {
                 result: ExecuteResponseResult::Error {
                     message,
@@ -815,6 +818,7 @@ impl TryFrom<JsonValue> for ExecuteResponse {
                     .map(|(k, v)| (k, v.into()))
                     .collect::<BTreeMap<_, SyscallStats>>()
                     .into(),
+                memory_allocated_mb,
             },
         };
         Ok(result)

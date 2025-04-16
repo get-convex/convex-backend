@@ -166,6 +166,9 @@ export type ExecuteResponse = ExecuteResponseInner & {
   totalExecutorTimeMs: number;
 
   syscallTrace: Record<string, SyscallStats>;
+
+  // The amount of memory allocated to the executor environment. This is constant for the lifetime of the environment.
+  memoryAllocatedMb: number;
 };
 
 export async function execute(
@@ -216,6 +219,10 @@ export async function execute(
   }
 
   const totalExecutorTimeMs = logDurationMs("totalExecutorTime", start);
+  const memoryAllocatedMb = parseInt(
+    process.env.AWS_LAMBDA_FUNCTION_MEMORY_SIZE ?? "512",
+    10,
+  );
 
   return {
     ...innerResult,
@@ -223,6 +230,7 @@ export async function execute(
     downloadTimeMs,
     totalExecutorTimeMs,
     syscallTrace: syscalls.syscallTrace,
+    memoryAllocatedMb,
   };
 }
 
