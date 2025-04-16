@@ -82,7 +82,7 @@ function Function({ value }: CellProps<CronDatum, string>) {
   const url = useFunctionUrl(value);
   const name = displayName(value);
   return (
-    <div className="truncate text-content-link hover:underline">
+    <div className="text-content-link truncate hover:underline">
       <Link href={url} legacyBehavior>
         {name}
       </Link>
@@ -217,7 +217,7 @@ function cronDatum(cronJob: CronJobWithRuns) {
       prevDate,
       nextDate,
       prevRun: lastRun,
-      state: nextRun.state,
+      nextRun,
     },
     udfPath: cronSpec.udfPath,
     udfArgs:
@@ -251,7 +251,7 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
   });
 
   return (
-    <Sheet padding={false} className="overflow-x-auto scrollbar">
+    <Sheet padding={false} className="scrollbar overflow-x-auto">
       <div {...getTableProps()} className="mx-4 block min-w-[42rem]">
         <div {...getTableBodyProps()} className="divide-y">
           {rows.map((row) => {
@@ -259,7 +259,7 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
             return (
               <div
                 {...row.getRowProps()}
-                className="flex items-stretch justify-start gap-2 py-3 text-xs text-content-primary"
+                className="text-content-primary flex items-stretch justify-start gap-2 py-3 text-xs"
               >
                 {row.cells.map((cell, i) => (
                   <div
