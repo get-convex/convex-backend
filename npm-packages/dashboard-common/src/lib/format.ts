@@ -161,7 +161,7 @@ function displayDocumentType(validator: ValidatorJSON): string {
   }
 }
 
-function displayObjectFieldSchema(field: ObjectFieldType): string {
+export function displayObjectFieldSchema(field: ObjectFieldType): string {
   const validator = displayValidator(field.fieldType);
   return field.optional ? `v.optional(${validator})` : validator;
 }
