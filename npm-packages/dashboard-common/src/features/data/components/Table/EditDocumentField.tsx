@@ -82,7 +82,7 @@ export function EditDocumentField({
           errors.length > 0 ? setEditError(errors[0]) : setEditError(undefined);
         }}
         disableFolding
-        className="border-border-selected pl-2"
+        className="border-border-selected bg-background-secondary px-2"
         validator={validator}
         shouldSurfaceValidatorErrors={shouldSurfaceValidatorErrors}
         mode="editField"

@@ -14,6 +14,8 @@ import { useTableMetadata } from "@common/lib/useTableMetadata";
 import { Loading } from "@ui/Loading";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
+import { cn } from "@ui/cn";
+import { useSize } from "react-use";
 
 // Example table data for the background
 const EXAMPLE_COLUMNS = ["_id", "name", "email", "_creationTime"];
@@ -49,6 +51,10 @@ export function EmptyDataContent({
     deployment?.deploymentType !== "prod" || hasAdminPermissions;
   const tableMetadata = useTableMetadata();
   const log = useLogDeploymentEvent();
+
+  const sizeMe = <div />;
+  const [sized, { width }] = useSize(sizeMe);
+
   if (!tableMetadata) {
     return <Loading />;
   }
@@ -56,6 +62,7 @@ export function EmptyDataContent({
   return (
     <div className="relative h-full w-full animate-fadeIn">
       {/* Background table example */}
+      {sized}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -160,7 +167,10 @@ export function EmptyDataContent({
       <div className="absolute inset-0 flex items-center justify-center">
         <Sheet
           padding={false}
-          className="m-6 h-fit w-fit bg-background-secondary/90 p-2 backdrop-blur-[2px]"
+          className={cn(
+            "h-fit w-fit bg-background-secondary/90 backdrop-blur-[2px]",
+            width > 320 ? "p-2 m-6" : "m-0 p-0",
+          )}
         >
           <EmptySection
             Icon={TableIcon}

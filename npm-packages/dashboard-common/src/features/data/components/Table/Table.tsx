@@ -343,7 +343,7 @@ export function Table({
             onExpand={() => setCollapsed(false)}
             ref={panelRef}
             className={cn(
-              "relative overflow-x-auto",
+              "max-h-full overflow-x-auto bg-background-primary",
               !collapsed && "min-w-[14rem]",
             )}
           >

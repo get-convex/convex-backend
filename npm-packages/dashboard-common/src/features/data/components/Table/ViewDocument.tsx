@@ -67,7 +67,7 @@ export function ViewDocument({
   const shouldSurfaceValidatorErrors = activeSchema?.schemaValidation;
 
   return (
-    <div className="flex h-full w-full min-w-[10rem] flex-col items-start overflow-y-hidden rounded-r border-l bg-background-secondary">
+    <div className="flex h-full w-full min-w-[10rem] flex-col items-start overflow-y-hidden rounded-r border-l bg-background-secondary/70">
       {showEnableProdEditsModalForColumn && (
         <ProductionEditsConfirmationDialog
           onClose={() => {
@@ -80,8 +80,8 @@ export function ViewDocument({
           }}
         />
       )}
-      <div className="flex w-full flex-col gap-2 border-b p-4">
-        <div className="ml-auto flex items-center gap-1 text-xs text-content-tertiary">
+      <div className="flex w-full flex-col gap-2 border-b p-4 px-2">
+        <div className="flex items-center justify-between gap-1 text-xs">
           {rows.length} document{rows.length !== 1 && "s"} selected
           <CopyButton
             text={
@@ -106,7 +106,7 @@ export function ViewDocument({
           className="w-full"
         />
       </div>
-      <div className="mt-2 flex w-full flex-col gap-2 overflow-y-auto overflow-x-hidden px-4 py-2 scrollbar">
+      <div className="mt-2 flex w-full flex-col gap-2 overflow-y-auto overflow-x-hidden p-2 scrollbar">
         {columns
           .filter(
             (c) =>
@@ -121,8 +121,8 @@ export function ViewDocument({
                 key={column}
                 className="flex w-full flex-col items-center gap-1"
               >
-                <div className="flex w-full justify-between text-xs">
-                  <code>{column}</code>
+                <div className="flex w-full justify-between text-xs font-medium">
+                  {column}
                 </div>
                 {editingColumn === column ? (
                   <EditDocumentField
@@ -139,7 +139,7 @@ export function ViewDocument({
                 ) : (
                   <div className="flex w-full gap-1">
                     <Button
-                      className="flex h-[2.25rem] w-full cursor-text items-center justify-between truncate rounded border px-2 disabled:cursor-not-allowed"
+                      className="flex h-[2.25rem] w-full cursor-text items-center justify-between truncate rounded-md border bg-background-secondary px-2 disabled:cursor-not-allowed"
                       variant="unstyled"
                       onClick={() => {
                         if (!areEditsAuthorized) {

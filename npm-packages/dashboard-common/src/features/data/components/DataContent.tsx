@@ -199,7 +199,7 @@ export function DataContent({
         className={cn(
           "flex shrink flex-col gap-2 overflow-hidden py-4",
           "max-w-full",
-          popupEl ? "min-w-[10rem]" : "min-w-[20rem]",
+          popupEl ? "min-w-[16rem]" : "min-w-[20rem]",
         )}
         ref={ref}
         defaultSize={80}
@@ -218,7 +218,7 @@ export function DataContent({
           isLoadingMore={isLoading && !isPaused}
         />
 
-        <div className="flex h-full flex-col rounded">
+        <div className="flex h-full max-h-full flex-col overflow-y-hidden rounded">
           {numRowsInTable !== undefined && numRowsInTable > 0 && (
             <DataFilters
               tableName={tableName}
