@@ -286,7 +286,7 @@ export async function performLogin(
     overrideAuthUsername,
     overrideAuthPassword,
     overrideAccessToken,
-    authFlow,
+    loginFlow,
     open,
     acceptOptIns,
     dumpAccessToken,
@@ -298,7 +298,7 @@ export async function performLogin(
     overrideAuthUsername?: string;
     overrideAuthPassword?: string;
     overrideAccessToken?: string;
-    authFlow?: "auto" | "paste" | "poll";
+    loginFlow?: "auto" | "paste" | "poll";
     // default `true`
     open?: boolean;
     // default `false`
@@ -308,7 +308,7 @@ export async function performLogin(
     anonymousId?: string;
   } = {},
 ) {
-  authFlow = authFlow || "auto";
+  loginFlow = loginFlow || "auto";
   // Get access token from big-brain
   // Default the device name to the hostname, but allow the user to change this if the terminal is interactive.
   // On Macs, the `hostname()` may be a weirdly-truncated form of the computer name. Attempt to read the "real" name before falling back to hostname.
@@ -338,7 +338,7 @@ export async function performLogin(
   let auth0;
   let accessToken: string;
 
-  if (authFlow === "paste" || (authFlow === "auto" && isWebContainer())) {
+  if (loginFlow === "paste" || (loginFlow === "auto" && isWebContainer())) {
     accessToken = await promptString(ctx, {
       message:
         "Open https://dashboard.convex.dev/auth, log in and paste the token here:",

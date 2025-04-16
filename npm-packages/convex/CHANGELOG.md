@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The `npx convex login --login-flow paste` flag can be used to explicitly opt
+  into the manual token paste login method.
+
 ## 1.23.0
 
 - `npx convex dev` now supports the option of running Convex locally without an
@@ -28,9 +33,6 @@
 
 - Calling registered functions directly like helper functions no longer
   typechecks. See release notes for 1.18.0 for more.
-
-- The `npx convex login --auth-flow paste` flag can be used to explicitly opt
-  into the manual token paste login method.
 
 - Upgrade esbuild for a sourcemap bug fix.
 
