@@ -77,7 +77,7 @@ function OCCProblem({
         )}
       </span>
       {!explain && (
-        <span className="text-xs text-content-secondary">
+        <span className="text-left text-xs text-content-secondary">
           {formatNumberCompact(insight.occCalls)} time
           {insight.occCalls === 1 ? "" : "s"} in{" "}
           {!insight.occTableName ? (
