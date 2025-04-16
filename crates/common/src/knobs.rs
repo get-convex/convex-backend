@@ -1149,6 +1149,10 @@ pub static MAX_PUSH_BYTES: LazyLock<usize> =
 pub static MAX_ECHO_BYTES: LazyLock<usize> =
     LazyLock::new(|| env_config("MAX_ECHO_BYTES", 128 * 1024 * 1024));
 
+/// The limit on the number of user modules in a push bundle.
+pub static MAX_USER_MODULES: LazyLock<usize> =
+    LazyLock::new(|| env_config("MAX_USER_MODULES", 10000));
+
 /// Percentage of request traces that should sampled.
 ///
 /// Sampling config is a JSON object with the following format:

@@ -78,6 +78,7 @@ use common::{
     knobs::{
         APPLICATION_MAX_CONCURRENT_UPLOADS,
         MAX_JOBS_CANCEL_BATCH,
+        MAX_USER_MODULES,
         SNAPSHOT_LIST_LIMIT,
     },
     log_lines::LogLines,
@@ -412,9 +413,6 @@ use crate::metrics::{
     log_external_deps_package,
     log_source_package_size_bytes_total,
 };
-
-// The maximum number of user defined modules
-pub const MAX_USER_MODULES: usize = 10000;
 
 pub struct ConfigMetadataAndSchema {
     pub config_metadata: ConfigMetadata,
@@ -2097,13 +2095,13 @@ impl<RT: Runtime> Application<RT> {
     ) -> anyhow::Result<BTreeMap<CanonicalizedModulePath, AnalyzedModule>> {
         let num_dep_modules = modules.iter().filter(|m| m.path.is_deps()).count();
         anyhow::ensure!(
-            modules.len() - num_dep_modules <= MAX_USER_MODULES,
+            modules.len() - num_dep_modules <= *MAX_USER_MODULES,
             ErrorMetadata::bad_request(
                 "InvalidModules",
                 format!(
                     r#"Too many function files ({} > maximum {}) in "convex/". See our docs (https://docs.convex.dev/using/writing-convex-functions#using-libraries) for more details."#,
                     modules.len() - num_dep_modules,
-                    MAX_USER_MODULES
+                    *MAX_USER_MODULES
                 ),
             )
         );
@@ -2112,7 +2110,7 @@ impl<RT: Runtime> Application<RT> {
         // modules though. If we ever have crazy amount of dependency modules,
         // throw a system errors so we can debug.
         anyhow::ensure!(
-            modules.len() <= 2 * MAX_USER_MODULES,
+            modules.len() <= 2 * *MAX_USER_MODULES,
             "Too many dependencies modules! Dependencies: {}, Total modules: {}",
             num_dep_modules,
             modules.len()
