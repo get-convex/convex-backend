@@ -553,16 +553,15 @@ pub static SYSTEM_TABLE_CLEANUP_FREQUENCY: LazyLock<Duration> = LazyLock::new(||
 
 /// Number of rows fetched and potentially deleted in a single transaction.
 pub static SYSTEM_TABLE_CLEANUP_CHUNK_SIZE: LazyLock<usize> =
-    LazyLock::new(|| env_config("SYSTEM_TABLE_CLEANUP_CHUNK_SIZE", 256));
+    LazyLock::new(|| env_config("SYSTEM_TABLE_CLEANUP_CHUNK_SIZE", 64));
 
 /// Maximum number of rows deleted per second.
 /// This should not exceed the maximum rate that retention can process
 /// tombstones, which is about 300.
-/// TODO(lee) increase this back to 128
 pub static SYSTEM_TABLE_ROWS_PER_SECOND: LazyLock<NonZeroU32> = LazyLock::new(|| {
     env_config(
         "SYSTEM_TABLE_CLEANUP_ROWS_PER_SECOND",
-        NonZeroU32::new(64).unwrap(),
+        NonZeroU32::new(256).unwrap(),
     )
 });
 
@@ -581,7 +580,7 @@ pub static MAX_SESSION_CLEANUP_DURATION: LazyLock<Option<Duration>> = LazyLock::
 
 /// Number of concurrent commits to use for deleting session requests.
 pub static SESSION_CLEANUP_DELETE_CONCURRENCY: LazyLock<usize> =
-    LazyLock::new(|| env_config("SESSION_CLEANUP_DELETE_CONCURRENCY", 1));
+    LazyLock::new(|| env_config("SESSION_CLEANUP_DELETE_CONCURRENCY", 2));
 
 /// Snapshots that expired more than this number of days ago are purged
 /// from storage.
