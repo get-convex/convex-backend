@@ -15,6 +15,8 @@ import { columnWidthToString } from "@common/features/data/components/Table/Data
 import { Tooltip } from "@ui/Tooltip";
 import { cn } from "@ui/cn";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { documentValidatorForTable } from "@common/features/data/components/Table/utils/validators";
+import { displayObjectFieldSchema, prettier } from "@common/lib/format";
 
 type ColumnHeaderProps = {
   column: HeaderGroup<GenericDocument>;
@@ -28,6 +30,8 @@ type ColumnHeaderProps = {
   isLastColumn: boolean;
   openContextMenu: DataCellProps["onOpenContextMenu"];
   sort?: "asc" | "desc";
+  activeSchema: any | null;
+  tableName: string;
 };
 
 export function ColumnHeader({
@@ -42,6 +46,8 @@ export function ColumnHeader({
   isLastColumn,
   openContextMenu,
   sort,
+  activeSchema,
+  tableName,
 }: ColumnHeaderProps) {
   const canDragOrDrop = columnIndex !== 0 && !isResizingColumn;
 
@@ -66,6 +72,23 @@ export function ColumnHeader({
 
   const { densityValues } = useTableDensity();
   const width = columnWidthToString(column.getHeaderProps().style?.width);
+
+  // Get the validator information for the tooltip
+  const documentValidator =
+    activeSchema && documentValidatorForTable(activeSchema, tableName);
+  const validatorTooltip =
+    documentValidator?.type === "object" &&
+    documentValidator.value[columnName] ? (
+      <pre className="w-fit text-left">
+        <code>
+          {prettier(
+            displayObjectFieldSchema(documentValidator.value[columnName]),
+            40,
+          ).slice(0, -1)}
+        </code>
+      </pre>
+    ) : null;
+
   return (
     <div
       key={column.getHeaderProps().key}
@@ -88,67 +111,69 @@ export function ColumnHeader({
           )}
         />
       )}
-      <div
-        className="flex items-center space-x-2"
-        ref={ref}
-        style={{
-          padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
-          width,
-        }}
-      >
-        {columnIndex === 0 ? (
-          // Disable the "Select all" checkbox when filtering
-          allRowsSelected === false &&
-          hasFilters &&
-          !isSelectionExhaustive ? null : (
-            <Checkbox checked={allRowsSelected} onChange={toggleAll} />
-          )
-        ) : column.Header === emptyColumnName ? (
-          <i>empty</i>
-        ) : typeof column.Header === "string" &&
-          identifierNeedsEscape(column.Header) ? (
-          <span
-            className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
-          >
-            {column.render("Header")}
-          </span>
-        ) : (
-          <div>{column.render("Header")}</div>
-        )}
-        {!column.disableResizing && (
-          <div
-            {...column.getResizerProps()}
-            className="absolute top-0 z-20 inline-block h-full"
-            style={{
-              // @ts-expect-error bad typing in react-table
-              ...column.getResizerProps().style,
-              width: densityValues.paddingX * (isLastColumn ? 1 : 2),
-              right: isLastColumn ? 0 : -densityValues.paddingX,
-            }}
-          />
-        )}
-        {column.Header !== "_creationTime" &&
-          (column as unknown as { isDate: boolean }).isDate && (
-            <Tooltip
-              tip="Displaying numbers as dates. Hover or edit the cell by double-clicking see the unformatted value."
-              side="top"
-              align="start"
-              className="flex items-center"
+      <Tooltip tip={validatorTooltip}>
+        <div
+          className="flex items-center space-x-2"
+          ref={ref}
+          style={{
+            padding: `${densityValues.paddingY}px ${columnIndex === 0 ? "12" : densityValues.paddingX}px`,
+            width,
+          }}
+        >
+          {columnIndex === 0 ? (
+            // Disable the "Select all" checkbox when filtering
+            allRowsSelected === false &&
+            hasFilters &&
+            !isSelectionExhaustive ? null : (
+              <Checkbox checked={allRowsSelected} onChange={toggleAll} />
+            )
+          ) : column.Header === emptyColumnName ? (
+            <i>empty</i>
+          ) : typeof column.Header === "string" &&
+            identifierNeedsEscape(column.Header) ? (
+            <span
+              className={`before:text-content-primary before:content-['"'] after:text-content-primary after:content-['"']`}
             >
-              <QuestionMarkCircledIcon />
+              {column.render("Header")}
+            </span>
+          ) : (
+            <div>{column.render("Header")}</div>
+          )}
+          {!column.disableResizing && (
+            <div
+              {...column.getResizerProps()}
+              className="absolute top-0 z-20 inline-block h-full"
+              style={{
+                // @ts-expect-error bad typing in react-table
+                ...column.getResizerProps().style,
+                width: densityValues.paddingX * (isLastColumn ? 1 : 2),
+                right: isLastColumn ? 0 : -densityValues.paddingX,
+              }}
+            />
+          )}
+          {column.Header !== "_creationTime" &&
+            (column as unknown as { isDate: boolean }).isDate && (
+              <Tooltip
+                tip="Displaying numbers as dates. Hover or edit the cell by double-clicking see the unformatted value."
+                side="top"
+                align="start"
+                className="flex items-center"
+              >
+                <QuestionMarkCircledIcon />
+              </Tooltip>
+            )}
+          {sort && enableIndexFilters && (
+            <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
+              <CaretUpIcon
+                className={cn(
+                  "transition-all",
+                  sort === "asc" ? "" : "rotate-180",
+                )}
+              />
             </Tooltip>
           )}
-        {sort && enableIndexFilters && (
-          <Tooltip tip="You may change the sort order in the Filter & Sort menu.">
-            <CaretUpIcon
-              className={cn(
-                "transition-all",
-                sort === "asc" ? "" : "rotate-180",
-              )}
-            />
-          </Tooltip>
-        )}
-      </div>
+        </div>
+      </Tooltip>
     </div>
   );
 }

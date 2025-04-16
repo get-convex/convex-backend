@@ -252,6 +252,8 @@ export function Table({
                 topBorderAnimation={topBorderAnimation}
                 openContextMenu={openContextMenu}
                 sort={sort}
+                activeSchema={activeSchema}
+                tableName={tableName}
               />
               {/* Body */}
               <div

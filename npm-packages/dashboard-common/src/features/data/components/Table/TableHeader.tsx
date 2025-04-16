@@ -4,6 +4,7 @@ import classNames from "classnames";
 import omit from "lodash/omit";
 import { ColumnHeader } from "@common/features/data/components/Table/ColumnHeader";
 import { DataCellProps } from "@common/features/data/components/Table/DataCell/DataCell";
+import { SchemaJson } from "@common/lib/format";
 
 export function TableHeader({
   headerGroups,
@@ -16,6 +17,8 @@ export function TableHeader({
   reorder,
   openContextMenu,
   sort,
+  activeSchema,
+  tableName,
 }: {
   reorder(item: { index: number }, newIndex: number): void;
   headerGroups: HeaderGroup<GenericDocument>[];
@@ -30,6 +33,8 @@ export function TableHeader({
     order: "asc" | "desc";
     field: string;
   };
+  activeSchema: SchemaJson | null;
+  tableName: string;
 }) {
   return (
     <div className="group">
@@ -56,6 +61,8 @@ export function TableHeader({
               toggleAll={toggleAll}
               openContextMenu={openContextMenu}
               sort={sort.field === column.Header ? sort.order : undefined}
+              activeSchema={activeSchema}
+              tableName={tableName}
             />
           ))}
         </div>
