@@ -1,43 +1,83 @@
 import { noImportUseNode } from "./lib/noImportUseNode.js";
-import { noWhileLoops } from "./lib/noWhileLoops.js";
+import noOldRegisteredFunctionSyntax from "./lib/noOldRegisteredFunctionSyntax.js";
+import noMissingArgs from "./lib/noMissingArgs.js";
+import { RuleModule } from "@typescript-eslint/utils/ts-eslint";
 
+const rules = {
+  "no-old-registered-function-syntax": noOldRegisteredFunctionSyntax,
+  "no-missing-args-validator": noMissingArgs,
+  "import-wrong-runtime": noImportUseNode,
+} satisfies Record<string, RuleModule<any>>;
+
+const recommendedRules = {
+  // This rule is a good idea but hard to convert projects to later.
+  "@convex-dev/import-wrong-runtime": "off",
+  "@convex-dev/no-old-registered-function-syntax": "error",
+  "@convex-dev/no-missing-args-validator": "error",
+} satisfies {
+  [key: `@convex-dev/${string}`]: "error" | "warn" | "off";
+};
+
+const isESM = typeof require === "undefined";
+
+// Base plugin structure, common across ESLint 8 and 9
 const plugin = {
+  configs: {},
   meta: {
     name: "@convex-dev/eslint-plugin",
     version: "0.0.0-alpha.0",
   },
-  configs: {},
-  rules: {
-    "no-while-loops": noWhileLoops,
-    "import-wrong-runtime": noImportUseNode,
-  },
+  rules,
   processors: {},
 };
 
-Object.assign(plugin.configs, {
-  recommended: [
-    {
-      files: ["**/convex/**/*.ts"],
-      plugins: {
-        convex: plugin,
+// ESLint 9 format (ESM)
+if (isESM) {
+  Object.assign(plugin.configs, {
+    recommended: [
+      {
+        files: ["**/convex/**/*.ts"],
+        plugins: {
+          // We could call it "convex" instead, but in ESLint 8 rules can't be renamed like this.
+          // For consistency use @convex-dev/rule-name in ESLint 8 and 9.
+          "@convex-dev": plugin,
+        },
+        rules: recommendedRules,
       },
-      rules: {
-        "convex/import-wrong-runtime": "error",
-      },
+    ],
+  });
+}
+// ESLint 8 format (CommonJS)
+else {
+  plugin.configs = {
+    recommended: {
+      // Naming for plugins in namespaced packages is special: it removes the "eslint-plugin" part
+      // "plugins": [
+      //   "jquery", // means eslint-plugin-jquery
+      //   "@jquery/jquery", // means @jquery/eslint-plugin-jquery
+      //   "@foobar" // means @foobar/eslint-plugin
+      // ]
+      // Naming for configs in namespaced packages is also special, but this isn't a config.
+      plugins: ["@convex-dev"],
+      // Apply no rules globally
+      rules: {},
+      overrides: [
+        {
+          // Apply recommended rules in the convex directory
+          files: ["**/convex/**/*.ts"],
+          rules: recommendedRules,
+        },
+      ],
     },
-    {
-      files: ["**/convex.config.ts"],
-      plugins: {
-        convex: plugin,
-      },
-      rules: {
-        // This is an example lint but it would indeed be weird for
-        // a component definition to contain a `while(){}` loop.
-        "convex/no-while-loops": "error",
-      },
+    /** Useful for custom convex directory locations */
+    recommendedRulesCustomConvexDirectoryLocation: {
+      rules: recommendedRules,
     },
-  ],
-});
+  };
 
-// for ESM
+  // In CommonJS, we need to directly assign to module.exports
+  module.exports = plugin;
+}
+
+// For ESM (ESLint 9)
 export default plugin;

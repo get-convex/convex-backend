@@ -1,9 +1,14 @@
+// Delaying fixing this until we have a good auto-fix
+/* eslint-disable @convex-dev/no-missing-args-validator */
+
 import { mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
+import { v } from "convex/values";
 
 // List all scheduled jobs
 export const listJobs = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.system
       .query("_scheduled_functions")
@@ -14,6 +19,7 @@ export const listJobs = query({
 
 // List all files from storage
 export const listFiles = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.system.query("_storage").collect();
   },
@@ -21,6 +27,7 @@ export const listFiles = query({
 
 // List all messages
 export const listMessages = query({
+  args: {},
   handler: async ({ db }) => {
     return await db.query("messages").collect();
   },
@@ -28,7 +35,8 @@ export const listMessages = query({
 
 // Get one job
 export const getJob = query({
-  handler: async ({ db }, { id }: { id: Id<"_scheduled_functions"> }) => {
+  args: { id: v.id("_scheduled_functions") },
+  handler: async ({ db }, { id }) => {
     return await db.system.get(id);
   },
 });

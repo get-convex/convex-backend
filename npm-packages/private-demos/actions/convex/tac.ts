@@ -1,16 +1,20 @@
+// Delaying fixing this until we have a good auto-fix
+
+import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
 
-export const tac = action(
-  async ({ runMutation }, { author }: { author: string }) => {
+export const tac = action({
+  args: { author: v.string() },
+  handler: async ({ runMutation }, { author }) => {
     await runMutation(api.sendMessage.default, {
       format: "text",
       body: "tac",
       author,
     });
   },
-);
+});
 
 // Note that this does not need a action but we are using one to test scheduling
 // to and from actions.

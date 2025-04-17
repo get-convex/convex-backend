@@ -8,7 +8,8 @@
     "build": "vite build",
     "dev:backend": "convex dev",
     "dev:frontend": "vite --open --clearScreen false",
-    "predev": "convex dev --until-success"
+    "predev": "convex dev --until-success",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.6",
@@ -27,11 +28,11 @@
     "prettier": "3.5.2"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "workspace:*",
     "@types/pdf-parse": "^1.1.1",
     "@types/react": "^18.0.0",
     "@types/react-dom": "^18.0.0",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
-    "@typescript-eslint/parser": "^6.7.4",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.13",
     "eslint": "^8.29.0",

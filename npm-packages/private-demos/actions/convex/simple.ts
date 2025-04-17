@@ -10,15 +10,21 @@ export const hello = action({
   },
 });
 
-export const userError = action(async () => {
-  throw new Error("I failed you!");
+export const userError = action({
+  args: {},
+  handler: async () => {
+    throw new Error("I failed you!");
+  },
 });
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export const userTimeout = action(async () => {
-  await sleep(60 * 60 * 1000);
-  return "Success";
+export const userTimeout = action({
+  args: {},
+  handler: async () => {
+    await sleep(60 * 60 * 1000);
+    return "Success";
+  },
 });

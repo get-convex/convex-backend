@@ -1,15 +1,7 @@
 import path from "path";
 import fs from "fs";
-import {
-  AST_NODE_TYPES,
-  ESLintUtils,
-  TSESTree,
-} from "@typescript-eslint/utils";
-import { isEntryPoint } from "../util.js";
-
-const createRule = ESLintUtils.RuleCreator(
-  (name) => `https://docs.convex.io/eslint/${name}`,
-);
+import { AST_NODE_TYPES, TSESTree } from "@typescript-eslint/utils";
+import { createRule, isEntryPoint } from "../util.js";
 
 export const noImportUseNode = createRule({
   name: "no-import-use-node",
@@ -27,17 +19,11 @@ export const noImportUseNode = createRule({
   },
   defaultOptions: [],
   create: (context) => {
-    const filename = context.filename;
-    const isGenerated = filename.includes("_generated");
+    const filename = context.getFilename();
+    const entry = isEntryPoint(context.getFilename());
+    if (!entry) return {};
 
-    const entry = isEntryPoint(filename);
-    // This is a heuristic: it's possible to name the convex dir anything!
-    // TODO check ancestor directories for a convex.json and use that.
-    const isInConvexDir = filename.includes("convex" + path.sep);
-
-    if (!entry || isGenerated) return {};
-
-    const currentDir = path.dirname(context.filename);
+    const currentDir = path.dirname(filename);
     let isNodeJs: null | boolean = null;
     return {
       Program(node) {
@@ -49,7 +35,7 @@ export const noImportUseNode = createRule({
         if (!relative.startsWith(".")) return {};
         const abs = path.resolve(currentDir, relative);
 
-        // TODO this is a heuristic, findout about convex.json
+        // TODO this is a heuristic, find out about convex.json
         if (!abs.includes("convex/")) return {};
         const sourceFile = resolveFile(abs);
         if (!sourceFile) return;

@@ -291,6 +291,12 @@ const sidebars = {
       label: "Errors",
       className: "convex-sidebar-http-api",
     },
+    {
+      type: "doc",
+      id: "eslint",
+      label: "ESLint",
+      className: "convex-sidebar-eslint",
+    },
   ],
 };
 

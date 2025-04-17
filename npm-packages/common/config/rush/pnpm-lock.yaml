@@ -187,6 +187,9 @@ importers:
       eslint-doc-generator:
         specifier: ~1.7.1
         version: 1.7.1(eslint@9.16.0(jiti@2.4.2))(typescript@5.0.4)
+      vitest:
+        specifier: ^1.6.1
+        version: 1.6.1(@edge-runtime/vm@3.2.0)(@types/node@18.19.70)(@vitest/browser@2.1.8)(happy-dom@16.7.3)(jsdom@25.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10))(less@4.2.1)(terser@5.37.0)
     devDependencies:
       tshy:
         specifier: ^3.0.0
@@ -3778,6 +3781,9 @@ importers:
         specifier: ^1.0.10
         version: 1.0.18
     devDependencies:
+      '@convex-dev/eslint-plugin':
+        specifier: workspace:*
+        version: link:../../@convex-dev/eslint-plugin
       '@types/pdf-parse':
         specifier: ^1.1.1
         version: 1.1.4
@@ -3789,10 +3795,7 @@ importers:
         version: 18.3.5(@types/react@18.3.18)
       '@typescript-eslint/eslint-plugin':
         specifier: ^6.7.4
-        version: 6.21.0(@typescript-eslint/parser@6.21.0(eslint@8.57.1)(typescript@5.0.4))(eslint@8.57.1)(typescript@5.0.4)
-      '@typescript-eslint/parser':
-        specifier: ^6.7.4
-        version: 6.21.0(eslint@8.57.1)(typescript@5.0.4)
+        version: 6.21.0(@typescript-eslint/parser@8.17.0(eslint@8.57.1)(typescript@5.0.4))(eslint@8.57.1)(typescript@5.0.4)
       '@vitejs/plugin-react':
         specifier: ^4.2.1
         version: 4.3.4(vite@5.4.14(@types/node@22.10.5)(less@4.2.1)(terser@5.37.0))

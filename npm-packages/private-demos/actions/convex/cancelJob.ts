@@ -1,3 +1,6 @@
+// Delaying fixing this until we have a good auto-fix
+/* eslint-disable @convex-dev/no-missing-args-validator */
+
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { mutation, action } from "./_generated/server";

@@ -1,4 +1,6 @@
 "use node";
+// waiting for a better quickfix to enforce this
+/* eslint-disable @convex-dev/no-old-registered-function-syntax */
 import { action } from "./_generated/server";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 // import sharp from 'sharp';

@@ -1,6 +1,9 @@
 import { action } from "./_generated/server";
 
-export const nop = action(async () => {});
+export const nop = action({
+  args: {},
+  handler: async () => {},
+});
 
 /**
  * This function is not source-mappable by our current analyze because this file

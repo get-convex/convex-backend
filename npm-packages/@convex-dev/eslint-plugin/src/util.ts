@@ -1,4 +1,15 @@
 import path from "path";
+import { ESLintUtils } from "@typescript-eslint/utils";
+
+// List of Convex function registrars to check for
+export const CONVEX_REGISTRARS = [
+  "query",
+  "mutation",
+  "action",
+  "internalQuery",
+  "internalMutation",
+  "internalAction",
+];
 
 const ENTRY_POINT_EXTENSIONS = [
   // ESBuild js loader
@@ -43,3 +54,7 @@ export function isEntryPoint(fpath: string) {
     return true;
   }
 }
+
+export const createRule = ESLintUtils.RuleCreator(
+  (name) => `https://docs.convex.dev/eslint#${name}`,
+);
