@@ -117,12 +117,17 @@ export function useCreateAxiomSink(): (
 export function useCreateSentrySink(): (
   dsn: string,
   tags: Record<string, string>,
+  version: "1" | "2",
 ) => Promise<void> {
   const deploymentUrl = useDeploymentUrl();
   const adminKey = useAdminKey();
 
-  return async (dsn: string, tags: Record<string, string>) => {
-    const body = JSON.stringify({ dsn, tags });
+  return async (
+    dsn: string,
+    tags: Record<string, string>,
+    version: "1" | "2",
+  ) => {
+    const body = JSON.stringify({ dsn, tags, version });
     await createSink("sentry", body, deploymentUrl, adminKey);
   };
 }

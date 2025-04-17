@@ -289,6 +289,43 @@ impl From<FrameData> for FrameDataProto {
     }
 }
 
+impl From<FrameData> for sentry::protocol::Frame {
+    fn from(frame: FrameData) -> Self {
+        let function = match frame.function_name {
+            Some(f) => f,
+            None => match frame.method_name {
+                Some(m) => m,
+                None => "<anonymous>".to_string(),
+            },
+        };
+
+        Self {
+            function: Some(function),
+            filename: frame.file_name.clone(),
+            lineno: frame.line_number.map(|l| l as u64),
+            colno: frame.column_number.map(|c| c as u64),
+            module: None,
+            package: None,
+            abs_path: None,
+            pre_context: vec![],
+            context_line: None,
+            post_context: vec![],
+            in_app: Some(
+                frame
+                    .file_name
+                    .map(|f| !f.contains("node_modules"))
+                    .unwrap_or(false),
+            ),
+            vars: BTreeMap::new(),
+            image_addr: None,
+            instruction_addr: None,
+            symbol_addr: None,
+            addr_mode: None,
+            symbol: None,
+        }
+    }
+}
+
 impl TryFrom<FrameDataProto> for FrameData {
     type Error = anyhow::Error;
 

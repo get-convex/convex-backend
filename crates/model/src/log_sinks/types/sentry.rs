@@ -1,6 +1,10 @@
 use std::{
     collections::BTreeMap,
-    fmt,
+    fmt::{
+        self,
+        Display,
+    },
+    str::FromStr,
 };
 
 use common::pii::PII;
@@ -24,6 +28,7 @@ pub struct SentryConfig {
     )]
     pub dsn: PII<Dsn>,
     pub tags: Option<BTreeMap<FieldName, String>>,
+    pub version: ExceptionFormatVersion,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -31,6 +36,7 @@ pub struct SentryConfig {
 pub struct SerializedSentryConfig {
     pub dsn: String,
     pub tags: Option<BTreeMap<FieldName, String>>,
+    pub version: Option<String>,
 }
 
 impl TryFrom<SentryConfig> for SerializedSentryConfig {
@@ -40,6 +46,7 @@ impl TryFrom<SentryConfig> for SerializedSentryConfig {
         Ok(Self {
             dsn: value.dsn.into_value().to_string(),
             tags: value.tags,
+            version: Some(value.version.to_string()),
         })
     }
 }
@@ -51,12 +58,52 @@ impl TryFrom<SerializedSentryConfig> for SentryConfig {
         Ok(Self {
             dsn: value.dsn.parse::<Dsn>()?.into(),
             tags: value.tags,
+            version: match value.version {
+                Some(v) => ExceptionFormatVersion::from_str(&v)?,
+                // Treat missing version as V1
+                None => ExceptionFormatVersion::V1,
+            },
         })
     }
 }
 
 impl fmt::Display for SentryConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SentryConfig {{ dsn: ... }}")
+        write!(f, "SentryConfig {{ dsn: ..., version: {} }}", self.version)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+pub enum ExceptionFormatVersion {
+    V1,
+    V2,
+}
+
+impl FromStr for ExceptionFormatVersion {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "1" => Ok(Self::V1),
+            "2" => Ok(Self::V2),
+            v => anyhow::bail!("Invalid ExceptionFormatVersion: {v}"),
+        }
+    }
+}
+
+impl Display for ExceptionFormatVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::V1 => write!(f, "1"),
+            Self::V2 => write!(f, "2"),
+        }
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+impl Default for ExceptionFormatVersion {
+    fn default() -> Self {
+        Self::V2
     }
 }

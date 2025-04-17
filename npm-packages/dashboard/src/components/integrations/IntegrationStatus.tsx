@@ -21,7 +21,11 @@ export function IntegrationStatus({
           {integrationUsingLegacyFormat(integration.existing.config) && (
             <Tooltip
               className="text-left text-xs text-content-warning"
-              tip="This integration is using the legacy event format. Re-configure this integration to update the event format."
+              tip={
+                integration.existing.config.type === "sentry"
+                  ? "This integration is using the legacy exception format. Re-configure this integration to update the exception format."
+                  : "This integration is using the legacy event format. Re-configure this integration to update the event format."
+              }
             >
               <ExclamationTriangleIcon className="inline" />
             </Tooltip>

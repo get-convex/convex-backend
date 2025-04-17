@@ -169,7 +169,7 @@ export function integrationUsingLegacyFormat(
     case "webhook":
       return false;
     case "sentry":
-      return false;
+      return config.version !== "2";
     default: {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _typeCheck: never = config;

@@ -1,4 +1,6 @@
+import { integrationUsingLegacyFormat } from "@common/lib/integrationHelpers";
 import { Button } from "@ui/Button";
+import { Combobox } from "@ui/Combobox";
 import { TextInput } from "@ui/TextInput";
 import { Infer } from "convex/values";
 import { useFormik } from "formik";
@@ -36,21 +38,25 @@ export function SentryConfigurationForm({
   existingConfig: Infer<typeof sentryConfig> | null;
 }) {
   const createSentrySink = useCreateSentrySink();
+  const isUsingLegacyFormat = integrationUsingLegacyFormat(existingConfig);
 
   const formState = useFormik<{
     dsn: string;
     tags: string | undefined;
+    version: "1" | "2";
   }>({
     initialValues: {
       dsn: existingConfig?.dsn ?? "",
       tags: existingConfig?.tags
         ? JSON.stringify(existingConfig.tags)
         : undefined,
+      version: existingConfig !== null ? (existingConfig.version ?? "1") : "2",
     },
     onSubmit: async (values) => {
       await createSentrySink(
         values.dsn,
         values.tags ? JSON.parse(values.tags) : undefined,
+        values.version,
       );
       onClose();
     },
@@ -59,6 +65,32 @@ export function SentryConfigurationForm({
 
   return (
     <form onSubmit={formState.handleSubmit} className="flex flex-col gap-3">
+      {isUsingLegacyFormat && (
+        <>
+          <div className="flex flex-col gap-1">
+            Event Format
+            <div className="text-xs text-content-secondary">
+              The current version uses the <code>stacktrace</code> instead of
+              the <code>value</code> field to capture the stacktrace, enabling
+              better Sentry grouping and source code integrations.
+            </div>
+          </div>
+          <Combobox
+            label="Select event format"
+            options={[
+              { value: "1", label: "Legacy" },
+              { value: "2", label: "Current" },
+            ]}
+            selectedOption={formState.values.version}
+            setSelectedOption={async (v) => {
+              await formState.setFieldValue("version", v);
+            }}
+            disableSearch
+            allowCustomValue={false}
+            buttonClasses="w-full bg-inherit"
+          />
+        </>
+      )}
       <TextInput
         value={formState.values.dsn}
         onChange={formState.handleChange}

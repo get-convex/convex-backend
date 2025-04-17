@@ -223,6 +223,7 @@ export const sentryConfig = v.object({
   type: v.literal("sentry"),
   dsn: v.string(),
   tags: v.optional(v.record(v.string(), v.string())),
+  version: v.optional(v.union(v.literal("1"), v.literal("2"))),
 });
 
 export const sinkConfig = v.union(
