@@ -755,7 +755,7 @@ impl<RT: Runtime> Application<RT> {
             function_log.clone(),
         );
 
-        let cron_job_executor_fut = CronJobExecutor::start(
+        let cron_job_executor_fut = CronJobExecutor::run(
             runtime.clone(),
             instance_name.clone(),
             database.clone(),

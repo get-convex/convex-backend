@@ -4,7 +4,6 @@ use std::{
         BTreeMap,
         HashSet,
     },
-    ops::Deref,
     sync::Arc,
     time::{
         Duration,
@@ -121,7 +120,7 @@ impl ScheduledJobRunner {
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
-        let executor_fut = ScheduledJobExecutor::start(
+        let executor_fut = ScheduledJobExecutor::run(
             rt.clone(),
             instance_name,
             database.clone(),
@@ -148,144 +147,140 @@ impl ScheduledJobRunner {
 
 pub struct ScheduledJobExecutor<RT: Runtime> {
     context: ScheduledJobContext<RT>,
-}
-
-impl<RT: Runtime> Deref for ScheduledJobExecutor<RT> {
-    type Target = ScheduledJobContext<RT>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.context
-    }
+    instance_name: String,
+    running_job_ids: HashSet<ResolvedDocumentId>,
+    /// Some if there's at least one pending job. May be in the past!
+    next_job_ready_time: Option<Timestamp>,
+    job_finished_tx: mpsc::Sender<ResolvedDocumentId>,
+    job_finished_rx: mpsc::Receiver<ResolvedDocumentId>,
 }
 
 #[derive(Clone)]
 pub struct ScheduledJobContext<RT: Runtime> {
     rt: RT,
-    instance_name: String,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
 }
 
-impl<RT: Runtime> ScheduledJobExecutor<RT> {
-    pub fn start(
-        rt: RT,
-        instance_name: String,
-        database: Database<RT>,
-        runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: FunctionExecutionLog<RT>,
-    ) -> impl Future<Output = ()> + Send {
-        let mut executor = Self {
-            context: ScheduledJobContext {
-                rt,
-                instance_name,
-                database,
-                runner,
-                function_log,
-            },
-        };
-        async move {
-            let mut backoff =
-                Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
-            while let Err(mut e) = executor.run(&mut backoff).await {
-                let delay = backoff.fail(&mut executor.rt.rng());
-                tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
-                report_error(&mut e).await;
-                executor.rt.wait(delay).await;
-            }
-        }
-    }
-
+impl<RT: Runtime> ScheduledJobContext<RT> {
     #[cfg(any(test, feature = "testing"))]
     pub fn new(
         rt: RT,
-        instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
     ) -> Self {
-        Self {
+        ScheduledJobContext {
+            rt,
+            database,
+            runner,
+            function_log,
+        }
+    }
+}
+
+impl<RT: Runtime> ScheduledJobExecutor<RT> {
+    pub async fn run(
+        rt: RT,
+        instance_name: String,
+        database: Database<RT>,
+        runner: Arc<ApplicationFunctionRunner<RT>>,
+        function_log: FunctionExecutionLog<RT>,
+    ) {
+        let (job_finished_tx, job_finished_rx) =
+            mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
+        let mut executor = Self {
             context: ScheduledJobContext {
                 rt,
-                instance_name,
                 database,
                 runner,
                 function_log,
             },
+            instance_name,
+            running_job_ids: HashSet::new(),
+            next_job_ready_time: None,
+            job_finished_tx,
+            job_finished_rx,
+        };
+        let mut backoff = Backoff::new(*SCHEDULED_JOB_INITIAL_BACKOFF, *SCHEDULED_JOB_MAX_BACKOFF);
+        tracing::info!("Starting scheduled job executor");
+        loop {
+            match executor.run_once().await {
+                Ok(()) => backoff.reset(),
+                Err(mut e) => {
+                    let delay = backoff.fail(&mut executor.context.rt.rng());
+                    tracing::error!("Scheduled job executor failed, sleeping {delay:?}");
+                    report_error(&mut e).await;
+                    executor.context.rt.wait(delay).await;
+                },
+            }
         }
     }
 
-    async fn run(&mut self, backoff: &mut Backoff) -> anyhow::Result<()> {
-        tracing::info!("Starting scheduled job executor");
+    async fn run_once(&mut self) -> anyhow::Result<()> {
         let pause_client = self.context.rt.pause_client();
-        let (job_finished_tx, mut job_finished_rx) =
-            mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
-        let mut running_job_ids = HashSet::new();
-        // Some if there's at least one pending job. May be in the past!
-        let mut next_job_ready_time = None;
-        loop {
-            let _timer = metrics::run_scheduled_jobs_loop();
+        let _timer = metrics::run_scheduled_jobs_loop();
 
-            let mut tx = self.database.begin(Identity::Unknown(None)).await?;
-            let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
-            let is_backend_stopped = backend_state.is_stopped();
+        let mut tx = self.context.database.begin(Identity::Unknown(None)).await?;
+        let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+        let is_backend_stopped = backend_state.is_stopped();
 
-            next_job_ready_time = if is_backend_stopped {
-                // If the backend is stopped we shouldn't poll. Our subscription will notify us
-                // when the backend is started again.
-                None
-            } else if running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
-                // A scheduled job may have been added, but we can't do anything because we're
-                // still running jobs at our concurrency limit.
-                next_job_ready_time
-            } else {
-                // Great! we have enough remaining concurrency and our backend is running, start
-                // new job(s) if we can and update our next ready time.
-                self.query_and_start_jobs(&mut tx, &mut running_job_ids, &job_finished_tx)
-                    .await?
-            };
+        self.next_job_ready_time = if is_backend_stopped {
+            // If the backend is stopped we shouldn't poll. Our subscription will notify us
+            // when the backend is started again.
+            None
+        } else if self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+            // A scheduled job may have been added, but we can't do anything because we're
+            // still running jobs at our concurrency limit.
+            self.next_job_ready_time
+        } else {
+            // Great! we have enough remaining concurrency and our backend is running, start
+            // new job(s) if we can and update our next ready time.
+            self.query_and_start_jobs(&mut tx).await?
+        };
 
-            metrics::log_num_running_jobs(running_job_ids.len());
-            let now = self.rt.system_time();
-            let next_job_ready_time = next_job_ready_time.map(SystemTime::from);
-            self.log_scheduled_job_execution_lag(next_job_ready_time, now);
-            let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
-                let wait_time = next_job_ts.duration_since(now).unwrap_or_else(|_| {
-                    // If we're behind, re-run this loop every 5 seconds to log the gauge above and
-                    // track how far we're behind in our metrics.
-                    Duration::from_secs(5)
-                });
-                Either::Left(self.rt.wait(wait_time))
-            } else {
-                Either::Right(std::future::pending())
-            };
+        metrics::log_num_running_jobs(self.running_job_ids.len());
+        let now = self.context.rt.system_time();
+        let next_job_ready_time = self.next_job_ready_time.map(SystemTime::from);
+        self.context
+            .log_scheduled_job_execution_lag(next_job_ready_time, now);
+        let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
+            let wait_time = next_job_ts.duration_since(now).unwrap_or_else(|_| {
+                // If we're behind, re-run this loop every 5 seconds to log the gauge above and
+                // track how far we're behind in our metrics.
+                Duration::from_secs(5)
+            });
+            Either::Left(self.context.rt.wait(wait_time))
+        } else {
+            Either::Right(std::future::pending())
+        };
 
-            let token = tx.into_token()?;
-            let subscription = self.database.subscribe(token).await?;
+        let token = tx.into_token()?;
+        let subscription = self.context.database.subscribe(token).await?;
 
-            let mut job_ids: Vec<_> = Vec::new();
-            select_biased! {
-                num_jobs = job_finished_rx
-                                .recv_many(&mut job_ids, *SCHEDULED_JOB_EXECUTION_PARALLELISM)
-                                .fuse() => {
-                    // `recv_many()` returns the number of jobs received. If this number is 0,
-                    // then the channel has been closed.
-                    if num_jobs > 0 {
-                        for job_id in job_ids {
-                            pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
-                            running_job_ids.remove(&job_id);
-                        }
-                    } else {
-                        anyhow::bail!("Job results channel closed, this is unexpected!");
+        let mut job_ids: Vec<_> = Vec::new();
+        select_biased! {
+            num_jobs = self.job_finished_rx
+                .recv_many(&mut job_ids, *SCHEDULED_JOB_EXECUTION_PARALLELISM)
+                .fuse() => {
+                // `recv_many()` returns the number of jobs received. If this number is 0,
+                // then the channel has been closed.
+                if num_jobs > 0 {
+                    for job_id in job_ids {
+                        pause_client.wait(SCHEDULED_JOB_EXECUTED).await;
+                        self.running_job_ids.remove(&job_id);
                     }
-                },
-                _ = next_job_future.fuse() => {
-                },
-                _ = subscription.wait_for_invalidation().fuse() => {
-                },
-            }
-            backoff.reset();
+                } else {
+                    anyhow::bail!("Job results channel closed, this is unexpected!");
+                }
+            },
+            _ = next_job_future.fuse() => {
+            },
+            _ = subscription.wait_for_invalidation().fuse() => {
+            },
         }
+        Ok(())
     }
 
     /// Reads through scheduled jobs in timestamp ascending order and starts any
@@ -296,16 +291,14 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
     /// run. If the scheduler is behind, the returned time may be in the
     /// past. Returns None if all jobs are finished or running.
     async fn query_and_start_jobs(
-        &self,
+        &mut self,
         tx: &mut Transaction<RT>,
-        running_job_ids: &mut HashSet<ResolvedDocumentId>,
-        job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
     ) -> anyhow::Result<Option<Timestamp>> {
-        let now = self.rt.generate_timestamp()?;
-        let mut job_stream = self.stream_jobs_to_run(tx);
+        let now = self.context.rt.generate_timestamp()?;
+        let mut job_stream = self.context.stream_jobs_to_run(tx);
         while let Some(job) = job_stream.try_next().await? {
             let (job_id, job) = job.clone().into_id_and_value();
-            if running_job_ids.contains(&job_id) {
+            if self.running_job_ids.contains(&job_id) {
                 continue;
             }
             let next_ts = job
@@ -315,21 +308,21 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
             // caught up, we can sleep until the timestamp. If we're behind and
             // at our concurrency limit, we can use the timestamp to log how far
             // behind we get.
-            if next_ts > now || running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+            if next_ts > now || self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
                 return Ok(Some(next_ts));
             }
 
             let context = self.context.clone();
-            let tx = job_finished_tx.clone();
+            let tx = self.job_finished_tx.clone();
 
             let root = get_sampled_span(
                 &self.instance_name,
                 "scheduler/execute_job",
-                &mut self.rt.rng(),
+                &mut self.context.rt.rng(),
                 BTreeMap::new(),
             );
             // TODO: cancel this handle with the application
-            self.rt.spawn_background(
+            self.context.rt.spawn_background(
                 "spawn_scheduled_job",
                 async move {
                     context.execute_job(job, job_id).await;
@@ -338,7 +331,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
                 .in_span(root),
             );
 
-            running_job_ids.insert(job_id);
+            self.running_job_ids.insert(job_id);
 
             // We might have hit the concurrency limit by adding the new job, so
             // we could check and break immediately if we have.
@@ -348,7 +341,9 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         }
         Ok(None)
     }
+}
 
+impl<RT: Runtime> ScheduledJobContext<RT> {
     #[try_stream(boxed, ok = ParsedDocument<ScheduledJob>, error = anyhow::Error)]
     async fn stream_jobs_to_run<'a>(&'a self, tx: &'a mut Transaction<RT>) {
         let namespaces: Vec<_> = tx
@@ -407,9 +402,7 @@ impl<RT: Runtime> ScheduledJobExecutor<RT> {
         self.function_log
             .log_scheduled_job_lag(next_job_ready_time, now);
     }
-}
 
-impl<RT: Runtime> ScheduledJobContext<RT> {
     // This handles re-running the scheduled function on transient errors. It
     // guarantees that the job was successfully run or the job state changed.
     pub async fn execute_job(&self, job: ScheduledJob, job_id: ResolvedDocumentId) {

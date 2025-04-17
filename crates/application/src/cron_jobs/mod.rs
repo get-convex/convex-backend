@@ -45,7 +45,6 @@ use fastrace::future::FutureExt as _;
 use futures::{
     future::Either,
     select_biased,
-    Future,
     FutureExt,
     TryStreamExt,
 };
@@ -93,127 +92,122 @@ const CRON_LOG_MAX_LOG_LINE_LENGTH: usize = 1000;
 
 // This code is very similar to ScheduledJobExecutor and could potentially be
 // refactored later.
-#[derive(Clone)]
 pub struct CronJobExecutor<RT: Runtime> {
-    rt: RT,
+    context: CronJobContext<RT>,
     instance_name: String,
+    running_job_ids: HashSet<ResolvedDocumentId>,
+    /// Some if there's at least one pending job. May be in the past!
+    next_job_ready_time: Option<Timestamp>,
+    job_finished_tx: mpsc::Sender<ResolvedDocumentId>,
+    job_finished_rx: mpsc::Receiver<ResolvedDocumentId>,
+}
+
+#[derive(Clone)]
+pub struct CronJobContext<RT: Runtime> {
+    rt: RT,
     database: Database<RT>,
     runner: Arc<ApplicationFunctionRunner<RT>>,
     function_log: FunctionExecutionLog<RT>,
 }
 
 impl<RT: Runtime> CronJobExecutor<RT> {
-    pub fn start(
+    pub async fn run(
         rt: RT,
         instance_name: String,
         database: Database<RT>,
         runner: Arc<ApplicationFunctionRunner<RT>>,
         function_log: FunctionExecutionLog<RT>,
-    ) -> impl Future<Output = ()> + Send {
-        let executor = Self {
-            rt,
+    ) {
+        let (job_finished_tx, job_finished_rx) =
+            mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
+        let mut executor = Self {
+            context: CronJobContext {
+                rt,
+                database,
+                runner,
+                function_log,
+            },
             instance_name,
-            database,
-            runner,
-            function_log,
+            running_job_ids: HashSet::new(),
+            next_job_ready_time: None,
+            job_finished_tx,
+            job_finished_rx,
         };
-        async move {
-            let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
-            while let Err(mut e) = executor.run(&mut backoff).await {
-                // Only report OCCs that happen repeatedly
-                if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES {
-                    report_error(&mut e).await;
-                }
-                let delay = backoff.fail(&mut executor.rt.rng());
-                tracing::error!("Cron job executor failed, sleeping {delay:?}");
-                executor.rt.wait(delay).await;
+        let mut backoff = Backoff::new(INITIAL_BACKOFF, MAX_BACKOFF);
+        tracing::info!("Starting cron job executor");
+        loop {
+            match executor.run_once().await {
+                Ok(()) => backoff.reset(),
+                Err(mut e) => {
+                    // Only report OCCs that happen repeatedly
+                    if !e.is_occ() || (backoff.failures() as usize) > *UDF_EXECUTOR_OCC_MAX_RETRIES
+                    {
+                        report_error(&mut e).await;
+                    }
+                    let delay = backoff.fail(&mut executor.context.rt.rng());
+                    tracing::error!("Cron job executor failed, sleeping {delay:?}");
+                    executor.context.rt.wait(delay).await;
+                },
             }
         }
     }
 
-    #[cfg(any(test, feature = "testing"))]
-    pub fn new(
-        rt: RT,
-        instance_name: String,
-        database: Database<RT>,
-        runner: Arc<ApplicationFunctionRunner<RT>>,
-        function_log: FunctionExecutionLog<RT>,
-    ) -> Self {
-        Self {
-            rt,
-            instance_name,
-            database,
-            runner,
-            function_log,
-        }
-    }
+    async fn run_once(&mut self) -> anyhow::Result<()> {
+        let mut tx = self.context.database.begin(Identity::Unknown(None)).await?;
+        let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
+        let is_backend_stopped = backend_state.is_stopped();
 
-    async fn run(&self, backoff: &mut Backoff) -> anyhow::Result<()> {
-        tracing::info!("Starting cron job executor");
-        let (job_finished_tx, mut job_finished_rx) =
-            mpsc::channel(*SCHEDULED_JOB_EXECUTION_PARALLELISM);
-        let mut running_job_ids = HashSet::new();
-        let mut next_job_ready_time = None;
-        loop {
-            let mut tx = self.database.begin(Identity::Unknown(None)).await?;
-            let backend_state = BackendStateModel::new(&mut tx).get_backend_state().await?;
-            let is_backend_stopped = backend_state.is_stopped();
+        self.next_job_ready_time = if is_backend_stopped {
+            None
+        } else if self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+            self.next_job_ready_time
+        } else {
+            self.query_and_start_jobs(&mut tx).await?
+        };
 
-            next_job_ready_time = if is_backend_stopped {
-                None
-            } else if running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
-                next_job_ready_time
-            } else {
-                self.query_and_start_jobs(&mut tx, &mut running_job_ids, &job_finished_tx)
-                    .await?
-            };
-
-            let next_job_future = if let Some(next_job_ts) = next_job_ready_time {
-                let now = self.rt.generate_timestamp()?;
-                Either::Left(if next_job_ts < now {
-                    metrics::log_cron_job_execution_lag(now - next_job_ts);
-                    // If we're behind, re-run this loop every 5 seconds to log the gauge above and
-                    // track how far we're behind in our metrics.
-                    self.rt.wait(Duration::from_secs(5))
-                } else {
-                    metrics::log_cron_job_execution_lag(Duration::from_secs(0));
-                    self.rt.wait(next_job_ts - now)
-                })
+        let next_job_future = if let Some(next_job_ts) = self.next_job_ready_time {
+            let now = self.context.rt.generate_timestamp()?;
+            Either::Left(if next_job_ts < now {
+                metrics::log_cron_job_execution_lag(now - next_job_ts);
+                // If we're behind, re-run this loop every 5 seconds to log the gauge above and
+                // track how far we're behind in our metrics.
+                self.context.rt.wait(Duration::from_secs(5))
             } else {
                 metrics::log_cron_job_execution_lag(Duration::from_secs(0));
-                Either::Right(std::future::pending())
-            };
+                self.context.rt.wait(next_job_ts - now)
+            })
+        } else {
+            metrics::log_cron_job_execution_lag(Duration::from_secs(0));
+            Either::Right(std::future::pending())
+        };
 
-            let token = tx.into_token()?;
-            let subscription = self.database.subscribe(token).await?;
-            select_biased! {
-                job_id = job_finished_rx.recv().fuse() => {
-                    if let Some(job_id) = job_id {
-                        running_job_ids.remove(&job_id);
-                    } else {
-                        anyhow::bail!("Job results channel closed, this is unexpected!");
-                    }
-                },
-                _ = next_job_future.fuse() => {
+        let token = tx.into_token()?;
+        let subscription = self.context.database.subscribe(token).await?;
+        select_biased! {
+            job_id = self.job_finished_rx.recv().fuse() => {
+                if let Some(job_id) = job_id {
+                    self.running_job_ids.remove(&job_id);
+                } else {
+                    anyhow::bail!("Job results channel closed, this is unexpected!");
                 }
-                _ = subscription.wait_for_invalidation().fuse() => {
-                },
-            };
-            backoff.reset();
+            },
+            _ = next_job_future.fuse() => {
+            }
+            _ = subscription.wait_for_invalidation().fuse() => {
+            },
         }
+        Ok(())
     }
 
     async fn query_and_start_jobs(
-        &self,
+        &mut self,
         tx: &mut Transaction<RT>,
-        running_job_ids: &mut HashSet<ResolvedDocumentId>,
-        job_finished_tx: &mpsc::Sender<ResolvedDocumentId>,
     ) -> anyhow::Result<Option<Timestamp>> {
-        let now = self.rt.generate_timestamp()?;
+        let now = self.context.rt.generate_timestamp()?;
         let mut job_stream = stream_cron_jobs_to_run(tx);
         while let Some(job) = job_stream.try_next().await? {
             let job_id = job.id;
-            if running_job_ids.contains(&job_id) {
+            if self.running_job_ids.contains(&job_id) {
                 continue;
             }
             let next_ts = job.next_ts;
@@ -221,19 +215,19 @@ impl<RT: Runtime> CronJobExecutor<RT> {
             // caught up, we can sleep until the timestamp. If we're behind and
             // at our concurrency limit, we can use the timestamp to log how far
             // behind we get.
-            if next_ts > now || running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
+            if next_ts > now || self.running_job_ids.len() == *SCHEDULED_JOB_EXECUTION_PARALLELISM {
                 return Ok(Some(next_ts));
             }
             let root = get_sampled_span(
                 &self.instance_name,
                 "crons/execute_job",
-                &mut self.rt.rng(),
+                &mut self.context.rt.rng(),
                 BTreeMap::new(),
             );
-            let context = self.clone();
-            let tx = job_finished_tx.clone();
+            let context = self.context.clone();
+            let tx = self.job_finished_tx.clone();
             // TODO: cancel this handle with the application
-            self.rt.spawn_background(
+            self.context.rt.spawn_background(
                 "spawn_cron_job",
                 async move {
                     select_biased! {
@@ -247,9 +241,26 @@ impl<RT: Runtime> CronJobExecutor<RT> {
                 }
                 .in_span(root),
             );
-            running_job_ids.insert(job_id);
+            self.running_job_ids.insert(job_id);
         }
         Ok(None)
+    }
+}
+
+impl<RT: Runtime> CronJobContext<RT> {
+    #[cfg(any(test, feature = "testing"))]
+    pub fn new(
+        rt: RT,
+        database: Database<RT>,
+        runner: Arc<ApplicationFunctionRunner<RT>>,
+        function_log: FunctionExecutionLog<RT>,
+    ) -> Self {
+        Self {
+            rt,
+            database,
+            runner,
+            function_log,
+        }
     }
 
     // This handles re-running the cron job on transient errors. It

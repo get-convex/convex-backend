@@ -100,14 +100,14 @@ use value::{
 
 use crate::{
     cache::QueryCache,
-    cron_jobs::CronJobExecutor,
+    cron_jobs::CronJobContext,
     deploy_config::{
         FinishPushDiff,
         SchemaStatus,
         StartPushRequest,
     },
     log_visibility::RedactLogsToClient,
-    scheduled_jobs::ScheduledJobExecutor,
+    scheduled_jobs::ScheduledJobContext,
     Application,
 };
 
@@ -283,9 +283,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
     ) -> anyhow::Result<()> {
-        let test_executor = ScheduledJobExecutor::new(
+        let test_executor = ScheduledJobContext::new(
             self.runtime.clone(),
-            DEV_INSTANCE_NAME.into(),
             self.database.clone(),
             self.runner.clone(),
             self.function_log.clone(),
@@ -295,9 +294,8 @@ impl<RT: Runtime> ApplicationTestExt<RT> for Application<RT> {
     }
 
     async fn test_one_off_cron_job_executor_run(&self, job: CronJob) -> anyhow::Result<()> {
-        let test_executor = CronJobExecutor::new(
+        let test_executor = CronJobContext::new(
             self.runtime.clone(),
-            DEV_INSTANCE_NAME.into(),
             self.database.clone(),
             self.runner.clone(),
             self.function_log.clone(),
