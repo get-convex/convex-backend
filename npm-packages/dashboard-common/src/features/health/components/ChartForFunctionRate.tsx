@@ -130,7 +130,6 @@ export function ChartForFunctionRate({
                             "Lag Time (minutes)"
                           ) : (
                             <FunctionNameOption
-                              oneLine
                               maxChars={24}
                               label={dataKey as string}
                             />

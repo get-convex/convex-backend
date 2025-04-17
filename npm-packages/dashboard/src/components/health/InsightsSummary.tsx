@@ -1,8 +1,11 @@
-import { InsightsSummaryData } from "api/insights";
+import { Insight } from "api/insights";
 import { Loading } from "@ui/Loading";
 import { EmptySection } from "@common/elements/EmptySection";
 import { CheckCircledIcon } from "@radix-ui/react-icons";
 import { InsightsSummaryListItem } from "./InsightsSummaryListItem";
+
+// Export this type to fix the linter error
+export type InsightsSummaryData = Insight;
 
 export function InsightsSummary({
   insights,
@@ -29,15 +32,15 @@ export function InsightsSummary({
     );
   }
   return (
-    <div className="flex h-full w-full animate-fadeInFromLoading flex-col overflow-hidden">
-      <div className="flex gap-2 border-b px-2 pb-1 pt-2 text-xs text-content-secondary">
-        <p className="w-20">Severity</p>
-        <p className="w-72">Function</p>
-        <p className="w-60">Problem</p>
-        <p className="w-60">Chart</p>
+    <div className="flex h-full w-full animate-fadeInFromLoading flex-col">
+      <div className="flex min-w-fit gap-2 border-b px-2 pb-1 pt-2 text-xs text-content-secondary">
+        <p className="min-w-20">Severity</p>
+        <p className="min-w-72">Function</p>
+        <p className="min-w-60">Problem</p>
+        <p className="min-w-60">Chart</p>
       </div>
       {insights && (
-        <div className="flex w-full animate-fadeInFromLoading flex-col overflow-auto scrollbar">
+        <div className="flex w-full animate-fadeInFromLoading flex-col">
           {insights.map((insight, idx) => (
             <InsightsSummaryListItem key={idx} insight={insight} />
           ))}

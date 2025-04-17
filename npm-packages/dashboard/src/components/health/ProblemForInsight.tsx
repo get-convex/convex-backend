@@ -2,30 +2,44 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import { InsightsSummaryData } from "api/insights";
+import { Insight } from "api/insights";
 import { Button } from "@ui/Button";
-import { formatBytes, formatNumberCompact } from "@common/lib/format";
+import { formatNumberCompact } from "@common/lib/format";
 import Link from "next/link";
 
 export function ProblemForInsight({
   insight,
   explain = false,
 }: {
-  insight: InsightsSummaryData;
+  insight: Insight;
   explain?: boolean;
 }) {
   switch (insight.kind) {
-    case "bytesReadAverageThreshold":
-      return <BytesReadThresholdProblem insight={insight} explain={explain} />;
-    case "bytesReadCountThreshold":
-      return <BytesReadCountProblem insight={insight} explain={explain} />;
-    case "docsReadAverageThreshold":
-      return <DocsReadThresholdProblem insight={insight} explain={explain} />;
-    case "docsReadCountThreshold":
-      return <DocsReadCountProblem insight={insight} explain={explain} />;
+    case "bytesReadLimit":
+    case "bytesReadThreshold": {
+      const bytesReadInsight = insight as Insight & {
+        kind: "bytesReadLimit" | "bytesReadThreshold";
+      };
+      return (
+        <BytesReadCountProblem insight={bytesReadInsight} explain={explain} />
+      );
+    }
+    case "docsReadThreshold":
+    case "docsReadLimit": {
+      const docsReadInsight = insight as Insight & {
+        kind: "docsReadLimit" | "docsReadThreshold";
+      };
+      return (
+        <DocsReadCountProblem insight={docsReadInsight} explain={explain} />
+      );
+    }
     case "occFailedPermanently":
-    case "occRetried":
-      return <OCCProblem insight={insight} explain={explain} />;
+    case "occRetried": {
+      const occInsight = insight as Insight & {
+        kind: "occFailedPermanently" | "occRetried";
+      };
+      return <OCCProblem insight={occInsight} explain={explain} />;
+    }
     default: {
       const _exhaustiveCheck: never = insight;
       return null;
@@ -37,7 +51,7 @@ function OCCProblem({
   insight,
   explain,
 }: {
-  insight: InsightsSummaryData & {
+  insight: Insight & {
     kind: "occFailedPermanently" | "occRetried";
   };
   explain: boolean;
@@ -50,7 +64,13 @@ function OCCProblem({
         {explain && (
           <>
             in table{" "}
-            <span className="font-semibold">{insight.occTableName}</span>
+            {insight.details.occTableName ? (
+              <span className="font-semibold">
+                {insight.details.occTableName}
+              </span>
+            ) : (
+              <span className="text-content-secondary">an unknown table</span>
+            )}
           </>
         )}
         {!explain && (
@@ -77,15 +97,17 @@ function OCCProblem({
         )}
       </span>
       {!explain && (
-        <span className="text-left text-xs text-content-secondary">
-          {formatNumberCompact(insight.occCalls)} time
-          {insight.occCalls === 1 ? "" : "s"} in{" "}
-          {!insight.occTableName ? (
+        <span className="max-w-full truncate text-left text-xs text-content-secondary">
+          {formatNumberCompact(insight.details.occCalls)} time
+          {insight.details.occCalls === 1 ? "" : "s"} in{" "}
+          {!insight.details.occTableName ? (
             "an unknown table"
           ) : (
             <>
               table{" "}
-              <span className="font-semibold">{insight.occTableName}</span>
+              <span className="font-semibold">
+                {insight.details.occTableName}
+              </span>
             </>
           )}
         </span>
@@ -122,7 +144,7 @@ function BytesReadCountProblem({
   insight,
   explain,
 }: {
-  insight: InsightsSummaryData & { kind: "bytesReadCountThreshold" };
+  insight: Insight & { kind: "bytesReadLimit" | "bytesReadThreshold" };
   explain: boolean;
 }) {
   return (
@@ -130,27 +152,8 @@ function BytesReadCountProblem({
       <ReadLimitProblem explain={explain} kind="bytes" />
       {!explain && (
         <span className="text-xs text-content-secondary">
-          {formatNumberCompact(insight.aboveThresholdCalls)} function call
-          {insight.aboveThresholdCalls === 1 ? "" : "s"}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function BytesReadThresholdProblem({
-  insight,
-  explain,
-}: {
-  insight: InsightsSummaryData & { kind: "bytesReadAverageThreshold" };
-  explain: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-start gap-1">
-      <ReadLimitProblem explain={explain} kind="bytes" />
-      {!explain && (
-        <span className="text-xs text-content-secondary">
-          Avg. {formatBytes(insight.avgBytesRead)} per call{" "}
+          {formatNumberCompact(insight.details.count)} function call
+          {insight.details.count === 1 ? "" : "s"}
         </span>
       )}
     </div>
@@ -236,7 +239,7 @@ function DocsReadCountProblem({
   insight,
   explain,
 }: {
-  insight: InsightsSummaryData & { kind: "docsReadCountThreshold" };
+  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
   explain: boolean;
 }) {
   return (
@@ -244,27 +247,8 @@ function DocsReadCountProblem({
       <ReadLimitProblem explain={explain} kind="documents" />
       {!explain && (
         <span className="text-xs text-content-secondary">
-          {formatNumberCompact(insight.aboveThresholdCalls)} function call
-          {insight.aboveThresholdCalls === 1 ? "" : "s"}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function DocsReadThresholdProblem({
-  insight,
-  explain,
-}: {
-  insight: InsightsSummaryData & { kind: "docsReadAverageThreshold" };
-  explain: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-start gap-1">
-      <ReadLimitProblem explain={explain} kind="documents" />
-      {!explain && (
-        <span className="text-xs text-content-secondary">
-          Avg. {formatNumberCompact(insight.avgDocsRead)} per call{" "}
+          {formatNumberCompact(insight.details.count)} function call
+          {insight.details.count === 1 ? "" : "s"}
         </span>
       )}
     </div>

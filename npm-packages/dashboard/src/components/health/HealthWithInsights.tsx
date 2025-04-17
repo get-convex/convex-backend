@@ -14,9 +14,10 @@ import { MultiSelectCombobox } from "@ui/MultiSelectCombobox";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { HealthView } from "@common/features/health/components/HealthView";
 import {
-  InsightsSummaryData,
+  Insight,
+  useInsights,
   useInsightsPeriod,
-  useInsightsSummary,
+  getInsightPageIdentifier,
 } from "api/insights";
 import { useRouter } from "next/router";
 import Link from "next/link";
@@ -37,7 +38,7 @@ import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
 const InsightsContext = createContext<
   | {
       page: string;
-      insights?: InsightsSummaryData[];
+      insights?: Insight[];
       selectedFunctions: string[];
       setSelectedFunctions: (selectedFunctions: string[]) => void;
     }
@@ -62,13 +63,11 @@ export function HealthWithInsights() {
   const [selectedFunctions, setSelectedFunctions] =
     useState<string[]>(functions);
 
-  const insights = useInsightsSummary();
+  const insights = useInsights();
   const { from } = useInsightsPeriod();
 
   const selectedInsight = insights?.find(
-    (insight) =>
-      `insight:${insight.kind}:${insight.componentPath}:${insight.functionId}` ===
-      page,
+    (insight) => getInsightPageIdentifier(insight) === page,
   );
 
   const { nents } = useNents();
@@ -249,11 +248,11 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
       <div
         // @ts-expect-error https://github.com/facebook/react/issues/17157
         inert={page !== "insights" ? "inert" : undefined}
-        className="flex w-full shrink-0 px-6"
+        className="mb-6 flex w-full shrink-0 px-6"
       >
         <Sheet
           padding={false}
-          className="h-fit max-h-full w-full min-w-0 max-w-[70rem] overflow-x-auto scrollbar"
+          className="h-fit max-h-full w-full min-w-0 max-w-[70rem] overflow-auto scrollbar"
         >
           <InsightsSummary
             insights={insights?.filter(
@@ -279,9 +278,7 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
           insight={
             insights
               ? insights?.find(
-                  (insight) =>
-                    `insight:${insight.kind}:${insight.componentPath}:${insight.functionId}` ===
-                    page,
+                  (insight) => getInsightPageIdentifier(insight) === page,
                 ) || null
               : undefined
           }

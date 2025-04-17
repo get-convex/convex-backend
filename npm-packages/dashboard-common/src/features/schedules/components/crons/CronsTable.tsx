@@ -82,7 +82,7 @@ function Function({ value }: CellProps<CronDatum, string>) {
   const url = useFunctionUrl(value);
   const name = displayName(value);
   return (
-    <div className="text-content-link truncate hover:underline">
+    <div className="truncate text-content-link hover:underline">
       <Link href={url} legacyBehavior>
         {name}
       </Link>
@@ -251,7 +251,7 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
   });
 
   return (
-    <Sheet padding={false} className="scrollbar overflow-x-auto">
+    <Sheet padding={false} className="overflow-x-auto scrollbar">
       <div {...getTableProps()} className="mx-4 block min-w-[42rem]">
         <div {...getTableBodyProps()} className="divide-y">
           {rows.map((row) => {
@@ -259,7 +259,7 @@ export function CronsTable({ cronJobs }: { cronJobs: CronJobWithRuns[] }) {
             return (
               <div
                 {...row.getRowProps()}
-                className="text-content-primary flex items-stretch justify-start gap-2 py-3 text-xs"
+                className="flex items-stretch justify-start gap-2 py-3 text-xs text-content-primary"
               >
                 {row.cells.map((cell, i) => (
                   <div

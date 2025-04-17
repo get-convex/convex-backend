@@ -1,5 +1,5 @@
 import { useCurrentDeployment } from "api/deployments";
-import { useInsightsPeriod, useInsightsSummary } from "api/insights";
+import { useInsights, useInsightsPeriod } from "api/insights";
 import { Button } from "@ui/Button";
 import { HealthCard } from "@common/elements/HealthCard";
 import { ChevronRightIcon } from "@radix-ui/react-icons";
@@ -7,7 +7,7 @@ import { InsightsSummary } from "./InsightsSummary";
 
 export function SmallInsightsSummary({ onViewAll }: { onViewAll: () => void }) {
   const deployment = useCurrentDeployment();
-  const insights = useInsightsSummary();
+  const insights = useInsights();
   const { from } = useInsightsPeriod();
 
   if (deployment?.kind === "local") {

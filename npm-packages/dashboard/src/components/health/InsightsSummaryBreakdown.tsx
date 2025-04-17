@@ -1,4 +1,4 @@
-import { InsightsSummaryData } from "api/insights";
+import { Insight } from "api/insights";
 import { Sheet } from "@ui/Sheet";
 import { Loading } from "@ui/Loading";
 import { ProblemForInsight } from "./ProblemForInsight";
@@ -8,7 +8,7 @@ import { EventsForInsight } from "./EventsForInsight";
 export function InsightSummaryBreakdown({
   insight,
 }: {
-  insight?: InsightsSummaryData | null;
+  insight?: Insight | null;
 }) {
   if (!insight) {
     return (

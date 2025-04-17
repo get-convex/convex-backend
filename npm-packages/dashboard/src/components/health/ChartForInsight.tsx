@@ -1,12 +1,4 @@
-import {
-  InsightsSummaryData,
-  useOCCByHour,
-  useBytesReadAverageByHour,
-  useBytesReadCountByHour,
-  useInsightsPeriod,
-  useDocumentsReadAverageByHour,
-  useDocumentsReadCountByHour,
-} from "api/insights";
+import { useInsightsPeriod, Insight } from "api/insights";
 import {
   formatBytes,
   formatNumberCompact,
@@ -29,19 +21,25 @@ import { DeploymentTimes } from "@common/features/health/components/DeploymentTi
 import { useDeploymentAuditLogs } from "@common/lib/useDeploymentAuditLog";
 import { documentsReadLimit, megabytesReadLimit } from "./ProblemForInsight";
 
-export function ChartForInsight({ insight }: { insight: InsightsSummaryData }) {
+export function ChartForInsight({ insight }: { insight: Insight }) {
   switch (insight.kind) {
     case "occFailedPermanently":
     case "occRetried":
       return <ChartOCC insight={insight} />;
-    case "bytesReadAverageThreshold":
-      return <ChartAverageBytesRead insight={insight} />;
-    case "bytesReadCountThreshold":
-      return <ChartCountBytesRead insight={insight} />;
-    case "docsReadAverageThreshold":
-      return <ChartAverageDocumentsRead insight={insight} />;
-    case "docsReadCountThreshold":
-      return <ChartCountDocumentsRead insight={insight} />;
+    case "bytesReadLimit":
+    case "bytesReadThreshold": {
+      const bytesReadInsight = insight as Insight & {
+        kind: "bytesReadLimit" | "bytesReadThreshold";
+      };
+      return <ChartCountBytesRead insight={bytesReadInsight} />;
+    }
+    case "docsReadLimit":
+    case "docsReadThreshold": {
+      const docsReadInsight = insight as Insight & {
+        kind: "docsReadLimit" | "docsReadThreshold";
+      };
+      return <ChartCountDocumentsRead insight={docsReadInsight} />;
+    }
     default: {
       const _exhaustiveCheck: never = insight;
       return null;
@@ -115,7 +113,7 @@ function InsightsLineChart<T extends Record<string, any>>({
               />
 
               <XAxis
-                dataKey="dateHour"
+                dataKey="hour"
                 domain={["auto", "auto"]}
                 tickFormatter={dateLabel}
                 strokeWidth={1}
@@ -134,10 +132,9 @@ function InsightsLineChart<T extends Record<string, any>>({
                 ticks={data
                   .filter(
                     (d) =>
-                      new Date(toNumericUTCWithHour(d.dateHour)).getHours() ===
-                      0,
+                      new Date(toNumericUTCWithHour(d.hour)).getHours() === 0,
                   )
-                  .map((d) => d.dateHour)}
+                  .map((d) => d.hour)}
               />
               <YAxis
                 tick={{
@@ -199,43 +196,13 @@ function InsightsLineChart<T extends Record<string, any>>({
 function ChartOCC({
   insight,
 }: {
-  insight: InsightsSummaryData & {
-    kind: "occFailedPermanently" | "occRetried";
-  };
+  insight: Insight & { kind: "occFailedPermanently" | "occRetried" };
 }) {
-  const data = useOCCByHour({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath,
-    tableName: insight.occTableName,
-    permanentFailure: insight.kind === "occFailedPermanently",
-  });
-
   return (
     <InsightsLineChart
-      data={data}
-      dataKey="occCalls"
+      data={insight.details.hourlyCounts}
+      dataKey="count"
       name={`write conflict ${insight.kind === "occFailedPermanently" ? "failures" : "retries"}`}
-    />
-  );
-}
-
-function ChartAverageBytesRead({
-  insight,
-}: {
-  insight: InsightsSummaryData & { kind: "bytesReadAverageThreshold" };
-}) {
-  const data = useBytesReadAverageByHour({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath,
-  });
-
-  return (
-    <InsightsLineChart
-      data={data}
-      dataKey="avg"
-      name="read on average"
-      max={megabytesReadLimit * 1024 * 1024}
-      formatY={formatBytes}
     />
   );
 }
@@ -243,39 +210,13 @@ function ChartAverageBytesRead({
 function ChartCountBytesRead({
   insight,
 }: {
-  insight: InsightsSummaryData & { kind: "bytesReadCountThreshold" };
+  insight: Insight & { kind: "bytesReadLimit" | "bytesReadThreshold" };
 }) {
-  const data = useBytesReadCountByHour({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath,
-  });
-
   return (
     <InsightsLineChart
-      data={data}
+      data={insight.details.hourlyCounts}
       dataKey="count"
       name={`function calls reading more than ${formatBytes(megabytesReadLimit * 1024 * 1024 * 0.8)}`}
-    />
-  );
-}
-
-function ChartAverageDocumentsRead({
-  insight,
-}: {
-  insight: InsightsSummaryData & { kind: "docsReadAverageThreshold" };
-}) {
-  const data = useDocumentsReadAverageByHour({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath,
-  });
-
-  return (
-    <InsightsLineChart
-      data={data}
-      dataKey="avg"
-      name="documents read on average"
-      max={documentsReadLimit * 0.8}
-      formatY={formatNumberCompact}
     />
   );
 }
@@ -283,53 +224,96 @@ function ChartAverageDocumentsRead({
 function ChartCountDocumentsRead({
   insight,
 }: {
-  insight: InsightsSummaryData & { kind: "docsReadCountThreshold" };
+  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
 }) {
-  const data = useDocumentsReadCountByHour({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath,
-  });
-
   return (
     <InsightsLineChart
-      data={data}
+      data={insight.details.hourlyCounts}
       dataKey="count"
       name={`function calls reading more than ${formatNumberCompact(documentsReadLimit * 0.8)} documents`}
     />
   );
 }
 
+function toNumericUTCWithHour(dateString: string) {
+  try {
+    // Handle ISO-8601 format (with T separator)
+    if (dateString.includes("T")) {
+      const [datePart, timePart] = dateString.split("T");
+      const [year, month, day] = datePart.split("-");
+      const hour = timePart;
+
+      return Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        0,
+        0,
+      );
+    }
+
+    // Regular format with space separator
+    const [datePart, timePart] = dateString.split(" ");
+    if (!datePart) return NaN; // Invalid date
+
+    const [year, month, day] = datePart.split("-");
+    const [hour = "0", minute = "0", second = "0"] = timePart
+      ? timePart.split(":")
+      : [];
+
+    return Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+    );
+  } catch (error) {
+    console.error("Error parsing date:", error, dateString);
+    return NaN; // Return NaN for invalid dates
+  }
+}
+
 const dateLabel = (value: string) => {
   if (!value) {
     return "";
   }
-  const date = new Date(toNumericUTCWithHour(value));
-  return date.toLocaleDateString();
+
+  try {
+    const timestamp = toNumericUTCWithHour(value);
+    if (Number.isNaN(timestamp)) {
+      console.warn("Invalid date for dateLabel:", value);
+      return "Invalid date";
+    }
+
+    const date = new Date(timestamp);
+    return date.toLocaleDateString();
+  } catch (error) {
+    console.error("Error in dateLabel:", error, value);
+    return "Invalid date";
+  }
 };
 
 const timeLabel = (value: string) => {
   if (!value) {
     return "";
   }
-  const date = new Date(toNumericUTCWithHour(value));
-  const oneHourLater = new Date(date.getTime() + 60 * 60 * 1000);
 
-  return `${format(date, "P")} ${format(date, "h a")} – ${format(oneHourLater, "h a")}`;
+  try {
+    const timestamp = toNumericUTCWithHour(value);
+    if (Number.isNaN(timestamp)) {
+      console.warn("Invalid date for timeLabel:", value);
+      return "Invalid date";
+    }
+
+    const date = new Date(timestamp);
+    const oneHourLater = new Date(date.getTime() + 60 * 60 * 1000);
+
+    return `${format(date, "P")} ${format(date, "h a")} – ${format(oneHourLater, "h a")}`;
+  } catch (error) {
+    console.error("Error formatting date:", error, value);
+    return "Invalid date format";
+  }
 };
-
-function toNumericUTCWithHour(dateString: string) {
-  // Parsing manually the date to use UTC.
-  const [datePart, timePart] = dateString.split(" ");
-  const [year, month, day] = datePart.split("-");
-  const [hour = "0", minute = "0", second = "0"] = timePart
-    ? timePart.split(":")
-    : [];
-  return Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    Number(hour),
-    Number(minute),
-    Number(second),
-  );
-}

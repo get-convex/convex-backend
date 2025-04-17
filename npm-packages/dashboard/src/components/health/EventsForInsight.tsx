@@ -8,14 +8,7 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import {
-  InsightsSummaryData,
-  OCCEventData,
-  useBytesReadEvents,
-  useDocumentsReadEvents,
-  useOCCFailedEvents,
-  useOCCRetriedEvents,
-} from "api/insights";
+import { Insight } from "api/insights";
 import { Button } from "@ui/Button";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { Loading } from "@ui/Loading";
@@ -24,16 +17,92 @@ import { formatBytes, formatNumberCompact } from "@common/lib/format";
 import { functionIdentifierValue } from "@common/lib/functions/generateFileTree";
 import { ComponentId, useNents } from "@common/lib/useNents";
 import { documentHref } from "@common/lib/utils";
-import { rootComponentPath } from "api/usage";
 import { cn } from "@ui/cn";
 import Link from "next/link";
 import { useContext } from "react";
 
-export function EventsForInsight({
-  insight,
-}: {
-  insight: InsightsSummaryData;
-}) {
+// Type definitions to match what's in api/insights.ts
+type HourlyCount = {
+  hour: string;
+  count: number;
+};
+
+type OccRecentEvent = {
+  timestamp: string;
+  id: string;
+  request_id: string;
+  occ_document_id: string;
+  occ_write_source: string;
+  occ_retry_count: number;
+};
+
+type BytesReadRecentEvent = {
+  timestamp: string;
+  id: string;
+  request_id: string;
+  calls: { table_name: string; bytes_read: number; documents_read: number }[];
+  success: boolean;
+};
+
+// Type definitions for the event data
+type FormattedBytesReadEvent = {
+  timestamp: string;
+  id: string;
+  requestId: string;
+  executionId: string;
+  totalCount: number;
+  events: { tableName: string; count: number }[];
+  status: string;
+};
+
+type FormattedOccEvent = {
+  timestamp: string;
+  id: string;
+  requestId: string;
+  executionId: string;
+  occDocumentId: string;
+  occWriteSource: string;
+  occRetryCount: number;
+};
+
+// Note: Hourly data padding and sorting is handled in the useInsights hook in api/insights.ts
+
+// Type guards
+function isOccInsight(insight: Insight): insight is Insight & {
+  kind: "occRetried" | "occFailedPermanently";
+  details: {
+    occCalls: number;
+    occTableName: string;
+    hourlyCounts: HourlyCount[];
+    recentEvents: OccRecentEvent[];
+  };
+} {
+  return (
+    insight.kind === "occRetried" || insight.kind === "occFailedPermanently"
+  );
+}
+
+function isMetricsInsight(insight: Insight): insight is Insight & {
+  kind:
+    | "bytesReadLimit"
+    | "bytesReadThreshold"
+    | "docsReadLimit"
+    | "docsReadThreshold";
+  details: {
+    count: number;
+    hourlyCounts: HourlyCount[];
+    recentEvents: BytesReadRecentEvent[];
+  };
+} {
+  return [
+    "bytesReadLimit",
+    "bytesReadThreshold",
+    "docsReadLimit",
+    "docsReadThreshold",
+  ].includes(insight.kind);
+}
+
+export function EventsForInsight({ insight }: { insight: Insight }) {
   return (
     <div className="flex flex-col gap-2 overflow-y-hidden">
       <div className="flex items-end justify-between">
@@ -53,15 +122,39 @@ export function EventsForInsight({
       {(() => {
         switch (insight.kind) {
           case "occFailedPermanently":
-            return <OCCFailedEvents insight={insight} />;
+            return (
+              <OCCFailedEvents
+                insight={insight as Insight & { kind: "occFailedPermanently" }}
+              />
+            );
           case "occRetried":
-            return <OCCRetriedEvents insight={insight} />;
-          case "bytesReadAverageThreshold":
-          case "bytesReadCountThreshold":
-            return <BytesReadEvents insight={insight} />;
-          case "docsReadAverageThreshold":
-          case "docsReadCountThreshold":
-            return <DocumentsReadEvents insight={insight} />;
+            return (
+              <OCCRetriedEvents
+                insight={insight as Insight & { kind: "occRetried" }}
+              />
+            );
+          case "bytesReadLimit":
+          case "bytesReadThreshold":
+            return (
+              <BytesReadEvents
+                insight={
+                  insight as Insight & {
+                    kind: "bytesReadLimit" | "bytesReadThreshold";
+                  }
+                }
+              />
+            );
+          case "docsReadLimit":
+          case "docsReadThreshold":
+            return (
+              <DocumentsReadEvents
+                insight={
+                  insight as Insight & {
+                    kind: "docsReadLimit" | "docsReadThreshold";
+                  }
+                }
+              />
+            );
           default: {
             const _exhaustiveCheck: never = insight;
             return null;
@@ -109,7 +202,7 @@ const eventOccWriteSourceColumn = {
 };
 const eventOccDocumentIdColumn = {
   header: "Conflicting Document ID",
-  className: "w-60",
+  className: "w-[16rem]",
   key: "occDocumentId",
   tooltip: "The ID of the document that caused the write conflict.",
   Column: EventOccDocumentId,
@@ -125,14 +218,31 @@ const eventStatusColumn = {
 function BytesReadEvents({
   insight,
 }: {
-  insight: InsightsSummaryData & {
-    kind: "bytesReadAverageThreshold" | "bytesReadCountThreshold";
+  insight: Insight & {
+    kind: "bytesReadLimit" | "bytesReadThreshold";
   };
 }) {
-  const events = useBytesReadEvents({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath || rootComponentPath,
+  const events = insight.details.recentEvents.map((event) => {
+    // Map BytesReadRecentEvent to FormattedBytesReadEvent
+    const totalCount = event.calls.reduce(
+      (sum, call) => sum + call.bytes_read,
+      0,
+    );
+    return {
+      timestamp: event.timestamp,
+      id: event.id,
+      requestId: event.request_id,
+      executionId: event.id, // Using id as executionId
+      totalCount,
+      events: event.calls.map((call) => ({
+        tableName: call.table_name,
+        count: call.bytes_read,
+      })),
+      status: event.success ? "success" : "failure",
+    } as FormattedBytesReadEvent;
   });
+
+  // Hourly counts are now pre-processed in useInsights
 
   return (
     <EventsTable
@@ -158,14 +268,31 @@ function BytesReadEvents({
 function DocumentsReadEvents({
   insight,
 }: {
-  insight: InsightsSummaryData & {
-    kind: "docsReadAverageThreshold" | "docsReadCountThreshold";
+  insight: Insight & {
+    kind: "docsReadLimit" | "docsReadThreshold";
   };
 }) {
-  const events = useDocumentsReadEvents({
-    functionId: insight.functionId,
-    componentPath: insight.componentPath || rootComponentPath,
+  const events = insight.details.recentEvents.map((event) => {
+    // Map BytesReadRecentEvent to FormattedBytesReadEvent but with documents_read
+    const totalCount = event.calls.reduce(
+      (sum, call) => sum + call.documents_read,
+      0,
+    );
+    return {
+      timestamp: event.timestamp,
+      id: event.id,
+      requestId: event.request_id,
+      executionId: event.id, // Using id as executionId
+      totalCount,
+      events: event.calls.map((call) => ({
+        tableName: call.table_name,
+        count: call.documents_read,
+      })),
+      status: event.success ? "success" : "failure",
+    } as FormattedBytesReadEvent;
   });
+
+  // Hourly counts are now pre-processed in useInsights
 
   return (
     <EventsTable
@@ -192,15 +319,24 @@ function DocumentsReadEvents({
 function OCCFailedEvents({
   insight,
 }: {
-  insight: InsightsSummaryData & {
+  insight: Insight & {
     kind: "occFailedPermanently";
   };
 }) {
-  const events = useOCCFailedEvents({
-    functionId: insight.functionId,
-    tableName: insight.occTableName,
-    componentPath: insight.componentPath || rootComponentPath,
-  });
+  const events = insight.details.recentEvents.map(
+    (event) =>
+      ({
+        timestamp: event.timestamp,
+        id: event.id,
+        requestId: event.request_id,
+        executionId: event.id, // Using id as executionId
+        occDocumentId: event.occ_document_id,
+        occWriteSource: event.occ_write_source,
+        occRetryCount: event.occ_retry_count,
+      }) as FormattedOccEvent,
+  );
+
+  // Hourly counts are now pre-processed in useInsights
 
   return (
     <EventsTable
@@ -220,15 +356,24 @@ function OCCFailedEvents({
 function OCCRetriedEvents({
   insight,
 }: {
-  insight: InsightsSummaryData & {
+  insight: Insight & {
     kind: "occRetried";
   };
 }) {
-  const events = useOCCRetriedEvents({
-    functionId: insight.functionId,
-    tableName: insight.occTableName,
-    componentPath: insight.componentPath || rootComponentPath,
-  });
+  const events = insight.details.recentEvents.map(
+    (event) =>
+      ({
+        timestamp: event.timestamp,
+        id: event.id,
+        requestId: event.request_id,
+        executionId: event.id, // Using id as executionId
+        occDocumentId: event.occ_document_id,
+        occWriteSource: event.occ_write_source,
+        occRetryCount: event.occ_retry_count,
+      }) as FormattedOccEvent,
+  );
+
+  // Hourly counts are now pre-processed in useInsights
 
   return (
     <EventsTable
@@ -261,7 +406,7 @@ function OCCRetriedEvents({
  * The EventsTable component maps over the events and columns to render the table.
  * The table is scrollable and has a sticky header.
  */
-function EventsTable<T, I extends InsightsSummaryData>({
+function EventsTable<T, I extends Insight>({
   events,
   insight,
   columns,
@@ -321,10 +466,11 @@ function EventsTable<T, I extends InsightsSummaryData>({
             {
               length: Math.min(
                 7,
-                insight.kind === "occRetried" ||
-                  insight.kind === "occFailedPermanently"
-                  ? insight.occCalls
-                  : insight.aboveThresholdCalls,
+                isOccInsight(insight)
+                  ? insight.details.occCalls
+                  : isMetricsInsight(insight)
+                    ? insight.details.count
+                    : 7,
               ),
             },
             (_, i) => i,
@@ -348,7 +494,18 @@ function EventsTable<T, I extends InsightsSummaryData>({
 function EventTimestamp({ event }: { event: { timestamp: string } }) {
   return (
     <div className="min-w-40">
-      {new Date(`${event.timestamp} UTC`).toLocaleString()}
+      {(() => {
+        try {
+          // Handle ISO strings with or without the Z/timezone information
+          const timestamp = event.timestamp.endsWith("Z")
+            ? event.timestamp
+            : `${event.timestamp}Z`;
+          return new Date(timestamp).toLocaleString();
+        } catch (e) {
+          // Fallback to more forgiving date parsing
+          return new Date(event.timestamp).toLocaleString();
+        }
+      })()}
     </div>
   );
 }
@@ -363,7 +520,7 @@ function EventRequestId({
   componentId: _componentId,
 }: {
   event: { requestId: string };
-  insight: InsightsSummaryData;
+  insight: Insight;
   componentId: ComponentId | undefined;
 }) {
   return (
@@ -380,28 +537,32 @@ function EventOccDocumentId({
   event,
   componentId,
 }: {
-  insight: InsightsSummaryData & {
+  insight: Insight & {
     kind: "occFailedPermanently" | "occRetried";
   };
-  event: OCCEventData;
+  event: FormattedOccEvent;
   componentId: ComponentId | undefined;
 }) {
   const { deploymentsURI } = useContext(DeploymentInfoContext);
   return (
-    <div className="flex w-60">
-      <Link
-        href={documentHref(
-          deploymentsURI,
-          insight.occTableName,
-          event.occDocumentId,
-          componentId || undefined,
-        )}
-        target="_blank"
-        className="flex items-center gap-1 text-content-link hover:underline"
-      >
-        {event.occDocumentId}
-        <ExternalLinkIcon className="size-3 shrink-0" />
-      </Link>
+    <div className="flex w-[16rem]">
+      {event.occDocumentId && insight.details.occTableName ? (
+        <Link
+          href={documentHref(
+            deploymentsURI,
+            insight.details.occTableName,
+            event.occDocumentId,
+            componentId || undefined,
+          )}
+          target="_blank"
+          className="flex items-center gap-1 text-content-link hover:underline"
+        >
+          {event.occDocumentId}
+          <ExternalLinkIcon className="size-3 shrink-0" />
+        </Link>
+      ) : (
+        <span className="text-content-secondary">Unknown</span>
+      )}
     </div>
   );
 }
@@ -409,15 +570,19 @@ function EventOccDocumentId({
 function EventOccWriteSource({
   insight,
   event,
+  componentId: _componentId,
 }: {
-  insight: InsightsSummaryData & {
+  insight: Insight & {
     kind: "occFailedPermanently" | "occRetried";
   };
-  event: OCCEventData;
+  event: FormattedOccEvent;
+  componentId: ComponentId | undefined;
 }) {
   return (
     <div className="w-60 truncate">
-      {!event.occWriteSource && "Unknown"}
+      {!event.occWriteSource && (
+        <span className="text-content-secondary">Unknown</span>
+      )}
       {event.occWriteSource &&
         (insight.functionId === event.occWriteSource ? (
           <span className="flex items-center gap-1 text-content-secondary">
@@ -436,28 +601,38 @@ function EventOccWriteSource({
   );
 }
 
-function EventOccRetryCount({ event }: { event: { occRetryCount: number } }) {
+function EventOccRetryCount({
+  event,
+  insight: _insight,
+  componentId: _componentId,
+}: {
+  event: FormattedOccEvent;
+  insight: Insight & { kind: "occRetried" };
+  componentId: ComponentId | undefined;
+}) {
   return <div className="w-16">{event.occRetryCount}</div>;
 }
 
 function BytesEventReadAmount({
   event,
+  insight: _insight,
+  componentId: _componentId,
 }: {
-  event: {
-    totalCount: number;
-    events: { tableName: string; count: number }[];
-  };
+  event: FormattedBytesReadEvent;
+  insight: Insight & { kind: "bytesReadLimit" | "bytesReadThreshold" };
+  componentId: ComponentId | undefined;
 }) {
   return <EventReadAmount event={event} format={formatBytes} />;
 }
 
 function DocumentsEventReadAmount({
   event,
+  insight: _insight,
+  componentId: _componentId,
 }: {
-  event: {
-    totalCount: number;
-    events: { tableName: string; count: number }[];
-  };
+  event: FormattedBytesReadEvent;
+  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
+  componentId: ComponentId | undefined;
 }) {
   return <EventReadAmount event={event} format={formatNumberCompact} />;
 }
@@ -466,10 +641,7 @@ function EventReadAmount({
   event,
   format,
 }: {
-  event: {
-    totalCount: number;
-    events: { tableName: string; count: number }[];
-  };
+  event: FormattedBytesReadEvent;
   format: (count: number) => string;
 }) {
   return (
@@ -518,19 +690,13 @@ function EventStatus({
   insight: _insight,
   componentId: _componentId,
 }: {
-  event: {
-    timestamp: string;
-    executionId: string;
-    totalCount: number;
-    events: { tableName: string; count: number }[];
-    status: string;
-  };
-  insight: InsightsSummaryData & {
+  event: FormattedBytesReadEvent;
+  insight: Insight & {
     kind:
-      | "bytesReadAverageThreshold"
-      | "bytesReadCountThreshold"
-      | "docsReadAverageThreshold"
-      | "docsReadCountThreshold";
+      | "bytesReadLimit"
+      | "bytesReadThreshold"
+      | "docsReadLimit"
+      | "docsReadThreshold";
   };
   componentId: ComponentId | undefined;
 }) {

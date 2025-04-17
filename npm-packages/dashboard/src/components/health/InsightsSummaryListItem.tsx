@@ -1,4 +1,4 @@
-import { InsightsSummaryData } from "api/insights";
+import { Insight, getInsightPageIdentifier } from "api/insights";
 import {
   CrossCircledIcon,
   ExclamationTriangleIcon,
@@ -12,13 +12,10 @@ import { SparklineForInsight } from "./SparklineForInsight";
 import { ProblemForInsight } from "./ProblemForInsight";
 import { useLogDeploymentEvent } from "../../hooks/deploymentApi";
 
-export function InsightsSummaryListItem({
-  insight,
-}: {
-  insight: InsightsSummaryData;
-}) {
+export function InsightsSummaryListItem({ insight }: { insight: Insight }) {
   const log = useLogDeploymentEvent();
   const { query, push } = useRouter();
+
   return (
     <Button
       className="flex w-full min-w-fit animate-fadeInFromLoading items-center gap-2 border-b p-2 text-xs last:border-b-0 hover:bg-background-tertiary"
@@ -31,7 +28,7 @@ export function InsightsSummaryListItem({
               team: query.team,
               project: query.project,
               deploymentName: query.deploymentName,
-              view: `insight:${insight.kind}:${insight.componentPath}:${insight.functionId}`,
+              view: getInsightPageIdentifier(insight),
               ...(query.lowInsightsThreshold
                 ? { lowInsightsThreshold: query.lowInsightsThreshold }
                 : {}),
@@ -68,7 +65,6 @@ export function InsightsSummaryListItem({
             insight.functionId,
             insight.componentPath ?? undefined,
           )}
-          oneLine
         />
       </div>
       <div className="w-60">
@@ -81,14 +77,11 @@ export function InsightsSummaryListItem({
   );
 }
 
-const severityForInsightKind: Record<
-  InsightsSummaryData["kind"],
-  "error" | "warning"
-> = {
-  bytesReadAverageThreshold: "error",
-  bytesReadCountThreshold: "warning",
-  docsReadAverageThreshold: "error",
-  docsReadCountThreshold: "warning",
+const severityForInsightKind: Record<Insight["kind"], "error" | "warning"> = {
+  bytesReadLimit: "error",
+  bytesReadThreshold: "warning",
+  docsReadLimit: "error",
+  docsReadThreshold: "warning",
   occFailedPermanently: "error",
   occRetried: "warning",
 };
