@@ -325,7 +325,7 @@ impl AnalyzeEnvironment {
                 let module_config = self
                     .modules
                     .get(path)
-                    .ok_or(anyhow!("could not find module config in environment"))?;
+                    .context("could not find module config in environment")?;
                 let source_map = module_config
                     .source_map
                     .as_ref()

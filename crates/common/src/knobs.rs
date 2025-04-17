@@ -1151,7 +1151,7 @@ pub static MAX_ECHO_BYTES: LazyLock<usize> =
 
 /// The limit on the number of user modules in a push bundle.
 pub static MAX_USER_MODULES: LazyLock<usize> =
-    LazyLock::new(|| env_config("MAX_USER_MODULES", 10000));
+    LazyLock::new(|| env_config("MAX_USER_MODULES", 4096));
 
 /// Percentage of request traces that should sampled.
 ///

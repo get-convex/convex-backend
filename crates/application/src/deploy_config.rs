@@ -3,7 +3,10 @@ use std::{
         BTreeMap,
         BTreeSet,
     },
-    time::Duration,
+    time::{
+        Duration,
+        Instant,
+    },
 };
 
 use anyhow::Context;
@@ -29,16 +32,19 @@ use common::{
         Runtime,
         UnixTimestamp,
     },
+    schemas::DatabaseSchema,
     types::{
         EnvVarName,
         EnvVarValue,
         ModuleEnvironment,
         NodeDependency,
     },
+    version::Version,
 };
 use database::{
     BootstrapComponentsModel,
     IndexModel,
+    OccRetryStats,
     Token,
     WriteSource,
     SCHEMAS_TABLE,
@@ -120,7 +126,26 @@ use value::{
     TableNamespace,
 };
 
-use crate::Application;
+use crate::{
+    Application,
+    ApplyConfigArgs,
+    ConfigMetadataAndSchema,
+};
+
+pub struct PushAnalytics {
+    pub config: ConfigMetadata,
+    pub modules: Vec<ModuleConfig>,
+    pub udf_server_version: Version,
+    pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
+    pub schema: Option<DatabaseSchema>,
+}
+
+pub struct PushMetrics {
+    pub build_external_deps_time: Duration,
+    pub upload_source_package_time: Duration,
+    pub analyze_time: Duration,
+    pub occ_stats: OccRetryStats,
+}
 
 impl<RT: Runtime> Application<RT> {
     #[fastrace::trace]
@@ -621,6 +646,102 @@ impl<RT: Runtime> Application<RT> {
             .await?;
 
         Ok(diff)
+    }
+
+    /// N.B.: does not check auth
+    pub async fn push_config_no_components(
+        &self,
+        identity: Identity,
+        config_file: ConfigFile,
+        modules: Vec<ModuleConfig>,
+        udf_server_version: Version,
+        schema_id: Option<String>,
+        node_dependencies: Option<Vec<NodeDependencyJson>>,
+    ) -> anyhow::Result<(PushAnalytics, PushMetrics)> {
+        let begin_build_external_deps = Instant::now();
+        // Upload external node dependencies separately
+        let external_deps_id_and_pkg = if let Some(deps) = node_dependencies
+            && !deps.is_empty()
+        {
+            let deps: Vec<_> = deps.into_iter().map(NodeDependency::from).collect();
+            Some(self.build_external_node_deps(deps).await?)
+        } else {
+            None
+        };
+        let end_build_external_deps = Instant::now();
+        let external_deps_pkg_size = external_deps_id_and_pkg
+            .as_ref()
+            .map(|(_, pkg)| pkg.package_size)
+            .unwrap_or_default();
+
+        let source_package = self
+            .upload_package(&modules, external_deps_id_and_pkg)
+            .await?;
+        let end_upload_source_package = Instant::now();
+        // Verify that we have not exceeded the max zipped or unzipped file size
+        let combined_pkg_size = source_package.package_size + external_deps_pkg_size;
+        combined_pkg_size.verify_size()?;
+
+        let udf_config = UdfConfig {
+            server_version: udf_server_version,
+            // Generate a new seed and timestamp to be used at import time.
+            import_phase_rng_seed: self.runtime.rng().random(),
+            import_phase_unix_timestamp: self.runtime.unix_timestamp(),
+        };
+        let begin_analyze = Instant::now();
+        // Note: This is not transactional with the rest of the deploy to avoid keeping
+        // a transaction open for a long time.
+        let mut tx = self.begin(Identity::system()).await?;
+        let user_environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
+        let system_env_var_overrides = system_env_var_overrides(&mut tx).await?;
+        drop(tx);
+        // Run analyze to make sure the new modules are valid.
+        let (auth_module, analyze_results) = self
+            .analyze_modules_with_auth_config(
+                udf_config.clone(),
+                modules.clone(),
+                source_package.clone(),
+                user_environment_variables,
+                system_env_var_overrides,
+            )
+            .await?;
+        let end_analyze = Instant::now();
+        let (
+            ConfigMetadataAndSchema {
+                config_metadata,
+                schema,
+            },
+            occ_stats,
+        ) = self
+            .apply_config_with_retries(
+                identity.clone(),
+                ApplyConfigArgs {
+                    auth_module,
+                    config_file,
+                    schema_id,
+                    modules: modules.clone(),
+                    udf_config: udf_config.clone(),
+                    source_package,
+                    analyze_results: analyze_results.clone(),
+                },
+            )
+            .await?;
+
+        Ok((
+            PushAnalytics {
+                config: config_metadata,
+                modules,
+                udf_server_version: udf_config.server_version,
+                analyze_results,
+                schema,
+            },
+            PushMetrics {
+                build_external_deps_time: end_build_external_deps - begin_build_external_deps,
+                upload_source_package_time: end_upload_source_package - end_build_external_deps,
+                analyze_time: end_analyze - begin_analyze,
+                occ_stats,
+            },
+        ))
     }
 }
 

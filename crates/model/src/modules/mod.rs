@@ -208,7 +208,15 @@ impl<'a, RT: Runtime> ModuleModel<'a, RT> {
         &mut self,
         component: ComponentId,
     ) -> anyhow::Result<Vec<ParsedDocument<ModuleMetadata>>> {
-        let index_query = Query::full_table_scan(MODULES_TABLE.clone(), Order::Asc);
+        // Hacky: Scan the _by_id index instead of the _by_creation_time index
+        // (which is used by `Query::full_table_scan`)
+        // This prevents creating too many read ranges in the transaction later
+        // if we need to replace many documents by-id.
+        let index_query = Query::index_range(IndexRange {
+            index_name: IndexName::by_id(MODULES_TABLE.clone()),
+            range: vec![],
+            order: Order::Asc,
+        });
         let mut query_stream = ResolvedQuery::new(self.tx, component.into(), index_query)?;
 
         let mut modules = Vec::new();

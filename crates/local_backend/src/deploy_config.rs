@@ -1,20 +1,12 @@
-use std::{
-    collections::BTreeMap,
-    time::{
-        Duration,
-        Instant,
-    },
-};
-
 use anyhow::Context;
 use application::{
     deploy_config::{
         ModuleJson,
         NodeDependencyJson,
+        PushAnalytics,
+        PushMetrics,
     },
     Application,
-    ApplyConfigArgs,
-    ConfigMetadataAndSchema,
 };
 use axum::{
     debug_handler,
@@ -27,40 +19,26 @@ use common::{
         extract::Json,
         HttpResponseError,
     },
-    runtime::Runtime,
-    schemas::DatabaseSchema,
-    types::NodeDependency,
     version::Version,
 };
-use database::OccRetryStats;
 use errors::{
     ErrorMetadata,
     ErrorMetadataAnyhowExt,
 };
 use keybroker::Identity;
-use model::{
-    config::{
-        types::{
-            ConfigFile,
-            ConfigMetadata,
-            ModuleConfig,
-        },
-        ConfigModel,
+use model::config::{
+    types::{
+        ConfigFile,
+        ModuleConfig,
     },
-    environment_variables::EnvironmentVariablesModel,
-    modules::module_versions::AnalyzedModule,
-    source_packages::types::PackageSize,
-    udf_config::types::UdfConfig,
+    ConfigModel,
 };
-use rand::Rng;
 use runtime::prod::ProdRuntime;
 use serde::{
     Deserialize,
     Serialize,
 };
 use serde_json::Value as JsonValue;
-use sync_types::CanonicalizedModulePath;
-use udf::environment::system_env_var_overrides;
 use value::ConvexObject;
 
 use crate::{
@@ -198,21 +176,6 @@ pub struct ModuleHashJson {
     environment: Option<String>,
 }
 
-pub struct PushAnalytics {
-    pub config: ConfigMetadata,
-    pub modules: Vec<ModuleConfig>,
-    pub udf_server_version: Version,
-    pub analyze_results: BTreeMap<CanonicalizedModulePath, AnalyzedModule>,
-    pub schema: Option<DatabaseSchema>,
-}
-
-pub struct PushMetrics {
-    pub build_external_deps_time: Duration,
-    pub upload_source_package_time: Duration,
-    pub analyze_time: Duration,
-    pub occ_stats: OccRetryStats,
-}
-
 #[debug_handler]
 pub async fn get_config(
     State(st): State<LocalAppState>,
@@ -296,12 +259,6 @@ pub async fn push_config_handler(
     application: &Application<ProdRuntime>,
     config: ConfigJson,
 ) -> anyhow::Result<(Identity, PushAnalytics, PushMetrics)> {
-    let modules: Vec<ModuleConfig> = config
-        .modules
-        .into_iter()
-        .map(|m| m.try_into())
-        .collect::<anyhow::Result<Vec<_>>>()?;
-
     let identity = application
         .app_auth()
         .check_key(config.admin_key, application.instance_name())
@@ -310,93 +267,25 @@ pub async fn push_config_handler(
 
     must_be_admin_with_write_access(&identity)?;
 
+    let modules: Vec<ModuleConfig> = config
+        .modules
+        .into_iter()
+        .map(|m| m.try_into())
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
     let udf_server_version = Version::parse(&config.udf_server_version).context(
         ErrorMetadata::bad_request("InvalidVersion", "The function version is invalid"),
     )?;
 
-    let begin_build_external_deps = Instant::now();
-    // Upload external node dependencies separately
-    let external_deps_id_and_pkg = if let Some(deps) = config.node_dependencies
-        && !deps.is_empty()
-    {
-        let deps: Vec<_> = deps.into_iter().map(NodeDependency::from).collect();
-        Some(application.build_external_node_deps(deps).await?)
-    } else {
-        None
-    };
-    let end_build_external_deps = Instant::now();
-    let external_deps_pkg_size = external_deps_id_and_pkg
-        .as_ref()
-        .map(|(_, pkg)| pkg.package_size)
-        .unwrap_or(PackageSize::default());
-
-    let source_package = application
-        .upload_package(&modules, external_deps_id_and_pkg)
-        .await?;
-    let end_upload_source_package = Instant::now();
-    // Verify that we have not exceeded the max zipped or unzipped file size
-    let combined_pkg_size = source_package.package_size + external_deps_pkg_size;
-    combined_pkg_size.verify_size()?;
-
-    let udf_config = UdfConfig {
-        server_version: udf_server_version,
-        // Generate a new seed and timestamp to be used at import time.
-        import_phase_rng_seed: application.runtime().rng().random(),
-        import_phase_unix_timestamp: application.runtime().unix_timestamp(),
-    };
-    let begin_analyze = Instant::now();
-    // Note: This is not transactional with the rest of the deploy to avoid keeping
-    // a transaction open for a long time.
-    let mut tx = application.begin(Identity::system()).await?;
-    let user_environment_variables = EnvironmentVariablesModel::new(&mut tx).get_all().await?;
-    let system_env_var_overrides = system_env_var_overrides(&mut tx).await?;
-    drop(tx);
-    // Run analyze to make sure the new modules are valid.
-    let (auth_module, analyze_results) = application
-        .analyze_modules_with_auth_config(
-            udf_config.clone(),
-            modules.clone(),
-            source_package.clone(),
-            user_environment_variables,
-            system_env_var_overrides,
-        )
-        .await?;
-    let end_analyze = Instant::now();
-    let (
-        ConfigMetadataAndSchema {
-            config_metadata,
-            schema,
-        },
-        occ_stats,
-    ) = application
-        .apply_config_with_retries(
+    let (analytics, metrics) = application
+        .push_config_no_components(
             identity.clone(),
-            ApplyConfigArgs {
-                auth_module,
-                config_file: config.config,
-                schema_id: config.schema_id,
-                modules: modules.clone(),
-                udf_config: udf_config.clone(),
-                source_package,
-                analyze_results: analyze_results.clone(),
-            },
+            config.config,
+            modules,
+            udf_server_version,
+            config.schema_id,
+            config.node_dependencies,
         )
         .await?;
-
-    Ok((
-        identity,
-        PushAnalytics {
-            config: config_metadata,
-            modules,
-            udf_server_version: udf_config.server_version,
-            analyze_results,
-            schema,
-        },
-        PushMetrics {
-            build_external_deps_time: end_build_external_deps - begin_build_external_deps,
-            upload_source_package_time: end_upload_source_package - end_build_external_deps,
-            analyze_time: end_analyze - begin_analyze,
-            occ_stats,
-        },
-    ))
+    Ok((identity, analytics, metrics))
 }
