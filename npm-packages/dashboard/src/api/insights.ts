@@ -13,8 +13,8 @@ export function useInsightsPeriod() {
   const hoursAgo72 = new Date(now.getTime() - 72 * 60 * 60 * 1000);
 
   return {
-    from: hoursAgo72.toISOString().split("T")[0],
-    to: now.toISOString().split("T")[0],
+    from: hoursAgo72.toISOString(),
+    to: now.toISOString(),
   };
 }
 
@@ -68,7 +68,6 @@ export type Insight = { functionId: string; componentPath: string | null } & (
 function padAndSortHourlyData(
   hourlyCounts: HourlyCount[],
   periodStart?: string,
-  _periodEnd?: string, // This parameter is kept for backward compatibility but not used
 ): HourlyCount[] {
   // Get current time to limit future data points
   const currentTime = new Date();
@@ -76,7 +75,7 @@ function padAndSortHourlyData(
   if (hourlyCounts.length === 0) {
     // If no data but we have period start, create empty data from period start to now
     if (periodStart) {
-      const startDate = new Date(`${periodStart}T00:00:00Z`);
+      const startDate = new Date(periodStart);
       const endDate = new Date(currentTime);
 
       const result: HourlyCount[] = [];
@@ -119,7 +118,7 @@ function padAndSortHourlyData(
 
   if (periodStart) {
     // Use the provided period start and current time as end
-    startDate = new Date(`${periodStart}T00:00:00Z`);
+    startDate = new Date(periodStart);
     endDate = new Date(currentTime);
   } else {
     // Otherwise use min/max from the data
@@ -206,7 +205,10 @@ export function useInsights(): Insight[] | undefined {
   const deployment = useCurrentDeployment();
   const common = {
     deploymentName: deployment?.name,
-    period,
+    period: {
+      from: period.from.split("T")[0],
+      to: period.to.split("T")[0],
+    },
     teamId: team?.id!,
     projectId: null,
     componentPrefix: null,
