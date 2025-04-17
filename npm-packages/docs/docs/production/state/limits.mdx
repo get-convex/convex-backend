@@ -62,8 +62,8 @@ Applied per document and to any nested `Object` unless stated otherwise.
 | Function calls                                                                    | 1,000,000/month                     | 25,000,000/month included<br/>$2 per additional 1,000,000 | Explicit client calls, scheduled executions, subscription updates, and file accesses count as function calls. |
 | Action execution                                                                  | 20 GiB-hours                        | 250 GiB-hours included<br/>$0.30/GiB-hour additional      | Convex runtime: 64 MiB RAM.<br/>Node.js runtime: 512 MiB RAM.                                                 |
 | Code size                                                                         | 32 MiB                              | 32 MiB                                                    | Per deployment.                                                                                               |
-| Function argument size                                                            | 8 MiB                               | 8 MiB                                                     |                                                                                                               |
-| Function return value size                                                        | 8 MiB                               | 8 MiB                                                     |                                                                                                               |
+| Function argument size                                                            | 16 MiB                              | 16 MiB                                                    |                                                                                                               |
+| Function return value size                                                        | 16 MiB                              | 16 MiB                                                    |                                                                                                               |
 | HTTP action response size                                                         | 20 MiB                              | 20 MiB                                                    | There is no specific limit on request size                                                                    |
 | Length of a console.log line                                                      | 4 KiB                               | 4 KiB                                                     |                                                                                                               |
 | [Log streaming](/docs/production/integrations/log-streams/log-streams.mdx) limits | 4096 logs, flushed every 10 seconds | 4096 logs, flushed every 10 seconds                       | How many logs can be buffered when streaming                                                                  |
@@ -88,7 +88,7 @@ Number of functions you can run at a time for each function type.
 | Query/mutation execution time                | 1 second        | Limit applies only to user code and doesn’t include database operations.                                                |
 | Action execution time                        | 10&nbsp;minutes |                                                                                                                         |
 | Scheduled functions                          | 1000            | The number of other functions a single mutation can schedule.                                                           |
-| Total size of scheduled functions' arguments | 8 MiB           | Applies only to mutations.                                                                                              |
+| Total size of scheduled functions' arguments | 16 MiB          | Applies only to mutations.                                                                                              |
 | Concurrent IO operations per function        | 1000            | The number of IO operations a single function can perform, e.g., a database operation, or a fetch request in an action. |
 | Outstanding scheduled functions              | 1,000,000       |                                                                                                                         |
 
@@ -98,11 +98,11 @@ These limits apply to each `query` or `mutation` function.
 
 |                            |        | Notes                                                     |
 | -------------------------- | ------ | --------------------------------------------------------- |
-| Data read                  | 8 MiB  | Data not returned due to a `filter` counts as scanned     |
-| Data written               | 8 MiB  |
-| Documents scanned          | 16,384 | Documents not returned due to a `filter` count as scanned |
-| Documents written          | 8,192  |
-| Function return value size | 8 MiB  |
+| Data read                  | 16 MiB | Data not returned due to a `filter` counts as scanned     |
+| Data written               | 16 MiB |
+| Documents scanned          | 32,000 | Documents not returned due to a `filter` count as scanned |
+| Documents written          | 16,000 |
+| Function return value size | 16 MiB |
 
 ## Environment Variables
 
