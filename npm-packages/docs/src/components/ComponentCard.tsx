@@ -1,0 +1,58 @@
+import React from "react";
+import Link from "@docusaurus/Link";
+import Heading from "@theme/Heading";
+
+type ComponentCardItem = {
+  href?: string;
+  title: string;
+  description: string;
+};
+
+const ComponentIcon = () => (
+  <div className="component-card-header">
+    <svg
+      width="15"
+      height="15"
+      viewBox="-1 0 13 10"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="component-card-icon"
+    >
+      <path
+        d="M9.00954 3.1018C9.00954 3.25833 9.08285 3.40583 9.20762 3.50035C9.33239 3.59487 9.49423 3.62551 9.64491 3.58313C9.764 3.54963 9.88902 3.53335 10.0308 3.53335H10.0361C10.8473 3.53335 11.5054 4.19146 11.5054 5.00263C11.5054 5.81381 10.8473 6.47192 10.0361 6.47192C9.90304 6.47192 9.77217 6.45267 9.64491 6.41688C9.49423 6.3745 9.33239 6.40513 9.20762 6.49965C9.08285 6.59417 9.00954 6.74167 9.00954 6.8982V8.75208C9.00954 9.02823 8.78568 9.25208 8.50954 9.25208H1.00537C0.729228 9.25208 0.505371 9.02823 0.505371 8.75209V1.24792C0.505371 0.971774 0.729229 0.747917 1.00537 0.747917H2.9422C2.873 1.22601 2.93994 1.69202 3.15997 2.08387C3.47318 2.64168 4.05361 2.96989 4.77062 2.96989C5.49213 2.96989 6.05944 2.6369 6.35615 2.07137C6.56128 1.68036 6.61652 1.21869 6.54991 0.747917H8.50954C8.78568 0.747917 9.00954 0.971775 9.00954 1.24792V3.1018Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+      />
+    </svg>
+    <span className="component-card-label">Convex component</span>
+  </div>
+);
+
+export function ComponentCard({ item }: { item: ComponentCardItem }) {
+  const CardWrapper = item.href ? Link : "div";
+
+  return (
+    <CardWrapper
+      {...(item.href ? { href: item.href } : {})}
+      className="component-card"
+    >
+      <div className="component-card-content">
+        <ComponentIcon />
+        <Heading as="h3" className="component-card-title">
+          {item.title}
+        </Heading>
+        <p className="component-card-description">{item.description}</p>
+      </div>
+    </CardWrapper>
+  );
+}
+
+export function ComponentCardList({ items }: { items: ComponentCardItem[] }) {
+  return (
+    <div className="component-cards">
+      {items.map((item, index) => (
+        <ComponentCard key={index} item={item} />
+      ))}
+    </div>
+  );
+}

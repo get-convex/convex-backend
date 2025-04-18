@@ -366,8 +366,65 @@ article code {
 
 .component-cards {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.component-card {
+  display: block;
+  padding: 1.5rem;
+  border-radius: var(--ifm-card-border-radius);
+  text-decoration: none;
+  border: 1px solid var(--ifm-toc-border-color);
+  background: var(--ifm-background-color);
+  min-height: 130px;
+  box-shadow: none;
+}
+
+.component-card:hover {
+  box-shadow: none;
+  background-color: var(--ifm-menu-color-background-active);
+  color: var(--ifm-font-color-base);
+  text-decoration: none;
+}
+
+.component-card-content {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
-  margin: 1.5rem 0 2.5rem;
+}
+
+.component-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.component-card-icon {
+  color: var(--ifm-navbar-link-color);
+  flex-shrink: 0;
+}
+
+.component-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.component-card-title {
+  margin: 0;
+  font-size: 1.125rem;
+  color: var(--ifm-heading-color);
+}
+
+.component-card-description {
+  margin: 0;
+  color: var(--ifm-color-emphasis-700);
+  line-height: 1.5;
+  font-size: 1rem;
 }
 
 /* This magic number 462 is the size of the article div container as rendered */

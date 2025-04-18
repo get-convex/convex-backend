@@ -25,6 +25,25 @@ The [Agent](https://www.convex.dev/components/agent) and
 [Workflow](https://www.convex.dev/components/workflow) components can be used
 together to create powerful long running agents with memory.
 
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+<ComponentCardList
+  items={[
+    {
+      title: "Agent",
+      description:
+        "Agents organize your AI workflows into units, with message history and vector search built in.",
+      href: "https://www.convex.dev/components/agent",
+    },
+    {
+      title: "Workflow",
+      description:
+        "Simplify programming long running code flows. Workflows execute durably with configurable retries and delays.",
+      href: "https://www.convex.dev/components/workflow",
+    },
+  ]}
+/>
+
 Learn more by reading:
 [AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
 
@@ -90,16 +109,25 @@ export const supportAgentWorkflow = workflow.define({
 Convex also provides other components to help you build reliable AI
 applications.
 
-The
-[Persistent Text Streaming](https://www.convex.dev/components/persistent-text-streaming)
-component provides a React hook for streaming text from HTTP actions while
-simultaneously storing the data in the database. This persistence allows the
-text to be accessed after the stream ends or by other users.
-
-The [Action Retrier](https://www.convex.dev/components/retrier) Component is
-useful for one of flaky AI calls that you want to automatically retry. It will
-run the action and retry it on failure, sleeping with exponential backoff, until
-the action succeeds or the maximum number of retries is reached.
-
-The [Workpool](https://www.convex.dev/components/workpool) Component lets you
-create tiers of parallelism to handle large number of external requests.
+<ComponentCardList
+  items={[
+    {
+      title: "Persistent Text Streaming",
+      description:
+        "Stream text from HTTP actions while storing data in the database, enabling access after the stream ends or by other users.",
+      href: "https://www.convex.dev/components/persistent-text-streaming",
+    },
+    {
+      title: "Action Retrier",
+      description:
+        "Add reliability to unreliable external service calls. Retry idempotent calls with exponential backoff until success.",
+      href: "https://www.convex.dev/components/retrier",
+    },
+    {
+      title: "Workpool",
+      description:
+        "Create tiers of parallelism to manage and prioritize large numbers of external requests efficiently.",
+      href: "https://www.convex.dev/components/workpool",
+    },
+  ]}
+/>

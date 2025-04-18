@@ -7,6 +7,7 @@ import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/w
 import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
 import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
 import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+import { ComponentCardList } from "@site/src/components/ComponentCard";
 
 [Mutations](/docs/functions/mutation-functions.mdx) can insert, update, and
 remove data from database tables.
@@ -128,6 +129,22 @@ export const bulkInsertProducts = mutation({
   },
 });
 ````
+
+## Migrations
+
+Database migrations are done through the migration component. The component is
+designed to run online migrations to safely evolve your database schema over
+time. It allows you to resume from failures, and validate changes with dry runs.
+
+<ComponentCardList
+  items={[
+    {
+      title: "Migrations",
+      description: "Framework for long running data migrations of live data.",
+      href: "https://www.convex.dev/components/migrations",
+    },
+  ]}
+/>
 
 ## Write performance and limits
 
