@@ -70,4 +70,40 @@ service you can write public functions accessible to the internet that check a
 shared secret, for example from an environment variable, before doing anything
 else.
 
+## Authorization
+
+Convex enables a traditional three tier application structure. You have your
+client/UI for your app, and a backend server that handles user requests, and a
+database that the backend queries. This architecture let's you check every
+public request against any authorization rules you can define in code.
+
+Thus Convex does not need an opinionated authorization framework like RLS, which
+is required in client oriented databases like Firebase or Supabase. This
+flexibility lets you build and use an [authorization
+framework[(https://en.wikipedia.org/wiki/Authorization)] for your needs.
+
+That said, the most common way is to simply write code that checks if the user
+is logged in and if they are allowed to do the requested action at the beginning
+of your public function.
+
+For example, the following function enforces that only the currently
+authenticated user can remove their own user image:
+
+```typescript
+export const removeUserImage = mutation({
+  args: {},
+  handler: async (ctx) => {
+    // highlight-next-line
+    const userId = await getAuthUserId(ctx);
+    // highlight-next-line
+    if (!userId) {
+      // highlight-next-line
+      return;
+      // highlight-next-line
+    }
+    ctx.db.patch(userId, { imageId: undefined, image: undefined });
+  },
+});
+```
+
 <StackPosts query="authentication" />
