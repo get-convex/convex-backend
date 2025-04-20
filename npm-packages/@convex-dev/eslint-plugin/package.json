@@ -1,6 +1,6 @@
 {
   "name": "@convex-dev/eslint-plugin",
-  "version": "0.0.0-alpha.0",
+  "version": "0.0.1-alpha.4",
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
@@ -14,11 +14,20 @@
     "test:watch": "vitest",
     "prepare": "tshy"
   },
-  "files": [
-    "dist",
-    "src/index.ts",
-    "LICENSE"
-  ],
+  "dependencies": {
+    "@typescript-eslint/utils": "~8.4.0"
+  },
+  "devDependencies": {
+    "@types/eslint": "~9.6.1",
+    "@types/node": "^18.17.0",
+    "@typescript-eslint/rule-tester": "~8.4.0",
+    "@typescript-eslint/types": "~8.4.0",
+    "eslint": "9.21.0",
+    "eslint-doc-generator": "^1.7.1",
+    "tshy": "^3.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^1.6.1"
+  },
   "tshy": {
     "dialects": [
       "esm",
@@ -33,18 +42,11 @@
     ],
     "selfLink": false
   },
-  "peerDependencies": {
-    "eslint": "9",
-    "@types/eslint": "~9.6.1",
-    "@typescript-eslint/rule-tester": "~8.4.0",
-    "@typescript-eslint/types": "~8.4.0",
-    "@typescript-eslint/utils": "~8.4.0",
-    "eslint-doc-generator": "~1.7.1"
-  },
-  "devDependencies": {
-    "tshy": "^3.0.0",
-    "typescript": "~5.0.3"
-  },
+  "files": [
+    "dist",
+    "src/index.ts",
+    "LICENSE"
+  ],
   "exports": {
     ".": {
       "import": {
@@ -60,9 +62,5 @@
   },
   "module": "./dist/esm/index.js",
   "main": "./dist/commonjs/index.js",
-  "types": "./dist/commonjs/index.d.ts",
-  "dependencies": {
-    "@types/node": "^18.17.0",
-    "vitest": "^1.6.1"
-  }
+  "types": "./dist/commonjs/index.d.ts"
 }

@@ -7,13 +7,11 @@ files in the `convex/` directory.
 
 ### ESLint 8 (`.eslintrc.js`)
 
-In `.eslintrc.js`:
-
 ```bash
 npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin
 ```
 
-and add these two
+and add these two in `.eslintrc.js`:
 
 ```js
 module.exports = {
@@ -26,6 +24,10 @@ module.exports = {
 ```
 
 ### ESLint 9 (`eslint.config.js`)
+
+```bash
+npm i @convex-dev/eslint-plugin
+```
 
 In `eslint.config.js`:
 

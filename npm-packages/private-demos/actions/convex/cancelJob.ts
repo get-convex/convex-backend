@@ -1,5 +1,5 @@
 // Delaying fixing this until we have a good auto-fix
-/* eslint-disable @convex-dev/no-missing-args-validator */
+/* eslint-disable @convex-dev/no-args-without-validator */
 
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
