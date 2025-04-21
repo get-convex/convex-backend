@@ -15,15 +15,15 @@ export function RedeemReferralLanding({
   return (
     <div className="relative mt-10 max-w-lg">
       <Sheet>
-        <MarketingH1>{title}</MarketingH1>
+        <DisplayH1>{title}</DisplayH1>
 
-        <MarketingP>
+        <DisplayP>
           Convex is the open-source reactive database for app developers.
-        </MarketingP>
+        </DisplayP>
 
-        <MarketingP>
+        <DisplayP>
           Accept this referral to double your free account quota.
-        </MarketingP>
+        </DisplayP>
 
         <LogInButton code={code} />
       </Sheet>
@@ -31,18 +31,18 @@ export function RedeemReferralLanding({
   );
 }
 
-function MarketingH1({ children }: React.PropsWithChildren) {
+function DisplayH1({ children }: React.PropsWithChildren) {
   return (
     <h1
       // eslint-disable-next-line no-restricted-syntax
-      className="mb-6 font-marketing text-3xl font-black leading-[1.1] tracking-tight text-content-primary sm:text-5xl"
+      className="mb-6 font-display text-3xl font-black leading-[1.1] tracking-tight text-content-primary sm:text-5xl"
     >
       {children}
     </h1>
   );
 }
 
-function MarketingP({ children }: React.PropsWithChildren) {
+function DisplayP({ children }: React.PropsWithChildren) {
   return (
     <p
       // eslint-disable-next-line no-restricted-syntax
@@ -61,7 +61,7 @@ function LogInButton({ code }: { code: string }) {
     // to GitHub when following the link.
     <a
       className={cn(
-        "group z-10 inline-flex rounded-full bg-gradient-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-marketing shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow my-2",
+        "group z-10 inline-flex rounded-full bg-gradient-to-br from-[#8d2676_33%] via-[#ee342f] via-90% to-[#f3b01c] to-100% p-0.5 font-display shadow-[0_2px_14px_rgba(111,0,255,0.25)] transition-shadow my-2",
         !clicked && "hover:shadow-[rgba(111,0,255,0.5)]",
         clicked && "opacity-80 cursor-progress",
       )}

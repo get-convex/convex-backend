@@ -268,7 +268,7 @@ const config: Config = {
         ...numberedColors,
       },
       fontFamily: {
-        marketing: [
+        display: [
           "GT America",
           "Inter Variable",
           "ui-sans-serif",
