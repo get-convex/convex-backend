@@ -87,9 +87,9 @@ function Profile() {
                   onClose={() => setShowConfirmation(false)}
                   onConfirm={async () => {
                     try {
-                      await deleteAccount();
                       document.cookie = "";
                       window.localStorage.clear();
+                      await deleteAccount();
                     } catch (e: any) {
                       setDeleteAccountError(e.message);
                       throw e;
