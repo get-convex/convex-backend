@@ -776,8 +776,8 @@ importers:
         specifier: ~3.5.0
         version: 3.5.0
       '@team-plain/typescript-sdk':
-        specifier: ~4.2.3
-        version: 4.2.3
+        specifier: ~4.10.0
+        version: 4.10.1
       classnames:
         specifier: ^2.3.2
         version: 2.5.1
@@ -9903,8 +9903,8 @@ packages:
     resolution: {integrity: sha512-PTpeM8SHL7AJM0pJOacFvHribbUODS51qe9NsMqku4mogh6BWObY1EeVmeGnp9o3VngAEsf+rJMs2zqIVz3WFA==}
     engines: {node: '>=12'}
 
-  '@team-plain/typescript-sdk@4.2.3':
-    resolution: {integrity: sha512-aJjN7qXc07t4aJzf55CsiRd6o5OD7hLAEvsG0qMWOSCBq2O802SSucPmHTufAMo5r5/TVLpFVz+aR29nXwW4xg==}
+  '@team-plain/typescript-sdk@4.10.1':
+    resolution: {integrity: sha512-5C6z5IFQy48d8StrKMssjHC5gMe3b5azqsUs2Q+xQuTk7FV3bWD5qlfmIsXRzv2P13HWxjmmHBsofFqhzm+G7g==}
 
   '@techteamer/ocsp@1.0.1':
     resolution: {integrity: sha512-q4pW5wAC6Pc3JI8UePwE37CkLQ5gDGZMgjSX4MEEm4D4Di59auDQ8UNIDzC4gRnPNmmcwjpPxozq8p5pjiOmOw==}
@@ -28831,7 +28831,7 @@ snapshots:
 
   '@tanstack/virtual-file-routes@1.87.6': {}
 
-  '@team-plain/typescript-sdk@4.2.3':
+  '@team-plain/typescript-sdk@4.10.1':
     dependencies:
       '@graphql-typed-document-node/core': 3.2.0(graphql@16.10.0)
       ajv: 8.17.1
