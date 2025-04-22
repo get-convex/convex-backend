@@ -265,6 +265,7 @@ export function Table({
                   className="scrollbar-none"
                   items={rows}
                   totalNumItems={totalRowCount}
+                  overscanCount={25}
                   pageSize={pageSize}
                   loadMoreThreshold={pageThreshold}
                   itemSize={densityValues.height}
