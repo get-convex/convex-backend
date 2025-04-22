@@ -31107,12 +31107,6 @@ snapshots:
 
   axe-core@4.10.2: {}
 
-  axios@0.25.0:
-    dependencies:
-      follow-redirects: 1.15.9
-    transitivePeerDependencies:
-      - debug
-
   axios@1.8.3:
     dependencies:
       follow-redirects: 1.15.9
