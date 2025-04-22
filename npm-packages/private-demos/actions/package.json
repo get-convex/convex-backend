@@ -12,7 +12,7 @@
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "postmark": "~3.0.14",
+    "postmark": "~3.11.0",
     "@popperjs/core": "~2.11.6",
     "langchain": "^0.3.0",
     "chromadb": "=1.9.4",
