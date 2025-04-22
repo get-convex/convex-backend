@@ -127,3 +127,10 @@ body {
     @apply border-b;
   }
 }
+
+@layer utilities {
+  /* Alias for .bottom-4 to avoid false positives with easylist_cookie */
+  .bottom-four {
+    @apply bottom-4;
+  }
+}

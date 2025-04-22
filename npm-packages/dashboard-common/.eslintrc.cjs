@@ -118,6 +118,11 @@ module.exports = {
         message: "Don't use background colors for text",
         selector: "Literal[value=/^text-background-.*$/i]",
       },
+      {
+        message:
+          ".bottom-4 is blocked on convex.dev by easylist_cookie; use .bottom-four instead",
+        selector: "Literal[value=/bottom-4(?:\\D|$)/i]",
+      },
     ],
     // allow (_arg: number) => {}
     "@typescript-eslint/no-unused-vars": [
@@ -166,6 +171,13 @@ module.exports = {
     // Makes it harder to accidentally fire off a promise without waiting for it.
     "@typescript-eslint/no-floating-promises": "error",
     "no-void": "off",
+
+    "tailwindcss/no-custom-classname": [
+      "error",
+      {
+        whitelist: ["bottom-four"],
+      },
+    ],
   },
   overrides: [
     {
