@@ -158,6 +158,9 @@ pub struct FunctionExecution {
     /// The length of the mutation queue at the time the mutation was executed.
     /// Only applicable for mutations.
     pub mutation_queue_length: Option<usize>,
+
+    // Number of retries prior to a successful execution. Only applicable for mutations.
+    pub mutation_retry_count: Option<usize>,
 }
 
 impl HeapSize for FunctionExecution {
@@ -208,6 +211,7 @@ impl FunctionExecution {
             cached,
             context: self.context.clone(),
             mutation_queue_length: self.mutation_queue_length,
+            mutation_retry_count: self.mutation_retry_count,
         }
     }
 
@@ -642,6 +646,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             udf_server_version: outcome.udf_server_version.clone(),
             identity: outcome.identity.clone(),
             context,
+            mutation_retry_count: None,
         };
         self.log_execution(execution, true);
     }
@@ -655,6 +660,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         usage: FunctionUsageTracker,
         context: ExecutionContext,
         mutation_queue_length: Option<usize>,
+        mutation_retry_count: usize,
     ) {
         self._log_mutation(
             outcome,
@@ -665,6 +671,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             None,
             mutation_queue_length,
+            mutation_retry_count,
         )
     }
 
@@ -678,6 +685,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         caller: FunctionCaller,
         context: ExecutionContext,
         mutation_queue_length: Option<usize>,
+        mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         // TODO: We currently synthesize a `UdfOutcome` for
         // an internal system error. If we decide we want to keep internal system errors
@@ -699,6 +707,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             None,
             mutation_queue_length,
+            mutation_retry_count,
         );
         Ok(())
     }
@@ -713,6 +722,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         context: ExecutionContext,
         occ_info: OccInfo,
         mutation_queue_length: Option<usize>,
+        mutation_retry_count: usize,
     ) {
         self._log_mutation(
             outcome,
@@ -723,6 +733,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             context,
             Some(occ_info),
             mutation_queue_length,
+            mutation_retry_count,
         );
     }
 
@@ -736,6 +747,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
         context: ExecutionContext,
         occ_info: Option<OccInfo>,
         mutation_queue_length: Option<usize>,
+        mutation_retry_count: usize,
     ) {
         let aggregated = match usage {
             TrackUsage::Track(usage_tracker) => {
@@ -780,6 +792,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context,
+            mutation_retry_count: Some(mutation_retry_count),
         };
         self.log_execution(execution, true);
     }
@@ -871,6 +884,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context: completion.context,
+            mutation_retry_count: None,
         };
         self.log_execution(execution, /* send_console_events */ false)
     }
@@ -894,6 +908,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             cached: Some(false),
             context,
             mutation_queue_length: None,
+            mutation_retry_count: None,
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)
@@ -1007,6 +1022,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             udf_server_version: outcome.udf_server_version,
             identity: outcome.identity,
             context,
+            mutation_retry_count: None,
         };
         self.log_execution(execution, /* send_console_events */ false);
     }
@@ -1028,6 +1044,7 @@ impl<RT: Runtime> FunctionExecutionLog<RT> {
             cached: Some(false),
             context,
             mutation_queue_length: None,
+            mutation_retry_count: None,
         };
 
         self.log_execution_progress(log_lines, event_source, unix_timestamp)

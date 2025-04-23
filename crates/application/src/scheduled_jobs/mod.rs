@@ -408,7 +408,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
     pub async fn execute_job(&self, job: ScheduledJob, job_id: ResolvedDocumentId) {
         // Generate a new request_id for every schedule job execution attempt.
         let request_id = RequestId::new();
-        match self.run_function(request_id, job.clone(), job_id).await {
+        match self
+            .run_function(
+                request_id,
+                job.clone(),
+                job_id,
+                job.attempts.count_failures() as usize,
+            )
+            .await
+        {
             Ok(()) => {
                 metrics::log_scheduled_job_success(job.attempts.count_failures());
             },
@@ -473,6 +481,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         request_id: RequestId,
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
+        mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         let usage_tracker = FunctionUsageTracker::new();
         let (success, mut tx) = self
@@ -528,6 +537,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
                     caller,
                     context,
                     None,
+                    mutation_retry_count,
                 )?;
                 return Ok(());
             },
@@ -537,8 +547,16 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         // scheduling, but the modules can have been modified since scheduling.
         match udf_type {
             UdfType::Mutation => {
-                self.handle_mutation(request_id, caller, tx, job, job_id, usage_tracker)
-                    .await?
+                self.handle_mutation(
+                    request_id,
+                    caller,
+                    tx,
+                    job,
+                    job_id,
+                    usage_tracker,
+                    mutation_retry_count,
+                )
+                .await?
             },
             UdfType::Action => {
                 self.handle_action(request_id, caller, tx, job, job_id, usage_tracker)
@@ -616,6 +634,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
         job: ScheduledJob,
         job_id: ResolvedDocumentId,
         usage_tracker: FunctionUsageTracker,
+        mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         let start = self.rt.monotonic_now();
         let context = ExecutionContext::new(request_id, &caller);
@@ -640,7 +659,15 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             Ok(r) => r,
             Err(e) => {
                 self.function_log.log_mutation_system_error(
-                    &e, path, udf_args, identity, start, caller, context, None,
+                    &e,
+                    path,
+                    udf_args,
+                    identity,
+                    start,
+                    caller,
+                    context,
+                    None,
+                    mutation_retry_count,
                 )?;
                 return Err(e);
             },
@@ -700,6 +727,7 @@ impl<RT: Runtime> ScheduledJobContext<RT> {
             usage_tracker,
             context,
             None,
+            mutation_retry_count,
         );
 
         Ok(())

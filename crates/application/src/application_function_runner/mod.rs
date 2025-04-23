@@ -774,6 +774,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
         );
 
         loop {
+            let mutation_retry_count = backoff.failures() as usize;
             let usage_tracker = FunctionUsageTracker::new();
 
             // Note that we use different context for every mutation attempt.
@@ -819,6 +820,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         caller,
                         context.clone(),
                         mutation_queue_length,
+                        mutation_retry_count,
                     )?;
                     return Err(e);
                 },
@@ -846,6 +848,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                         usage_tracker,
                         context.clone(),
                         mutation_queue_length,
+                        mutation_retry_count,
                     );
                     return Ok(Err(MutationError {
                         error: error.to_owned(),
@@ -898,9 +901,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     table_name,
                                     document_id,
                                     write_source,
-                                    retry_count: (backoff.failures() - 1) as u64,
+                                    retry_count: mutation_retry_count as u64,
                                 },
                                 mutation_queue_length,
+                                mutation_retry_count,
                             );
                             continue;
                         }
@@ -920,9 +924,10 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                     table_name,
                                     document_id,
                                     write_source,
-                                    retry_count: backoff.failures().into(),
+                                    retry_count: mutation_retry_count as u64,
                                 },
                                 mutation_queue_length,
+                                mutation_retry_count,
                             );
                         } else {
                             self.function_log.log_mutation_system_error(
@@ -934,6 +939,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                                 caller,
                                 context,
                                 mutation_queue_length,
+                                mutation_retry_count,
                             )?;
                         }
                         log_occ_retries(backoff.failures() as usize);
@@ -950,6 +956,7 @@ impl<RT: Runtime> ApplicationFunctionRunner<RT> {
                 usage_tracker,
                 context.clone(),
                 mutation_queue_length,
+                mutation_retry_count,
             );
             log_occ_retries(backoff.failures() as usize);
             return Ok(result);

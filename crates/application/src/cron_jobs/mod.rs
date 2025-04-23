@@ -7,6 +7,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Context;
 use common::{
     self,
     backoff::Backoff,
@@ -270,7 +271,10 @@ impl<RT: Runtime> CronJobContext<RT> {
         loop {
             // Use a new request_id for every cron job execution attempt.
             let request_id = RequestId::new();
-            let result = self.run_function(request_id, job.clone()).await;
+            let mutation_retry_count = function_backoff.failures() as usize;
+            let result = self
+                .run_function(request_id, job.clone(), mutation_retry_count)
+                .await;
             match result {
                 Ok(result) => {
                     metrics::log_cron_job_success(function_backoff.failures());
@@ -291,6 +295,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         &self,
         request_id: RequestId,
         job: CronJob,
+        mutation_retry_count: usize,
     ) -> anyhow::Result<ResolvedDocumentId> {
         let usage_tracker = FunctionUsageTracker::new();
         let Some(mut tx) = self
@@ -323,7 +328,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         let job_id = job.id;
         match udf_type {
             UdfType::Mutation => {
-                self.handle_mutation(request_id, tx, job, usage_tracker)
+                self.handle_mutation(request_id, tx, job, usage_tracker, mutation_retry_count)
                     .await?
             },
             UdfType::Action => {
@@ -398,6 +403,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         mut tx: Transaction<RT>,
         job: CronJob,
         usage_tracker: FunctionUsageTracker,
+        mutation_retry_count: usize,
     ) -> anyhow::Result<()> {
         let start = self.rt.monotonic_now();
         let identity = tx.inert_identity();
@@ -431,6 +437,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                     caller,
                     context,
                     None,
+                    mutation_retry_count,
                 )?;
                 return Err(e);
             },
@@ -459,6 +466,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                 &job,
                 UdfType::Mutation,
                 context.clone(),
+                Some(mutation_retry_count),
             )
             .await?;
             if let Err(err) = self
@@ -489,8 +497,15 @@ impl<RT: Runtime> CronJobContext<RT> {
             model
                 .insert_cron_job_log(&job, status, truncated_log_lines, execution_time_f64)
                 .await?;
-            self.complete_job_run(identity, &mut tx, &job, UdfType::Mutation, context.clone())
-                .await?;
+            self.complete_job_run(
+                identity,
+                &mut tx,
+                &job,
+                UdfType::Mutation,
+                context.clone(),
+                Some(mutation_retry_count),
+            )
+            .await?;
             // NOTE: We should not be getting developer errors here.
             self.database
                 .commit_with_write_source(tx, "cron_save_mutation_error")
@@ -505,6 +520,7 @@ impl<RT: Runtime> CronJobContext<RT> {
             usage_tracker,
             context,
             None,
+            mutation_retry_count,
         );
 
         Ok(())
@@ -618,6 +634,7 @@ impl<RT: Runtime> CronJobContext<RT> {
                     &job,
                     UdfType::Action,
                     context.clone(),
+                    None,
                 )
                 .await?;
                 self.database
@@ -690,8 +707,15 @@ impl<RT: Runtime> CronJobContext<RT> {
         model
             .insert_cron_job_log(expected_state, status, log_lines, execution_time)
             .await?;
-        self.complete_job_run(identity, &mut tx, expected_state, UdfType::Action, context)
-            .await?;
+        self.complete_job_run(
+            identity,
+            &mut tx,
+            expected_state,
+            UdfType::Action,
+            context,
+            None,
+        )
+        .await?;
         self.database
             .commit_with_write_source(tx, "cron_complete_action")
             .await?;
@@ -705,6 +729,7 @@ impl<RT: Runtime> CronJobContext<RT> {
         job: &CronJob,
         udf_type: UdfType,
         context: ExecutionContext,
+        mutation_retry_count: Option<usize>,
     ) -> anyhow::Result<()> {
         let now = self.rt.generate_timestamp()?;
         let prev_ts = job.next_ts;
@@ -744,9 +769,15 @@ impl<RT: Runtime> CronJobContext<RT> {
                         FunctionCaller::Cron,
                         context,
                         None,
+                        mutation_retry_count
+                            .context("Mutations should have mutation_retry_count set")?,
                     )?;
                 },
                 UdfType::Action => {
+                    anyhow::ensure!(
+                        mutation_retry_count.is_none(),
+                        "Actions should not have mutation_retry_count set"
+                    );
                     self.function_log.log_action_system_error(
                         &anyhow::anyhow!(
                             "Skipping {num_skipped} run(s) of {name} because multiple scheduled \

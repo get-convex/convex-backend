@@ -172,6 +172,7 @@ impl LogEvent {
             module_environment: ModuleEnvironment::Isolate,
             cached: None,
             mutation_queue_length: None,
+            mutation_retry_count: None,
         };
         Ok(Self {
             timestamp: runtime.unix_timestamp(),
@@ -423,6 +424,8 @@ pub struct FunctionEventSource {
     // For mutations, this is the length of the mutation queue at the time the mutation was
     // executed. This is useful for monitoring and debugging mutation queue backlogs.
     pub mutation_queue_length: Option<usize>,
+    // For mutations, this is the number of previous failed executions before a successful one.
+    pub mutation_retry_count: Option<usize>,
 }
 
 impl FunctionEventSource {
@@ -436,6 +439,7 @@ impl FunctionEventSource {
             module_environment: ModuleEnvironment::Isolate,
             cached: None,
             mutation_queue_length: None,
+            mutation_retry_count: None,
         }
     }
 
@@ -452,6 +456,7 @@ impl FunctionEventSource {
             "cached": self.cached,
             "request_id": self.context.request_id.to_string(),
             "mutation_queue_length": self.mutation_queue_length,
+            "mutation_retry_count": self.mutation_retry_count,
         }) else {
             unreachable!()
         };
@@ -518,6 +523,7 @@ mod tests {
                     module_environment: ModuleEnvironment::Isolate,
                     cached: Some(true),
                     mutation_queue_length: None,
+                    mutation_retry_count: None,
                 },
                 log_line: LogLineStructured::new_developer_log_line(
                     LogLevel::Log,
@@ -541,7 +547,8 @@ mod tests {
                     "type": "query",
                     "cached": true,
                     "request_id": request_id.to_string(),
-                    "mutation_queue_length": null
+                    "mutation_queue_length": null,
+                    "mutation_retry_count": null
                 }),
                 "log_level": "LOG",
                 "message": "my test log",

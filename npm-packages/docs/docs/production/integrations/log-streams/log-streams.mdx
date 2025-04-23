@@ -139,7 +139,7 @@ Schema:
 - `function`: object, see
   [function fields](/docs/production/integrations/log-streams/log-streams.mdx#function-fields)
 - `execution_time_ms`: number, the time in milliseconds this function took to
-  run
+  run before a successful one. Only applicable to mutations and actions.
 - `status`: string, one of `["success", "failure"]`
 - `error_message`: string, present for functions with status `failure`,
   containing the error and any stack trace.
@@ -147,6 +147,8 @@ Schema:
   the per-session mutation queue at the time the mutation was executed. This is
   useful for monitoring and debugging mutation queue backlogs in individual
   sessions.
+- `mutation_retry_count`: number, the number of previous failed executions (for
+  mutations only)
 - `usage`:
   - `database_read_bytes`: number
   - `database_write_bytes`: number, this and `database_read_bytes` make up the
