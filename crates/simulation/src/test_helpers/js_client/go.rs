@@ -6,6 +6,7 @@ use deno_core::{
     ModuleSpecifier,
 };
 use isolate::{
+    helpers::pump_message_loop,
     isolate::Isolate,
     ConcurrencyLimiter,
     RequestScope,
@@ -59,6 +60,7 @@ impl JsClientThread {
 
                 tracing::debug!("Performing microtask checkpoint");
                 scope.perform_microtask_checkpoint();
+                pump_message_loop(&mut scope);
 
                 let rejections = scope.pending_unhandled_promise_rejections_mut();
                 if let Some(promise) = rejections.exceptions.keys().next().cloned() {

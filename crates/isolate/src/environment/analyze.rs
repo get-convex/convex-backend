@@ -298,7 +298,7 @@ impl AnalyzeEnvironment {
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
         // leak to a subsequent one on isolate reuse.
-        isolate_context.scope.perform_microtask_checkpoint();
+        isolate_context.checkpoint();
         *isolate_clean = true;
 
         // Unlink the request from the isolate.

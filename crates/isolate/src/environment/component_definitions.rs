@@ -291,7 +291,7 @@ impl AppDefinitionEvaluator {
                 .map_err(|e| ErrorMetadata::bad_request("InvalidDefinition", e.to_string()))?
         };
 
-        isolate_context.scope.perform_microtask_checkpoint();
+        isolate_context.checkpoint();
         drop(isolate_context);
         handle.take_termination_error(None, "evaluate_definition")??;
 
@@ -433,7 +433,7 @@ impl ComponentInitializerEvaluator {
             result
         };
 
-        isolate_context.scope.perform_microtask_checkpoint();
+        isolate_context.checkpoint();
         drop(isolate_context);
         handle.take_termination_error(None, "evaluate")??;
 

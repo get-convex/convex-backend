@@ -40,6 +40,7 @@ use crate::{
     error::extract_source_mapped_error,
     helpers::{
         self,
+        pump_message_loop,
         source_map_from_slice,
         to_rust_string,
     },
@@ -353,6 +354,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         // thread. This ensure that we've driven the promise as far as possible
         // before collecting what it's blocked on.
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
+        pump_message_loop(self.scope);
 
         let path = ResolvedComponentFunctionPath {
             component: ComponentId::Root,
@@ -462,6 +464,7 @@ impl<'enter, 'scope: 'enter> EnteredContext<'enter, 'scope> {
         }
 
         self.execute_user_code(|s| s.perform_microtask_checkpoint())?;
+        pump_message_loop(self.scope);
 
         let promise = v8::Local::new(self.scope, &pending_function.promise);
         let path = ResolvedComponentFunctionPath {

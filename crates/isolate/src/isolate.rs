@@ -34,6 +34,7 @@ use value::heap_size::WithHeapSize;
 use crate::{
     concurrency_limiter::ConcurrencyLimiter,
     environment::IsolateEnvironment,
+    helpers::pump_message_loop,
     metrics::{
         create_isolate_timer,
         log_heap_statistics,
@@ -252,6 +253,7 @@ impl<RT: Runtime> Isolate<RT> {
         // v8 doesn't expose whether it's empty, so we empty it ourselves.
         // TODO(CX-2874) use a different microtask queue for each context.
         self.v8_isolate.perform_microtask_checkpoint();
+        pump_message_loop(&mut self.v8_isolate);
 
         // Isolate has not been terminated by heap overflow, system error, or timeout.
         if let Some(not_clean) = self.handle.is_not_clean() {
@@ -333,18 +335,23 @@ impl<RT: Runtime> Isolate<RT> {
 
 impl<RT: Runtime> Drop for Isolate<RT> {
     fn drop(&mut self) {
-        if self.heap_ctx_ptr.is_null() {
-            return;
+        if !self.heap_ctx_ptr.is_null() {
+            // First remove the callback, so V8 can no longer invoke it.
+            self.v8_isolate
+                .remove_near_heap_limit_callback(near_heap_limit_callback, 0);
+
+            // Now that the callback is gone, we can free its context.
+            let heap_ctx = unsafe { Box::from_raw(self.heap_ctx_ptr) };
+            drop(heap_ctx);
+
+            self.heap_ctx_ptr = ptr::null_mut();
         }
-        // First remove the callback, so V8 can no longer invoke it.
-        self.v8_isolate
-            .remove_near_heap_limit_callback(near_heap_limit_callback, 0);
 
-        // Now that the callback is gone, we can free its context.
-        let heap_ctx = unsafe { Box::from_raw(self.heap_ctx_ptr) };
-        drop(heap_ctx);
-
-        self.heap_ctx_ptr = ptr::null_mut();
+        // XXX: our version of rusty_v8 is missing a call to
+        // NotifyIsolateShutdown, so the isolate's foreground task runner is
+        // going to leak. Before that happens, let's pump the message loop to at
+        // least drain all the tasks from it.
+        pump_message_loop(&mut self.v8_isolate);
     }
 }
 

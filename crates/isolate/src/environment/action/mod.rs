@@ -152,6 +152,7 @@ use crate::{
     helpers::{
         self,
         deserialize_udf_result,
+        pump_message_loop,
     },
     http::{
         HttpRequestV8,
@@ -347,7 +348,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
         // leak to a subsequent one on isolate reuse.
-        isolate_context.scope.perform_microtask_checkpoint();
+        isolate_context.checkpoint();
         *isolate_clean = true;
 
         let execution_time;
@@ -670,7 +671,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
         // leak to a subsequent one on isolate reuse.
-        isolate_context.scope.perform_microtask_checkpoint();
+        isolate_context.checkpoint();
         *isolate_clean = true;
 
         match handle.take_termination_error(
@@ -1005,6 +1006,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
             // Advance the user's promise as far as it can go by draining the microtask
             // queue.
             scope.perform_microtask_checkpoint();
+            pump_message_loop(&mut *scope);
             scope.record_heap_stats()?;
             let request_stream_state = scope.state()?.request_stream_state.as_ref();
             if let Some(request_stream_state) = request_stream_state {

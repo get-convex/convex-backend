@@ -40,7 +40,10 @@ use crate::{
         PendingDynamicImports,
         PendingUnhandledPromiseRejections,
     },
-    helpers,
+    helpers::{
+        self,
+        pump_message_loop,
+    },
     isolate::{
         Isolate,
         SETUP_URL,
@@ -441,6 +444,11 @@ impl<'a, 'b: 'a, RT: Runtime, E: IsolateEnvironment<RT>> RequestScope<'a, 'b, RT
     /// Begin executing code within a single isolate's scope.
     pub fn enter<'c, 'd>(v8_scope: &'c mut v8::HandleScope<'d>) -> ExecutionScope<'c, 'd, RT, E> {
         ExecutionScope::new(v8_scope)
+    }
+
+    pub fn checkpoint(&mut self) {
+        self.scope.perform_microtask_checkpoint();
+        pump_message_loop(self.scope);
     }
 
     pub(crate) fn take_state(&mut self) -> Option<RequestState<RT, E>> {

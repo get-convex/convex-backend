@@ -66,6 +66,13 @@ pub fn module_origin<'a>(
     )
 }
 
+/// Run all queued tasks from this isolate's foreground task runner.
+/// In particular, this runs minor GC tasks that are scheduled.
+pub fn pump_message_loop(isolate: &mut v8::Isolate) {
+    let platform = v8::V8::get_current_platform();
+    while v8::Platform::pump_message_loop(&platform, isolate, false /* wait_for_work */) {}
+}
+
 /// Taken from `deno_core::bindings::throw_type_error`.
 pub fn throw_type_error(scope: &mut v8::HandleScope, message: impl AsRef<str>) {
     let message = v8::String::new(scope, message.as_ref()).unwrap();

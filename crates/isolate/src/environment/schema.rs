@@ -209,7 +209,7 @@ impl SchemaEnvironment {
         let result = Self::run_evaluate_schema(&mut isolate_context).await;
 
         // Drain the microtask queue, to clean up the isolate.
-        isolate_context.scope.perform_microtask_checkpoint();
+        isolate_context.checkpoint();
 
         // Unlink the request from the isolate.
         // After this point, it's unsafe to run js code in the isolate that
