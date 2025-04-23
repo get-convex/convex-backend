@@ -24,10 +24,10 @@ export function ProblemForInsight({
         <BytesReadCountProblem insight={bytesReadInsight} explain={explain} />
       );
     }
-    case "docsReadThreshold":
-    case "docsReadLimit": {
+    case "documentsReadLimit":
+    case "documentsReadThreshold": {
       const docsReadInsight = insight as Insight & {
-        kind: "docsReadLimit" | "docsReadThreshold";
+        kind: "documentsReadLimit" | "documentsReadThreshold";
       };
       return (
         <DocsReadCountProblem insight={docsReadInsight} explain={explain} />
@@ -239,7 +239,9 @@ function DocsReadCountProblem({
   insight,
   explain,
 }: {
-  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
+  insight: Insight & {
+    kind: "documentsReadLimit" | "documentsReadThreshold";
+  };
   explain: boolean;
 }) {
   return (

@@ -15,13 +15,15 @@ export function SparklineForInsight({ insight }: { insight: Insight }) {
           }}
         />
       );
-    case "docsReadLimit":
-    case "docsReadThreshold":
+    case "documentsReadLimit":
+    case "documentsReadThreshold":
       return (
         <DocumentsReadCountSparkline
           insight={{
             ...insight,
-            kind: insight.kind as "docsReadLimit" | "docsReadThreshold",
+            kind: insight.kind as
+              | "documentsReadLimit"
+              | "documentsReadThreshold",
           }}
         />
       );
@@ -75,7 +77,9 @@ function BytesReadCountSparkline({
 function DocumentsReadCountSparkline({
   insight,
 }: {
-  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
+  insight: Insight & {
+    kind: "documentsReadLimit" | "documentsReadThreshold";
+  };
 }) {
   return <Sparkline data={insight.details.hourlyCounts.map((b) => b.count)} />;
 }

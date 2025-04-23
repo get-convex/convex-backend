@@ -86,8 +86,8 @@ function isMetricsInsight(insight: Insight): insight is Insight & {
   kind:
     | "bytesReadLimit"
     | "bytesReadThreshold"
-    | "docsReadLimit"
-    | "docsReadThreshold";
+    | "documentsReadLimit"
+    | "documentsReadThreshold";
   details: {
     count: number;
     hourlyCounts: HourlyCount[];
@@ -97,8 +97,8 @@ function isMetricsInsight(insight: Insight): insight is Insight & {
   return [
     "bytesReadLimit",
     "bytesReadThreshold",
-    "docsReadLimit",
-    "docsReadThreshold",
+    "documentsReadLimit",
+    "documentsReadThreshold",
   ].includes(insight.kind);
 }
 
@@ -144,13 +144,13 @@ export function EventsForInsight({ insight }: { insight: Insight }) {
                 }
               />
             );
-          case "docsReadLimit":
-          case "docsReadThreshold":
+          case "documentsReadLimit":
+          case "documentsReadThreshold":
             return (
               <DocumentsReadEvents
                 insight={
                   insight as Insight & {
-                    kind: "docsReadLimit" | "docsReadThreshold";
+                    kind: "documentsReadLimit" | "documentsReadThreshold";
                   }
                 }
               />
@@ -269,7 +269,7 @@ function DocumentsReadEvents({
   insight,
 }: {
   insight: Insight & {
-    kind: "docsReadLimit" | "docsReadThreshold";
+    kind: "documentsReadLimit" | "documentsReadThreshold";
   };
 }) {
   const events = insight.details.recentEvents.map((event) => {
@@ -631,7 +631,9 @@ function DocumentsEventReadAmount({
   componentId: _componentId,
 }: {
   event: FormattedBytesReadEvent;
-  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
+  insight: Insight & {
+    kind: "documentsReadLimit" | "documentsReadThreshold";
+  };
   componentId: ComponentId | undefined;
 }) {
   return <EventReadAmount event={event} format={formatNumberCompact} />;
@@ -695,8 +697,8 @@ function EventStatus({
     kind:
       | "bytesReadLimit"
       | "bytesReadThreshold"
-      | "docsReadLimit"
-      | "docsReadThreshold";
+      | "documentsReadLimit"
+      | "documentsReadThreshold";
   };
   componentId: ComponentId | undefined;
 }) {

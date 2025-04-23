@@ -33,10 +33,10 @@ export function ChartForInsight({ insight }: { insight: Insight }) {
       };
       return <ChartCountBytesRead insight={bytesReadInsight} />;
     }
-    case "docsReadLimit":
-    case "docsReadThreshold": {
+    case "documentsReadLimit":
+    case "documentsReadThreshold": {
       const docsReadInsight = insight as Insight & {
-        kind: "docsReadLimit" | "docsReadThreshold";
+        kind: "documentsReadLimit" | "documentsReadThreshold";
       };
       return <ChartCountDocumentsRead insight={docsReadInsight} />;
     }
@@ -224,7 +224,9 @@ function ChartCountBytesRead({
 function ChartCountDocumentsRead({
   insight,
 }: {
-  insight: Insight & { kind: "docsReadLimit" | "docsReadThreshold" };
+  insight: Insight & {
+    kind: "documentsReadLimit" | "documentsReadThreshold";
+  };
 }) {
   return (
     <InsightsLineChart

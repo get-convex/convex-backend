@@ -80,8 +80,8 @@ export function InsightsSummaryListItem({ insight }: { insight: Insight }) {
 const severityForInsightKind: Record<Insight["kind"], "error" | "warning"> = {
   bytesReadLimit: "error",
   bytesReadThreshold: "warning",
-  docsReadLimit: "error",
-  docsReadThreshold: "warning",
+  documentsReadLimit: "error",
+  documentsReadThreshold: "warning",
   occFailedPermanently: "error",
   occRetried: "warning",
 };

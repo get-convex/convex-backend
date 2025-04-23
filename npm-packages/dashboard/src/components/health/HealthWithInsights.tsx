@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import { cn } from "@ui/cn";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
-import { useFunctionUrl } from "@common/lib/deploymentApi";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
 import { MultiSelectCombobox } from "@ui/MultiSelectCombobox";
@@ -29,7 +28,6 @@ import {
   functionIdentifierValue,
   functionIdentifierFromValue,
 } from "@common/lib/functions/generateFileTree";
-import { useNents } from "@common/lib/useNents";
 import { SmallInsightsSummary } from "./SmallInsightsSummary";
 import { InsightsSummary } from "./InsightsSummary";
 import { InsightSummaryBreakdown } from "./InsightsSummaryBreakdown";
@@ -70,15 +68,6 @@ export function HealthWithInsights() {
     (insight) => getInsightPageIdentifier(insight) === page,
   );
 
-  const { nents } = useNents();
-  const selectedNentId = nents?.find(
-    (nent) => nent.path === selectedInsight?.componentPath,
-  )?.id;
-  const urlToSelectedFunction = useFunctionUrl(
-    selectedInsight?.functionId || "",
-    selectedNentId,
-  );
-
   const header = (
     <div
       className={cn(
@@ -110,7 +99,7 @@ export function HealthWithInsights() {
             }
             size="xs"
             variant="neutral"
-            className="text-content-secondary"
+            className="text-content-secondary hover:text-content-primary"
             inline
           />
         )}
@@ -127,7 +116,7 @@ export function HealthWithInsights() {
                   : {}),
               },
             }}
-            className={page !== "home" ? "text-content-secondary" : ""}
+            className={page !== "home" ? "text-content-link" : ""}
           >
             Health
           </Link>{" "}
@@ -147,7 +136,7 @@ export function HealthWithInsights() {
                       : {}),
                   },
                 }}
-                className={page !== "insights" ? "text-content-secondary" : ""}
+                className="text-content-link"
               >
                 <span className="animate-fadeInFromLoading">Insights</span>
               </Link>
@@ -157,20 +146,7 @@ export function HealthWithInsights() {
             <>
               <span className="animate-fadeInFromLoading">/</span>
               <div className="flex animate-fadeInFromLoading flex-wrap gap-1 text-content-primary">
-                Insight Breakdown for
-                <Link
-                  href={urlToSelectedFunction}
-                  className="font-semibold text-content-primary hover:underline"
-                >
-                  <FunctionNameOption
-                    label={functionIdentifierValue(
-                      selectedInsight.functionId,
-                      selectedInsight.componentPath ?? undefined,
-                    )}
-                    oneLine
-                    disableTruncation
-                  />
-                </Link>
+                Insight Breakdown{" "}
               </div>
             </>
           )}

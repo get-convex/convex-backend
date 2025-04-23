@@ -54,8 +54,8 @@ export type Insight = { functionId: string; componentPath: string | null } & (
       kind:
         | "bytesReadLimit"
         | "bytesReadThreshold"
-        | "docsReadLimit"
-        | "docsReadThreshold";
+        | "documentsReadLimit"
+        | "documentsReadThreshold";
       details: {
         count: number;
         hourlyCounts: HourlyCount[];
@@ -247,10 +247,10 @@ export function useInsights(): Insight[] | undefined {
 
   insights.sort((a, b) => {
     const order: Record<Insight["kind"], number> = {
-      docsReadLimit: 0,
+      documentsReadLimit: 0,
       bytesReadLimit: 1,
       occFailedPermanently: 2,
-      docsReadThreshold: 3,
+      documentsReadThreshold: 3,
       bytesReadThreshold: 4,
       occRetried: 5,
     };
