@@ -10,7 +10,7 @@ import { usePopper } from "react-popper";
 
 const { test } = fuzzy;
 
-export type Option<T> = { label: string; value: T };
+export type Option<T> = { label: string; value: T; disabled?: boolean };
 
 export function Combobox<T>({
   options,
@@ -53,7 +53,12 @@ export function Combobox<T>({
   buttonProps?: Omit<ButtonProps, "href">;
   innerButtonClasses?: string;
   allowCustomValue?: boolean;
-  Option?: React.ComponentType<{ label: string; value: T; inButton: boolean }>;
+  Option?: React.ComponentType<{
+    label: string;
+    value: T;
+    inButton: boolean;
+    disabled?: boolean;
+  }>;
   disabled?: boolean;
   unknownLabel?: (value: T) => string;
   processFilterOption?: (option: string) => string;
@@ -75,6 +80,10 @@ export function Combobox<T>({
   }, [referenceElement]);
 
   const [isOpen, setIsOpen] = useState(false);
+
+  // Keeps track of the whether we should prevent the dropdown from closing
+  // This is used to prevent the dropdown from closing when clicking on a link or tooltip
+  const [preventClose, setPreventClose] = useState(false);
 
   const { styles, attributes, update } = usePopper(
     referenceElement,
@@ -123,14 +132,27 @@ export function Combobox<T>({
     }
   }, [isOpen, update]);
 
+  // Reset preventClose after a short delay
+  useEffect(() => {
+    if (preventClose) {
+      const timer = setTimeout(() => {
+        setPreventClose(false);
+      }, 200);
+
+      return () => clearTimeout(timer);
+    }
+  }, [preventClose]);
+
   return (
     <HeadlessCombobox
       value={
         options.find((o) => isEqual(selectedOption, o.value))?.value || null
       }
       onChange={(option) => {
-        setSelectedOption(option);
-        setQuery("");
+        if (!preventClose) {
+          setSelectedOption(option);
+          setQuery("");
+        }
       }}
       disabled={disabled}
     >
@@ -146,7 +168,7 @@ export function Combobox<T>({
           <>
             <HeadlessCombobox.Label
               hidden={labelHidden}
-              className="text-left text-sm text-content-primary"
+              className="text-content-primary text-left text-sm"
             >
               {label}
             </HeadlessCombobox.Label>
@@ -179,6 +201,7 @@ export function Combobox<T>({
                         inButton
                         label={selectedOptionData.label}
                         value={selectedOptionData.value}
+                        disabled={selectedOptionData.disabled}
                       />
                     ) : (
                       selectedOptionData?.label || (
@@ -228,7 +251,7 @@ export function Combobox<T>({
                       )}
                       <div className="min-w-fit">
                         {!disableSearch && (
-                          <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3 pt-1">
+                          <div className="bg-background-secondary sticky top-0 z-10 flex w-full items-center gap-2 border-b px-3 pt-1">
                             <MagnifyingGlassIcon className="text-content-secondary" />
                             <HeadlessCombobox.Input
                               onChange={(event) => setQuery(event.target.value)}
@@ -246,10 +269,13 @@ export function Combobox<T>({
                           <HeadlessCombobox.Option
                             key={idx}
                             value={option.value}
+                            disabled={option.disabled}
                             className={({ active }) =>
                               cn(
                                 "w-fit min-w-full relative cursor-pointer select-none py-1.5 px-3 text-content-primary",
                                 active && "bg-background-tertiary",
+                                option.disabled &&
+                                  "cursor-not-allowed text-content-secondary opacity-75",
                               )
                             }
                           >
@@ -259,6 +285,21 @@ export function Combobox<T>({
                                   "block w-full whitespace-nowrap",
                                   selected && "font-semibold",
                                 )}
+                                onPointerDownCapture={(e) => {
+                                  // Stop propagation if clicking on a link or tooltip
+                                  if (e.target instanceof HTMLElement) {
+                                    const closest = e.target.closest(
+                                      'a, [role="tooltip"]',
+                                    );
+                                    if (closest) {
+                                      e.stopPropagation();
+                                      e.preventDefault();
+
+                                      // Set preventClose to true
+                                      setPreventClose(true);
+                                    }
+                                  }
+                                }}
                               >
                                 {Option ? (
                                   <Option
@@ -291,7 +332,7 @@ export function Combobox<T>({
                           )}
 
                         {filtered.length === 0 && !allowCustomValue && (
-                          <div className="overflow-hidden text-ellipsis py-1 pl-4 text-content-primary">
+                          <div className="text-content-primary overflow-hidden text-ellipsis py-1 pl-4">
                             No options matching "{query}".
                           </div>
                         )}

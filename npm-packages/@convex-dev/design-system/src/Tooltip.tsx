@@ -37,6 +37,7 @@ export function Tooltip({
             side={side}
             align={align}
             className="z-50 max-w-[16rem] break-words rounded border bg-background-secondary/70 p-1 text-center text-xs shadow-sm backdrop-blur-[2px] transition-opacity"
+            role="tooltip"
             sideOffset={5}
           >
             {tip}
