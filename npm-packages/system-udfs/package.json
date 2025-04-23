@@ -35,7 +35,7 @@
     "vitest": "^1.6.1",
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^4.1.0",
     "typescript": "~5.0.3"
   }

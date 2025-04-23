@@ -302,7 +302,7 @@
     "esbuild": "0.25.1",
     "esbuild-plugin-external-global": "~1.0.1",
     "eslint": "9.21.0",
-    "eslint-config-prettier": "^9.1.0",
+    "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.1.0-beta-26f2496093-20240514",
     "eslint-plugin-require-extensions": "~0.1.3",
