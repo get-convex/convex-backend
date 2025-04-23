@@ -19,15 +19,39 @@ export type FileMetadata = SystemDataModel["_storage"]["document"] & {
 export const fileMetadata = queryGeneric({
   args: {
     paginationOpts: paginationOptsValidator,
+    filters: v.optional(
+      v.object({
+        minCreationTime: v.optional(v.number()),
+        maxCreationTime: v.optional(v.number()),
+        order: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+      }),
+    ),
     componentId: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (
     { db, storage },
-    { paginationOpts },
+    { filters, paginationOpts },
   ): Promise<PaginationResult<FileMetadata>> => {
-    const files = await db.system
-      .query("_storage")
-      .order("desc")
+    const query = db.system.query("_storage");
+    const hasDateFilters =
+      filters &&
+      (filters.minCreationTime !== undefined ||
+        filters.maxCreationTime !== undefined);
+    const queryWithDateFilters = hasDateFilters
+      ? query.withIndex("by_creation_time", (q) => {
+          let partial: any = q;
+          if (filters.minCreationTime !== undefined) {
+            partial = q.gte("_creationTime", filters.minCreationTime);
+          }
+
+          if (filters.maxCreationTime !== undefined) {
+            return partial.lte("_creationTime", filters.maxCreationTime);
+          }
+          return partial;
+        })
+      : query;
+    const files = await queryWithDateFilters
+      .order(filters?.order ?? "desc")
       .paginate(paginationOpts);
 
     const newPage = await Promise.all(
@@ -43,6 +67,26 @@ export const fileMetadata = queryGeneric({
     return {
       ...files,
       page: newPage,
+    };
+  },
+});
+
+export const getFile = queryGeneric({
+  args: {
+    storageId: v.id("_storage"),
+  },
+  handler: async (
+    { db, storage },
+    { storageId }: { storageId: Id<"_storage"> },
+  ): Promise<FileMetadata | null> => {
+    const file = await db.system.get(storageId);
+    if (!file) {
+      return null;
+    }
+    const url = (await storage.getUrl(file._id))!;
+    return {
+      url,
+      ...file,
     };
   },
 });

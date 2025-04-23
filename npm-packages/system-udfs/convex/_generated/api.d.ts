@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as _system___mocks___server from "../_system/__mocks__/server.js";
 import type * as _system_cli_convexUrl from "../_system/cli/convexUrl.js";
 import type * as _system_cli_exports from "../_system/cli/exports.js";
 import type * as _system_cli_modules from "../_system/cli/modules.js";
@@ -72,6 +73,7 @@ import type * as tableDefs_snapshotImport from "../tableDefs/snapshotImport.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  "_system/__mocks__/server": typeof _system___mocks___server;
   "_system/cli/convexUrl": typeof _system_cli_convexUrl;
   "_system/cli/exports": typeof _system_cli_exports;
   "_system/cli/modules": typeof _system_cli_modules;

@@ -1,3 +1,4 @@
+import { describe, test, expect, it } from "vitest";
 import { GenericDocument } from "convex/server";
 import {
   Filter,
