@@ -6,10 +6,10 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Context;
 use common::{
     errors::TIMEOUT_ERROR_MESSAGE,
     knobs::{
+        FUNRUN_INITIAL_PERMIT_TIMEOUT,
         ISOLATE_MAX_HEAP_EXTRA_SIZE,
         ISOLATE_MAX_USER_HEAP_SIZE,
     },
@@ -283,6 +283,17 @@ impl<RT: Runtime> Isolate<RT> {
         environment: E,
     ) -> anyhow::Result<(IsolateHandle, RequestState<RT, E>)> {
         self.check_isolate_clean()?;
+        // Acquire a concurrency permit without counting it against the timeout.
+        let permit = tokio::select! {
+            biased;
+            permit = self.limiter.acquire(client_id) => permit,
+            () = self.rt.wait(*FUNRUN_INITIAL_PERMIT_TIMEOUT) => {
+                anyhow::bail!(ErrorMetadata::rejected_before_execution(
+                    "SystemTimeoutError",
+                    TIMEOUT_ERROR_MESSAGE,
+                ));
+            }
+        };
         let context_handle = self.handle.new_context_created();
         let mut user_timeout = environment.user_timeout();
         if let Some(max_user_timeout) = self.max_user_timeout {
@@ -296,13 +307,6 @@ impl<RT: Runtime> Isolate<RT> {
             Some(user_timeout),
             Some(environment.system_timeout()),
         );
-        let permit = timeout
-            .with_timeout(self.limiter.acquire(client_id))
-            .await
-            .context(ErrorMetadata::rejected_before_execution(
-                "SystemTimeoutError",
-                TIMEOUT_ERROR_MESSAGE,
-            ))?;
         let state = RequestState {
             rt: self.rt.clone(),
             environment,
