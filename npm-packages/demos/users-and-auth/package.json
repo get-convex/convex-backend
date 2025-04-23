@@ -9,7 +9,7 @@
     "predev": "convex dev --until-success"
   },
   "dependencies": {
-    "@auth0/auth0-react": "2.2.4",
+    "@auth0/auth0-react": "2.3.0",
     "convex": "workspace:*",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",

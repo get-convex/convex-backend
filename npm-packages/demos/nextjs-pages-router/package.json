@@ -16,7 +16,7 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "convex": "workspace:*",
-    "@auth0/auth0-react": "2.2.4",
+    "@auth0/auth0-react": "2.3.0",
     "prettier": "3.5.3"
   },
   "devDependencies": {
