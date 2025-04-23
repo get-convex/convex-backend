@@ -12,7 +12,7 @@
     "classnames": "^2.3.2",
     "convex": "workspace:*",
     "hono": "^4.0.0",
-    "prettier": "3.5.2",
+    "prettier": "3.5.3",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "vitest": "^1.6.1",

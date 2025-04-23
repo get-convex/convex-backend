@@ -134,7 +134,7 @@ importers:
         version: 6.10.2(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: ^4.1.0
-        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2)
+        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.3)
       eslint-plugin-react:
         specifier: ^7.37.2
         version: 7.37.3(eslint@8.57.1)
@@ -154,11 +154,11 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       prettier-plugin-tailwindcss:
         specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.2)
+        version: 0.3.0(prettier@3.5.3)
       tsc-alias:
         specifier: ~1.8.15
         version: 1.8.15
@@ -263,8 +263,8 @@ importers:
         specifier: workspace:*
         version: link:../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -279,8 +279,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -295,8 +295,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -311,8 +311,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -327,8 +327,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -343,8 +343,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -369,8 +369,8 @@ importers:
         specifier: ^18.17.0
         version: 18.19.70
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -391,8 +391,8 @@ importers:
         specifier: ^18.17.0
         version: 18.19.70
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -406,8 +406,8 @@ importers:
         specifier: ^4.0.0
         version: 4.0.0
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@auth0/auth0-react':
         specifier: 2.2.4
@@ -650,8 +650,8 @@ importers:
         specifier: ^4.6.0
         version: 4.77.3(encoding@0.1.13)(zod@3.24.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/react':
         specifier: ^18.0.0
@@ -705,8 +705,8 @@ importers:
         specifier: workspace:*
         version: link:../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       typescript:
         specifier: ~5.0.3
@@ -721,8 +721,8 @@ importers:
         specifier: workspace:*
         version: link:../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1003,7 +1003,7 @@ importers:
         version: 6.10.2(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: ^4.1.0
-        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2)
+        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.3)
       eslint-plugin-react:
         specifier: ^7.37.2
         version: 7.37.3(eslint@8.57.1)
@@ -1038,11 +1038,11 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       prettier-plugin-tailwindcss:
         specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.2)
+        version: 0.3.0(prettier@3.5.3)
       storybook:
         specifier: ^7.6.16
         version: 7.6.20(bufferutil@4.0.9)(encoding@0.1.13)(utf-8-validate@5.0.10)
@@ -1316,7 +1316,7 @@ importers:
         version: 6.10.2(eslint@8.57.1(supports-color@10.0.0))
       eslint-plugin-prettier:
         specifier: ^4.1.0
-        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1(supports-color@10.0.0)))(eslint@8.57.1(supports-color@10.0.0))(prettier@3.5.2)
+        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1(supports-color@10.0.0)))(eslint@8.57.1(supports-color@10.0.0))(prettier@3.5.3)
       eslint-plugin-react:
         specifier: ^7.37.2
         version: 7.37.3(eslint@8.57.1(supports-color@10.0.0))
@@ -1339,11 +1339,11 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       prettier-plugin-tailwindcss:
         specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.2)
+        version: 0.3.0(prettier@3.5.3)
       tailwind-scrollbar:
         specifier: 3.0.3
         version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@18.19.70)(typescript@5.0.4)))
@@ -1437,7 +1437,7 @@ importers:
         version: 6.10.2(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: ^4.1.0
-        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2)
+        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.3)
       eslint-plugin-react:
         specifier: ^7.37.2
         version: 7.37.3(eslint@8.57.1)
@@ -1451,11 +1451,11 @@ importers:
         specifier: ^8.4.19
         version: 8.4.49
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       prettier-plugin-tailwindcss:
         specifier: ~0.3.0
-        version: 0.3.0(prettier@3.5.2)
+        version: 0.3.0(prettier@3.5.3)
       tailwind-scrollbar:
         specifier: 3.0.3
         version: 3.0.3(tailwindcss@3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.0.4)))
@@ -1472,8 +1472,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1515,8 +1515,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1555,8 +1555,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1595,8 +1595,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1638,8 +1638,8 @@ importers:
         specifier: ^4.6.0
         version: 4.77.3(encoding@0.1.13)(zod@3.24.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1678,8 +1678,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1718,8 +1718,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1758,8 +1758,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1795,8 +1795,8 @@ importers:
   ../../demos/html:
     dependencies:
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       convex:
         specifier: workspace:*
@@ -1811,8 +1811,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1854,8 +1854,8 @@ importers:
         specifier: 14.2.25
         version: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1918,8 +1918,8 @@ importers:
         specifier: 14.2.25
         version: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -1986,8 +1986,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2029,8 +2029,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2054,8 +2054,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2094,8 +2094,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2134,8 +2134,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2174,8 +2174,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2214,8 +2214,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2257,8 +2257,8 @@ importers:
         specifier: 0.1.74
         version: 0.1.74(convex@..+convex)(hono@4.7.2)(react@18.3.1)(zod@3.24.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2297,8 +2297,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2343,8 +2343,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2386,8 +2386,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2429,8 +2429,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2472,8 +2472,8 @@ importers:
         specifier: workspace:*
         version: link:../../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2515,8 +2515,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2555,8 +2555,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2598,8 +2598,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2641,8 +2641,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2687,8 +2687,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2730,8 +2730,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2773,8 +2773,8 @@ importers:
         specifier: 0.1.74
         version: 0.1.74(convex@..+convex)(hono@4.7.2)(react@18.3.1)(zod@3.24.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2913,8 +2913,8 @@ importers:
         specifier: ~7.0.2
         version: 7.0.2(postcss@8.4.49)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       tailwind-merge:
         specifier: ^1.14.0
         version: 1.14.0
@@ -2931,8 +2931,8 @@ importers:
   ../../id-encoding:
     dependencies:
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -2965,8 +2965,8 @@ importers:
         specifier: ~0.11.0
         version: 0.11.0
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3087,8 +3087,8 @@ importers:
         specifier: ^2.6.1
         version: 2.7.0(encoding@0.1.13)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3175,8 +3175,8 @@ importers:
         specifier: npm:convex@1.16.0-alpha.2
         version: convex@1.16.0-alpha.2(@auth0/auth0-react@2.2.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@clerk/clerk-react@5.23.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.6.2
         version: 5.6.3
@@ -3208,8 +3208,8 @@ importers:
         specifier: ~3.11.0
         version: 3.11.0
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3260,8 +3260,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3306,8 +3306,8 @@ importers:
         specifier: ^16.4.7
         version: 16.4.7
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^18.17.0
@@ -3338,8 +3338,8 @@ importers:
         specifier: ^18.17.0
         version: 18.19.70
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3353,8 +3353,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3393,8 +3393,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3446,8 +3446,8 @@ importers:
         specifier: ^8.29.0
         version: 8.57.1
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -3458,8 +3458,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3486,8 +3486,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3511,8 +3511,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3542,8 +3542,8 @@ importers:
         specifier: ^4.0.0
         version: 4.7.2
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3686,8 +3686,8 @@ importers:
         specifier: 14.2.25
         version: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3762,8 +3762,8 @@ importers:
         specifier: ^2.6.1
         version: 2.7.0(encoding@0.1.13)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       proxy-agent:
         specifier: ^6.4.0
         version: 6.5.0
@@ -3829,8 +3829,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3863,8 +3863,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -3964,8 +3964,8 @@ importers:
         specifier: ~7.0.1
         version: 7.0.1(@babel/plugin-syntax-flow@7.26.0(@babel/core@7.26.0))(@babel/plugin-transform-react-jsx@7.25.9(@babel/core@7.26.0))(eslint@8.57.1)(typescript@5.0.4)
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4031,8 +4031,8 @@ importers:
         specifier: ^8.4.49
         version: 8.4.49
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       tailwindcss:
         specifier: ^3.4.16
         version: 3.4.17(ts-node@10.9.1(@swc/core@1.10.4(@swc/helpers@0.5.15))(@types/node@22.10.5)(typescript@5.7.2))
@@ -4049,8 +4049,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       typescript:
         specifier: ~5.0.3
@@ -4062,8 +4062,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       typescript:
         specifier: ~5.0.3
@@ -4078,8 +4078,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4118,8 +4118,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4158,8 +4158,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4198,8 +4198,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
     devDependencies:
       typescript:
         specifier: ~5.0.3
@@ -4211,8 +4211,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4251,8 +4251,8 @@ importers:
         specifier: workspace:*
         version: link:../../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4294,8 +4294,8 @@ importers:
         specifier: ~7.1.0
         version: 7.1.0
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       typescript:
         specifier: ~5.0.3
         version: 5.0.4
@@ -4321,8 +4321,8 @@ importers:
         specifier: workspace:*
         version: link:../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4355,8 +4355,8 @@ importers:
         specifier: ^0.3.0
         version: 0.3.15(@langchain/core@0.2.36(openai@4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1)))(axios@1.8.3)(cheerio@1.0.0)(encoding@0.1.13)(handlebars@4.7.8)(openai@4.91.1(encoding@0.1.13)(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))(zod@3.24.1))(ws@8.18.0(bufferutil@4.0.9)(utf-8-validate@5.0.10))
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       random-words:
         specifier: 1.3.0
         version: 1.3.0
@@ -4407,8 +4407,8 @@ importers:
   ../../shapes:
     dependencies:
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       zod:
         specifier: ^3.24.0
         version: 3.24.1
@@ -4441,8 +4441,8 @@ importers:
         specifier: workspace:*
         version: link:../convex
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       react:
         specifier: ^18.0.0
         version: 18.3.1
@@ -4521,8 +4521,8 @@ importers:
         specifier: ^1.12.0
         version: 1.13.3
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       udf-syscall-ffi:
         specifier: workspace:*
         version: link:../udf-syscall-ffi
@@ -4559,7 +4559,7 @@ importers:
         version: 9.1.0(eslint@8.57.1)
       eslint-plugin-prettier:
         specifier: ^4.1.0
-        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2)
+        version: 4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.3)
       eslint-plugin-react:
         specifier: ^7.37.2
         version: 7.37.3(eslint@8.57.1)
@@ -4588,8 +4588,8 @@ importers:
         specifier: ^1.12.0
         version: 1.13.3
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       udf-syscall-ffi:
         specifier: workspace:*
         version: link:../udf-syscall-ffi
@@ -4628,8 +4628,8 @@ importers:
         specifier: workspace:*
         version: link:../id-encoding
       prettier:
-        specifier: 3.5.2
-        version: 3.5.2
+        specifier: 3.5.3
+        version: 3.5.3
       shapes:
         specifier: workspace:*
         version: link:../shapes
@@ -11448,6 +11448,9 @@ packages:
     resolution: {integrity: sha512-RE3mdQ7P3FRSe7eqCWoeQ/Z9QXrtniSjp1wUjt5nRC3WIpz5rSCve6o3fsZ2aCpJtrZjSZgjwXAoTO5k4tEI0w==}
     engines: {node: '>=4'}
 
+  axios@0.25.0:
+    resolution: {integrity: sha512-cD8FOb0tRH3uuEe6+evtAbgJtfxr7ly3fQjYcMcuPlgkwVS9xboaVIpcDV+cYQe+yGykgwZCs1pzjntcGa6l5g==}
+
   axios@1.8.3:
     resolution: {integrity: sha512-iP4DebzoNlP/YN2dpwCgb8zoCmhtkajzS48JvwmkSkXvPI3DHc7m+XYL5tGnSlJtR6nImXZmdCuN5aP8dh1d8A==}
 
@@ -14975,6 +14978,11 @@ packages:
     engines: {node: '>=0.10.0'}
     hasBin: true
 
+  image-size@1.2.1:
+    resolution: {integrity: sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==}
+    engines: {node: '>=16.x'}
+    hasBin: true
+
   immediate@3.0.6:
     resolution: {integrity: sha512-XXOFtyqDjNDAQxVfYxuF7g9Il/IbWmmlQg2MYKOH8ExIT1qg6xc4zyS3HaEEATgs1btfzxq15ciUiY7gjSXRGQ==}
 
@@ -18029,8 +18037,8 @@ packages:
     engines: {node: '>=14'}
     hasBin: true
 
-  prettier@3.5.2:
-    resolution: {integrity: sha512-lc6npv5PH7hVqozBR7lkBNOGXV9vMwROAPlumdBkX0wTbbzPu/U1hk5yL8p2pt4Xoc+2mkT8t/sow2YrV/M5qg==}
+  prettier@3.5.3:
+    resolution: {integrity: sha512-QQtaxnoDJeAkDvDKWCLiwIXkTgRhwYDEQCghU9Z6q03iyek/rxRh/2lC3HB7P8sWT2xC/y5JDctPLBIGzHKbhw==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -23864,6 +23872,34 @@ snapshots:
       chalk: 4.1.2
       tslib: 2.8.1
 
+  '@docusaurus/mdx-loader@2.4.3(@docusaurus/types@2.4.3(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@babel/parser': 7.26.3
+      '@babel/traverse': 7.26.4(supports-color@10.0.0)
+      '@docusaurus/logger': 2.4.3
+      '@docusaurus/utils': 2.4.3(@docusaurus/types@2.4.3(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(@swc/core@1.10.4(@swc/helpers@0.5.15))
+      '@mdx-js/mdx': 1.6.22
+      escape-html: 1.0.3
+      file-loader: 6.2.0(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      fs-extra: 10.1.0
+      image-size: 1.2.1
+      mdast-util-to-string: 2.0.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      remark-emoji: 2.2.0
+      stringify-object: 3.3.0
+      tslib: 2.8.1
+      unified: 9.2.2
+      unist-util-visit: 2.0.3
+      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      webpack: 5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15))
+    transitivePeerDependencies:
+      - '@docusaurus/types'
+      - '@swc/core'
+      - esbuild
+      - supports-color
+      - uglify-js
+      - webpack-cli
 
   '@docusaurus/module-type-aliases@2.4.3(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -28071,6 +28107,7 @@ snapshots:
       css-loader: 6.11.0(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.18.20))
       find-up: 5.0.0
       fs-extra: 11.2.0
+      image-size: 1.2.1
       loader-utils: 3.3.1
       next: 14.2.25(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(babel-plugin-macros@3.1.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       node-polyfill-webpack-plugin: 2.0.1(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15))(esbuild@0.18.20))
@@ -28612,7 +28649,7 @@ snapshots:
   '@tanstack/router-generator@1.95.1(@tanstack/react-router@1.95.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1))':
     dependencies:
       '@tanstack/virtual-file-routes': 1.87.6
-      prettier: 3.5.2
+      prettier: 3.5.3
       tsx: 4.19.2
       zod: 3.24.1
     optionalDependencies:
@@ -31150,6 +31187,12 @@ snapshots:
 
   axe-core@4.10.2: {}
 
+  axios@0.25.0:
+    dependencies:
+      follow-redirects: 1.15.9
+    transitivePeerDependencies:
+      - debug
+
   axios@1.8.3:
     dependencies:
       follow-redirects: 1.15.9
@@ -32255,7 +32298,7 @@ snapshots:
     dependencies:
       esbuild: 0.25.1
       jwt-decode: 4.0.0
-      prettier: 3.5.2
+      prettier: 3.5.3
     optionalDependencies:
       '@auth0/auth0-react': 2.2.4(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       '@clerk/clerk-react': 5.23.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -33083,6 +33126,36 @@ snapshots:
     dependencies:
       esutils: 2.0.3
 
+  docusaurus-mdx-loader-v2@0.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      '@babel/parser': 7.26.3
+      '@babel/traverse': 7.26.4(supports-color@10.0.0)
+      '@docusaurus/logger': 2.0.0-beta.18
+      '@docusaurus/utils': 2.0.0-beta.18(@swc/core@1.10.4(@swc/helpers@0.5.15))
+      '@mdx-js/mdx': 2.3.0
+      escape-html: 1.0.3
+      estree-util-value-to-estree: 1.3.0
+      file-loader: 6.2.0(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      fs-extra: 10.1.0
+      image-size: 1.2.1
+      lz-string: 1.5.0
+      mdast-util-to-string: 2.0.0
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      remark-admonitions: 1.2.1
+      remark-emoji: 2.2.0
+      remark-gfm: 1.0.0
+      stringify-object: 3.3.0
+      tslib: 2.8.1
+      unist-util-visit: 2.0.3
+      url-loader: 4.1.1(file-loader@6.2.0(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15))))(webpack@5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15)))
+      webpack: 5.98.0(@swc/core@1.10.4(@swc/helpers@0.5.15))
+    transitivePeerDependencies:
+      - '@swc/core'
+      - esbuild
+      - supports-color
+      - uglify-js
+      - webpack-cli
 
   docusaurus-theme-mdx-v2@0.1.2(@swc/core@1.10.4(@swc/helpers@0.5.15))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
@@ -34137,18 +34210,18 @@ snapshots:
       safe-regex-test: 1.1.0
       string.prototype.includes: 2.0.1
 
-  eslint-plugin-prettier@4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1(supports-color@10.0.0)))(eslint@8.57.1(supports-color@10.0.0))(prettier@3.5.2):
+  eslint-plugin-prettier@4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1(supports-color@10.0.0)))(eslint@8.57.1(supports-color@10.0.0))(prettier@3.5.3):
     dependencies:
       eslint: 8.57.1(supports-color@10.0.0)
-      prettier: 3.5.2
+      prettier: 3.5.3
       prettier-linter-helpers: 1.0.0
     optionalDependencies:
       eslint-config-prettier: 9.1.0(eslint@8.57.1(supports-color@10.0.0))
 
-  eslint-plugin-prettier@4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.2):
+  eslint-plugin-prettier@4.2.1(eslint-config-prettier@9.1.0(eslint@8.57.1))(eslint@8.57.1)(prettier@3.5.3):
     dependencies:
       eslint: 8.57.1
-      prettier: 3.5.2
+      prettier: 3.5.3
       prettier-linter-helpers: 1.0.0
     optionalDependencies:
       eslint-config-prettier: 9.1.0(eslint@8.57.1)
@@ -35981,6 +36054,13 @@ snapshots:
       minimatch: 9.0.5
 
   ignore@5.3.2: {}
+
+  image-size@0.5.5:
+    optional: true
+
+  image-size@1.2.1:
+    dependencies:
+      queue: 6.0.2
 
   immediate@3.0.6: {}
 
@@ -40034,6 +40114,12 @@ snapshots:
       preact: 10.25.4
       web-vitals: 4.2.4
 
+  postmark@3.11.0:
+    dependencies:
+      axios: 0.25.0
+    transitivePeerDependencies:
+      - debug
+
   preact@10.25.4: {}
 
   prebuild-install@7.1.2:
@@ -40059,15 +40145,15 @@ snapshots:
     dependencies:
       fast-diff: 1.3.0
 
-  prettier-plugin-tailwindcss@0.3.0(prettier@3.5.2):
+  prettier-plugin-tailwindcss@0.3.0(prettier@3.5.3):
     dependencies:
-      prettier: 3.5.2
+      prettier: 3.5.3
 
   prettier@2.8.8: {}
 
   prettier@3.2.5: {}
 
-  prettier@3.5.2: {}
+  prettier@3.5.3: {}
 
   pretty-bytes@5.6.0: {}
 
@@ -44043,6 +44129,16 @@ snapshots:
       xml-name-validator: 5.0.0
 
   wait-for-expect@3.0.2: {}
+
+  wait-on@6.0.1:
+    dependencies:
+      axios: 0.25.0
+      joi: 17.13.3
+      lodash: 4.17.21
+      minimist: 1.2.8
+      rxjs: 7.8.1
+    transitivePeerDependencies:
+      - debug
 
   wait-on@7.2.0:
     dependencies:

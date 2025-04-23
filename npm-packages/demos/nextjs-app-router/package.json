@@ -16,7 +16,7 @@
     "react-dom": "^18.0.0",
     "next": "14.2.25",
     "convex": "workspace:*",
-    "prettier": "3.5.2"
+    "prettier": "3.5.3"
   },
   "devDependencies": {
     "@radix-ui/react-slot": "^1.0.2",

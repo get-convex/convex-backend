@@ -60,7 +60,7 @@
     "jest": "^29.6.0",
     "jest-environment-jsdom": "^29.5.0",
     "postcss": "^8.4.19",
-    "prettier": "3.5.2",
+    "prettier": "3.5.3",
     "prettier-plugin-tailwindcss": "~0.3.0",
     "typescript": "~5.0.3",
     "tsc-alias": "~1.8.15",

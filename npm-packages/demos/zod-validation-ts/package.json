@@ -14,7 +14,7 @@
     "react-dom": "^18.0.0",
     "zod": "^3.24.0",
     "convex-helpers": "0.1.74",
-    "prettier": "3.5.2"
+    "prettier": "3.5.3"
   },
   "devDependencies": {
     "@types/babel__core": "^7.20.0",

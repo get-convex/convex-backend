@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "convex": "workspace:*",
-    "prettier": "3.5.2"
+    "prettier": "3.5.3"
   },
   "devDependencies": {
     "typescript": "~5.0.3"
