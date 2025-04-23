@@ -277,6 +277,7 @@ async fn deployment_credentials(
                 .preview_deployment_credentials(DeploymentAuthPreviewArgs {
                     project_selection: ProjectSelectionArgs::DeploymentName {
                         deployment_name: configured_deployment_name,
+                        deployment_type: None,
                     },
                     preview_name,
                 })

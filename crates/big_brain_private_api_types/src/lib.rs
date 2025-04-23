@@ -116,7 +116,10 @@ pub struct AccessTokenDeploymentAuthResponse {
 pub enum ProjectSelectionArgs {
     /// CONVEX_DEPLOYMENT, pointing to dev or prod.
     #[serde(rename_all = "camelCase")]
-    DeploymentName { deployment_name: String },
+    DeploymentName {
+        deployment_name: String,
+        deployment_type: Option<DeploymentType>,
+    },
 
     /// If there is no CONVEX_DEPLOYMENT, select a project with team and
     /// project.
