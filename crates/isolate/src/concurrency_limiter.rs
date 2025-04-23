@@ -143,16 +143,16 @@ impl ConcurrencyPermit {
         self,
         f: impl Future<Output = T> + 'a,
     ) -> (T, ConcurrencyPermit) {
-        let client_id = self.client_id.clone();
-        let limiter = self.limiter.clone();
-        drop(self);
+        let regain = self.suspend();
         let result = f.await;
-        let permit = limiter.acquire(client_id).await;
+        let permit = regain.acquire().await;
         (result, permit)
     }
 
-    pub fn limiter(&self) -> &ConcurrencyLimiter {
-        &self.limiter
+    pub fn suspend(self) -> SuspendedPermit {
+        let client_id = self.client_id.clone();
+        let limiter = self.limiter.clone();
+        SuspendedPermit { client_id, limiter }
     }
 }
 
@@ -161,6 +161,17 @@ impl Drop for ConcurrencyPermit {
         self.rx.try_recv().expect("Failed to read the item we sent");
         let duration = self.limiter.tracker.lock().deregister(self.permit_id);
         log_concurrency_permit_used(self.client_id.clone(), duration);
+    }
+}
+
+pub struct SuspendedPermit {
+    limiter: ConcurrencyLimiter,
+    client_id: Arc<String>,
+}
+
+impl SuspendedPermit {
+    pub async fn acquire(self) -> ConcurrencyPermit {
+        self.limiter.acquire(self.client_id).await
     }
 }
 

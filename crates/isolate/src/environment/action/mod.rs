@@ -315,7 +315,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         routed_path: RoutedHttpPath,
         request: HttpActionRequest,
     ) -> anyhow::Result<HttpActionOutcome> {
-        let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
 
         // Double check that we correctly initialized `ActionEnvironment` with the right
@@ -329,7 +328,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // See Isolate::with_context for an explanation of this setup code. We can't use
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
-        let (handle, state) = isolate.start_request(client_id.clone(), self).await?;
+        let (handle, state) = isolate.start_request(client_id.into(), self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -339,14 +338,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
         let request_head = request.head.clone();
 
-        let mut result = Self::run_http_action_inner(
-            client_id,
-            &mut isolate_context,
-            udf_path,
-            routed_path,
-            request,
-        )
-        .await;
+        let mut result =
+            Self::run_http_action_inner(&mut isolate_context, udf_path, routed_path, request).await;
         // Override the returned result if we hit a termination error.
         let termination_error = handle
             .take_termination_error(Some(heap_stats.get()), &format!("http action: {udf_path}"));
@@ -395,7 +388,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     #[fastrace::trace]
     #[convex_macro::instrument_future]
     async fn run_http_action_inner(
-        client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         http_module_path: &CanonicalizedUdfPath,
         routed_path: RoutedHttpPath,
@@ -509,7 +501,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let v8_args = [args_v8_str.into(), request_route_v8_str.into()];
 
         let result = Self::run_inner(
-            client_id,
             &mut scope,
             handle,
             UdfType::HttpAction,
@@ -657,7 +648,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
     ) -> anyhow::Result<ActionOutcome> {
-        let client_id = Arc::new(client_id);
         let start_unix_timestamp = self.rt.unix_timestamp();
         let heap_stats = self.heap_stats.clone();
 
@@ -665,7 +655,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         // that method directly since we want an `await` below, and passing in a
         // generic async closure to `Isolate` is currently difficult.
 
-        let (handle, state) = isolate.start_request(client_id.clone(), self).await?;
+        let (handle, state) = isolate.start_request(client_id.into(), self).await?;
         let mut handle_scope = isolate.handle_scope();
         let v8_context = v8::Context::new(&mut handle_scope);
         let mut context_scope = v8::ContextScope::new(&mut handle_scope, v8_context);
@@ -673,13 +663,9 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut isolate_context =
             RequestScope::new(&mut context_scope, handle.clone(), state, true).await?;
 
-        let mut result = Self::run_action_inner(
-            client_id,
-            &mut isolate_context,
-            request_params.clone(),
-            cancellation,
-        )
-        .await;
+        let mut result =
+            Self::run_action_inner(&mut isolate_context, request_params.clone(), cancellation)
+                .await;
 
         // Perform a microtask checkpoint one last time before taking the environment
         // to ensure the microtask queue is empty. Otherwise, JS from this request may
@@ -727,7 +713,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
 
     #[fastrace::trace]
     async fn run_action_inner(
-        client_id: Arc<String>,
         isolate: &mut RequestScope<'_, '_, RT, Self>,
         request_params: ActionRequestParams,
         cancellation: BoxFuture<'_, ()>,
@@ -810,7 +795,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
         let mut result = None;
 
         let run_inner_result = Self::run_inner(
-            client_id,
             &mut scope,
             handle,
             UdfType::Action,
@@ -970,7 +954,6 @@ impl<RT: Runtime> ActionEnvironment<RT> {
     /// `get_result_stream` -> `handle_result_part`
     #[fastrace::trace]
     async fn run_inner<'a, 'b: 'a, T, S>(
-        client_id: Arc<String>,
         scope: &mut ExecutionScope<'a, 'b, RT, Self>,
         handle: IsolateHandle,
         udf_type: UdfType,
@@ -1114,8 +1097,7 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     .ok_or_else(|| anyhow::anyhow!("Running function without permit"))?;
                 anyhow::Ok((timeout, permit))
             })??;
-            let limiter = permit.limiter().clone();
-            drop(permit);
+            let regain_permit = permit.suspend();
 
             let environment = &mut scope.state_mut()?.environment;
             select_biased! {
@@ -1176,11 +1158,8 @@ impl<RT: Runtime> ActionEnvironment<RT> {
                     anyhow::bail!("Cancelled");
                 },
             }
-            let permit_acquire = scope.with_state_mut(|state| {
-                state
-                    .timeout
-                    .with_timeout(limiter.acquire(client_id.clone()))
-            })?;
+            let permit_acquire = scope
+                .with_state_mut(|state| state.timeout.with_timeout(regain_permit.acquire()))?;
             let permit = permit_acquire.await?;
             scope.with_state_mut(|state| state.permit = Some(permit))?;
             handle.check_terminated()?;
