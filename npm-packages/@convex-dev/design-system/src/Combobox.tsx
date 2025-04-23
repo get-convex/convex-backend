@@ -168,7 +168,7 @@ export function Combobox<T>({
           <>
             <HeadlessCombobox.Label
               hidden={labelHidden}
-              className="text-content-primary text-left text-sm"
+              className="text-left text-sm text-content-primary"
             >
               {label}
             </HeadlessCombobox.Label>
@@ -251,7 +251,7 @@ export function Combobox<T>({
                       )}
                       <div className="min-w-fit">
                         {!disableSearch && (
-                          <div className="bg-background-secondary sticky top-0 z-10 flex w-full items-center gap-2 border-b px-3 pt-1">
+                          <div className="sticky top-0 z-10 flex w-full items-center gap-2 border-b bg-background-secondary px-3 pt-1">
                             <MagnifyingGlassIcon className="text-content-secondary" />
                             <HeadlessCombobox.Input
                               onChange={(event) => setQuery(event.target.value)}
@@ -332,7 +332,7 @@ export function Combobox<T>({
                           )}
 
                         {filtered.length === 0 && !allowCustomValue && (
-                          <div className="text-content-primary overflow-hidden text-ellipsis py-1 pl-4">
+                          <div className="overflow-hidden text-ellipsis py-1 pl-4 text-content-primary">
                             No options matching "{query}".
                           </div>
                         )}
