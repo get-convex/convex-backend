@@ -29,7 +29,7 @@ export function useIsCloudDeploymentInSelfHostedDashboard():
   }
 
   const match = context.deploymentUrl.match(
-    /^https:\/\/([a-z]+-[a-z]+-[0-9]{3})\.convex\.cloud$/,
+    /^https:\/\/([a-z]+-[a-z]+-[0-9]+)\.convex\.cloud$/,
   );
 
   if (!match) {
