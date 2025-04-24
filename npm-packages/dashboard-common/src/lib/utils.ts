@@ -9,10 +9,20 @@ export function dismissToast(id: string) {
 }
 
 export async function copyTextToClipboard(text: string) {
-  if ("clipboard" in navigator) {
-    return navigator.clipboard.writeText(text);
+  try {
+    if ("clipboard" in navigator) {
+      return await navigator.clipboard.writeText(text);
+    }
+    return document.execCommand("copy", true, text);
+  } catch (e) {
+    toast(
+      "error",
+      "Error copying text to clipboard. Please try again.",
+      undefined,
+    );
+    // Re-throw so the caller can handle it
+    throw e;
   }
-  return document.execCommand("copy", true, text);
 }
 
 export const isUserTableName = (name: string) => !name.startsWith("_");
