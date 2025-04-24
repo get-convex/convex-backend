@@ -151,7 +151,7 @@ pub async fn storage_get(
 ) -> Result<Response, HttpResponseError> {
     let storage_uuid = uuid.parse().context(ErrorMetadata::bad_request(
         "InvalidStoragePath",
-        format!("Invalid storage path: \"{uuid}\". Please use `storage.getUrl()` to generate a valid URL to retrieve files. See https://docs.convex.dev/file-storage/serve-files for more details"),
+        format!("Invalid storage path: \"{uuid}\". Please use `storage.getUrl(storageId: Id<\"_storage\">)` to generate a valid URL to retrieve files. See https://docs.convex.dev/file-storage/serve-files for more details"),
     ))?;
     let file_storage_id = FileStorageId::LegacyStorageId(storage_uuid);
     let component = ComponentId::deserialize_from_string(component.as_deref())?;
