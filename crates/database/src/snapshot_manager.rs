@@ -474,14 +474,14 @@ impl SnapshotManager {
             )
     }
 
-    // Note that timestamp must be within MAX_TRANSACTION_WINDOW from the last
-    // transaction
+    // Note that timestamp must be within MAX_TRANSACTION_WINDOW from the latest
+    // timestamp
     pub fn snapshot(&self, ts: Timestamp) -> anyhow::Result<Snapshot> {
         if ts < self.earliest_ts() {
             return Err(
-                anyhow::anyhow!(ErrorMetadata::operational_internal_server_error()).context(
-                    format!("Timestamp {ts} is too early, retry with a higher timestamp"),
-                ),
+                anyhow::anyhow!(ErrorMetadata::out_of_retention()).context(format!(
+                    "Timestamp {ts} is too early, retry with a higher timestamp"
+                )),
             );
         }
         anyhow::ensure!(
