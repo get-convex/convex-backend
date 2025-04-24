@@ -309,7 +309,7 @@
     "fetch-retry": "~6.0.0",
     "find-up": "^7.0.0",
     "globals": "~15.15.0",
-    "happy-dom": "~16.7.0",
+    "happy-dom": "~16.8.0",
     "inquirer": "^9.1.4",
     "inquirer-search-list": "~1.2.6",
     "jsdom": "~25.0.1",
