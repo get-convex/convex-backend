@@ -192,6 +192,7 @@ function DeleteProjectsPage({ onClose }: { onClose: () => void }) {
           )}
           data-button
           onSelect={handleDeleteProjects}
+          forceMount
         >
           <TrashIcon className="size-4" />
           Delete {projectIds.length}{" "}
