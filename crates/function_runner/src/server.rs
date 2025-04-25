@@ -310,7 +310,6 @@ impl<RT: Runtime, S: StorageForInstance<RT>> FunctionRunnerCore<RT, S> {
         .await
     }
 
-    #[fastrace::trace]
     pub async fn run_function_no_retention_check_inner(
         &self,
         RunRequestArgs {

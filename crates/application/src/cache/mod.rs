@@ -328,7 +328,6 @@ impl<RT: Runtime> CacheManager<RT> {
         Ok(result?.0)
     }
 
-    #[fastrace::trace]
     async fn _get(
         &self,
         request_id: RequestId,

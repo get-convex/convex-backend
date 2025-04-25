@@ -309,7 +309,6 @@ impl<RT: Runtime> IsolateEnvironment<RT> for DatabaseUdfEnvironment<RT> {
 }
 
 impl<RT: Runtime> DatabaseUdfEnvironment<RT> {
-    #[fastrace::trace]
     pub fn new(
         rt: RT,
         EnvironmentData {
