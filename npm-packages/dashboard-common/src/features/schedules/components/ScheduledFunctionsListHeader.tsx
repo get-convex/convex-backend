@@ -65,7 +65,7 @@ export function ScheduledFunctionsListHeader({
             }}
             tip="Refresh the list of scheduled functions. While paused, only the first page of upcoming function runs are refreshed."
           >
-            Refresh
+            <span className="sr-only">Refresh</span>
           </Button>
         )}
         <Button
@@ -88,7 +88,7 @@ export function ScheduledFunctionsListHeader({
           }
           disabled={isRateLimited}
         >
-          {isPaused ? "Go Live" : "Pause"}
+          <span className="sr-only">{isPaused ? "Go Live" : "Pause"}</span>
         </Button>
       </div>
     </div>

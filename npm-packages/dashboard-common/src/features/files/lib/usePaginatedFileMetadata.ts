@@ -6,27 +6,25 @@ import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { useNents } from "@common/lib/useNents";
 import { usePausedLiveData } from "@common/lib/usePausedLiveData";
 
-export const SCHEDULED_JOBS_PAGE_SIZE = 50;
+export const FILE_METADATA_PAGE_SIZE = 20;
 
-export function usePaginatedScheduledJobs(udfPath: string | undefined) {
+export function usePaginatedFileMetadata() {
   const { useCurrentDeployment } = useContext(DeploymentInfoContext);
   const deployment = useCurrentDeployment();
 
   const [isPaused] = useGlobalLocalStorage(
-    `${deployment?.name}/pauseLiveScheduledJobs`,
+    `${deployment?.name}/pauseLiveFileStorage`,
     false,
   );
-  const args = {
-    udfPath,
-    componentId: useNents().selectedNent?.id ?? null,
-  };
+
+  const args = { componentId: useNents().selectedNent?.id ?? null };
 
   const { results, loadMore, status } = usePaginatedQuery(
-    udfs.paginatedScheduledJobs.default,
+    udfs.fileStorageV2.fileMetadata,
     // If we're paused, don't show the live query.
     isPaused ? "skip" : args,
     {
-      initialNumItems: SCHEDULED_JOBS_PAGE_SIZE,
+      initialNumItems: FILE_METADATA_PAGE_SIZE,
     },
   );
 
@@ -36,25 +34,31 @@ export function usePaginatedScheduledJobs(udfPath: string | undefined) {
     isRateLimited,
     togglePaused,
     reload,
+    loadMorePaused,
+    canLoadMore,
+    isLoadingMore,
   } = usePausedLiveData({
     results,
     args,
-    storageKey: "pauseLiveScheduledJobs",
-    udfName: udfs.paginatedScheduledJobs.default,
-    numItems: SCHEDULED_JOBS_PAGE_SIZE,
+    storageKey: "pauseLiveFileStorage",
+    udfName: udfs.fileStorageV2.fileMetadata,
+    numItems: FILE_METADATA_PAGE_SIZE,
   });
 
   return {
-    jobs: isPaused ? pausedData : results,
+    files: isPaused ? pausedData : results,
     status: isPaused
       ? isLoadingPausedData
         ? "LoadingFirstPage"
-        : "Exhausted"
+        : canLoadMore
+          ? "CanLoadMore"
+          : "Exhausted"
       : status,
     isPaused,
     isLoadingPausedData,
+    isLoadingMore,
     isRateLimited,
-    loadMore,
+    loadMore: isPaused ? loadMorePaused : loadMore,
     togglePaused,
     reload,
   };

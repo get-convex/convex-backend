@@ -29,6 +29,7 @@ export function InfiniteScrollList<T, U>({
   itemKey,
   overscanCount,
   initialScrollOffset,
+  style,
 }: {
   // List of loaded items to render.
   items: T[];
@@ -57,6 +58,7 @@ export function InfiniteScrollList<T, U>({
   // Hook called when the user scrolls.
   onScroll?: (props: ListOnScrollProps) => void;
   className?: string;
+  style?: React.CSSProperties;
   // Function to generate a key for each item. Defaults to the index of the item.
   itemKey?: (index: number, data: U) => string;
   overscanCount?: number;
@@ -92,6 +94,7 @@ export function InfiniteScrollList<T, U>({
               ref={ref}
               onScroll={onScroll}
               className={className || "scrollbar"}
+              style={style}
               onItemsRendered={onItemsRendered}
               itemData={itemData}
               itemCount={Math.max(items.length, totalNumItems || 0)}

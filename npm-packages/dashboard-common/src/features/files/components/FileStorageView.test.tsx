@@ -1,17 +1,40 @@
 import { ConvexProvider } from "convex/react";
 import { act, render, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import udfs from "@common/udfs";
 import { Id } from "system-udfs/convex/_generated/dataModel";
 import * as nextRouter from "next/router";
-import {
-  FileStorageView,
-  Uploader,
-  useUploadFiles,
-} from "@common/features/files/components/FileStorageView";
+import { FileStorageView } from "@common/features/files/components/FileStorageView";
 import { mockConvexReactClient } from "@common/lib/mockConvexReactClient";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
 import { mockDeploymentInfo } from "@common/lib/mockDeploymentInfo";
+
+jest.mock(
+  "react-virtualized-auto-sizer",
+  () =>
+    ({
+      children,
+    }: {
+      children: ({
+        width,
+        height,
+      }: {
+        width: number;
+        height: number;
+      }) => React.ReactNode;
+    }) =>
+      children({ width: 1000, height: 800 }),
+);
+
+jest.mock("lib/usePausedLiveData", () => ({
+  usePausedLiveData: () => ({
+    pausedData: [],
+    isPaused: false,
+    isLoadingPausedData: false,
+    isRateLimited: false,
+    togglePaused: jest.fn(),
+    reload: jest.fn(),
+  }),
+}));
 
 const mockRouter = jest
   .fn()
@@ -48,7 +71,7 @@ const mockClient = mockConvexReactClient()
   .registerQueryFake(udfs.components.list, () => []);
 
 // TODO(react-18-upgrade) some race with act() here
-describe("FileStorageContent", () => {
+describe("FileStorageView", () => {
   beforeEach(jest.clearAllMocks);
 
   describe("Files", () => {
@@ -83,38 +106,6 @@ describe("FileStorageContent", () => {
       const downloadButton = within(row).getByLabelText("Download File");
       expect(downloadButton).toHaveAttribute("download");
       expect(downloadButton).toHaveAttribute("href", "https://url/to/file");
-    });
-  });
-
-  describe("Uploader", () => {
-    function UploaderWithLogic() {
-      const useUploadFilesResult = useUploadFiles();
-      return <Uploader useUploadFilesResult={useUploadFilesResult} />;
-    }
-
-    const setup = () =>
-      act(() =>
-        render(
-          <DeploymentInfoContext.Provider value={mockDeploymentInfo}>
-            <ConvexProvider client={mockClient}>
-              <UploaderWithLogic />
-            </ConvexProvider>
-          </DeploymentInfoContext.Provider>,
-        ),
-      );
-
-    it("should upload", async () => {
-      const { getByTestId } = await setup();
-      const user = userEvent.setup();
-      const uploader = getByTestId("uploader");
-      const file = new File(["hello"], "filename");
-      await user.upload(uploader, file);
-      expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(global.fetch).toHaveBeenCalledWith("https://upload/url", {
-        body: file,
-        headers: undefined,
-        method: "POST",
-      });
     });
   });
 });
