@@ -84,6 +84,9 @@ html.light {
   --content-link: var(--blue-700);
   --border-transparent: 33, 34, 30, 0.14;
   --border-selected: 30, 28, 25;
+  --macos-scrollbar-thumb: 193, 193, 193;
+  --macos-scrollbar-thumb-hover: 125, 125, 125;
+  --macos-scrollbar-track: 250, 250, 250;
 }
 
 html.dark {
@@ -107,6 +110,9 @@ html.dark {
   --content-link: var(--blue-200);
   --border-transparent: 163, 156, 148, 0.3;
   --border-selected: 225, 215, 205;
+  --macos-scrollbar-thumb: 107, 107, 107;
+  --macos-scrollbar-thumb-hover: 147, 147, 147;
+  --macos-scrollbar-track: 43, 43, 43;
 }
 
 @layer base {

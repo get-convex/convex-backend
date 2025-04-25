@@ -64,6 +64,14 @@ export const numberedColors = {
   },
 };
 
+const macosScrollbarColors = {
+  macosScrollbar: {
+    thumb: `rgba(var(--macos-scrollbar-thumb), <alpha-value>)`,
+    thumbHover: `rgba(var(--macos-scrollbar-thumb-hover), <alpha-value>)`,
+    track: `rgba(var(--macos-scrollbar-track), <alpha-value>)`,
+  },
+};
+
 type ThemeColors = {
   background: {
     brand: string;
@@ -266,6 +274,7 @@ const config: Config = {
         util: utilColors,
         ...themeColors,
         ...numberedColors,
+        ...macosScrollbarColors,
       },
       fontFamily: {
         display: [

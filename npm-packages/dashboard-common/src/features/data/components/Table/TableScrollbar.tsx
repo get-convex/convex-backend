@@ -1,9 +1,9 @@
-import { RefObject, useCallback, useEffect, useState } from "react";
+import { RefObject, useCallback, useEffect, useState, useRef } from "react";
 import { useWindowSize } from "react-use";
 import { FixedSizeList } from "react-window";
 import { useTableDensity } from "@common/features/data/lib/useTableDensity";
 
-const MIN_SCROLLBAR_SIZE = 12;
+const MIN_SCROLLBAR_SIZE = 64;
 
 // The handlers returned by this hook were mostly copied/inspired by:
 // https://www.thisdot.co/blog/creating-custom-scrollbars-with-react
@@ -31,6 +31,8 @@ function useScrollbar(
   );
   const [initialScrollTop, setInitialScrollTop] = useState<number>(0);
   const [isDragging, setIsDragging] = useState(false);
+  const rafIdRef = useRef<number>(0);
+  const lastMouseYRef = useRef<number | null>(null);
 
   const handleTrackClick = useCallback(
     (e: React.MouseEvent) => {
@@ -68,39 +70,75 @@ function useScrollbar(
   const handleThumbMouseup = useCallback(() => {
     if (isDragging) {
       setIsDragging(false);
+
+      // Cancel any pending animation frame
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = 0;
+      }
     }
   }, [isDragging]);
 
-  const handleThumbMousemove = useCallback(
-    (e: MouseEvent) => {
-      if (isDragging && outerEl && listEl && scrollStartPosition) {
-        e.preventDefault();
-        e.stopPropagation();
-        const {
-          scrollHeight: contentScrollHeight,
-          offsetHeight: contentOffsetHeight,
-        } = outerEl;
+  const updateScrollPosition = useCallback(() => {
+    if (
+      isDragging &&
+      outerEl &&
+      listEl &&
+      scrollStartPosition &&
+      lastMouseYRef.current !== null
+    ) {
+      const {
+        scrollHeight: contentScrollHeight,
+        offsetHeight: contentOffsetHeight,
+      } = outerEl;
 
-        // Subtract the current mouse y position from where you started to get the pixel difference in mouse position. Multiply by ratio of visible content height to thumb height to scale up the difference for content scrolling.
-        const deltaY =
-          (e.clientY - scrollStartPosition) *
-          (contentOffsetHeight / scrollbarHeight);
-        const newScrollTop = Math.min(
+      // Subtract the current mouse y position from where you started to get the pixel difference
+      const deltaY =
+        (lastMouseYRef.current - scrollStartPosition) *
+        (contentOffsetHeight / scrollbarHeight);
+
+      const newScrollTop = Math.max(
+        0,
+        Math.min(
           initialScrollTop + deltaY,
           contentScrollHeight - contentOffsetHeight,
-        );
+        ),
+      );
 
-        listEl?.scrollTo(newScrollTop);
+      // Apply the scroll
+      listEl?.scrollTo(newScrollTop);
+
+      // Continue animation loop
+      rafIdRef.current = requestAnimationFrame(updateScrollPosition);
+    }
+  }, [
+    isDragging,
+    scrollStartPosition,
+    scrollbarHeight,
+    outerEl,
+    listEl,
+    initialScrollTop,
+  ]);
+
+  const handleThumbMousemove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Store mouse position for animation frame
+        lastMouseYRef.current = e.clientY;
+
+        // Start animation frame if not already running
+        if (!rafIdRef.current) {
+          rafIdRef.current = requestAnimationFrame(updateScrollPosition);
+        }
+
+        // Add user-select: none to body during drag
+        document.body.style.userSelect = "none";
       }
     },
-    [
-      isDragging,
-      scrollStartPosition,
-      scrollbarHeight,
-      outerEl,
-      listEl,
-      initialScrollTop,
-    ],
+    [isDragging, updateScrollPosition],
   );
 
   // Listen for mouse events to handle scrolling by dragging the thumb
@@ -112,6 +150,14 @@ function useScrollbar(
       document.removeEventListener("mousemove", handleThumbMousemove);
       document.removeEventListener("mouseup", handleThumbMouseup);
       document.removeEventListener("mouseleave", handleThumbMouseup);
+
+      // Reset user-select
+      document.body.style.userSelect = "";
+
+      // Clean up any ongoing animation frame
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
     };
   }, [handleThumbMousemove, handleThumbMouseup]);
 
@@ -126,11 +172,13 @@ function useScrollbar(
             (outerEl.scrollTop / totalRowHeight) * outerEl.offsetHeight,
             0,
           ),
-          outerEl.offsetHeight - scrollbarHeight,
+          // Subtract an extra pixel to prevent scrollbar from going too far down
+          outerEl.offsetHeight - scrollbarHeight - 6,
         )
       : 0,
     handleTrackClick,
     handleThumbMousedown,
+    isDragging,
   };
 }
 
@@ -148,6 +196,7 @@ export function TableScrollbar({
     scrollbarTop,
     handleTrackClick,
     handleThumbMousedown,
+    isDragging,
   } = useScrollbar(totalRowCount || 0, outerRef, listRef);
 
   // Create a React handler from a native event handler, just for the types.
@@ -157,9 +206,9 @@ export function TableScrollbar({
   );
 
   const { densityValues } = useTableDensity();
-  return scrollbarHeight >= 0 ? (
+  return scrollbarHeight > 0 ? (
     <div
-      className="absolute right-0 w-2"
+      className="absolute -right-px -mt-0.5 w-3 border-l border-t bg-macosScrollbar-track/75 py-0.5"
       role="scrollbar"
       aria-controls="dataTable"
       aria-valuenow={scrollbarTop}
@@ -171,7 +220,7 @@ export function TableScrollbar({
       {/* eslint-disable  */}
       {/* I have no clue how to properly do a11y for this scrollbar, 
             but it seems to work well for scrollbars */}
-      <div onClick={handleTrackClick} className="fixed h-full w-2" />
+      <div onClick={handleTrackClick} className="fixed h-full w-2.5" />
       <div
         style={{
           height:
@@ -185,11 +234,12 @@ export function TableScrollbar({
             scrollbarHeight < MIN_SCROLLBAR_SIZE
               ? // If the scrollbar is using the minimum size, add some margin
                 // to the top so it snaps to the top and bottom of the table.
-                Math.max(scrollbarTop - (MIN_SCROLLBAR_SIZE + 1), 0)
+                Math.max(scrollbarTop - MIN_SCROLLBAR_SIZE, 0)
               : scrollbarTop,
+          cursor: isDragging ? "grabbing" : "grab",
         }}
         onMouseDown={handleReactThumbMousedown}
-        className={`fixed w-2 bg-neutral-1 dark:bg-neutral-8`}
+        className="fixed w-1.5 rounded-full transition-colors bg-macosScrollbar-thumb hover:bg-macosScrollbar-thumbHover ml-0.5"
       />
       {/* eslint-enable */}
     </div>
