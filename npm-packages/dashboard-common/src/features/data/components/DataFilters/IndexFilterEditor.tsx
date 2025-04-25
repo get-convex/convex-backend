@@ -644,7 +644,7 @@ export function IndexFilterEditor({
           >
             <div
               className={cn(
-                "ml-[-1px] flex w-fit items-center border px-2 py-1 text-xs cursor-not-allowed",
+                "ml-[-1px] flex w-fit items-center border px-1.5 py-1 text-xs cursor-not-allowed",
                 filter.enabled
                   ? "bg-background-secondary"
                   : "bg-background-tertiary text-content-secondary",

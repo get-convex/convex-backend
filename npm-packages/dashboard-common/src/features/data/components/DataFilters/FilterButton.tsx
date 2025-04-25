@@ -35,11 +35,14 @@ export function FilterButton({
 
   const { enableIndexFilters } = useContext(DeploymentInfoContext);
 
+  const hasAnyEnabledFilters =
+    indexFilters?.length || validFilterNames.size > 0;
+
   const filterButtonContent = (
     <div className="flex items-center gap-2">
       <span>{enableIndexFilters ? "Filter & Sort" : "Filter"}</span>
-      {(indexFilters?.length || validFilterNames.size > 0) && (
-        <span className="rounded-full border bg-blue-100/50 px-1 py-0 text-xs tabular-nums leading-[14px] text-content-accent dark:bg-blue-700/50 dark:text-white">
+      {hasAnyEnabledFilters && (
+        <span className="rounded-full border border-content-primary px-1 py-0 text-xs tabular-nums leading-[14px]">
           {(indexFilters?.length || 0) + (regularFilters?.length || 0)}
         </span>
       )}
@@ -60,6 +63,8 @@ export function FilterButton({
       className={cn(
         "w-fit rounded-l-none text-xs border border-border-transparent",
         open && "rounded-b-none border-b-0",
+        hasAnyEnabledFilters &&
+          "bg-blue-100/50 dark:bg-blue-700/50 hover:bg-blue-100/70 dark:hover:bg-blue-700/70",
       )}
       inline
     >
