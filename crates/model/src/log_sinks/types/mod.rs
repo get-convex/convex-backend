@@ -121,8 +121,9 @@ codegen_convex_serialization!(SinkState, SerializedSinkState);
 /// DatadogV2 + AxiomV2 are the unlaunched versions of
 /// https://www.notion.so/convex-dev/Log-streams-round-2-da990dc843e24e13b4a2051f51d0bb9c
 /// They will eventually replace `Datadog` and `Axiom`
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "testing"), derive(proptest_derive::Arbitrary))]
+#[serde(rename_all = "camelCase")]
 pub enum SinkType {
     Local,
     Datadog,
@@ -135,59 +136,6 @@ pub enum SinkType {
     Mock,
     #[cfg(any(test, feature = "testing"))]
     Mock2,
-}
-
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "camelCase")]
-pub enum SerializedSinkType {
-    Local,
-    Datadog,
-    DatadogV2,
-    Webhook,
-    Axiom,
-    AxiomV2,
-    Sentry,
-    #[cfg(any(test, feature = "testing"))]
-    Mock,
-    #[cfg(any(test, feature = "testing"))]
-    Mock2,
-}
-
-impl From<SinkType> for SerializedSinkType {
-    fn from(value: SinkType) -> Self {
-        match value {
-            SinkType::Local => SerializedSinkType::Local,
-            SinkType::Datadog => SerializedSinkType::Datadog,
-            SinkType::DatadogV2 => SerializedSinkType::DatadogV2,
-            SinkType::Webhook => SerializedSinkType::Webhook,
-            SinkType::Axiom => SerializedSinkType::Axiom,
-            SinkType::AxiomV2 => SerializedSinkType::AxiomV2,
-            SinkType::Sentry => SerializedSinkType::Sentry,
-            #[cfg(any(test, feature = "testing"))]
-            SinkType::Mock => SerializedSinkType::Mock,
-            #[cfg(any(test, feature = "testing"))]
-            SinkType::Mock2 => SerializedSinkType::Mock2,
-        }
-    }
-}
-
-impl From<SerializedSinkType> for SinkType {
-    fn from(value: SerializedSinkType) -> Self {
-        match value {
-            SerializedSinkType::Local => SinkType::Local,
-            SerializedSinkType::Datadog => SinkType::Datadog,
-            SerializedSinkType::DatadogV2 => SinkType::DatadogV2,
-            SerializedSinkType::Webhook => SinkType::Webhook,
-            SerializedSinkType::Axiom => SinkType::Axiom,
-            SerializedSinkType::AxiomV2 => SinkType::AxiomV2,
-            SerializedSinkType::Sentry => SinkType::Sentry,
-            #[cfg(any(test, feature = "testing"))]
-            SerializedSinkType::Mock => SinkType::Mock,
-            #[cfg(any(test, feature = "testing"))]
-            SerializedSinkType::Mock2 => SinkType::Mock2,
-        }
-    }
 }
 
 /// The configurations associated with each LogSinkType above.
