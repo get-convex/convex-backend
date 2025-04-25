@@ -591,6 +591,10 @@ mod tests {
     use serde_json::Value as JsonValue;
     use value::{
         assert_obj,
+        proptest::{
+            RestrictNaNs,
+            ValueBranching,
+        },
         resolved_object_strategy,
         resolved_value_strategy,
         ExcludeSetsAndMaps,
@@ -747,8 +751,12 @@ mod tests {
     }
 
     fn small_user_object() -> impl Strategy<Value = ConvexObject> {
-        let values =
-            resolved_value_strategy(FieldName::user_strategy, 4, 4, 4, ExcludeSetsAndMaps(false));
+        let values = resolved_value_strategy(
+            FieldName::user_strategy,
+            ValueBranching::small(),
+            ExcludeSetsAndMaps(false),
+            RestrictNaNs(false),
+        );
         resolved_object_strategy(FieldName::user_strategy(), values, 0..4)
     }
 

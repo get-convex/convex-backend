@@ -46,3 +46,4 @@ import * as Base64 from "./base64.js";
 export { Base64 };
 export type { Infer } from "./validator.js";
 export * from "./errors.js";
+export { compareValues } from "./compare.js";

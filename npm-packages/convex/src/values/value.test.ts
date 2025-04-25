@@ -9,6 +9,7 @@ import {
   convexToJson,
   jsonToConvex,
 } from "./value.js";
+import { compareValues } from "./compare.js";
 
 describe("convexToJson", () => {
   test("serializes objects", () => {
@@ -133,6 +134,64 @@ describe("Our hand-rolled bigint code matches the fast implementation", () => {
       const numAgain = slowBase64ToBigInt(s);
       expect(numAgain).toEqual(modernBase64ToBigInt(s));
       expect(numAgain).toEqual(num);
+    }
+  });
+});
+
+describe("compare", () => {
+  test("NaNs and negative zero", () => {
+    const positiveNaN = Number.NaN;
+    // Create DataViews for bit-level comparison
+    const buffer = new ArrayBuffer(8);
+    new DataView(buffer).setFloat64(0, positiveNaN, /* little-endian */ true);
+
+    // Read as BigInt to compare bits
+    const v1Bits = BigInt(
+      new DataView(buffer).getBigInt64(0, /* little-endian */ true),
+    );
+    // Flip the sign bit
+    const negativeNaNBits = v1Bits | 0x8000000000000000n;
+    // Convert back to a number
+    const negativeNaNBuffer = new ArrayBuffer(8);
+    new DataView(negativeNaNBuffer).setBigInt64(
+      0,
+      negativeNaNBits,
+      /* little-endian */ true,
+    );
+    const negativeNaN = new DataView(negativeNaNBuffer).getFloat64(
+      0,
+      /* little-endian */ true,
+    );
+    const values = [negativeNaN, -0, 0, 1, positiveNaN];
+    function repr(v: number) {
+      if (v === 0) {
+        return "-NaN";
+      }
+      if (v === 1) {
+        return "-0";
+      }
+      if (v === 2) {
+        return "0";
+      }
+      if (v === 3) {
+        return "1";
+      }
+      if (v === 4) {
+        return "+NaN";
+      }
+    }
+
+    for (let i = 0; i < values.length; i++) {
+      for (let j = i + 1; j < values.length; j++) {
+        const v1 = values[i];
+        const v2 = values[j];
+        expect(compareValues(v1, v2), `compare ${repr(i)} ${repr(j)}`).toEqual(
+          -1,
+        );
+        expect(compareValues(v2, v1), `compare ${repr(j)} ${repr(i)}`).toEqual(
+          1,
+        );
+      }
     }
   });
 });

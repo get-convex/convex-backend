@@ -61,6 +61,10 @@ mod proptest {
         sample::size_range,
     };
     use value::{
+        proptest::{
+            RestrictNaNs,
+            ValueBranching,
+        },
         ConvexObject,
         ExcludeSetsAndMaps,
         FieldType,
@@ -80,7 +84,9 @@ mod proptest {
                 any_with::<ConvexObject>((
                     size_range(0..=4),
                     FieldType::User,
-                    ExcludeSetsAndMaps(true)
+                    ValueBranching::default(),
+                    ExcludeSetsAndMaps(true),
+                    RestrictNaNs(false),
                 ))
                 .prop_map(VectorIndexSnapshotData::Unknown),
             ]

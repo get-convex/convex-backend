@@ -200,6 +200,10 @@ mod tests {
 
     use crate::{
         assert_val,
+        proptest::{
+            RestrictNaNs,
+            ValueBranching,
+        },
         serde::{
             from_value,
             to_value,
@@ -216,7 +220,12 @@ mod tests {
 
         #[test]
         fn test_serde_value_roundtrips(
-            start in any_with::<ConvexValue>((FieldType::User, ExcludeSetsAndMaps(true)))
+            start in any_with::<ConvexValue>((
+                FieldType::User,
+                ValueBranching::default(),
+                ExcludeSetsAndMaps(true),
+                RestrictNaNs(false),
+            ))
         ) {
             // This is a bit of a funky test. We're going to start with a `ConvexValue`, feed it through Serde's
             // data model (with `ConvexValue`'s implementation of `Serialize`) and then serialize that Serde

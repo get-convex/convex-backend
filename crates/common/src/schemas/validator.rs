@@ -1129,6 +1129,10 @@ mod tests {
         assert_val,
         export::ValueFormat,
         id_v6::DeveloperDocumentId,
+        proptest::{
+            RestrictNaNs,
+            ValueBranching,
+        },
         ConvexObject,
         ConvexValue,
         ExcludeSetsAndMaps,
@@ -1898,7 +1902,12 @@ mod tests {
         #[test]
         fn test_validator_from_a_shape_validates_it(
             resolved_value in any_with::<ConvexValue>(
-                (FieldType::User, ExcludeSetsAndMaps(false))
+                (
+                    FieldType::User,
+                    ValueBranching::default(),
+                    ExcludeSetsAndMaps(false),
+                    RestrictNaNs(false),
+                )
             )
         ) {
             let table_mapping = empty_table_mapping();

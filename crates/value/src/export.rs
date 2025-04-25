@@ -133,7 +133,11 @@ mod tests {
     use proptest::prelude::*;
 
     use super::*;
-    use crate::ExcludeSetsAndMaps;
+    use crate::proptest::{
+        ExcludeSetsAndMaps,
+        RestrictNaNs,
+        ValueBranching,
+    };
 
     proptest! {
         #![proptest_config(
@@ -143,7 +147,12 @@ mod tests {
         #[test]
         fn clean_export_of_server_and_client_values_are_identical(
             server_value in any_with::<ConvexValue>(
-                (Default::default(), ExcludeSetsAndMaps(true))
+                (
+                    Default::default(),
+                    ValueBranching::default(),
+                    ExcludeSetsAndMaps(true),
+                    RestrictNaNs(false),
+                )
             )
         ) {
             let json_value: JsonValue = server_value.to_internal_json();

@@ -36,6 +36,7 @@ mod json_serialize_roundtrip {
     use serde_json::Value as JsonValue;
 
     use crate::{
+        proptest::RestrictNaNs,
         ConvexValue,
         ExcludeSetsAndMaps,
     };
@@ -66,7 +67,12 @@ mod json_serialize_roundtrip {
 
         #[test]
         fn proptest_json_serialize_roundtrip_to_client(
-            v in any_with::<ConvexValue>((Default::default(), ExcludeSetsAndMaps(true)))
+            v in any_with::<ConvexValue>((
+                Default::default(),
+                Default::default(),
+                ExcludeSetsAndMaps(true),
+                RestrictNaNs(false),
+            ))
         ) {
             let json_value: JsonValue = v.clone().into();
             let client_value: convex::Value = json_value.try_into().unwrap();

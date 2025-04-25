@@ -365,6 +365,10 @@ mod proptest {
     use super::ConvexObject;
     use crate::{
         field_name::FieldName,
+        proptest::{
+            RestrictNaNs,
+            ValueBranching,
+        },
         ConvexValue,
         ExcludeSetsAndMaps,
     };
@@ -373,17 +377,24 @@ mod proptest {
         type Parameters = (
             prop::collection::SizeRange,
             <FieldName as Arbitrary>::Parameters,
+            ValueBranching,
             ExcludeSetsAndMaps,
+            RestrictNaNs,
         );
 
         type Strategy = impl Strategy<Value = ConvexObject>;
 
         fn arbitrary_with(
-            (size, field_params, exclude_sets_and_maps): Self::Parameters,
+            (size, field_params, branching, exclude_sets_and_maps, restrict_nans): Self::Parameters,
         ) -> Self::Strategy {
             resolved_object_strategy(
                 any_with::<FieldName>(field_params),
-                any_with::<ConvexValue>((field_params, exclude_sets_and_maps)),
+                any_with::<ConvexValue>((
+                    field_params,
+                    branching,
+                    exclude_sets_and_maps,
+                    restrict_nans,
+                )),
                 size,
             )
         }

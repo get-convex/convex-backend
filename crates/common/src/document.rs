@@ -1019,14 +1019,20 @@ impl proptest::arbitrary::Arbitrary for ResolvedDocument {
 
     fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
-        use value::ExcludeSetsAndMaps;
+        use value::proptest::{
+            ExcludeSetsAndMaps,
+            RestrictNaNs,
+            ValueBranching,
+        };
         any_with::<(ResolvedDocumentId, CreationTime, ConvexObject)>((
             (),
             (),
             (
                 prop::collection::SizeRange::default(),
                 FieldType::User,
+                ValueBranching::default(),
                 ExcludeSetsAndMaps(false),
+                RestrictNaNs(false),
             ),
         ))
         .prop_filter_map(
@@ -1059,6 +1065,10 @@ mod tests {
     use sync_types::testing::assert_roundtrips;
     use value::{
         id_v6::DeveloperDocumentId,
+        proptest::{
+            RestrictNaNs,
+            ValueBranching,
+        },
         ConvexObject,
         ConvexValue,
         ExcludeSetsAndMaps,
@@ -1150,7 +1160,9 @@ mod tests {
             value in any_with::<ConvexObject>((
                 prop::collection::SizeRange::default(),
                 FieldType::UserIdentifier,
+                ValueBranching::medium(),
                 ExcludeSetsAndMaps(false),
+                RestrictNaNs(false),
             )),
             field_paths in prop::collection::vec(
                 prop::collection::vec(

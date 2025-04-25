@@ -530,6 +530,8 @@ pub trait Namespace {
 
 #[cfg(any(test, feature = "testing"))]
 pub mod proptest {
+    use core::f64;
+
     use proptest::prelude::*;
 
     use super::{
@@ -540,19 +542,23 @@ pub mod proptest {
     use crate::field_name::FieldName;
 
     impl Arbitrary for ConvexValue {
-        type Parameters = (<FieldName as Arbitrary>::Parameters, ExcludeSetsAndMaps);
+        type Parameters = (
+            <FieldName as Arbitrary>::Parameters,
+            ValueBranching,
+            ExcludeSetsAndMaps,
+            RestrictNaNs,
+        );
 
         type Strategy = impl Strategy<Value = ConvexValue>;
 
         fn arbitrary_with(
-            (field_params, exclude_sets_and_maps): Self::Parameters,
+            (field_params, branching, exclude_sets_and_maps, restrict_nans): Self::Parameters,
         ) -> Self::Strategy {
             resolved_value_strategy(
                 move || any_with::<FieldName>(field_params),
-                4,
-                32,
-                8,
+                branching,
                 exclude_sets_and_maps,
+                restrict_nans,
             )
         }
     }
@@ -564,12 +570,50 @@ pub mod proptest {
     #[derive(Default)] // default to include sets and maps
     pub struct ExcludeSetsAndMaps(pub bool);
 
+    // Whether to allow any `NaN` value (e.g. negative `NaN`s) or not.
+    // Defaults to including any valid `NaN` value.
+    #[derive(Default)]
+    pub struct RestrictNaNs(pub bool);
+
+    pub struct ValueBranching {
+        pub depth: usize,
+        pub node_target: usize,
+        pub branching: usize,
+    }
+
+    impl ValueBranching {
+        pub fn new(depth: usize, node_target: usize, branching: usize) -> Self {
+            Self {
+                depth,
+                node_target,
+                branching,
+            }
+        }
+
+        pub fn small() -> Self {
+            Self::new(4, 4, 4)
+        }
+
+        pub fn medium() -> Self {
+            Self::new(4, 32, 8)
+        }
+
+        pub fn large() -> Self {
+            Self::new(8, 64, 16)
+        }
+    }
+
+    impl Default for ValueBranching {
+        fn default() -> Self {
+            Self::medium()
+        }
+    }
+
     pub fn resolved_value_strategy<F, S>(
         field_strategy: F,
-        depth: usize,
-        node_target: usize,
-        branching: usize,
+        branching: ValueBranching,
         exclude_sets_and_maps: ExcludeSetsAndMaps,
+        restrict_nans: RestrictNaNs,
     ) -> impl Strategy<Value = ConvexValue>
     where
         F: Fn() -> S + 'static,
@@ -593,7 +637,13 @@ pub mod proptest {
             1 => Just(ConvexValue::Null),
             1 => any::<i64>().prop_map(ConvexValue::from),
             1 => (prop::num::f64::ANY | prop::num::f64::SIGNALING_NAN)
-                .prop_map(ConvexValue::from),
+                .prop_map(move |f| {
+                    if restrict_nans.0 && f.is_nan() {
+                        ConvexValue::Float64(f64::NAN)
+                    } else {
+                        ConvexValue::Float64(f)
+                    }
+                }),
             1 => any::<bool>().prop_map(ConvexValue::from),
             1 => any::<ConvexString>().prop_filter_map("String ID", |s| match DeveloperDocumentId::decode(&s) {
                 Ok(_) => None,
@@ -602,6 +652,11 @@ pub mod proptest {
             1 => any::<ConvexBytes>().prop_map(ConvexValue::Bytes),
         ];
         let map_set_weight = if exclude_sets_and_maps.0 { 0 } else { 1 };
+        let ValueBranching {
+            depth,
+            node_target,
+            branching,
+        } = branching;
         leaf.prop_recursive(
             depth as u32,
             node_target as u32,
