@@ -1048,8 +1048,49 @@ export { hello };
             .unwrap_err();
         assert_eq!(
             &err.message[..],
-            "hello defined in actions/test.js is a Query function. Only actions can be defined in Node.js. See https://docs.convex.dev/functions/actions for more details."
+            "`hello` defined in `actions/test.js` is a Query function. Only actions can be defined in Node.js. See https://docs.convex.dev/functions/actions for more details."
         );
+        Ok(())
+    }
+
+    const MODULE_ANALYZE_INVALID: &str = r#"
+export const test = {
+    isAction: true,
+    isPublic: true,
+    invokeAction: (requestId, argsStr) => {
+        throw new Error("unimplemented");
+    },
+    exportArgs: () => `{ "type": "any" }`,
+    exportReturns: () => `{ "type": "object", "value": { "@invalidKey": { "fieldType": { "type": "number" }, "optional": false } } }`,
+};
+    "#;
+
+    #[convex_macro::prod_rt_test]
+    async fn test_analyze_invalid(rt: ProdRuntime) -> anyhow::Result<()> {
+        let storage = Arc::new(LocalDirStorage::new(rt.clone())?);
+        let actions = create_actions(rt).await;
+        let source_package = upload_modules(
+            storage.clone(),
+            vec![ModuleConfig {
+                path: "actions/test.js".parse()?,
+                source: MODULE_ANALYZE_INVALID.to_owned(),
+                source_map: None,
+                environment: ModuleEnvironment::Node,
+            }],
+        )
+        .await?;
+        let source_maps = BTreeMap::new();
+        let err = actions
+            .analyze(
+                AnalyzeRequest {
+                    source_package,
+                    environment_variables: BTreeMap::new(),
+                },
+                &source_maps,
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.short_msg(), "InvalidNodeActionReturnsValidator");
         Ok(())
     }
 

@@ -33,7 +33,10 @@ use common::{
         UdfType,
     },
 };
-use errors::ErrorMetadataAnyhowExt;
+use errors::{
+    ErrorMetadata,
+    ErrorMetadataAnyhowExt,
+};
 use futures::{
     Stream,
     StreamExt,
@@ -453,7 +456,7 @@ impl<RT: Runtime> Actions<RT> {
                 let udf_type = f.udf_type.as_str().parse()?;
                 if udf_type != UdfType::Action {
                     return Ok(Err(JsError::from_message(format!(
-                        "{} defined in {:?} is a {} function. Only \
+                        "`{}` defined in `{:?}` is a {} function. Only \
                          actions can be defined in Node.js. See https://docs.convex.dev/functions/actions for more details.",
                         f.name, path, udf_type,
                     ))));
@@ -463,14 +466,24 @@ impl<RT: Runtime> Actions<RT> {
                         Ok(validator) => validator,
                         Err(parse_error) => {
                             let message =
-                                format!("Unable to parse JSON from `exportArgs`: {parse_error}");
+                                format!("Unable to parse JSON from `exportArgs`:\n{parse_error}");
                             return Ok(Err(JsError::from_message(message)));
                         },
                     },
                     None => ArgsValidator::Unvalidated,
                 };
                 let returns = match f.returns.clone() {
-                    Some(json_returns) => ReturnsValidator::try_from(json_returns.clone())?,
+                    Some(json_returns) => ReturnsValidator::try_from(json_returns.clone())
+                        .map_err(|e| {
+                            ErrorMetadata::bad_request(
+                                "InvalidNodeActionReturnsValidator",
+                                format!(
+                                    "The return validator of `{}` defined in `{:?}` is \
+                                     invalid:\n{e}",
+                                    f.name, path
+                                ),
+                            )
+                        })?,
                     None => ReturnsValidator::Unvalidated,
                 };
                 let visibility = f.visibility.clone().map(Visibility::from);
