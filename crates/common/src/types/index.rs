@@ -39,9 +39,7 @@ use crate::{
 pub struct IndexDescriptor(Cow<'static, str>);
 
 impl IndexDescriptor {
-    pub fn min() -> Self {
-        Self::new(MIN_IDENTIFIER).expect("Invalid min IndexDescriptor?")
-    }
+    pub const MIN: Self = IndexDescriptor(Cow::Borrowed(MIN_IDENTIFIER));
 
     pub fn is_reserved(&self) -> bool {
         self == &*INDEX_BY_ID_DESCRIPTOR
@@ -101,6 +99,8 @@ impl proptest::arbitrary::Arbitrary for IndexDescriptor {
 }
 
 /// Unique name for an index.
+///
+/// `Ord` orders by table, then index name.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GenericIndexName<T: IndexTableIdentifier> {
     table: T,
@@ -241,6 +241,14 @@ impl<T: IndexTableIdentifier> GenericIndexName<T> {
         }
     }
 
+    /// The least possible index name (by `Ord` ordering) for the given table.
+    pub fn min_for_table(table: T) -> Self {
+        Self {
+            table,
+            descriptor: IndexDescriptor::MIN,
+        }
+    }
+
     /// The table this index is over.
     pub fn table(&self) -> &T {
         &self.table
@@ -363,14 +371,14 @@ mod tests {
 
             #[test]
             fn proptest(index_name in any::<IndexDescriptor>()) {
-                assert!(IndexDescriptor::min() <= index_name);
+                assert!(IndexDescriptor::MIN <= index_name);
             }
         }
 
         #[test]
         fn proptest_trophies() {
             // #2716: `IndexDescriptor::min` was "a", where "A" < "a".
-            assert!(IndexDescriptor::min() <= IndexDescriptor::new("B").unwrap());
+            assert!(IndexDescriptor::MIN <= IndexDescriptor::new("B").unwrap());
         }
     }
 }

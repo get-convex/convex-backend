@@ -38,6 +38,7 @@ use value::{
         WithHeapSize,
     },
     TableName,
+    TabletId,
 };
 
 #[cfg(doc)]
@@ -143,6 +144,16 @@ impl ReadSet {
         persistence_version: PersistenceVersion,
         buffer: &mut IndexKeyBuffer,
     ) -> Option<ConflictingRead> {
+        /// Iterates just those pairs in `map` whose table matches `tablet_id`
+        fn iter_indexes_for_table<T>(
+            map: &BTreeMap<TabletIndexName, T>,
+            tablet_id: TabletId,
+        ) -> impl Iterator<Item = (&TabletIndexName, &T)> {
+            // uses the fact that TabletIndexName is ordered by TabletId first,
+            // then descriptor
+            map.range(TabletIndexName::min_for_table(tablet_id)..)
+                .take_while(move |(index, _)| *index.table() == tablet_id)
+        }
         for (
             index,
             IndexReads {
@@ -150,33 +161,31 @@ impl ReadSet {
                 intervals,
                 stack_traces,
             },
-        ) in self.indexed.iter()
+        ) in iter_indexes_for_table(&self.indexed, document.id().tablet_id)
         {
-            if *index.table() == document.id().tablet_id {
-                let index_key = document.index_key(fields, persistence_version, buffer);
-                if intervals.contains(index_key) {
-                    let stack_traces = stack_traces.as_ref().map(|st| {
-                        st.iter()
-                            .filter_map(|(interval, trace)| {
-                                if interval.contains(index_key) {
-                                    Some(trace.clone())
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect()
-                    });
-                    return Some(ConflictingRead {
-                        index: index.clone(),
-                        id: document.id(),
-                        stack_traces,
-                    });
-                }
+            let index_key = document.index_key(fields, persistence_version, buffer);
+            if intervals.contains(index_key) {
+                let stack_traces = stack_traces.as_ref().map(|st| {
+                    st.iter()
+                        .filter_map(|(interval, trace)| {
+                            if interval.contains(index_key) {
+                                Some(trace.clone())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect()
+                });
+                return Some(ConflictingRead {
+                    index: index.clone(),
+                    id: document.id(),
+                    stack_traces,
+                });
             }
         }
 
-        for (index, search_reads) in self.search.iter() {
-            if *index.table() == document.id().tablet_id && search_reads.overlaps(document) {
+        for (index, search_reads) in iter_indexes_for_table(&self.search, document.id().tablet_id) {
+            if search_reads.overlaps(document) {
                 return Some(ConflictingRead {
                     index: index.clone(),
                     id: document.id(),

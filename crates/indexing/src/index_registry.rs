@@ -486,7 +486,7 @@ impl IndexRegistry {
         &self,
         tablet_id: TabletId,
     ) -> impl Iterator<Item = &'_ Index> + '_ {
-        let s = (&tablet_id, &IndexDescriptor::min());
+        let s = (&tablet_id, &IndexDescriptor::MIN);
         let range = (StdBound::Included(s.as_comparator()), StdBound::Unbounded);
         self.indexes_by_table
             .range::<_, dyn TupleKey<TabletId, IndexDescriptor>>(range)
