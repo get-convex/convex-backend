@@ -7,7 +7,7 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { Tooltip } from "@ui/Tooltip";
+import { TooltipSide } from "@ui/Tooltip";
 import { Button } from "@ui/Button";
 
 export type SidebarItem = {
@@ -62,21 +62,23 @@ export function Sidebar({
           <div key={group.key} className="flex gap-1 sm:flex-col sm:py-2">
             {group.items.map((item) => (
               <div className="relative h-[1.875rem]" key={item.key}>
-                <Tooltip
-                  tip={item.tooltip ? item.tooltip : collapsed && item.label}
-                  side={width > 640 ? "right" : "bottom"}
-                  className="text-left"
+                <SidebarLink
+                  {...omit(item, "key")}
+                  collapsed={collapsed}
+                  isActive={currentPage === item.key}
+                  disabled={item.disabled}
+                  small
+                  tip={
+                    item.tooltip
+                      ? item.tooltip
+                      : collapsed
+                        ? item.label
+                        : undefined
+                  }
+                  tipSide={width > 640 ? "right" : "bottom"}
                 >
-                  <SidebarLink
-                    {...omit(item, "key")}
-                    collapsed={collapsed}
-                    isActive={currentPage === item.key}
-                    disabled={item.disabled}
-                    small
-                  >
-                    {item.label}
-                  </SidebarLink>
-                </Tooltip>
+                  {item.label}
+                </SidebarLink>
               </div>
             ))}
           </div>
@@ -114,6 +116,7 @@ export function SidebarLink({
   proBadge,
   small,
   tip,
+  tipSide,
   target,
 }: {
   collapsed?: boolean;
@@ -126,12 +129,14 @@ export function SidebarLink({
   proBadge?: boolean;
   small?: boolean;
   tip?: string;
+  tipSide?: TooltipSide;
   target?: "_blank";
 }) {
   const { query: currentQuery } = useRouter();
   return (
     <Button
       tip={tip}
+      tipSide={tipSide}
       variant="unstyled"
       href={
         disabled
