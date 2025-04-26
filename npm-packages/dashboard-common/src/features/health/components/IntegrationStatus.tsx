@@ -113,7 +113,7 @@ function IntegrationStatusCard({
               tip={`Go to ${integrationName(configuredIntegrations[0].config.type)}`}
               icon={<ExternalLinkIcon />}
               href={configToUrl(configuredIntegrations[0].config)}
-              onClick={() => log("go to integration via health")}
+              onClickOfAnchorLink={() => log("go to integration via health")}
               target="_blank"
               size="xs"
               inline
@@ -124,7 +124,7 @@ function IntegrationStatusCard({
             tip="Configure Integrations"
             icon={<GearIcon />}
             href={integrationsPageLink}
-            onClick={() => log("configure integrations via health")}
+            onClickOfAnchorLink={() => log("configure integrations via health")}
             target="_blank"
             size="xs"
             inline

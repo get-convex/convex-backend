@@ -33,7 +33,6 @@ export function DateRangePicker({
       placement="bottom-start"
       button={
         <Button
-          id="date"
           variant="neutral"
           className="w-fit justify-start text-left font-normal"
           icon={<CalendarIcon className="size-4" />}

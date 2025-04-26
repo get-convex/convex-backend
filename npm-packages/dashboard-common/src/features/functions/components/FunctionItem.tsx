@@ -82,26 +82,24 @@ export function DirectoryItem({
   children: React.ReactNode[];
   disclosure?: boolean;
 }) {
-  const Btn = disclosure ? Disclosure.Button : Button;
-  return (
-    <Btn
-      variant="unstyled"
-      className={cn(
-        sidebarLinkClassNames({
-          isActive,
-          font: "mono",
-          small: true,
-        }),
-        "px-0 py-0 w-full min-w-full max-w-full truncate h-[30px] pr-2",
-        "rounded-none",
-        isActive &&
-          "outline outline-util-accent/40 bg-util-accent/30 hover:bg-util-accent/30 font-normal",
-        !isActive && "hover:bg-util-accent/20",
-        "focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-util-accent/20",
-      )}
-      href={href}
-      onClick={onClick}
-    >
+  const { captureMessage } = useContext(DeploymentInfoContext);
+
+  const className = cn(
+    sidebarLinkClassNames({
+      isActive,
+      font: "mono",
+      small: true,
+    }),
+    "px-0 py-0 w-full min-w-full max-w-full truncate h-[30px] pr-2",
+    "rounded-none",
+    isActive &&
+      "outline outline-util-accent/40 bg-util-accent/30 hover:bg-util-accent/30 font-normal",
+    !isActive && "hover:bg-util-accent/20",
+    "focus-visible:outline-none focus-visible:ring-0 focus-visible:bg-util-accent/20",
+  );
+
+  const buttonChildren = (
+    <>
       <div
         className="flex h-full items-center gap-4"
         style={{
@@ -117,6 +115,29 @@ export function DirectoryItem({
           ))}
       </div>
       {children}
-    </Btn>
+    </>
+  );
+
+  if (disclosure) {
+    if (href) {
+      captureMessage("DirectoryItem with href and disclosure");
+    }
+
+    return (
+      <Disclosure.Button className={className} onClick={onClick}>
+        {buttonChildren}
+      </Disclosure.Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="unstyled"
+      className={className}
+      href={href}
+      onClickOfAnchorLink={onClick}
+    >
+      {buttonChildren}
+    </Button>
   );
 }

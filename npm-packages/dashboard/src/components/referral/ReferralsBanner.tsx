@@ -11,7 +11,7 @@ import { useId, useState } from "react";
 interface ReferralsBannerProps {
   team: Team;
   referralState: ReferralState;
-  onHide?: () => void;
+  onHide: () => void;
   className?: string;
 }
 

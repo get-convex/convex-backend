@@ -447,7 +447,6 @@ function VanityDomainForm({
       <Button
         className="flex w-fit"
         type="submit"
-        color="primary"
         disabled={
           disabled ||
           formState.isSubmitting ||

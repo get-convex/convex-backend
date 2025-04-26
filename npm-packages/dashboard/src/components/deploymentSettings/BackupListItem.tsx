@@ -178,7 +178,7 @@ export function BackupListItem({
                   href={
                     backup.state === "complete"
                       ? getZipExportUrl(backup.snapshotId)
-                      : undefined
+                      : "" // only when disabled
                   }
                   tipSide="left"
                   tip={

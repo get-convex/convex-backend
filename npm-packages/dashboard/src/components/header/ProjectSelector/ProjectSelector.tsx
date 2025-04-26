@@ -226,7 +226,7 @@ function ProjectSelectorPanel({
               <Button
                 size="xs"
                 href={`/t/${team.slug}/settings`}
-                onClick={close}
+                onClickOfAnchorLink={close}
                 inline
                 variant="neutral"
                 icon={<GearIcon />}
@@ -287,7 +287,7 @@ function ProjectSelectorPanel({
               <Button
                 size="xs"
                 href={`/t/${team.slug}/${lastHoveredProject.slug}/settings`}
-                onClick={close}
+                onClickOfAnchorLink={close}
                 inline
                 variant="neutral"
                 icon={<GearIcon />}

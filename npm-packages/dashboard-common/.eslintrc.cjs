@@ -78,7 +78,19 @@ module.exports = {
       },
     ],
 
-    "no-restricted-imports": [2, { paths: ["lodash"] }],
+    "no-restricted-imports": [
+      2,
+      {
+        paths: ["lodash"],
+        patterns: [
+          {
+            group: ["react-day-picker"],
+            importNames: ["Button"],
+            message: "You probably mean to import from @ui/Button.",
+          },
+        ],
+      },
+    ],
     // http://eslint.org/docs/rules/no-restricted-syntax
     "no-restricted-syntax": [
       "error",
@@ -175,7 +187,7 @@ module.exports = {
     "tailwindcss/no-custom-classname": [
       "error",
       {
-        whitelist: ["bottom-four"],
+        whitelist: ["bottom-four", "js-launch-kapa-ai"],
       },
     ],
   },

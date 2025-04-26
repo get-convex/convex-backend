@@ -46,7 +46,7 @@ export function RunHistory({
         variant="neutral"
         tip="Jump to Code"
         href={`${url}#code`}
-        onClick={() => log("jump to code from function runner")}
+        onClickOfAnchorLink={() => log("jump to code from function runner")}
       />
       <Button
         onClick={() => {

@@ -16,14 +16,34 @@ export type ButtonProps = {
   disabled?: boolean;
   tip?: React.ReactNode;
   tipSide?: TooltipSide;
-} & (
-  | React.ButtonHTMLAttributes<HTMLButtonElement>
-  | {
-      href: React.AnchorHTMLAttributes<HTMLAnchorElement>["href"] | UrlObject;
-      onClick?: React.AnchorHTMLAttributes<HTMLAnchorElement>["onClick"];
-      target?: React.AnchorHTMLAttributes<HTMLAnchorElement>["target"];
-    }
-);
+} & Pick<
+  React.HTMLProps<HTMLElement>,
+  | "tabIndex"
+  | "role"
+  | "aria-label"
+  | "style"
+  | "title"
+  | "onMouseOver"
+  | "onKeyDown"
+> &
+  (
+    | {
+        href?: never;
+        onClick?: React.ButtonHTMLAttributes<HTMLButtonElement>["onClick"];
+        onClickOfAnchorLink?: never;
+        type?: React.ButtonHTMLAttributes<HTMLButtonElement>["type"];
+        target?: never;
+      }
+    | {
+        href: React.AnchorHTMLAttributes<HTMLAnchorElement>["href"] | UrlObject;
+        onClick?: never;
+        // In most cases you shouldn’t use this. This is only useful when you
+        // need the event sent before the native link behavior is handled.
+        onClickOfAnchorLink?: React.AnchorHTMLAttributes<HTMLAnchorElement>["onClick"];
+        type?: never;
+        target?: React.AnchorHTMLAttributes<HTMLAnchorElement>["target"];
+      }
+  );
 
 export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
   {
@@ -42,7 +62,7 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
   ref,
 ) {
   const Link = useContext(UIContext);
-  const { href, onClick, target, type } =
+  const { href, onClick, target, type, onClickOfAnchorLink, ...htmlProps } =
     "href" in props
       ? { ...props, type: undefined }
       : { ...props, href: undefined, target: undefined };
@@ -64,13 +84,14 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         <Link
           passHref
           href={href}
+          // There is something weird here with `forwardRef`, I’d expect this to work without `any`
           ref={ref as any}
           role="link"
           className={buttonClassName}
           tabIndex={0}
           target={target}
-          onClick={onClick}
-          {...(props as any)}
+          onClick={onClickOfAnchorLink}
+          {...htmlProps}
         >
           {icon && <div>{icon}</div>}
           {children}
@@ -86,11 +107,12 @@ export const Button = forwardRef<HTMLElement, ButtonProps>(function Button(
         // eslint-disable-next-line react/button-has-type
         type={type ?? "button"}
         tabIndex={0}
-        onClick={onClick as any}
+        onClick={onClick}
         className={buttonClassName}
         disabled={disabled}
+        // There is something weird here with `forwardRef`, I’d expect this to work without `any`
         ref={ref as any}
-        {...(props as any)}
+        {...htmlProps}
       >
         {/* This needs to be wrapped in a dom element to 
           fix an issue with the google translate extension

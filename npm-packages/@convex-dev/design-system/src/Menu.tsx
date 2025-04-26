@@ -73,13 +73,22 @@ export function MenuItem({
 }: {
   variant?: "default" | "danger";
   children: ReactNode;
-  action?: () => void;
-  href?: string;
   disabled?: boolean;
   tip?: ReactNode;
   tipSide?: TooltipSide;
   shortcut?: Key[];
-}) {
+} & (
+  | {
+      action: () => void;
+      href?: never;
+    }
+  | {
+      action?: never;
+      href: string;
+    }
+)) {
+  const actionProp = href ? { href } : { onClick: action };
+
   return (
     <HeadlessMenu.Item>
       {({ active }) => (
@@ -98,8 +107,7 @@ export function MenuItem({
               : "text-content-primary",
           )}
           disabled={disabled}
-          onClick={action}
-          href={href}
+          {...actionProp}
         >
           {children}
           {shortcut && (

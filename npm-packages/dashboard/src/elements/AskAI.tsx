@@ -9,7 +9,7 @@ export function AskAI() {
         src="https://widget.kapa.ai/kapa-widget.bundle.js"
         data-modal-title="Convex AI"
         data-button-hide="true"
-        data-modal-override-open-id="js-launch-kapa-ai"
+        data-modal-override-open-class="js-launch-kapa-ai"
         data-website-id="8dfb3aad-6006-4f56-b2ed-75fa8051db22"
         data-project-name="Convex"
         data-project-color="#3F5295"
@@ -20,9 +20,7 @@ export function AskAI() {
       />
       <Button
         inline
-        id="js-launch-kapa-ai"
-        type="button"
-        className="flex items-center gap-1 px-2.5 text-sm text-content-primary"
+        className="js-launch-kapa-ai flex items-center gap-1 px-2.5 text-sm text-content-primary"
       >
         <SparklesIcon className="size-4" />
         <span className="hidden md:block">Ask AI</span>

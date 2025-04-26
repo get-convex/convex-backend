@@ -2,6 +2,7 @@ import { omit } from "lodash-es";
 import {
   ComponentType,
   createContext,
+  forwardRef,
   PropsWithChildren,
   useContext,
 } from "react";
@@ -14,7 +15,8 @@ type LinkProps = {
   tabIndex?: number;
   target?: string;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
-};
+  passHref?: boolean;
+} & React.RefAttributes<HTMLAnchorElement>;
 
 function encodeQuery(query: UrlObject["query"]): string {
   if (!query) return "";
@@ -34,24 +36,23 @@ function encodeQuery(query: UrlObject["query"]): string {
 }
 
 // Default link component that just renders an anchor tag
-function DefaultLink({
-  href,
-  children,
-  ...props
-}: PropsWithChildren<LinkProps>) {
-  return (
-    <a
-      href={
-        typeof href === "string"
-          ? href
-          : `${href.pathname}${encodeQuery(href.query)}${href.hash || ""}`
-      }
-      {...omit(props, "passHref")}
-    >
-      {children}
-    </a>
-  );
-}
+const DefaultLink = forwardRef<HTMLAnchorElement, PropsWithChildren<LinkProps>>(
+  function DefaultLink({ href, children, ...props }, ref) {
+    return (
+      <a
+        href={
+          typeof href === "string"
+            ? href
+            : `${href.pathname}${encodeQuery(href.query)}${href.hash || ""}`
+        }
+        {...omit(props, "passHref")}
+        ref={ref}
+      >
+        {children}
+      </a>
+    );
+  },
+);
 
 // Create context with the default link component
 export const UIContext =

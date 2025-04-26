@@ -18,7 +18,7 @@ export function EmptySection({
   header: string;
   body: React.ReactNode;
   action?: React.ReactNode;
-  learnMoreButton?: ButtonProps;
+  learnMoreButton?: ButtonProps & { href: string };
   sheet?: boolean;
 }) {
   const Parent = sheet ? Sheet : "div";
