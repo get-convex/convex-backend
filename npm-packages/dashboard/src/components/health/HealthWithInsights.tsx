@@ -9,7 +9,7 @@ import { cn } from "@ui/cn";
 import { ChevronLeftIcon } from "@radix-ui/react-icons";
 import { Button } from "@ui/Button";
 import { Sheet } from "@ui/Sheet";
-import { MultiSelectCombobox } from "@ui/MultiSelectCombobox";
+import { MultiSelectCombobox, MultiSelectValue } from "@ui/MultiSelectCombobox";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
 import { HealthView } from "@common/features/health/components/HealthView";
 import {
@@ -37,8 +37,8 @@ const InsightsContext = createContext<
   | {
       page: string;
       insights?: Insight[];
-      selectedFunctions: string[];
-      setSelectedFunctions: (selectedFunctions: string[]) => void;
+      selectedFunctions: MultiSelectValue;
+      setSelectedFunctions: (selectedFunctions: MultiSelectValue) => void;
     }
   | undefined
 >(undefined);
@@ -59,7 +59,7 @@ export function HealthWithInsights() {
     [moduleFunctions],
   );
   const [selectedFunctions, setSelectedFunctions] =
-    useState<string[]>(functions);
+    useState<MultiSelectValue>("all");
 
   const insights = useInsights();
   const { from } = useInsightsPeriod();
@@ -231,17 +231,19 @@ function InsightsWrapper({ children }: { children: React.ReactNode }) {
           className="h-fit max-h-full w-full min-w-0 max-w-[70rem] overflow-auto scrollbar"
         >
           <InsightsSummary
-            insights={insights?.filter(
-              (insight) =>
-                selectedFunctions === undefined ||
-                selectedFunctions.includes("_other") ||
+            insights={insights?.filter((insight) => {
+              if (!selectedFunctions) return true;
+              if (selectedFunctions === "all") return true;
+
+              return (
                 selectedFunctions.includes(
                   functionIdentifierValue(
                     insight.functionId,
                     insight.componentPath ?? undefined,
                   ),
-                ),
-            )}
+                ) || selectedFunctions.includes("_other")
+              );
+            })}
           />
         </Sheet>
       </div>

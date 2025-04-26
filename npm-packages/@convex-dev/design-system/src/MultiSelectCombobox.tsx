@@ -13,6 +13,8 @@ import { Button } from "@ui/Button";
 import { createPortal } from "react-dom";
 import { usePopper } from "react-popper";
 
+export type MultiSelectValue = string[] | "all";
+
 export function MultiSelectCombobox({
   options,
   selectedOptions,
@@ -26,8 +28,8 @@ export function MultiSelectCombobox({
   processFilterOption = (option) => option,
 }: {
   options: string[];
-  selectedOptions: string[];
-  setSelectedOptions(newValue: string[]): void;
+  selectedOptions: MultiSelectValue;
+  setSelectedOptions(newValue: MultiSelectValue): void;
   unit: string;
   unitPlural: string;
   label: string;
@@ -79,9 +81,16 @@ export function MultiSelectCombobox({
       ? options
       : options.filter((option) => test(query, processFilterOption(option)));
 
-  const count = selectedOptions.filter((name) => name !== "_other").length;
+  // Convert to internal array representation for Combobox
+  const selectedArray = selectedOptions === "all" ? options : selectedOptions;
+
+  const count =
+    selectedOptions === "all"
+      ? options.length
+      : selectedOptions.filter((name) => name !== "_other").length;
+
   const displayValue =
-    selectedOptions.length === options.length
+    selectedOptions === "all"
       ? `All ${unitPlural}`
       : `${count} ${count !== 1 ? unitPlural : unit}`;
 
@@ -92,11 +101,26 @@ export function MultiSelectCombobox({
     }
   }, [isOpen, update]);
 
+  const handleSelectAll = () => {
+    if (selectedOptions === "all") {
+      setSelectedOptions([]);
+    } else {
+      setSelectedOptions("all");
+    }
+  };
+
   return (
     <Combobox
       as="div"
-      value={selectedOptions}
-      onChange={setSelectedOptions}
+      value={selectedArray}
+      onChange={(newSelection) => {
+        // Check if all options are selected and convert to "all" state
+        if (newSelection.length === options.length) {
+          setSelectedOptions("all");
+        } else {
+          setSelectedOptions(newSelection);
+        }
+      }}
       multiple
     >
       {({ open }) => {
@@ -175,15 +199,9 @@ export function MultiSelectCombobox({
                         <button
                           type="button"
                           className="w-full cursor-pointer p-2 pl-7 text-left text-content-primary hover:bg-background-tertiary"
-                          onClick={() =>
-                            setSelectedOptions(
-                              options.length === selectedOptions.length
-                                ? []
-                                : [...options],
-                            )
-                          }
+                          onClick={handleSelectAll}
                         >
-                          {options.length === selectedOptions.length
+                          {selectedOptions === "all"
                             ? "Deselect all"
                             : "Select all"}
                         </button>

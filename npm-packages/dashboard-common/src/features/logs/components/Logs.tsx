@@ -1,4 +1,4 @@
-import {
+import React, {
   useCallback,
   useContext,
   useEffect,
@@ -10,10 +10,7 @@ import { useDebounce, usePrevious } from "react-use";
 import isEqual from "lodash/isEqual";
 import { dismissToast, toast } from "@common/lib/utils";
 import { LogList } from "@common/features/logs/components/LogList";
-import {
-  functionsForSelectedNents,
-  LogToolbar,
-} from "@common/features/logs/components/LogToolbar";
+import { LogToolbar } from "@common/features/logs/components/LogToolbar";
 import { filterLogs } from "@common/features/logs/lib/filterLogs";
 import { NENT_APP_PLACEHOLDER, Nent } from "@common/lib/useNents";
 import {
@@ -27,6 +24,7 @@ import { TextInput } from "@ui/TextInput";
 import { Button } from "@ui/Button";
 import { useGlobalLocalStorage } from "@common/lib/useGlobalLocalStorage";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 
 export function Logs({
   nents: allNents,
@@ -63,27 +61,29 @@ export function Logs({
   );
 
   // Manage state for current log levels.
-  const [levels, setLevels] = useGlobalLocalStorage(
+  const [levels, setLevels] = useGlobalLocalStorage<MultiSelectValue>(
     `logs/${deploymentPrefix}/levels`,
-    ["success", "failure", "DEBUG", "INFO", "WARN", "ERROR"],
+    "all",
   );
 
-  const defaultSelectedNent = useMemo(
-    () => [selectedNent ? selectedNent.path : NENT_APP_PLACEHOLDER],
-    [selectedNent],
-  );
+  const defaultSelectedNent: MultiSelectValue = "all";
 
-  const [selectedNents, setSelectedNents] = useGlobalLocalStorage<string[]>(
-    `logs/${deploymentPrefix}/selectedNents`,
-    defaultSelectedNent,
-  );
+  const [selectedNents, setSelectedNents] =
+    useGlobalLocalStorage<MultiSelectValue>(
+      `logs/${deploymentPrefix}/selectedNents`,
+      defaultSelectedNent,
+    );
 
   // When the selected nent changes from props, update the storage if not already set
   useEffect(() => {
-    if (selectedNent && !selectedNents.includes(selectedNent.path)) {
-      setSelectedNents(defaultSelectedNent);
+    if (
+      selectedNent &&
+      selectedNents !== "all" &&
+      !selectedNents.includes(selectedNent.path)
+    ) {
+      setSelectedNents([selectedNent.path]);
     }
-  }, [selectedNent, selectedNents, setSelectedNents, defaultSelectedNent]);
+  }, [selectedNent, selectedNents, setSelectedNents]);
 
   const moduleFunctions = useModuleFunctions();
   const functions = useMemo(
@@ -94,26 +94,13 @@ export function Logs({
     [moduleFunctions],
   );
 
-  const defaultSelectedFunctions = useMemo(
-    () => functionsForSelectedNents(selectedNents, functions),
-    [selectedNents, functions],
-  );
+  const defaultSelectedFunctions: MultiSelectValue = "all";
 
-  const [selectedFunctions, setSelectedFunctions] = useGlobalLocalStorage<
-    string[]
-  >(`logs/${deploymentPrefix}/selectedFunctions`, defaultSelectedFunctions);
-
-  // Update selected functions when available functions change
-  useEffect(() => {
-    if (functions.length > 0 && selectedFunctions.length === 0) {
-      setSelectedFunctions(defaultSelectedFunctions);
-    }
-  }, [
-    functions,
-    selectedFunctions,
-    setSelectedFunctions,
-    defaultSelectedFunctions,
-  ]);
+  const [selectedFunctions, setSelectedFunctions] =
+    useGlobalLocalStorage<MultiSelectValue>(
+      `logs/${deploymentPrefix}/selectedFunctions`,
+      defaultSelectedFunctions,
+    );
 
   const [logs, setLogs] = useState<UdfLog[]>([]);
   const [filteredLogs, setFilteredLogs] = useState<UdfLog[]>([]);
@@ -203,7 +190,7 @@ export function Logs({
       <div className="flex flex-col gap-4">
         <LogToolbar
           firstItem={<LogsHeader />}
-          selectedLevels={Array.from(levels)}
+          selectedLevels={levels}
           selectedFunctions={selectedFunctions}
           setSelectedFunctions={setSelectedFunctions}
           functions={functions}

@@ -6,19 +6,11 @@ import {
   InfoCircledIcon,
   QuestionMarkCircledIcon,
 } from "@radix-ui/react-icons";
-import {
-  Fragment,
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { Fragment, memo, useCallback, useRef, useState } from "react";
 import { FixedSizeList, ListOnScrollProps, areEqual } from "react-window";
-import { useDebounce, useMeasure, usePrevious } from "react-use";
+import { useDebounce, useMeasure } from "react-use";
 import { Transition, Dialog } from "@headlessui/react";
 import isEqual from "lodash/isEqual";
-import difference from "lodash/difference";
 import { PauseCircleIcon, PlayCircleIcon } from "@heroicons/react/24/outline";
 import { DeploymentEventListItem } from "@common/features/logs/components/DeploymentEventListItem";
 import {
@@ -41,6 +33,7 @@ import { Button } from "@ui/Button";
 import { ClosePanelButton } from "@ui/ClosePanelButton";
 import { CopyTextButton } from "@common/elements/CopyTextButton";
 import { TextInput } from "@ui/TextInput";
+import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 
 export type LogListProps = {
   logs?: UdfLog[];
@@ -306,29 +299,10 @@ function RequestIdLogs({
       }),
     ),
   );
-  const previousFunctions = usePrevious(functions);
   const [selectedFunctions, setSelectedFunctions] =
-    useState<string[]>(functions);
+    useState<MultiSelectValue>("all");
 
-  // If there are new functions in the list of logs, add them to the selected functions.
-  useEffect(() => {
-    if (functions.length === previousFunctions?.length) {
-      return;
-    }
-    const newFunctions = previousFunctions
-      ? difference(functions, previousFunctions)
-      : [];
-    setSelectedFunctions((current) => [...current, ...newFunctions]);
-  }, [functions, previousFunctions]);
-
-  const [selectedLevels, setSelectedLevels] = useState<string[]>([
-    "success",
-    "failure",
-    "DEBUG",
-    "INFO",
-    "WARN",
-    "ERROR",
-  ]);
+  const [selectedLevels, setSelectedLevels] = useState<MultiSelectValue>("all");
 
   const filters = {
     logTypes: selectedLevels,

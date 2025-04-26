@@ -28,7 +28,7 @@ describe("selectNentOption", () => {
       functions,
       newNents: [],
       expectedSelectedNents: [],
-      expectedSelectedFunctions: [],
+      expectedSelectedFunctions: "all",
     },
     {
       name: "removing two nents removes functions related to those nents",
@@ -36,15 +36,7 @@ describe("selectNentOption", () => {
       functions,
       newNents: ["_App"],
       expectedSelectedNents: ["_App"],
-      expectedSelectedFunctions: [functions[0]],
-    },
-    {
-      name: "adding two nents adds functions related to those nents",
-      nents: [],
-      functions: [],
-      newNents: ["_App", "nent2"],
-      expectedSelectedNents: ["_App", "nent2"],
-      expectedSelectedFunctions: [functions[0], functions[3]],
+      expectedSelectedFunctions: "all",
     },
     {
       name: "adding a nent does not add functions related to other nents",
@@ -52,7 +44,10 @@ describe("selectNentOption", () => {
       functions: [],
       newNents: ["_App", "nent2"],
       expectedSelectedNents: ["_App", "nent2"],
-      expectedSelectedFunctions: [functions[3]],
+      expectedSelectedFunctions: [
+        functionIdentifierValue("func1"),
+        functionIdentifierValue("func4", "nent2", "id2"),
+      ],
     },
   ];
 
@@ -95,9 +90,9 @@ describe("functionsForSelectedNents", () => {
 
   const testCases = [
     {
-      name: "returns no functions when no nents are selected",
+      name: "returns all functions when no nents are selected",
       nents: [],
-      expectedFunctions: [],
+      expectedFunctions: functions,
     },
     {
       name: "returns only functions related to selected nents",
@@ -120,7 +115,7 @@ describe("functionsForSelectedNents", () => {
       expectedFunctions: [functions[0]],
     },
     {
-      name: "returns nent functions when only _App is selected",
+      name: "returns nent functions when only nent1 and nent2 are selected",
       nents: ["nent1", "nent2"],
       expectedFunctions: functions.slice(1),
     },

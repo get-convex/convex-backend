@@ -1,5 +1,4 @@
-import difference from "lodash/difference";
-import { MultiSelectCombobox } from "@ui/MultiSelectCombobox";
+import { MultiSelectCombobox, MultiSelectValue } from "@ui/MultiSelectCombobox";
 import { NentNameOption } from "@common/elements/NentSwitcher";
 import { functionIdentifierFromValue } from "@common/lib/functions/generateFileTree";
 import { FunctionNameOption } from "@common/elements/FunctionNameOption";
@@ -18,16 +17,32 @@ export function LogToolbar({
   hideFunctionFilter = false,
 }: {
   functions: string[];
-  selectedFunctions: string[];
-  setSelectedFunctions: (selectedFunctions: string[]) => void;
-  selectedLevels: string[];
-  setSelectedLevels: (selectedLevels: string[]) => void;
+  selectedFunctions: MultiSelectValue;
+  setSelectedFunctions: (selectedFunctions: MultiSelectValue) => void;
+  selectedLevels: MultiSelectValue;
+  setSelectedLevels: (selectedLevels: MultiSelectValue) => void;
   nents?: string[];
-  selectedNents: string[];
-  setSelectedNents(newValue: string[]): void;
+  selectedNents: MultiSelectValue;
+  setSelectedNents(newValue: MultiSelectValue): void;
   firstItem?: React.ReactNode;
   hideFunctionFilter?: boolean;
 }) {
+  // Transform functions for current nents
+  const functionsForCurrentNents = functionsForSelectedNents(
+    selectedNents,
+    functions,
+  );
+
+  // Get the filtered selected functions based on current nents
+  const selectedFunctionsFiltered =
+    selectedFunctions === "all"
+      ? "all"
+      : // Use as string[] assertion since we know it's not "all" at this point
+        (functionsForSelectedNents(
+          selectedNents,
+          selectedFunctions as string[],
+        ) as string[]);
+
   return (
     <div className="flex w-full flex-wrap items-center justify-end gap-2">
       {firstItem}
@@ -54,11 +69,8 @@ export function LogToolbar({
       {!hideFunctionFilter && (
         <div className="min-w-[9.5rem]">
           <MultiSelectCombobox
-            options={functionsForSelectedNents(selectedNents, functions)}
-            selectedOptions={functionsForSelectedNents(
-              selectedNents,
-              selectedFunctions,
-            )}
+            options={functionsForCurrentNents as string[]}
+            selectedOptions={selectedFunctionsFiltered}
             processFilterOption={(option) => {
               const id = functionIdentifierFromValue(option);
               return id.componentPath
@@ -97,43 +109,77 @@ export function LogToolbar({
 
 export const selectNentOption =
   ({
-    selectedNents,
+    // Renamed to avoid unused variable warning
+    selectedNents: _,
     functions,
     selectedFunctions,
     setSelectedFunctions,
     setSelectedNents,
   }: {
-    selectedNents: string[];
+    selectedNents: MultiSelectValue;
     functions: string[];
-    selectedFunctions: string[];
-    setSelectedFunctions: (f: string[]) => void;
-    setSelectedNents: (f: string[]) => void;
+    selectedFunctions: MultiSelectValue;
+    setSelectedFunctions: (f: MultiSelectValue) => void;
+    setSelectedNents: (f: MultiSelectValue) => void;
   }) =>
-  (newNents: string[]) => {
-    const addedNents = difference(newNents, selectedNents);
+  (newNents: MultiSelectValue) => {
+    if (newNents === "all") {
+      // If all nents are selected, we also select all functions
+      setSelectedFunctions("all");
+      setSelectedNents(newNents);
+      return;
+    }
 
-    const newFunctions = functionsForSelectedNents(addedNents, functions);
-
-    const retainedFunctions = functionsForSelectedNents(
+    const availableFunctions = functionsForSelectedNents(
       newNents,
-      selectedFunctions,
-    );
+      functions,
+    ) as string[];
 
-    setSelectedFunctions(
-      Array.from(new Set([...newFunctions, ...retainedFunctions])),
-    );
+    // If all available functions are selected, use "all" state
+    if (availableFunctions.length > 0) {
+      if (selectedFunctions === "all") {
+        setSelectedFunctions("all");
+      } else if (Array.isArray(selectedFunctions)) {
+        const allSelected = availableFunctions.every((f: string) =>
+          selectedFunctions.includes(f),
+        );
+
+        if (allSelected) {
+          setSelectedFunctions("all");
+        } else {
+          const retainedFunctions = functionsForSelectedNents(
+            newNents,
+            selectedFunctions,
+          ) as string[];
+
+          setSelectedFunctions(
+            Array.from(new Set([...availableFunctions, ...retainedFunctions])),
+          );
+        }
+      }
+    }
+
     setSelectedNents(newNents);
   };
 
 export const functionsForSelectedNents = (
-  nents: string[],
-  functions: string[],
-) =>
-  functions.filter((f) => {
+  nents: MultiSelectValue,
+  functions: string[] | MultiSelectValue,
+): string[] | "all" => {
+  if (functions === "all") return functions;
+
+  const nentArray = nents === "all" ? [] : nents;
+  const functionArray = Array.isArray(functions) ? functions : [];
+
+  return functionArray.filter((f) => {
     const functionIdentifier = functionIdentifierFromValue(f);
-    return nents.some((nent) =>
-      nent === NENT_APP_PLACEHOLDER
-        ? functionIdentifier.componentPath === undefined
-        : nent === functionIdentifier.componentPath,
+    return (
+      nentArray.length === 0 ||
+      nentArray.some((nent) =>
+        nent === NENT_APP_PLACEHOLDER
+          ? functionIdentifier.componentPath === undefined
+          : nent === functionIdentifier.componentPath,
+      )
     );
   });
+};

@@ -248,12 +248,54 @@ describe("filterLogs", () => {
     ).toEqual([logs[3]]);
   });
 
-  it("should not include rows from unknown functions if “others” is not selected ", () => {
+  it("should handle 'all' state for selectedFunctions", () => {
     expect(
       filterLogs(
         {
           logTypes: [...ALL_LEVELS, ...statuses],
-          functions: [functionIdentifierValue("queryData")],
+          functions,
+          selectedFunctions: "all",
+          filter: "",
+        },
+        logs,
+      ),
+    ).toEqual(logs);
+  });
+
+  it("should handle 'all' state for logTypes", () => {
+    expect(
+      filterLogs(
+        {
+          logTypes: "all",
+          functions,
+          selectedFunctions: functions,
+          filter: "",
+        },
+        logs,
+      ),
+    ).toEqual(logs);
+  });
+
+  it("should handle 'all' state for both logTypes and selectedFunctions", () => {
+    expect(
+      filterLogs(
+        {
+          logTypes: "all",
+          functions,
+          selectedFunctions: "all",
+          filter: "",
+        },
+        logs,
+      ),
+    ).toEqual(logs);
+  });
+
+  it("should not include rows from unknown functions if 'others' is not selected ", () => {
+    expect(
+      filterLogs(
+        {
+          logTypes: [...ALL_LEVELS, ...statuses],
+          functions,
           selectedFunctions: [functionIdentifierValue("queryData")],
           filter: "",
         },
@@ -262,7 +304,7 @@ describe("filterLogs", () => {
     ).toEqual([logs[2], logs[4], logs[5], logs[6]]);
   });
 
-  it("should include rows from unknown functions if “others” is selected ", () => {
+  it("should include rows from unknown functions if 'others' is selected ", () => {
     expect(
       filterLogs(
         {
@@ -284,9 +326,9 @@ describe("filterLogs", () => {
       filterLogs(
         {
           logTypes: [...ALL_LEVELS, ...statuses],
-          functions: [functionIdentifierValue("queryData")],
+          functions,
           selectedFunctions: [
-            functionIdentifierValue("queryData"),
+            functionIdentifierValue("mutateData"),
             functionIdentifierValue("_other"),
           ],
           filter: "fifth",
@@ -301,9 +343,9 @@ describe("filterLogs", () => {
       filterLogs(
         {
           logTypes: [...ALL_LEVELS, ...statuses],
-          functions: [functionIdentifierValue("queryData")],
+          functions,
           selectedFunctions: [
-            functionIdentifierValue("queryData"),
+            functionIdentifierValue("mutateData"),
             functionIdentifierValue("_other"),
           ],
           filter: "Request Id: fifth",
@@ -318,9 +360,9 @@ describe("filterLogs", () => {
       filterLogs(
         {
           logTypes: [...ALL_LEVELS, ...statuses],
-          functions: [functionIdentifierValue("queryData")],
+          functions,
           selectedFunctions: [
-            functionIdentifierValue("queryData"),
+            functionIdentifierValue("mutateData"),
             functionIdentifierValue("_other"),
           ],
           filter: "fOuRtH",
@@ -332,7 +374,7 @@ describe("filterLogs", () => {
       filterLogs(
         {
           logTypes: [...ALL_LEVELS, ...statuses],
-          functions: [functionIdentifierValue("queryData")],
+          functions,
           selectedFunctions: [
             functionIdentifierValue("queryData"),
             functionIdentifierValue("_other"),

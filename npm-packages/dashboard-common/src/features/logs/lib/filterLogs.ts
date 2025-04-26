@@ -3,6 +3,7 @@ import {
   functionIdentifierValue,
 } from "@common/lib/functions/generateFileTree";
 import { UdfLog } from "@common/lib/useLogs";
+import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 
 export const ALL_LEVELS = ["DEBUG", "INFO", "WARN", "ERROR", "FAILURE"];
 
@@ -59,8 +60,13 @@ function stripComponentId(call: string) {
 function filterEntryForFunction(
   entry: UdfLog,
   functions: string[],
-  selectedFunctions: string[],
+  selectedFunctions: string[] | "all",
 ): boolean {
+  // If "all" is selected, return true for all entries
+  if (selectedFunctions === "all") {
+    return true;
+  }
+
   const entryFunction =
     (entry.kind === "log" ? entry.output.subfunction : undefined) ?? entry.call;
   return (
@@ -77,17 +83,33 @@ export function filterLogs(
     selectedFunctions,
     filter,
   }: {
-    logTypes: string[];
+    logTypes: MultiSelectValue;
     functions: string[];
-    selectedFunctions: string[];
+    selectedFunctions: MultiSelectValue;
     filter: string;
   },
   logs?: UdfLog[],
 ) {
-  const statuses = logTypes.filter((l) => l === "success" || l === "failure");
-  const levels = logTypes.filter((l) => l !== "success" && l !== "failure");
+  // Handle logTypes "all" case
+  const logTypesArray =
+    logTypes === "all"
+      ? ["success", "failure", "DEBUG", "INFO", "WARN", "ERROR"]
+      : logTypes;
+
+  const statuses = logTypesArray.filter(
+    (l) => l === "success" || l === "failure",
+  );
+  const levels = logTypesArray.filter(
+    (l) => l !== "success" && l !== "failure",
+  );
   const functionsWithoutId = functions.map(stripComponentId);
-  const selectedFunctionsWithoutId = selectedFunctions.map(stripComponentId);
+
+  // Handle selectedFunctions "all" case
+  const selectedFunctionsWithoutId =
+    selectedFunctions === "all"
+      ? "all"
+      : selectedFunctions.map(stripComponentId);
+
   return logs?.filter(
     (entry) =>
       filterEntryForFunction(

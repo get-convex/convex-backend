@@ -13,6 +13,7 @@ import { Button } from "@ui/Button";
 import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/router";
 import { DeploymentInfoContext } from "@common/lib/deploymentContext";
+import { MultiSelectValue } from "@ui/MultiSelectCombobox";
 
 type LogLevel = "success" | "failure" | "DEBUG" | "INFO" | "WARN" | "ERROR";
 
@@ -49,10 +50,21 @@ export function FunctionLogs({
     "",
   );
   const [innerFilter, setInnerFilter] = useState(filter ?? "");
-  const [selectedLevels, setSelectedLevels] = useLocalStorage<LogLevel[]>(
-    `function-logs/${functionId}/selected-levels`,
-    DEFAULT_LOG_LEVELS,
-  );
+  const [selectedLevelsStorage, setSelectedLevelsStorage] = useLocalStorage<
+    LogLevel[] | "all"
+  >(`function-logs/${functionId}/selected-levels`, "all");
+
+  // Convert the stored levels to MultiSelectValue type
+  const selectedLevels: MultiSelectValue =
+    selectedLevelsStorage === "all"
+      ? "all"
+      : ((selectedLevelsStorage || []) as string[]);
+  const setSelectedLevels = (newLevels: MultiSelectValue) => {
+    // Store in localStorage
+    setSelectedLevelsStorage(
+      newLevels === "all" ? "all" : (newLevels as LogLevel[]),
+    );
+  };
 
   useDebounce(
     () => {
@@ -104,9 +116,9 @@ export function FunctionLogs({
         functions={[functionId]}
         selectedFunctions={[functionId]}
         setSelectedFunctions={(_functions) => {}}
-        selectedLevels={selectedLevels ?? DEFAULT_LOG_LEVELS}
-        setSelectedLevels={(levels) => setSelectedLevels(levels as LogLevel[])}
-        selectedNents={selectedNent ? [selectedNent.path] : []}
+        selectedLevels={selectedLevels}
+        setSelectedLevels={setSelectedLevels}
+        selectedNents={selectedNent ? [selectedNent.path] : "all"}
         setSelectedNents={() => {}}
         hideFunctionFilter
         firstItem={
@@ -134,7 +146,7 @@ export function FunctionLogs({
         logs={logs}
         filteredLogs={filterLogs(
           {
-            logTypes: selectedLevels ?? DEFAULT_LOG_LEVELS,
+            logTypes: selectedLevels,
             functions: [functionId],
             selectedFunctions: [functionId],
             filter: filter ?? "",
