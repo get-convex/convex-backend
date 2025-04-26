@@ -7,12 +7,9 @@ import { WaitForDeploymentApi } from "@common/lib/deploymentContext";
 import { useDeployments } from "api/deployments";
 import { useTeamMembers } from "api/teams";
 import { useDeleteProject } from "api/projects";
-import sum from "lodash/sum";
 import { useQuery } from "convex/react";
 import { ProjectDetails, Team } from "generatedApi";
 import udfs from "@common/udfs";
-import { useUsageTeamDailyCallsByTag } from "hooks/usageMetrics";
-import { isoDateString } from "elements/UsagePeriodSelector";
 import { useState } from "react";
 import { DeploymentInfoProvider } from "providers/DeploymentInfoProvider";
 import { MaybeDeploymentApiProvider } from "providers/MaybeDeploymentApiProvider";
@@ -83,28 +80,10 @@ function DeleteProjectModalContentWithProd({
   const numDocuments = useQuery(udfs.tableSize.sizeOfAllTables, {
     componentId: null,
   });
-  // TODO(nents): Show the number of configured components.
-  const lastDay = {
-    from: isoDateString(new Date(new Date().getTime() - 24 * 60 * 60 * 1000)),
-    to: isoDateString(new Date()),
-  };
-  const functionCalls = useUsageTeamDailyCallsByTag(
-    team.id,
-    project.id,
-    lastDay,
-    null,
-  );
-  const numFunctionCalls =
-    !!functionCalls && functionCalls.length > 0
-      ? sum(functionCalls[0].metrics.map((y) => y.value))
-      : 0;
 
-  const doneLoading =
-    numFiles !== undefined &&
-    numDocuments !== undefined &&
-    functionCalls !== undefined;
+  const doneLoading = numFiles !== undefined && numDocuments !== undefined;
   const showAdditionalConfirmation =
-    !doneLoading || numFiles > 0 || numDocuments > 0 || numFunctionCalls > 0;
+    !doneLoading || numFiles > 0 || numDocuments > 0;
 
   const [acceptedConsequences, setAcceptedConsequences] = useState(false);
 
@@ -131,20 +110,10 @@ function DeleteProjectModalContentWithProd({
                     <div className="flex flex-col gap-1">
                       <div className="flex flex-col gap-1">
                         <span>
-                          This project is serving{" "}
-                          <span className="font-semibold">Production</span>{" "}
-                          traffic:
+                          This project contains data in{" "}
+                          <span className="font-semibold">Production</span>:
                         </span>
                         <ul className="ml-4 flex list-disc flex-col gap-1">
-                          <li>
-                            <span className="font-semibold">
-                              {numFunctionCalls.toLocaleString()} Function Calls
-                            </span>{" "}
-                            {functionCalls.length > 0
-                              ? `on ${new Date(functionCalls[0].ds).toLocaleDateString()}`
-                              : "in the past day"}
-                            .
-                          </li>
                           <li>
                             <span className="font-semibold">
                               {numDocuments.toLocaleString()} Documents
