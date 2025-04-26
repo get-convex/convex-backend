@@ -83,7 +83,7 @@ itertools = "0.14"
 tikv-jemallocator = { version = "0.6", features = [ "profiling", "unprefixed_malloc_on_supported_platforms" ] }
 tikv-jemalloc-sys = { version = "0.6", features = [ "profiling", "unprefixed_malloc_on_supported_platforms" ] }
 jemalloc_pprof = "0.6"
-jsonschema = "0.28"
+jsonschema = "0.29"
 levenshtein_automata = "0.2.1"
 libc = "0.2"
 libsodium-sys-stable = { version = "1.22.2", features = [ "minimal" ] }
