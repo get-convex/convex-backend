@@ -110,6 +110,9 @@ export function CommandPalette() {
 function DeleteProjectsPage({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const [projectIds, setProjectIds] = React.useState<number[]>([]);
+  const [lastSelectedIndex, setLastSelectedIndex] = React.useState<
+    number | null
+  >(null);
 
   const currentTeam = useCurrentTeam();
   const currentProject = useCurrentProject();
@@ -137,6 +140,62 @@ function DeleteProjectsPage({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const toggleProject = (
+    projectId: number,
+    index: number,
+    event: React.MouseEvent,
+  ) => {
+    if (event.nativeEvent?.shiftKey && lastSelectedIndex !== null) {
+      // Implement shift+click selection
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      const isSelected = projectIds.includes(projectId);
+      const newProjectIds = new Set(projectIds);
+
+      if (isSelected) {
+        // Unselect this row and all the next consecutive selected
+        for (let i = start; i <= end; i++) {
+          const id = projects?.[i]?.id;
+          if (id && projectIds.includes(id)) {
+            newProjectIds.delete(id);
+          }
+        }
+      } else {
+        // If there are no rows selected above, first try to select from below
+        const firstSelected =
+          projects?.findIndex((p) => projectIds.includes(p.id)) ?? -1;
+        if (firstSelected > index) {
+          for (let i = index; i < firstSelected; i++) {
+            const id = projects?.[i]?.id;
+            if (id) {
+              newProjectIds.add(id);
+            }
+          }
+        } else {
+          // Select all rows from the first unselected row above
+          for (let i = index; i >= 0; i--) {
+            const id = projects?.[i]?.id;
+            if (id && !projectIds.includes(id)) {
+              newProjectIds.add(id);
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      setProjectIds(Array.from(newProjectIds));
+    } else {
+      // Regular click behavior
+      setProjectIds(
+        projectIds.includes(projectId)
+          ? projectIds.filter((id) => id !== projectId)
+          : [...projectIds, projectId],
+      );
+    }
+    setLastSelectedIndex(index);
+  };
+
   return (
     <Command.Group heading="Select projects to delete">
       {isSubmitting && (
@@ -148,16 +207,16 @@ function DeleteProjectsPage({ onClose }: { onClose: () => void }) {
         </Command.Loading>
       )}
       {!isSubmitting &&
-        projects?.map((project) => (
+        projects?.map((project, index) => (
           <Command.Item
             key={project.id}
             className="flex justify-between"
             keywords={[project.name, project.slug]}
-            onSelect={() =>
-              setProjectIds(
-                projectIds.includes(project.id)
-                  ? projectIds.filter((id) => id !== project.id)
-                  : [...projectIds, project.id],
+            onSelect={(event) =>
+              toggleProject(
+                project.id,
+                index,
+                event as unknown as React.MouseEvent,
               )
             }
           >
@@ -165,11 +224,11 @@ function DeleteProjectsPage({ onClose }: { onClose: () => void }) {
               <Checkbox
                 className="mr-1"
                 checked={projectIds.includes(project.id)}
-                onChange={() =>
-                  setProjectIds(
-                    projectIds.includes(project.id)
-                      ? projectIds.filter((id) => id !== project.id)
-                      : [...projectIds, project.id],
+                onChange={(event) =>
+                  toggleProject(
+                    project.id,
+                    index,
+                    event as unknown as React.MouseEvent,
                   )
                 }
               />
