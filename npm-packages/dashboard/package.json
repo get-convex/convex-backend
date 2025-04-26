@@ -11,7 +11,7 @@
     "lint": "next lint --max-warnings 0 --dir src/ && tsc",
     "lint:fix": "next lint --fix --max-warnings 0 --dir src/",
     "export": "next export",
-    "storybook": "storybook dev -s ./public -p 6006 --no-open",
+    "storybook": "storybook dev -p 6006 --no-open",
     "build-storybook": "storybook build",
     "test": "npm run checkApiSpec && npm run build:generated && jest",
     "test-storybook": "test-storybook --failOnConsole",
