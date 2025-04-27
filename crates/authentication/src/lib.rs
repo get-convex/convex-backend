@@ -29,6 +29,7 @@ use oauth2::{
 use openidconnect::{
     core::{
         CoreIdTokenVerifier,
+        CoreJwsSigningAlgorithm,
         CoreProviderMetadata,
     },
     ClaimsVerificationError,
@@ -189,6 +190,12 @@ where
         metadata.issuer().clone(),
         metadata.jwks().clone(),
     )
+    .set_allowed_algs([
+        // RS256, the most common algorithm and used by Clerk and Auth0 (by default)
+        CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256,
+        // EdDSA (this is only Ed25519)
+        CoreJwsSigningAlgorithm::EdDsa,
+    ])
     .require_issuer_match(true)
     .require_audience_match(true)
     .set_time_fn(|| {
